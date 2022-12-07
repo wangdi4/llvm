@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test validates correct handling of various pointer arithmetic idioms
@@ -13,10 +12,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; is only required to feed a division operation when the pointers have a single
 ; level of dereferencing.
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %p1, %struct.test01** "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !3 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !3 {
   ; (%p1 - %p2) - 8
-  %t1 = ptrtoint %struct.test01** %p1 to i64
-  %t2 = ptrtoint %struct.test01** %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %delta = sub i64 %t1, %t2
   %offset = sub i64 %delta, 8
   %div = sdiv i64 %offset, 8
@@ -29,10 +28,10 @@ define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %p1, %struct.
 ; This test is equivalent to @test01, except the evalution order of the
 ; subtraction has changed.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02** "intel_dtrans_func_index"="1" %p1, %struct.test02** "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !5 {
+define void @test02(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !5 {
   ; (%p1 - 8) - %p2
-  %t1 = ptrtoint %struct.test02** %p1 to i64
-  %t2 = ptrtoint %struct.test02** %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t1, 8
   %offset = sub i64 %tmp, %t2
   %div = sdiv i64 %offset, 8
@@ -45,10 +44,10 @@ define void @test02(%struct.test02** "intel_dtrans_func_index"="1" %p1, %struct.
 ; This case is marked as "Bad pointer manipulation" due to not being a pattern
 ; that is needed currently. It could be supported in the future.
 %struct.test03 = type { i32, i32 }
-define void @test03(%struct.test03** "intel_dtrans_func_index"="1" %p1, %struct.test03** "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !7 {
+define void @test03(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !7 {
     ; %p1 - (%p2 - 8)
-  %t1 = ptrtoint %struct.test03** %p1 to i64
-  %t2 = ptrtoint %struct.test03** %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t2, 8
   %offset = sub i64 %t1, %tmp
   %div = sdiv i64 %offset, 8
@@ -64,10 +63,10 @@ define void @test03(%struct.test03** "intel_dtrans_func_index"="1" %p1, %struct.
 ; the transformations do not support locating the constant used for the subtract
 ; if the size of structure needs to be changed.
 %struct.test04 = type { i32, i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p1, %struct.test04* "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !9 {
+define void @test04(ptr "intel_dtrans_func_index"="1" %p1, ptr "intel_dtrans_func_index"="2" %p2) !intel.dtrans.func.type !9 {
   ; (%p1 - 8) - %p2
-  %t1 = ptrtoint %struct.test04* %p1 to i64
-  %t2 = ptrtoint %struct.test04* %p2 to i64
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t1, 8
   %offset = sub i64 %tmp, %t2
   %div = sdiv i64 %offset, 8
@@ -80,12 +79,12 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p1, %struct.t
 ; This case is set as "Bad pointer manipulation" because the pointers used in
 ; the subtract instruction are addresses of structure fields.
 %struct.test05 = type { i32, i32 }
-define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %s1, %struct.test05* "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !11 {
+define void @test05(ptr "intel_dtrans_func_index"="1" %s1, ptr "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !11 {
   ; (%p1 - 4) - %p2
-  %p1 = getelementptr %struct.test05, %struct.test05* %s1, i64 0, i32 1
-  %p2 = getelementptr %struct.test05, %struct.test05* %s2, i64 0, i32 1
-  %t1 = ptrtoint i32* %p1 to i64
-  %t2 = ptrtoint i32* %p2 to i64
+  %p1 = getelementptr %struct.test05, ptr %s1, i64 0, i32 1
+  %p2 = getelementptr %struct.test05, ptr %s2, i64 0, i32 1
+  %t1 = ptrtoint ptr %p1 to i64
+  %t2 = ptrtoint ptr %p2 to i64
   %tmp = sub i64 %t1, 4
   %offset = sub i64 %tmp, %t2
   %div = sdiv i64 %offset, 4

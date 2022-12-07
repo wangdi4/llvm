@@ -2,19 +2,19 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that types passed to file IO routines are marked as "System object"
 
-%struct._ZTS8_IO_FILE._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._ZTS10_IO_marker._IO_marker*, %struct._ZTS8_IO_FILE._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._ZTS11_IO_codecvt._IO_codecvt*, %struct._ZTS13_IO_wide_data._IO_wide_data*, %struct._ZTS8_IO_FILE._IO_FILE*, i8*, i64, i32, [20 x i8] }
+%struct._ZTS8_IO_FILE._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
 %struct._ZTS10_IO_marker._IO_marker = type opaque
 %struct._ZTS11_IO_codecvt._IO_codecvt = type opaque
 %struct._ZTS13_IO_wide_data._IO_wide_data = type opaque
 
 @str01 = private constant [23 x i8] c"DUAL NETWORK SIMPLEX: \00"
-define void @test01(%struct._ZTS8_IO_FILE._IO_FILE* "intel_dtrans_func_index"="1" %pFile) !intel.dtrans.func.type !12 {
-  %tmp = call i64 @fwrite(i8* getelementptr ([23 x i8], [23 x i8]* @str01, i64 0, i64 0),
-                           i64 22, i64 1, %struct._ZTS8_IO_FILE._IO_FILE* %pFile)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pFile) !intel.dtrans.func.type !12 {
+  %tmp = call i64 @fwrite(ptr getelementptr ([23 x i8], ptr @str01, i64 0, i64 0),
+                          i64 22, i64 1, ptr %pFile)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -23,7 +23,7 @@ define void @test01(%struct._ZTS8_IO_FILE._IO_FILE* "intel_dtrans_func_index"="1
 ; CHECK: End LLVMType: %struct._ZTS8_IO_FILE._IO_FILE
 
 
-declare !intel.dtrans.func.type !13 i64 @fwrite(i8* "intel_dtrans_func_index"="1", i64, i64, %struct._ZTS8_IO_FILE._IO_FILE* "intel_dtrans_func_index"="2")
+declare !intel.dtrans.func.type !13 i64 @fwrite(ptr "intel_dtrans_func_index"="1", i64, i64, ptr "intel_dtrans_func_index"="2")
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 1}  ; i8*

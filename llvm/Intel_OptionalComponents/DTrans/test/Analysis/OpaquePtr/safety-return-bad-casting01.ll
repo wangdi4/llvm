@@ -2,15 +2,14 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test return of pointer which does not match the aggregate type pointer.
 
 ; Return a pointer to a structure as a pointer to an integer
 %struct.test01 = type { i64, i64 }
-define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !4 {
-  %pStruct.as.p32 = bitcast %struct.test01* %pStruct to i32*
-  ret i32* %pStruct.as.p32
+define "intel_dtrans_func_index"="1" ptr @test01(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !4 {
+  ret ptr %pStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
@@ -21,9 +20,8 @@ define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_
 ; Return a pointer to a structure as a pointer to a different type of structure
 %struct.test02a = type { i32, i32 }
 %struct.test02b = type { i64 }
-define "intel_dtrans_func_index"="1" %struct.test02b* @test02(%struct.test02a* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !8 {
-  %pStruct.as.2b = bitcast %struct.test02a* %pStruct to %struct.test02b*
-  ret %struct.test02b* %pStruct.as.2b
+define "intel_dtrans_func_index"="1" ptr @test02(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !8 {
+  ret ptr %pStruct
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02a

@@ -2,14 +2,14 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test setting of "Local instance" safety bit
 
 
 ; This case should set "Local instance" on the allocated type, and the nested
 ; types, but not on the pointed-to types.
-%struct.test01a = type { i32*, %struct.test01b, %struct.test01d* }
+%struct.test01a = type { ptr, %struct.test01b, ptr }
 %struct.test01b = type { i32, %struct.test01c }
 %struct.test01c = type { i32 }
 %struct.test01d = type { i32, %struct.test01e }

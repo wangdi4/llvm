@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of "Ambiguous GEP" safety condition by DTrans safety analyzer.
 
@@ -10,9 +10,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; a type that does not match the expected type.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i16, i16, i16, i16 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !4 {
-  %pStruct.a.as.b = bitcast %struct.test01a* %pStruct.a to %struct.test01b*
-  %ambig_gep = getelementptr %struct.test01b, %struct.test01b* %pStruct.a.as.b, i64 4
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !4 {
+  %ambig_gep = getelementptr %struct.test01b, ptr %pStruct.a, i64 4
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -34,9 +33,8 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct.a) !
 %struct.test02b0 = type { i32, %struct.test02b1 }
 %struct.test02b1 = type { i64, %struct.test02b2 }
 %struct.test02b2 = type { i32, i16, i16 }
-define void @test02(%struct.test02a0* "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !11 {
-  %pStruct.a.as.b = bitcast %struct.test02a0* %pStruct.a to %struct.test02b0*
-  %ambig_gep = getelementptr %struct.test02b0, %struct.test02b0* %pStruct.a.as.b, i64 0, i32 1, i32 1, i32 2
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !11 {
+  %ambig_gep = getelementptr %struct.test02b0, ptr %pStruct.a, i64 0, i32 1, i32 1, i32 2
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

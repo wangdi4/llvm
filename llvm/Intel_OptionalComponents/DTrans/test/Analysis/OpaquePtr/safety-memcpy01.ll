@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the safety analysis for calls to memcpy that take the address of an
 ; element within a structure type.
@@ -11,12 +11,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Copy the entire structure, starting from a GEP of field 0.
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %struct.test01* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
-  %pFieldA = getelementptr %struct.test01, %struct.test01* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test01, %struct.test01* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
+  %pFieldA = getelementptr %struct.test01, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test01, ptr %pStructB, i64 0, i32 0
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -33,12 +31,10 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
 
 ; Copy a subset of structure fields, starting from a GEP of field 0.
 %struct.test02 = type { i32, i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %struct.test02* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
-  %pFieldA = getelementptr %struct.test02, %struct.test02* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test02, %struct.test02* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
+  %pFieldA = getelementptr %struct.test02, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -55,12 +51,10 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
 
 ; Copy beyond the end of the structure, starting from a GEP of field 0.
 %struct.test03 = type { i32, i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %struct.test03* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !7 {
-  %pFieldA = getelementptr %struct.test03, %struct.test03* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test03, %struct.test03* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 16, i1 false)
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !7 {
+  %pFieldA = getelementptr %struct.test03, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test03, ptr %pStructB, i64 0, i32 0
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -71,12 +65,10 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %st
 
 ; Copy a subset of the structure, starting and ending on a field boundary.
 %struct.test04 = type { i32, i32, i32, i32, i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStructA, %struct.test04* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !9 {
-  %pFieldA = getelementptr %struct.test04, %struct.test04* %pStructA, i64 0, i32 2
-  %pFieldB = getelementptr %struct.test04, %struct.test04* %pStructB, i64 0, i32 2
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !9 {
+  %pFieldA = getelementptr %struct.test04, ptr %pStructA, i64 0, i32 2
+  %pFieldB = getelementptr %struct.test04, ptr %pStructB, i64 0, i32 2
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -98,12 +90,10 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStructA, %st
 ; Copy a subset of the structure, with a size that extends beyond the structure
 ; end.
 %struct.test05 = type { i32, i32, i32, i32, i32 }
-define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStructA, %struct.test05* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !11 {
-  %pFieldA = getelementptr %struct.test05, %struct.test05* %pStructA, i64 0, i32 2
-  %pFieldB = getelementptr %struct.test05, %struct.test05* %pStructB, i64 0, i32 2
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 16, i1 false)
+define void @test05(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !11 {
+  %pFieldA = getelementptr %struct.test05, ptr %pStructA, i64 0, i32 2
+  %pFieldB = getelementptr %struct.test05, ptr %pStructB, i64 0, i32 2
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -115,12 +105,10 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStructA, %st
 ; Copy a subset of the structure, with a size that does not end on a field
 ; boundary.
 %struct.test06 = type { i32, i32, i32, i32, i32 }
-define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStructA, %struct.test06* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !13 {
-  %pFieldA = getelementptr %struct.test06, %struct.test06* %pStructA, i64 0, i32 2
-  %pFieldB = getelementptr %struct.test06, %struct.test06* %pStructB, i64 0, i32 2
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 6, i1 false)
+define void @test06(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !13 {
+  %pFieldA = getelementptr %struct.test06, ptr %pStructA, i64 0, i32 2
+  %pFieldB = getelementptr %struct.test06, ptr %pStructB, i64 0, i32 2
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -133,12 +121,10 @@ define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStructA, %st
 ; is not supported by DTrans as a simplification for what the transformations
 ; need to handle.
 %struct.test07 = type { i32, i32, i32 }
-define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !15 {
-  %pFieldA = getelementptr %struct.test07, %struct.test07* %pStruct, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test07, %struct.test07* %pStruct, i64 0, i32 1
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define void @test07(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !15 {
+  %pFieldA = getelementptr %struct.test07, ptr %pStruct, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test07, ptr %pStruct, i64 0, i32 1
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -150,12 +136,10 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct) !int
 ; simplification for what the transformations need to handle.
 %struct.test08a = type { i32, i32, i32 }
 %struct.test08b = type { i32, i32, i32 }
-define void @test08(%struct.test08a* "intel_dtrans_func_index"="1" %pStructA, %struct.test08b* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !18 {
-  %pFieldA = getelementptr %struct.test08a, %struct.test08a* %pStructA, i64 0, i32 0
-  %pFieldB = getelementptr %struct.test08b, %struct.test08b* %pStructB, i64 0, i32 0
-  %pDst = bitcast i32* %pFieldA to i8*
-  %pSrc = bitcast i32* %pFieldB to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test08(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !18 {
+  %pFieldA = getelementptr %struct.test08a, ptr %pStructA, i64 0, i32 0
+  %pFieldB = getelementptr %struct.test08b, ptr %pStructB, i64 0, i32 0
+  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -169,7 +153,7 @@ define void @test08(%struct.test08a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; CHECK: End LLVMType: %struct.test08b
 
 
-declare !intel.dtrans.func.type !20 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !20 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

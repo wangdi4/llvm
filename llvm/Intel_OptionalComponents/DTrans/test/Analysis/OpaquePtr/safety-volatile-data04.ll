@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases for stores that are marked 'volatile' which store pointers
 ; involving aggregate types.
@@ -10,8 +10,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This case is storing a pointer-to-pointer so does not result in
 ; 'Volatile data' on the structure type.
 %struct.test01 = type { i32, i32 }
-define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %ppStruct) !intel.dtrans.func.type !3 {
-  store volatile %struct.test01* null, %struct.test01** %ppStruct
+define void @test01(ptr "intel_dtrans_func_index"="1" %ppStruct) !intel.dtrans.func.type !3 {
+  store volatile ptr null, ptr %ppStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -23,9 +23,9 @@ define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %ppStruct) !i
 ; This case is storing the entire structure with a volatile store, so
 ; will result in 'Volatile data' on the structure type.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %local = load %struct.test02, %struct.test02* %pStruct
-  store volatile %struct.test02 %local, %struct.test02* %pStruct
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %local = load %struct.test02, ptr %pStruct
+  store volatile %struct.test02 %local, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -38,9 +38,8 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 ; of the structure itself with a volatile store, so will result in the
 ; 'Volatile data' on the structure type.
 %struct.test03 = type { i32, i32 }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pStruct.as.p32 = bitcast %struct.test03* %pStruct to i32*
-  store volatile i32 0, i32* %pStruct.as.p32
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  store volatile i32 0, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

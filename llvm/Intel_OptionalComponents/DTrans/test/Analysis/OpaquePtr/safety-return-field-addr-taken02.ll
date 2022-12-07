@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test returning a field address with a type that differs than the type
 ; defined for the field. This should result in "Bad casting" in addition to
@@ -12,10 +12,10 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { i32, i8 }
 %struct.test01b = type { i32, i32 }
 @p.test2 = internal unnamed_addr global %struct.test01a zeroinitializer
-define "intel_dtrans_func_index"="1" %struct.test01b* @test2() !intel.dtrans.func.type !4 {
-  %s = bitcast i8* getelementptr( %struct.test01a, %struct.test01a* @p.test2,
-                                  i64 0, i32 1) to %struct.test01b*
-  ret %struct.test01b* %s
+define "intel_dtrans_func_index"="1" ptr @test2() !intel.dtrans.func.type !4 {
+  %s = bitcast ptr getelementptr( %struct.test01a, ptr @p.test2,
+                                  i64 0, i32 1) to ptr
+  ret ptr %s
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01a

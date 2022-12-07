@@ -2,17 +2,20 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test DTrans safety analyzer handling of global variable initialization with
-; getelementptr operators to get the address of elements from global arrays where
-; the types match the expected type.
-; This should not result in "Bad casting" or "Unsafe pointer store" safety bits.
+; elided getelementptr operators to use the address of elements from global arrays
+; where the types match the expected type.
+; TODO: This should not result in "Bad casting" or "Unsafe pointer store" safety bits,
+; because the element zero member is the expected type, however, the analysis does not
+; currently treat the address of the aggregate as being the same as element zero in
+; these cases.
 
-%class.Function = type { i32 (...)** }
+%class.Function = type { ptr }
 %class.FunctionNodeSet.base = type <{ %class.Function, i8 }>
 %class.FunctionNodeSet = type { %class.FunctionNodeSet.base, [7 x i8] }
-%struct.FunctionTableEntry = type { i16*, %class.Function* }
+%struct.FunctionTableEntry = type { ptr, ptr }
 %class.FunctionObjectType = type { %class.Function, i32 }
 
 @FunctionNodes = internal global %class.FunctionNodeSet zeroinitializer, align 8
@@ -23,43 +26,33 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Initialize the pointers of this variable using pointers of the appropriate
 ; type from other global variables.
 @FunctionTable = internal constant [3 x %struct.FunctionTableEntry] [
-  %struct.FunctionTableEntry {
-    i16* getelementptr inbounds ([3 x i16], [3 x i16]* @SetName, i32 0, i32 0),
-	%class.Function* getelementptr inbounds (
-	  %class.FunctionNodeSet,
-	  %class.FunctionNodeSet* @FunctionNodes, i32 0, i32 0, i32 0)
-  },
-  %struct.FunctionTableEntry {
-    i16* getelementptr inbounds ([2 x i16], [2 x i16]* @TypeName, i32 0, i32 0),
-	%class.Function* getelementptr inbounds (
-	  %class.FunctionObjectType,
-	  %class.FunctionObjectType* @objectTypeFunction, i32 0, i32 0)
-  },
+  %struct.FunctionTableEntry { ptr @SetName,ptr @FunctionNodes },
+  %struct.FunctionTableEntry { ptr @TypeName, ptr @objectTypeFunction },
   %struct.FunctionTableEntry zeroinitializer], align 16
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %class.Function
-; CHECK: Safety data: Global instance | Nested structure | Has vtable{{ *}}
+; CHECK: Safety data: Bad casting | Unsafe pointer store | Global instance | Nested structure | Has vtable{{ *}}
 ; CHECK: End LLVMType: %class.Function
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %class.FunctionNodeSet
-; CHECK: Safety data: Global instance | Contains nested structure{{ *}}
+; CHECK: Safety data: Bad casting | Global instance | Contains nested structure{{ *}}
 ; CHECK: End LLVMType: %class.FunctionNodeSet
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %class.FunctionNodeSet.base
-; CHECK: Safety data: Global instance | Nested structure | Contains nested structure{{ *}}
+; CHECK: Safety data: Bad casting | Global instance | Nested structure | Contains nested structure{{ *}}
 ; CHECK: End LLVMType: %class.FunctionNodeSet.base
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %class.FunctionObjectType
-; CHECK: Safety data: Global instance | Contains nested structure{{ *}}
+; CHECK: Safety data: Bad casting | Global instance | Contains nested structure{{ *}}
 ; CHECK: End LLVMType: %class.FunctionObjectType
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.FunctionTableEntry
-; CHECK: Safety data: Global instance | Has initializer list | Global array{{ *}}
+; CHECK: Safety data: Unsafe pointer store | Global instance | Has initializer list | Global array{{ *}}
 ; CHECK: End LLVMType: %struct.FunctionTableEntry
 
 

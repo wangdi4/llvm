@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases for loads that are marked 'volatile' which load element pointees
 
@@ -14,8 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32, i32 }
 @pStruct01 = internal global %struct.test01 zeroinitializer
 define void @test01() {
-  %pField = getelementptr %struct.test01, %struct.test01* @pStruct01, i64 0, i32 1
-  %val = load volatile i32, i32* %pField
+  %pField = getelementptr %struct.test01, ptr @pStruct01, i64 0, i32 1
+  %val = load volatile i32, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -26,12 +26,12 @@ define void @test01() {
 
 ; Test that 'Volatile data' gets marked on the structure for volatile loads
 ; of elements, but not the type pointed to.
-%struct.test02a = type { %struct.test02b* }
+%struct.test02a = type { ptr }
 %struct.test02b = type { i32 }
 @pStruct02 = internal global %struct.test02a zeroinitializer
 define void @test02() {
-  %pField = getelementptr %struct.test02a, %struct.test02a* @pStruct02, i64 0, i32 0
-  %val = load volatile %struct.test02b*, %struct.test02b** %pField
+  %pField = getelementptr %struct.test02a, ptr @pStruct02, i64 0, i32 0
+  %val = load volatile ptr, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -52,8 +52,8 @@ define void @test02() {
 %struct.test03b = type { i32 }
 @pStruct03 = internal global %struct.test03a zeroinitializer
 define void @test03() {
-  %pField = getelementptr %struct.test03a, %struct.test03a* @pStruct03, i64 0, i32 0
-  %val = load volatile i32, i32* %pField
+  %pField = getelementptr %struct.test03a, ptr @pStruct03, i64 0, i32 0
+  %val = load volatile i32, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

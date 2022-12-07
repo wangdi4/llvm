@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Store a pointer to a structure, which has multiple type aliases that do not
 ; match the expected type for the pointer-to-pointer location used in the store
@@ -13,24 +13,25 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01b = type { i16, i16, i32 }
 %struct.test01c = type { i16, i16, i16, i16 }
 
-@varTest01 = internal global %struct.test01a* null, !intel_dtrans_type !3
+@varTest01 = internal global ptr null, !intel_dtrans_type !3
 define void @test01() {
-  %var1 = call %struct.test01b* @test01b()
-  %var2 = call %struct.test01c* @test01c()
-  %val1.as.i8 = bitcast %struct.test01b* %var1 to i8*
-  %val2.as.i8 = bitcast %struct.test01c* %var2 to i8*
-  %valueToStore.as.i8 = select i1 undef, i8* %val1.as.i8, i8* %val2.as.i8
-  %valueToStore = bitcast i8* %valueToStore.as.i8 to %struct.test01a*
-  store %struct.test01a* %valueToStore, %struct.test01a** @varTest01
+  %var1 = call ptr @test01b()
+  %var2 = call ptr @test01c()
+  ; Keep the bitcasts here to trigger the type inference for the uses.
+  %val1.as.i8 = bitcast ptr %var1 to ptr
+  %val2.as.i8 = bitcast ptr %var2 to ptr
+  %valueToStore.as.i8 = select i1 undef, ptr %val1.as.i8, ptr %val2.as.i8
+  %valueToStore = bitcast ptr %valueToStore.as.i8 to ptr
+  store ptr %valueToStore, ptr @varTest01
   ret void
 }
 
-define "intel_dtrans_func_index"="1" %struct.test01b* @test01b() !intel.dtrans.func.type !5 {
-  ret %struct.test01b* null
+define "intel_dtrans_func_index"="1" ptr @test01b() !intel.dtrans.func.type !5 {
+  ret ptr null
 }
 
-define "intel_dtrans_func_index"="1" %struct.test01c* @test01c() !intel.dtrans.func.type !7 {
-  ret %struct.test01c* null
+define "intel_dtrans_func_index"="1" ptr @test01c() !intel.dtrans.func.type !7 {
+  ret ptr null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01a

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a load uses a pointer to a field in a structure, and the loaded
 ; type does not correspond to the field type.
@@ -11,11 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Using a scalar i8 type to access a pointer field is a 'mismatched element
 ; access'. This also triggers 'bad casting' because the structure field
 ; is not accessed by a compatible pointer type.
-%struct.test01 = type { i32*, i32*, i32* }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  %pField.as.p8 = bitcast i32** %pField to i8*
-  %vField = load i8, i8* %pField.as.p8
+%struct.test01 = type { ptr, ptr, ptr }
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  %vField = load i8, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -27,11 +26,10 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 ; Using a scalar i16 type to access a pointer field is a 'mismatched element
 ; access'.This also triggers 'bad casting' because the structure field
 ; is not accessed by a compatible pointer type.
-%struct.test02 = type { i32*, i32*, i32* }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 1
-  %pField.as.p16 = bitcast i32** %pField to i16*
-  %vField = load i16, i16* %pField.as.p16
+%struct.test02 = type { ptr, ptr, ptr }
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
+  %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 1
+  %vField = load i16, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -45,11 +43,10 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 ; though the type does not match the field type. If the result loaded
 ; subsequently gets used in an incompatible way that will trigger a Safety
 ; violation.
-%struct.test03 = type { i32*, i32*, i32* }
-define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  %pField = getelementptr %struct.test03, %struct.test03* %pStruct, i64 0, i32 1
-  %pField.as.p64 = bitcast i32** %pField to i64*
-  %vField = load i64, i64* %pField.as.p64
+%struct.test03 = type { ptr, ptr, ptr }
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
+  %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 1
+  %vField = load i64, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -61,11 +58,10 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
 ; Loading a pointer-to-pointer type as a scalar is a 'mismatched element
 ; access'.This also triggers 'bad casting' because the structure field
 ; is not accessed by a compatible pointer type.
-%struct.test04 = type { i32**, i32** }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
-  %pField = getelementptr %struct.test04, %struct.test04* %pStruct, i64 0, i32 1
-  %pField.as.p32 = bitcast i32*** %pField to i32*
-  %vField = load i32, i32* %pField.as.p32
+%struct.test04 = type { ptr, ptr }
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !10 {
+  %pField = getelementptr %struct.test04, ptr %pStruct, i64 0, i32 1
+  %vField = load i32, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

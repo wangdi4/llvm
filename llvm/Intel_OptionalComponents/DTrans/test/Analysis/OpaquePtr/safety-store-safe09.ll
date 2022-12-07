@@ -15,7 +15,7 @@ define void @test() {
   %ar2 = alloca [2 x [128 x i8]]
   %field = getelementptr %struct.test, ptr @gv, i64 0, i32 3
   %elem = getelementptr inbounds [8192 x i8],  ptr %ar, i64 0, i64 0
-  store i8* %elem, i8** %field
+  store ptr %elem, ptr %field
   ret void
 }
 

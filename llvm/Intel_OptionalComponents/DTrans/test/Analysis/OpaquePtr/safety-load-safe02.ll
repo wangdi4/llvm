@@ -2,18 +2,18 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test a load that involves multiple entries in the pointee element list.
 ; This also tests that 'unused' element gets cleared in the FieldInfo when the
 ; field is marked as 'read'
 
 %struct.test01 = type { i32, i32, i32 }
-define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pField0 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
-  %pField2 = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 2
-  %pField = select i1 undef, i32* %pField0, i32* %pField2
-  %value = load i32, i32* %pField
+define i32 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %pField0 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
+  %pField2 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 2
+  %pField = select i1 undef, ptr %pField0, ptr %pField2
+  %value = load i32, ptr %pField
   ret i32 %value
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

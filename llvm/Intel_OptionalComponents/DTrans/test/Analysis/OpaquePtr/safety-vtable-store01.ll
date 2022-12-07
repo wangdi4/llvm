@@ -2,25 +2,24 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing to a VTable field is safe when the value
 ; stored does not alias a structure type.
 
 %"class.XMLPlatformUtilsException" = type { %"class.XMLException" }
-%"class.XMLException" = type { i32 (...)**, i32 }
+%"class.XMLException" = type { ptr, i32 }
 
-@XMLPlatformUtilsExceptionE.0 = global [2 x i8*] [i8* null, i8* bitcast (void(%"class.XMLPlatformUtilsException")* @foo to i8*)], !intel_dtrans_type !5
+@XMLPlatformUtilsExceptionE.0 = global [2 x ptr] [ptr null, ptr @foo], !intel_dtrans_type !5
 
-define internal void @XMLPlatformUtilsExceptionTest01(%"class.XMLPlatformUtilsException"* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
-  %vtbl_addr = getelementptr %"class.XMLPlatformUtilsException", %"class.XMLPlatformUtilsException"* %arg, i64 0, i32 0, i32 0
-  %field2 = getelementptr [2 x i8*], [2 x i8*]* @XMLPlatformUtilsExceptionE.0, i32 0, i64 2
-  %field2.as.fptr = bitcast i8** %field2 to i32 (...)**
+define internal void @XMLPlatformUtilsExceptionTest01(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
+  %vtbl_addr = getelementptr %"class.XMLPlatformUtilsException", ptr %arg, i64 0, i32 0, i32 0
+  %field2 = getelementptr [2 x ptr], ptr @XMLPlatformUtilsExceptionE.0, i32 0, i64 2
 
   ; This is the instruction under test. There should not be a safety flag set
   ; from writing an "i8**" that represents a function address to a field
   ; declared as "i32 (...)***"
-  store i32 (...)** %field2.as.fptr, i32 (...)*** %vtbl_addr
+  store ptr %field2, ptr %vtbl_addr
   ret void
 }
 

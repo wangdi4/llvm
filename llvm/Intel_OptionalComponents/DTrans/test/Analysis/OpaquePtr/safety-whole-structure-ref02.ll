@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of 'Whole structure reference' safety condition with 'store'
 ; instructions.
@@ -10,9 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Test whole structure store of a member field
 %struct.test01a = type { %struct.test01b }
 %struct.test01b = type { i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %struct.test01b %structB) !intel.dtrans.func.type !4 {
-  %nested = getelementptr %struct.test01a, %struct.test01a* %pStructA, i64 0, i32 0
-  store %struct.test01b %structB, %struct.test01b* %nested
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, %struct.test01b %structB) !intel.dtrans.func.type !4 {
+  %nested = getelementptr %struct.test01a, ptr %pStructA, i64 0, i32 0
+  store %struct.test01b %structB, ptr %nested
   ret void
 }
 ; The "whole structure reference" should not propagate to the outer structure.
@@ -37,7 +37,7 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %s
 %struct.test02 = type { i32, i32 }
 define void @test02(%struct.test02 %struct) {
   %tmp = alloca %struct.test02
-  store %struct.test02 %struct, %struct.test02* %tmp
+  store %struct.test02 %struct, ptr %tmp
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

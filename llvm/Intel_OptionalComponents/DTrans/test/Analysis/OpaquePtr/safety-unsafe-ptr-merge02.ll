@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of "Unsafe pointer merge" safety condition when using PHI nodes
 
@@ -12,11 +12,11 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
 %struct.test01c = type { i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %a_in, %struct.test01b* "intel_dtrans_func_index"="2" %b_in, %struct.test01c* "intel_dtrans_func_index"="3" %c_in) !intel.dtrans.func.type !5 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %a_in, ptr "intel_dtrans_func_index"="2" %b_in, ptr "intel_dtrans_func_index"="3" %c_in) !intel.dtrans.func.type !5 {
 entry:
-  %tmpA = ptrtoint %struct.test01a* %a_in to i64
-  %tmpB = ptrtoint %struct.test01b* %b_in to i64
-  %tmpC = ptrtoint %struct.test01c* %c_in to i64
+  %tmpA = ptrtoint ptr %a_in to i64
+  %tmpB = ptrtoint ptr %b_in to i64
+  %tmpC = ptrtoint ptr %c_in to i64
   br i1 undef, label %block_A, label %block_BorC
 
 block_BorC:
@@ -48,7 +48,7 @@ merge:
   br i1 undef, label %block_A, label %block_B
 
 exit_A:
-  %badA = inttoptr i64 %a to %struct.test01a*
+  %badA = inttoptr i64 %a to ptr
   br label %exit
 
 exit_B:
@@ -77,18 +77,15 @@ exit:
 ; also marked as unsafe because when the pointers are dereferenced, they will
 ; not be compatible types. This also checks that the safety flag is pointer
 ; carried to the referenced types.
-%struct.test02a = type { %struct.test02a*, %struct.test02d* }
-%struct.test02b = type { %struct.test02b*, %struct.test02d* }
-%struct.test02c = type { %struct.test02c*, %struct.test02d* }
+%struct.test02a = type { ptr, ptr }
+%struct.test02b = type { ptr, ptr }
+%struct.test02c = type { ptr, ptr }
 %struct.test02d = type { i32, i32 }
-define internal void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %struct.test02b* "intel_dtrans_func_index"="2" %pStructB, %struct.test02c* "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !10 {
+define internal void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB, ptr "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !10 {
 
-  %field.a.0 = getelementptr %struct.test02a, %struct.test02a* %pStructA, i64 0, i32 0
-  %field.a.0.as.p64 = bitcast %struct.test02a** %field.a.0 to i64*
-  %field.b.1 = getelementptr %struct.test02b, %struct.test02b* %pStructB, i64 0, i32 0
-  %field.b.1.as.p64 = bitcast %struct.test02b** %field.b.1 to i64*
-  %field.c.0 = getelementptr %struct.test02c, %struct.test02c* %pStructC, i64 0, i32 0
-  %field.c.0.as.p64 = bitcast %struct.test02c** %field.c.0 to i64*
+  %field.a.0 = getelementptr %struct.test02a, ptr %pStructA, i64 0, i32 0
+  %field.b.1 = getelementptr %struct.test02b, ptr %pStructB, i64 0, i32 0
+  %field.c.0 = getelementptr %struct.test02c, ptr %pStructC, i64 0, i32 0
   br i1 undef, label %blockA, label %block_BorC
 
 block_BorC:
@@ -105,8 +102,8 @@ blockC:
 
 
 merge:
-  %addr = phi i64* [%field.a.0.as.p64, %blockA], [%field.b.1.as.p64, %blockB], [%field.c.0.as.p64, %blockC]
-  store i64 0, i64* %addr
+  %addr = phi ptr [%field.a.0, %blockA], [%field.b.1, %blockB], [%field.c.0, %blockC]
+  store i64 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -142,11 +139,11 @@ merge:
 %struct.test03a = type { i32, i32 }
 %struct.test03b = type { i32, i32 }
 %struct.test03c = type { i32, i32 }
-define internal void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStructA, %struct.test03b* "intel_dtrans_func_index"="2" %pStructB, %struct.test03c* "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !14 {
+define internal void @test03(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB, ptr "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !14 {
 
-  %pField.a.0 = getelementptr %struct.test03a, %struct.test03a* %pStructA, i64 0, i32 0
-  %pField.b.1 = getelementptr %struct.test03b, %struct.test03b* %pStructB, i64 0, i32 1
-  %pField.c.0 = getelementptr %struct.test03c, %struct.test03c* %pStructC, i64 0, i32 0
+  %pField.a.0 = getelementptr %struct.test03a, ptr %pStructA, i64 0, i32 0
+  %pField.b.1 = getelementptr %struct.test03b, ptr %pStructB, i64 0, i32 1
+  %pField.c.0 = getelementptr %struct.test03c, ptr %pStructC, i64 0, i32 0
   br i1 undef, label %blockA, label %block_BorC
 
 block_BorC:
@@ -163,8 +160,8 @@ blockC:
 
 
 merge:
-  %addr = phi i32* [%pField.a.0, %blockA], [%pField.b.1, %blockB], [%pField.c.0, %blockC]
-  store i32 0, i32* %addr
+  %addr = phi ptr [%pField.a.0, %blockA], [%pField.b.1, %blockB], [%pField.c.0, %blockC]
+  store i32 0, ptr %addr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

@@ -2,19 +2,19 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test memory allocations that are of the form: malloc(c1 + c2 * size)
 
 ; This case is recognized as "Complex alloc size" for the EliminateROAccess
 ; transformation
 %struct.test01 = type { i32 }
-@var01 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
+@var01 = internal global ptr zeroinitializer, !intel_dtrans_type !2
 define void @test01(i64 %n) {
   %shl = mul i64 %n, 4
   %add = add i64 %shl, 4
-  %call = call noalias i8* @malloc(i64 %add)
-  store i8* %call, i8** bitcast (%struct.test01** @var01 to i8**)
+  %call = call noalias ptr @malloc(i64 %add)
+  store ptr %call, ptr bitcast (ptr @var01 to ptr)
   ret void
 }
 define void @test01caller() {
@@ -31,12 +31,12 @@ define void @test01caller() {
 ; This case is not supported because the multiplication is not a multiple of
 ; the structure size, and will marked as "Bad alloc size""
 %struct.test02 = type { i32 }
-@var02 = internal global %struct.test02* zeroinitializer, !intel_dtrans_type !3
+@var02 = internal global ptr zeroinitializer, !intel_dtrans_type !3
 define void @test02(i64 %n) {
   %shl = mul i64 %n, 3
   %add = add i64 %shl, 2
-  %call = call noalias i8* @malloc(i64 %add)
-  store i8* %call, i8** bitcast (%struct.test02** @var02 to i8**)
+  %call = call noalias ptr @malloc(i64 %add)
+  store ptr %call, ptr bitcast (ptr @var02 to ptr)
   ret void
 }
 define void @test02caller() {
@@ -50,7 +50,7 @@ define void @test02caller() {
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

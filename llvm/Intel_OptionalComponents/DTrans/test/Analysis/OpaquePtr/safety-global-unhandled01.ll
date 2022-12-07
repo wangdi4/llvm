@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; These are cases that the safety analyzer currently does not handle to ensure
 ; they are detected. As more support is developed, some of these cases may be
@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Vector types are not supported
 %struct.test01 = type { i32, i32 }
-@global_array_of_vector_ptrs = internal global [16 x <2 x %struct.test01*>] zeroinitializer, !intel_dtrans_type !2
+@global_array_of_vector_ptrs = internal global [16 x <2 x ptr>] zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data:{{.*}}Unhandled use{{.*}}

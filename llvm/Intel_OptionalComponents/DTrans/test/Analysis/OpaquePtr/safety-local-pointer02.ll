@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test of processing alloca instruction with vector types. DTrans safety checking
 ; does not model vector instructions, so these cases are just to ensure that they
@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Allocating a vector of pointers to structures is currently unhandled.
 %struct.test01 = type { i32, i32 }
 define void @test01() {
-  %local = alloca <2 x %struct.test01*>, !intel_dtrans_type !2
+  %local = alloca <2 x ptr>, !intel_dtrans_type !2
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -23,7 +23,7 @@ define void @test01() {
 ; unhandled.
 %struct.test02 = type { i32, i32 }
 define void @test02() {
-  %local = alloca [4 x <2 x %struct.test02*>], !intel_dtrans_type !4
+  %local = alloca [4 x <2 x ptr>], !intel_dtrans_type !4
   ret void
 }
 ; CHECK: DTRANS_StructInfo:

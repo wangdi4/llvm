@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that return values are marked as 'System object' for types returned by
 ; functions that may be external due to 'dllexport'
@@ -10,16 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @var01 = internal global i8 zeroinitializer
 %struct.test01 = type { i32, i32 }
 define void @test01() {
-  %p8 = call i8* @extern_func01()
-  %p8.as.struct = bitcast i8* %p8 to %struct.test01*
-  %field.addr = getelementptr %struct.test01, %struct.test01* %p8.as.struct, i64 0, i32 0
-  store i32 0, i32* %field.addr
+  %p8 = call ptr @extern_func01()
+  %field.addr = getelementptr %struct.test01, ptr %p8, i64 0, i32 0
+  store i32 0, ptr %field.addr
   ret void
 }
 ; This function is defined with the 'dllexport' attribute to make it appear as
 ; an external function whose type cannot be changed.
-define dllexport "intel_dtrans_func_index"="1" i8* @extern_func01() !intel.dtrans.func.type !3 {
-  ret i8* @var01
+define dllexport "intel_dtrans_func_index"="1" ptr @extern_func01() !intel.dtrans.func.type !3 {
+  ret ptr @var01
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01

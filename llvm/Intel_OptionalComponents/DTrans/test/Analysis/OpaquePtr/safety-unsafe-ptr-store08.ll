@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Tests a pointer-to-pointer to a structure type being store to a pointer
 ; location that does not match the expected pointer type, results in the "Unsafe
@@ -11,9 +11,8 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %localStruct = alloca %struct.test01
-  %localPtr = alloca i8*, !intel_dtrans_type !2
-  %localStruct.as.p8 = bitcast %struct.test01* %localStruct to i8*
-  store i8* %localStruct.as.p8, i8** %localPtr
+  %localPtr = alloca ptr, !intel_dtrans_type !2
+  store ptr %localStruct, ptr %localPtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -25,9 +24,8 @@ define void @test01() {
 %struct.test02 = type { i32, i32 }
 define void @test02() {
   %localStruct = alloca %struct.test02
-  %localPtr = alloca i16*, !intel_dtrans_type !3
-  %localStruct.as.p16 = bitcast %struct.test02* %localStruct to i16*
-  store i16* %localStruct.as.p16, i16** %localPtr
+  %localPtr = alloca ptr, !intel_dtrans_type !3
+  store ptr %localStruct, ptr %localPtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -39,9 +37,8 @@ define void @test02() {
 %struct.test03 = type { i32, i32 }
 define void @test03() {
   %localStruct = alloca %struct.test03
-  %localPtr = alloca i64*, !intel_dtrans_type !4
-  %localStruct.as.p64 = bitcast %struct.test03* %localStruct to i64*
-  store i64* %localStruct.as.p64, i64** %localPtr
+  %localPtr = alloca ptr, !intel_dtrans_type !4
+  store ptr %localStruct, ptr %localPtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -54,9 +51,8 @@ define void @test03() {
 %struct.test04b = type { i64 }
 define void @test04() {
   %localStruct = alloca %struct.test04a
-  %localPtr = alloca %struct.test04b*, !intel_dtrans_type !6
-  %localStruct.as.pB = bitcast %struct.test04a* %localStruct to %struct.test04b*
-  store %struct.test04b* %localStruct.as.pB, %struct.test04b** %localPtr
+  %localPtr = alloca ptr, !intel_dtrans_type !6
+  store ptr %localStruct, ptr %localPtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

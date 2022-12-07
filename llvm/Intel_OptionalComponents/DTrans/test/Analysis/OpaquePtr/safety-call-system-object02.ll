@@ -2,19 +2,19 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that return values are marked as 'System object' for aggregate types
 ; returned by external functions.
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
-@name = internal global i8* zeroinitializer, !intel_dtrans_type !2
-@mode = internal global i8* zeroinitializer, !intel_dtrans_type !2
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._IO_marker = type { ptr, ptr, i32 }
+@name = internal global ptr zeroinitializer, !intel_dtrans_type !2
+@mode = internal global ptr zeroinitializer, !intel_dtrans_type !2
 define void @test02() {
-  %name_val = load i8*, i8** @name
-  %mode_val = load i8*, i8** @mode
-  %handle = call %struct._IO_FILE* @fopen(i8* %name_val, i8* %mode_val)
+  %name_val = load ptr, ptr @name
+  %mode_val = load ptr, ptr @mode
+  %handle = call ptr @fopen(ptr %name_val, ptr %mode_val)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -27,7 +27,7 @@ define void @test02() {
 ; CHECK: Safety data: System object{{ *$}}
 ; CHECK: End LLVMType: %struct._IO_marker
 
-declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" %struct._IO_FILE* @fopen(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
+declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" ptr @fopen(ptr "intel_dtrans_func_index"="2", ptr "intel_dtrans_func_index"="3")
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 1}  ; i8*

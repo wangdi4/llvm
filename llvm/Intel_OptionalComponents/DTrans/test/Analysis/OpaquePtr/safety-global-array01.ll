@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test of safety data for global array definitions.
 
@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test02 = type { i64, i64 }
-@array_of_structptr = internal global [2 x %struct.test02*] zeroinitializer, !intel_dtrans_type !2
+@array_of_structptr = internal global [2 x ptr] zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer{{ *$}}
@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test03 = type { i64, i64 }
-@array_of_structptrptr = internal global [2 x %struct.test03**] zeroinitializer, !intel_dtrans_type !4
+@array_of_structptrptr = internal global [2 x ptr] zeroinitializer, !intel_dtrans_type !4
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Global pointer{{ *$}}
@@ -31,7 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test04 = type { i64, i64 }
-@ptr_to_array_of_struct = internal global [2 x %struct.test04]* zeroinitializer, !intel_dtrans_type !6
+@ptr_to_array_of_struct = internal global ptr zeroinitializer, !intel_dtrans_type !6
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Global pointer{{ *$}}
@@ -39,7 +39,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test05 = type { i64, i64 }
-@ptr_to_array_of_structptr = internal global [2 x %struct.test05*]* zeroinitializer, !intel_dtrans_type !9
+@ptr_to_array_of_structptr = internal global ptr zeroinitializer, !intel_dtrans_type !9
 ; DTrans does not treat global pointer as pointer carried because the pointer
 ; to the structure is not being directly instantiated.
 ; CHECK: DTRANS_StructInfo:
@@ -49,7 +49,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test06 = type { i64, i64 }
-@ptr_to_array_of_structptrptr = internal global [2 x %struct.test06**]* zeroinitializer, !intel_dtrans_type !12
+@ptr_to_array_of_structptrptr = internal global ptr zeroinitializer, !intel_dtrans_type !12
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: No issues found{{ *$}}
@@ -65,7 +65,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test08 = type { i64, i64 }
-@array_of_array_of_structptr = internal global [2 x [4 x %struct.test08*]] zeroinitializer, !intel_dtrans_type !15
+@array_of_array_of_structptr = internal global [2 x [4 x ptr]] zeroinitializer, !intel_dtrans_type !15
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test08
 ; CHECK: Safety data: Global pointer{{ *$}}
@@ -73,7 +73,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 %struct.test09 = type { i64, i64 }
-@array_of_array_of_structptrptr = internal global [2 x [4 x %struct.test09**]] zeroinitializer, !intel_dtrans_type !18
+@array_of_array_of_structptrptr = internal global [2 x [4 x ptr]] zeroinitializer, !intel_dtrans_type !18
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test09
 ; CHECK: Safety data: Global pointer{{ *$}}

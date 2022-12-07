@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases where a stored location is a field in a structure, and the
 ; stored type does not match the field type.
@@ -10,13 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; field that is a pointer to a structure. In these cases, the pointer operand
 ; of the store instruction has been cast to a different type.
 
-%struct.test01a = type { %struct.test01b*, %struct.test01b*, %struct.test01b* }
+%struct.test01a = type { ptr, ptr, ptr }
 %struct.test01b = type { i32, i32, i32 }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
   %value = alloca i8
-  %pField = getelementptr %struct.test01a, %struct.test01a* %pStruct, i64 0, i32 1
-  %pField.as.pp8 = bitcast %struct.test01b** %pField to i8**
-  store i8* %value, i8** %pField.as.pp8
+  %pField = getelementptr %struct.test01a, ptr %pStruct, i64 0, i32 1
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -30,12 +29,11 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: End LLVMType: %struct.test01b
 
 
-%struct.test02a = type{ %struct.test02b*, %struct.test02b*, %struct.test02b* }
+%struct.test02a = type{ ptr, ptr, ptr }
 %struct.test02b = type { i32, i32, i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct, i16* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !8 {
-  %pField = getelementptr %struct.test02a, %struct.test02a* %pStruct, i64 0, i32 1
-  %pField.as.pp16 = bitcast %struct.test02b** %pField to i16**
-  store i16* %value, i16** %pField.as.pp16
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !8 {
+  %pField = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 1
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -49,12 +47,11 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct, i16
 ; CHECK: End LLVMType: %struct.test02b
 
 
-%struct.test03a = type{ %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type{ ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, i64* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !12 {
-  %pField = getelementptr %struct.test03a, %struct.test03a* %pStruct, i64 0, i32 1
-  %pField.as.pp64 = bitcast %struct.test03b** %pField to i64**
-  store i64* %value, i64** %pField.as.pp64
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !12 {
+  %pField = getelementptr %struct.test03a, ptr %pStruct, i64 0, i32 1
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -67,13 +64,12 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, i64
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
 ; CHECK: End LLVMType: %struct.test03b
 
-%struct.test04a = type { %struct.test04b*, %struct.test04b*, %struct.test04b* }
+%struct.test04a = type { ptr, ptr, ptr }
 %struct.test04b = type { i32, i32, i32 }
 %struct.test04c = type { i16, i16 }
-define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct, %struct.test04c* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !17 {
-  %pField = getelementptr %struct.test04a, %struct.test04a* %pStruct, i64 0, i32 1
-  %pField.as.ppS4c = bitcast %struct.test04b** %pField to %struct.test04c**
-  store %struct.test04c* %value, %struct.test04c** %pField.as.ppS4c
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !17 {
+  %pField = getelementptr %struct.test04a, ptr %pStruct, i64 0, i32 1
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

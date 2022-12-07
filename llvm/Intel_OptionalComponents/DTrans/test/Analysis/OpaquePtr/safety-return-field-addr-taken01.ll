@@ -2,16 +2,16 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that returning a pointer which is the address of a field results in the
 ; "Field address taken return" safety flag.
 
 ; Test with returning a field address
 %struct.test01 = type { i32, i32 }
-define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !4 {
-  %addr = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  ret i32* %addr
+define "intel_dtrans_func_index"="1" ptr @test01(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !4 {
+  %addr = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  ret ptr %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
@@ -28,9 +28,9 @@ define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_
 ; Test with returning a field from within a nested structure
 %struct.test02a = type { i32, %struct.test02b }
 %struct.test02b = type { i32, i32 }
-define "intel_dtrans_func_index"="1" i32* @test02(%struct.test02a* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !7 {
-  %addr = getelementptr %struct.test02a, %struct.test02a* %pStruct, i64 0, i32 1, i32 1
-  ret i32* %addr
+define "intel_dtrans_func_index"="1" ptr @test02(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !7 {
+  %addr = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 1, i32 1
+  ret ptr %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02a
@@ -52,9 +52,9 @@ define "intel_dtrans_func_index"="1" i32* @test02(%struct.test02a* "intel_dtrans
 ; Test with returning an address that is the nested structure's address
 %struct.test03a = type { i32, %struct.test03b }
 %struct.test03b = type { i32, i32 }
-define "intel_dtrans_func_index"="1" %struct.test03b* @test03(%struct.test03a* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !11 {
-  %addr = getelementptr %struct.test03a, %struct.test03a* %pStruct, i64 0, i32 1
-  ret %struct.test03b* %addr
+define "intel_dtrans_func_index"="1" ptr @test03(ptr "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !11 {
+  %addr = getelementptr %struct.test03a, ptr %pStruct, i64 0, i32 1
+  ret ptr %addr
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03a
@@ -79,8 +79,8 @@ define "intel_dtrans_func_index"="1" %struct.test03b* @test03(%struct.test03a* "
 %struct.test04a = type { i32, %struct.test04b }
 %struct.test04b = type { i32, i32 }
 @var04 = internal global %struct.test04a zeroinitializer
-define "intel_dtrans_func_index"="1" %struct.test04b* @test04() !intel.dtrans.func.type !14 {
-  ret %struct.test04b* getelementptr (%struct.test04a, %struct.test04a* @var04, i64 0, i32 1)
+define "intel_dtrans_func_index"="1" ptr @test04() !intel.dtrans.func.type !14 {
+  ret ptr getelementptr (%struct.test04a, ptr @var04, i64 0, i32 1)
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test04a

@@ -2,23 +2,23 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test handling of return value type from indirect function calls results in
 ; them being marked with "System object".
 
 %struct.test01 = type { i32, i32 }
-@var01 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
-@func01 = internal global %struct.test01* (i32)* @test01i, !intel_dtrans_type !4
+@var01 = internal global ptr zeroinitializer, !intel_dtrans_type !2
+@func01 = internal global ptr @test01i, !intel_dtrans_type !4
 define void @test01() {
-  %funcaddr = load %struct.test01* (i32)*, %struct.test01* (i32)** @func01
-  %pStruct = call %struct.test01* (i32) %funcaddr(i32 1), !intel_dtrans_type !3
+  %funcaddr = load ptr, ptr @func01
+  %pStruct = call ptr (i32) %funcaddr(i32 1), !intel_dtrans_type !3
   ret void
 }
 
-define "intel_dtrans_func_index"="1" %struct.test01* @test01i(i32 %x) !intel.dtrans.func.type !5 {
-  %val = load %struct.test01*, %struct.test01** @var01
-  ret %struct.test01* %val
+define "intel_dtrans_func_index"="1" ptr @test01i(i32 %x) !intel.dtrans.func.type !5 {
+  %val = load ptr, ptr @var01
+  ret ptr %val
 }
 ; This could probably be treated as safe, but the original LocalPointerAnalysis
 ; implementation of DTrans marked any return types from indirect function calls

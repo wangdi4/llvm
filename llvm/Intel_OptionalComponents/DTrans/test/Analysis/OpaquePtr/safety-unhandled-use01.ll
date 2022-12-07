@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that instructions not explicitly modeled in the DTransSafetyAnalyzer
 ; result in the "Unhandled use" safety flag.
@@ -12,8 +12,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; value. This should result in the structure type being marked as "Unhandled
 ; use".
 %struct.test01 = type { i32, i32 }
-define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %full = ptrtoint %struct.test01* %pStruct to i64
+define i32 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %full = ptrtoint ptr %pStruct to i64
   %low = trunc i64 %full to i32
   ret i32 %low
 }

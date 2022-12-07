@@ -2,22 +2,22 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test is to check that a global variable that is a structure type gets the
 ; 'Bad casting' safety flag when the variable is used as an initializer of a
 ; structure field that does not match the expected type.
 
-%struct.test01.eh.ThrowInfo = type { i32, i8*, i8*, i8* }
-%struct.test01.eh.CatchableType = type { i32, i8*, i32, i32, i32, i32, i8* }
-%struct.test01.eh.CatchableTypeArray.1 = type { i32, [1 x %struct.test01.eh.CatchableType*] }
+%struct.test01.eh.ThrowInfo = type { i32, ptr, ptr, ptr }
+%struct.test01.eh.CatchableType = type { i32, ptr, i32, i32, i32, i32, ptr }
+%struct.test01.eh.CatchableTypeArray.1 = type { i32, [1 x ptr] }
 
 ; The bitcast of symbol _CTA1H to a different type than the field type should
 ; trigger a safety violation for the type it is declared as,
 ; %struct.test01.eh.CatchableType. (The 'bad casting' also gets pointer carried
 ; to %struct.test01.eh.CatchableType.1)
-@_TI1H = internal unnamed_addr constant %struct.test01.eh.ThrowInfo { i32 0, i8* null, i8* null, i8* bitcast (%struct.test01.eh.CatchableTypeArray.1* @_CTA1H to i8*) }
-@_CTA1H = internal unnamed_addr constant %struct.test01.eh.CatchableTypeArray.1 { i32 1, [1 x %struct.test01.eh.CatchableType*] [%struct.test01.eh.CatchableType* null ] }
+@_TI1H = internal unnamed_addr constant %struct.test01.eh.ThrowInfo { i32 0, ptr null, ptr null, ptr @_CTA1H }
+@_CTA1H = internal unnamed_addr constant %struct.test01.eh.CatchableTypeArray.1 { i32 1, [1 x ptr] [ptr null] }
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01.eh.CatchableType

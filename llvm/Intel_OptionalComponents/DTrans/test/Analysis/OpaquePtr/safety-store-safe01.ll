@@ -2,14 +2,14 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases of store instructions that should be identified as "safe"
 
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i32 %value) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
-  store i32 %value, i32* %pField
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct, i32 %value) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
+  store i32 %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -24,38 +24,38 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i32 
 ; CHECK: End LLVMType: %struct.test01
 
 
-%struct.test02 = type { i32*, i32*, i32* }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 1
-  store i32* %value, i32** %pField
+%struct.test02 = type { ptr, ptr, ptr }
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 1
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
-; CHECK: 0)Field LLVM Type: i32*
+; CHECK: 0)Field LLVM Type: ptr
 ; CHECK:   Field info:{{ *$}}
-; CHECK: 1)Field LLVM Type: i32*
+; CHECK: 1)Field LLVM Type: ptr
 ; CHECK:   Field info: Written{{ *$}}
-; CHECK: 2)Field LLVM Type: i32*
+; CHECK: 2)Field LLVM Type: ptr
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test02
 
 
-%struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type { ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, %struct.test03b* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !9 {
-  %pField = getelementptr %struct.test03a, %struct.test03a* %pStruct, i64 0, i32 2
-  store %struct.test03b* %value, %struct.test03b** %pField
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct, ptr "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !9 {
+  %pField = getelementptr %struct.test03a, ptr %pStruct, i64 0, i32 2
+  store ptr %value, ptr %pField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03a
-; CHECK: 0)Field LLVM Type: %struct.test03b*
+; CHECK: 0)Field LLVM Type: ptr
 ; CHECK:   Field info:{{ *$}}
-; CHECK: 1)Field LLVM Type: %struct.test03b*
+; CHECK: 1)Field LLVM Type: ptr
 ; CHECK:   Field info:{{ *$}}
-; CHECK: 2)Field LLVM Type: %struct.test03b*
+; CHECK: 2)Field LLVM Type: ptr
 ; CHECK:   Field info: Written{{ *$}}
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test03a

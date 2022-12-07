@@ -2,16 +2,16 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test cases of load instructions that should be identified as "safe"
 ; These cases cover the "safe" forms of the tests in
 ; safety-load-mismatched-elem[01-13].ll
 
 %struct.test01 = type { i32, i32, i32 }
-define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
-  %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
-  %vField = load i32, i32* %pField
+define i32 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
+  %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
+  %vField = load i32, ptr %pField
   ret i32 %vField
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -25,43 +25,43 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test01
 
-%struct.test02 = type { i32*, i32*, i32* }
-define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
-  %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 1
-  %vField = load i32*, i32** %pField
-  %use = load i32, i32* %vField
+%struct.test02 = type { ptr, ptr, ptr }
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
+  %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 1
+  %vField = load ptr, ptr %pField
+  %use = load i32, ptr %vField
   ret void
 }
 ; TODO: Field types will be 'p0' when opaque pointers are enabled
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
-; CHECK: 0)Field LLVM Type: i32*
+; CHECK: 0)Field LLVM Type: ptr
 ; CHECK: Field info:{{ *$}}
-; CHECK: 1)Field LLVM Type: i32*
+; CHECK: 1)Field LLVM Type: ptr
 ; CHECK: Field info: Read UnusedValue{{ *$}}
-; CHECK: 2)Field LLVM Type: i32*
+; CHECK: 2)Field LLVM Type: ptr
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test02
 
 
-%struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
+%struct.test03a = type { ptr, ptr, ptr }
 %struct.test03b = type { i32, i32, i32 }
-define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
-  %pField = getelementptr %struct.test03a, %struct.test03a* %pStruct, i64 0, i32 1
-  %vField = load %struct.test03b*, %struct.test03b** %pField
-  %pFieldB = getelementptr %struct.test03b, %struct.test03b* %vField, i64 0, i32 2
-  %vFieldB = load i32, i32* %pFieldB
+define i32 @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
+  %pField = getelementptr %struct.test03a, ptr %pStruct, i64 0, i32 1
+  %vField = load ptr, ptr %pField
+  %pFieldB = getelementptr %struct.test03b, ptr %vField, i64 0, i32 2
+  %vFieldB = load i32, ptr %pFieldB
   ret i32 %vFieldB
 }
 ; TODO: Field types will be 'p0' when opaque pointers are enabled
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test03a
-; CHECK: 0)Field LLVM Type: %struct.test03b*
+; CHECK: 0)Field LLVM Type: ptr
 ; CHECK: Field info:{{ *$}}
-; CHECK: 1)Field LLVM Type: %struct.test03b*
+; CHECK: 1)Field LLVM Type: ptr
 ; CHECK: Field info: Read{{ *$}}
-; CHECK: 2)Field LLVM Type: %struct.test03b*
+; CHECK: 2)Field LLVM Type: ptr
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
 ; CHECK: End LLVMType: %struct.test03a
@@ -80,9 +80,8 @@ define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !int
 
 ; Load element zero using a pointer to the structure
 %struct.test04 = type { i32, i32 }
-define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
-  %pStruct.as.p32 = bitcast %struct.test04* %pStruct to i32*
-  %vField = load i32, i32* %pStruct.as.p32
+define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
+  %vField = load i32, ptr %pStruct
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -97,10 +96,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
 ; Load element zero of a nested structure using a pointer to the structure
 %struct.test05a = type { %struct.test05b }
 %struct.test05b = type { i32, i32 }
-define i32 @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !14 {
-  %pField = getelementptr %struct.test05a, %struct.test05a* %pStruct, i64 0, i32 0
-  %pField.as.p32 = bitcast %struct.test05b* %pField to i32*
-  %vField = load i32, i32* %pField.as.p32
+define i32 @test05(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !14 {
+  %pField = getelementptr %struct.test05a, ptr %pStruct, i64 0, i32 0
+  %vField = load i32, ptr %pField
   ret i32 %vField
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

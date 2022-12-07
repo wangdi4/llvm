@@ -2,11 +2,11 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test of setting the "Global instance" safety flag.
 
-%struct.test01a = type { i32*, %struct.test01b, %struct.test01d* }
+%struct.test01a = type { ptr, %struct.test01b, ptr }
 %struct.test01b = type { i32, %struct.test01c }
 %struct.test01c = type { i32 }
 %struct.test01d = type { i32, %struct.test01e }

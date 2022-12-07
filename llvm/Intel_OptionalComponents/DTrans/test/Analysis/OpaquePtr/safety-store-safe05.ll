@@ -2,21 +2,21 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing a pointer to a structure into a member of an array of
 ; pointers does not set the "Field address taken" safety bit on either the
 ; structure or the array.
 
 %struct.test01arc = type { i64, i64 }
-%struct.test01basket = type { %struct.test01arc*, i64 }
-@var01 = internal global %struct.test01basket*** null, !intel_dtrans_type !3
+%struct.test01basket = type { ptr, i64 }
+@var01 = internal global ptr null, !intel_dtrans_type !3
 define void @test01() {
-  %basket_ptrs = alloca [4061 x %struct.test01basket*], !intel_dtrans_type !4
-  %first = getelementptr inbounds [4061 x %struct.test01basket*], [4061 x %struct.test01basket*]* %basket_ptrs, i64 0, i64 0
-  %second = getelementptr inbounds %struct.test01basket*, %struct.test01basket** %first, i64 1
-  %glob = load %struct.test01basket***, %struct.test01basket**** @var01
-  store %struct.test01basket** %second, %struct.test01basket*** %glob
+  %basket_ptrs = alloca [4061 x ptr], !intel_dtrans_type !4
+  %first = getelementptr inbounds [4061 x ptr], ptr %basket_ptrs, i64 0, i64 0
+  %second = getelementptr inbounds ptr, ptr %first, i64 1
+  %glob = load ptr, ptr @var01
+  store ptr %second, ptr %glob
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

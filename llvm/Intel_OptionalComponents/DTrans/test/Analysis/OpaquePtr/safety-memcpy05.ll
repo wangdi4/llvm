@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test the safety analysis for calls to memcpy that involve an element pointee
 ; for one of the pointers, when the other pointer is not an element pointee.
@@ -17,11 +17,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; match the structure size.
 %struct.test01a = type { i32, i32, i32, i32, i32 }
 %struct.test01b = type { i32, %struct.test01a }
-define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %struct.test01b* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
-  %pDst = bitcast %struct.test01a* %pStructA to i8*
-  %pField = getelementptr %struct.test01b, %struct.test01b* %pStructB, i64 0, i32 1
-  %pSrc = bitcast %struct.test01a* %pField to i8*
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
+  %pField = getelementptr %struct.test01b, ptr %pStructB, i64 0, i32 1
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStructA, ptr %pField, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -41,11 +39,9 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; structure size.
 %struct.test02a = type { i32, i32, i32, i32, i32 }
 %struct.test02b = type { i32, %struct.test02a }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %struct.test02b* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !9 {
-  %pSrc = bitcast %struct.test02a* %pStructA to i8*
-  %pField = getelementptr %struct.test02b, %struct.test02b* %pStructB, i64 0, i32 1
-  %pDst = bitcast %struct.test02a* %pField to i8*
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !9 {
+  %pField = getelementptr %struct.test02b, ptr %pStructB, i64 0, i32 1
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pField, ptr %pStructA, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -59,7 +55,7 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; CHECK: End LLVMType: %struct.test02b
 
 
-declare !intel.dtrans.func.type !11 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01a zeroinitializer, i32 0}  ; %struct.test01a

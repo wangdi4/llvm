@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test setting of "Local pointer" safety bit
 
@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Should identify as "Local pointer" when allocating pointer to structure.
 %struct.test01 = type { i32, i32 }
 define void @test01() {
-  %local = alloca %struct.test01*, !intel_dtrans_type !2
+  %local = alloca ptr, !intel_dtrans_type !2
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -23,7 +23,7 @@ define void @test01() {
 ; of structures because this is not directly instantiating the structure.
 %struct.test02 = type { i32, i32 }
 define void @test02() {
-  %local = alloca [4 x %struct.test02]*, !intel_dtrans_type !3
+  %local = alloca ptr, !intel_dtrans_type !3
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -36,7 +36,7 @@ define void @test02() {
 ; pointers to structure.
 %struct.test03 = type { i32, i32 }
 define void @test03() {
-  %local = alloca [4 x %struct.test03*], !intel_dtrans_type !6
+  %local = alloca [4 x ptr], !intel_dtrans_type !6
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -49,7 +49,7 @@ define void @test03() {
 ; to structure.
 %struct.test04 = type { i32, i32 }
 define void @test04() {
-  %local = alloca %struct.test04**, !intel_dtrans_type !8
+  %local = alloca ptr, !intel_dtrans_type !8
   ret void
 }
 ; CHECK: DTRANS_StructInfo:

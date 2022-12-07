@@ -47,7 +47,7 @@ $_ZTI2Ex = comdat any
 
 @_ZTVN10__cxxabiv117__class_type_infoE = external dso_local global ptr
 @_ZTS2Ex = linkonce_odr dso_local constant [4 x i8] c"2Ex\00", comdat, align 1
-@_ZTI2Ex = linkonce_odr dso_local constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv117__class_type_infoE, i64 2), ptr getelementptr inbounds ([4 x i8], [4 x i8]* @_ZTS2Ex, i32 0, i32 0) }, comdat, !intel_dtrans_type !12
+@_ZTI2Ex = linkonce_odr dso_local constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv117__class_type_infoE, i64 2), ptr @_ZTS2Ex }, comdat, !intel_dtrans_type !12
 
 %struct.test01 = type { i64, i64 }
 define void  @test01user() {

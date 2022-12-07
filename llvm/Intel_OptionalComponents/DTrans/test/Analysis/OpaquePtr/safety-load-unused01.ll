@@ -2,8 +2,8 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NOUNUSED
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-UNUSED
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=false -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NOUNUSED
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-identify-unused-values=true -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-UNUSED
 
 ; Test to check the behavior of setting 'UnusedValue' on a field that is read.
 
@@ -11,16 +11,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @glob01 = internal global %struct.test01 zeroinitializer
 
 define i32 @test01(i32 %in) {
-  %pField0 = getelementptr %struct.test01, %struct.test01* @glob01, i64 0, i32 0
-  %pField1 = getelementptr %struct.test01, %struct.test01* @glob01, i64 0, i32 1
-  %pField2 = getelementptr %struct.test01, %struct.test01* @glob01, i64 0, i32 2
-  store i32 %in, i32* %pField0
-  store i32 %in, i32* %pField1
-  store i32 %in, i32* %pField2
+  %pField0 = getelementptr %struct.test01, ptr @glob01, i64 0, i32 0
+  %pField1 = getelementptr %struct.test01, ptr @glob01, i64 0, i32 1
+  %pField2 = getelementptr %struct.test01, ptr @glob01, i64 0, i32 2
+  store i32 %in, ptr %pField0
+  store i32 %in, ptr %pField1
+  store i32 %in, ptr %pField2
 
-  %vField0 = load i32, i32* %pField0
-  %vField1 = load i32, i32* %pField1
-  %vField2 = load i32, i32* %pField2
+  %vField0 = load i32, ptr %pField0
+  %vField1 = load i32, ptr %pField1
+  %vField2 = load i32, ptr %pField2
 
   ; This use of field 1 should not prevent setting 'UnusedValue' when using
   ; '-dtrans-identify-unused-values=true' on the field because the result of

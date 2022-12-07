@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test detection of "Ambiguous GEP" safety condition by DTrans safety analyzer.
 
@@ -11,10 +11,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; operand.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i16, i16, i16, i16 }
-define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStruct.a) !intel.dtrans.func.type !4 {
-  %pStruct.a.as.ppb = bitcast %struct.test01a** %ppStruct.a to %struct.test01b**
-  %pStruct.b = load %struct.test01b*, %struct.test01b** %pStruct.a.as.ppb
-  %pField = getelementptr %struct.test01b, %struct.test01b* %pStruct.b, i64 0, i32 3
+define void @test01(ptr "intel_dtrans_func_index"="1" %ppStruct.a) !intel.dtrans.func.type !4 {
+  %pStruct.b = load ptr, ptr %ppStruct.a
+  %pField = getelementptr %struct.test01b, ptr %pStruct.b, i64 0, i32 3
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -33,11 +32,9 @@ define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStruct.a)
 ; being accessed.
 %struct.test02a = type { i32 }
 %struct.test02b = type { i32 }
-define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct1a, %struct.test02b* "intel_dtrans_func_index"="2" %pStruct1b) !intel.dtrans.func.type !7 {
-  %pStruct1a.as.p8 = bitcast %struct.test02a* %pStruct1a to i8*
-  %pStruct1b.as.p8 = bitcast %struct.test02b* %pStruct1b to i8*
-  %ambig_ptr = select i1 undef, i8* %pStruct1a.as.p8, i8* %pStruct1b.as.p8
-  %ambig_gep = getelementptr i8, i8* %ambig_ptr, i64 0
+define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1a, ptr "intel_dtrans_func_index"="2" %pStruct1b) !intel.dtrans.func.type !7 {
+  %ambig_ptr = select i1 undef, ptr %pStruct1a, ptr %pStruct1b
+  %ambig_gep = getelementptr i8, ptr %ambig_ptr, i64 0
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -55,10 +52,9 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct1a, %
 ; first field is not supported, and should be marked as "Ambiguous GEP"
 %struct.test03a = type { %struct.test03b, i32 }
 %struct.test03b = type { [8 x i64] }
-define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !12 {
-  %pStruct.a.as.ar = bitcast %struct.test03a* %pStruct.a to [64 x i8]*
-  %first = getelementptr inbounds [64 x i8], [64 x i8]* %pStruct.a.as.ar, i64 0, i64 0
-  %value = load i8, i8* %first
+define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !12 {
+  %first = getelementptr inbounds [64 x i8], ptr %pStruct.a, i64 0, i64 0
+  %value = load i8, ptr %first
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:

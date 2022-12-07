@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing a pointer to an aggregate type to a function that expects a
 ; pointer to a different aggregate type. This should trigger the "Bad casting"
@@ -12,14 +12,13 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01b = type { i32, i32 }
 define void @test01() {
   %pStruct = alloca %struct.test01a
-  %pStruct.as.pb = bitcast %struct.test01a* %pStruct to %struct.test01b*
-  call void @test01callee(%struct.test01b* %pStruct.as.pb)
+  call void @test01callee(ptr %pStruct)
   ret void
 }
 
-define void @test01callee(%struct.test01b* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
-  %fieldAddr = getelementptr %struct.test01b, %struct.test01b* %pStruct, i64 0, i32 1
-  store i32 0, i32* %fieldAddr
+define void @test01callee(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
+  %fieldAddr = getelementptr %struct.test01b, ptr %pStruct, i64 0, i32 1
+  store i32 0, ptr %fieldAddr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
