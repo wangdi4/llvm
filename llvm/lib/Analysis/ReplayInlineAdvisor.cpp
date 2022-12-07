@@ -155,6 +155,7 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
     } else {
       LLVM_DEBUG(dbgs() << "Replay Inliner: Not Inlined " << Callee << " @ "
                         << CallSiteLoc << "\n");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // A negative inline is conveyed by "nothing found in replay"
       auto UP = std::make_unique<DefaultInlineAdvice>(
@@ -164,6 +165,11 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
         *IC = UP->getInlineCost();
       return UP;
 #endif // INTEL_CUSTOMIZATION
+=======
+      // A negative inline is conveyed by "None" Optional<InlineCost>
+      return std::make_unique<DefaultInlineAdvice>(this, CB, std::nullopt, ORE,
+                                                   EmitRemarks);
+>>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
     }
   }
 
@@ -174,6 +180,7 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
     auto UP = std::make_unique<DefaultInlineAdvice>(
         this, CB, llvm::InlineCost::getAlways("AlwaysInline Fallback"), ORE,
         EmitRemarks);
+<<<<<<< HEAD
     if (IC)
       *IC = UP->getInlineCost();
     return UP;
@@ -187,6 +194,14 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
       *IC = UP->getInlineCost();
     return UP;
   } else {
+=======
+  else if (ReplaySettings.ReplayFallback ==
+           ReplayInlinerSettings::Fallback::NeverInline)
+    // A negative inline is conveyed by "None" Optional<InlineCost>
+    return std::make_unique<DefaultInlineAdvice>(this, CB, std::nullopt, ORE,
+                                                 EmitRemarks);
+  else {
+>>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
     assert(ReplaySettings.ReplayFallback ==
            ReplayInlinerSettings::Fallback::Original);
     // If there's a registered original advisor, return its decision

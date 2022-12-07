@@ -194,12 +194,12 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   // Don't perform a slow TLI lookup, if this function doesn't return a pointer
   // and thus can't be an allocation function.
   if (!Callee->getReturnType()->isPointerTy())
-    return None;
+    return std::nullopt;
 
   // Make sure that the function is available.
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
-    return None;
+    return std::nullopt;
 
   const auto *Iter = find_if(
       AllocationFnData, [TLIFn](const std::pair<LibFunc, AllocFnsTy> &P) {
@@ -207,11 +207,11 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
       });
 
   if (Iter == std::end(AllocationFnData))
-    return None;
+    return std::nullopt;
 
   const AllocFnsTy *FnData = &Iter->second;
   if ((FnData->AllocTy & AllocTy) != FnData->AllocTy)
-    return None;
+    return std::nullopt;
 
   // Check function prototype.
   int FstParam = FnData->FstParam;
@@ -227,6 +227,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
        FTy->getParamType(SndParam)->isIntegerTy(32) ||
        FTy->getParamType(SndParam)->isIntegerTy(64)))
     return *FnData;
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   // Model a free or delete call signature
@@ -239,6 +240,9 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
 #endif // INTEL_CUSTOMIZATION
 
   return None;
+=======
+  return std::nullopt;
+>>>>>>> 19aff0f37dd68ee51e78b764c0ce629ae73d1eef
 }
 
 static Optional<AllocFnsTy> getAllocationData(const Value *V, AllocType AllocTy,
@@ -247,7 +251,7 @@ static Optional<AllocFnsTy> getAllocationData(const Value *V, AllocType AllocTy,
   if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall))
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(Callee, AllocTy, TLI);
-  return None;
+  return std::nullopt;
 }
 
 static Optional<AllocFnsTy>
@@ -258,7 +262,7 @@ getAllocationData(const Value *V, AllocType AllocTy,
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(
           Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)));
-  return None;
+  return std::nullopt;
 }
 
 static Optional<AllocFnsTy> getAllocationSize(const Value *V,
@@ -267,7 +271,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   const Function *Callee =
       getCalledFunction(V, IsNoBuiltinCall);
   if (!Callee)
-    return None;
+    return std::nullopt;
 
   // Prefer to use existing information over allocsize. This will give us an
   // accurate AllocTy.
@@ -278,7 +282,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
 
   Attribute Attr = Callee->getFnAttribute(Attribute::AllocSize);
   if (Attr == Attribute())
-    return None;
+    return std::nullopt;
 
   std::pair<unsigned, std::optional<unsigned>> Args = Attr.getAllocSizeArgs();
 
@@ -433,7 +437,7 @@ llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
   // allocsize.  The code structure could stand to be cleaned up a bit.
   Optional<AllocFnsTy> FnData = getAllocationSize(CB, TLI);
   if (!FnData)
-    return None;
+    return std::nullopt;
 
   // Get the index type for this address space, results and intermediate
   // computations are performed at that width.
@@ -444,14 +448,14 @@ llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
   if (FnData->AllocTy == StrDupLike) {
     APInt Size(IntTyBits, GetStringLength(Mapper(CB->getArgOperand(0))));
     if (!Size)
-      return None;
+      return std::nullopt;
 
     // Strndup limits strlen.
     if (FnData->FstParam > 0) {
       const ConstantInt *Arg =
         dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
       if (!Arg)
-        return None;
+        return std::nullopt;
 
       APInt MaxSize = Arg->getValue().zext(IntTyBits);
       if (Size.ugt(MaxSize))
@@ -463,11 +467,11 @@ llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
   const ConstantInt *Arg =
     dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
   if (!Arg)
-    return None;
+    return std::nullopt;
 
   APInt Size = Arg->getValue();
   if (!CheckedZextOrTrunc(Size, IntTyBits))
-    return None;
+    return std::nullopt;
 
   // Size is determined by just 1 parameter.
   if (FnData->SndParam < 0)
@@ -475,16 +479,16 @@ llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
 
   Arg = dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->SndParam)));
   if (!Arg)
-    return None;
+    return std::nullopt;
 
   APInt NumElems = Arg->getValue();
   if (!CheckedZextOrTrunc(NumElems, IntTyBits))
-    return None;
+    return std::nullopt;
 
   bool Overflow;
   Size = Size.umul_ov(NumElems, Overflow);
   if (Overflow)
-    return None;
+    return std::nullopt;
   return Size;
 }
 
@@ -565,7 +569,7 @@ Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
         return P.first == TLIFn;
       });
   if (Iter == std::end(FreeFnData))
-    return None;
+    return std::nullopt;
   return Iter->second;
 }
 
@@ -574,7 +578,7 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
   bool IsNoBuiltin;
   const Function *Callee = getCalledFunction(I, IsNoBuiltin);
   if (Callee == nullptr || IsNoBuiltin)
-    return None;
+    return std::nullopt;
   LibFunc TLIFn;
 
   if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn)) {
@@ -593,7 +597,7 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
     if (Attr.isValid())
       return Attr.getValueAsString();
   }
-  return None;
+  return std::nullopt;
 }
 
 /// isLibFreeFunction - Returns true if the function is a builtin free()
