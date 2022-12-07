@@ -2958,7 +2958,7 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
 
   for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
     RegDDRef *WideArg = nullptr;
-    if ((!MatchedVariant || Parms[I].isVector()) &&
+    if ((!MatchedVariant || Parms[I].isVector() || Parms[I].isLinearVal()) &&
         !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
       WideArg = widenRef(VPCall->getOperand(I), VF);
       WideArg = extractSubVector(WideArg, PumpPart, PumpFactor);

@@ -215,8 +215,7 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
       return Scalar2VectorScore; // uniform/linear -> vector
     }
 
-    // Matching for linear integer/pointer args and ref modifier for integer
-    // reference args.
+    // Matching for linear integer/pointer/reference args.
     // Matches occur when:
     // 1) both args are linear and have same constant stride
     // 2) caller side arg is recognized by DA as linear with constant stride
@@ -225,28 +224,32 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
     //    are available.
     // 3) both args are linear with variable stride.
     //
-    // Note: The caller side encoding uses 'l' or 'ls' as a generic encoding
-    // for all linear parameters because there is no way to distinguish between
-    // references and pointers once we get to LLVM. E.g., why we don't do a
-    // comparison between isLinearRef(), etc. for both caller/callee. This
-    // differentiation has to come from whether or not the arg is associated
-    // with private memory.
+    // When multiple variants are available for reference args and strides
+    // match, they are ranked to favor uval, val, and ref in that order.
     //
-    // TODO: add scoring for linear reference parameters for val modifiers.
-    //
+    auto ScoreAdjustment = [&](VFParameter Param) {
+      if (Param.isLinearVal())
+        return 1;
+      else if (Param.isLinearRef())
+        return 2;
+      else
+        return 0;
+    };
     if ((Callee[I].isLinear() && Caller[I].isLinear()) ||
         (Callee[I].isLinearRef() && Caller[I].isLinearRef()) ||
-        (Callee[I].isLinearUVal() && Caller[I].isLinearUVal())) {
+        (Callee[I].isLinearUVal() && Caller[I].isLinearUVal()) ||
+        (Callee[I].isLinearVal() && Caller[I].isLinearVal())) {
       if (Callee[I].isConstantStrideLinear() && // Case #1
           Caller[I].isConstantStrideLinear() &&
-          Callee[I].getStride() == Caller[I].getStride())
-        return Linear2LinearScore;
+          Callee[I].getStride() == Caller[I].getStride()) {
+        return Linear2LinearScore - ScoreAdjustment(Caller[I]);
+      }
       if (Caller[I].isConstantStrideLinear() && // Case #2
           Callee[I].isVariableStride())
-        return Linear2VariableLinearScore;
+        return Linear2VariableLinearScore - ScoreAdjustment(Caller[I]);
       if (Callee[I].isVariableStride() &&       // Case #3
           Caller[I].isVariableStride())
-        return Linear2LinearScore;
+        return Linear2LinearScore - ScoreAdjustment(Caller[I]);
       return NoMatch;
     }
 

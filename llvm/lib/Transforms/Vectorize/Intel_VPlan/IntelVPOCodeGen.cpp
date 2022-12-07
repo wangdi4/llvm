@@ -2610,7 +2610,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
           "VPVALCG: OpenCL write channel vectorization not uplifted.");
     }
 
-    if ((!VecVariant || Parms[ParamsIdx].isVector()) &&
+    if ((!VecVariant || Parms[ParamsIdx].isVector() ||
+         Parms[ParamsIdx].isLinearVal()) &&
         !isScalarArgument(FnName, OrigArgIdx) &&
         !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
