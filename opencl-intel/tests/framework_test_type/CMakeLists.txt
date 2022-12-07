@@ -106,4 +106,4 @@ add_ocl_unittest_artifacts(
 
 add_dependencies(
   ${TARGET} clang_compiler${BUILD_PLATFORM} OclCpuBackEnd${BUILD_PLATFORM}
-  cpu_device${BUILD_PLATFORM} ${OCL_RT_TEST_DEPS} ${TEST_SPV_FILES})
+  cpu_device ${OCL_RT_TEST_DEPS} ${TEST_SPV_FILES})

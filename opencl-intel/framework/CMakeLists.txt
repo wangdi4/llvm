@@ -59,7 +59,9 @@ if(WIN32)
   source_group("API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp
                            framework_proxy.h)
 
-  list(APPEND LINK_LIBS PowrProf.lib)
+  list(APPEND LINK_LIBS PowrProf.lib delayimp.lib)
+else()
+  list(APPEND LINK_LIBS cl_hw_utils)
 endif(WIN32)
 
 if(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
@@ -93,8 +95,12 @@ add_opencl_library(
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
-  task_executor${BUILD_PLATFORM}
+  builtin_kernels
   cl_logger
+  cl_sys_utils
+  cpu_device
+  device_commands
+  task_executor${BUILD_PLATFORM}
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -108,8 +114,12 @@ add_opencl_library(
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
-  task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  builtin_kernels
   cl_logger_${OUTPUT_EMU_SUFF}
+  cl_sys_utils
+  cpu_device
+  device_commands
+  task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -169,8 +179,6 @@ if(WIN32)
   set_target_properties(
     ${TARGET_NAME_EMU} PROPERTIES LINK_FLAGS_DEBUG
                                   "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
-
-  list(APPEND LINK_LIBS delayimp.lib)
 endif(WIN32)
 
 set_linux_exports_file(${TARGET_NAME} cl_framework_linux_exports.txt)

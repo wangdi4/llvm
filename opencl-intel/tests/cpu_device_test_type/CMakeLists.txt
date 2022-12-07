@@ -7,8 +7,14 @@ calculate_target_sources()
 
 link_directories(${TBB_LIB_DIR})
 
-set(TARGET_LIBS cl_sys_utils cpu_device${BUILD_PLATFORM}
+set(TARGET_LIBS builtin_kernels cl_sys_utils cpu_device device_commands
                 task_executor${BUILD_PLATFORM} test_utils)
+
+if(WIN32)
+  list(APPEND TARGET_LIBS delayimp.lib)
+else()
+  list(APPEND TARGET_LIBS cl_hw_utils)
+endif()
 
 set(INPUT_FILE test.cl)
 set(OUTPUT_FILE test.bc)

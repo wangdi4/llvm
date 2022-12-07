@@ -13,8 +13,11 @@
 // License.
 
 #include "backend_wrapper.h"
+#include "cl_env.h"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Path.h"
 #include <assert.h>
 #include <memory>
 
@@ -43,9 +46,23 @@ OpenCLBackendWrapper::OpenCLBackendWrapper(void)
 cl_dev_err_code OpenCLBackendWrapper::LoadDll() {
   std::string dllName = std::string(szOclCpuBackendDllName) +
                         (m_targetDev == FPGA_EMU_DEVICE ? OUTPUT_EMU_SUFF : "");
+  std::string dllFullPath(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
+      OS_DLL_POST(dllName).c_str()));
 
-  if (m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
-          OS_DLL_POST(dllName).c_str())) != 0) {
+#ifndef INTEL_PRODUCT_RELEASE
+  // This is a workaround to let unit test binary can correctly find the
+  // ocl backend lib. It will be removed after we change backend lib to a static
+  // library.
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                      "CL_CONFIG_FORCE_OCL_LIBRARY_PATH")) {
+    llvm::SmallString<128> PathStr(Env);
+    llvm::sys::path::append(PathStr, OS_DLL_POST(dllName));
+    dllFullPath = PathStr.str();
+  }
+#endif // INTEL_PRODUCT_RELEASE
+
+  if (m_dll.Load(dllFullPath.c_str()) != 0) {
     if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
       g_pUserLogger->PrintError("Failed to load " +
                                 std::string(OS_DLL_POST(dllName)) +
