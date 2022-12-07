@@ -50,6 +50,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -935,7 +936,7 @@ public:
   unsigned emitDwarfFileDirective(
       unsigned FileNo, StringRef Directory, StringRef Filename,
       Optional<MD5::MD5Result> Checksum = std::nullopt,
-      Optional<StringRef> Source = std::nullopt, unsigned CUID = 0) {
+      std::optional<StringRef> Source = std::nullopt, unsigned CUID = 0) {
     return cantFail(
         tryEmitDwarfFileDirective(FileNo, Directory, Filename, Checksum,
                                   Source, CUID));
@@ -949,12 +950,12 @@ public:
   virtual Expected<unsigned> tryEmitDwarfFileDirective(
       unsigned FileNo, StringRef Directory, StringRef Filename,
       Optional<MD5::MD5Result> Checksum = std::nullopt,
-      Optional<StringRef> Source = std::nullopt, unsigned CUID = 0);
+      std::optional<StringRef> Source = std::nullopt, unsigned CUID = 0);
 
   /// Specify the "root" file of the compilation, using the ".file 0" extension.
   virtual void emitDwarfFile0Directive(StringRef Directory, StringRef Filename,
                                        Optional<MD5::MD5Result> Checksum,
-                                       Optional<StringRef> Source,
+                                       std::optional<StringRef> Source,
                                        unsigned CUID = 0);
 
   virtual void emitCFIBKeyFrame();

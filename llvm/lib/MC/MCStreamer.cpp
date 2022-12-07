@@ -56,6 +56,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <utility>
 
 using namespace llvm;
@@ -264,7 +265,7 @@ Expected<unsigned>
 MCStreamer::tryEmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
                                       StringRef Filename,
                                       Optional<MD5::MD5Result> Checksum,
-                                      Optional<StringRef> Source,
+                                      std::optional<StringRef> Source,
                                       unsigned CUID) {
   return getContext().getDwarfFile(Directory, Filename, FileNo, Checksum,
                                    Source, CUID);
@@ -273,7 +274,7 @@ MCStreamer::tryEmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
 void MCStreamer::emitDwarfFile0Directive(StringRef Directory,
                                          StringRef Filename,
                                          Optional<MD5::MD5Result> Checksum,
-                                         Optional<StringRef> Source,
+                                         std::optional<StringRef> Source,
                                          unsigned CUID) {
   getContext().setMCLineTableRootFile(CUID, Directory, Filename, Checksum,
                                       Source);
