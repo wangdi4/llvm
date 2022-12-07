@@ -2354,10 +2354,9 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               BlockFrequencyInfo *CallerBFI) {
   if (CalleeEntryCount.isSynthetic() || CalleeEntryCount.getCount() < 1)
     return;
-<<<<<<< HEAD
-  auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
+  auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : std::nullopt;
 #if INTEL_CUSTOMIZATION
-  if (CallSiteCount == None) {
+  if (CallSiteCount == std::nullopt) {
     // Get profile for call from intel_profx if not available elsewhere
     auto *MD = TheCall.getMetadata(LLVMContext::MD_intel_profx);
     if (MD) {
@@ -2368,10 +2367,6 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto CallSiteCount =
-      PSI ? PSI->getProfileCount(TheCall, CallerBFI) : std::nullopt;
->>>>>>> 343de6856e16b58bcbd16d479fc633f54e22fadc
   int64_t CallCount =
       std::min(CallSiteCount.value_or(0), CalleeEntryCount.getCount());
   updateProfileCallee(Callee, -CallCount, &VMap);

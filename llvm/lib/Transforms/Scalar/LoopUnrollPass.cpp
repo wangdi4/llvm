@@ -1535,31 +1535,18 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   std::string LoopName = std::string(L.getName());
 
-<<<<<<< HEAD
-  bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
-                                 /*BFI*/ nullptr, /*PSI*/ nullptr,
-                                 /*PreserveLCSSA*/ true, OptLevel,
-                                 ORBuilder,                          // INTEL
-                                 OnlyWhenForced, ForgetSCEV, /*Count*/ None,
-                                 /*Threshold*/ None, /*AllowPartial*/ false,
-                                 /*Runtime*/ false, /*UpperBound*/ false,
-                                 /*AllowPeeling*/ true,
-                                 /*AllowProfileBasedPeeling*/ false,
-                                 /*FullUnrollMaxCount*/ None) !=
-                 LoopUnrollResult::Unmodified;
-=======
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
-                      /*PreserveLCSSA*/ true, OptLevel, OnlyWhenForced,
-                      ForgetSCEV, /*Count*/ std::nullopt,
+                      /*PreserveLCSSA*/ true, OptLevel,
+                      ORBuilder, // INTEL
+                      OnlyWhenForced, ForgetSCEV, /*Count*/ std::nullopt,
                       /*Threshold*/ std::nullopt, /*AllowPartial*/ false,
                       /*Runtime*/ false, /*UpperBound*/ false,
                       /*AllowPeeling*/ true,
                       /*AllowProfileBasedPeeling*/ false,
                       /*FullUnrollMaxCount*/ std::nullopt) !=
       LoopUnrollResult::Unmodified;
->>>>>>> 343de6856e16b58bcbd16d479fc633f54e22fadc
   if (!Changed)
     return PreservedAnalyses::all();
 
@@ -1683,20 +1670,13 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
     // flavors of unrolling during construction time (by setting UnrollOpts).
     LoopUnrollResult Result = tryToUnrollLoop(
         &L, DT, &LI, SE, TTI, AC, ORE, BFI, PSI,
-<<<<<<< HEAD
         /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, // INTEL
         ORBuilder, UnrollOpts.OnlyWhenForced,        // INTEL
-        UnrollOpts.ForgetSCEV, /*Count*/ None,
+        UnrollOpts.ForgetSCEV, /*Count*/ std::nullopt,
 #if INTEL_COLLAB
         UnrollOpts.Threshold, UnrollOpts.AllowPartial, UnrollOpts.AllowRuntime,
 #endif // INTEL_COLLAB
         UnrollOpts.AllowUpperBound, LocalAllowPeeling,
-=======
-        /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, UnrollOpts.OnlyWhenForced,
-        UnrollOpts.ForgetSCEV, /*Count*/ std::nullopt,
-        /*Threshold*/ std::nullopt, UnrollOpts.AllowPartial,
-        UnrollOpts.AllowRuntime, UnrollOpts.AllowUpperBound, LocalAllowPeeling,
->>>>>>> 343de6856e16b58bcbd16d479fc633f54e22fadc
         UnrollOpts.AllowProfileBasedPeeling, UnrollOpts.FullUnrollMaxCount);
     Changed |= Result != LoopUnrollResult::Unmodified;
 
