@@ -404,7 +404,11 @@ bool queue_impl::ext_oneapi_empty() const {
   // If we have in-order queue where events are not discarded then just check
   // the status of the last event.
   if (isInOrder() && !MDiscardEvents) {
+<<<<<<< HEAD
     std::lock_guard<std::mutex> Lock(MLastEventMtx);
+=======
+    std::lock_guard Lock(MLastEventMtx);
+>>>>>>> 55d6147e0cb0d0335eb6ef2a8879cbe2ac671ca3
     return MLastEvent.get_info<info::event::command_execution_status>() ==
            info::event_command_status::complete;
   }
@@ -421,7 +425,11 @@ bool queue_impl::ext_oneapi_empty() const {
 
   // We may have events like host tasks which are not submitted to the backend
   // queue so we need to get their status separately.
+<<<<<<< HEAD
   std::lock_guard<std::mutex> Lock(MMutex);
+=======
+  std::lock_guard Lock(MMutex);
+>>>>>>> 55d6147e0cb0d0335eb6ef2a8879cbe2ac671ca3
   for (event Event : MEventsShared)
     if (Event.get_info<info::event::command_execution_status>() !=
         info::event_command_status::complete)

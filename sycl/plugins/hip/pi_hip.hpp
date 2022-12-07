@@ -480,7 +480,11 @@ struct _pi_queue {
 
   template <typename T> bool all_of(T &&f) {
     {
+<<<<<<< HEAD
       std::lock_guard<std::mutex> compute_guard(compute_stream_mutex_);
+=======
+      std::lock_guard compute_guard(compute_stream_mutex_);
+>>>>>>> 55d6147e0cb0d0335eb6ef2a8879cbe2ac671ca3
       unsigned int end =
           std::min(static_cast<unsigned int>(compute_streams_.size()),
                    num_compute_streams_);
@@ -489,7 +493,11 @@ struct _pi_queue {
         return false;
     }
     {
+<<<<<<< HEAD
       std::lock_guard<std::mutex> transfer_guard(transfer_stream_mutex_);
+=======
+      std::lock_guard transfer_guard(transfer_stream_mutex_);
+>>>>>>> 55d6147e0cb0d0335eb6ef2a8879cbe2ac671ca3
       unsigned int end =
           std::min(static_cast<unsigned int>(transfer_streams_.size()),
                    num_transfer_streams_);
