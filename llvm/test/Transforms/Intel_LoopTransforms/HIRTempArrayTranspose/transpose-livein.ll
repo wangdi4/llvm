@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-alloca-dimsize=500 -disable-output 2>&1 | FileCheck %s
 
 ; Check that we successfully transpose the array for non-unit stride access
 ; (bitcast (i8* getelementptr inbounds ([291652 x i8], [291652 x i8]* @global.7, i64 0, i64 192000) to i32*))
@@ -7,12 +7,12 @@
 ; be marked as live-in.
 
 ;        BEGIN REGION { }
-;              + DO i1 = 0, 4294967294, 1   <DO_LOOP>
-;              |   + DO i2 = 0, -2, 1   <DO_LOOP>
+;              + DO i1 = 0, 8, 1   <DO_LOOP>
+;              |   + DO i2 = 0, 8, 1   <DO_LOOP>
 ;              |   |   %tmp327 = 0;
 ;              |   |   %tmp328 = 0;
 ;              |   |
-;              |   |   + DO i3 = 0, -2, 1   <DO_LOOP>
+;              |   |   + DO i3 = 0, 8, 1   <DO_LOOP>
 ;              |   |   |   %tmp331 = (bitcast (i8* getelementptr inbounds ([291652 x i8], [291652 x i8]* @global.7, i64 0, i64 192000) to i32*))[i3][i1];
 ;              |   |   |   if (%tmp331 > %tmp327)
 ;              |   |   |   {
@@ -141,18 +141,18 @@ bb347:                                            ; preds = %bb339
 bb349:                                            ; preds = %bb347, %bb339
   %tmp350 = phi i32 [ %tmp331, %bb347 ], [ %tmp341, %bb339 ]
   %tmp352 = add nuw nsw i64 %tmp326, 1
-  %tmp353 = icmp eq i64 %tmp352, 0
+  %tmp353 = icmp eq i64 %tmp352, 10
   br i1 %tmp353, label %bb355, label %bb325
 
 bb355:                                            ; preds = %bb349
   %tmp357 = add nuw nsw i64 %tmp320, 1
-  %tmp358 = icmp eq i64 %tmp357, 0
+  %tmp358 = icmp eq i64 %tmp357, 10
   br i1 %tmp358, label %bb361, label %bb323
 
 bb361:                                            ; preds = %bb355
   %tmp363 = add nuw nsw i64 %tmp311, 1
   %tmp364 = trunc i64 %tmp363 to i32
-  %tmp365 = icmp eq i32 0, %tmp364
+  %tmp365 = icmp eq i32 10, %tmp364
   br i1 %tmp365, label %bb366, label %bb315
 
 bb366:                                            ; preds = %bb361

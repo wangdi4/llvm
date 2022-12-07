@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose" -print-after=hir-temp-array-transpose -hir-temp-array-transpose-tc=2 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose" -print-after=hir-temp-array-transpose -hir-temp-array-transpose-mintc=2 -disable-output 2>&1 | FileCheck %s
 
 ; Check that Temp Array Transpose occurs twice for Refs %a and %b
 
