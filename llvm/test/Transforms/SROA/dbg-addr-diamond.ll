@@ -27,12 +27,12 @@ define void @if_else(i32 %cond, i32 %a, i32 %b) !dbg !8 {
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 0, metadata [[META20]], metadata !DIExpression(DW_OP_LLVM_fragment, 32, 32)), !dbg [[DBG21]]
 ; CHECK-NEXT:    br label [[IF_END]]
 ; CHECK:       if.end:
-; CHECK-NEXT:    [[P_SROA_4_0:%.*]] = phi i32 [ [[A]], [[IF_THEN]] ], [ 0, [[IF_ELSE]] ], !dbg [[DBG27:![0-9]+]]
-; CHECK-NEXT:    [[P_SROA_0_0:%.*]] = phi i32 [ 0, [[IF_THEN]] ], [ [[B]], [[IF_ELSE]] ], !dbg [[DBG27]]
+; CHECK-NEXT:    [[P_SROA_4_0:%.*]] = phi i32 [ [[A]], [[IF_THEN]] ], [ 0, [[IF_ELSE]] ]
+; CHECK-NEXT:    [[P_SROA_0_0:%.*]] = phi i32 [ 0, [[IF_THEN]] ], [ [[B]], [[IF_ELSE]] ]
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[P_SROA_0_0]], metadata [[META20]], metadata !DIExpression(DW_OP_LLVM_fragment, 0, 32)), !dbg [[DBG21]]
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[P_SROA_4_0]], metadata [[META20]], metadata !DIExpression(DW_OP_LLVM_fragment, 32, 32)), !dbg [[DBG21]]
-; CHECK-NEXT:    store i32 [[P_SROA_0_0]], ptr @pair, align 4, !dbg [[DBG28:![0-9]+]]
-; CHECK-NEXT:    store i32 [[P_SROA_4_0]], ptr getelementptr inbounds (i8, ptr @pair, i64 4), align 4, !dbg [[DBG28]]
+; CHECK-NEXT:    store i32 [[P_SROA_0_0]], ptr @pair, align 4, !dbg [[DBG27:![0-9]+]]
+; CHECK-NEXT:    store i32 [[P_SROA_4_0]], ptr getelementptr inbounds (i8, ptr @pair, i64 4), align 4, !dbg [[DBG27]]
 ; CHECK-NEXT:    ret void
 ;
 entry:
