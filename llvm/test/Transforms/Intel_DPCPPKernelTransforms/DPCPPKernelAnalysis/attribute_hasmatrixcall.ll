@@ -1,5 +1,8 @@
-; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-analysis -dpcpp-kernel-analysis-assume-isamx=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=dpcpp-kernel-analysis -dpcpp-kernel-analysis-assume-isamx=true %s -S -debug -disable-output 2>&1| FileCheck %s
+
+; If assume dpcpp-kernel-analysis's isamx is false, check if the diagnose is reported
+; RUN: not opt -passes=dpcpp-kernel-analysis -dpcpp-kernel-analysis-assume-isamx=false %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefixes=CHECK-DPCPPKernelAnalysis-BROKEN
 
 ; CHECK: DPCPPKernelAnalysisPass
 ; CHECK: Kernel <kernel_contains_matrix_call>:
@@ -8,6 +11,8 @@
 ; CHECK:   KernelHasSubgroups=0
 ; CHECK:   KernelHasGlobalSync=0
 ; CHECK:   KernelExecutionLength=3
+
+; CHECK-DPCPPKernelAnalysis-BROKEN: error: llvm.experimental.matrix.load.v8i8.p0i32": AMX matrix primitives are being used on an arch older than Sapphire Rapids! DPC++ joint matrix extension requires presence of AMX on Sapphire Rapids or later
 
 
 define void @kernel_contains_matrix_call(i32* %ptr, i32* %dst, i64 %stride) {

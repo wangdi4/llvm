@@ -26,6 +26,13 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
+static cl::opt<bool> DPCPPKernelAnalysisAssumeIsAMX(
+    "dpcpp-kernel-analysis-assume-isamx", cl::init(false), cl::Hidden,
+    cl::desc("make assumption for dpcpp kernel analysis's isamx"));
+
+DiagnosticKind DPCPPKernelAnalysisDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
+
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module
   FuncSet SyncFunctions = getAllSyncBuiltinsDecls(*M);
@@ -48,6 +55,13 @@ void DPCPPKernelAnalysisPass::fillMatrixCallFuncs() {
     case Intrinsic::experimental_matrix_extract_row_slice:
     case Intrinsic::experimental_matrix_insert_row_slice:
     case Intrinsic::experimental_matrix_fill:
+      if (!IsAMX)
+        M->getContext().diagnose(DPCPPKernelAnalysisDiagInfo(
+            F,
+            "AMX matrix primitives are being used on an arch older than "
+            "Sapphire Rapids! DPC++ joint matrix extension requires presence "
+            "of AMX on Sapphire Rapids or later)",
+            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
       MatrixIntrins.insert(&F);
       break;
     }
@@ -217,6 +231,7 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
 PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
+  IsAMX = DPCPPKernelAnalysisAssumeIsAMX || IsAMX;
   RuntimeService &RTS =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
