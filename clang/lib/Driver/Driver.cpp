@@ -2048,9 +2048,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // FIXME: This stuff needs to go into the Compilation, not the driver.
   bool CCCPrintPhases;
 
-  // Silence driver warnings if requested
-  Diags.setIgnoreAllWarnings(Args.hasArg(options::OPT_w));
-
 #if INTEL_CUSTOMIZATION
   if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
                            options::OPT_v, options::OPT__HASH_HASH_HASH)) {
