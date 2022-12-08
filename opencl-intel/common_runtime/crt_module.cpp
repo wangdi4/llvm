@@ -31,235 +31,190 @@ namespace OCLCRT {
 extern CrtModule &crt_ocl_module;
 }
 
-IcdDispatchMgr::IcdDispatchMgr(){
-    REGISTER_DISPATCH_ENTRYPOINT(clGetPlatformIDs, clGetPlatformIDs)
-        REGISTER_DISPATCH_ENTRYPOINT(clGetPlatformInfo, clGetPlatformInfo)
-            REGISTER_DISPATCH_ENTRYPOINT(
-                clGetDeviceIDs,
-                clGetDeviceIDs) REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceInfo,
-                                                             clGetDeviceInfo)
-                REGISTER_DISPATCH_ENTRYPOINT(clCreateContext, clCreateContext)
-                    REGISTER_DISPATCH_ENTRYPOINT(clCreateContextFromType,
-                                                 clCreateContextFromType)
-                        REGISTER_DISPATCH_ENTRYPOINT(clRetainContext,
-                                                     clRetainContext)
-                            REGISTER_DISPATCH_ENTRYPOINT(clReleaseContext,
-                                                         clReleaseContext)
-                                REGISTER_DISPATCH_ENTRYPOINT(clGetContextInfo,
-                                                             clGetContextInfo)
-                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                        clCreateCommandQueue,
-                                        clCreateCommandQueue)
-                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                            clRetainCommandQueue,
-                                            clRetainCommandQueue)
-                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                clReleaseCommandQueue,
-                                                clReleaseCommandQueue)
-                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                    clGetCommandQueueInfo,
-                                                    clGetCommandQueueInfo)
-    // clSetCommandQueueProperty
-    REGISTER_DISPATCH_ENTRYPOINT(clCreateBuffer, clCreateBuffer)
-        REGISTER_DISPATCH_ENTRYPOINT(clCreateImage2D, clCreateImage2D)
-            REGISTER_DISPATCH_ENTRYPOINT(
-                clCreateImage3D,
-                clCreateImage3D) REGISTER_DISPATCH_ENTRYPOINT(clRetainMemObject,
-                                                              clRetainMemObject)
-                REGISTER_DISPATCH_ENTRYPOINT(clReleaseMemObject,
-                                             clReleaseMemObject)
-                    REGISTER_DISPATCH_ENTRYPOINT(clGetSupportedImageFormats,
-                                                 clGetSupportedImageFormats)
-                        REGISTER_DISPATCH_ENTRYPOINT(clGetMemObjectInfo,
-                                                     clGetMemObjectInfo)
-                            REGISTER_DISPATCH_ENTRYPOINT(clGetImageInfo,
-                                                         clGetImageInfo)
-                                REGISTER_DISPATCH_ENTRYPOINT(
-                                    clCreateSampler,
-                                    clCreateSampler) REGISTER_DISPATCH_ENTRYPOINT(clRetainSampler, clRetainSampler) REGISTER_DISPATCH_ENTRYPOINT(clReleaseSampler, clReleaseSampler) REGISTER_DISPATCH_ENTRYPOINT(clGetSamplerInfo, clGetSamplerInfo) REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithSource, clCreateProgramWithSource) REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithBinary, clCreateProgramWithBinary) REGISTER_DISPATCH_ENTRYPOINT(clRetainProgram, clRetainProgram) REGISTER_DISPATCH_ENTRYPOINT(clReleaseProgram,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        clReleaseProgram) REGISTER_DISPATCH_ENTRYPOINT(clBuildProgram,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       clBuildProgram) REGISTER_DISPATCH_ENTRYPOINT(clUnloadCompiler, clUnloadCompiler) REGISTER_DISPATCH_ENTRYPOINT(clGetProgramInfo, clGetProgramInfo) REGISTER_DISPATCH_ENTRYPOINT(clGetProgramBuildInfo,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      clGetProgramBuildInfo) REGISTER_DISPATCH_ENTRYPOINT(clCreateKernel, clCreateKernel) REGISTER_DISPATCH_ENTRYPOINT(clCreateKernelsInProgram,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       clCreateKernelsInProgram) REGISTER_DISPATCH_ENTRYPOINT(clRetainKernel,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              clRetainKernel) REGISTER_DISPATCH_ENTRYPOINT(clReleaseKernel, clReleaseKernel) REGISTER_DISPATCH_ENTRYPOINT(clSetKernelArg, clSetKernelArg) REGISTER_DISPATCH_ENTRYPOINT(clGetKernelInfo, clGetKernelInfo) REGISTER_DISPATCH_ENTRYPOINT(clGetKernelWorkGroupInfo, clGetKernelWorkGroupInfo) REGISTER_DISPATCH_ENTRYPOINT(clWaitForEvents,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       clWaitForEvents) REGISTER_DISPATCH_ENTRYPOINT(clGetEventInfo, clGetEventInfo) REGISTER_DISPATCH_ENTRYPOINT(clRetainEvent,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  clRetainEvent) REGISTER_DISPATCH_ENTRYPOINT(clReleaseEvent,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              clReleaseEvent) REGISTER_DISPATCH_ENTRYPOINT(clGetEventProfilingInfo, clGetEventProfilingInfo) REGISTER_DISPATCH_ENTRYPOINT(clFlush,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          clFlush) REGISTER_DISPATCH_ENTRYPOINT(clFinish, clFinish) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueReadBuffer, clEnqueueReadBuffer) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWriteBuffer, clEnqueueWriteBuffer)
-                                    REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyBuffer, clEnqueueCopyBuffer) REGISTER_DISPATCH_ENTRYPOINT(
-                                        clEnqueueReadImage,
-                                        clEnqueueReadImage) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWriteImage, clEnqueueWriteImage)
-                                        REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyImage, clEnqueueCopyImage) REGISTER_DISPATCH_ENTRYPOINT(
-                                            clEnqueueCopyImageToBuffer,
-                                            clEnqueueCopyImageToBuffer)
-                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                clEnqueueCopyBufferToImage,
-                                                clEnqueueCopyBufferToImage)
-                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                    clEnqueueMapBuffer,
-                                                    clEnqueueMapBuffer)
-                                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                                        clEnqueueMapImage,
-                                                        clEnqueueMapImage)
-                                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                                            clEnqueueUnmapMemObject,
-                                                            clEnqueueUnmapMemObject)
-                                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                                clEnqueueNDRangeKernel,
-                                                                clEnqueueNDRangeKernel)
-                                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                                    clEnqueueTask,
-                                                                    clEnqueueTask)
-                                                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                                                        clEnqueueNativeKernel,
-                                                                        clEnqueueNativeKernel)
-                                                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                                                            clEnqueueMarker,
-                                                                            clEnqueueMarker)
-                                                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                                                clEnqueueWaitForEvents,
-                                                                                clEnqueueWaitForEvents)
-                                                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                                                    clEnqueueBarrier,
-                                                                                    clEnqueueBarrier)
-                                                                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                                                                        clGetExtensionFunctionAddress,
-                                                                                        clGetExtensionFunctionAddress)
-    // clCreateFromGLBuffer
-    // clCreateFromGLTexture2D
-    // clCreateFromGLTexture3D
-    // clCreateFromGLRenderbuffer
-    // clGetGLObjectInfo
-    // clGetGLTextureInfo
-    // clEnqueueAcquireGLObjects
-    // clEnqueueReleaseGLObjects
-    REGISTER_DISPATCH_ENTRYPOINT(clGetGLContextInfoKHR, clGetGLContextInfoKHR)
+IcdDispatchMgr::IcdDispatchMgr() {
+  REGISTER_DISPATCH_ENTRYPOINT(clGetPlatformIDs, clGetPlatformIDs);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetPlatformInfo, clGetPlatformInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDs, clGetDeviceIDs);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceInfo, clGetDeviceInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateContext, clCreateContext);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateContextFromType,
+                               clCreateContextFromType);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainContext, clRetainContext);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseContext, clReleaseContext);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetContextInfo, clGetContextInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateCommandQueue, clCreateCommandQueue);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainCommandQueue, clRetainCommandQueue);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseCommandQueue, clReleaseCommandQueue);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetCommandQueueInfo, clGetCommandQueueInfo);
+  // clSetCommandQueueProperty
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateBuffer, clCreateBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateImage2D, clCreateImage2D);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateImage3D, clCreateImage3D);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainMemObject, clRetainMemObject);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseMemObject, clReleaseMemObject);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetSupportedImageFormats,
+                               clGetSupportedImageFormats);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetMemObjectInfo, clGetMemObjectInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetImageInfo, clGetImageInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateSampler, clCreateSampler)
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainSampler, clRetainSampler)
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseSampler, clReleaseSampler);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetSamplerInfo, clGetSamplerInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithSource,
+                               clCreateProgramWithSource);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithBinary,
+                               clCreateProgramWithBinary);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainProgram, clRetainProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseProgram, clReleaseProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clBuildProgram, clBuildProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clUnloadCompiler, clUnloadCompiler);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetProgramInfo, clGetProgramInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetProgramBuildInfo, clGetProgramBuildInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateKernel, clCreateKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateKernelsInProgram,
+                               clCreateKernelsInProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainKernel, clRetainKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseKernel, clReleaseKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetKernelArg, clSetKernelArg);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetKernelInfo, clGetKernelInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetKernelWorkGroupInfo,
+                               clGetKernelWorkGroupInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clWaitForEvents, clWaitForEvents);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetEventInfo, clGetEventInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainEvent, clRetainEvent);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseEvent, clReleaseEvent);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetEventProfilingInfo,
+                               clGetEventProfilingInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clFlush, clFlush);
+  REGISTER_DISPATCH_ENTRYPOINT(clFinish, clFinish);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueReadBuffer, clEnqueueReadBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWriteBuffer, clEnqueueWriteBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyBuffer, clEnqueueCopyBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueReadImage, clEnqueueReadImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWriteImage, clEnqueueWriteImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyImage, clEnqueueCopyImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyImageToBuffer,
+                               clEnqueueCopyImageToBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyBufferToImage,
+                               clEnqueueCopyBufferToImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueMapBuffer, clEnqueueMapBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueMapImage, clEnqueueMapImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueUnmapMemObject,
+                               clEnqueueUnmapMemObject);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueNDRangeKernel, clEnqueueNDRangeKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueTask, clEnqueueTask);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueNativeKernel, clEnqueueNativeKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueMarker, clEnqueueMarker);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWaitForEvents, clEnqueueWaitForEvents);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueBarrier, clEnqueueBarrier);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetExtensionFunctionAddress,
+                               clGetExtensionFunctionAddress);
+  // clCreateFromGLBuffer
+  // clCreateFromGLTexture2D
+  // clCreateFromGLTexture3D
+  // clCreateFromGLRenderbuffer
+  // clGetGLObjectInfo
+  // clGetGLTextureInfo
+  // clEnqueueAcquireGLObjects
+  // clEnqueueReleaseGLObjects
+  REGISTER_DISPATCH_ENTRYPOINT(clGetGLContextInfoKHR, clGetGLContextInfoKHR);
 
 #ifdef _WIN32
-        REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromDX9MediaAdapterKHR,
-                                     clGetDeviceIDsFromDX9MediaAdapterKHR)
-            REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D10KHR,
-                                         clGetDeviceIDsFromD3D10KHR)
-    // clCreateFromD3D10BufferKHR
-    // clCreateFromD3D10Texture2DKHR
-    // clCreateFromD3D10Texture3DKHR
-    // clEnqueueAcquireD3D10ObjectsKHR
-    // clEnqueueReleaseD3D10ObjectsKHR
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromDX9MediaAdapterKHR,
+                               clGetDeviceIDsFromDX9MediaAdapterKHR);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D10KHR,
+                               clGetDeviceIDsFromD3D10KHR);
+  // clCreateFromD3D10BufferKHR
+  // clCreateFromD3D10Texture2DKHR
+  // clCreateFromD3D10Texture3DKHR
+  // clEnqueueAcquireD3D10ObjectsKHR
+  // clEnqueueReleaseD3D10ObjectsKHR
 
-    REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D11KHR,
-                                 clGetDeviceIDsFromD3D11KHR)
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceIDsFromD3D11KHR,
+                               clGetDeviceIDsFromD3D11KHR);
 #endif
 
-        REGISTER_DISPATCH_ENTRYPOINT(clSetEventCallback, clSetEventCallback) REGISTER_DISPATCH_ENTRYPOINT(
-            clCreateSubBuffer,
-            clCreateSubBuffer) REGISTER_DISPATCH_ENTRYPOINT(clSetMemObjectDestructorCallback,
-                                                            clSetMemObjectDestructorCallback)
-            REGISTER_DISPATCH_ENTRYPOINT(clCreateUserEvent, clCreateUserEvent) REGISTER_DISPATCH_ENTRYPOINT(
-                clSetUserEventStatus,
-                clSetUserEventStatus) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueReadBufferRect,
-                                                                   clEnqueueReadBufferRect)
-                REGISTER_DISPATCH_ENTRYPOINT(
-                    clEnqueueWriteBufferRect,
-                    clEnqueueWriteBufferRect) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyBufferRect,
-                                                                           clEnqueueCopyBufferRect)
+  REGISTER_DISPATCH_ENTRYPOINT(clSetEventCallback, clSetEventCallback)
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateSubBuffer, clCreateSubBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetMemObjectDestructorCallback,
+                               clSetMemObjectDestructorCallback);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateUserEvent, clCreateUserEvent);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetUserEventStatus, clSetUserEventStatus);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueReadBufferRect,
+                               clEnqueueReadBufferRect);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueWriteBufferRect,
+                               clEnqueueWriteBufferRect);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueCopyBufferRect,
+                               clEnqueueCopyBufferRect);
 
-                    REGISTER_DISPATCH_ENTRYPOINT(clCreateEventFromGLsyncKHR,
-                                                 clCreateEventFromGLsyncKHR)
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateEventFromGLsyncKHR,
+                               clCreateEventFromGLsyncKHR);
 
-                        REGISTER_DISPATCH_ENTRYPOINT(
-                            clCreateSubDevices,
-                            clCreateSubDevices) REGISTER_DISPATCH_ENTRYPOINT(clRetainDevice, clRetainDevice)
-                            REGISTER_DISPATCH_ENTRYPOINT(
-                                clReleaseDevice,
-                                clReleaseDevice) REGISTER_DISPATCH_ENTRYPOINT(clCreateImage,
-                                                                              clCreateImage)
-                                REGISTER_DISPATCH_ENTRYPOINT(
-                                    clCreateProgramWithBuiltInKernels,
-                                    clCreateProgramWithBuiltInKernels)
-                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                        clCompileProgram, clCompileProgram)
-                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                            clLinkProgram, clLinkProgram)
-                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                clUnloadPlatformCompiler,
-                                                clUnloadPlatformCompiler)
-                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                    clGetKernelArgInfo,
-                                                    clGetKernelArgInfo)
-                                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                                        clEnqueueFillBuffer,
-                                                        clEnqueueFillBuffer)
-                                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                                            clEnqueueFillImage,
-                                                            clEnqueueFillImage)
-                                                            REGISTER_DISPATCH_ENTRYPOINT(
-                                                                clEnqueueMigrateMemObjects,
-                                                                clEnqueueMigrateMemObjects)
-                                                                REGISTER_DISPATCH_ENTRYPOINT(
-                                                                    clEnqueueMarkerWithWaitList,
-                                                                    clEnqueueMarkerWithWaitList)
-                                                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                                                        clEnqueueBarrierWithWaitList,
-                                                                        clEnqueueBarrierWithWaitList)
-                                                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                                                            clGetExtensionFunctionAddressForPlatform,
-                                                                            clGetExtensionFunctionAddressForPlatform)
-    // clCreateFromGLTexture
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateSubDevices, clCreateSubDevices);
+  REGISTER_DISPATCH_ENTRYPOINT(clRetainDevice, clRetainDevice);
+  REGISTER_DISPATCH_ENTRYPOINT(clReleaseDevice, clReleaseDevice);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateImage, clCreateImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithBuiltInKernels,
+                               clCreateProgramWithBuiltInKernels);
+  REGISTER_DISPATCH_ENTRYPOINT(clCompileProgram, clCompileProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clLinkProgram, clLinkProgram);
+  REGISTER_DISPATCH_ENTRYPOINT(clUnloadPlatformCompiler,
+                               clUnloadPlatformCompiler);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetKernelArgInfo, clGetKernelArgInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueFillBuffer, clEnqueueFillBuffer);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueFillImage, clEnqueueFillImage);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueMigrateMemObjects,
+                               clEnqueueMigrateMemObjects);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueMarkerWithWaitList,
+                               clEnqueueMarkerWithWaitList);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueBarrierWithWaitList,
+                               clEnqueueBarrierWithWaitList);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetExtensionFunctionAddressForPlatform,
+                               clGetExtensionFunctionAddressForPlatform);
+  // clCreateFromGLTexture
 
-    // clCreateFromD3D11BufferKHR
-    // clCreateFromD3D11Texture2DKHR
-    // clCreateFromD3D11Texture3DKHR
-    // clCreateFromDX9MediaSurfaceKHR
-    // clEnqueueAcquireD3D11ObjectsKHR
-    // clEnqueueReleaseD3D11ObjectsKHR
+  // clCreateFromD3D11BufferKHR
+  // clCreateFromD3D11Texture2DKHR
+  // clCreateFromD3D11Texture3DKHR
+  // clCreateFromDX9MediaSurfaceKHR
+  // clEnqueueAcquireD3D11ObjectsKHR
+  // clEnqueueReleaseD3D11ObjectsKHR
 
-    REGISTER_DISPATCH_ENTRYPOINT(
-        clSVMAlloc, clSVMAlloc) REGISTER_DISPATCH_ENTRYPOINT(clSVMFree,
-                                                             clSVMFree)
-        REGISTER_DISPATCH_ENTRYPOINT(
-            clEnqueueSVMFree,
-            clEnqueueSVMFree) REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMemcpy,
-                                                           clEnqueueSVMMemcpy)
-            REGISTER_DISPATCH_ENTRYPOINT(
-                clEnqueueSVMMemFill, clEnqueueSVMMemFill)
-                REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMap, clEnqueueSVMMap)
-                    REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMUnmap,
-                                                 clEnqueueSVMUnmap)
-                        REGISTER_DISPATCH_ENTRYPOINT(clSetKernelArgSVMPointer,
-                                                     clSetKernelArgSVMPointer)
-                            REGISTER_DISPATCH_ENTRYPOINT(clSetKernelExecInfo,
-                                                         clSetKernelExecInfo)
+  REGISTER_DISPATCH_ENTRYPOINT(clSVMAlloc, clSVMAlloc)
+  REGISTER_DISPATCH_ENTRYPOINT(clSVMFree, clSVMFree);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMFree, clEnqueueSVMFree);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMemcpy, clEnqueueSVMMemcpy);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMemFill, clEnqueueSVMMemFill);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMap, clEnqueueSVMMap);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMUnmap, clEnqueueSVMUnmap);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetKernelArgSVMPointer,
+                               clSetKernelArgSVMPointer);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetKernelExecInfo, clSetKernelExecInfo);
 
-                                REGISTER_DISPATCH_ENTRYPOINT(
-                                    clCreateSamplerWithProperties,
-                                    clCreateSamplerWithProperties)
-                                    REGISTER_DISPATCH_ENTRYPOINT(
-                                        clCreateCommandQueueWithProperties,
-                                        clCreateCommandQueueWithProperties)
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateSamplerWithProperties,
+                               clCreateSamplerWithProperties);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateCommandQueueWithProperties,
+                               clCreateCommandQueueWithProperties);
 
-                                        REGISTER_DISPATCH_ENTRYPOINT(
-                                            clGetKernelSubGroupInfoKHR,
-                                            clGetKernelSubGroupInfoKHR)
+  REGISTER_DISPATCH_ENTRYPOINT(clGetKernelSubGroupInfoKHR,
+                               clGetKernelSubGroupInfoKHR);
 
-    // clEnqueueAcquireDX9MediaSurfacesKHR
-    // clEnqueueReleaseDX9MediaSurfacesKHR
+  // clEnqueueAcquireDX9MediaSurfacesKHR
+  // clEnqueueReleaseDX9MediaSurfacesKHR
 
-    REGISTER_DISPATCH_ENTRYPOINT(
-        clCreatePipe, clCreatePipe) REGISTER_DISPATCH_ENTRYPOINT(clGetPipeInfo,
-                                                                 clGetPipeInfo)
-        REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithIL,
-                                     clCreateProgramWithIL)
-            REGISTER_DISPATCH_ENTRYPOINT(clCloneKernel, clCloneKernel)
-                REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceAndHostTimer,
-                                             clGetDeviceAndHostTimer)
-                    REGISTER_DISPATCH_ENTRYPOINT(clGetHostTimer, clGetHostTimer)
-                        REGISTER_DISPATCH_ENTRYPOINT(clGetKernelSubGroupInfo,
-                                                     clGetKernelSubGroupInfo)
-                            REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMigrateMem,
-                                                         clEnqueueSVMMigrateMem)
-                                REGISTER_DISPATCH_ENTRYPOINT(
-                                    clSetDefaultDeviceCommandQueue,
-                                    clSetDefaultDeviceCommandQueue)}
+  REGISTER_DISPATCH_ENTRYPOINT(clCreatePipe, clCreatePipe);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetPipeInfo, clGetPipeInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clCreateProgramWithIL, clCreateProgramWithIL);
+  REGISTER_DISPATCH_ENTRYPOINT(clCloneKernel, clCloneKernel);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetDeviceAndHostTimer,
+                               clGetDeviceAndHostTimer);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetHostTimer, clGetHostTimer);
+  REGISTER_DISPATCH_ENTRYPOINT(clGetKernelSubGroupInfo,
+                               clGetKernelSubGroupInfo);
+  REGISTER_DISPATCH_ENTRYPOINT(clEnqueueSVMMigrateMem, clEnqueueSVMMigrateMem);
+  REGISTER_DISPATCH_ENTRYPOINT(clSetDefaultDeviceCommandQueue,
+                               clSetDefaultDeviceCommandQueue);
+}
 
 CrtModule::CrtModule()
     : m_deviceInfoMapGuard(m_deviceInfoMap), m_contextInfoGuard(m_contextInfo),
