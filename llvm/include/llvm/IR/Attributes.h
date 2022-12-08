@@ -262,8 +262,8 @@ public:
   /// Returns the minimum value for the vscale_range attribute.
   unsigned getVScaleRangeMin() const;
 
-  /// Returns the maximum value for the vscale_range attribute or None when
-  /// unknown.
+  /// Returns the maximum value for the vscale_range attribute or std::nullopt
+  /// when unknown.
   std::optional<unsigned> getVScaleRangeMax() const;
 
   // Returns the unwind table kind.
@@ -1149,8 +1149,8 @@ public:
   /// invalid if the Kind is not present in the builder.
   Attribute getAttribute(StringRef Kind) const;
 
-  /// Return raw (possibly packed/encoded) value of integer attribute or None if
-  /// not set.
+  /// Return raw (possibly packed/encoded) value of integer attribute or
+  /// std::nullopt if not set.
   std::optional<uint64_t> getRawIntAttr(Attribute::AttrKind Kind) const;
 
   /// Retrieve the alignment attribute, if it exists.
@@ -1195,7 +1195,8 @@ public:
   /// Retrieve the inalloca type.
   Type *getInAllocaType() const { return getTypeAttr(Attribute::InAlloca); }
 
-  /// Retrieve the allocsize args, or None if the attribute does not exist.
+  /// Retrieve the allocsize args, or std::nullopt if the attribute does not
+  /// exist.
   std::optional<std::pair<unsigned, std::optional<unsigned>>> getAllocSizeArgs()
       const;
 
