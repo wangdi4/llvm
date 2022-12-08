@@ -103,13 +103,13 @@ private:
   CompilationUtils::FuncSet SGSyncFuncSet;
 
   /// This holds the insert point at entry block for the running function.
-  Instruction *InsertPoint;
+  Instruction *InsertPoint = nullptr;
 
   /// This holds the GID allocas.
-  Instruction *GIDAllocas[3];
+  Instruction *GIDAllocas[3] = {nullptr};
 
   /// This holds the Ind DIType for GID variables.
-  DIType *IndDIType;
+  DIType *IndDIType = nullptr;
 
   /// Skip insertDeclare if true.
   bool SkipInsertDbgDeclare = false;

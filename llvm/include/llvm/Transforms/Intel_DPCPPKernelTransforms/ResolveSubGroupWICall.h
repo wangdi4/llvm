@@ -146,7 +146,7 @@ private:
   // must be visible to emulation passes.
   bool ResolveSGBarrier;
 
-  RuntimeService *RTS;
+  RuntimeService *RTS = nullptr;
 
   SmallVector<Instruction *, 8> ExtraInstToRemove;
 };

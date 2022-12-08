@@ -54,12 +54,12 @@ private:
                                  StringRef NameStr);
 
   /// Constant values used by function calls.
-  Value *Zero;
-  Value *One;
-  Value *Two;
+  Value *Zero = nullptr;
+  Value *One = nullptr;
+  Value *Two = nullptr;
 
   /// Return type for work-item functions.
-  Type *RetTy;
+  Type *RetTy = nullptr;
 };
 
 } // namespace llvm

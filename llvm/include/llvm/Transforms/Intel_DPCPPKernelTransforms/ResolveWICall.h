@@ -16,6 +16,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include <set>
 
 namespace llvm {
@@ -114,27 +115,27 @@ private:
   Value *getOrCreateBlock2KernelMapper();
 
   /// The llvm current processed module.
-  Module *M;
+  Module *M = nullptr;
   /// The llvm context.
-  LLVMContext *Ctx;
+  LLVMContext *Ctx = nullptr;
 
-  ImplicitArgsInfo *IAInfo;
+  ImplicitArgsInfo *IAInfo = nullptr;
 
   /// CallGraph of current module.
-  CallGraph *CG;
+  CallGraph *CG = nullptr;
 
   /// This holds the Runtime Handle implicit argument of current handled
   /// function This argument is initialized passed thru to MIC's printf.
-  Value *RuntimeHandle;
+  Value *RuntimeHandle = nullptr;
   /// This holds the WorkInfo implicit argument of current handled function.
-  Value *WorkInfo;
+  Value *WorkInfo = nullptr;
   /// This holds the pWGId implicit argument of current handled function.
-  Value *WGId;
+  Value *WGId = nullptr;
   /// This holds the pBaseGlbId implicit argumnet of current handled function.
-  Value *BaseGlbId;
+  Value *BaseGlbId = nullptr;
 
   /// This is flag indicates that Prefetch declarations already added to module.
-  bool PrefetchDecl;
+  bool PrefetchDecl = false;
   /// flags indicates that extended execution built-in declarations already
   /// added to module.
   std::set<unsigned> ExtExecDecls;
@@ -144,12 +145,12 @@ private:
   enum { ENQUEUE_KERNEL_RETURN_BITS = 32 };
 
   // Per function cached values.
-  Function *F;
-  Value *RuntimeInterface;
-  Value *Block2KernelMapper;
+  Function *F = nullptr;
+  Value *RuntimeInterface = nullptr;
+  Value *Block2KernelMapper = nullptr;
 
   // Version of OpenCL C a processed module is compiled for.
-  unsigned OclVersion;
+  unsigned OclVersion = CompilationUtils::OclVersion::CL_VER_DEFAULT;
   // True if a module is compiled with uniform work-group size,
   // e.g. -cl-uniform-work-group-size.
   bool IsUniformWG;

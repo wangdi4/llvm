@@ -156,13 +156,13 @@ private:
   RuntimeService &RTService;
 
   /// The dimension over which we vectorize (usually 0).
-  unsigned VectorizeDim;
+  unsigned VectorizeDim = 0;
 
   /// Iteratively one set holds the changed from the previous iteration and the
   /// other holds the new changed values from the current iteration.
   SetVector<const Value *> Changed[2];
   // Ptr to current changed set.
-  SetVector<const Value *> *ChangedNew;
+  SetVector<const Value *> *ChangedNew = nullptr;
 
   /// Stores an updated list of all dependencies.
   DenseMap<const Value *, Dependency> Deps;

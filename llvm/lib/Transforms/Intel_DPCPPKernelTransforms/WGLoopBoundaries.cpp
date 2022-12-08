@@ -69,19 +69,19 @@ private:
   /// Module being processed.
   Module &M;
   /// Function being processed.
-  Function *F;
+  Function *F = nullptr;
 
-  LLVMContext *Ctx;
+  LLVMContext *Ctx = nullptr;
   const RuntimeService &RTService;
 
   /// size_t type.
-  Type *IndTy;
+  Type *IndTy = nullptr;
   /// size_t one constant.
-  Constant *ConstOne;
+  Constant *ConstOne = nullptr;
   // size_t zero constant.
-  Constant *ConstZero;
+  Constant *ConstZero = nullptr;
   /// Number of WG dimensions.
-  unsigned NumDim;
+  unsigned NumDim = 0;
   /// local_id lower bounds per dimension.
   VVec LowerBounds;
   /// local_size lower bounds per dimension.
@@ -106,7 +106,7 @@ private:
   /// Users of atomic/pipe functions.
   FuncSet WIUniqueFuncUsers;
   /// True iff upper bound was set to be inclusive.
-  bool RightBoundInc;
+  bool RightBoundInc = false;
   /// True if the pattern is (a - id) < b.
   bool ReverseLowerUpperBound = false;
 

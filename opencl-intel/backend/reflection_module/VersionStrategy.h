@@ -91,7 +91,7 @@ private:
 
   const ReturnTypeMap *m_pTypeMap;
   // the transpose strategy (either vector or scalar)
-  TransposeStrategy m_transposeStrategy;
+  TransposeStrategy m_transposeStrategy = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

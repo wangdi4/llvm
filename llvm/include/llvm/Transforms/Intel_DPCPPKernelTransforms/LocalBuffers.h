@@ -55,23 +55,23 @@ private:
 
 private:
   /// @brief The llvm current processed module
-  Module *M;
+  Module *M = nullptr;
 
   /// @brief The llvm context
-  LLVMContext *Context;
+  LLVMContext *Context = nullptr;
 
   /// @brief instance of LocalBuffAnalysis pass
-  LocalBufferInfo *LBInfo;
+  LocalBufferInfo *LBInfo = nullptr;
 
   /// @brief use TLS globals instead of implicit arguments
-  bool UseTLSGlobals;
+  bool UseTLSGlobals = false;
 
   /// @brief save the first instruction as insert point for current function
-  Instruction *InsertPoint;
+  Instruction *InsertPoint = nullptr;
 
   /// @brief the DISubprogram of current function
   ///        when this equals to `nullptr`, then no need to handle debug info
-  DISubprogram *SP;
+  DISubprogram *SP = nullptr;
 
   /// @brief help to find all compile units in the module
   DebugInfoFinder DIFinder;

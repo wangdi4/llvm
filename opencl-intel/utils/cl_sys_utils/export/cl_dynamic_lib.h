@@ -104,9 +104,10 @@ public:
 protected:
   void *m_hLibrary; // A handle to loaded library
 
-  unsigned int m_uiFuncCount;
-  unsigned int *m_pOffsetNames; // A pointer to offsets of function names
-  unsigned int *m_pOffsetFunc;  // A pointer to offsets of functions
+  unsigned int m_uiFuncCount = 0;
+  unsigned int *m_pOffsetNames =
+      nullptr; // A pointer to offsets of function names
+  unsigned int *m_pOffsetFunc = nullptr; // A pointer to offsets of functions
 
   bool m_bUnloadOnDestructor;
 

@@ -681,8 +681,8 @@ protected:
                         // in the context.
   cl_device_id *m_pDeviceIds;
   cl_device_id *m_pOriginalDeviceIds;
-  cl_uint m_pOriginalNumDevices;
-  cl_uint m_uiNumRootDevices;
+  cl_uint m_pOriginalNumDevices = 0;
+  cl_uint m_uiNumRootDevices = 0;
 
   cl_bitfield m_devTypeMask; // Mask of device types involved by the context
 
@@ -700,7 +700,7 @@ protected:
   //                                              m_mapPropertyMap;       // map
   //                                              to search context properties
 
-  cl_uint m_uiContextPropCount;
+  cl_uint m_uiContextPropCount = 0;
 
   cl_bool m_fpgaEmulator;
 
@@ -710,15 +710,15 @@ protected:
 
   void *m_pUserData; // user data
 
-  ocl_gpa_data *m_pGPAData;
+  ocl_gpa_data *m_pGPAData = nullptr;
   cl_ulong m_ulMaxMemAllocSize;
-  size_t m_sz1dImgBufSize;
-  size_t m_sz2dWidth;
-  size_t m_sz2dHeight;
-  size_t m_sz3dWidth;
-  size_t m_sz3dHeight;
-  size_t m_sz3dDepth;
-  size_t m_szArraySize;
+  size_t m_sz1dImgBufSize = 0;
+  size_t m_sz2dWidth = 0;
+  size_t m_sz2dHeight = 0;
+  size_t m_sz3dWidth = 0;
+  size_t m_sz3dHeight = 0;
+  size_t m_sz3dDepth = 0;
+  size_t m_szArraySize = 0;
 
   typedef std::list<cl_image_format> tImageFormatList;
   typedef std::map<cl_mem_flags, tImageFormatList> tImageFormatMap;
@@ -727,16 +727,16 @@ protected:
 
   Intel::OpenCL::Utils::ClHeap m_MemObjectsHeap;
   ContextModule &m_contextModule;
-  bool m_bSupportsSvmSystem; // if there is at least one device that supports
-                             // this
+  bool m_bSupportsSvmSystem = false; // if there is at least one device that
+                                     // supports this
   std::map<void *, SharedPtr<SVMBuffer>> m_svmBuffers;
   mutable Intel::OpenCL::Utils::OclReaderWriterLock m_svmBuffersRwlock;
 
-  bool m_bSupportsUsmHost;
-  bool m_bSupportsUsmDevice;
-  bool m_bSupportsUsmSharedSingle;
-  bool m_bSupportsUsmSharedCross;
-  bool m_bSupportsUsmSharedSystem;
+  bool m_bSupportsUsmHost = false;
+  bool m_bSupportsUsmDevice = false;
+  bool m_bSupportsUsmSharedSingle = false;
+  bool m_bSupportsUsmSharedCross = false;
+  bool m_bSupportsUsmSharedSystem = false;
   std::map<void *, SharedPtr<USMBuffer>> m_usmBuffers;
   mutable Intel::OpenCL::Utils::OclReaderWriterLock m_usmBuffersRwlock;
 

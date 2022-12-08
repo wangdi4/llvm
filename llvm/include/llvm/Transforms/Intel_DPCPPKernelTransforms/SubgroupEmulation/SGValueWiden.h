@@ -59,7 +59,7 @@ private:
 
   BarrierUtils Utils;
 
-  Value *ConstZero;
+  Value *ConstZero = nullptr;
 
   void runOnFunction(Function &F, const unsigned &Sizes);
 
