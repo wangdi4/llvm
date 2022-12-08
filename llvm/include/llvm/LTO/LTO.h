@@ -103,7 +103,7 @@ std::string getThinLTOOutputFile(const std::string &Path,
 Expected<std::unique_ptr<ToolOutputFile>> setupLLVMOptimizationRemarks(
     LLVMContext &Context, StringRef RemarksFilename, StringRef RemarksPasses,
     StringRef RemarksFormat, bool RemarksWithHotness,
-    Optional<uint64_t> RemarksHotnessThreshold = 0, int Count = -1);
+    std::optional<uint64_t> RemarksHotnessThreshold = 0, int Count = -1);
 
 /// Setups the output file for saving statistics.
 Expected<std::unique_ptr<ToolOutputFile>>
@@ -339,7 +339,7 @@ private:
     // The full set of bitcode modules in input order.
     ModuleMapType ModuleMap;
     // The bitcode modules to compile, if specified by the LTO Config.
-    Optional<ModuleMapType> ModulesToCompile;
+    std::optional<ModuleMapType> ModulesToCompile;
     DenseMap<GlobalValue::GUID, StringRef> PrevailingModuleForGUID;
   } ThinLTO;
 
@@ -438,7 +438,7 @@ private:
   mutable bool CalledGetMaxTasks = false;
 
   // Use Optional to distinguish false from not yet initialized.
-  Optional<bool> EnableSplitLTOUnit;
+  std::optional<bool> EnableSplitLTOUnit;
 
   // Identify symbols exported dynamically, and that therefore could be
   // referenced by a shared library not visible to the linker.
