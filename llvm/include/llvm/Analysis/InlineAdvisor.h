@@ -336,8 +336,8 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 /// INTEL: This is the original comment from llorg:
 /// Return the cost only if the inliner should attempt to inline at the given
 /// CallSite. If we return the cost, we will emit an optimisation remark later
-/// using that cost, so we won't do so from this function. Return None if
-/// inlining should not be attempted.
+/// using that cost, so we won't do so from this function. Return std::nullopt
+/// if inlining should not be attempted.
 #if INTEL_CUSTOMIZATION
 /// INTEL: This function has been modified to always return an InlineCost,
 /// so that the inline analysis can pass back results for the inlining report
