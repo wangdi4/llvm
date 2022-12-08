@@ -888,6 +888,12 @@ def X86vpdpbsud  : SDNode<"X86ISD::VPDPBSUD",  SDTVnni>;
 def X86vpdpbsuds : SDNode<"X86ISD::VPDPBSUDS", SDTVnni>;
 def X86vpdpbuud  : SDNode<"X86ISD::VPDPBUUD",  SDTVnni>;
 def X86vpdpbuuds : SDNode<"X86ISD::VPDPBUUDS", SDTVnni>;
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+def X86vdpbf8ps  : SDNode<"X86ISD::VDPBF8PS",  SDTVnni>;
+def X86vdpbhf8ps : SDNode<"X86ISD::VDPBHF8PS", SDTVnni>;
+def X86vdphbf8ps : SDNode<"X86ISD::VDPHBF8PS", SDTVnni>;
+def X86vdphf8ps  : SDNode<"X86ISD::VDPHF8PS",  SDTVnni>;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def X86vcvt2ps2ph :       SDNode<"X86ISD::VCVT2PS2PH",
