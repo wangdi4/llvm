@@ -312,18 +312,12 @@ public:
       : OrigLoop(L), LI(LI), TLI(TLI), TTI(TTI), Legal(Legal), CM(CM), IAI(IAI),
         PSE(PSE), Hints(Hints), ORE(ORE) {}
 
-<<<<<<< HEAD
-  /// Plan how to best vectorize, return the best VF and its cost, or None if
-  /// vectorization and interleaving should be avoided up front.
+  /// Plan how to best vectorize, return the best VF and its cost, or
+  /// std::nullopt if vectorization and interleaving should be avoided up front.
 #if INTEL_CUSTOMIZATION
   Optional<VectorizationFactor> plan(ElementCount UserVF, unsigned UserIC,
                                      ArrayRef<ElementCount> VFs);
 #endif // INTEL_CUSTOMIZATION
-=======
-  /// Plan how to best vectorize, return the best VF and its cost, or
-  /// std::nullopt if vectorization and interleaving should be avoided up front.
-  Optional<VectorizationFactor> plan(ElementCount UserVF, unsigned UserIC);
->>>>>>> 595f1a6aaf5465fd71884b1557b4451be4e6a282
 
   /// Use the VPlan-native path to plan how to best vectorize, return the best
   /// VF and its cost.
