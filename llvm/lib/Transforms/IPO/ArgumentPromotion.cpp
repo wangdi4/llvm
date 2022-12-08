@@ -88,6 +88,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -420,7 +421,7 @@ static Function *doPromotion(
   // All uses of the old function have been replaced with the new function,
   // transfer the function entry count to the replacement function to maintain
   // the ability to place the functions into hot/cold sections.
-  Optional<Function::ProfileCount> OldCount = F->getEntryCount();
+  std::optional<Function::ProfileCount> OldCount = F->getEntryCount();
   if (OldCount.has_value())
     NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
