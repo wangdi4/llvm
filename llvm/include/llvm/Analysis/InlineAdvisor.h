@@ -336,6 +336,7 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 /// INTEL: This is the original comment from llorg:
 /// Return the cost only if the inliner should attempt to inline at the given
 /// CallSite. If we return the cost, we will emit an optimisation remark later
+<<<<<<< HEAD
 /// using that cost, so we won't do so from this function. Return None if
 /// inlining should not be attempted.
 #if INTEL_CUSTOMIZATION
@@ -347,6 +348,11 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 ///
 InlineCost
 #endif // INTEL_CUSTOMIZATION
+=======
+/// using that cost, so we won't do so from this function. Return std::nullopt
+/// if inlining should not be attempted.
+Optional<InlineCost>
+>>>>>>> 9f252e5567041bcafe20980263381e4ad3c8986e
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
              OptimizationRemarkEmitter &ORE, bool EnableDeferral = true);
 
