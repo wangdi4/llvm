@@ -271,13 +271,8 @@ ParseRet tryParseParameter(StringRef &ParseString, VFParamKind &PKind,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `StepOrPos`
 /// accordingly, and return success.  On a syntax error, it return a
-<<<<<<< HEAD
-/// parsing error. If nothing is parsed, it returns None.
-ParseRet tryParseAlign(StringRef &ParseString, MaybeAlign &Alignment) { // INTEL
-=======
 /// parsing error. If nothing is parsed, it returns std::nullopt.
-ParseRet tryParseAlign(StringRef &ParseString, Align &Alignment) {
->>>>>>> 3c09ed006ab35dd8faac03311b14f0857b01949c
+ParseRet tryParseAlign(StringRef &ParseString, MaybeAlign &Alignment) { // INTEL
   uint64_t Val;
   //    "a" <number>
   if (ParseString.consume_front("a")) {
