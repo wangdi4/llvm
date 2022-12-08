@@ -90,7 +90,7 @@ public:
       OS << ".\n";
       if (DKADI->getSeverity() == DS_Error)
         throw Exceptions::CompilerException(
-            "Analyzing DPCPP kernel properties Failed", CL_DEV_INVALID_BINARY);
+            "Analyzing DPCPP kernel properties failed", CL_DEV_INVALID_BINARY);
       return true;
     }
     return false;
