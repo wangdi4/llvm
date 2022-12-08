@@ -36,31 +36,3 @@ entry:
   %vecinit3.i.i = shufflevector <4 x i64> %vecinit.i.i, <4 x i64> undef, <4 x i32> zeroinitializer
   ret <4 x i64> %vecinit3.i.i
 }
-
-define <2 x i64> @test_mm_broadcastmw_epi32(<8 x i64> %a, <8 x i64> %b) {
-entry:
-  %0 = bitcast <8 x i64> %a to <16 x i32>
-  %1 = bitcast <8 x i64> %b to <16 x i32>
-  %2 = icmp eq <16 x i32> %0, %1
-  %3 = bitcast <16 x i1> %2 to i16
-  %conv.i = zext i16 %3 to i32
-  %vecinit.i.i = insertelement <4 x i32> undef, i32 %conv.i, i32 0
-  %vecinit3.i.i = shufflevector <4 x i32> %vecinit.i.i, <4 x i32> undef, <4 x i32> zeroinitializer
-  %4 = bitcast <4 x i32> %vecinit3.i.i to <2 x i64>
-  ret <2 x i64> %4
-}
-
-define <4 x i64> @test_mm256_broadcastmw_epi32(<8 x i64> %a, <8 x i64> %b) {
-entry:
-  %0 = bitcast <8 x i64> %a to <16 x i32>
-  %1 = bitcast <8 x i64> %b to <16 x i32>
-  %2 = icmp eq <16 x i32> %0, %1
-  %3 = bitcast <16 x i1> %2 to i16
-  %conv.i = zext i16 %3 to i32
-  %vecinit.i.i = insertelement <8 x i32> undef, i32 %conv.i, i32 0
-  %vecinit7.i.i = shufflevector <8 x i32> %vecinit.i.i, <8 x i32> undef, <8 x i32> zeroinitializer
-  %4 = bitcast <8 x i32> %vecinit7.i.i to <4 x i64>
-  ret <4 x i64> %4
-}
-
-

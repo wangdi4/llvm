@@ -165,14 +165,26 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::VR128RegClassID:
     case X86::VR256RegClassID:
       // If VLX isn't supported we should only inflate to these classes.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (!(Subtarget.hasVLX() || Subtarget.hasAVX256P()) &&
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (!Subtarget.hasVLX() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           getRegSizeInBits(*Super) == getRegSizeInBits(*RC))
         return Super;
       break;
     case X86::VR128XRegClassID:
     case X86::VR256XRegClassID:
       // If VLX isn't support we shouldn't inflate to these classes.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if ((Subtarget.hasVLX() || Subtarget.hasAVX256P()) &&
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (Subtarget.hasVLX() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           getRegSizeInBits(*Super) == getRegSizeInBits(*RC))
         return Super;
       break;

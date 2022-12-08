@@ -275,7 +275,7 @@ let Predicates = [HasFP16, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 
 #if INTEL_FEATURE_ISA_BF16_BASE
-let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasFP16], [HasFP16, HasVLX]) in
+let Predicates = [HasAVX256P_Or_HasFP16] in
   defm : subvec_zero_lowering<"APSZ128", VR128X, v16bf16, v8bf16, sub_xmm>;
 let Predicates = [HasFP16, HasVLX] in {
   defm : subvec_zero_lowering<"APSZ128", VR128X, v32bf16, v8bf16, sub_xmm>;

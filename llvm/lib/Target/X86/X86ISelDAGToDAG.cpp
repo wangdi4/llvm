@@ -4358,8 +4358,16 @@ bool X86DAGToDAGISel::tryVPTERNLOG(SDNode *N) {
       NVT.getVectorElementType() == MVT::i1)
     return false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // We need VLX or AVX256P for 128/256-bit.
+  if (!((Subtarget->hasVLX() || Subtarget->hasAVX256P()) ||
+        NVT.is512BitVector()))
+#else  // INTEL_FEATURE_ISA_AVX256P
   // We need VLX for 128/256-bit.
   if (!(Subtarget->hasVLX() || NVT.is512BitVector()))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   SDValue N0 = N->getOperand(0);
