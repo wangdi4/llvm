@@ -223,7 +223,7 @@ static bool isPrivatizationCandidate(AllocaInst *AI,
     LLVM_DEBUG(reportSkipped(AI, "unsupported value type"));
     return false;
   }
-  Optional<TypeSize> Size =
+  std::optional<TypeSize> Size =
       AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
   if (!Size) {
     LLVM_DEBUG(reportSkipped(AI, "unknown size"));
@@ -964,7 +964,7 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
         !AI->getAllocatedType()->isSingleValueType())
       continue;
 
-    Optional<TypeSize> Size =
+    std::optional<TypeSize> Size =
         AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
     if (!Size)
       continue;
