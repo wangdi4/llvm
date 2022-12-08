@@ -597,7 +597,7 @@ void X86FrameLowering::emitZeroCallUsedRegs(BitVector RegsToZero,
 void X86FrameLowering::emitStackProbe(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator MBBI, const DebugLoc &DL, bool InProlog,
-    Optional<MachineFunction::DebugInstrOperandPair> InstrNum) const {
+    std::optional<MachineFunction::DebugInstrOperandPair> InstrNum) const {
   const X86Subtarget &STI = MF.getSubtarget<X86Subtarget>();
   if (STI.isTargetWindowsCoreCLR()) {
     if (InProlog) {
@@ -1123,7 +1123,7 @@ void X86FrameLowering::emitStackProbeInlineWindowsCoreCLR64(
 void X86FrameLowering::emitStackProbeCall(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator MBBI, const DebugLoc &DL, bool InProlog,
-    Optional<MachineFunction::DebugInstrOperandPair> InstrNum) const {
+    std::optional<MachineFunction::DebugInstrOperandPair> InstrNum) const {
   bool IsLargeCodeModel = MF.getTarget().getCodeModel() == CodeModel::Large;
 
   // FIXME: Add indirect thunk support and remove this.
