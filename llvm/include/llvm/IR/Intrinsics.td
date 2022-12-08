@@ -175,6 +175,11 @@ def IntrConvergent : IntrinsicProperty;
 // This property indicates that the intrinsic is safe to speculate.
 def IntrSpeculatable : IntrinsicProperty;
 
+// INTEL_CUSTOMIZATION
+// This property indicates that the intrinsic does not recurse.
+def IntrNoRecurse : IntrinsicProperty;
+// end INTEL_CUSTOMIZATION
+
 // This property can be used to override the 'has no other side effects'
 // language of the IntrNoMem, IntrReadMem, IntrWriteMem, and IntrArgMemOnly
 // intrinsic properties.  By default, intrinsics are assumed to have side
@@ -2335,15 +2340,15 @@ def int_intel_std_container_ptr_iter  : Intrinsic<[llvm_anyptr_ty],
 // Second and third arguments: lower bound and stride.
 // Forth argument: base pointer.
 // Fifth argument: subscript index.
-def int_intel_subscript : Intrinsic<[llvm_anyptr_ty],
+def int_intel_subscript : DefaultAttrsIntrinsic<[llvm_anyptr_ty],
     [llvm_i8_ty, llvm_anyint_ty, llvm_anyint_ty, llvm_anyptr_ty,
      llvm_anyint_ty],
-    [IntrSpeculatable, IntrNoMem]>;
+    [IntrSpeculatable, IntrNoMem, IntrNoRecurse]>;
 
-def int_intel_subscript_nonexact : Intrinsic<[llvm_anyptr_ty],
+def int_intel_subscript_nonexact : DefaultAttrsIntrinsic<[llvm_anyptr_ty],
     [llvm_i8_ty, llvm_anyint_ty, llvm_anyint_ty, llvm_anyptr_ty,
      llvm_anyint_ty],
-    [IntrSpeculatable, IntrNoMem]>;
+    [IntrSpeculatable, IntrNoMem, IntrNoRecurse]>;
 
 // Intrinsic generated for the return pointer.
 def int_intel_fakeload   : Intrinsic<[llvm_anyptr_ty],
