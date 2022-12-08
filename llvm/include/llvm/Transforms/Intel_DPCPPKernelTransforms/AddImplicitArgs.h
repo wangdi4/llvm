@@ -55,10 +55,10 @@ private:
   DenseMap<Function *, Function *> FixupFunctionsRefs;
 
   /// Result of ImplicitArgsAnalysis pass.
-  ImplicitArgsInfo *IAInfo;
+  ImplicitArgsInfo *IAInfo = nullptr;
 
   /// Callgraph of current module.
-  CallGraph *CG;
+  CallGraph *CG = nullptr;
 };
 
 } // namespace llvm

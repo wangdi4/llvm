@@ -134,7 +134,7 @@ protected:
   virtual ProgramBuilder *GetProgramBuilder() = 0;
 
   // pointer to the Backend Factory, not owned by this class
-  IAbstractBackendFactory *m_backendFactory;
+  IAbstractBackendFactory *m_backendFactory = nullptr;
   // temporary solution for MT build problem on OCL SDK
   mutable llvm::sys::Mutex m_buildLock;
 #ifdef OCL_DEV_BACKEND_PLUGINS

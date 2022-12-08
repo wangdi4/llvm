@@ -64,13 +64,13 @@ private:
   /// Latch of the current loop.
   BasicBlock *Latch;
 
-  IRBuilder<> *Builder;
+  IRBuilder<> *Builder = nullptr;
 
   /// i32 zero constant.
-  Constant *Zero;
+  Constant *Zero = nullptr;
 
   /// i32 one constant.
-  Constant *One;
+  Constant *One = nullptr;
 
   /// PHI nodes in loop header.
   SmallPtrSet<Value *, 4> HeaderPhi;

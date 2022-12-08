@@ -58,7 +58,7 @@ public:
 
 protected:
   // pointer to the Backend Factory, not owned by this class
-  IAbstractBackendFactory *m_pBackendFactory;
+  IAbstractBackendFactory *m_pBackendFactory = nullptr;
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
   mutable Intel::OpenCL::PluginManager m_pluginManager;

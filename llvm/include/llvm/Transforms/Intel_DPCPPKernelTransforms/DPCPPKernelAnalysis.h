@@ -63,7 +63,7 @@ private:
   void fillSubgroupCallingFuncs(CallGraph &CG);
 
   /// Current module.
-  Module *M;
+  Module *M = nullptr;
 
   bool IsAMX;
 

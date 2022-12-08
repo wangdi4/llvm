@@ -34,7 +34,7 @@ public:
 
 protected:
   void *m_mutexHndl;
-  void *m_mutexAttr;
+  void *m_mutexAttr = nullptr;
 };
 
 class OclAutoMutex {

@@ -268,9 +268,9 @@ protected:
   bool applyForcedWGSize();
 
   cl_int m_lastError;
-  const ICLDevBackendKernelRunner *m_pRunner;
-  UniformKernelArgs *m_pImplicitArgs;
-  void *m_pKernelArgs;
+  const ICLDevBackendKernelRunner *m_pRunner = nullptr;
+  UniformKernelArgs *m_pImplicitArgs = nullptr;
+  void *m_pKernelArgs = nullptr;
 
   static THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState
       m_tExecState;

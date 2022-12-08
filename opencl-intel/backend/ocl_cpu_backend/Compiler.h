@@ -238,7 +238,7 @@ protected:
   // related resources are released.
   std::vector<std::unique_ptr<llvm::LLVMContext>> m_depletedLLVMContexts;
   llvm::sys::Mutex m_LLVMContextMutex;
-  Intel::OpenCL::Utils::CPUDetect *m_CpuId;
+  Intel::OpenCL::Utils::CPUDetect *m_CpuId = nullptr;
   llvm::SmallVector<std::string, 8> m_forcedCpuFeatures;
   ETransposeSize m_transposeSize;
   int m_rtLoopUnrollFactor;
