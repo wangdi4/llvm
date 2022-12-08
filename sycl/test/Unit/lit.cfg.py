@@ -41,9 +41,9 @@ else:
 
 if 'SYCL_DEVICELIB_NO_FALLBACK' in os.environ:
     config.environment['SYCL_DEVICELIB_NO_FALLBACK'] = os.environ['SYCL_DEVICELIB_NO_FALLBACK']
-else:
-    # Disable device library fallback for unit tests by default.
-    config.environment['SYCL_DEVICELIB_NO_FALLBACK'] = "1"
+# We do not have any default for SYCL_DEVICELIB_NO_FALLBACK, which means that
+# env variable won't be defined. That is ok, because we expect tests to pass
+# even without it.
 
 # INTEL_CUSTOMIZATION
 # Tests assume that the host device is always available
