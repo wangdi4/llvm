@@ -1144,7 +1144,13 @@ defm : vextract_for_size_lowering<"VEXTRACTF64x4Z", v32f16_info, v16f16x_info,
 
 // A 128-bit extract from bits [255:128] of a 512-bit vector should use a
 // smaller extract to enable EVEX->VEX.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v2i64 (extract_subvector (v8i64 VR512:$src), (iPTR 2))),
           (v2i64 (VEXTRACTI128rr
                   (v4i64 (EXTRACT_SUBREG (v8i64 VR512:$src), sub_ymm)),
@@ -1185,7 +1191,13 @@ def : Pat<(v16i8 (extract_subvector (v64i8 VR512:$src), (iPTR 16))),
 
 // A 128-bit extract from bits [255:128] of a 512-bit vector should use a
 // smaller extract to enable EVEX->VEX.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def : Pat<(v2i64 (extract_subvector (v8i64 VR512:$src), (iPTR 2))),
           (v2i64 (VEXTRACTI32x4Z256rr
                   (v4i64 (EXTRACT_SUBREG (v8i64 VR512:$src), sub_ymm)),
@@ -2121,9 +2133,9 @@ def : Pat<(vselect_mask VK8WM:$mask,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasDQI] in {
+  let Predicates = [HasAVX256P_Or_HasDQI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasVLX, HasDQI] in {
+  let Predicates = [HasVLX, HasDQI] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 defm VBROADCASTI64X2Z128 : avx512_subvec_broadcast_rm_dq<0x5a, "vbroadcasti64x2",
@@ -3808,7 +3820,13 @@ multiclass avx512_binop_pat<SDPatternOperator VOpNode,
                             Instruction Inst> {
   // With AVX512F, 8-bit mask is promoted to 16-bit mask,
   // for the DQI set, this type is legal and KxxxB instruction is used
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [NoAVX256P_And_NoDQI] in
+#else
   let Predicates = [NoDQI] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(VOpNode VK8:$src1, VK8:$src2),
             (COPY_TO_REGCLASS
               (Inst (COPY_TO_REGCLASS VK8:$src1, VK16),
@@ -4867,7 +4885,7 @@ let Predicates = [HasBWI] in {
   def : Pat<(masked_store (v32bf16 VR512:$src), addr:$dst, VK32WM:$mask),
             (VMOVDQU16Zmrk addr:$dst, VK32WM:$mask, VR512:$src)>;
 }
-let Predicates = [HasBWI, HasVLX] in {
+let Predicates = [HasAVX256P_Or_HasBWI] in {
   def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), (v16bf16 VR256X:$src0))),
             (VMOVDQU16Z256rrk VR256X:$src0, VK16WM:$mask, VR256X:$src1)>;
   def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), v16bf16x_info.ImmAllZerosV)),
@@ -4938,79 +4956,6 @@ let Predicates = [HasBWI, HasVLX] in {
 }
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasBWI] in {
-  def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), (v16bf16 VR256X:$src0))),
-            (VMOVDQU16Z256rrk VR256X:$src0, VK16WM:$mask, VR256X:$src1)>;
-  def : Pat<(v16bf16 (vselect VK16WM:$mask, (v16bf16 VR256X:$src1), v16bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z256rrkz VK16WM:$mask, VR256X:$src1)>;
-  def : Pat<(v16bf16 (alignedloadv16bf16 addr:$src)),
-            (VMOVAPSZ256rm addr:$src)>;
-  def : Pat<(v16bf16 (vselect VK16WM:$mask,
-                     (v16bf16 (alignedloadv16bf16 addr:$src)), (v16bf16 VR256X:$src0))),
-            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (vselect VK16WM:$mask,
-                     (v16bf16 (alignedloadv16bf16 addr:$src)), v16bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (loadv16bf16 addr:$src)),
-            (VMOVUPSZ256rm addr:$src)>;
-  def : Pat<(v16bf16 (vselect VK16WM:$mask,
-                     (v16bf16 (loadv16bf16 addr:$src)), (v16bf16 VR256X:$src0))),
-            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (vselect VK16WM:$mask,
-                     (v16bf16 (loadv16bf16 addr:$src)), v16bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, (v16bf16 VR256X:$src0))),
-            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, undef)),
-            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
-  def : Pat<(v16bf16 (masked_load addr:$src, VK16WM:$mask, v16bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
-
-  def : Pat<(alignedstore (v16bf16 VR256X:$src), addr:$dst),
-            (VMOVAPSZ256mr addr:$dst, VR256X:$src)>;
-  def : Pat<(store (v16bf16 VR256X:$src), addr:$dst),
-            (VMOVUPSZ256mr addr:$dst, VR256X:$src)>;
-  def : Pat<(masked_store (v16bf16 VR256X:$src), addr:$dst, VK16WM:$mask),
-            (VMOVDQU16Z256mrk addr:$dst, VK16WM:$mask, VR256X:$src)>;
-
-  def : Pat<(v8bf16 (vselect VK8WM:$mask, (v8bf16 VR128X:$src1), (v8bf16 VR128X:$src0))),
-            (VMOVDQU16Z128rrk VR128X:$src0, VK8WM:$mask, VR128X:$src1)>;
-  def : Pat<(v8bf16 (vselect VK8WM:$mask, (v8bf16 VR128X:$src1), v8bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z128rrkz VK8WM:$mask, VR128X:$src1)>;
-  def : Pat<(v8bf16 (alignedloadv8bf16 addr:$src)),
-            (VMOVAPSZ128rm addr:$src)>;
-  def : Pat<(v8bf16 (vselect VK8WM:$mask,
-                     (v8bf16 (alignedloadv8bf16 addr:$src)), (v8bf16 VR128X:$src0))),
-            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (vselect VK8WM:$mask,
-                     (v8bf16 (alignedloadv8bf16 addr:$src)), v8bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (loadv8bf16 addr:$src)),
-            (VMOVUPSZ128rm addr:$src)>;
-  def : Pat<(v8bf16 (vselect VK8WM:$mask,
-                     (v8bf16 (loadv8bf16 addr:$src)), (v8bf16 VR128X:$src0))),
-            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (vselect VK8WM:$mask,
-                     (v8bf16 (loadv8bf16 addr:$src)), v8bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, (v8bf16 VR128X:$src0))),
-            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, undef)),
-            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
-  def : Pat<(v8bf16 (masked_load addr:$src, VK8WM:$mask, v8bf16x_info.ImmAllZerosV)),
-            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
-
-  def : Pat<(alignedstore (v8bf16 VR128X:$src), addr:$dst),
-            (VMOVAPSZ128mr addr:$dst, VR128X:$src)>;
-  def : Pat<(store (v8bf16 VR128X:$src), addr:$dst),
-            (VMOVUPSZ128mr addr:$dst, VR128X:$src)>;
-  def : Pat<(masked_store (v8bf16 VR128X:$src), addr:$dst, VK8WM:$mask),
-            (VMOVDQU16Z128mrk addr:$dst, VK8WM:$mask, VR128X:$src)>;
-}
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION 
 
 // Move Int Doubleword to Packed Double Int
 //
@@ -5721,9 +5666,9 @@ def : Pat<(v2f64 (X86selects VK1WM:$mask, (v2f64 VR128X:$src1), (v2f64 immAllZer
 let hasSideEffects = 0, isCodeGenOnly = 1, ForceDisassemble = 1 in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
+let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasFP16] in {
+let Predicates = [HasFP16] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     def VMOVSHZrr_REV: AVX512<0x11, MRMDestReg, (outs VR128X:$dst),
@@ -13405,7 +13350,7 @@ multiclass avx512_mpsadbw_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
     defm Z    : avx512_3Op_rm_imm8<opc, OpStr, OpNode, sched.ZMM, DestInfo.info512,
                            SrcInfo.info512>, EVEX_V512, AVX512XSIi8Base, TA, EVEX_4V;
   }
-  let Predicates = !if(!eq(HAV256P, 1), [!cast<Predicate>("HasAVX256P_Or_"#Pred)], [Pred, HasVLX]) in {
+  let Predicates = [!cast<Predicate>("HasAVX256P_Or_"#Pred)] in {
     defm Z128 : avx512_3Op_rm_imm8_override<opc, OpStr, OpNode, sched.XMM, DestInfo.info128,
                            SrcInfo.info128, "VMPSADBW">, EVEX_V128, AVX512XSIi8Base, TA, EVEX_4V;
     defm Z256 : avx512_3Op_rm_imm8_override<opc, OpStr, OpNode, sched.YMM, DestInfo.info256,
@@ -14242,7 +14187,7 @@ defm VPINSRQZ : avx512_insert_elt_dq<0x22, "vpinsrq", v2i64x_info, GR64>, VEX_W;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-let Predicates = !if(!eq(HAV256P, 0), [HasBWI], [HasAVX256P_Or_HasBWI_NoVL]), AddedComplexity = -10 in {
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL], AddedComplexity = -10 in {
   def : Pat<(bf16 (load addr:$src)), (COPY_TO_REGCLASS (VPINSRWZrm (v8i16 (IMPLICIT_DEF)), addr:$src, 0), BFR16X)>;
   def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWZmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
   def : Pat<(i16 (bitconvert bf16:$src)), (EXTRACT_SUBREG (VPEXTRWZrr (v8i16 (COPY_TO_REGCLASS BFR16X:$src, VR128X)), 0), sub_16bit)>;
@@ -14273,7 +14218,13 @@ let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX512, NoAVX256P_And_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512, NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(X86pinsrb VR128:$src1,
                        (i32 (anyext (i8 (bitconvert v8i1:$src2)))),
                        timm:$src3),
@@ -16636,7 +16587,7 @@ multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths
     defm Z      : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.ZMM, _.info512>,
                               EVEX_V512, EVEX_CD8<32, CD8VF>;
   }
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512VNNIFP16], [HasAVX512VNNIFP16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512VNNIFP16] in {
     defm Z256 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.YMM, _.info256>,
                       EVEX_V256, EVEX_CD8<32, CD8VF>;
     defm Z128 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.XMM, _.info128>,
@@ -16682,7 +16633,7 @@ multiclass avx512_vpdpb_common<bits<8> Op, string OpStr, X86SchedWriteWidths sch
   let Predicates = [HasAVX512VNNIINT8] in
   defm Z      :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
                                    IsCommutable>,  EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512VNNIINT8], [HasAVX512VNNIINT8, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512VNNIINT8] in {
     defm Z256 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
                                    IsCommutable>, EVEX_V256;
     defm Z128 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
@@ -16954,7 +16905,7 @@ multiclass avx512_ne_convert_2op_vector<bits<8> OpCode, string OpcodeStr,
   let Predicates = [HasAVX512NECONVERT] in
     defm Z : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info512,
              vt_src.info512.MemOp, MaskNode, MaskZNode, "512">, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512NECONVERT], [HasVLX, HasAVX512NECONVERT]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512NECONVERT] in {
     defm Z256 : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info256,
                 vt_src.info256.MemOp, MaskNode, MaskZNode, "256">, EVEX_V256;
     defm Z128 : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info128,
@@ -16968,7 +16919,7 @@ multiclass avx512_ne_convert_2op_sclar<string OpcodeStr,
   let Predicates = [HasAVX512NECONVERT] in
     defm Z : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info512,
              MemOp, MaskNode, MaskZNode, "512">, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512NECONVERT], [HasVLX, HasAVX512NECONVERT]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512NECONVERT] in {
     defm Z256 : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info256,
                 MemOp, MaskNode, MaskZNode, "256">, EVEX_V256;
     defm Z128 : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info128,
@@ -17054,7 +17005,7 @@ multiclass avx512_ne_convert_3op<bits<8> opc, string OpcodeStr,
                                     _SrcVTInfo.info512, _DstVTInfo.info512>,
                                     EVEX_V512, EVEX_CD8<32, CD8VF>;
   }
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512NECONVERT], [HasVLX, HasAVX512NECONVERT]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512NECONVERT] in {
     defm Z256 : avx512_ne_convert_3op_base<opc, OpcodeStr, sched.YMM, OpNode,
                                       _SrcVTInfo.info256, _DstVTInfo.info256,
                                       _SrcVTInfo.info256>,
@@ -17310,7 +17261,7 @@ defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  X86vdphf8ps,  avx512vl_
 #if INTEL_FEATURE_ISA_SM4
 multiclass avx512_sm4_base<string OpStr> {
   // SM4_Base is in X86InstrSSE.td.
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasSM4], [HasSM4, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasSM4] in {
     defm Z128 : SM4_Base<OpStr, avx512vl_i32_info.info128.RC,
                 "128", avx512vl_i32_info.info128.LdFrag,
                 avx512vl_i32_info.info128.MemOp>, EVEX_V128;
@@ -17363,7 +17314,7 @@ multiclass VNNIINT16_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
   let Predicates = [HasAVX512VNNIINT16] in
   defm Z      :   VNNIINT16_rmb<Op, OpStr, sched.ZMM, v16i32_info,
                                 IsCommutable, "512">, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasAVX512VNNIINT16], [HasAVX512VNNIINT16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasAVX512VNNIINT16] in {
     defm Z256 :   VNNIINT16_rmb<Op, OpStr, sched.YMM, v8i32x_info,
                                 IsCommutable, "256">, EVEX_V256;
     defm Z128 :   VNNIINT16_rmb<Op, OpStr, sched.XMM, v4i32x_info,
@@ -18581,7 +18532,7 @@ multiclass avx512_fp_binopne_pbf16<bits<8> opc, string OpcodeStr,
     defm NEPBF16Z : avx512_fp_packed_bf16<opc, OpcodeStr, v32bf16_info,
                                 sched.PH.ZMM, "512", IsCommutable>, EVEX_V512,
                                 T_MAP5PD, EVEX_CD8<16, CD8VF>;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16],[HasVLX, HasNEBF16]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm NEPBF16Z128 : avx512_fp_packed_bf16<opc, OpcodeStr, v8bf16x_info,
                                 sched.PH.XMM, "128", IsCommutable>, EVEX_V128,
                                 T_MAP5PD, EVEX_CD8<16, CD8VF>;
@@ -18599,7 +18550,7 @@ defm VMIN : avx512_fp_binopne_pbf16<0x5D, "vminne", SchedWriteFCmpSizes, 0>;
 defm VMAX : avx512_fp_binopne_pbf16<0x5F, "vmaxne", SchedWriteFCmpSizes, 0>;
 
 // vcomnesbf16
-let Defs = [EFLAGS], Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16_NoVL], [HasNEBF16]) in {
+let Defs = [EFLAGS], Predicates = [HasAVX256P_Or_HasNEBF16_NoVL] in {
   defm VCOMNESBF16Z : sse12_ord_cmp<0x2F, BFR16X, X86comi, bf16, bf16mem, loadbf16,
                               "comnesbf16", SSEPackedSingle>, T_MAP5PD, EVEX,
                               VEX_LIG, EVEX_CD8<16, CD8VT1>;
@@ -18650,7 +18601,7 @@ let mayRaiseFPException = 0 in {
 multiclass avx512_vcmp_bf16<X86SchedWriteWidths sched, AVX512VLVectorVTInfo _> {
   let Predicates = [HasNEBF16] in
     defm Z   : avx512_vcmp_common_bf16<sched.ZMM, _.info512>, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
    defm Z128 : avx512_vcmp_common_bf16<sched.XMM, _.info128>, EVEX_V128;
    defm Z256 : avx512_vcmp_common_bf16<sched.YMM, _.info256>, EVEX_V256;
   }
@@ -18666,7 +18617,7 @@ multiclass avx512_fp14_p_vl_bf16<bits<8> opc, string OpcodeStr, SDNode OpNode,
   defm NEPBF16Z : avx512_fp14_p<opc, !strconcat(OpcodeStr, "nepbf16"),
                                 OpNode, sched.ZMM, v32bf16_info>,
                                 EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm NEPBF16Z128 : avx512_fp14_p<opc, !strconcat(OpcodeStr, "nepbf16"),
                                 OpNode, sched.XMM, v8bf16x_info>,
                                 EVEX_V128;
@@ -18713,7 +18664,7 @@ multiclass avx512_fp_scalef_bf16<bits<8> opc, string OpcodeStr,
   let Predicates = [HasNEBF16] in
     defm NEPBF16Z : avx512_fp_scalef_pbf16<opc, OpcodeStr, X86scalef, sched.ZMM, v32bf16_info>,
                                 EVEX_V512, T_MAP6PS, EVEX_CD8<16, CD8VF>;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm NEPBF16Z128 : avx512_fp_scalef_pbf16<opc, OpcodeStr, X86scalef, sched.XMM, v8bf16x_info>,
                                    EVEX_V128, EVEX_CD8<16, CD8VF>, T_MAP6PS;
     defm NEPBF16Z256 : avx512_fp_scalef_pbf16<opc, OpcodeStr, X86scalef, sched.YMM, v16bf16x_info>,
@@ -18763,7 +18714,7 @@ multiclass avx512_common_unary_fp_packed_imm_bf16<string OpcodeStr,
   let Predicates = [HasNEBF16] in
     defm NEPBF16Z    : avx512_unary_fp_packed_imm_bf16<opc, OpcodeStr, OpNode, MaskOpNode,
                                            sched.ZMM, _.info512>, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm NEPBF16Z128 : avx512_unary_fp_packed_imm_bf16<opc, OpcodeStr, OpNode, MaskOpNode,
                                            sched.XMM, _.info128>, EVEX_V128;
     defm NEPBF16Z256 : avx512_unary_fp_packed_imm_bf16<opc, OpcodeStr, OpNode, MaskOpNode,
@@ -18861,7 +18812,7 @@ multiclass avx512_fp_fpclass_bf16<string OpcodeStr, bits<8> opcVec,
   let Predicates = [HasNEBF16] in
     defm NEPBF16Z    : avx512_vector_fpclass_bf16<opcVec, OpcodeStr, sched.ZMM,
                                       avx512vl_bf16_info.info512, "z">, EVEX_V512;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm NEPBF16Z128 : avx512_vector_fpclass_bf16<opcVec, OpcodeStr, sched.XMM,
                                       avx512vl_bf16_info.info128, "x">, EVEX_V128;
     defm NEPBF16Z256 : avx512_vector_fpclass_bf16<opcVec, OpcodeStr, sched.YMM,
@@ -18950,7 +18901,7 @@ multiclass avx512_fp_binopne_pbf16_fma<bits<8> opc, string OpcodeStr,
     defm PBF16Z : avx512_fp_packed_bf16_fma<opc, OpcodeStr, v32bf16_info,
                                 sched.PH.ZMM, "512">, EVEX_V512, T_MAP6PS,
                                 EVEX_CD8<16, CD8VF>;
-  let Predicates = !if(!eq(HAV256P, 1), [HasAVX256P_Or_HasNEBF16], [HasNEBF16, HasVLX]) in {
+  let Predicates = [HasAVX256P_Or_HasNEBF16] in {
     defm PBF16Z128 : avx512_fp_packed_bf16_fma<opc, OpcodeStr, v8bf16x_info,
                                    sched.PH.XMM, "128">, EVEX_V128, T_MAP6PS,
                                    EVEX_CD8<16, CD8VF>;
