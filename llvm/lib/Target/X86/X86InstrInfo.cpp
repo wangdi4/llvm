@@ -3764,7 +3764,13 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
                                       const X86Subtarget &STI, bool Load) {
   bool HasAVX = STI.hasAVX();
   bool HasAVX512 = STI.hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = STI.hasVLX() || STI.hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
   bool HasVLX = STI.hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   switch (STI.getRegisterInfo()->getSpillSize(*RC)) {
   default:

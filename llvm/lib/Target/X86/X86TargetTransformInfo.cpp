@@ -6412,8 +6412,16 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, Align Alignment) {
     return false;
 
   unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  return IntWidth == 32 || IntWidth == 64 ||
+         ((IntWidth == 8 || IntWidth == 16) &&
+          (ST->hasBWI() || ST->hasAVX256P()));
+#else  // INTEL_FEATURE_ISA_AVX256P
   return IntWidth == 32 || IntWidth == 64 ||
          ((IntWidth == 8 || IntWidth == 16) && ST->hasBWI());
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TTIImpl::isLegalMaskedStore(Type *DataType, Align Alignment) {
