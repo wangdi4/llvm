@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.test01 = type { i32, i64, i32 }
-%struct.dep01 = type { i64, %struct.test01* }
+%struct.dep01 = type { i64, ptr }
 @glob = internal global %struct.dep01 zeroinitializer
 
 define i32 @main() {
@@ -24,23 +24,21 @@ define i32 @main() {
 }
 
 define void @test01() {
-  %mem = call i8* @calloc(i64 10, i64 24)
-  %st = bitcast i8* %mem to %struct.test01*
-  store %struct.test01* %st, %struct.test01** getelementptr (%struct.dep01, %struct.dep01* @glob, i64 0, i32 1)
+  %mem = call ptr @calloc(i64 10, i64 24)
+  store ptr %mem, ptr getelementptr (%struct.dep01, ptr @glob, i64 0, i32 1)
   ret void
 }
 
 define void @test02() {
-  %st = load %struct.test01*, %struct.test01** getelementptr (%struct.dep01, %struct.dep01* @glob, i64 0, i32 1)
-  %raw = bitcast %struct.test01* %st to i8*
-  call void @llvm.memset.p0i8.i64(i8* %raw, i8 0, i64 240, i1 false)
+  %st = load ptr, ptr getelementptr (%struct.dep01, ptr @glob, i64 0, i32 1)
+  call void @llvm.memset.p0i8.i64(ptr %st, i8 0, i64 240, i1 false)
   ret void
 }
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported safety data: %struct.dep01
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported call info use: %struct.test01
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
-declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

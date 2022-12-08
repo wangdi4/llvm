@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=true -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=true -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=true -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -15,14 +14,12 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This is the data structure the test is going to transform.
-%struct.test01 = type { i32, %struct.test01*, i32* }
-%struct.test01dep = type { %struct.test01*, i32* }
+%struct.test01 = type { i32, ptr, ptr }
+%struct.test01dep = type { ptr, ptr }
 
-; CHECK-NONOPAQUE-DAG: %__SOA_struct.test01 = type { i32*, i32*, i32** }
-; CHECK-NONOPAQUE-DAG: %__SOADT_struct.test01dep = type { i32, i32* }
 
-; CHECK-OPAQUE-DAG: %__SOA_struct.test01 = type { ptr, ptr, ptr }
-; CHECK-OPAQUE-DAG: %__SOADT_struct.test01dep = type { i32, ptr }
+; CHECK-DAG: %__SOA_struct.test01 = type { ptr, ptr, ptr }
+; CHECK-DAG: %__SOADT_struct.test01dep = type { i32, ptr }
 
 ; CHECK-DAG: @__soa_struct.test01 = internal global %__SOA_struct.test01 zeroinitializer
 ; CHECK-DAG: @__intel_dtrans_aostosoa_alloc = private constant [38 x i8] c"{dtrans} AOS-to-SOA allocation {id:0}\00"
