@@ -315,8 +315,6 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
-/compiler-rt/lib/profile/ @robertcox-github @pvbattin
-/compiler-rt/test/profile/ @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BlockFrequencyInfo.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BranchProbabilityInfo.h @robertcox-github @pvbattin
@@ -816,3 +814,7 @@ sycl-post-link/ @asudarsa
 
 # JIRA: COMPLRLLVM->LLVM Compiler Runtime Library
 /compiler-rt/ @zhaomaosu @jinge90
+
+# JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
+/compiler-rt/lib/profile/ @robertcox-github @pvbattin
+/compiler-rt/test/profile/ @robertcox-github @pvbattin
