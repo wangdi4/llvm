@@ -293,6 +293,7 @@ namespace L0Interop {
     typedef void(delete_sycl_interop_ty)(omp_interop_t);
     typedef void(delete_all_sycl_interop_ty)();
     typedef int32_t (flush_queue_sycl_ty)(omp_interop_t);
+    typedef int32_t (append_barrier_sycl_ty)(omp_interop_t);
 
     init_sycl_interop_ty *init_sycl_interop = nullptr;
     get_sycl_interop_ty *get_sycl_interop = nullptr;
@@ -300,6 +301,7 @@ namespace L0Interop {
     delete_sycl_interop_ty *delete_sycl_interop = nullptr;
     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
     flush_queue_sycl_ty        *flush_queue_sycl        = nullptr;
+    append_barrier_sycl_ty     *append_barrier_sycl     = nullptr;
 
     std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
   } SyclWrapper;
@@ -343,6 +345,9 @@ namespace L0Interop {
         return;
       if(!(*((void **)&SyclWrapper.flush_queue_sycl) =
           DynLib->getAddressOfSymbol("__tgt_sycl_flush_queue_wrapper")))
+          return;
+      if(!(*((void **)&SyclWrapper.append_barrier_sycl) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_append_barrier_wrapper")))
           return;
 
       SyclWrapper.WrapApiValid = true;
@@ -1342,7 +1347,9 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t UseMultipleComputeQueues : 1;
   uint64_t ShowBuildLog : 1;
-  uint64_t Reserved : 54;
+  uint64_t UseImmCmdList : 1;
+  uint64_t NoSYCLFlush : 1;
+  uint64_t Reserved : 52;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1354,6 +1361,8 @@ struct RTLFlagsTy {
       UseImageOptions(1),
       UseMultipleComputeQueues(0),
       ShowBuildLog(0),
+      UseImmCmdList(0),
+      NoSYCLFlush(0),
       Reserved(0) {}
 };
 
@@ -2120,6 +2129,15 @@ struct RTLOptionTy {
           UseImmCmdList = 2;
       }
     }
+
+    // LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH=<Bool>
+    if ((Env =
+        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.NoSYCLFlush = Value;
+    }
+
   }
 
   /// Read environment variable value with optional deprecated name
@@ -7445,7 +7463,10 @@ int32_t __tgt_rtl_flush_queue (__tgt_interop *Interop)
 
    // We only need to flush SYCL objects
    // and only if immediate command list are not being used
-   if (Interop->FrId == 4 && Interop->TargetSync ) {
+   // and the user didn't disable SYCL flushes
+   if ( !DeviceInfo->Option.Flags.UseImmCmdList &&
+        !DeviceInfo->Option.Flags.NoSYCLFlush &&
+	 Interop->FrId == 4 && Interop->TargetSync  ) {
      return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
    }
 
@@ -7471,7 +7492,29 @@ int32_t __tgt_rtl_sync_barrier (__tgt_interop *Interop)
  
 int32_t __tgt_rtl_async_barrier (__tgt_interop *Interop)
 {
-   assert(0 && "__tgt_rtl_async_barrier not implemented\n");
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+   // use a SYCL barrier for SYCL objects unless immediate command lists
+   // are being used
+   if ( !DeviceInfo->Option.Flags.UseImmCmdList && Interop->FrId == 4 &&
+	Interop->TargetSync )
+     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
+   else {
+     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+     if (DeviceInfo->Option.Flags.UseImmCmdList) {
+       auto immCmdList = L0->ImmCmdList;
+       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
+     } else {
+       auto cmdQueue = L0->CommandQueue;
+       ze_command_list_handle_t CmdList = DeviceInfo->getCmdList(Interop->DeviceNum);
+       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
+       CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+       CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists,cmdQueue, 1, &CmdList, nullptr);
+       CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+     }
+   }
    return OFFLOAD_FAIL;
 }
 

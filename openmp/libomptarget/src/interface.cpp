@@ -766,11 +766,14 @@ EXTERN omp_interop_t __tgt_get_interop_obj (
 }
 
 EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task, void *event ) {
-   DP("Call to %s with gtid %" PRId32 ", current_task " DPxMOD "event " DPxMOD
-      "\n", __func__, gtid, DPxPTR(current_task), DPxPTR(event));
-
    auto first = PM->InteropTbl.begin(gtid,current_task);
    auto last = PM->InteropTbl.end(gtid,current_task);
+
+   if ( first == last ) return;
+
+   DP("Processing target_sync for gtid %" PRId32 ", current_task " DPxMOD " event " DPxMOD
+      "\n", gtid, DPxPTR(current_task), DPxPTR(event));
+
    for ( auto it = first ; it != last ; ++it ) {
       __tgt_interop *iop = *it;
       if ( iop->TargetSync != NULL &&
@@ -798,13 +801,13 @@ EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t i
 
    __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
    if ( iop->TargetSync ) {
-     // async still not supported
-     //if (nowait) iop->asyncBarrier();
-     //else {
-     iop->flush();
-     iop->syncBarrier();
-     //}
-     iop->markClean();
+     if ( nowait )
+	iop->asyncBarrier();
+     else {
+        iop->flush();
+        iop->syncBarrier();
+        iop->markClean();
+     }
    }
 
   return OFFLOAD_SUCCESS;

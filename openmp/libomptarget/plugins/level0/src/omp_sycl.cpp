@@ -165,4 +165,11 @@ EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_sycl_append_barrier_wrapper(omp_interop_t interop) {
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  sycl::queue *Q = static_cast<sycl::queue *>(TgtInterop->TargetSync);
+  sycl::event evt = Q->ext_oneapi_submit_barrier();
+
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_CUSTOMIZATION
