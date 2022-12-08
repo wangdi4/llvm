@@ -1,4 +1,21 @@
 //===- CodeGenTarget.cpp - CodeGen Target Class Wrapper -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -674,6 +691,7 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R,
   isCommutative = false;
   canThrow = false;
   isNoReturn = false;
+  isNoRecurse = false; // INTEL
   isNoCallback = false;
   isNoSync = false;
   isNoFree = false;
@@ -874,6 +892,10 @@ void CodeGenIntrinsic::setProperty(Record *R) {
     isConvergent = true;
   else if (R->getName() == "IntrNoReturn")
     isNoReturn = true;
+#if INTEL_CUSTOMIZATION
+  else if (R->getName() == "IntrNoRecurse")
+    isNoRecurse = true;
+#endif // INTEL_CUSTOMIZATION
   else if (R->getName() == "IntrNoCallback")
     isNoCallback = true;
   else if (R->getName() == "IntrNoSync")
