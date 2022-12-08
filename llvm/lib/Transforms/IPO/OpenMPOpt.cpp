@@ -2525,7 +2525,7 @@ struct AAICVTrackerFunction : public AAICVTracker {
     return nullptr;
   }
 
-  // We don't check unique value for a function, so return None.
+  // We don't check unique value for a function, so return std::nullopt.
   Optional<Value *>
   getUniqueReplacementValue(InternalControlVar ICV) const override {
     return std::nullopt;
