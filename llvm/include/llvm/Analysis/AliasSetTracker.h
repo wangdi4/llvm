@@ -51,7 +51,6 @@
 
 namespace llvm {
 
-class AAResults;
 class AliasResult;
 class AliasSetTracker;
 class AnyMemSetInst;
@@ -325,7 +324,7 @@ private:
   void addPointer(AliasSetTracker &AST, PointerRec &Entry, LocationSize Size,
                   const AAMDNodes &AAInfo, bool KnownMustAlias = false,
                   bool SkipSizeUpdate = false);
-  void addUnknownInst(Instruction *I, AAResults &AA);
+  void addUnknownInst(Instruction *I, BatchAAResults &AA);
 
 public:
   /// If the specified pointer "may" (or must) alias one of the members in the
@@ -350,7 +349,7 @@ inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {
 }
 
 class AliasSetTracker {
-  AAResults &AA;
+  BatchAAResults &AA;
   ilist<AliasSet> AliasSets;
 #ifdef INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
@@ -368,7 +367,7 @@ class AliasSetTracker {
 public:
   /// Create an empty collection of AliasSets, and use the specified alias
   /// analysis object to disambiguate load and store addresses.
-  explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
+  explicit AliasSetTracker(BatchAAResults &AA) : AA(AA) {}
   ~AliasSetTracker() { clear(); }
 #ifdef INTEL_CUSTOMIZATION
   explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried, unsigned STO = 0)
@@ -412,7 +411,7 @@ public:
   AliasSet &getAliasSetFor(const MemoryLocation &MemLoc);
 
   /// Return the underlying alias analysis object used by this tracker.
-  AAResults &getAliasAnalysis() const { return AA; }
+  BatchAAResults &getAliasAnalysis() const { return AA; }
 
   using iterator = ilist<AliasSet>::iterator;
   using const_iterator = ilist<AliasSet>::const_iterator;
