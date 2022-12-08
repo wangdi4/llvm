@@ -112,7 +112,7 @@ ParseRet tryParseVLEN(StringRef &ParseString, unsigned &VF, bool &IsScalable) {
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `Pos` to
 /// <number>, and return success.  On a syntax error, it return a
-/// parsing error. If nothing is parsed, it returns None.
+/// parsing error. If nothing is parsed, it returns std::nullopt.
 ///
 /// The function expects <token> to be one of "ls", "Rs", "Us" or
 /// "Ls".
@@ -139,7 +139,7 @@ ParseRet tryParseLinearTokenWithRuntimeStep(StringRef &ParseString,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `StepOrPos` to
 /// <number>, and return success.  On a syntax error, it return a
-/// parsing error. If nothing is parsed, it returns None.
+/// parsing error. If nothing is parsed, it returns std::nullopt.
 ParseRet tryParseLinearWithRuntimeStep(StringRef &ParseString,
                                        VFParamKind &PKind, int &StepOrPos) {
   ParseRet Ret;
@@ -175,7 +175,7 @@ ParseRet tryParseLinearWithRuntimeStep(StringRef &ParseString,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `LinearStep` to
 /// <number>, and return success.  On a syntax error, it return a
-/// parsing error. If nothing is parsed, it returns None.
+/// parsing error. If nothing is parsed, it returns std::nullopt.
 ///
 /// The function expects <token> to be one of "l", "R", "U" or
 /// "L".
@@ -203,7 +203,7 @@ ParseRet tryParseCompileTimeLinearToken(StringRef &ParseString,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `LinearStep` to
 /// <number>, and return success.  On a syntax error, it return a
-/// parsing error. If nothing is parsed, it returns None.
+/// parsing error. If nothing is parsed, it returns std::nullopt.
 ParseRet tryParseLinearWithCompileTimeStep(StringRef &ParseString,
                                            VFParamKind &PKind, int &StepOrPos) {
   // "l" {"n"} <CompileTimeStep>
@@ -236,7 +236,7 @@ ParseRet tryParseLinearWithCompileTimeStep(StringRef &ParseString,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `StepOrPos`
 /// accordingly, and return success.  On a syntax error, it return a
-/// parsing error. If nothing is parsed, it returns None.
+/// parsing error. If nothing is parsed, it returns std::nullopt.
 ParseRet tryParseParameter(StringRef &ParseString, VFParamKind &PKind,
                            int &StepOrPos) {
   if (ParseString.consume_front("v")) {
@@ -271,8 +271,13 @@ ParseRet tryParseParameter(StringRef &ParseString, VFParamKind &PKind,
 /// On success, it removes the parsed parameter from `ParseString`,
 /// sets `PKind` to the correspondent enum value, sets `StepOrPos`
 /// accordingly, and return success.  On a syntax error, it return a
+<<<<<<< HEAD
 /// parsing error. If nothing is parsed, it returns None.
 ParseRet tryParseAlign(StringRef &ParseString, MaybeAlign &Alignment) { // INTEL
+=======
+/// parsing error. If nothing is parsed, it returns std::nullopt.
+ParseRet tryParseAlign(StringRef &ParseString, Align &Alignment) {
+>>>>>>> 3c09ed006ab35dd8faac03311b14f0857b01949c
   uint64_t Val;
   //    "a" <number>
   if (ParseString.consume_front("a")) {
