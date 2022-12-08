@@ -1382,7 +1382,7 @@ private:
     DenseMap<const Value *, const Value *> ValueRemapper;
     ValueRemapper[FreePtr1] = FreePtr2;
     // Compare cleanup BBs.
-    for (auto P : zip_first(*BB1, *BB2)) {
+    for (const auto &P : zip_first(*BB1, *BB2)) {
       auto &I1 = std::get<0>(P);
       auto &I2 = std::get<1>(P);
 
