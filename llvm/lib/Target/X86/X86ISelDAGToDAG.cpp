@@ -2730,7 +2730,7 @@ bool X86DAGToDAGISel::selectMOV64Imm32(SDValue N, SDValue &Imm) {
   if (N->getOpcode() != ISD::TargetGlobalAddress)
     return TM.getCodeModel() == CodeModel::Small;
 
-  Optional<ConstantRange> CR =
+  std::optional<ConstantRange> CR =
       cast<GlobalAddressSDNode>(N)->getGlobal()->getAbsoluteSymbolRange();
   if (!CR)
     return TM.getCodeModel() == CodeModel::Small;
@@ -2912,7 +2912,7 @@ bool X86DAGToDAGISel::selectRelocImm(SDValue N, SDValue &Op) {
 
   // Check that the global's range fits into VT.
   auto *GA = cast<GlobalAddressSDNode>(N.getOperand(0));
-  Optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
+  std::optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
   if (!CR || CR->getUnsignedMax().uge(1ull << VT.getSizeInBits()))
     return false;
 
@@ -2969,7 +2969,7 @@ bool X86DAGToDAGISel::isSExtAbsoluteSymbolRef(unsigned Width, SDNode *N) const {
   if (!GA)
     return false;
 
-  Optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
+  std::optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
   if (!CR)
     return Width == 32 && TM.getCodeModel() == CodeModel::Small;
 

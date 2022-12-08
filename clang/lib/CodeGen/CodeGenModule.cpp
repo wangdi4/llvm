@@ -100,6 +100,8 @@
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/xxhash.h"
 
+#include <optional>
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -5567,9 +5569,10 @@ llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
 #if INTEL_COLLAB
   if (!getLangOpts().SYCLIsDevice) {
     unsigned GlobalsAS = getDataLayout().getDefaultGlobalsAddressSpace();
-    Optional<unsigned> AS = GlobalsAS ? GlobalsAS
-                                      : getContext().getTargetAddressSpace(
-                                            GetGlobalConstantAddressSpace());
+    std::optional<unsigned> AS = GlobalsAS
+                                     ? GlobalsAS
+                                     : getContext().getTargetAddressSpace(
+                                           GetGlobalConstantAddressSpace());
     GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true, Linkage,
                                   nullptr, Name, nullptr,
                                   llvm::GlobalValue::NotThreadLocal, AS);

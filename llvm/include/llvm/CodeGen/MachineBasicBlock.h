@@ -148,7 +148,7 @@ private:
   using const_probability_iterator =
       std::vector<BranchProbability>::const_iterator;
 
-  Optional<uint64_t> IrrLoopHeaderWeight;
+  std::optional<uint64_t> IrrLoopHeaderWeight;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
@@ -1149,7 +1149,7 @@ public:
   /// Return the EHCatchret Symbol for this basic block.
   MCSymbol *getEHCatchretSymbol() const;
 
-  Optional<uint64_t> getIrrLoopHeaderWeight() const {
+  std::optional<uint64_t> getIrrLoopHeaderWeight() const {
     return IrrLoopHeaderWeight;
   }
 
