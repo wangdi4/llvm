@@ -8882,15 +8882,11 @@ multiclass GF2P8AFFINE_common<bits<8> Op, string OpStr, SDNode OpNode> {
   let Constraints = "$src1 = $dst",
       Predicates  = [HasGFNI, UseSSE2] in
   defm NAME         : GF2P8AFFINE_rmi<Op, OpStr, v16i8, OpNode,
-<<<<<<< HEAD
                                       VR128, load, i128mem, SchedWriteVecIMul.XMM, 1>;
-=======
-                                      VR128, load, i128mem, 1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let Predicates  = [HasGFNI, HasAVX, NoAVX256P_And_NoVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
->>>>>>> f8fe526a8a665bad993142238b6dde70f0dd678b
   let Predicates  = [HasGFNI, HasAVX, NoVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -8907,15 +8903,11 @@ multiclass GF2P8AFFINE_common<bits<8> Op, string OpStr, SDNode OpNode> {
 let Constraints = "$src1 = $dst",
     Predicates  = [HasGFNI, UseSSE2] in
 defm GF2P8MULB      : GF2P8MULB_rm<"gf2p8mulb", v16i8, VR128, memop,
-<<<<<<< HEAD
                                     i128mem, SchedWriteVecALU.XMM, 1>;
-=======
-                                    i128mem, 1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates  = [HasGFNI, HasAVX, NoAVX256P_And_NoVLX] in {
 #else // INTEL_FEATURE_ISA_AVX256P
->>>>>>> f8fe526a8a665bad993142238b6dde70f0dd678b
 let Predicates  = [HasGFNI, HasAVX, NoVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION

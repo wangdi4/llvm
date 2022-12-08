@@ -52940,7 +52940,6 @@ static SDValue combineScalarAndWithMaskSetcc(SDNode *N, SelectionDAG &DAG,
       !C1->getAPIntValue().isMask(SubVecVT.getVectorNumElements()))
     return SDValue();
 
-<<<<<<< HEAD
   // First subvector should be a setcc with a legal result type or a
   // AND containing at least one setcc with a legal result type.
   auto IsLegalSetCC = [&](SDValue V) {
@@ -52948,37 +52947,29 @@ static SDValue combineScalarAndWithMaskSetcc(SDNode *N, SelectionDAG &DAG,
       return false;
     EVT SetccVT = V.getOperand(0).getValueType();
     if (!TLI.isTypeLegal(SetccVT) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        !(Subtarget.hasVLX() || Subtarget.hasAVX256P() ||
+          SetccVT.is512BitVector()))
+#else // INTEL_FEATURE_ISA_AVX256P
         !(Subtarget.hasVLX() || SetccVT.is512BitVector()))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!(Subtarget.hasBWI() || Subtarget.hasAVX256P() ||
+          SetccVT.getScalarSizeInBits() >= 32))
+#else // INTEL_FEATURE_ISA_AVX256P
     if (!(Subtarget.hasBWI() || SetccVT.getScalarSizeInBits() >= 32))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return false;
     return true;
   };
   if (!(IsLegalSetCC(SubVec) || (SubVec.getOpcode() == ISD::AND &&
                                  (IsLegalSetCC(SubVec.getOperand(0)) ||
                                   IsLegalSetCC(SubVec.getOperand(1))))))
-=======
-  EVT SetccVT = SubVec.getOperand(0).getValueType();
-  if (!TLI.isTypeLegal(SetccVT) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-      !(Subtarget.hasVLX() || Subtarget.hasAVX256P() ||
-        SetccVT.is512BitVector()))
-#else  // INTEL_FEATURE_ISA_AVX256P
-      !(Subtarget.hasVLX() || SetccVT.is512BitVector()))
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-    return SDValue();
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (!(Subtarget.hasBWI() || Subtarget.hasAVX256P() ||
-        SetccVT.getScalarSizeInBits() >= 32))
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if (!(Subtarget.hasBWI() || SetccVT.getScalarSizeInBits() >= 32))
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
->>>>>>> f8fe526a8a665bad993142238b6dde70f0dd678b
     return SDValue();
 
   // We passed all the checks. Rebuild the concat_vectors with zeroes
