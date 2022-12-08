@@ -626,7 +626,7 @@ public:
 } // namespace
 
 PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
-                         Optional<PGOOptions> PGOOpt,
+                         std::optional<PGOOptions> PGOOpt,
                          PassInstrumentationCallbacks *PIC)
 #if INTEL_CUSTOMIZATION
     // Add PrepareForLTO(false), AfterSLPVectorizer(false)
@@ -1291,7 +1291,7 @@ static bool isLoopPassName(StringRef Name, CallbacksT &Callbacks,
   return callbacksAcceptPassName<LoopPassManager>(Name, Callbacks);
 }
 
-Optional<std::vector<PassBuilder::PipelineElement>>
+std::optional<std::vector<PassBuilder::PipelineElement>>
 PassBuilder::parsePipelineText(StringRef Text) {
   std::vector<PipelineElement> ResultPipeline;
 
