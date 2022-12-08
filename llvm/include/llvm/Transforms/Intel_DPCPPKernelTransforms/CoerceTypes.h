@@ -82,8 +82,8 @@ protected:
                         ArrayRef<TypePair> NewArgTypePairs);
 
 private:
-  Module *PModule;
-  const DataLayout *PDataLayout;
+  Module *PModule = nullptr;
+  const DataLayout *PDataLayout = nullptr;
   DenseMap<Function *, Function *> FunctionMap;
 };
 } // namespace llvm

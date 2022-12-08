@@ -17265,43 +17265,46 @@ defm VCVTNEPH2HF8S : avx512_ne_convert_fp8_2op<0x1b, "vcvtneph2hf8s",
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
 
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
-multiclass avx512_vdpfp8_rm<bits<8> opc, string OpcodeStr, X86VectorVTInfo _> {
-  let Constraints = "$src1 = $dst", Uses = [MXCSR] in {
+multiclass avx512_vdpfp8_rm<bits<8> opc, string OpcodeStr, SDNode OpNode, X86VectorVTInfo _> {
+  let Constraints = "$src1 = $dst" in {
   defm r: AVX512_maskable_3src<opc, MRMSrcReg, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.RC:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
-          (null_frag)>, EVEX_4V;
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2, _.RC:$src3))>, EVEX_4V;
 
   defm m: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.MemOp:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
-          (null_frag)>, EVEX_4V;
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2,
+           (_.VT (_.LdFrag addr:$src3))))>, EVEX_4V;
 
   defm mb: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
            (ins _.RC:$src2, _.ScalarMemOp:$src3),
-           OpcodeStr, !strconcat("${src3}", _.BroadcastStr,", $src2"),
-           !strconcat("$src2, ${src3}", _.BroadcastStr ),
-           (null_frag)>, EVEX_4V, EVEX_B;
+           OpcodeStr, "${src3}"#_.BroadcastStr#", $src2",
+           "$src2, ${src3}"#_.BroadcastStr,
+           (OpNode _.RC:$src1, _.RC:$src2,
+           (_.VT (_.BroadcastLdFrag addr:$src3)))>, EVEX_4V, EVEX_B;
   }
 }
 
-multiclass avx512_vdpfp8_common<bits<8> opc, string OpcodeStr, AVX512VLVectorVTInfo _> {
+multiclass avx512_vdpfp8_common<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                                AVX512VLVectorVTInfo _> {
   let Predicates = [HasAVX512VNNIFP8] in {
-    defm Z      : avx512_vdpfp8_rm<opc, OpcodeStr, _.info512>,
+    defm Z      : avx512_vdpfp8_rm<opc, OpcodeStr, OpNode, _.info512>,
                               EVEX_V512, EVEX_CD8<32, CD8VF>;
   }
   let Predicates = [HasAVX512VNNIFP8, HasVLX] in {
-    defm Z256 : avx512_vdpfp8_rm<opc, OpcodeStr, _.info256>,
+    defm Z256 : avx512_vdpfp8_rm<opc, OpcodeStr, OpNode, _.info256>,
                       EVEX_V256, EVEX_CD8<32, CD8VF>;
-    defm Z128 : avx512_vdpfp8_rm<opc, OpcodeStr, _.info128>,
+    defm Z128 : avx512_vdpfp8_rm<opc, OpcodeStr, OpNode, _.info128>,
                       EVEX_V128, EVEX_CD8<32, CD8VF>;
   }
 }
 
-defm VDPBF8PS  : avx512_vdpfp8_common<0x50, "vdpbf8ps",  avx512vl_f32_info>, T_MAP5PS;
-defm VDPBHF8PS : avx512_vdpfp8_common<0x50, "vdpbhf8ps", avx512vl_f32_info>, T_MAP5XD;
-defm VDPHBF8PS : avx512_vdpfp8_common<0x50, "vdphbf8ps", avx512vl_f32_info>, T_MAP5XS;
-defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  avx512vl_f32_info>, T_MAP5PD;
+defm VDPBF8PS  : avx512_vdpfp8_common<0x50, "vdpbf8ps",  X86vdpbf8ps,  avx512vl_f32_info>, T_MAP5PS;
+defm VDPBHF8PS : avx512_vdpfp8_common<0x50, "vdpbhf8ps", X86vdpbhf8ps, avx512vl_f32_info>, T_MAP5XD;
+defm VDPHBF8PS : avx512_vdpfp8_common<0x50, "vdphbf8ps", X86vdphbf8ps, avx512vl_f32_info>, T_MAP5XS;
+defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  X86vdphf8ps,  avx512vl_f32_info>, T_MAP5PD;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 
 #if INTEL_FEATURE_ISA_SM4

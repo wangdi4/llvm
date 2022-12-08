@@ -115,7 +115,7 @@ typedef void(CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 ///////////////////////////////////////
 // Memory runtime declaration
 typedef struct _cl_mem_obj_descriptor {
-  cl_uint dim_count; // A number of dimensions in the memory object.
+  cl_uint dim_count = 0; // A number of dimensions in the memory object.
   union _dim_t {
     unsigned int dim[MAX_WORK_DIM]; // Multi-dimensional size of the object.
     size_t buffer_size;
@@ -124,11 +124,12 @@ typedef struct _cl_mem_obj_descriptor {
                                   // valid only for images (2D/3D).
   cl_image_format format = {0, 0};
   // Format of the memory object,valid only for images (2D/3D).
-  void *pData; // A pointer to the object wherein the object data is stored.
+  void *pData =
+      nullptr; // A pointer to the object wherein the object data is stored.
                // Could be a valid memory pointer or a handle to other object.
   unsigned uiElementSize = 0;    // Size of image pixel element.
   void *imageAuxData = nullptr;  // auxilary data kept for the image purposes
-  cl_mem_object_type memObjType; // type of the memory object
+  cl_mem_object_type memObjType = 0; // type of the memory object
 } cl_mem_obj_descriptor;
 
 #ifdef WIN32

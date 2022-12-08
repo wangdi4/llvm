@@ -108,7 +108,7 @@ protected:
   std::vector<int> m_tbbNumaNodes;
 
   // Logger
-  DECLARE_LOGGER_CLIENT;
+  DECLARE_LOGGER_CLIENT = nullptr;
 
   int m_err; // error code
 

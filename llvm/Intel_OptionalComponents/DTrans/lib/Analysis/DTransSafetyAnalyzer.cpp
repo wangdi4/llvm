@@ -5965,7 +5965,7 @@ public:
 
       // The call is safe for the ElementPointee.
       bool FirstTime = true;
-      for (auto RegionDesc : RegionDescVec) {
+      for (const auto &RegionDesc : RegionDescVec) {
         createMemcpyOrMemmoveCallInfo(I, RegionDesc.first, Kind,
                                       /*RegionDescDest=*/RegionDesc.second,
                                       /*RegionDescSrc=*/RegionDesc.second);

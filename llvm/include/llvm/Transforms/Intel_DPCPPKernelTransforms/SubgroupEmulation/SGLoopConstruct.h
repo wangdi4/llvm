@@ -75,7 +75,7 @@ private:
   CompilationUtils::FuncSet FunctionsNeedEmulation;
 
   SGHelper Helper;
-  const SGSizeInfo *SizeInfo;
+  const SGSizeInfo *SizeInfo = nullptr;
 };
 } // namespace llvm
 #endif // INTEL_DPCPP_KERNEL_TRANSFORMS_SUBGROUP_EMULATION_LOOP_CONSTRUCT_H

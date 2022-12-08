@@ -90,13 +90,13 @@ private:
 
 private:
   /// The llvm module this pass needs to update.
-  Module *M;
+  Module *M = nullptr;
 
-  ImplicitArgsInfo *IAInfo;
+  ImplicitArgsInfo *IAInfo = nullptr;
 
-  IntegerType *SizetTy;
-  IntegerType *I8Ty;
-  IntegerType *I32Ty;
+  IntegerType *SizetTy = nullptr;
+  IntegerType *I8Ty = nullptr;
+  IntegerType *I32Ty = nullptr;
 
   /// Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;

@@ -127,7 +127,7 @@ struct LoggerSingletonHandler {
   static Logger *pLogger;
   HANDLE hMapFile;
   LPVOID pSharedBuf;
-  HANDLE hMutex;
+  HANDLE hMutex = nullptr;
 };
 
 Logger *LoggerSingletonHandler::pLogger = nullptr;
