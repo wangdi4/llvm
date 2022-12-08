@@ -144,6 +144,10 @@ static cl::opt<bool> DynAllocaAdjustable(
     "inlining-dyn-alloca-adjustable", cl::init(true), cl::ReallyHidden,
     cl::desc("Allow inlining of functions with adjustable dynamic allocas"));
 
+static cl::opt<unsigned> DynAllocaAdjustableMaxCount(
+    "inlining-dyn-alloca-adjustable-max-count", cl::init(350), cl::ReallyHidden,
+    cl::desc("Maximum number of dynamic allocas to add to caller"));
+
 //
 // Options controlling the recognition of a huge function
 //
@@ -479,6 +483,36 @@ InliningLoopInfoCache::~InliningLoopInfoCache() {
 
 #if INTEL_FEATURE_SW_ADVANCED
 //
+// Functions called at the beginning and end of analyzing a call site.
+//
+
+// Count of dynamic allocas to be inlined into caller.
+static unsigned DynamicAllocaCount = 0;
+// Map with number of dynamic allocas already inlined into caller.
+static DenseMap<Function *, uint64_t> DynamicAllocaCountMap;
+
+//
+// Intel-specific analysis run before call is analyzed.
+//
+extern void intelStartAnalysisForCall(CallBase &CB,
+                                      const InlineParams &Params) {
+  if (!CB.getCaller()->isFortran())
+    return;
+  if (!Params.LinkForLTO.value_or(false))
+    return;
+  DynamicAllocaCount = 0;
+}
+
+//
+// Intel-specific analysis run after call is analyzed.
+//
+extern void intelFinalizeAnalysisForCall(CallBase &CB, bool IsSuccess) {
+  if (!IsSuccess || !DynamicAllocaCount)
+    return;
+  DynamicAllocaCountMap[CB.getCaller()] += DynamicAllocaCount;
+}
+
+//
 // Functions to manage profiling
 //
 
@@ -788,8 +822,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
 
   // Return 'true' if 'I' represents a special Fortran adjustable array
   // whose presence in a function entry block should not inhibit inlining.
-  auto IsSpecialFortranAdjustableArray = [](AllocaInst &I,
-                                            bool LinkForLTO) -> bool {
+  auto IsSpecialFortranAdjustableArray =
+      [](AllocaInst &I, CallBase &CandidateCall, bool LinkForLTO) -> bool {
     // Return 'true' if 'I' is a multiply or shift (multiply by power of 2).
     auto MulVal = [](Instruction *I) -> User * {
       if (auto LS = dyn_cast<LShrOperator>(I))
@@ -831,6 +865,11 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     // found to be useful.
     if (!F->hasOneUser())
       return false;
+    // Do not inline too many dynamic allocas into the caller.
+    if (DynamicAllocaCountMap[CandidateCall.getCaller()] + DynamicAllocaCount >
+        DynAllocaAdjustableMaxCount)
+      return false;
+    DynamicAllocaCount++;
     return true;
   };
 
@@ -859,7 +898,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
 
   // Ignore AllocaInsts from special Fortran adjustable arrays
   bool LinkForLTO = Params.LinkForLTO.value_or(false);
-  if (IsSpecialFortranAdjustableArray(I, LinkForLTO))
+  if (IsSpecialFortranAdjustableArray(I, CandidateCall, LinkForLTO))
     return true;
 
   // In Fortran, dynamic allocas can be used to represent local arrays
