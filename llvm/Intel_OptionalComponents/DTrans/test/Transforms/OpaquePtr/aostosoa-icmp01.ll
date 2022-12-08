@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -9,14 +8,14 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This is the data structure the test is going to transform.
-%struct.test01 = type { i32, %struct.test01*, i32 }
-%struct.test01dep = type { %struct.test01*, i32 }
+%struct.test01 = type { i32, ptr, i32 }
+%struct.test01dep = type { ptr, i32 }
 
 @var01 = internal global %struct.test01dep zeroinitializer
 define i32 @test01() {
-  %p0 = getelementptr %struct.test01dep, %struct.test01dep* @var01, i64 0, i32 0
-  %p1 = load %struct.test01*, %struct.test01** %p0
-  %c = icmp eq %struct.test01* null, %p1
+  %p0 = getelementptr %struct.test01dep, ptr @var01, i64 0, i32 0
+  %p1 = load ptr, ptr %p0
+  %c = icmp eq ptr null, %p1
   %r = select i1 %c, i32 0, i32 1
   ret i32 %r
 }
@@ -24,9 +23,9 @@ define i32 @test01() {
 ; CHECK: %c = icmp eq i64 0, %p1
 
 define i32 @test02() {
-  %p0 = getelementptr %struct.test01dep, %struct.test01dep* @var01, i64 0, i32 0
-  %p1 = load %struct.test01*, %struct.test01** %p0
-  %c = icmp eq %struct.test01* %p1, null
+  %p0 = getelementptr %struct.test01dep, ptr @var01, i64 0, i32 0
+  %p1 = load ptr, ptr %p0
+  %c = icmp eq ptr %p1, null
   %r = select i1 %c, i32 0, i32 1
   ret i32 %r
 }

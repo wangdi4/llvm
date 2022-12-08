@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -13,20 +12,19 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.test01 = type { i32, i64, i32 }
-%struct.dep01 = type { i64, %struct.test01* }
+%struct.dep01 = type { i64, ptr }
 @glob = internal global %struct.dep01 zeroinitializer
-@globptr = internal global %struct.dep01* @glob, !intel_dtrans_type !4
+@globptr = internal global ptr @glob, !intel_dtrans_type !4
 
 define i32 @main() {
-  %mem = call i8* @calloc(i64 10, i64 32)
-  %st = bitcast i8* %mem to %struct.dep01*
-  store %struct.dep01* %st, %struct.dep01** @globptr
+  %mem = call ptr @calloc(i64 10, i64 32)
+  store ptr %mem, ptr @globptr
   ret i32 0
 }
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported safety data: %struct.dep01
 ; CHECK-DAG: AOS-to-SOA rejecting -- No allocation found: %struct.test01
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -debug-only=dtrans-aostosoaop %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -12,12 +11,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-%struct.test01 = type { i32, %struct.test01*, i32 }
-%struct.test01dep = type { %struct.test01*, %struct.test01* }
+%struct.test01 = type { i32, ptr, i32 }
+%struct.test01dep = type { ptr, ptr }
 
 define void @test01() {
-  %ps1 = alloca [4 x %struct.test01*], align 8, !intel_dtrans_type !3
-  %use = getelementptr [4 x %struct.test01*], [4 x %struct.test01*]* %ps1, i64 1
+  %ps1 = alloca [4 x ptr], align 8, !intel_dtrans_type !3
+  %use = getelementptr [4 x ptr], ptr %ps1, i64 1
   ret void
 }
 
