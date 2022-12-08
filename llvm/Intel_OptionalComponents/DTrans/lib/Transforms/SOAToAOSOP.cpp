@@ -601,7 +601,7 @@ inline bool FALSE(const char *Msg) {
 bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     SOAToAOSOPTransformImpl &Impl, Module &M) {
 
-  for (auto Pair : zip_first(methodsets(), fields()))
+  for (const auto &Pair : zip_first(methodsets(), fields()))
     for (auto *F : *std::get<0>(Pair)) {
       const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
       DepCompute DC(*Impl.DTInfo, Impl.DL, TLI, F, std::get<1>(Pair),

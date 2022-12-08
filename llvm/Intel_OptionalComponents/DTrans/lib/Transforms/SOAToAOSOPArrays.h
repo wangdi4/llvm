@@ -1672,7 +1672,7 @@ public:
     }
 
     // Relink copies.
-    for (auto P : OrigToCopy) {
+    for (const auto &P : OrigToCopy) {
       auto *NewI = P.first;
       auto *CopyI = P.second;
       if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
