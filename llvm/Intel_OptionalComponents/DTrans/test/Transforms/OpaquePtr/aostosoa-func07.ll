@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -12,24 +11,23 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This is the data structure the test is going to transform.
-%struct.test01 = type { i32, %struct.test01*, i32 }
-%struct.test01dep = type { %struct.test01*, %struct.test01* }
+%struct.test01 = type { i32, ptr, i32 }
+%struct.test01dep = type { ptr, ptr }
 
 ; The return and parameter pointer to the structure will be converted to an integer index.
-define "intel_dtrans_func_index"="1" %struct.test01* @test01(%struct.test01* "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !3 {
-  ret %struct.test01* %in
+define "intel_dtrans_func_index"="1" ptr @test01(ptr "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !3 {
+  ret ptr %in
 }
 ; CHECK: define internal i64 @test01.1(i64 %in)
 ; CHECK-NOT: !intel.dtrans.func.type
 
 ; The return pointer to the structure should be converted to an integer index.
 ; The parameter pointer should be converted to a pointer to an integer type
-define "intel_dtrans_func_index"="1" %struct.test01* @test02(%struct.test01** "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !5 {
-  %p = load %struct.test01*, %struct.test01** %in
-  ret %struct.test01* %p
+define "intel_dtrans_func_index"="1" ptr @test02(ptr "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !5 {
+  %p = load ptr, ptr %in
+  ret ptr %p
 }
-; CHECK-NONOPAQUE: define internal i64 @test02.2(i64* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
-; CHECK-OPAQUE: define internal i64 @test02.2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
+; CHECK: define internal i64 @test02.2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
 
 !intel.dtrans.types = !{!6, !7}
 

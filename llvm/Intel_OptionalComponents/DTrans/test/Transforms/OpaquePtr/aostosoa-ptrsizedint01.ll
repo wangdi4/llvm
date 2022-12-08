@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=true -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=true -dtrans-aostosoaop-typelist=struct.test01 -dtrans-aostosoaop-qual-override=true %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -11,16 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This is the data structure the test is going to transform.
-%struct.test01 = type { i64, %struct.test01* }
+%struct.test01 = type { i64, ptr }
 
 ; Test with cast to pointer sized int for uses in load/store instructions
-define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel.dtrans.func.type !5 {
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %st) !intel.dtrans.func.type !5 {
 ; CHECK-LABEL: define internal void @test01
 
-  %field = getelementptr %struct.test01, %struct.test01* %st, i64 0, i32 1
+  %field = getelementptr %struct.test01, ptr %st, i64 0, i32 1
 
   ; Bitcast from ptr-to-ptr of type being transformed.
-  %p_i64 = bitcast %struct.test01** %field to i64*
 
   ; Use the result of the bitcast to load a value. Because the transformation
   ; is using a 32-bit value for the index, the load needs to be transformed to
@@ -30,7 +28,7 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %st) 
   ; to be extended to be compatible with the uses when the uses will stay as
   ; 64-bit operations. In this case, the icmp will use the 64-bit value, but
   ; the store needs to use the 32-bit result.
-  %val_i64 = load i64, i64* %p_i64
+  %val_i64 = load i64, ptr %field
   %cmp = icmp eq i64 %val_i64, 0
 
 ; Verify a 32-bit load has been created, and extended to 64-bits.
@@ -38,13 +36,13 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %st) 
 ; CHECK:  %val_i64 = zext i32 %[[LOADED]] to i64
 
   ; Verify a 32-bit store has been created to write the index value.
-  store i64 %val_i64, i64* %p_i64
+  store i64 %val_i64, ptr %field
 ; CHECK: store i32 %[[LOADED]],
 
   ret void
 }
 
-declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
