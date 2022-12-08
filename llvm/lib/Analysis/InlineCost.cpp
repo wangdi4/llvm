@@ -1092,10 +1092,19 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     if (auto Result = costBenefitAnalysis()) {
       DecidedByCostBenefit = true;
-      if (*Result)
+#if INTEL_CUSTOMIZATION
+      if (*Result) {
+#if INTEL_FEATURE_SW_ADVANCED
+        intelFinalizeAnalysisForCall(CandidateCall, true);
+#endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::success();
-      else
+      } else {
+#if INTEL_FEATURE_SW_ADVANCED
+        intelFinalizeAnalysisForCall(CandidateCall, false);
+#endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::failure("Cost over threshold.");
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
 #if INTEL_CUSTOMIZATION
@@ -1109,8 +1118,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Threshold =  std::max(1, Threshold);
       DecidedByCostThreshold = true;
     }
-    if (!IsProfitable)
+    if (!IsProfitable) {
+#if INTEL_FEATURE_SW_ADVANCED
+      intelFinalizeAnalysisForCall(CandidateCall, false);
+#endif // INTEL_FEATURE_SW_ADVANCED
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
+    }
+#if INTEL_FEATURE_SW_ADVANCED
+    intelFinalizeAnalysisForCall(CandidateCall, true);
+#endif // INTEL_FEATURE_SW_ADVANCED
     return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -1176,6 +1192,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
+    intelStartAnalysisForCall(CandidateCall, Params);
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
       return IR.value();
