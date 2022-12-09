@@ -171,6 +171,9 @@ void ThreadsTeams(ThreadData* threads)
 // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
 }
 
+struct A;
+void bar(A *);
+
 struct A {
   A() : pt(&x), ptr(pt) {}
   int *pt;
@@ -178,6 +181,9 @@ struct A {
   int *&ptr;
   int NT, NT1, NT2;
   int MT, MT1, MT2;
+  void zoo();
+  A operator+(const A&);
+  void moo(A &);
 
   void foo()
   {
@@ -233,6 +239,58 @@ struct A {
     #pragma omp target parallel for
     for (int i = 0; i < NT1; i++) {
       MT1++;NT1++;
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      bar(this);
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      zoo();
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target
+    #pragma omp parallel for
+    for (int i = 0; i < 10; i++) {
+      zoo();
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      *this + *this;
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    A obj;
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      obj.moo(*this);
     }
   // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]

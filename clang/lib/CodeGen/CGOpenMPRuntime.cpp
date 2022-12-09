@@ -9190,6 +9190,21 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  class ThisPointerChecker final
+      : public ConstStmtVisitor<ThisPointerChecker, bool> {
+  public:
+    bool VisitCXXThisExpr(const CXXThisExpr *E) { return true; }
+    bool VisitStmt(const Stmt *S) {
+      for (const Stmt *C : S->children()) {
+        if (C)
+          if (const auto *S = dyn_cast<CapturedStmt>(C))
+            C = S->getCapturedStmt();
+        if (C && Visit(C))
+          return true;
+      }
+      return false;
+    }
+  };
   class HoistedFieldChecker final
       : public ConstStmtVisitor<HoistedFieldChecker, void> {
     llvm::SmallDenseSet<const FieldDecl *, 4> FDs;
@@ -9491,10 +9506,6 @@ public:
     bool IsImplicit = true;
     // Do the default mapping.
     if (CI.capturesThis()) {
-#if INTEL_CUSTOMIZATION
-      if (CGF.CGM.getLangOpts().OpenMPLateOutline)
-        return;
-#endif // INTEL_CUSTOMIZATION
       CombinedInfo.Exprs.push_back(nullptr);
       CombinedInfo.BasePointers.push_back(CV);
       CombinedInfo.Pointers.push_back(CV);
@@ -9922,8 +9933,22 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
           continue;
         MEHandler.generateDefaultInfoForVTable(*CI, *CV, CurInfo,
                                                PartialStruct);
-        if (!PartialStruct.Base.isValid())
+        if (!PartialStruct.Base.isValid()) {
+#if INTEL_CUSTOMIZATION
+          if (CI->capturesThis()) {
+            MappableExprsHandler::ThisPointerChecker TPC;
+            const Stmt *S = nullptr;
+            if (auto *LD = dyn_cast<OMPLoopDirective>(&Dir))
+              S = LD->getBody();
+            else
+              S = Dir.getInnermostCapturedStmt()->getCapturedStmt();
+            if (CGF.CGM.getLangOpts().OpenMPLateOutline && !TPC.VisitStmt(S))
+              // Skip generate default map for this pointer.
+              continue;
+          }
+#endif // INTEL_CUSTOMIZATION
           MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
+        }
       }
       // Generate correct mapping for variables captured by reference in
       // lambdas.
