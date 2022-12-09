@@ -1083,8 +1083,11 @@ define i32 @firewall(i8* %data) {
 ; CHECK-NEXT:    [[CMP28:%.*]] = icmp eq i16 [[I2]], 4
 ; CHECK-NEXT:    [[OR_COND35:%.*]] = select i1 [[CMP]], i1 [[CMP28]], i1 false
 ; CHECK-NEXT:    [[DOT:%.*]] = zext i1 [[OR_COND35]] to i32
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = select i1 [[OR_COND2]], i32 1, i32 [[DOT]]
-; CHECK-NEXT:    ret i32 [[RETVAL_0]]
+; INTEL_CUSTOMIZATION
+; renamed temps for some reason
+; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[OR_COND2]], i32 1, i32 [[DOT]]
+; CHECK-NEXT:    ret i32 [[TMP0]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %i = load i8, i8* %data, align 1
@@ -1123,7 +1126,9 @@ define i32 @test_builtin_fpclassify(float %x) {
 ; CHECK-NEXT:    [[ISZERO:%.*]] = fcmp oeq float [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[ISZERO]], label [[FPCLASSIFY_END:%.*]], label [[FPCLASSIFY_NOT_ZERO:%.*]]
 ; CHECK:       fpclassify_end:
-; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ 0, [[FPCLASSIFY_NOT_ZERO]] ], [ 1, [[FPCLASSIFY_NOT_NAN:%.*]] ], [ [[NORMAL_OR_SUBNORMAL:%.*]], [[FPCLASSIFY_NOT_INF:%.*]] ]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ 0, [[FPCLASSIFY_NOT_ZERO]] ], [ [[TMP0:%.*]], [[FPCLASSIFY_NOT_NAN:%.*]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[FPCLASSIFY_RESULT]]
 ; CHECK:       fpclassify_not_zero:
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp uno float [[X]], 0.000000e+00
@@ -1131,10 +1136,12 @@ define i32 @test_builtin_fpclassify(float %x) {
 ; CHECK:       fpclassify_not_nan:
 ; CHECK-NEXT:    [[X_ABS:%.*]] = tail call float @llvm.fabs.f32(float [[X]])
 ; CHECK-NEXT:    [[ISINF:%.*]] = fcmp oeq float [[X_ABS]], 0x7FF0000000000000
-; CHECK-NEXT:    br i1 [[ISINF]], label [[FPCLASSIFY_END]], label [[FPCLASSIFY_NOT_INF]]
-; CHECK:       fpclassify_not_inf:
 ; CHECK-NEXT:    [[ISNORMAL:%.*]] = fcmp uge float [[X_ABS]], 0x3810000000000000
-; CHECK-NEXT:    [[NORMAL_OR_SUBNORMAL]] = select i1 [[ISNORMAL]], i32 4, i32 3
+; INTEL_CUSTOMIZATION
+; xmain uses a different cost model
+; CHECK-NEXT:    [[NORMAL_OR_SUBNORMAL:%.*]] = select i1 [[ISNORMAL]], i32 4, i32 3
+; CHECK-NEXT:    [[TMP0]] = select i1 [[ISINF]], i32 1, i32 [[NORMAL_OR_SUBNORMAL]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FPCLASSIFY_END]]
 ;
 entry:
