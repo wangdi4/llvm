@@ -67,7 +67,7 @@ class HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor
   void addToAST(RegDDRef *Ref);
 
 public:
-  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, AliasAnalysis &AA)
+  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, BatchAAResults &AA)
       : SA(CurSA), AST(AA, AASaturationThresholdOveridden) {}
 
   HybridAliasSetTracker &getAST() { return AST; }
@@ -145,7 +145,8 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::visit(HLDDNode *Node) {
 void HIRSymbaseAssignment::run() {
   // Create alias sets per region.
   for (auto I = HIRF.hir_begin(), E = HIRF.hir_end(); I != E; ++I) {
-    HIRSymbaseAssignmentVisitor SV(*this, AA);
+    BatchAAResults BAA(AA);
+    HIRSymbaseAssignmentVisitor SV(*this, BAA);
     HLNodeUtils::visit(SV, &*I);
 
     // Each ref in a set gets the same symbase
