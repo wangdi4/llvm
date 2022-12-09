@@ -619,8 +619,8 @@ void IntrinsicEmitter::EmitGenerator(const CodeGenIntrinsicTable &Ints,
 }
 
 namespace {
-Optional<bool> compareFnAttributes(const CodeGenIntrinsic *L,
-                                   const CodeGenIntrinsic *R) {
+std::optional<bool> compareFnAttributes(const CodeGenIntrinsic *L,
+                                        const CodeGenIntrinsic *R) {
   // Sort throwing intrinsics after non-throwing intrinsics.
   if (L->canThrow != R->canThrow)
     return R->canThrow;
@@ -679,7 +679,7 @@ struct FnAttributeComparator {
 
 struct AttributeComparator {
   bool operator()(const CodeGenIntrinsic *L, const CodeGenIntrinsic *R) const {
-    if (Optional<bool> Res = compareFnAttributes(L, R))
+    if (std::optional<bool> Res = compareFnAttributes(L, R))
       return *Res;
 
     // Order by argument attributes.
