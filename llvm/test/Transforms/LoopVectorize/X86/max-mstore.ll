@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-vectorize -force-vector-interleave=1 -S -mcpu=core-avx2
-=======
-; RUN: opt -passes=loop-vectorize -force-vector-interleave=1 -S -mcpu=core-avx2
->>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
+; RUN: opt -aa-pipeline=basic-aa -passes=loop-vectorize -force-vector-interleave=1 -S -mcpu=core-avx2
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

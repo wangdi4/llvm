@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -loop-vectorize < %s | FileCheck %s
-=======
-; RUN: opt -S -passes=loop-vectorize < %s | FileCheck %s
->>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
+; RUN: opt -S -aa-pipeline=basic-aa -passes=loop-vectorize < %s | FileCheck %s
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
 
