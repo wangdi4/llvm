@@ -42,6 +42,8 @@
 #error "Never use <avx512vlraofpintrin.h> directly; include <immintrin.h> instead."
 #endif // __IMMINTRIN_H
 
+#ifdef __SSE2__
+
 #ifndef __AVX512VLRAOFPINTRIN_H
 #define __AVX512VLRAOFPINTRIN_H
 
@@ -120,3 +122,4 @@ _mm256_mask_vaadd_ps(__m256 *__A, __mmask8 __U, __m256 __B) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif // __AVX512VLRAOFPINTRIN_H
+#endif // __SSE2__

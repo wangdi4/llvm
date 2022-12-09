@@ -43,6 +43,8 @@
     "Never use <avx512neconvertintrin.h> directly; include <immintrin.h> instead."
 #endif // __IMMINTRIN_H
 
+#ifdef __SSE2__
+
 #ifndef __AVX512NECONVERTINTRIN_H
 #define __AVX512NECONVERTINTRIN_H
 
@@ -165,3 +167,4 @@ _mm512_maskz_cvtneoph_ps(__mmask16 __U, const __m512h *__A) {
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // __AVX512NECONVERTINTRIN_H
+#endif // __SSE2__

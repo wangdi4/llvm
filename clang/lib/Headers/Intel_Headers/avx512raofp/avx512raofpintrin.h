@@ -42,6 +42,8 @@
 #error "Never use <avx512raofpintrin.h> directly; include <immintrin.h> instead."
 #endif // __IMMINTRIN_H
 
+#ifdef __SSE2__
+
 #ifndef __AVX512RAOFPINTRIN_H
 #define __AVX512RAOFPINTRIN_H
 
@@ -129,3 +131,4 @@ _mm_mask_vaadd_ss(void *__A, __mmask8 __U, __m128 __B) {
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // __AVX512RAOFPINTRIN_H
+#endif // __SSE2__

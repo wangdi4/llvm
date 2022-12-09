@@ -42,6 +42,8 @@
 #error "Never use <avxdotprodphpsintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVXDOTPRODPHPSINTRIN_H
 #define __AVXDOTPRODPHPSINTRIN_H
 
@@ -65,3 +67,4 @@ _mm256_dpph_ps(__m256 __W, __m256h __A, __m256h __B) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif // __AVXDOTPRODPHPSINTRIN_H
+#endif // __SSE2__
