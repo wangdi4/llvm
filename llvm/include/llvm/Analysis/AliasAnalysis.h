@@ -834,6 +834,11 @@ public:
     return AA.isLoopCarriedMustAlias(V1, V2);
   }
 #endif // INTEL_CUSTOMIZATION
+
+  /// Assume that values may come from different cycle iterations.
+  void enableCrossIterationMode() {
+    AAQI.MayBeCrossIteration = true;
+  }
 };
 
 /// Temporary typedef for legacy code that uses a generic \c AliasAnalysis
