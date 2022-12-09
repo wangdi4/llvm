@@ -13,6 +13,7 @@
 
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/Intel_OPAnalysisUtils.h"
@@ -156,6 +157,10 @@ static cl::opt<unsigned> IPManyRecCallsCloningMinRecCallsites(
 static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
                                                  cl::init(true),
                                                  cl::ReallyHidden);
+
+static cl::opt<bool>
+    EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
+                                   cl::init(false), cl::ReallyHidden);
 
 // Flag to set if we are doing LIT testing of just the splitting. In this
 // case, any other ip cloning will be skipped, and the compiler will attempt
@@ -4745,6 +4750,138 @@ void Splitter::splitFunction() {
 // End of code for class Splitter
 
 //
+// Class which performs predicate optimization across a key path in the
+// call graph. The path will terminate with a base function 'BaseF',
+// which is called from a wrapper function at the call site 'WrapperCB'.
+// The wrapper function is called from a big loop function at the call
+// site 'BigLoopCB'. The big loop function must have a series of simple
+// loops that enclose 'WrapperCB'. The number of loops is saved in
+// 'SimpleLoopDepth'.
+//
+
+class PredicateOpt {
+public:
+  PredicateOpt(Function *BaseF)
+      : BaseF(BaseF), WrapperCB(nullptr), BigLoopCB(nullptr),
+        SimpleLoopDepth(0) {}
+  // Return 'true' if the desired predicate opt can be performed.
+  bool canDoPredicateOpt();
+  // Perform the desired predicate opt.
+  void doPredicateOpt();
+
+private:
+  // The base function.
+  Function *BaseF;
+  // The call site which calls 'BaseF' in the wrapper function.
+  CallBase *WrapperCB;
+  // The call site that calls the wrapper function and is enclosed
+  // within a series of simple loops.
+  CallBase *BigLoopCB;
+  // The number of loops within which 'BigLoopCB' is enclosed.
+  unsigned SimpleLoopDepth;
+  // A loop info cache to store loop infos for functions being evaluated.
+  InliningLoopInfoCache ILIC;
+  // Return 'true' if 'F' is a wrapper function.
+  bool isWrapper(Function &F);
+  // Return the number of simple loops enclosing 'CB'.
+  unsigned simpleLoopDepth(CallBase &CB);
+};
+
+//
+// Return 'true' if 'F' is a wrapper function. 'F' must have no more than
+// 3 basic blocks and only one call which is not an intrinsic.
+//
+bool PredicateOpt::isWrapper(Function &F) {
+  if (F.size() > 3)
+    return false;
+  CallBase *SingleCB = nullptr;
+  for (auto &I : instructions(F))
+    if (auto CB = dyn_cast<CallBase>(&I)) {
+      if (isa<IntrinsicInst>(CB))
+        continue;
+      if (SingleCB)
+        return false;
+      SingleCB = CB;
+    }
+  return SingleCB;
+}
+
+//
+// Return the number of simple loops enclosing 'CB'. A simple loop is
+// one which has a latch test with an integer comparison.
+//
+unsigned PredicateOpt::simpleLoopDepth(CallBase &CB) {
+
+  auto IsSimpleLoop = [](Loop *L) -> bool {
+    if (BasicBlock *BB = L->getLoopLatch())
+      if (auto BI = dyn_cast<BranchInst>(BB->getTerminator()))
+        if (BI->isConditional() && isa<ICmpInst>(BI->getCondition()))
+          return true;
+    return false;
+  };
+
+  unsigned Count = 0;
+  LoopInfo *LI = ILIC.getLI(CB.getCaller());
+  Loop *L = LI->getLoopFor(CB.getParent());
+  if (!L)
+    return 0;
+  if (IsSimpleLoop(L))
+    Count++;
+  while (L->getParentLoop()) {
+    L = L->getParentLoop();
+    if (IsSimpleLoop(L))
+      Count++;
+  }
+  return Count;
+}
+
+//
+// Return 'true' if the desired predicate opt can be performed.
+// NOTE: At this point, we are just checking if the hot path can be identified.
+// More code will be added to check additional conditions.
+//
+bool PredicateOpt::canDoPredicateOpt() {
+  unsigned LocalSimpleLoopDepth = 0;
+  CallBase *LocalWrapperCB = nullptr;
+  CallBase *LocalBigLoopCB = nullptr;
+  for (User *U0 : BaseF->users())
+    if (auto CB0 = dyn_cast<CallBase>(U0)) {
+      Function *F0 = CB0->getCaller();
+      if (isWrapper(*F0)) {
+        for (User *U1 : F0->users())
+          if (auto CB1 = dyn_cast<CallBase>(U1)) {
+            unsigned LD = simpleLoopDepth(*CB1);
+            if (LD > LocalSimpleLoopDepth) {
+              LocalSimpleLoopDepth = LD;
+              LocalWrapperCB = CB0;
+              LocalBigLoopCB = CB1;
+            }
+          }
+      }
+    }
+  SimpleLoopDepth = LocalSimpleLoopDepth;
+  WrapperCB = LocalWrapperCB;
+  BigLoopCB = LocalBigLoopCB;
+  return true;
+}
+
+//
+// Perform the predicate opt.
+// NOTE: Right now we simply emit a trace indicating the key elements
+// on the hot path. More code will be added to do the optimization.
+//
+void PredicateOpt::doPredicateOpt() {
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: Loop Depth = " << SimpleLoopDepth << "\n";
+    dbgs() << "  BaseF: " << BaseF->getName() << "\n";
+    dbgs() << "  WrapperF: " << WrapperCB->getCaller()->getName() << "\n";
+    dbgs() << "  BigLoopF: " << BigLoopCB->getCaller()->getName() << "\n";
+  });
+}
+
+// End of code for class PredicateOpt
+
+//
 // Create the clones required for the "many recursive calls" cloning. 'F'
 // is the Function being cloned. 'IfArgs' are the arguments feeding if-tests
 // that will be constant in the clone, 'SwitchArgs' are the arguments that
@@ -5535,7 +5672,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         SmallPtrSet<CallBase *, 16> BestCBs;
         if (isManyRecCallsCloneCandidate(F, IfArgs, SwitchArgs, BestCBs)) {
           CloneType = ManyRecCallsClone;
-          if (EnableManyRecCallsSplitting) {
+          if (EnableManyRecCallsPredicateOpt) {
+            LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
+                              << "predicate opt\n");
+            PredicateOpt MRCPO(&F);
+            if (MRCPO.canDoPredicateOpt())
+              MRCPO.doPredicateOpt();
+          } else if (EnableManyRecCallsSplitting) {
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
                               << "\n");
             Splitter MRCS(&F);
