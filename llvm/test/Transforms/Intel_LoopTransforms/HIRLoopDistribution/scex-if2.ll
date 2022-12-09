@@ -2,8 +2,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 
 ; Verify that distribution succeeds for scalar expansion and recomputation
-; of def-uses under if nodes between different distributed loops. This test
-; is primarily checking that SCEX properly loads %2 which is recomputed from @A1.
+; of def-uses under if nodes between different distributed loops. x.addr.020 is
+; live-out, so we cannot load it outside the if.
+
+; TODO: we could have loaded %0/%2 inside the if node by recomputing from @A1.
 ; @A1 requires that %x.addr.020 would have already been loaded in the same loop
 ; which was done for %0 as it used %x.addr.020 to compute its own load 2
 ; instructions prior.
@@ -23,11 +25,15 @@
 ;         + END LOOP
 ;   END REGION
 
-; SCEX analysis
-; %x.addr.020 (sb:3) (6) -> (20) SafeToRecompute: 0
-; %0 (sb:14) (11) -> (20) SafeToRecompute: 1
-; %1 (sb:18) (14) -> (20) SafeToRecompute: 0
-; %2 (sb:22) (17) -> (20) SafeToRecompute: 1
+;Scalar Expansion analysis:
+;%x.addr.020 (sb:3) (In/Out 1/1) (6) -> (20) Recompute: 0
+; ( 6 -> 20 )
+;%0 (sb:14) (In/Out 0/0) (11) -> (20) Recompute: 0
+; ( 11 -> 20 )
+;%1 (sb:18) (In/Out 0/0) (14) -> (20) Recompute: 0
+; ( 14 -> 20 )
+;%2 (sb:22) (In/Out 0/0) (17) -> (20) Recompute: 0
+; ( 17 -> 20 )
 
 
 ; CHECK:  BEGIN REGION { modified }
@@ -41,9 +47,11 @@
 ;         |   |      (%.TempArray)[0][i2] = %x.addr.020;
 ;         |   |      %y.addr.019 = %y.addr.019  +  1;
 ;         |   |      %0 = (@A)[0][%x.addr.020];
+;         |   |      (%.TempArray2)[0][i2] = %0;
 ;         |   |      %1 = (@B)[0][%y.addr.019];
-;         |   |      (%.TempArray2)[0][i2] = %1;
+;         |   |      (%.TempArray4)[0][i2] = %1;
 ;         |   |      %2 = (@A1)[0][%x.addr.020];
+;         |   |      (%.TempArray6)[0][i2] = %2;
 ;         |   |   }
 ;         |   + END LOOP
 ;         |
@@ -52,9 +60,10 @@
 ; CHECK:  |   |   if (%z > %cmp)
 ;         |   |   {
 ; CHECK:  |   |      %x.addr.020 = (%.TempArray)[0][i2];
-; CHECK:  |   |      %0 = (@A)[0][%x.addr.020];
-; CHECK:  |   |      %1 = (%.TempArray2)[0][i2];
-; CHECK:  |   |      %2 = (@A1)[0][%x.addr.020];
+; CHECK:  |   |      %0 = (%.TempArray2)[0][i2];
+; CHECK:  |   |      %1 = (%.TempArray4)[0][i2];
+; CHECK:  |   |      %2 = (%.TempArray6)[0][i2];
+
 ; CHECK:  |   |      (@B1)[0][%x.addr.020] = %2 + (%0 * %1);
 ;         |   |   }
 ;         |   + END LOOP

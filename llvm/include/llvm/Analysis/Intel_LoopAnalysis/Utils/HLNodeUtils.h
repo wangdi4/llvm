@@ -1514,6 +1514,10 @@ public:
   static HLNode *getLexicalLowestCommonAncestorParent(HLNode *Node1,
                                                       HLNode *Node2);
 
+  static const HLNode *getLexicalLowestCommonAncestor(const HLNode *Node1,
+                                                      const HLNode *Node2);
+  static HLNode *getLexicalLowestCommonAncestor(HLNode *Node1, HLNode *Node2);
+
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.
   static bool getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,

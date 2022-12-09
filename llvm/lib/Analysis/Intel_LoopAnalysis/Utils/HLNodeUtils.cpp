@@ -4626,34 +4626,36 @@ HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
   assert((Node1->getParentRegion() == Node2->getParentRegion()) &&
          "Node1 and Node2 are not in the same region!");
 
-  // Represent node by its parent loop if it is in the loop preheader/postexit
-  // to avoid checking for edges cases later on in the function.
-  if (auto Inst = dyn_cast<HLInst>(Node1)) {
-    if (Inst->isInPreheaderOrPostexit()) {
-      Node1 = Node1->getParent();
-    }
+  HLNode *Parent1 = Node1->getLexicalParent();
+  HLNode *Parent2 = Node2->getLexicalParent();
+
+  if (isa<HLRegion>(Parent1)) {
+    return Parent1;
   }
 
-  if (auto Inst = dyn_cast<HLInst>(Node2)) {
-    if (Inst->isInPreheaderOrPostexit()) {
-      Node2 = Node2->getParent();
-    }
+  if (isa<HLRegion>(Parent2)) {
+    return Parent2;
   }
 
-  const HLNode *Parent = nullptr;
+  return getLexicalLowestCommonAncestor(Parent1, Parent2);
+}
+
+HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
+                                                          HLNode *Node2) {
+  return const_cast<HLNode *>(getLexicalLowestCommonAncestorParent(
+      static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
+}
+
+const HLNode *HLNodeUtils::getLexicalLowestCommonAncestor(const HLNode *Node1,
+                                                          const HLNode *Node2) {
+  assert(Node1 && Node2 && "Node1 or Node2 is null!");
+
   unsigned TopSortNum1 = Node1->getTopSortNum();
   unsigned TopSortNum2 = Node2->getTopSortNum();
 
-  unsigned LaterNodeTopSortNum;
-
   // Set starting parent using the node which appears earlier in HIR.
-  if (TopSortNum1 < TopSortNum2) {
-    Parent = Node1->getParent();
-    LaterNodeTopSortNum = TopSortNum2;
-  } else {
-    Parent = Node2->getParent();
-    LaterNodeTopSortNum = TopSortNum1;
-  }
+  const HLNode *Parent = (TopSortNum1 < TopSortNum2) ? Node1 : Node2;
+  unsigned LaterNodeTopSortNum = std::max(TopSortNum1, TopSortNum2);
 
   // Move up the parent chain until we find a parent wich also contains the node
   // which appears later in HIR.
@@ -4664,9 +4666,9 @@ HLNodeUtils::getLexicalLowestCommonAncestorParent(const HLNode *Node1,
   return Parent;
 }
 
-HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
-                                                          HLNode *Node2) {
-  return const_cast<HLNode *>(getLexicalLowestCommonAncestorParent(
+HLNode *HLNodeUtils::getLexicalLowestCommonAncestor(HLNode *Node1,
+                                                    HLNode *Node2) {
+  return const_cast<HLNode *>(getLexicalLowestCommonAncestor(
       static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
 }
 

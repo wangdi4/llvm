@@ -4,6 +4,16 @@
 ; Check that distribution succeeds for loops with liveout temps under control flow.
 ; %"prec4neg_1_$IJKL1.0" is loaded inside inside the if of the 2nd distributed loop.
 
+; Scalar Expansion analysis:
+; %mul.156 (sb:42) (In/Out 0/0) (24) -> (88) Recompute: 0
+; ( 24 -> 88 )
+; %"prec4neg_1_$IJKL1.0" (sb:7) (In/Out 1/1) (30) -> (77) Recompute: 0
+; ( 30 -> 77 )
+; %"prec4neg_1_$SQRPOLD.0" (sb:3) (In/Out 1/0) (68) -> (75) Recompute: 0
+; ( 68 -> 75 )
+; %mul.177 (sb:90) (In/Out 0/0) (74) -> (75) Recompute: 0
+; ( 74 -> 75 )
+
 ; Before Distribution:
 
 ;      BEGIN REGION { }
@@ -50,7 +60,42 @@
 ;             |   %min = (-64 * i1 + %"prec4neg_1_$NBLS_N0_fetch.1124" + -1 <= 63) ? -64 * i1 + %"prec4neg_1_$NBLS_N0_fetch.1124" + -1 : 63;
 ;             |
 ; CHECK:      |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-;             |        ...
+;             |   |   %"prec4neg_1_$MAP_N0[]_fetch.1127" = (%"prec4neg_1_$MAP_N0")[64 * i1 + i2];
+;             |   |   %"prec4neg_1_$MAP_IJ[]_fetch.1129" = (%"prec4neg_1_$MAP_IJ")[%"prec4neg_1_$MAP_N0[]_fetch.1127" + -1];
+;             |   |   %"prec4neg_1_$MAP_KL[]_fetch.1131" = (%"prec4neg_1_$MAP_KL")[%"prec4neg_1_$MAP_N0[]_fetch.1127" + -1];
+;             |   |   %"prec4neg_1_$APB[][]_fetch.1138" = (%"prec4neg_1_$APB")[%"prec4neg_1_$IJ_fetch.1135" + -1][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1];
+;             |   |   %"prec4neg_1_$CPD[][]_fetch.1145" = (%"prec4neg_1_$CPD")[%"prec4neg_1_$KL_fetch.1142" + -1][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |   %add.100 = %"prec4neg_1_$APB[][]_fetch.1138"  +  %"prec4neg_1_$CPD[][]_fetch.1145";
+;             |   |   %div.8 = 1.000000e+00  /  %add.100;<18>               |   |   %"prec4neg_1_$ABPCDR.0" = (%add.100 !=u %"prec4neg_1_$ABPCD1R.0") ? %div.8 : %"prec4neg_1_$ABPCDR.0";<17>               |   |   %"prec4neg_1_$ABPCD1R.0" = (%add.100 !=u %"prec4neg_1_$ABPCD1R.0") ? %add.100 : %"prec4neg_1_$ABPCD1R.0";
+;             |   |   %mul.155 = (%"prec4neg_1_$ESTAB")[%"prec4neg_1_$IJ_fetch.1135" + -1][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1]  *  (%"prec4neg_1_$ESTCD")[%"prec4neg_1_$KL_fetch.1142" + -1][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |   %mul.156 = %mul.155  *  %"prec4neg_1_$ABPCDR.0";<91>               |   |   (%.TempArray)[0][i2] = %mul.156;<26>               |   |   if (%mul.156 > %fetch.1169)<26>               |   |   {
+;             |   |      %"prec4neg_1_$IJKL1.0" = %"prec4neg_1_$IJKL1.0"  +  1;
+;             |   |      (%.TempArray1)[0][i2] = %"prec4neg_1_$IJKL1.0";
+;             |   |      (%"prec4neg_1_$INDEX")[%"prec4neg_1_$IJKL1.0" + -1] = 64 * i1 + i2 + 1;
+;             |   |      (%"prec4neg_1_$RPPQ")[%"prec4neg_1_$IJKL1.0" + -1] = %"prec4neg_1_$ABPCDR.0";
+;             |   |      %mul.157 = %"prec4neg_1_$CPD[][]_fetch.1145"  *  %"prec4neg_1_$ABPCDR.0";
+;             |   |      (%"prec4neg_1_$RHOAPB")[%"prec4neg_1_$IJKL1.0" + -1] = %mul.157;
+;             |   |      %mul.158 = %"prec4neg_1_$APB[][]_fetch.1138"  *  %"prec4neg_1_$ABPCDR.0";
+;             |   |      (%"prec4neg_1_$RHOCPD")[%"prec4neg_1_$IJKL1.0" + -1] = %mul.158;
+;             |   |      %mul.159 = %"prec4neg_1_$APB[][]_fetch.1138"  *  %"prec4neg_1_$CPD[][]_fetch.1145";
+;             |   |      %mul.160 = %mul.159  *  %"prec4neg_1_$ABPCDR.0";
+;             |   |      %sub.11 = (%"prec4neg_1_$XP")[%"prec4neg_1_$IJ_fetch.1135" + -1][0][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1]  -  (%"prec4neg_1_$XQ")[%"prec4neg_1_$KL_fetch.1142" + -1][0][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |      %sub.12 = (%"prec4neg_1_$XP")[%"prec4neg_1_$IJ_fetch.1135" + -1][1][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1]  -  (%"prec4neg_1_$XQ")[%"prec4neg_1_$KL_fetch.1142" + -1][1][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |      %sub.13 = (%"prec4neg_1_$XP")[%"prec4neg_1_$IJ_fetch.1135" + -1][2][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1]  -  (%"prec4neg_1_$XQ")[%"prec4neg_1_$KL_fetch.1142" + -1][2][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |      %mul.169 = %sub.11  *  %sub.11;
+;             |   |      %mul.170 = %sub.12  *  %sub.12;
+;             |   |      %add.108 = %mul.169  +  %mul.170;
+;             |   |      %mul.171 = %sub.13  *  %sub.13;
+;             |   |      %add.109 = %add.108  +  %mul.171;
+;             |   |      %mul.172 = %mul.160  *  %add.109;
+;             |   |      (%"prec4neg_1_$RYS")[%"prec4neg_1_$IJKL1.0" + -1] = %mul.172;
+;             |   |      %func_result = @llvm.sqrt.f64(%"prec4neg_1_$ABPCDR.0");
+;             |   |      %"prec4neg_1_$SQRPOLD.0" = (%"prec4neg_1_$ABPCDR.0" !=u %"prec4neg_1_$RPOLD.0") ? %func_result : %"prec4neg_1_$SQRPOLD.0";
+;             |   |      (%.TempArray3)[0][i2] = %"prec4neg_1_$SQRPOLD.0";
+;             |   |      %"prec4neg_1_$RPOLD.0" = (%"prec4neg_1_$ABPCDR.0" !=u %"prec4neg_1_$RPOLD.0") ? %"prec4neg_1_$ABPCDR.0" : %"prec4neg_1_$RPOLD.0";
+;             |   |      %mul.177 = (%"prec4neg_1_$COEFIJ")[%"prec4neg_1_$IJ_fetch.1135" + -1][%"prec4neg_1_$MAP_IJ[]_fetch.1129" + -1]  *  (%"prec4neg_1_$COEFKL")[%"prec4neg_1_$KL_fetch.1142" + -1][%"prec4neg_1_$MAP_KL[]_fetch.1131" + -1];
+;             |   |      (%.TempArray5)[0][i2] = %mul.177;
+;             |   |   }
 ; CHECK:      |   + END LOOP
 ;             |
 ;             |
