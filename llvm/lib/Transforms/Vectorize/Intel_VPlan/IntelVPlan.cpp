@@ -180,46 +180,7 @@ void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
-#if INTEL_CUSTOMIZATION
   State.ILV->processInstruction(this);
-  return;
-#endif
-  IRBuilder<> &Builder = State.Builder;
-
-  switch (getOpcode()) {
-  case Instruction::UDiv:
-  case Instruction::SDiv:
-  case Instruction::SRem:
-  case Instruction::URem:
-  case Instruction::Add:
-  case Instruction::FAdd:
-  case Instruction::Sub:
-  case Instruction::FSub:
-  case Instruction::Mul:
-  case Instruction::FMul:
-  case Instruction::FDiv:
-  case Instruction::FRem:
-  case Instruction::Shl:
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::And:
-  case Instruction::Or:
-  case Instruction::Xor: {
-    Value *A = State.get(getOperand(0), Part);
-    Value *B = State.get(getOperand(1), Part);
-    Value *V = Builder.CreateBinOp((Instruction::BinaryOps)getOpcode(), A, B);
-    State.set(this, V, Part);
-    break;
-  }
-  case VPInstruction::Not: {
-    Value *A = State.get(getOperand(0), Part);
-    Value *V = Builder.CreateNot(A);
-    State.set(this, V, Part);
-    break;
-  }
-  default:
-    llvm_unreachable("Unsupported opcode for instruction");
-  }
 }
 
 #if INTEL_CUSTOMIZATION

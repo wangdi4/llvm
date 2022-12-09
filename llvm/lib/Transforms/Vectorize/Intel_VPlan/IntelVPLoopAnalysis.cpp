@@ -3439,15 +3439,6 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
     // close-form representation for them to be conservative. This will change
     // once additional analyses are added to converters and VPLoopEntities.
     return true;
-    // In-memory induction scenario.
-    assert(IsExplicitInduction && "in-memory induction is auto-recognized?");
-    // The single update to descriptor should be a store to the original
-    // descriptor.
-    assert(UpdateVPInsts[0]->getOpcode() == Instruction::Store &&
-           "Single update to in-memory induction is not store.");
-    assert(AllocaInst && UpdateVPInsts[0]->getOperand(1) == AllocaInst &&
-           "In-memory induction store not writing into alloca.");
-    IndIncrementVPI = cast<VPInstruction>(UpdateVPInsts[0]->getOperand(0));
   }
 
   // Analyse all users of induction's increment instruction.
