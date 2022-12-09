@@ -139,10 +139,10 @@ define amdgpu_kernel void @flat_workgroup_unordered_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup") unordered, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup") unordered, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -274,10 +274,10 @@ define amdgpu_kernel void @flat_workgroup_monotonic_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup") monotonic, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup") monotonic, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -419,10 +419,10 @@ define amdgpu_kernel void @flat_workgroup_acquire_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup") acquire, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup") acquire, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -576,10 +576,10 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup") seq_cst, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup") seq_cst, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -693,9 +693,9 @@ define amdgpu_kernel void @flat_workgroup_unordered_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup") unordered, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup") unordered, align 4
   ret void
 }
 
@@ -809,9 +809,9 @@ define amdgpu_kernel void @flat_workgroup_monotonic_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup") monotonic, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup") monotonic, align 4
   ret void
 }
 
@@ -937,9 +937,9 @@ define amdgpu_kernel void @flat_workgroup_release_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup") release, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup") release, align 4
   ret void
 }
 
@@ -1065,9 +1065,9 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup") seq_cst, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup") seq_cst, align 4
   ret void
 }
 
@@ -1181,9 +1181,9 @@ define amdgpu_kernel void @flat_workgroup_monotonic_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") monotonic
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") monotonic
   ret void
 }
 
@@ -1312,9 +1312,9 @@ define amdgpu_kernel void @flat_workgroup_acquire_atomicrmw(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") acquire
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") acquire
   ret void
 }
 
@@ -1440,9 +1440,9 @@ define amdgpu_kernel void @flat_workgroup_release_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") release
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") release
   ret void
 }
 
@@ -1583,9 +1583,9 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_atomicrmw(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") acq_rel
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") acq_rel
   ret void
 }
 
@@ -1726,9 +1726,9 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_atomicrmw(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") seq_cst
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") seq_cst
   ret void
 }
 
@@ -1866,10 +1866,10 @@ define amdgpu_kernel void @flat_workgroup_acquire_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") acquire
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") acquire
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -2019,10 +2019,10 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") acq_rel
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") acq_rel
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -2172,10 +2172,10 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup") seq_cst
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup") seq_cst
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -2287,10 +2287,10 @@ define amdgpu_kernel void @flat_workgroup_monotonic_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") monotonic monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") monotonic monotonic
   ret void
 }
 
@@ -2417,10 +2417,10 @@ define amdgpu_kernel void @flat_workgroup_acquire_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acquire monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acquire monotonic
   ret void
 }
 
@@ -2544,10 +2544,10 @@ define amdgpu_kernel void @flat_workgroup_release_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") release monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") release monotonic
   ret void
 }
 
@@ -2686,10 +2686,10 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel monotonic
   ret void
 }
 
@@ -2828,10 +2828,10 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst monotonic
   ret void
 }
 
@@ -2958,10 +2958,10 @@ define amdgpu_kernel void @flat_workgroup_monotonic_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") monotonic acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") monotonic acquire
   ret void
 }
 
@@ -3088,10 +3088,10 @@ define amdgpu_kernel void @flat_workgroup_acquire_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acquire acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acquire acquire
   ret void
 }
 
@@ -3230,10 +3230,10 @@ define amdgpu_kernel void @flat_workgroup_release_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") release acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") release acquire
   ret void
 }
 
@@ -3372,10 +3372,10 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel acquire
   ret void
 }
 
@@ -3514,10 +3514,10 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst acquire
   ret void
 }
 
@@ -3656,10 +3656,10 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    s_waitcnt lgkmcnt(0)
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst seq_cst
   ret void
 }
 
@@ -3799,12 +3799,12 @@ define amdgpu_kernel void @flat_workgroup_monotonic_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") monotonic monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") monotonic monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -3951,12 +3951,12 @@ define amdgpu_kernel void @flat_workgroup_acquire_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acquire monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acquire monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4108,12 +4108,12 @@ define amdgpu_kernel void @flat_workgroup_release_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") release monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") release monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4272,12 +4272,12 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4436,12 +4436,12 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4588,12 +4588,12 @@ define amdgpu_kernel void @flat_workgroup_monotonic_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") monotonic acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") monotonic acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4740,12 +4740,12 @@ define amdgpu_kernel void @flat_workgroup_acquire_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acquire acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acquire acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -4904,12 +4904,12 @@ define amdgpu_kernel void @flat_workgroup_release_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") release acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") release acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5068,12 +5068,12 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5232,12 +5232,12 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5396,12 +5396,12 @@ define amdgpu_kernel void @flat_workgroup_monotonic_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") monotonic seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") monotonic seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5560,12 +5560,12 @@ define amdgpu_kernel void @flat_workgroup_acquire_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acquire seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acquire seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5724,12 +5724,12 @@ define amdgpu_kernel void @flat_workgroup_release_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") release seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") release seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -5888,12 +5888,12 @@ define amdgpu_kernel void @flat_workgroup_acq_rel_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") acq_rel seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -6052,12 +6052,12 @@ define amdgpu_kernel void @flat_workgroup_seq_cst_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup") seq_cst seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -6189,10 +6189,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_unordered_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup-one-as") unordered, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup-one-as") unordered, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -6324,10 +6324,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup-one-as") monotonic, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup-one-as") monotonic, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -6465,10 +6465,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup-one-as") acquire, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup-one-as") acquire, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -6612,10 +6612,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_load(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %in, i32* %out) {
+    ptr %in, ptr %out) {
 entry:
-  %val = load atomic i32, i32* %in syncscope("workgroup-one-as") seq_cst, align 4
-  store i32 %val, i32* %out
+  %val = load atomic i32, ptr %in syncscope("workgroup-one-as") seq_cst, align 4
+  store i32 %val, ptr %out
   ret void
 }
 
@@ -6729,9 +6729,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_unordered_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup-one-as") unordered, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup-one-as") unordered, align 4
   ret void
 }
 
@@ -6845,9 +6845,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup-one-as") monotonic, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup-one-as") monotonic, align 4
   ret void
 }
 
@@ -6967,9 +6967,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup-one-as") release, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup-one-as") release, align 4
   ret void
 }
 
@@ -7089,9 +7089,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_store(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32 %in, i32* %out) {
+    i32 %in, ptr %out) {
 entry:
-  store atomic i32 %in, i32* %out syncscope("workgroup-one-as") seq_cst, align 4
+  store atomic i32 %in, ptr %out syncscope("workgroup-one-as") seq_cst, align 4
   ret void
 }
 
@@ -7205,9 +7205,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") monotonic
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") monotonic
   ret void
 }
 
@@ -7328,9 +7328,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") acquire
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") acquire
   ret void
 }
 
@@ -7450,9 +7450,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") release
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") release
   ret void
 }
 
@@ -7579,9 +7579,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") acq_rel
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") acq_rel
   ret void
 }
 
@@ -7708,9 +7708,9 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_atomicrmw(
 ; GFX11-CU-NEXT:    flat_atomic_swap_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") seq_cst
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") seq_cst
   ret void
 }
 
@@ -7850,10 +7850,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") acquire
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") acquire
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -7999,10 +7999,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") acq_rel
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") acq_rel
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -8148,10 +8148,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_ret_atomicrmw(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in) {
+    ptr %out, i32 %in) {
 entry:
-  %val = atomicrmw volatile xchg i32* %out, i32 %in syncscope("workgroup-one-as") seq_cst
-  store i32 %val, i32* %out, align 4
+  %val = atomicrmw volatile xchg ptr %out, i32 %in syncscope("workgroup-one-as") seq_cst
+  store i32 %val, ptr %out, align 4
   ret void
 }
 
@@ -8263,10 +8263,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic monotonic
   ret void
 }
 
@@ -8385,10 +8385,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire monotonic
   ret void
 }
 
@@ -8506,10 +8506,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release monotonic
   ret void
 }
 
@@ -8634,10 +8634,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel monotonic
   ret void
 }
 
@@ -8762,10 +8762,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_monotonic_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst monotonic
   ret void
 }
 
@@ -8884,10 +8884,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic acquire
   ret void
 }
 
@@ -9006,10 +9006,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire acquire
   ret void
 }
 
@@ -9134,10 +9134,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release acquire
   ret void
 }
 
@@ -9262,10 +9262,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel acquire
   ret void
 }
 
@@ -9390,10 +9390,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_acquire_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst acquire
   ret void
 }
 
@@ -9518,10 +9518,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic seq_cst
   ret void
 }
 
@@ -9646,10 +9646,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire seq_cst
   ret void
 }
 
@@ -9774,10 +9774,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release seq_cst
   ret void
 }
 
@@ -9902,10 +9902,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel seq_cst
   ret void
 }
 
@@ -10030,10 +10030,10 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_seq_cst_cmpxchg(
 ; GFX11-CU-NEXT:    flat_atomic_cmpswap_b32 v[0:1], v[2:3] offset:16
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst seq_cst
   ret void
 }
 
@@ -10173,12 +10173,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonicmonotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -10324,12 +10324,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -10475,12 +10475,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -10632,12 +10632,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -10789,12 +10789,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_monotonic_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst monotonic
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst monotonic
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -10940,12 +10940,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11091,12 +11091,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11248,12 +11248,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11405,12 +11405,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11562,12 +11562,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_acquire_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst acquire
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst acquire
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11719,12 +11719,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_monotonic_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") monotonic seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -11876,12 +11876,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acquire_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acquire seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -12033,12 +12033,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_release_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") release seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -12190,12 +12190,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_acq_rel_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") acq_rel seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 
@@ -12347,12 +12347,12 @@ define amdgpu_kernel void @flat_workgroup_one_as_seq_cst_seq_cst_ret_cmpxchg(
 ; GFX11-CU-NEXT:    flat_store_b32 v[0:1], v2
 ; GFX11-CU-NEXT:    s_sendmsg sendmsg(MSG_DEALLOC_VGPRS)
 ; GFX11-CU-NEXT:    s_endpgm
-    i32* %out, i32 %in, i32 %old) {
+    ptr %out, i32 %in, i32 %old) {
 entry:
-  %gep = getelementptr i32, i32* %out, i32 4
-  %val = cmpxchg volatile i32* %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst seq_cst
+  %gep = getelementptr i32, ptr %out, i32 4
+  %val = cmpxchg volatile ptr %gep, i32 %old, i32 %in syncscope("workgroup-one-as") seq_cst seq_cst
   %val0 = extractvalue { i32, i1 } %val, 0
-  store i32 %val0, i32* %out, align 4
+  store i32 %val0, ptr %out, align 4
   ret void
 }
 

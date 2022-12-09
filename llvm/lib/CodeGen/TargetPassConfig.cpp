@@ -1365,6 +1365,7 @@ void TargetPassConfig::addMachinePasses() {
 
   addPass(&StackMapLivenessID);
   addPass(&LiveDebugValuesID);
+  addPass(&MachineSanitizerBinaryMetadataID);
 
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
