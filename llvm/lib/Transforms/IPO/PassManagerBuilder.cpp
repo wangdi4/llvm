@@ -908,6 +908,7 @@ void PassManagerBuilder::populateModulePassManager(
     // builds. The function merging pass is
     if (MergeFunctions)
       MPM.add(createMergeFunctionsPass());
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
     if (RunVPOOpt) {
@@ -922,6 +923,8 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_COLLAB
 
     MPM.add(createAnnotationRemarksLegacyPass());
+=======
+>>>>>>> e26017d4c5a5871e75f56140b5d47da483cf8f25
     return;
   }
 
@@ -1156,6 +1159,7 @@ void PassManagerBuilder::populateModulePassManager(
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
   MPM.add(createCFGSimplificationPass(
       SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1172,6 +1176,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> e26017d4c5a5871e75f56140b5d47da483cf8f25
 }
 
 
