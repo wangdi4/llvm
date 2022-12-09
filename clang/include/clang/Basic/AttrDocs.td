@@ -2348,7 +2348,7 @@ as ``-mlong-calls`` and ``-mno-long-calls``.
   }];
 }
 
-def IntelFPGADoublePumpAttrDocs : Documentation {
+def SYCLIntelDoublePumpAttrDocs : Documentation {
 let Category = DocCatVariable;
   let Heading = "intel::doublepump";
   let Content = [{
@@ -2369,7 +2369,7 @@ that is clocked at twice the rate of its accessors.
   }];
 }
 
-def IntelFPGASinglePumpAttrDocs : Documentation {
+def SYCLIntelSinglePumpAttrDocs : Documentation {
 let Category = DocCatVariable;
   let Heading = "intel::singlepump";
   let Content = [{
@@ -2390,7 +2390,7 @@ that is clocked at the same rate as its accessors.
   }];
 }
 
-def IntelFPGAMemoryAttrDocs : Documentation {
+def SYCLIntelMemoryAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::fpga_memory";
   let Content = [{
@@ -2414,7 +2414,7 @@ it indicates what type of memory to use.
   }];
 }
 
-def IntelFPGARegisterAttrDocs : Documentation {
+def SYCLIntelRegisterAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::fpga_register";
   let Content = [{
@@ -2435,7 +2435,7 @@ if possible.
   }];
 }
 
-def IntelFPGABankWidthAttrDocs : Documentation {
+def SYCLIntelBankWidthAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::bankwidth";
   let Content = [{
@@ -2457,7 +2457,7 @@ with banks that are N bytes wide.
   }];
 }
 
-def IntelFPGANumBanksAttrDocs : Documentation {
+def SYCLIntelNumBanksAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::numbanks";
   let Content = [{
@@ -2479,7 +2479,7 @@ with N banks.
   }];
 }
 
-def IntelFPGAPrivateCopiesAttrDocs : Documentation {
+def SYCLIntelPrivateCopiesAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::private_copies";
   let Content = [{
@@ -2502,7 +2502,7 @@ threads or loop iterations.
   }];
 }
 
-def IntelFPGAMergeAttrDocs : Documentation {
+def SYCLIntelMergeAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::merge";
   let Content = [{
@@ -2527,7 +2527,7 @@ depth-wise or width-wise manner.
   }];
 }
 
-def IntelFPGAMaxReplicatesAttrDocs : Documentation {
+def SYCLIntelMaxReplicatesAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::max_replicates";
   let Content = [{
@@ -2550,7 +2550,7 @@ simultaneous accesses from different load/store sites in the program.
   }];
 }
 
-def IntelFPGASimpleDualPortAttrDocs : Documentation {
+def SYCLIntelSimpleDualPortAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::simple_dual_port";
   let Content = [{
@@ -2572,7 +2572,7 @@ loads).
   }];
 }
 
-def IntelFPGABankBitsDocs : Documentation {
+def SYCLIntelBankBitsDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::bank_bits";
   let Content = [{
@@ -2600,7 +2600,7 @@ pointer address bits to bank on.
   }];
 }
 
-def IntelFPGAForcePow2DepthAttrDocs : Documentation {
+def SYCLIntelForcePow2DepthAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::force_pow2_depth";
   let Content = [{
@@ -3239,7 +3239,7 @@ sycl_detail namespace.
   }];
 }
 
-def SYCLFPGAPipeDocs : Documentation {
+def SYCLIntelPipeDocs : Documentation {
   let Category = DocCatStmt;
   let Heading = "pipe (read_only, write_only)";
   let Content = [{
@@ -3310,7 +3310,7 @@ with which a pipe interfaces. The id argument is the name of the I/O interface.
   }];
 }
 
-def SYCLIntelFPGAIVDepAttrDocs : Documentation {
+def SYCLIntelIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::ivdep";
   let Content = [{
@@ -3354,7 +3354,7 @@ Note: this version of the attribute is not fully supported by the backend yet.
   }];
 }
 
-def SYCLIntelFPGAInitiationIntervalAttrDocs : Documentation {
+def SYCLIntelInitiationIntervalAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::initiation_interval";
   let Content = [{
@@ -3387,7 +3387,7 @@ The ``[[intel::ii]]`` attribute spelling is a deprecated synonym for
   }];
 }
 
-def SYCLIntelFPGAMaxConcurrencyAttrDocs : Documentation {
+def SYCLIntelMaxConcurrencyAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::max_concurrency";
   let Content = [{
@@ -3415,7 +3415,7 @@ same loop or function, or in conjunction with ``disable_loop_pipelining``.
   }];
 }
 
-def SYCLIntelFPGALoopCoalesceAttrDocs : Documentation {
+def SYCLIntelLoopCoalesceAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::loop_coalesce";
   let Content = [{
@@ -3454,7 +3454,7 @@ of the nested loop levels should be coalesced.
   }];
 }
 
-def SYCLIntelFPGADisableLoopPipeliningAttrDocs : Documentation {
+def SYCLIntelDisableLoopPipeliningAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::disable_loop_pipelining";
   let Content = [{
@@ -3477,7 +3477,7 @@ function, or in conjunction with ``max_interleaving``,
   }];
 }
 
-def SYCLIntelFPGALoopCountAttrDocs : Documentation {
+def SYCLIntelLoopCountAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::loop_count_min, intel::loop_count_max, intel::loop_count_avg, intel::loop_count";
   let Content = [{
@@ -3521,7 +3521,7 @@ using PGO.
   }];
 }
 
-def SYCLIntelFPGAMaxInterleavingAttrDocs : Documentation {
+def SYCLIntelMaxInterleavingAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::max_interleaving";
   let Content = [{
@@ -3547,7 +3547,7 @@ used on the same loop in conjunction with disable_loop_pipelining.
   }];
 }
 
-def SYCLIntelFPGASpeculatedIterationsAttrDocs : Documentation {
+def SYCLIntelSpeculatedIterationsAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::speculated_iterations";
   let Content = [{
@@ -3572,7 +3572,7 @@ used on the same loop in conjunction with disable_loop_pipelining.
   }];
 }
 
-def SYCLIntelFPGANofusionAttrDocs : Documentation {
+def SYCLIntelNofusionAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::nofusion";
   let Content = [{
@@ -3596,7 +3596,7 @@ loop should not be fused with any adjacent loop.
   }];
 }
 
-def SYCLIntelFPGAMaxReinvocationDelayAttrDocs : Documentation {
+def SYCLIntelMaxReinvocationDelayAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::max_reinvocation_delay";
   let Content = [{
