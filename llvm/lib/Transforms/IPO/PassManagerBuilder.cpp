@@ -351,11 +351,6 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
 }
 #endif // INTEL_CUSTOMIZATION
 
-namespace llvm {
-cl::opt<bool> SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
-                                   cl::desc("Enable SYCL optimization mode."));
-} // namespace llvm
-
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -499,21 +494,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true)));                            // Merge & remove BBs
-#if INTEL_COLLAB
-  if (!SYCLOptimizationMode && !SPIRVOptimizationMode)
-    MPM.add(createReassociatePass()); // Reassociate expressions
-#else // INTEL_COLLAB
-  // FIXME: re-association increases variables liveness and therefore register
-  // pressure.
-  if (!SYCLOptimizationMode)
-    MPM.add(createReassociatePass()); // Reassociate expressions
-#endif // INTEL_COLLAB
-
-
-  // clang-format off
-// Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
-// optimizations rely on TTI, which is not accurate for SPIR target.
-if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+  MPM.add(createReassociatePass());           // Reassociate expressions
 
 #if INTEL_CUSTOMIZATION
 if (EnableSimpleLoopUnswitch) {
@@ -578,9 +559,6 @@ if (EnableSimpleLoopUnswitch) {
                                      ForgetAllSCEVInLoopUnroll));
   // This ends the loop pass pipelines.
 
-} // broken formatting on this line to simplify pulldown
-  // clang-format on
-
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
 
@@ -626,18 +604,8 @@ if (EnableSimpleLoopUnswitch) {
   }
 
   // Merge & remove BBs and sink & hoist common instructions.
-#if INTEL_CUSTOMIZATION
-  // Hoisting of common instructions can result in unstructured CFG input to
-  // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
-  if (SYCLOptimizationMode)
-    MPM.add(createCFGSimplificationPass());
-  else {
-    limitLoopOptOnly(MPM).add(
-      createCFGSimplificationPass(SimplifyCFGOptions()));
-    limitNoLoopOptOnly(MPM).add(createCFGSimplificationPass(
-        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
-  }
-#endif // INTEL_CUSTOMIZATION
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
 
   // Clean up after everything.
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
@@ -647,8 +615,7 @@ if (EnableSimpleLoopUnswitch) {
   // sincospi.
   // The transformation is not launched for SYCL, because sinpi, cospi and
   // sincospi are not available in standard libraries provided by OpenCL RTs
-  if (!SYCLOptimizationMode)
-    MPM.add(createTransformSinAndCosCallsPass());
+  MPM.add(createTransformSinAndCosCallsPass());
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -717,17 +684,16 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                                          bool IsFullLTO) {
 
 #if INTEL_CUSTOMIZATION
-  if (!SYCLOptimizationMode) {
-    if (!IsFullLTO) {
-      if (EnableLV)
-        limitNoLoopOptOrNotPrepareForLTO(PM).add(
-            createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
-    } else {
-      // FIXME: Needs driver cleanup at least.
-      if (EnableLV)
-        limitNoLoopOptOnly(PM).add(
-            createLoopVectorizePass(true, !LoopVectorize));
-    }
+  if (!IsFullLTO) {
+    if (EnableLV)
+      limitNoLoopOptOrNotPrepareForLTO(PM).add(
+          createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
+  } else {
+    // FIXME: Needs driver cleanup at least.
+    if (EnableLV)
+      limitNoLoopOptOnly(PM).add(
+          createLoopVectorizePass(true, !LoopVectorize));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (IsFullLTO) {
@@ -818,11 +784,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
-  } // if (!SYCLOptimizationMode) // INTEL
 
-#if INTEL_CUSTOMIZATION
-  if (!SYCLOptimizationMode)
-#endif // INTEL_CUSTOMIZATION
   if (!IsFullLTO) {
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
 
@@ -967,8 +929,8 @@ void PassManagerBuilder::populateModulePassManager(
   // In 2020, after the FreezeSelect arg was added, the Allow CFGSimps parm
   // was accidentally left at default (true) [e9e5aace]
   // Leaving it "true" for now as it has been 2 years without regressions.
-  if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
-    MPM.add(createJumpThreadingPass()); // INTEL
+  if (EarlyJumpThreading)
+    MPM.add(createJumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(
@@ -1090,34 +1052,29 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createFloat2IntPass());
   MPM.add(createLowerConstantIntrinsicsPass());
 
-  if (!SYCLOptimizationMode) {
-    // Re-rotate loops in all our loop nests. These may have fallout out of
-    // rotated form due to GVN or other transformations, and the vectorizer relies
-    // on the rotated form. Disable header duplication at -Oz.
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+  // Re-rotate loops in all our loop nests. These may have fallout out of
+  // rotated form due to GVN or other transformations, and the vectorizer relies
+  // on the rotated form. Disable header duplication at -Oz.
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
 
 #if INTEL_CUSTOMIZATION
-    // In LTO mode, loopopt needs to run in link phase along with community
-    // vectorizer and unroll after it until they are phased out.
+  // In LTO mode, loopopt needs to run in link phase along with community
+  // vectorizer and unroll after it until they are phased out.
 
-    // TODO: We might need a more "broad" limiter for the auto CPU dispatch as
-    // the cloning would happen during LTO stage only.
-    INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, MPM)
-    addLoopOptAndAssociatedVPOPasses(MPM, false);
-    INTEL_LIMIT_END
+  // TODO: We might need a more "broad" limiter for the auto CPU dispatch as
+  // the cloning would happen during LTO stage only.
+  INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, MPM)
+  addLoopOptAndAssociatedVPOPasses(MPM, false);
+  INTEL_LIMIT_END
 
-    INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, MPM)
-    // Distribute loops to allow partial vectorization.  I.e. isolate
-    // dependences into separate loop that would otherwise inhibit
-    // vectorization.  This is currently only performed for loops marked
-    // with the metadata llvm.loop.distribute=true or when
-    // -enable-loop-distribute is specified.
-    MPM.add(createLoopDistributePass());
-    INTEL_LIMIT_END
-  }
+#endif // INTEL_CUSTOMIZATION
+  // Distribute loops to allow partial vectorization.  I.e. isolate dependences
+  // into separate loop that would otherwise inhibit vectorization.  This is
+  // currently only performed for loops marked with the metadata
+  // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
+  MPM.add(createLoopDistributePass());
 
   addVectorPasses(MPM, /* IsFullLTO */ false);
-#endif // INTEL_CUSTOMIZATION
 
   // FIXME: We shouldn't bother with this anymore.
   MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes

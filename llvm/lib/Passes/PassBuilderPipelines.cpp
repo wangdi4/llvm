@@ -447,7 +447,6 @@ extern cl::opt<bool> EnableEarlyLSR;
 extern cl::opt<bool> EnableStdContainerOpt;
 extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
-extern cl::opt<bool> SYCLOptimizationMode;
 } // namespace llvm
 #endif // INTEL_CUSTOMIZATION
 
@@ -522,6 +521,10 @@ static cl::opt<bool> EnablePostPGOLoopRotation(
 static cl::opt<bool> EnableGlobalAnalyses(
     "enable-global-analyses", cl::init(true), cl::Hidden,
     cl::desc("Enable inter-procedural analyses"));
+
+static cl::opt<bool>
+    SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
+                         cl::desc("Enable SYCL optimization mode."));
 
 static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
