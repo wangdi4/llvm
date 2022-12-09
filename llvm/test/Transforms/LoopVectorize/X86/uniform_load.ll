@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-vectorize -S -mcpu=core-avx2 < %s | FileCheck %s
+=======
+; RUN: opt -passes=loop-vectorize -S -mcpu=core-avx2 < %s | FileCheck %s
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 
 ;float inc = 0.5;
 ;void foo(float *A, unsigned N) {

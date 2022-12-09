@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -scoped-noalias-aa -loop-vectorize -licm -force-vector-width=2 \
+=======
+; RUN: opt -passes='loop-vectorize,loop-mssa(licm)' -force-vector-width=2 \
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 ; RUN:     -force-vector-interleave=1 -S < %s | FileCheck %s
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"

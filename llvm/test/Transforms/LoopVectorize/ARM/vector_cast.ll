@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -loop-vectorize -tbaa -S -mattr=+neon < %s | FileCheck %s
+=======
+; RUN: opt -passes=loop-vectorize -S -mattr=+neon < %s | FileCheck %s
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 
 target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 target triple = "armv7--linux-gnueabi"

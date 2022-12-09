@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -basic-aa -loop-vectorize < %s | FileCheck %s
+=======
+; RUN: opt -S -passes=loop-vectorize < %s | FileCheck %s
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 target datalayout = "E-m:e-i64:64-n32:64"
 target triple = "powerpc64-unknown-linux-gnu"
 

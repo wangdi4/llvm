@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-vectorize -enable-mem-access-versioning -force-vector-width=2 -force-vector-interleave=1 < %s -S | FileCheck %s
+=======
+; RUN: opt -passes=loop-vectorize -enable-mem-access-versioning -force-vector-width=2 -force-vector-interleave=1 < %s -S | FileCheck %s
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 

@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-vectorize -force-vector-width=2 \
 ; RUN:     -force-vector-interleave=1 -S < %s \
 ; RUN:     | FileCheck %s -check-prefix=BOTH -check-prefix=LV
 ; RUN: opt -basic-aa -scoped-noalias-aa -loop-vectorize -dse -force-vector-width=2 \
+=======
+; RUN: opt -passes=loop-vectorize -force-vector-width=2 \
+; RUN:     -force-vector-interleave=1 -S < %s \
+; RUN:     | FileCheck %s -check-prefix=BOTH -check-prefix=LV
+; RUN: opt -passes=loop-vectorize,dse -force-vector-width=2 \
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 ; RUN:     -force-vector-interleave=1 -S < %s \
 ; RUN:     | FileCheck %s -check-prefix=BOTH -check-prefix=DSE
 

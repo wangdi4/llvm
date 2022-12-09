@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -march=r600 -mcpu=cayman -basic-aa -loop-vectorize -force-vector-interleave=1 -force-vector-width=4 -dce -instcombine < %s | FileCheck %s
+=======
+; RUN: opt -S -march=r600 -mcpu=cayman -passes=loop-vectorize,dce,instcombine -force-vector-interleave=1 -force-vector-width=4 < %s | FileCheck %s
+>>>>>>> be51fa4580b3274d35cc77bedb238a9ad5fb04bc
 
 ; Check vectorization that would ordinarily require a runtime bounds
 ; check on the pointers when mixing address spaces. For now we cannot
