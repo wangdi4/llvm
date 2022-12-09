@@ -220,19 +220,6 @@ bool llvm::isFunctionInPrintList(StringRef FunctionName) {
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
-<<<<<<< HEAD
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-std::string llvm::doSystemDiff(StringRef Before, StringRef After,
-                               StringRef OldLineFormat, StringRef NewLineFormat,
-                               StringRef UnchangedLineFormat) {
-  StringRef SR[2]{Before, After};
-  // Store the 2 bodies into temporary files and call diff on them
-  // to get the body of the node.
-  const unsigned NumFiles = 3;
-  static std::string FileName[NumFiles];
-  static int FD[NumFiles]{-1, -1, -1};
-  for (unsigned I = 0; I < NumFiles; ++I) {
-=======
 std::error_code cleanUpTempFilesImpl(ArrayRef<std::string> FileName,
                                      unsigned N) {
   std::error_code RC;
@@ -252,7 +239,6 @@ std::error_code llvm::prepareTempFiles(SmallVector<int> &FD,
   std::error_code EC;
   unsigned I = 0;
   for (; I < FD.size(); ++I) {
->>>>>>> 455530425e07b8f69bc96a52fa6a322fe022f25e
     if (FD[I] == -1) {
       SmallVector<char, 200> SV;
       EC = sys::fs::createTemporaryFile("tmpfile", "txt", FD[I], SV);
@@ -282,6 +268,7 @@ std::error_code llvm::cleanUpTempFiles(ArrayRef<std::string> FileName) {
   return cleanUpTempFilesImpl(FileName, FileName.size());
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 std::string llvm::doSystemDiff(StringRef Before, StringRef After,
                                StringRef OldLineFormat, StringRef NewLineFormat,
                                StringRef UnchangedLineFormat) {
