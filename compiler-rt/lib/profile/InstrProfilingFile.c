@@ -6,10 +6,38 @@
 |*
 \*===----------------------------------------------------------------------===*/
 
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+
 #if !defined(__Fuchsia__)
 
 #include <assert.h>
+// #if INTEL_CUSTOMIZATION
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
+// #endif // INTEL_CUSTOMIAZTION
 #include <errno.h>
+// #if INTEL_CUSTOMIZATION
+#if defined(__linux__)
+#include <link.h>
+#endif
+// #endif // INTEL_CUSTOMIAZTION
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1190,5 +1218,91 @@ COMPILER_RT_VISIBILITY int __llvm_profile_set_file_object(FILE *File,
   }
   return 0;
 }
+
+#if INTEL_CUSTOMIZATION
+#if defined(__linux__)
+/*
+ * _PGOPTI_Prof_Dump_Global should not be hidden. If it is hidden, then
+ * the dlsym () mechanism cannot look up the symbol, i.e. it is not
+ * possible to ask the system to return the entry address of a hidden
+ * procedure in a shared object library.
+ *
+ * Furthermore when _PGOPTI_Prof_Dump_Global is called directly from
+ * _PGOPTI_Prof_Dump_All we want preemption to be enabled, because if
+ * the dump routine is called from a DSO then we need preemption to
+ * ensure we call an instance of _PGOPTI_Prof_Dump_Global located
+ * within the main component.
+ *
+ * _PGOPTI_Prof_Dump_Global should not be documented to end users or
+ * called from any other place. However it must remain global and preemptible
+ * to satisfy the requirements mentioned above.
+ *
+ * The calling sequence is:
+ *   UserRoutine()
+ *     _PGOPTI_Prof_Dump_All()
+ *       pgopti_prof_dump_all_internal() // invoked via dl_iterate_phdr
+ *         _PGOPTI_Prof_Dump_Global()
+ *           __llvm_profile_dump()
+ */
+void _PGOPTI_Prof_Dump_Global(void) { (void)__llvm_profile_dump(); }
+
+/*
+ * Dump the data for a shared object library
+ */
+static int pgopti_prof_dump_all_internal(struct dl_phdr_info *info, size_t size,
+                                         void *main_handle) {
+  void *handle;
+  void *func;
+
+  if (!info->dlpi_name || info->dlpi_name[0] == '\0') {
+    /*
+     * If the name is empty then this may be the main executable or
+     * the runtime dynamic linker. Nothing to dump because the main
+     * executable was dumped outside of the shared object iterator.
+     */
+    return 0;
+  }
+
+  handle = dlopen(info->dlpi_name, RTLD_LAZY);
+  if (!handle) {
+    PROF_ERR("dlopen: %s: %s\n", info->dlpi_name, dlerror());
+    return -1;
+  }
+
+  func = dlsym(handle, "_PGOPTI_Prof_Dump_Global");
+  // Skip the main_handle, since it has already been dumped.
+  if (func && (void *)func != main_handle)
+    ((void (*)())func)();
+
+  dlclose(handle);
+  return 0;
+}
+#endif // __linux__
+
+/*
+ * User visible routine to trigger dumping profile data for the main module
+ * and all shared object libraries.
+ */
+void _PGOPTI_Prof_Dump_All() {
+#if defined(__linux__)
+  // First dump the main module.  If this routine is called from the main
+  // module, or from a shared object, then it will dump the main module, if the
+  // main module is instrumented. If the main module is not instrumented, then
+  // the dump will be for the shared object module. This needs to be called
+  // directly, because the dl_iterate_phdr will not include the main module
+  // during its iteration.
+  _PGOPTI_Prof_Dump_Global();
+
+  // Dump all the shared objects. Capture the address of the module already
+  // dumped in case it was for a shared object, so that we don't try to dump the
+  // shared object twice.
+  void (*main_handle)() = &_PGOPTI_Prof_Dump_Global;
+  dl_iterate_phdr(pgopti_prof_dump_all_internal, (void *)main_handle);
+#else
+  // For Windows, we don't support dumping loaded DLLs yet.
+  (void)__llvm_profile_dump();
+#endif // __linux__
+}
+#endif // INTEL_CUSTOMIZATION
 
 #endif
