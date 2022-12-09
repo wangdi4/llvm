@@ -1,10 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that the loopnest is completely unrolled and that all redundant stores
-; of the form: ((%ax)[0][2] = %2 + -1;) are eliminated by dead store elimination
-; pass except the one self-defined store ((%ax)[0][2] = (%ax)[0][2];) which
-; turns into ((%ax)[0][2] = %2 + -1;)
+; Verify that the loopnest is completely unrolled and that all stores to
+; %ax are eliminated because it is regonized as local to region.
 
 ; Incoming HIR-
 ; + DO i1 = 0, 38, 1   <DO_LOOP>
@@ -22,13 +19,9 @@
 ; |   (%ax)[0][-1 * i1 + 40] = (%5 * %4);
 ; + END LOOP
 
-; CHECK: (%ax)[0][2] = (%ax)[0][39];
-; CHECK-NOT: (%ax)[0][2] = %2 + -1;
+; CHECK: %temp{{.*}} = (%ax)[0][39];
+; CHECK-NOT: (%ax){{.*}} = 
 
-; CHECK: (%ax)[0][2] = %2 + -1;
-; CHECK-NEXT: %4 = (%ax)[0][2];
-; CHECK: %2 = (%ax)[0][2];
-; CHECK: (%ax)[0][2] = (%ax)[0][1];
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

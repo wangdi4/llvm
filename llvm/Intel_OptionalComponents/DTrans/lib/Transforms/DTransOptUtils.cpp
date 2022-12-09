@@ -292,11 +292,10 @@ bool llvm::dtrans::findValueMultipleOfSizeInst(
   return false;
 }
 
-void llvm::dtrans::resetLoadStoreAlignment(GEPOperator *GEP,
-                                           const DataLayout &DL,
+void llvm::dtrans::resetLoadStoreAlignment(Value *Ptr, const DataLayout &DL,
                                            bool IsPacked) {
   Align DefaultAlign;
-  for (auto *U : GEP->users()) {
+  for (auto *U : Ptr->users()) {
     if (auto *LI = dyn_cast<LoadInst>(U)) {
       Align PrefAlign =
           IsPacked ? DefaultAlign : DL.getPrefTypeAlign(LI->getType());

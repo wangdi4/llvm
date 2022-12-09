@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -61,25 +61,6 @@ public:
 
   // Informative functions
 
-  // Returns a number of named functions found in the library
-  unsigned int GetNumberOfFunctions() const;
-
-  // Returns a pointer to function name
-  // Input
-  //        uiFuncId    -    An ordinal number of the function
-  // Return
-  //        A pointer to valid function name
-  //        NULL - if ordinal number is out of bounds
-  const char *GetFunctionName(unsigned int uiFuncId) const;
-
-  // Returns a function pointer
-  // Input
-  //        uiFuncId    -    An ordinal number of the function
-  // Return
-  //        A pointer to valid function
-  //        NULL - if ordinal number is out of bounds
-  const void *GetFunctionPtr(unsigned int uiFuncId) const;
-
   // Returns a function pointer by name
   // Input
   //        szFuncName    -    Function name, null terminated string
@@ -103,11 +84,6 @@ public:
 
 protected:
   void *m_hLibrary; // A handle to loaded library
-
-  unsigned int m_uiFuncCount = 0;
-  unsigned int *m_pOffsetNames =
-      nullptr; // A pointer to offsets of function names
-  unsigned int *m_pOffsetFunc = nullptr; // A pointer to offsets of functions
 
   bool m_bUnloadOnDestructor;
 

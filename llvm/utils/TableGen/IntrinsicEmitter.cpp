@@ -1,4 +1,21 @@
 //===- IntrinsicEmitter.cpp - Generate intrinsic information --------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -616,7 +633,12 @@ Optional<bool> compareFnAttributes(const CodeGenIntrinsic *L,
 
   if (L->isNoReturn != R->isNoReturn)
     return R->isNoReturn;
+#if INTEL_CUSTOMIZATION
 
+  if (L->isNoRecurse != R->isNoRecurse)
+    return R->isNoRecurse;
+
+#endif // INTEL_CUSTOMIZATION
   if (L->isNoCallback != R->isNoCallback)
     return R->isNoCallback;
 
@@ -753,6 +775,10 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
       OS << "      Attribute::get(C, Attribute::NoUnwind),\n";
     if (Intrinsic.isNoReturn)
       OS << "      Attribute::get(C, Attribute::NoReturn),\n";
+#if INTEL_CUSTOMIZATION
+    if (Intrinsic.isNoRecurse)
+      OS << "      Attribute::get(C, Attribute::NoRecurse),\n";
+#endif // INTEL_CUSTOMIZATION
     if (Intrinsic.isNoCallback)
       OS << "      Attribute::get(C, Attribute::NoCallback),\n";
     if (Intrinsic.isNoSync)
@@ -840,6 +866,7 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
     if (!Intrinsic.canThrow ||
         (Intrinsic.ME != MemoryEffects::unknown() &&
          !Intrinsic.hasSideEffects) ||
+        Intrinsic.isNoRecurse || // INTEL
         Intrinsic.isNoReturn || Intrinsic.isNoCallback || Intrinsic.isNoSync ||
         Intrinsic.isNoFree || Intrinsic.isWillReturn || Intrinsic.isCold ||
         Intrinsic.isNoDuplicate || Intrinsic.isNoMerge ||
