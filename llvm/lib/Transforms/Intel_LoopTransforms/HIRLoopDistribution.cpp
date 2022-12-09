@@ -199,7 +199,6 @@ bool HIRLoopDistribution::run() {
 
       // Do scalar expansion analysis.
       ScalarExpansion SCEX(Lp, false, DistributedLoops);
-      LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
       // Can't do the following assertion because scalar expansion is allowed in
       // for some cases, for example for Sparse Array Reductions.
@@ -224,7 +223,7 @@ bool HIRLoopDistribution::run() {
         LLVM_DEBUG(
             dbgs()
             << "LOOP DISTRIBUTION: "
-            << "Distribution disabled due to def/use in cloned if for scex\n");
+            << "Distribution disabled due to Scalar Expansion analysis\n");
         continue;
       }
 
@@ -396,9 +395,8 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
   }
 }
 
-RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
-                                                    RegDDRef *TempRef,
-                                                    unsigned OrigLoopLevel) {
+RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                                                unsigned OrigLoopLevel) {
 
   // Generates  TEMP[i] = tx
   //  tx may be from assignments of this form:
@@ -412,7 +410,8 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
   unsigned AllocaBlobIdx =
       HNU.createAlloca(ArrTy, Lp->getParentRegion(), ".TempArray");
 
-  RegDDRef *TmpArrayRef = HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
+  RegDDRef *TmpArrayRef =
+      HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
 
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
@@ -428,9 +427,9 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
   return TmpArrayRef;
 }
 
-void HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                               RegDDRef *TmpArrayRef,
-                                               HLDDNode *TempRefDDNode) {
+void ScalarExpansion::insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                                           RegDDRef *TmpArrayRef,
+                                           HLDDNode *TempRefDDNode) {
 
   RegDDRef *RVal = TempRef->clone();
   HLInst *StoreInst = HNU.createStore(RVal, ".TempSt", TmpArrayRef);
@@ -439,28 +438,37 @@ void HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
   RVal->makeConsistent(TempRef);
 
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
-  TempArraySB.insert(TmpArrayRef->getSymbase());
 }
 
-void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
-                                              RegDDRef *TmpArrayRef,
-                                              HLNode *Node,
-                                              bool TempRedefined) {
+void ScalarExpansion::createTempArrayLoad(RegDDRef *TmpArrayRef, HLNode *Node,
+                                          Candidate::UseCand &TmpUse) {
+  DDRef *UseRef = TmpUse.Ref;
+
+  // Prepare LVal for the load from temp array. SinkRef could be
+  // either a temp %t or an invariant memref %a[0].
+  auto *SinkTempRef = UseRef->isTerminalRef()
+                          // Terminal SinkRef may have a linear form of RVal,
+                          // create a proper LVal.
+                          ? HNU.getDDRefUtils().createSelfBlobRef(
+                                HNU.getBlobUtils().findOrInsertTempBlobIndex(
+                                    UseRef->getSymbase()))
+                          // Use a clone in case of memref.
+                          : cast<RegDDRef>(UseRef->clone());
 
   // tx = TEMP[i]
   HLLoop *Lp = Node->getParentLoop();
 
   const std::string TempName = "scextmp";
-  HLInst *LoadInst = HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef);
+  HLInst *LoadInst =
+      HNU.createLoad(TmpArrayRef->clone(), TempName, SinkTempRef);
 
-  if (TempRedefined) {
+  if (TmpUse.IsTempRedefined) {
     HLLoop *Lp = Node->getParentLoop();
     Node = cast<HLDDNode>(Lp->getFirstChild());
   }
 
   HLNodeUtils::insertBefore(Node, LoadInst);
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
-  TempArraySB.insert(TmpArrayRef->getSymbase());
 }
 
 bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
@@ -616,9 +624,8 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
   assert(Node1 && Node1->isAttached() && "Node1 must be valid HIR");
 
   HLNode *TargetNode;
-  if (Node2) {
-    TargetNode =
-        HLNodeUtils::getLexicalLowestCommonAncestorParent(Node1, Node2);
+  if (Node2 && Node1 != Node2) {
+    TargetNode = HLNodeUtils::getLexicalLowestCommonAncestor(Node1, Node2);
   } else {
     TargetNode = Node1->getParent();
   }
@@ -649,136 +656,174 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
   llvm_unreachable("Parent must be if or loop!\n");
 }
 
+// We load at the start of loop when defs are unconditionally defined
+// in earlier DefLoop. For performance we can load temp use inside if
+// when not liveout
+bool ScalarExpansion::shouldLoadUnconditionally(Candidate &Cand,
+                                                DDRef *TmpUse) {
+  if (Cand.IsLiveOut) {
+    return false;
+  }
+
+  assert(Cand.SCEXDefsForUse.find(TmpUse) != Cand.SCEXDefsForUse.end() &&
+         "No Dep found for SCEX Use!\n");
+
+  for (auto &Def : Cand.SCEXDefsForUse[TmpUse]) {
+    if (isa<HLLoop>(Cand.LoopDefInsertNode[Def->getHLDDNode()->getParentLoop()]
+                        ->getParent())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Save the InsertNode for temp defs/uses for each chunk required
 // by scalar expansion. If there are multiple defs or uses of a temp
 // in a chunk, we call getFirstSafeInsertionNode() using the first and
 // last lexical occurrence of the temp.
-template <bool ForDefs> void ScalarExpansion::getInsertNodeForTmpDefsUses() {
-  for (auto &Cand : Candidates) {
-    // Uses and Defs are stored differently, so temp vector is needed.
-    SmallVector<DDRef *, 8> TmpVec;
-    if (ForDefs) {
-      TmpVec = Cand.TmpDefs;
+template <bool ForDefs>
+void ScalarExpansion::getInsertNodeForTmpDefsUses(Candidate &Cand) {
+  // Uses and Defs are stored differently, so temp vector is needed.
+  SmallVector<DDRef *, 8> TmpVec;
+  if (ForDefs) {
+    TmpVec = Cand.TmpDefs;
+  } else {
+    std::transform(Cand.TmpUses.begin(), Cand.TmpUses.end(),
+                   std::back_inserter(TmpVec),
+                   [](const Candidate::UseCand &Node) { return Node.Ref; });
+  }
+
+  DDRef *FirstRef = TmpVec.front();
+  HLNode *LastNode = nullptr;
+  HLLoop *CurLoop = FirstRef->getHLDDNode()->getParentLoop();
+  auto &InsertNodeMap =
+      ForDefs ? Cand.LoopDefInsertNode : Cand.LoopUseInsertNode;
+
+  // Get earliest insertion node for def, per chunk
+  for (auto &TmpRef : make_range(std::next(TmpVec.begin()), TmpVec.end())) {
+    HLNode *TmpNode = TmpRef->getHLDDNode();
+    HLLoop *ParentLoop = TmpNode->getParentLoop();
+    if (CurLoop == ParentLoop) {
+      LastNode = TmpNode;
     } else {
-      std::transform(Cand.TmpUses.begin(), Cand.TmpUses.end(),
-                     std::back_inserter(TmpVec),
-                     [](const Candidate::UseCand &Node) { return Node.Ref; });
+      // New chunk, compute LCA for prior chunk and reset
+      InsertNodeMap[CurLoop] =
+          (!ForDefs && shouldLoadUnconditionally(Cand, FirstRef))
+              ? CurLoop->getFirstChild()
+              : getFirstSafeInsertionNode(FirstRef->getHLDDNode(), LastNode);
+      CurLoop = ParentLoop;
+      FirstRef = TmpRef;
+      LastNode = nullptr;
     }
+  }
 
-    HLNode *FirstNode = TmpVec.front()->getHLDDNode();
-    HLNode *LastNode = nullptr;
-    HLLoop *CurLoop = FirstNode->getParentLoop();
-    auto &InsertNodeMap =
-        ForDefs ? Cand.LoopDefInsertNode : Cand.LoopUseInsertNode;
+  // Handle remaining loop or single loop case
+  InsertNodeMap[CurLoop] =
+      (!ForDefs && shouldLoadUnconditionally(Cand, FirstRef))
+          ? CurLoop->getFirstChild()
+          : getFirstSafeInsertionNode(FirstRef->getHLDDNode(), LastNode);
+}
 
-    // Get earliest insertion node for def, per chunk
-    for (auto &TmpRef : make_range(std::next(TmpVec.begin()), TmpVec.end())) {
-      HLNode *TmpNode = TmpRef->getHLDDNode();
-      HLLoop *ParentLoop = TmpNode->getParentLoop();
-      if (CurLoop == ParentLoop) {
-        LastNode = TmpNode;
-      } else {
-        // New chunk, compute LCA for prior chunk and reset
-        InsertNodeMap[CurLoop] = getFirstSafeInsertionNode(FirstNode, LastNode);
-        CurLoop = ParentLoop;
-        FirstNode = TmpNode;
-        LastNode = nullptr;
+// Compute SCEX temp load/store insertion points. Factor in any conditional
+// def/uses for all chunks.
+void ScalarExpansion::computeInsertNodes() {
+  SymbaseLoopSetTy RecomputeSet;
+  for (auto &Cand : Candidates) {
+    getInsertNodeForTmpDefsUses<true>(Cand);  // For Defs
+    getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
+
+    unsigned SB = Cand.getSymbase();
+    RegDDRef *TmpDef = cast<RegDDRef>(Cand.TmpDefs.front());
+
+    // For all Uses per chunk, see if we can recompute instead of using
+    // TempArray
+    for (auto &TmpUse : Cand.TmpUses) {
+      unsigned UseChunkID = TmpUse.ChunkIdx;
+      HLNode *UseInsertNode =
+          Cand.LoopUseInsertNode[TmpUse.Ref->getHLDDNode()->getParentLoop()];
+      bool ConditionalUse = !isa<HLLoop>(UseInsertNode->getParent());
+
+      // Illegal or already recomputed
+      if (RecomputeSet.count({SB, UseChunkID})) {
+        continue;
+      }
+
+      const HLInst *DepInst = nullptr;
+      Cand.SafeToRecompute &= isSafeToRecompute(
+          TmpDef, UseChunkID, RecomputeSet, ModifiedBases, DepInst);
+
+      // If Use is conditional, don't save for recompute set
+      if (!ConditionalUse) {
+        RecomputeSet.insert({SB, UseChunkID});
       }
     }
-
-    // Handle remaining loop or single loop case
-    InsertNodeMap[CurLoop] = getFirstSafeInsertionNode(FirstNode, LastNode);
   }
 }
 
-// For SCEX store/loads for distributed loops, we don't want the default
-// behavior of loading at the beginning of each loop if the original def
-// is under an if node. Take the follow example:
-//
-// DISTLOOP1:
-//   if (x > 0)
-//     x = x+1
-//   -- distpoint --
-//     A[i] = B[x];
-//
-// Scalar Expansion inserts a temparray store after the definition
-// of x and a temparray load before the use of B[x]. However, because
-// the original use is under an if-node, we want the corresponding load
-// to be inside the if-node, as opposed to before the if.
-static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
-                                     HLNode *FirstNode) {
-  HLIf *SrcParentIf = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
-  HLIf *DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
+void ScalarExpansion::replaceWithArrayTemps(
+    unsigned OrigLoopLevel, SmallSet<unsigned, 12> &TempArraySB) {
+  SymbaseLoopSetTy SymbaseLoopSet;
 
-  // TODO: Dst could be used in an If predicate. Need to handle when Src Node
-  // is inside the same If.
-  // bool DstInIfPred = true;
-  // HLIf *DstParentIf = dyn_cast<HLIf>(Dst->getHLDDNode());
-  // if (!DstParentIf) {
-  //   DstParentIf = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
-  //   DstInIfPred = false;
-  // }
+  for (auto &Cand : Candidates) {
+    unsigned SB = Cand.getSymbase();
+    HLInst *DefInst = cast<HLInst>(Cand.TmpDefs.front()->getHLDDNode());
 
-  if (!SrcParentIf || !DstParentIf) {
-    return FirstNode;
-  }
+    // No Temp Required, can recompute
+    if (!Cand.isTempRequired()) {
+      for (auto &TmpUse : Cand.TmpUses) {
+        if (SymbaseLoopSet.count({SB, TmpUse.ChunkIdx})) {
+          continue;
+        }
+        HLNode *UseInsertNode =
+            Cand.LoopUseInsertNode[TmpUse.Ref->getHLDDNode()->getParentLoop()];
+        if (TmpUse.IsTempRedefined) {
+          UseInsertNode = UseInsertNode->getParentLoop()->getFirstChild();
+        }
 
-  // Find equivalent HLIf parent for both Src and Dst. The Dst may be at a
-  // deeper if nesting than the src, so we traverse up the Dst parent chain.
-  // If there is a deeper nesting, save the if ancestor that is the immediate
-  // child of the matching Dst Ifparent. We use that child to verify the
-  // then/else path of the ifs. This is due to Dst being detached HIR at this
-  // time.
-  bool FoundEqualIf = false;
-  HLNode *DstNodeParent = DstParentIf;
-  HLIf *DstIfAncestor = nullptr;
-  while (DstNodeParent && isa<HLIf>(DstNodeParent)) {
-    DstParentIf = cast<HLIf>(DstNodeParent);
-    if (HLNodeUtils::areEqualConditions(SrcParentIf, DstParentIf)) {
-      FoundEqualIf = true;
-      break;
-    }
-    DstIfAncestor = DstParentIf;
-    DstNodeParent = DstNodeParent->getParent();
-  }
+        if (TmpUse.DepInst) {
+          HLNodeUtils::insertBefore(UseInsertNode, TmpUse.DepInst->clone());
+        }
 
-  if (!FoundEqualIf) {
-    return FirstNode;
-  }
+        HLNodeUtils::insertBefore(UseInsertNode, DefInst->clone());
+        SymbaseLoopSet.insert({SB, TmpUse.ChunkIdx});
+      }
+    } else {
+      RegDDRef *TmpArrayRef = nullptr;
 
-  auto isNodeInThenPath = [&](HLIf *If, HLNode *Node) -> bool {
-    for (auto ThenIt = If->then_begin(), ThenItEnd = If->then_end();
-         ThenIt != ThenItEnd; ++ThenIt) {
-      if (Node == &*ThenIt) {
-        return true;
+      // Create TEMP[i] = tx and insert
+      for (auto &TmpDefDDRef : Cand.TmpDefs) {
+        RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
+        HLLoop *Lp = TmpDef->getLexicalParentLoop();
+
+        if (!TmpArrayRef) {
+          TmpArrayRef = createTempArrayStore(Lp, TmpDef, OrigLoopLevel);
+        } else {
+          insertTempArrayStore(Lp, TmpDef, TmpArrayRef->clone(),
+                               TmpDef->getHLDDNode());
+        }
+      }
+      TempArraySB.insert(TmpArrayRef->getSymbase());
+
+      // Insert tx = TEMP[i]
+      assert(TmpArrayRef && "Temp Store missing");
+      for (auto &TmpUse : Cand.TmpUses) {
+        if (SymbaseLoopSet.count({SB, TmpUse.ChunkIdx})) {
+          continue;
+        }
+
+        HLNode *UseInsertNode =
+            Cand.LoopUseInsertNode[TmpUse.Ref->getHLDDNode()->getParentLoop()];
+        createTempArrayLoad(TmpArrayRef, UseInsertNode, TmpUse);
+        SymbaseLoopSet.insert({SB, TmpUse.ChunkIdx});
       }
     }
-    return false;
-  };
-
-  bool SrcPath = SrcParentIf->isThenChild(Src->getHLDDNode());
-
-  // TODO: Return the Node in DstPath corresponding to the def in the first
-  // chunk for predicate case.
-  // if (DstInIfPred) {
-  //   return SrcPath ? DstParentIf->getFirstThenChild()
-  //                  : DstParentIf->getFirstElseChild();
-  // }
-
-  // Use DstIfAncestor that we saved earlier as it is the direct child of the If
-  // node where the original Ref is defined. DstPath is detached so we need to
-  // manually iterate the nodes
-  bool DstPath = isNodeInThenPath(
-      DstParentIf, DstIfAncestor ? DstIfAncestor : Dst->getHLDDNode());
-
-  if (SrcPath != DstPath) {
-    return FirstNode;
   }
-
-  return DstPath ? DstParentIf->getFirstThenChild()
-                 : DstParentIf->getFirstElseChild();
 }
 
+/// Here we collect all scalar expansion candidates required for distribution.
+/// Collect and populate the set of temp defs/uses but do not fully analyze
+/// the SCEX locations, as that logic requires modifying HIR.
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   // Symbase-to-Candidate map
   DenseMap<unsigned, unsigned> CandidatesSymbaseIndex;
@@ -787,6 +832,8 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
     if (Index == 0) {
       Candidates.emplace_back();
       Index = Candidates.size();
+      Candidates.back().IsLiveIn = Loop->isLiveIn(Symbase);
+      Candidates.back().IsLiveOut = Loop->isLiveOut(Symbase);
       return Candidates.back();
     }
 
@@ -811,9 +858,8 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
     });
   }
 
-  SymbaseLoopSetTy SymbaseLoopSet;
-
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
+    SymbaseLoopSetTy SymbaseLoopSet;
     for (DDRef *TmpDefDDRef : RefGroups[I]) {
 
       if (TmpDefDDRef->isRval()) {
@@ -822,6 +868,15 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
       if (!isScalarExpansionCandidate(TmpDefDDRef)) {
         continue;
+      }
+
+      // If SCEX tmpdef is inside switch we bail out. We aren't handling
+      // conditional logic as it is expensive for switches and inserting
+      // stores per switch case is unlikely to be profitable.
+      if (isa<HLSwitch>(TmpDefDDRef->getParent())) {
+        LLVM_DEBUG(dbgs() << "[SCEX] TmpDef inside Switch!\n";);
+        HasBadCandidate = true;
+        return;
       }
 
       unsigned SB = TmpDefDDRef->getSymbase();
@@ -852,6 +907,30 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             continue;
           }
 
+          Candidate &Cand = GetCandidateForSymbase(SB);
+          if (Cand.TmpDefs.empty() || Cand.TmpDefs.back() != TmpDef) {
+            Cand.TmpDefs.push_back(TmpDef);
+          }
+
+          // Tentatively check if recomputation is possible, assuming that,
+          // previously scalar expanded temps are also available. We want to
+          // bail out for loopnest formation if stripmine is required, which
+          // recomputation avoids. Later we will check if the temp loads are
+          // conditional, in which we will not allow recomputation, but that
+          // logic requires modifying HIR.
+          const HLInst *DepInst = nullptr;
+          Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, J, SymbaseLoopSet,
+                                                    ModifiedBases, DepInst);
+
+          SymbaseLoopSet.insert({SB, J});
+
+          // Save TmpUse in chunk J, We will need to load or recompute this ref
+          // from scalar expanded array, once per loop.
+          Cand.TmpUses.push_back({TmpUse, J, TempRedefined, DepInst});
+
+          // Save the dependence
+          Cand.SCEXDefsForUse[TmpUse].push_back(TmpDef);
+
           // If scalar expansion would introduce extra dependencies from SrcLoop
           // to DstLoop, set SCEX.hasBadCandidate.
           if (isa<HLIf>(TmpUse->getHLDDNode()) &&
@@ -859,100 +938,13 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
               HLNodeUtils::areEqualConditions(
                   cast<HLIf>(TmpUse->getHLDDNode()),
                   cast<HLIf>(TmpDef->getParent()))) {
-            this->HasBadCandidate = true;
-            break;
+            LLVM_DEBUG(dbgs() << "[SCEX] if dependence in predicate would be "
+                                 "illegal!\n";);
+            HasBadCandidate = true;
+            return;
           }
-
-          Candidate &Cand = GetCandidateForSymbase(SB);
-
-          const HLInst *DepInst = nullptr;
-          Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, J, SymbaseLoopSet,
-                                                    ModifiedBases, DepInst);
-
-          if (Cand.TmpDefs.empty() || Cand.TmpDefs.back() != TmpDef) {
-            Cand.TmpDefs.push_back(TmpDef);
-          }
-
-          //  Loading is needed once per loop
-          if (SymbaseLoopSet.count({SB, J})) {
-            continue;
-          }
-
-          HLNode *FirstNode =
-              getInsertionNodeForIf(TmpDef, TmpUse, Chunks[J].front());
-
-          // Push first ref in J group, this is where TmpDef should be loaded
-          // or recomputed, once per group J.
-          Cand.TmpUses.push_back({TmpUse, FirstNode, TempRedefined, DepInst});
-          LLVM_DEBUG(dbgs() << "SCEX candidate: "; Cand.dump();
-                     dbgs() << "\n";);
-          SymbaseLoopSet.insert({SB, J});
         }
       }
-    }
-  }
-}
-
-void HIRLoopDistribution::replaceWithArrayTemp(
-    unsigned OrigLoopLevel, ArrayRef<ScalarExpansion::Candidate> Candidates) {
-
-  for (auto &Candidate : Candidates) {
-    if (!Candidate.isTempRequired()) {
-      HLInst *SrcInst = cast<HLInst>(Candidate.TmpDefs.front()->getHLDDNode());
-
-      for (auto &TmpUse : Candidate.TmpUses) {
-        HLNode *DstNode = TmpUse.FirstNode;
-
-        if (TmpUse.IsTempRedefined) {
-          HLLoop *Lp = DstNode->getParentLoop();
-          DstNode = cast<HLDDNode>(Lp->getFirstChild());
-        }
-
-        if (TmpUse.DepInst) {
-          HLNodeUtils::insertBefore(DstNode, TmpUse.DepInst->clone());
-        }
-
-        HLNodeUtils::insertBefore(DstNode, SrcInst->clone());
-      }
-
-      continue;
-    }
-
-    RegDDRef *TmpArrayRef = nullptr;
-
-    // Create TEMP[i] = tx and insert
-    for (auto *TmpDefDDRef : Candidate.TmpDefs) {
-      RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
-      HLLoop *Lp = TmpDef->getLexicalParentLoop();
-
-      if (!TmpArrayRef) {
-        TmpArrayRef = createTempArrayStore(Lp, TmpDef, OrigLoopLevel);
-      } else {
-        insertTempArrayStore(Lp, TmpDef, TmpArrayRef->clone(),
-                             TmpDef->getHLDDNode());
-      }
-    }
-
-    // Insert tx = TEMP[i]
-    assert(TmpArrayRef && "Temp Store missing");
-
-    for (auto &TmpUse : Candidate.TmpUses) {
-      DDRef *UseRef = TmpUse.Ref;
-
-      // Prepare LVal for the load from temp array. SinkRef could be
-      // either a temp %t or an invariant memref %a[0].
-      auto *SinkTempRef =
-          UseRef->isTerminalRef()
-              // Terminal SinkRef may have a linear form of RVal,
-              // create a proper LVal.
-              ? HNU.getDDRefUtils().createSelfBlobRef(
-                    HNU.getBlobUtils().findOrInsertTempBlobIndex(
-                        UseRef->getSymbase()))
-              // Use a clone in case of memref.
-              : cast<RegDDRef>(UseRef->clone());
-
-      createTempArrayLoad(SinkTempRef, TmpArrayRef, TmpUse.FirstNode,
-                          TmpUse.IsTempRedefined);
     }
   }
 }
@@ -1082,8 +1074,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-    const ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-    bool ForDirective) {
+    ScalarExpansion &SCEX, OptReportBuilder &ORBuilder, bool ForDirective) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
@@ -1098,11 +1089,8 @@ void HIRLoopDistribution::distributeLoop(
   unsigned LoopLevel = Loop->getNestingLevel();
   HLRegion *RegionNode = Loop->getParentRegion();
 
-  bool ShouldStripmine =
-      SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize);
+  bool ShouldStripmine = Loop->isStripmineRequired(StripmineSize);
   if (ShouldStripmine && !Loop->canStripmine(StripmineSize)) {
-    // It's fine to bail out for loops without control flow dependencies.
-    // Loops with such dependencies do preliminary checks.
     return;
   }
 
@@ -1163,10 +1151,12 @@ void HIRLoopDistribution::distributeLoop(
   }
 
   if (SCEX.isScalarExpansionRequired()) {
-    replaceWithArrayTemp(LoopLevel, SCEX.getCandidates());
+    SCEX.computeInsertNodes();
+    SCEX.replaceWithArrayTemps(LoopLevel, TempArraySB);
+    LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
     // For constant trip count <= StripmineSize, no stripmine is done
-    if (ShouldStripmine) {
+    if (SCEX.isTempRequired() && ShouldStripmine) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
                                    StripmineSize);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
