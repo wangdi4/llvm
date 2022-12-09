@@ -524,6 +524,10 @@ static cl::opt<bool> EnableGlobalAnalyses(
     cl::desc("Enable inter-procedural analyses"));
 
 static cl::opt<bool>
+    SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
+                         cl::desc("Enable SYCL optimization mode."));
+
+static cl::opt<bool>
     RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
                        cl::desc("Run Partial inlinining pass"));
 

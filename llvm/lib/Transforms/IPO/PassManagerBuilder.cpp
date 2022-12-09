@@ -107,6 +107,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 #define INTEL_LIMIT_BEGIN(METHOD, PM)                                          \
@@ -356,6 +357,8 @@ cl::opt<bool> SYCLOptimizationMode("sycl-opt", cl::init(false), cl::Hidden,
                                    cl::desc("Enable SYCL optimization mode."));
 } // namespace llvm
 
+=======
+>>>>>>> 496efb0cb0801459f6856fd21e7dff30f8f981be
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -499,6 +502,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true)));                            // Merge & remove BBs
+<<<<<<< HEAD
 #if INTEL_COLLAB
   if (!SYCLOptimizationMode && !SPIRVOptimizationMode)
     MPM.add(createReassociatePass()); // Reassociate expressions
@@ -514,6 +518,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
 // optimizations rely on TTI, which is not accurate for SPIR target.
 if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+=======
+  MPM.add(createReassociatePass());           // Reassociate expressions
+>>>>>>> 496efb0cb0801459f6856fd21e7dff30f8f981be
 
 #if INTEL_CUSTOMIZATION
 if (EnableSimpleLoopUnswitch) {
@@ -578,9 +585,12 @@ if (EnableSimpleLoopUnswitch) {
                                      ForgetAllSCEVInLoopUnroll));
   // This ends the loop pass pipelines.
 
+<<<<<<< HEAD
 } // broken formatting on this line to simplify pulldown
   // clang-format on
 
+=======
+>>>>>>> 496efb0cb0801459f6856fd21e7dff30f8f981be
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
 
@@ -626,6 +636,7 @@ if (EnableSimpleLoopUnswitch) {
   }
 
   // Merge & remove BBs and sink & hoist common instructions.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Hoisting of common instructions can result in unstructured CFG input to
   // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
@@ -638,6 +649,10 @@ if (EnableSimpleLoopUnswitch) {
         SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  MPM.add(createCFGSimplificationPass(
+      SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+>>>>>>> 496efb0cb0801459f6856fd21e7dff30f8f981be
 
   // Clean up after everything.
   addInstructionCombiningPass(MPM, !DTransEnabled); // INTEL
@@ -1090,12 +1105,12 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createFloat2IntPass());
   MPM.add(createLowerConstantIntrinsicsPass());
 
-  if (!SYCLOptimizationMode) {
-    // Re-rotate loops in all our loop nests. These may have fallout out of
-    // rotated form due to GVN or other transformations, and the vectorizer relies
-    // on the rotated form. Disable header duplication at -Oz.
-    MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
+  // Re-rotate loops in all our loop nests. These may have fallout out of
+  // rotated form due to GVN or other transformations, and the vectorizer relies
+  // on the rotated form. Disable header duplication at -Oz.
+  MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
@@ -1115,6 +1130,15 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopDistributePass());
     INTEL_LIMIT_END
   }
+=======
+  // Distribute loops to allow partial vectorization.  I.e. isolate dependences
+  // into separate loop that would otherwise inhibit vectorization.  This is
+  // currently only performed for loops marked with the metadata
+  // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
+  MPM.add(createLoopDistributePass());
+
+  addVectorPasses(MPM, /* IsFullLTO */ false);
+>>>>>>> 496efb0cb0801459f6856fd21e7dff30f8f981be
 
   addVectorPasses(MPM, /* IsFullLTO */ false);
 #endif // INTEL_CUSTOMIZATION
