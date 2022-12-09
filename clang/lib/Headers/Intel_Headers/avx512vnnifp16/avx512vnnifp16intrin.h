@@ -42,6 +42,8 @@
 #error "Never use <avx512vnnifp16intrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVX512VNNIFP16INTRIN_H
 #define __AVX512VNNIFP16INTRIN_H
 
@@ -74,3 +76,4 @@ _mm512_maskz_dpph_ps(__mmask16 __U, __m512 __W, __m512h __A, __m512h __B) {
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // __AVX512VNNIFP16INTRIN_H
+#endif // __SSE2__

@@ -42,6 +42,8 @@
 #error "Never use <avxraofpintrin.h> directly; include <immintrin.h> instead."
 #endif // __IMMINTRIN_H
 
+#ifdef __SSE2__
+
 #ifndef __AVXRAOFPINTRIN_H
 #define __AVXRAOFPINTRIN_H
 
@@ -134,3 +136,4 @@ _mm_vaadd_avx_ss(void *__A, __m128 __B) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif // __AVXRAOFPINTRIN_H
+#endif // __SSE2__
