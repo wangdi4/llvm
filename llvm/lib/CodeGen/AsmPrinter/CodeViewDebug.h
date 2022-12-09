@@ -121,13 +121,10 @@ private:
               SmallVector<std::pair<const MCSymbol *, const MCSymbol *>, 1>>
         DefRanges;
     bool UseReferenceType = false;
-<<<<<<< HEAD
+    std::optional<APSInt> ConstantValue;
 #if INTEL_CUSTOMIZATION
     uint32_t UplevelOffset = 0;
 #endif // INTEL_CUSTOMIZATION
-=======
-    std::optional<APSInt> ConstantValue;
->>>>>>> 2298a44ccdc1a9babcb2712a0019d064b3cecd5a
   };
 
   struct CVGlobalVariable {
