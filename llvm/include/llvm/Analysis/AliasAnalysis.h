@@ -796,6 +796,7 @@ public:
                                 DominatorTree *DT) {
     return AA.callCapturesBefore(I, MemLoc, DT, AAQI);
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB) {
@@ -834,6 +835,13 @@ public:
     return AA.isLoopCarriedMustAlias(V1, V2);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+
+  /// Assume that values may come from different cycle iterations.
+  void enableCrossIterationMode() {
+    AAQI.MayBeCrossIteration = true;
+  }
+>>>>>>> 4de3184f07fd8c548125d315dd306d4afa7c9698
 };
 
 /// Temporary typedef for legacy code that uses a generic \c AliasAnalysis
