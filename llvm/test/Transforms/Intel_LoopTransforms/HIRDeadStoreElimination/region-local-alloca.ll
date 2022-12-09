@@ -1,7 +1,7 @@
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that both stores to %A are eliminated by propgating rval to loads since
-; all uses of %A occur within region.
+; Verify that both stores to %A are eliminated by replacing them and the loads
+; with temp since all uses of %A occur within region.
 
 ; CHECK: Dump Before
 
@@ -15,7 +15,8 @@
 
 ; TODO: propgate region invariant rvals in copy propagation.
 
-; CHECK: %ld1 = %t;
+; CHECK: %temp = %t;
+; CHECK: %ld1 = %temp;
 ; CHECK: ret %ld1 + 10;
 
 

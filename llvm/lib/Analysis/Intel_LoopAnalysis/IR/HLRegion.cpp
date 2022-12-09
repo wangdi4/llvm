@@ -155,7 +155,8 @@ bool HLRegion::isInvariant(unsigned Symbase) const {
   return IRReg.isLiveInValue(Symbase, BU.getTempBlobValue(Index));
 }
 
-bool HLRegion::containsAllUses(const AllocaInst *Alloca) const {
+bool HLRegion::containsAllUses(const AllocaInst *Alloca,
+                               bool IgnoreStores) const {
   SmallVector<const Instruction *, 16> TrackableUses;
 
   TrackableUses.push_back(Alloca);
@@ -169,6 +170,27 @@ bool HLRegion::containsAllUses(const AllocaInst *Alloca) const {
           isa<SubscriptInst>(User)) {
         TrackableUses.push_back(UserInst);
         continue;
+      }
+
+      // Ignore use in 'assume' like intrinsics.
+      if (auto *Intrin = dyn_cast<IntrinsicInst>(UserInst)) {
+        if (Intrin->isAssumeLikeIntrinsic()) {
+          continue;
+        }
+      }
+
+      if (IgnoreStores) {
+        if (auto *Store = dyn_cast<StoreInst>(UserInst)) {
+          if (CurUseInst == Store->getPointerOperand()) {
+            continue;
+          }
+        }
+
+        // Ignore any mem intrinsic in which alloca is the destination.
+        if (isa<AnyMemIntrinsic>(UserInst) &&
+            UserInst->getOperand(0) == CurUseInst) {
+          continue;
+        }
       }
 
       if (!containsBBlock(UserInst->getParent())) {

@@ -1,13 +1,8 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 ;
-; Verify that test case compiles successfully and all redundant stores are eliminated by
-; dead store elimination pass. Skip the PrevDDNode if it was already eliminated by
-; HLNodeUtils::removeRedundantNodes().
+; Verify that test case compiles successfully and almost all stores to %lc are
+; eliminated as it is recognized as region local. 
 ;
-; In this test case, The <5> HLIf between<33>(% lc)[0][2] = 77; and <409>(% lc)[0][2] = 77;
-; would be removed as a redundant node. When processing ref group of (%lc)[0][3], <14> (%lc)[0][3] = 25
-; would be encountered as a detached node. Thus, we need to skip detached nodes when they become the PrevDDNode.
 ;
 ;<0>          BEGIN REGION { modified }
 ;<51>               if ((%lc)[0][16] == 81)
@@ -123,66 +118,60 @@
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT: if ((%lc)[0][16] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %4 = (%lc)[0][2];
+; CHECK:         %4 = (%lc)[0][3];
+; CHECK:         %3 = 25;
+; CHECK:         %4 = (%lc)[0][4];
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][15] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][14] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][13] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][12] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][11] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
 ; CHECK-NEXT: if ((%lc)[0][10] == 81)
 ; CHECK:      {
-; CHECK:         (%lc)[0][0] = 25;
-; CHECK:         %3 = (%lc)[0][0];
 ; CHECK:         %4 = (%lc)[0][1];
 ; CHECK:         (%lc)[0][1] = 25;
+; CHECK:         %3 = 25;
+; CHECK:         %4 = 77;
 ; CHECK:      }
-; CHECK:      (%lc)[0][9] = 77;
-; CHECK:      (%lc)[0][8] = 77;
-; CHECK:      (%lc)[0][7] = 77;
-; CHECK:      (%lc)[0][6] = 77;
-; CHECK:      (%lc)[0][5] = 77;
-; CHECK:      (%lc)[0][4] = 77;
-; CHECK:      (%lc)[0][3] = 77;
-; CHECK:      (%lc)[0][2] = 77;
+; CHECK-NOT: %lc
 ; CHECK:   END REGION
 ;
-;Module Before HIR
-; ModuleID = 'atg_CMPLRLLVM-29149.c'
-source_filename = "atg_CMPLRLLVM-29149.c"
+
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -194,6 +183,7 @@ entry:
   call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #3
   call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(400) %0, i8 0, i64 400, i1 false)
   %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %lc, i64 0, i64 0
+  store i32 100, i32* %arrayidx7, align 4
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc17

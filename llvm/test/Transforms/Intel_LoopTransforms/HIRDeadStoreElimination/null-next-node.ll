@@ -1,5 +1,4 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-lmm -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-lmm,print<hir>,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-lmm,print<hir>,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Check that DSE does not compfail while trying to eliminate the redundant store
 ; ((%A)[0] = %limm) in loop postexit. It was hitting a null next node during
@@ -20,13 +19,15 @@
 ; CHECK: END REGION
 
 
-; Verify that dead store elimination is currently not able to eliminate the
-; redundant store.
+; Verify that dead store elimination is able to eliminate the redundant store
+; by replacing it with a temp.
 
 ; Print After DSE-
 ; CHECK: Function:
 
-; CHECK:   (%A)[0] = %limm;
+; CHECK: %temp = %limm;
+
+; CHECK: %1 = %temp
 
 
 define i32 @foo(i32* %A) {

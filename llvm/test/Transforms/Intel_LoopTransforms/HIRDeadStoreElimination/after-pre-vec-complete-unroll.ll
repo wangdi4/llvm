@@ -1,177 +1,176 @@
 ; Test the correctness of DSE after pre-vec complete unroll. %t54 = (%la)[0][2] will not be replaced by %t54 = %mul441.lcssa445451
 ; because  %mul441.lcssa44545 was written after the use in (%la)[0][2] = %mul441.lcssa445451
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR PreVec Complete Unroll (hir-pre-vec-complete-unroll) ***
 ;Function: main                                                                 
 ;
-;<0>          BEGIN REGION { }
-;<41>               + DO i1 = 0, 1, 1   <DO_LOOP>
-;<2>                |   %mul441.lcssa445451.out1 = %mul441.lcssa445451;
-;<5>                |   (%la)[0][-1 * i1 + 2] = %mul441.lcssa445451;   
-;<8>                |   %t52 = (%mx)[0][-1 * i1 + 3];                  
-;<10>               |   (%mx)[0][-1 * i1 + 3] = i1 + %t52 + %n5.promoted + 1;
-;<12>               |   %t53 = (%rc9)[0][-1 * i1 + 3];                       
-;<14>               |   %t54 = (%la)[0][-1 * i1 + 3];                        
-;<16>               |   (%la)[0][-1 * i1 + 3] = -1 * %t53 + %t54;            
-;<42>               |                                                        
-;<42>               |   + DO i2 = 0, 8, 1   <DO_LOOP>                        
-;<23>               |   |   %t55 = (%ra)[0][-1 * i2 + 9][-1 * i2 + 9];       
-;<25>               |   |   (%rc9)[0][-1 * i2 + 9] = %t55;                   
-;<26>               |   |   %mul441.lcssa445451 = 2 * i1 + 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<42>               |   + END LOOP                                                                      
-;<42>               |                                                                                   
-;<33>               |   %mul441.lcssa445451.out = %mul441.lcssa445451;                                  
-;<34>               |   %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;                       
-;<41>               + END LOOP                                                                          
-;<0>          END REGION                                                                                
+; BEGIN REGION { }
+; + DO i1 = 0, 1, 1   <DO_LOOP>
+; |   %mul441.lcssa445451.out1 = %mul441.lcssa445451;
+; |   (%la)[0][-1 * i1 + 2] = %mul441.lcssa445451;   
+; |   %t52 = (%mx)[0][-1 * i1 + 3];                  
+; |   (%mx)[0][-1 * i1 + 3] = i1 + %t52 + %n5.promoted + 1;
+; |   %t53 = (%rc9)[0][-1 * i1 + 3];                       
+; |   %t54 = (%la)[0][-1 * i1 + 3];                        
+; |   (%la)[0][-1 * i1 + 3] = -1 * %t53 + %t54;            
+; |                                                        
+; |   + DO i2 = 0, 8, 1   <DO_LOOP>                        
+; |   |   %t55 = (%ra)[0][-1 * i2 + 9][-1 * i2 + 9];       
+; |   |   (%rc9)[0][-1 * i2 + 9] = %t55;                   
+; |   |   %mul441.lcssa445451 = 2 * i1 + 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; |   + END LOOP                                                                      
+; |                                                                                   
+; |   %mul441.lcssa445451.out = %mul441.lcssa445451;                                  
+; |   %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;                       
+; + END LOOP                                                                          
+; END REGION                                                                                
 ;
 ;*** IR Dump Before HIR Dead Store Elimination (hir-dead-store-elimination) ***
 ;Function: main                                                                
 ;
-;<0>          BEGIN REGION { modified }
-;<44>               %mul441.lcssa445451.out1 = %mul441.lcssa445451;
-;<45>               (%la)[0][2] = %mul441.lcssa445451;             
-;<46>               %t52 = (%mx)[0][3];                            
-;<47>               (%mx)[0][3] = %t52 + %n5.promoted + 1;         
-;<48>               %t53 = (%rc9)[0][3];                           
-;<49>               %t54 = (%la)[0][3];                            
-;<50>               (%la)[0][3] = -1 * %t53 + %t54;                
-;<57>               %t55 = (%ra)[0][9][9];                         
-;<58>               (%rc9)[0][9] = %t55;                           
-;<59>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<60>               %t55 = (%ra)[0][8][8];                                             
-;<61>               (%rc9)[0][8] = %t55;                                               
-;<62>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<63>               %t55 = (%ra)[0][7][7];                                             
-;<64>               (%rc9)[0][7] = %t55;                                               
-;<65>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<66>               %t55 = (%ra)[0][6][6];                                             
-;<67>               (%rc9)[0][6] = %t55;                                               
-;<68>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<69>               %t55 = (%ra)[0][5][5];                                             
-;<70>               (%rc9)[0][5] = %t55;                                               
-;<71>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<72>               %t55 = (%ra)[0][4][4];                                             
-;<73>               (%rc9)[0][4] = %t55;                                               
-;<74>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<75>               %t55 = (%ra)[0][3][3];                                             
-;<76>               (%rc9)[0][3] = %t55;                                               
-;<77>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<78>               %t55 = (%ra)[0][2][2];                                             
-;<79>               (%rc9)[0][2] = %t55;                                               
-;<80>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<52>               %t55 = (%ra)[0][1][1];                                             
-;<53>               (%rc9)[0][1] = %t55;                                               
-;<54>               %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-;<55>               %mul441.lcssa445451.out = %mul441.lcssa445451;                     
-;<56>               %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;          
-;<2>                %mul441.lcssa445451.out1 = %mul441.lcssa445451;                    
-;<5>                (%la)[0][1] = %mul441.lcssa445451;                                 
-;<8>                %t52 = (%mx)[0][2];                                                
-;<10>               (%mx)[0][2] = %t52 + %n5.promoted + 2;                             
-;<12>               %t53 = (%rc9)[0][2];                                               
-;<14>               %t54 = (%la)[0][2];                                                
-;<16>               (%la)[0][2] = -1 * %t53 + %t54;                                    
-;<81>               %t55 = (%ra)[0][9][9];                                             
-;<82>               (%rc9)[0][9] = %t55;                                               
-;<83>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<84>               %t55 = (%ra)[0][8][8];                                             
-;<85>               (%rc9)[0][8] = %t55;                                               
-;<86>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<87>               %t55 = (%ra)[0][7][7];                                             
-;<88>               (%rc9)[0][7] = %t55;                                               
-;<89>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<90>               %t55 = (%ra)[0][6][6];                                             
-;<91>               (%rc9)[0][6] = %t55;                                               
-;<92>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<93>               %t55 = (%ra)[0][5][5];                                             
-;<94>               (%rc9)[0][5] = %t55;                                               
-;<95>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<96>               %t55 = (%ra)[0][4][4];                                             
-;<97>               (%rc9)[0][4] = %t55;                                               
-;<98>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<99>               %t55 = (%ra)[0][3][3];                                             
-;<100>              (%rc9)[0][3] = %t55;                                               
-;<101>              %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<102>              %t55 = (%ra)[0][2][2];                                             
-;<103>              (%rc9)[0][2] = %t55;                                               
-;<104>              %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<23>               %t55 = (%ra)[0][1][1];                                             
-;<25>               (%rc9)[0][1] = %t55;                                               
-;<26>               %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-;<33>               %mul441.lcssa445451.out = %mul441.lcssa445451;                     
-;<34>               %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;          
-;<0>          END REGION                                                               
+; BEGIN REGION { modified }
+; %mul441.lcssa445451.out1 = %mul441.lcssa445451;
+; (%la)[0][2] = %mul441.lcssa445451;             
+; %t52 = (%mx)[0][3];                            
+; (%mx)[0][3] = %t52 + %n5.promoted + 1;         
+; %t53 = (%rc9)[0][3];                           
+; %t54 = (%la)[0][3];                            
+; (%la)[0][3] = -1 * %t53 + %t54;                
+; %t55 = (%ra)[0][9][9];                         
+; (%rc9)[0][9] = %t55;                           
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][8][8];                                             
+; (%rc9)[0][8] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][7][7];                                             
+; (%rc9)[0][7] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][6][6];                                             
+; (%rc9)[0][6] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][5][5];                                             
+; (%rc9)[0][5] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][4][4];                                             
+; (%rc9)[0][4] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][3][3];                                             
+; (%rc9)[0][3] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][2][2];                                             
+; (%rc9)[0][2] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][1][1];                                             
+; (%rc9)[0][1] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; %mul441.lcssa445451.out = %mul441.lcssa445451;                     
+; %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;          
+; %mul441.lcssa445451.out1 = %mul441.lcssa445451;                    
+; (%la)[0][1] = %mul441.lcssa445451;                                 
+; %t52 = (%mx)[0][2];                                                
+; (%mx)[0][2] = %t52 + %n5.promoted + 2;                             
+; %t53 = (%rc9)[0][2];                                               
+; %t54 = (%la)[0][2];                                                
+; (%la)[0][2] = -1 * %t53 + %t54;                                    
+; %t55 = (%ra)[0][9][9];                                             
+; (%rc9)[0][9] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][8][8];                                             
+; (%rc9)[0][8] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][7][7];                                             
+; (%rc9)[0][7] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][6][6];                                             
+; (%rc9)[0][6] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][5][5];                                             
+; (%rc9)[0][5] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][4][4];                                             
+; (%rc9)[0][4] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][3][3];                                             
+; (%rc9)[0][3] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][2][2];                                             
+; (%rc9)[0][2] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %t55 = (%ra)[0][1][1];                                             
+; (%rc9)[0][1] = %t55;                                               
+; %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; %mul441.lcssa445451.out = %mul441.lcssa445451;                     
+; %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;          
+; END REGION                                                               
 ;
 ;*** IR Dump After HIR Dead Store Elimination (hir-dead-store-elimination) ***
 ;Function: main                                                               
 ;
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:           %mul441.lcssa445451.out1 = %mul441.lcssa445451;
-; CHECK:           (%la)[0][2] = %mul441.lcssa445451;
-; CHECK:           %t52 = (%mx)[0][3];
-; CHECK:           %t53 = (%rc9)[0][3];
-; CHECK:           %t54 = (%la)[0][3];
-; CHECK:           (%la)[0][3] = -1 * %t53 + %t54;
-; CHECK:           %t55 = (%ra)[0][9][9];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][8][8];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][7][7];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][6][6];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][5][5];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][4][4];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][3][3];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][2][2];
-; CHECK:           (%rc9)[0][2] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][1][1];
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK:           %mul441.lcssa445451.out = %mul441.lcssa445451;
-; CHECK:           %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;
-; CHECK:           %mul441.lcssa445451.out1 = %mul441.lcssa445451;
-; CHECK:           (%la)[0][1] = %mul441.lcssa445451;
-; CHECK:           %t52 = (%mx)[0][2];
-; CHECK:           %t53 = (%rc9)[0][2];
-; CHECK:           %t54 = (%la)[0][2];
-; CHECK:           (%la)[0][2] = -1 * %t53 + %t54;
-; CHECK:           %t55 = (%ra)[0][9][9];
-; CHECK:           (%rc9)[0][9] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][8][8];
-; CHECK:           (%rc9)[0][8] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][7][7];
-; CHECK:           (%rc9)[0][7] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][6][6];
-; CHECK:           (%rc9)[0][6] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][5][5];
-; CHECK:           (%rc9)[0][5] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][4][4];
-; CHECK:           (%rc9)[0][4] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][3][3];
-; CHECK:           (%rc9)[0][3] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][2][2];
-; CHECK:           (%rc9)[0][2] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %t55 = (%ra)[0][1][1];
-; CHECK:           (%rc9)[0][1] = %t55;
-; CHECK:           %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
-; CHECK:           %mul441.lcssa445451.out = %mul441.lcssa445451;
-; CHECK:           %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;
+; CHECK: %mul441.lcssa445451.out1 = %mul441.lcssa445451;
+; CHECK: %temp = %mul441.lcssa445451;
+; CHECK: %t52 = (%mx)[0][3];
+; CHECK: %t53 = (%rc9)[0][3];
+; CHECK: %t54 = (%la)[0][3];
+; CHECK: (%la)[0][3] = -1 * %t53 + %t54;
+; CHECK: %t55 = (%ra)[0][9][9];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][8][8];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][7][7];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][6][6];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][5][5];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][4][4];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][3][3];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][2][2];
+; CHECK: %temp4 = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][1][1];
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
+; CHECK: %mul441.lcssa445451.out = %mul441.lcssa445451;
+; CHECK: %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;
+; CHECK: %mul441.lcssa445451.out1 = %mul441.lcssa445451;
+; CHECK: (%la)[0][1] = %mul441.lcssa445451;
+; CHECK: %t52 = (%mx)[0][2];
+; CHECK: %t53 = %temp4;
+; CHECK: %t54 = %temp;
+; CHECK: (%la)[0][2] = -1 * %t53 + %t54;
+; CHECK: %t55 = (%ra)[0][9][9];
+; CHECK: (%rc9)[0][9] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][8][8];
+; CHECK: (%rc9)[0][8] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][7][7];
+; CHECK: (%rc9)[0][7] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][6][6];
+; CHECK: (%rc9)[0][6] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][5][5];
+; CHECK: (%rc9)[0][5] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][4][4];
+; CHECK: (%rc9)[0][4] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][3][3];
+; CHECK: (%rc9)[0][3] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][2][2];
+; CHECK: (%rc9)[0][2] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %t55 = (%ra)[0][1][1];
+; CHECK: (%rc9)[0][1] = %t55;
+; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
+; CHECK: %mul441.lcssa445451.out = %mul441.lcssa445451;
+; CHECK: %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;
 ; CHECK:     END REGION
 ;
 ; Function Attrs: nofree nounwind
