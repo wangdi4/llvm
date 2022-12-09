@@ -1,10 +1,16 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright 2019-2022 Intel Corporation. All rights reserved.
 //
-// The information and source code contained herein is the exclusive property
-// of Intel Corporation and may not be disclosed, examined or reproduced in
-// whole or in part without explicit written authorization from the company.
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 #include "cl_dynamic_lib.h"
 #include "cl_shutdown.h"
@@ -107,33 +113,11 @@ void OclDynamicLib::Close() {
     return;
   }
 
-  m_uiFuncCount = 0;
-  m_pOffsetNames = nullptr;
-  m_pOffsetFunc = nullptr;
-
   UseShutdownHandler::UnloadingDll(true);
   dlclose(m_hLibrary);
   UseShutdownHandler::UnloadingDll(false);
 
   m_hLibrary = nullptr;
-}
-
-// Returns a number of named functions found in the library
-unsigned int OclDynamicLib::GetNumberOfFunctions() const {
-  assert(0 && "Not implemented on Linux");
-  return 0;
-}
-
-// Returns a pointer to function name
-const char *OclDynamicLib::GetFunctionName(unsigned int /*uiFuncId*/) const {
-  assert(0 && "Not implemented on Linux");
-  return nullptr;
-}
-
-// Returns a function pointer
-const void *OclDynamicLib::GetFunctionPtr(unsigned int /*uiFuncId*/) const {
-  assert(0 && "Not implemented on Linux");
-  return nullptr;
 }
 
 // Returns a function pointer
