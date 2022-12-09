@@ -447,7 +447,6 @@ extern cl::opt<bool> EnableEarlyLSR;
 extern cl::opt<bool> EnableStdContainerOpt;
 extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
-extern cl::opt<bool> SYCLOptimizationMode;
 } // namespace llvm
 #endif // INTEL_CUSTOMIZATION
 
