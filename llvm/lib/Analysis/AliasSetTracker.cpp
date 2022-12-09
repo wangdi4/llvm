@@ -155,13 +155,8 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
   if (isMustAlias())
     if (PointerRec *P = getSomePointer()) {
       if (!KnownMustAlias) {
-<<<<<<< HEAD
-        AliasAnalysis &AA = AST.getAliasAnalysis();
-        AliasResult Result = queryAA(AA, // INTEL
-=======
         BatchAAResults &AA = AST.getAliasAnalysis();
-        AliasResult Result = AA.alias(
->>>>>>> e95ca5bb05ec123af1949469767de30036a11ecb
+        AliasResult Result = queryAA(AA, // INTEL
             MemoryLocation(P->getValue(), P->getSize(), P->getAAInfo()),
             MemoryLocation(Entry.getValue(), Size, AAInfo));
         if (Result != AliasResult::MustAlias) {
@@ -219,11 +214,7 @@ void AliasSet::addUnknownInst(Instruction *I, BatchAAResults &AA) {
 ///
 AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
-#ifdef INTEL_CUSTOMIZATION
-                                     AliasAnalysis &AA) const {
-#else
                                      BatchAAResults &AA) const {
-#endif //INTEL_CUSTOMIZATION
   if (AliasAny)
     return AliasResult::MayAlias;
 
@@ -285,7 +276,7 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
 }
 
 #if INTEL_COLLAB
-bool AliasSet::aliases(const AliasSet &AS, AAResults &AA) const {
+bool AliasSet::aliases(const AliasSet &AS, BatchAAResults &AA) const {
   if (AliasAny)
     return true;
 
@@ -295,8 +286,7 @@ bool AliasSet::aliases(const AliasSet &AS, AAResults &AA) const {
 
   if (!UnknownInsts.empty())
     for (Instruction *Inst : UnknownInsts) {
-      BatchAAResults BatchAA(AA);
-      if (AS.aliasesUnknownInst(Inst, BatchAA))
+      if (AS.aliasesUnknownInst(Inst, AA))
         return true;
     }
 
@@ -326,24 +316,11 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
                                                     bool &MustAliasAll) {
   AliasSet *FoundSet = nullptr;
   MustAliasAll = true;
-<<<<<<< HEAD
-
-=======
->>>>>>> e95ca5bb05ec123af1949469767de30036a11ecb
   for (AliasSet &AS : llvm::make_early_inc_range(*this)) {
     if (AS.Forward)
       continue;
 
-<<<<<<< HEAD
-    BatchAAResults BatchAA(AA);
-#if INTEL_CUSTOMIZATION
     AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, AA);
-#else
-    AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, BatchAA);
-#endif // INTEL_CUSTOMIZATION
-=======
-    AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, AA);
->>>>>>> e95ca5bb05ec123af1949469767de30036a11ecb
     if (AR == AliasResult::NoAlias)
       continue;
 
@@ -698,12 +675,8 @@ AliasSetsPrinterPass::AliasSetsPrinterPass(raw_ostream &OS) : OS(OS) {}
 PreservedAnalyses AliasSetsPrinterPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   auto &AA = AM.getResult<AAManager>(F);
-<<<<<<< HEAD
-  AliasSetTracker Tracker(AA, PrintLoopCarriedAliasSets);  // INTEL
-=======
   BatchAAResults BatchAA(AA);
-  AliasSetTracker Tracker(BatchAA);
->>>>>>> e95ca5bb05ec123af1949469767de30036a11ecb
+  AliasSetTracker Tracker(BatchAA, PrintLoopCarriedAliasSets);  // INTEL
   OS << "Alias sets for function '" << F.getName() << "':\n";
   for (Instruction &I : instructions(F))
     Tracker.add(&I);

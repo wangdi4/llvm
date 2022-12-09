@@ -960,10 +960,11 @@ class AliasSetTrackerSPIRV {
 
 public:
   AliasSetTrackerSPIRV(AAResults &AAR) {
-    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(AAR);
+    BatchAAResults BAAR(AAR);
+    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(BAAR);
   }
 
   void add(Instruction &I) {
@@ -1139,8 +1140,9 @@ bool VPOParoptTransform::needBarriersAfterParallel(
               // alias sets alias.
               if ((AS1.isMod() && (AS2.isMod() || AS2.isRef())) ||
                   (AS2.isMod() && (AS1.isMod() || AS1.isRef()))) {
+                BatchAAResults BAAR(AAR);
                 // Check if alias sets alias.
-                if (AS1.aliases(AS2, AAR))
+                if (AS1.aliases(AS2, BAAR))
                   return true;
               }
             }
