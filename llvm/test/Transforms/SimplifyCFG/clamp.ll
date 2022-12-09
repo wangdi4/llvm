@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 ; INTEL added phi-node-folding-threshold=2 because xmain defaults that option to 1.
 ; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -phi-node-folding-threshold=2 -S | FileCheck %s ;INTEL
+=======
+; RUN: opt < %s -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
+>>>>>>> 5fdc6846c55f31d443a0f98fad8a7570e5416dec
 
 define float @clamp(float %a, float %b, float %c) {
 ; CHECK-LABEL: @clamp
