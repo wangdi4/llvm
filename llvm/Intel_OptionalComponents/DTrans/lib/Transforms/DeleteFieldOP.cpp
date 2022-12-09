@@ -805,21 +805,24 @@ void DeleteFieldOPImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
         OrigIndices.push_back(Idx);
       }
 
-      GEPOperator *AffectedGEP = GEP;
+      Value *AffectedPtr = GEP;
       if (IsModified) {
-        auto *NewGEP = ConstantExpr::getGetElementPtr(ReplTy, NewGV, NewIndices,
+        // Note: It's possible for this call to return a Value pointer for the
+        // new global variable, in the case that all the new indices are zeros,
+        // so don't assume that the result will be a GEPOperator.
+        auto *NewPtr = ConstantExpr::getGetElementPtr(ReplTy, NewGV, NewIndices,
                                                       GEP->isInBounds());
         LLVM_DEBUG(dbgs() << "Delete field: Replacing GEP const expr: " << *GEP
-                          << " with " << *NewGEP << "\n");
+                          << " with " << *NewPtr << "\n");
         // The functions have not been re-mapped yet at this point, so we
         // can just add an entry to the map that will replace the use of this
         // constant when the instruction is remapped.
-        VMap[GEP] = NewGEP;
-        AffectedGEP = cast<GEPOperator>(NewGEP);
+        VMap[GEP] = NewPtr;
+        AffectedPtr = NewPtr;
       }
 
       if (AffectedStructure)
-        dtrans::resetLoadStoreAlignment(AffectedGEP, DL, IsPacked);
+        dtrans::resetLoadStoreAlignment(AffectedPtr, DL, IsPacked);
     }
   }
 

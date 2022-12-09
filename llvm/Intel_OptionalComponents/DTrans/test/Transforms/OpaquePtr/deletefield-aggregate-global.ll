@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -15,19 +15,19 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i16 @foo() {
 entry:
-  %tmp1 = load i16, i16* getelementptr inbounds (%struct.A, %struct.A* @a, i64 0, i32 1, i32 1)
+  %tmp1 = load i16, ptr getelementptr inbounds (%struct.A, ptr @a, i64 0, i32 1, i32 1)
   ret i16 %tmp1
 }
 ; CHECK-LABEL: define i16 @foo
-; CHECK: %tmp1 = load i16, {{.*}} getelementptr inbounds (%__DFT_struct.A, {{.*}} @a, i64 0, i32 0, i32 0)
+; CHECK: %tmp1 = load i16, ptr @a
 
 define i16 @bar() {
 entry:
-  %tmp1 = load i16, i16* getelementptr inbounds (%struct.B, %struct.B* @b, i64 0, i32 1)
+  %tmp1 = load i16, ptr getelementptr inbounds (%struct.B, ptr @b, i64 0, i32 1)
   ret i16 %tmp1
 }
 ; CHECK-LABEL: define i16 @bar
-; CHECK: %tmp1 = load i16, {{.*}} getelementptr inbounds (%__DFT_struct.B, {{.*}} @b, i64 0, i32 0)
+; CHECK: %tmp1 = load i16, ptr @b
 
 !1 = !{i16 0, i32 0}  ; i16
 !2 = !{%struct.B zeroinitializer, i32 0}  ; %struct.B
