@@ -56,6 +56,18 @@ static cl::opt<uint64_t> CacheLineThreshold("hir-nontemporal-cacheline-count",
     cl::init(100000), cl::Hidden,
     cl::desc("Number of cache lines used before triggering nontemporal marking"));
 
+// This is a secondary threshold that lets us avoid marking known small loops
+// such as vector peel/remainder loops even if CacheLineThreshold is set to
+// zero. Its default value is set based on a dynamic threshold in
+// __libirc_nontemporal_store, which avoids using nontemporal stores for any
+// buffered store with a footprint less than four times the maximum architecture
+// vector size in total. Picking the smaller of the common maximum vector
+// sizes we work with, 256 bits, this is 4 * 32 B = 128 B.
+static cl::opt<uint64_t> StoreFootprintThreshold(
+    "hir-nontemporal-min-store-footprint", cl::init(128), cl::Hidden,
+    cl::desc("Minimum possible store footprint (in bytes) for nontemporal "
+             "marking to apply to a store"));
+
 namespace {
 
 class HIRNontemporalMarkingLegacyPass : public HIRTransformPass {
@@ -152,6 +164,20 @@ static const DDEdge *hasConflictingAccess(DDEdgeRange &&Edges,
   return nullptr;
 }
 
+/// Determines if \p Loop has a statically known maximum trip count.
+///
+/// This can be a constant trip count, or it can be marked with either of our
+/// max trip count metadata, llvm.loop.intel.loopcount_minimum or
+/// llvm.loop.intel.max.trip_count.
+static Optional<uint64_t> getKnownMaxTripCount(const HLLoop *Loop) {
+  uint64_t ConstTripCount;
+  if (Loop->isConstTripLoop(&ConstTripCount))
+    return ConstTripCount;
+  if (const uint64_t LegalMaxTripCount = Loop->getLegalMaxTripCount())
+    return LegalMaxTripCount;
+  return None;
+}
+
 bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
   // Loops must have some minimal amount of structure or else the next checks
   // will fire assertion failures. Additionally, we don't expect significant
@@ -166,11 +192,46 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
   if (HLL.getNumCacheLines(Loop) < CacheLineThreshold)
     return false;
 
+  // If this loop has a known max trip count, compute the minimum store size
+  // needed to reach the store footprint threshold. Checking this threshold
+  // through division avoids overflow issues we would have had if multiplying
+  // instead, but we do need to check that the threshold is non-zero. The trip
+  // count is non-zero by definition, because HIR does not consider the ZTT to
+  // be part of the loop and without the ZTT the loop must execute at least one
+  // iteration.
+  //
+  // The division-based check takes advantage of this equivalence:
+  //   A*B < C => A < ceil(C/B)
+  //
+  // For example, if the threshold (C) is 40 B, when the trip count is 10 the
+  // minimum store size to clear the threshold (A) is 4 B (ceil(40/10)), for a
+  // total minimum footprint of 40 B. If the trip count is 9, the minimum store
+  // size would be 5 B (ceil(40/9)), for a total minimum footprint of 45 B.
+  //
+  // This also uses a common pattern to implement the ceiling-division:
+  //   ceil(A/B) => floor((A-1)/B) + 1
+  //
+  // ceil(A/B) = floor(A/B) + 1 for all cases when A is not divisible by B, but
+  // ceil(A/B) = floor(A/B) when A is divisible by B.
+  // floor((A-1)/B) = floor(A/B) when A is not divisible by B, but
+  // floor((A-1)/B) = floor(A/B) - 1 if A is divisible by B. Taken together,
+  // ceil(A/B) = floor((A-1)/B) + 1 whether or not A is divisible by B, which is
+  // where this pattern comes from.
+  const Optional<uint64_t> KnownMaxTripCount = getKnownMaxTripCount(Loop);
+  Optional<uint64_t> MinStoreSize;
+  if (KnownMaxTripCount && StoreFootprintThreshold != 0) {
+    assert(*KnownMaxTripCount != 0);
+    MinStoreSize = (StoreFootprintThreshold - 1) / (*KnownMaxTripCount) + 1;
+  }
+
   LLVM_DEBUG({
     formatted_raw_ostream os(dbgs());
     os << "Checking constraints on loop\n";
     Loop->print(os, 0, false);
     os << "Cache lines used: " << HLL.getNumCacheLines(Loop) << "\n";
+    if (MinStoreSize)
+      os << "Minimum store size threshold: " << *MinStoreSize << " B = ceil("
+         << StoreFootprintThreshold << " B / " << *KnownMaxTripCount << ")\n";
   });
 
   // Collect all of the stores that exist at the top level of the loop. In
@@ -229,12 +290,23 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     // Also skip stores that aren't vector-aligned if the unaligned nontemporal
     // optimization is not available. Stores that are 8 bytes or smaller are
     // assumed to not benefit from nontemporal marking alone in this case.
+    const uint64_t StoreSize = StoreRef->getDestTypeSizeInBytes();
     if (OnlyVectorAligned) {
       const unsigned Alignment = StoreRef->getAlignment();
-      if (Alignment <= 8 || Alignment < StoreRef->getDestTypeSizeInBytes()) {
+      if (Alignment <= 8 || Alignment < StoreSize) {
         LLVM_DEBUG(dbgs() << "Not vector-aligned\n");
         continue;
       }
+    }
+
+    // Also skip stores that don't meet the minimum store size threshold for
+    // nontemporal marking.
+    if (MinStoreSize && StoreSize < *MinStoreSize) {
+      LLVM_DEBUG(
+          dbgs() << "Store size " << StoreSize
+                 << " B is smaller than the minimum store size threshold ("
+                 << MinStoreSize << " B)\n");
+      continue;
     }
 
     // Regular store in the main body of the loop, check dependencies.
