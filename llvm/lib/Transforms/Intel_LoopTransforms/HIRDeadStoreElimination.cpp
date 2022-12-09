@@ -96,11 +96,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-// Count for regular dead store:
-STATISTIC(NumHIRDeadRegularStoreEliminated,
-          "Number of Regular Dead Stores Eliminated");
+// Count for dead stores.
+STATISTIC(NumHIRDeadStoreEliminated, "Number of Dead Stores Eliminated");
 
-// Count for loads eliminated using forward substitution:
+// Count for loads eliminated using forward substitution.
 STATISTIC(NumHIRForwardSubstitutedLoads,
           "Number of loads eliminated using forward substitution");
 
@@ -285,6 +284,14 @@ void calculateLexicalRange(unsigned &MinTopSortNumber,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void dumpPostDomStoreNode(const HLDDNode *PostDomStoreNode) {
+  if (PostDomStoreNode) {
+    PostDomStoreNode->dump();
+  } else {
+    dbgs() << "nullptr\n";
+  }
+}
+
 void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
                             const HLDDNode *StoreNode,
                             const HLDDNode *PostDomStoreNode) {
@@ -296,11 +303,7 @@ void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
   StoreNode->dump();
   dbgs() << "and PostDomStoreRef: ";
 
-  if (PostDomStoreNode) {
-    PostDomStoreNode->dump();
-  } else {
-    dbgs() << "nullptr\n";
-  }
+  dumpPostDomStoreNode(PostDomStoreNode);
 }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -315,7 +318,7 @@ void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
 static bool foundInterveningLoadOrStore(
     HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
     const RegDDRef *PostDomStoreRef,
-    SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads,
+    SmallVectorImpl<const RegDDRef *> &SubstitutableLoads,
     HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
   assert((!PostDomStoreRef || PostDomStoreRef->getDestTypeSizeInBytes() >=
@@ -333,9 +336,9 @@ static bool foundInterveningLoadOrStore(
   unsigned MaxTopSortNum =
       PostDomStoreNode ? PostDomStoreNode->getTopSortNum()
                        : StoreNode->getParentRegion()->getMaxTopSortNum();
-  unsigned MaxSubstitutibleLoadTopSortNum =
-      !SubstitutibleLoads.empty()
-          ? SubstitutibleLoads[0]->getHLDDNode()->getTopSortNum()
+  unsigned MaxSubstitutableLoadTopSortNum =
+      !SubstitutableLoads.empty()
+          ? SubstitutableLoads[0]->getHLDDNode()->getTopSortNum()
           : 0;
 
   const HLLoop *StoreLoop = StoreNode->getLexicalParentLoop();
@@ -401,14 +404,14 @@ static bool foundInterveningLoadOrStore(
       // Fake stores cannot be ignored as they can be either reads or writes in
       // the callee.
       if (!IsFake && AliasingMemRef->isLval() &&
-          (AliasingMemRefTopSortNum >= MaxSubstitutibleLoadTopSortNum ||
+          (AliasingMemRefTopSortNum >= MaxSubstitutableLoadTopSortNum ||
            AliasingMemRefTopSortNum <= StoreTopSortNum)) {
         continue;
       }
 
-      // We should ignore SubstitutibleLoads as intervening loads.
+      // We should ignore SubstitutableLoads as intervening loads.
       if (std::any_of(
-              SubstitutibleLoads.begin(), SubstitutibleLoads.end(),
+              SubstitutableLoads.begin(), SubstitutableLoads.end(),
               [=](const RegDDRef *Ref) { return Ref == AliasingMemRef; })) {
         continue;
       }
@@ -661,63 +664,6 @@ bool HIRDeadStoreElimination::doCollection(HLRegion &Region) {
   return true;
 }
 
-// Returns true if \p Ref is structually invalidated by a temp redefinition
-// before we hit \p EndNode. Both of them lie inside \p ParentLp.
-//
-// For example, store's rval ref gets invalidated in the example below which
-// prevents its forwarding into load.
-//
-// A[0] = %t1
-// %t1 =
-//     = A[0]
-static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
-                                       const HLNode *EndNode,
-                                       const HLLoop *ParentLp) {
-  assert(!Ref->isMemRef() && "Memref not expected!");
-  assert(EndNode && "EndNode is null!");
-
-  unsigned Symbase = Ref->getSymbase();
-
-  bool IsRegionInvariant = ((Symbase == ConstantSymbase) ||
-                            EndNode->getParentRegion()->isInvariant(Symbase));
-
-  if (IsRegionInvariant) {
-    return false;
-  }
-
-  if (ParentLp && Ref->isLinearAtLevel(ParentLp->getNestingLevel())) {
-    return false;
-  }
-
-  auto &BU = Ref->getBlobUtils();
-
-  // Check nodes in range (RefNode, EndNode) for redefinitions of any temp
-  // blobs used in Ref.
-  for (auto *Node = Ref->getHLDDNode()->getNextNode(); Node != EndNode;
-       Node = Node->getNextNode()) {
-    auto *Inst = dyn_cast_or_null<HLInst>(Node);
-
-    // Only handle straight line code when substituting non-linear Ref.
-    if (!Inst) {
-      return true;
-    }
-
-    auto *LvalRef = Inst->getLvalDDRef();
-
-    if (!LvalRef || !LvalRef->isTerminalRef()) {
-      continue;
-    }
-
-    unsigned TempIndex = BU.findTempBlobIndex(LvalRef->getSymbase());
-
-    if ((TempIndex != InvalidBlobIndex) && Ref->usesTempBlob(TempIndex)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 // Somtimes we can eliminate the store by forward substituting its RHS into
 // loads. For example-
 //
@@ -733,71 +679,180 @@ static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
 // This function returns true if the collected loads can be substituted.
 // Loads are collected in reverse lexical order.
 static bool
-canSubstituteLoads(const RegDDRef *StoreRef,
-                   SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
-  if (SubstitutibleLoads.empty()) {
+canSubstituteLoads(const RegDDRef *StoreRef, const HLDDNode *PostDomStoreNode,
+                   SmallVectorImpl<const RegDDRef *> &SubstitutableLoads) {
+  if (SubstitutableLoads.empty()) {
     return true;
   }
 
   // Give up if load and store are not identical which can happen due to
   // bitcasts.
-  if (!DDRefUtils::areEqual(StoreRef, SubstitutibleLoads[0])) {
+  if (!DDRefUtils::areEqual(StoreRef, SubstitutableLoads[0])) {
     return false;
   }
 
-  const HLInst *SInst = cast<HLInst>(StoreRef->getHLDDNode());
+  const HLDDNode *StoreNode = StoreRef->getHLDDNode();
+  auto *StoreLoop = StoreNode->getLexicalParentLoop();
 
-  // Only handle store instructions which is the common case, for simplicity.
-  if (!isa<StoreInst>(SInst->getLLVMInstruction())) {
-    return false;
-  }
+  // Needed to pass to hasValidParentLoopBounds() but are unused.
+  const HLLoop *PostDomStoreLoop =
+      PostDomStoreNode ? PostDomStoreNode->getLexicalParentLoop() : nullptr;
 
-  auto *StoreRHS = SInst->getRvalDDRef();
-
-  // Forward substituting a load requires additional aliasing checks so give up
-  // for now.
-  if (StoreRHS->isMemRef()) {
-    return false;
-  }
-
-  // Check if store can be legally substituted.
-  const HLLoop *ParLoop = SInst->getLexicalParentLoop();
-
-  for (auto *LoadRef : SubstitutibleLoads) {
+  for (auto *LoadRef : SubstitutableLoads) {
     auto *LoadNode = LoadRef->getHLDDNode();
 
-    if ((ParLoop != LoadNode->getLexicalParentLoop()) ||
-        !HLNodeUtils::dominates(SInst, LoadNode)) {
+    if (!HLNodeUtils::dominates(StoreNode, LoadNode)) {
       return false;
     }
-  }
 
-  // Check if it is structurally legal to substitute StoreRHS into loads.
-  // Only the lexically last load needs to be passed in.
-  if (isRefInvalidatedBeforeNode(StoreRHS, SubstitutibleLoads[0]->getHLDDNode(),
-                                 ParLoop)) {
-    return false;
+    auto *LoadLoop = LoadNode->getLexicalParentLoop();
+
+    if (LoadLoop && (LoadLoop != StoreLoop)) {
+      auto *LoadStoreLCA =
+          HLNodeUtils::getLowestCommonAncestorLoop(LoadLoop, StoreLoop);
+
+      // We can safely substitute load if it is inside the same or inner loop.
+      if (StoreLoop && !HLNodeUtils::contains(StoreLoop, LoadLoop)) {
+
+        // We can still substitute load if store is invariant w.r.t the child
+        // loop of the LCA loop.
+        //
+        // For example, this is a valid case-
+        //
+        // DO i1 = 0, 5   // LCA loop
+        //   DO i2 = 0, 5 // Child of LCA loop
+        //      A[i1] =   // StoreNode
+        //   END DO
+        //
+        //   DO i2 = 0, 5
+        //      = A[i1]   // LoadNode
+        //   END DO
+        // END DO
+        //
+        // This is not a valid case-
+        //
+        // DO i1 = 0, 5   // LCA loop
+        //   DO i2 = 0, 5 // Child of LCA loop
+        //      A[i2] =   // StoreNode
+        //   END DO
+        //
+        //   DO i2 = 0, 5
+        //      = A[i2]  // LoadNode
+        //   END DO
+        // END DO
+        //
+        auto *StoreParLp = StoreLoop;
+        const HLLoop *LCAChildLoop = nullptr;
+
+        while (StoreParLp != LoadStoreLCA) {
+          LCAChildLoop = StoreParLp;
+          StoreParLp = StoreParLp->getParentLoop();
+        }
+
+        unsigned InvariantNestingLevel =
+            LCAChildLoop ? LCAChildLoop->getNestingLevel() : 1;
+        if (!StoreRef->isStructurallyInvariantAtLevel(InvariantNestingLevel)) {
+          return false;
+        }
+      }
+
+      // If PostDomStoreNode is 'closer' to LoadNode than StoreNode, loop
+      // nesting wise than it can reach the load and substitution is illegal.
+      // For example-
+      //
+      // DO i1 = 0, 5
+      //   A[0] =   // StoreNode
+      //
+      //   DO i2 = 0, 5
+      //      = A[0] // LoadNode
+      //     A[0] =    // PostDomStoreNode
+      //   END DO
+      // END DO
+      //
+      if (PostDomStoreLoop && LoadRef->isStructurallyInvariantAtLevel(
+                                  LoadLoop->getNestingLevel())) {
+        auto *LoadPostDomStoreLCA = HLNodeUtils::getLowestCommonAncestorLoop(
+            LoadLoop, PostDomStoreLoop);
+
+        if (LoadPostDomStoreLCA) {
+          if (!LoadStoreLCA) {
+            return false;
+          }
+
+          if ((LoadStoreLCA != LoadPostDomStoreLCA) &&
+              HLNodeUtils::contains(LoadStoreLCA, LoadPostDomStoreLCA)) {
+            return false;
+          }
+        }
+      }
+    }
   }
 
   return true;
 }
 
-static void
-removeDeadStore(const HLDDNode *StoreNode,
-                SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
-  auto *StoreRHS = StoreNode->getRvalDDRef();
+// Marks \p Symbase liveout in \p Loop until we reach \p LCALoop.
+static void markLiveout(unsigned Symbase, HLLoop *Loop, const HLLoop *LCALoop) {
 
-  for (auto *LoadRef : SubstitutibleLoads) {
-    HIRTransformUtils::replaceOperand(const_cast<RegDDRef *>(LoadRef),
-                                      StoreRHS->clone());
+  while (Loop != LCALoop) {
+    Loop->addLiveOutTemp(Symbase);
+    Loop = Loop->getParentLoop();
   }
+}
+
+// Marks \p Symbase livein in \p Loop until we reach \p LCALoop.
+static void markLivein(unsigned Symbase, HLLoop *Loop, const HLLoop *LCALoop) {
+
+  while (Loop != LCALoop) {
+    Loop->addLiveInTemp(Symbase);
+    Loop = Loop->getParentLoop();
+  }
+}
+
+static void
+removeDeadStore(HLDDNode *StoreNode,
+                SmallVectorImpl<const RegDDRef *> &SubstitutableLoads) {
 
   auto *StoreParent = StoreNode->getParent();
-  HLNodeUtils::remove(const_cast<HLDDNode *>(StoreNode));
+
+  // If there are substitutable loads, replace the store and the loads with the
+  // same temp and rely on constant/copy propagation to clean it up.
+  if (!SubstitutableLoads.empty()) {
+    auto *StoreRef = StoreNode->getLvalDDRef();
+    auto *Tmp = StoreNode->getHLNodeUtils().createTemp(StoreRef->getDestType());
+
+    unsigned TmpSymbase = Tmp->getSymbase();
+
+    HLLoop *StoreLoop = StoreNode->getLexicalParentLoop();
+
+    HIRTransformUtils::replaceOperand(StoreRef, Tmp);
+
+    for (auto *LoadRef : SubstitutableLoads) {
+      auto *NonConstLoadRef = const_cast<RegDDRef *>(LoadRef);
+
+      HLLoop *LoadLoop = NonConstLoadRef->getLexicalParentLoop();
+      auto *TmpClone = Tmp->clone();
+      HIRTransformUtils::replaceOperand(NonConstLoadRef, TmpClone);
+
+      TmpClone->makeConsistent(Tmp);
+
+      auto *LCALoop =
+          HLNodeUtils::getLowestCommonAncestorLoop(LoadLoop, StoreLoop);
+
+      markLiveout(TmpSymbase, StoreLoop, LCALoop);
+      markLivein(TmpSymbase, LoadLoop, LCALoop);
+    }
+
+    NumHIRForwardSubstitutedLoads += SubstitutableLoads.size();
+
+  } else {
+
+    HLNodeUtils::remove(StoreNode);
+  }
+
   HLNodeUtils::removeRedundantNodes(StoreParent, true);
 
-  ++NumHIRDeadRegularStoreEliminated;
-  NumHIRForwardSubstitutedLoads += SubstitutibleLoads.size();
+  ++NumHIRDeadStoreEliminated;
 }
 
 bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
@@ -843,7 +898,28 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
 bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
                                                      const RegDDRef *Ref) {
 
-  auto *Alloca = dyn_cast_or_null<AllocaInst>(Ref->getTempBaseValue());
+  auto *BaseVal = Ref->getTempBaseValue();
+
+  if (!BaseVal) {
+    return false;
+  }
+
+  // In fortran, it is possible for base to be a GEP which traces back to an
+  // alloca. This can happen if the alloca array was split into multiple
+  // dimensions in fortran src code. So we trace through the GEP chain to get to
+  // the alloca. Technically, if the base is not region invariant, we should
+  // trace back in HIR but I don't think any HIR transformation can invalidate
+  // this kind of incoming IR.
+  // Example test case in-
+  // llvm/test/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination/region-local-alloca-gep-base-ptr.ll
+  auto *GEPBase = dyn_cast<GetElementPtrInst>(BaseVal);
+
+  while (GEPBase) {
+    BaseVal = GEPBase->getPointerOperand();
+    GEPBase = dyn_cast<GetElementPtrInst>(BaseVal);
+  }
+
+  auto *Alloca = dyn_cast<AllocaInst>(BaseVal);
 
   if (!Alloca) {
     return false;
@@ -855,7 +931,7 @@ bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
     return Iter->second;
   }
 
-  if (!Region.containsAllUses(Alloca) || basePtrEscapesAnalysis(Ref)) {
+  if (!Region.containsAllUses(Alloca, true) || basePtrEscapesAnalysis(Ref)) {
     AllUsesInSingleRegion[Alloca] = false;
     return false;
   }
@@ -898,6 +974,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
 
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.back();
+    assert(Ref && "Ref is unexpectedly null!");
 
     if (Ref->isNonLinear()) {
       continue;
@@ -945,7 +1022,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
         continue;
       }
 
-      SmallVector<const RegDDRef *, 4> SubstitutibleLoads;
+      SmallVector<const RegDDRef *, 4> SubstitutableLoads;
       const HLDDNode *PostDomDDNode =
           PostDomRef ? PostDomRef->getHLDDNode() : nullptr;
 
@@ -971,24 +1048,21 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
 
         // Refer to comments on canSubstituteLoads() for explanation.
         if (PrevRef->isRval()) {
-          if (SubstitutibleLoads.empty() ||
+          if (SubstitutableLoads.empty() ||
               // Give up if the loads are not identical which can happen
               // due to bitcasts.
-              DDRefUtils::areEqual(PrevRef, SubstitutibleLoads[0])) {
-            SubstitutibleLoads.push_back(PrevRef);
+              DDRefUtils::areEqual(PrevRef, SubstitutableLoads[0])) {
+            SubstitutableLoads.push_back(PrevRef);
             ++I;
             continue;
           }
           break;
-        } else if (!canSubstituteLoads(PrevRef, SubstitutibleLoads)) {
+        } else if (!canSubstituteLoads(PrevRef, PostDomDDNode,
+                                       SubstitutableLoads)) {
 
           LLVM_DEBUG(dbgs() << "Cannot substitute loads in between StoreRef: ";
                      PrevDDNode->dump(); dbgs() << " and PostDomStoreRef: ");
-          if (PostDomDDNode) {
-            LLVM_DEBUG(PostDomDDNode->dump());
-          } else {
-            LLVM_DEBUG(dbgs() << "nullptr\n");
-          }
+          LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
           break;
         }
 
@@ -998,12 +1072,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
           // Yes, remove the store instruction on PrevRef.
           if (!HLNodeUtils::postDominates(PostDomDDNode, PrevDDNode)) {
             LLVM_DEBUG(dbgs() << "PostDomStoreRef: ");
-            if (PostDomDDNode) {
-              LLVM_DEBUG(PostDomDDNode->dump());
-            } else {
-              LLVM_DEBUG(dbgs() << "nullptr\n");
-            }
-
+            LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
             LLVM_DEBUG(dbgs() << " does not post dominate StoreRef: ";
                        PrevDDNode->dump());
 
@@ -1014,11 +1083,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
           if (!isValidParentChain(PostDomDDNode, PrevDDNode, PostDomRef)) {
             LLVM_DEBUG(dbgs() << "Invalid parent chain for StoreRef: ";
                        PrevDDNode->dump(); dbgs() << "and PostDomStoreRef: ");
-            if (PostDomDDNode) {
-              LLVM_DEBUG(PostDomDDNode->dump());
-            } else {
-              LLVM_DEBUG(dbgs() << "nullptr\n");
-            }
+            LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
             ++I;
             continue;
           }
@@ -1034,7 +1099,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
         // of the region.
         if ((!IsUniqueSymbase || InDifferentLoops || !PostDomDDNode) &&
             foundInterveningLoadOrStore(HDDA, PrevRef, PostDomRef,
-                                        SubstitutibleLoads, EqualityGroups)) {
+                                        SubstitutableLoads, EqualityGroups)) {
           break;
         }
 
@@ -1045,15 +1110,15 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
         }
 
         // Delete the StoreInst on PrevRef, possibly even the entire loop.
-        removeDeadStore(PrevDDNode, SubstitutibleLoads);
+        removeDeadStore(const_cast<HLDDNode *>(PrevDDNode), SubstitutableLoads);
 
-        // Remove Store and SubstitutibleLoads from collection and continue to
+        // Remove Store and SubstitutableLoads from collection and continue to
         // iterate.
-        unsigned NumLoads = SubstitutibleLoads.size();
+        unsigned NumLoads = SubstitutableLoads.size();
         auto BegIt = RefGroup.begin() + I - NumLoads;
         auto EndIt = RefGroup.begin() + I + 1;
         RefGroup.erase(BegIt, EndIt);
-        SubstitutibleLoads.clear();
+        SubstitutableLoads.clear();
 
         I -= NumLoads;
         SubstitutedLoads = (SubstitutedLoads || (NumLoads != 0));
@@ -1069,7 +1134,9 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
   }
 
   if (SubstitutedLoads) {
-    HIRTransformUtils::doConstantAndCopyPropagation(&Region);
+    if (HIRTransformUtils::doConstantAndCopyPropagation(&Region)) {
+      HLNodeUtils::removeRedundantNodes(&Region, true);
+    }
   }
 
   OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
