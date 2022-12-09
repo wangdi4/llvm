@@ -174,8 +174,8 @@ class __SYCL_TYPE(accessor_property_list) accessor_property_list
       : sycl::detail::PropertyListBase(DataLessProps, PropsWithData) {}
 
 public:
-  template <typename = typename sycl::detail::enable_if_t<
-                AllProperties<PropsT...>::value>>
+  template <
+      typename = typename std::enable_if_t<AllProperties<PropsT...>::value>>
   accessor_property_list(PropsT... Props)
       : sycl::detail::PropertyListBase(false) {
     ctorHelper(Props...);
@@ -186,7 +186,7 @@ public:
                                        Props.MPropsWithData) {}
 
   template <typename... OtherProps,
-            typename = typename sycl::detail::enable_if_t<
+            typename = typename std::enable_if_t<
                 ContainsSameProperties<PropertyContainer<PropsT...>,
                                        OtherProps...>::value &&
                 ContainsSameProperties<PropertyContainer<OtherProps...>,
@@ -195,7 +195,7 @@ public:
       : sycl::detail::PropertyListBase(OtherList.MDataLessProps,
                                        OtherList.MPropsWithData) {}
 
-  template <typename PropT, typename = typename sycl::detail::enable_if_t<
+  template <typename PropT, typename = typename std::enable_if_t<
                                 !is_compile_time_property<PropT>::value>>
   PropT get_property() const {
     if (!has_property<PropT>())
@@ -206,8 +206,7 @@ public:
   }
 
   template <class PropT>
-  typename sycl::detail::enable_if_t<!is_compile_time_property<PropT>::value,
-                                     bool>
+  typename std::enable_if_t<!is_compile_time_property<PropT>::value, bool>
   has_property() const {
     return has_property_helper<PropT>();
   }
