@@ -13,6 +13,7 @@
 /llvm/lib/IRReader/ @andykaylor @pankaj-chawla
 /llvm/lib/Option/ @andykaylor @pankaj-chawla
 /llvm/lib/Support/ @andykaylor @pankaj-chawla
+/llvm/lib/Support/X86TargetParser.cpp @phoebewang @FreddyLeaf
 /llvm/include/llvm/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/ADT/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Analysis/Passes.h @andykaylor @pankaj-chawla
@@ -24,6 +25,7 @@
 /llvm/include/llvm/IRReader/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Option/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Support/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Support/X86TargetParser.def @phoebewang @FreddyLeaf
 # Temporarily added Pankaj as a code owner for sabbatical coverage
 
 # Assign ScalarOpt as the default owner of things in Transforms/Utils; specific
