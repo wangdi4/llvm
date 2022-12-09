@@ -42,6 +42,8 @@
 #error "Never use <amxavx512intrin.h> directly; include <immintrin.h> instead."
 #endif // __IMMINTRIN_H
 
+#ifdef __SSE2__
+
 #ifndef __AMX_AVX512INTRIN_H
 #define __AMX_AVX512INTRIN_H
 #ifdef __x86_64__
@@ -546,7 +548,7 @@ static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512 _tile_movrow_internal(
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512 __tile_cvtrowd2ps(__tile1024i src0, unsigned src1) {
@@ -566,7 +568,7 @@ static __m512 __tile_cvtrowd2ps(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 2nd source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
 #define __tile_cvtrowd2psi(src0, src1)                                         \
   _tile_cvtrowd2psi_internal(src0.row, src0.col, src0.tile, src1);
@@ -583,7 +585,7 @@ static __m512 __tile_cvtrowd2ps(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32bf16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512bh __tile_cvtrowps2pbf16h(__tile1024i src0, unsigned src1) {
@@ -602,7 +604,7 @@ static __m512bh __tile_cvtrowps2pbf16h(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 2nd source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32bf16 data. Size is 64 Bytes.
 #define __tile_cvtrowps2pbf16hi(src0, src1)                                    \
   _tile_cvtrowps2pbf16hi_internal(src0.row, src0.col, src0.tile, src1);
@@ -619,7 +621,7 @@ static __m512bh __tile_cvtrowps2pbf16h(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32bf16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512bh __tile_cvtrowps2pbf16l(__tile1024i src0, unsigned src1) {
@@ -638,7 +640,7 @@ static __m512bh __tile_cvtrowps2pbf16l(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 2nd source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32bf16 data. Size is 64 Bytes.
 #define __tile_cvtrowps2pbf16li(src0, src1)                                    \
   _tile_cvtrowps2pbf16li_internal(src0.row, src0.col, src0.tile, src1);
@@ -655,7 +657,7 @@ static __m512bh __tile_cvtrowps2pbf16l(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32fp16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512h __tile_cvtrowps2phh(__tile1024i src0, unsigned src1) {
@@ -674,7 +676,7 @@ static __m512h __tile_cvtrowps2phh(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 2nd source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32fp16 data. Size is 64 Bytes.
 #define __tile_cvtrowps2phhi(src0, src1)                                       \
   _tile_cvtrowps2phhi_internal(src0.row, src0.col, src0.tile, src1);
@@ -691,7 +693,7 @@ static __m512h __tile_cvtrowps2phh(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32fp16 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512h __tile_cvtrowps2phl(__tile1024i src0, unsigned src1) {
@@ -710,7 +712,7 @@ static __m512h __tile_cvtrowps2phl(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 2nd source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v32fp16 data. Size is 64 Bytes.
 #define __tile_cvtrowps2phli(src0, src1)                                       \
   _tile_cvtrowps2phli_internal(src0.row, src0.col, src0.tile, src1);
@@ -751,3 +753,4 @@ static __m512 __tile_movrow(__tile1024i src0, unsigned src1) {
 
 #endif // __x86_64__
 #endif // __AMX_AVX512INTRIN_H
+#endif // __SSE2__
