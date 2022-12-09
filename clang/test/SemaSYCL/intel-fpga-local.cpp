@@ -182,13 +182,8 @@ void check_ast()
   // No diagnostic is emitted because the arguments match.
   // Duplicate attribute is silently ignored.
   //CHECK: VarDecl{{.*}}var_bankwidth 'int'
-<<<<<<< HEAD
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-  //CHECK: IntelFPGABankWidthAttr
-=======
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default
   //CHECK: SYCLIntelBankWidthAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 16
@@ -199,13 +194,8 @@ void check_ast()
   // No diagnostic is emitted because the arguments match.
   // Duplicate attribute is silently ignored.
   //CHECK: VarDecl{{.*}}var_numbanks 'int'
-<<<<<<< HEAD
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-  //CHECK: IntelFPGANumBanksAttr
-=======
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default
   //CHECK: SYCLIntelNumBanksAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
@@ -441,13 +431,8 @@ void diagnostics()
 
   // Checking of different argument values.
   //CHECK: VarDecl{{.*}}bw_bw 'unsigned int[64]'
-<<<<<<< HEAD
-  //CHECK:IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-  //CHECK: IntelFPGABankWidthAttr
-=======
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default
   //CHECK: SYCLIntelBankWidthAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
@@ -525,13 +510,8 @@ void diagnostics()
   unsigned int nb_reg[64];
 
   //CHECK: VarDecl{{.*}}nb_nb 'unsigned int[64]'
-<<<<<<< HEAD
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-  //CHECK:IntelFPGANumBanksAttr
-=======
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default
   //CHECK: SYCLIntelNumBanksAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
@@ -618,13 +598,8 @@ void diagnostics()
   //CHECK: VarDecl{{.*}} bb_reg 'unsigned int[4]'
   //CHECK: SYCLIntelNumBanksAttr{{.*}}Implicit
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 4
-<<<<<<< HEAD
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-  //CHECK: IntelFPGABankBitsAttr
-=======
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default
   //CHECK: SYCLIntelBankBitsAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 2
@@ -879,17 +854,10 @@ void check_template_parameters() {
   [[intel::private_copies(C)]] unsigned int private_copies;
 
   //CHECK: VarDecl{{.*}}bank_bits_width
-<<<<<<< HEAD
-  //CHECK: IntelFPGANumBanksAttr{{.*}}
-  //CHECK: IntegerLiteral{{.*}}4{{$}}
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK-NEXT: IntelFPGABankBitsAttr
-=======
   //CHECK: SYCLIntelNumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK-NEXT: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK-NEXT: SYCLIntelBankBitsAttr
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}2
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr

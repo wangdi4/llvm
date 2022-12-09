@@ -206,7 +206,7 @@ static void instantiateDependentHLSOneConstantValueAttr(
 
 static void instantiateDependentHLSBankBitsAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGABankBitsAttr *BBA, Decl *New) {
+    const SYCLIntelBankBitsAttr *BBA, Decl *New) {
   // The bank_bits expressions are constant expressions.
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
@@ -218,7 +218,7 @@ static void instantiateDependentHLSBankBitsAttr(
       return;
     Args.push_back(Result.getAs<Expr>());
   }
-  S.AddIntelFPGABankBitsAttr(New, *BBA, Args.data(), Args.size());
+  S.AddSYCLIntelBankBitsAttr(New, *BBA, Args.data(), Args.size());
 }
 static void instantiateDependentAllowCpuFeaturesAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -1135,8 +1135,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SARA, New);
       continue;
     }
-    const IntelFPGABankBitsAttr *BBA =
-        dyn_cast<IntelFPGABankBitsAttr>(TmplAttr);
+    const SYCLIntelBankBitsAttr *BBA =
+        dyn_cast<SYCLIntelBankBitsAttr>(TmplAttr);
     if (BBA) {
       instantiateDependentHLSBankBitsAttr(*this, TemplateArgs, BBA, New);
       continue;

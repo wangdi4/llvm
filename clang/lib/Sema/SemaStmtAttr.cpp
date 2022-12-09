@@ -460,7 +460,7 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
   if (ValueExpr == nullptr)
     std::swap(ValueExpr, ArrayExpr);
 
-  return S.BuildSYCLIntelFPGAIVDepAttr(A, ValueExpr, ArrayExpr);
+  return S.BuildSYCLIntelIVDepAttr(A, ValueExpr, ArrayExpr);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1646,11 +1646,11 @@ void CheckForIncompatibleUnrollHintAttributes(
 // #pragma diasable_loop_pipelining.
 void CheckForIncompatibleHLSAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  const SYCLIntelFPGADisableLoopPipeliningAttr *PragmaDisable = nullptr;
+  const SYCLIntelDisableLoopPipeliningAttr *PragmaDisable = nullptr;
   const LoopHintAttr *PragmaLoopHint = nullptr;
 
   for (const auto *I : Attrs) {
-    if (auto *LH = dyn_cast<const SYCLIntelFPGADisableLoopPipeliningAttr>(I))
+    if (auto *LH = dyn_cast<const SYCLIntelDisableLoopPipeliningAttr>(I))
       PragmaDisable = LH;
     if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
       LoopHintAttr::OptionType Opt = LH->getOption();
@@ -1674,11 +1674,11 @@ void CheckForIncompatibleHLSAttributes(
 // and #pragma min_ii_at_target_fmax with #pragma ii.
 void CheckForDuplicateHLSAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  const SYCLIntelFPGAInitiationIntervalAttr *PragmaII = nullptr;
+  const SYCLIntelInitiationIntervalAttr *PragmaII = nullptr;
   const LoopHintAttr *PragmaLoopHint = nullptr;
 
   for (const auto *I : Attrs) {
-    if (auto *LH = dyn_cast<const SYCLIntelFPGAInitiationIntervalAttr>(I))
+    if (auto *LH = dyn_cast<const SYCLIntelInitiationIntervalAttr>(I))
       PragmaII = LH;
     if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
       LoopHintAttr::OptionType Opt = LH->getOption();

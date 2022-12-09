@@ -11158,7 +11158,6 @@ public:
   /// attribute to be added (usually because of a pragma).
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   template <typename AttrType>
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
@@ -11168,10 +11167,7 @@ public:
                                   Expr *E);
 #endif // INTEL_CUSTOMIZATION
 
-  void AddIntelFPGABankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
-=======
   void AddSYCLIntelBankBitsAttr(Decl *D, const AttributeCommonInfo &CI,
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
                                 Expr **Exprs, unsigned Size);
   void AddWorkGroupSizeHintAttr(Decl *D, const AttributeCommonInfo &CI,
                                 Expr *XDim, Expr *YDim, Expr *ZDim);

@@ -348,18 +348,18 @@ void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
   static constexpr AttributeCommonInfo::Kind Exclusions[] = {
     ParsedAttr::AT_SYCLIntelSchedulerTargetFmaxMhz,
     ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim,
-    ParsedAttr::AT_IntelFPGASinglePump,
-    ParsedAttr::AT_IntelFPGADoublePump,
-    ParsedAttr::AT_IntelFPGAMemory,
-    ParsedAttr::AT_IntelFPGARegister,
-    ParsedAttr::AT_IntelFPGASimpleDualPort,
-    ParsedAttr::AT_IntelFPGAMaxReplicates,
-    ParsedAttr::AT_IntelFPGAMerge,
-    ParsedAttr::AT_IntelFPGABankBits,
-    ParsedAttr::AT_IntelFPGAPrivateCopies,
-    ParsedAttr::AT_IntelFPGAForcePow2Depth,
-    ParsedAttr::AT_IntelFPGABankWidth,
-    ParsedAttr::AT_IntelFPGANumBanks,
+    ParsedAttr::AT_SYCLIntelSinglePump,
+    ParsedAttr::AT_SYCLIntelDoublePump,
+    ParsedAttr::AT_SYCLIntelMemory,
+    ParsedAttr::AT_SYCLIntelRegister,
+    ParsedAttr::AT_SYCLIntelSimpleDualPort,
+    ParsedAttr::AT_SYCLIntelMaxReplicates,
+    ParsedAttr::AT_SYCLIntelMerge,
+    ParsedAttr::AT_SYCLIntelBankBits,
+    ParsedAttr::AT_SYCLIntelPrivateCopies,
+    ParsedAttr::AT_SYCLIntelForcePow2Depth,
+    ParsedAttr::AT_SYCLIntelBankWidth,
+    ParsedAttr::AT_SYCLIntelNumBanks,
     ParsedAttr::AT_SYCLIntelNumSimdWorkItems,
   };
   // Some FPGA attributes have GNU spelling and can appear without a scope
@@ -369,12 +369,8 @@ void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
 #endif // INTEL_CUSTOMIZATION
 
   // Additionally, diagnose the old [[intel::ii]] spelling.
-<<<<<<< HEAD
-  if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval &&
-      A.hasScope() && A.getSyntax() != ParsedAttr::AS_Pragma && // INTEL
-=======
   if (A.getKind() == ParsedAttr::AT_SYCLIntelInitiationInterval &&
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
+      A.hasScope() && A.getSyntax() != ParsedAttr::AS_Pragma && // INTEL
       A.getAttrName()->isStr("ii")) {
     DiagnoseDeprecatedAttribute(A, "intel", "initiation_interval");
     return;
@@ -3675,7 +3671,7 @@ static void handleStaticArrayResetAttr(Sema &S, Decl *D,
                                        const ParsedAttr &Attr) {
   checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
 
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
     return;
 
   S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(D, Attr,
@@ -3749,13 +3745,13 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (isa<VarDecl>(D)) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
     S.Diag(Attr.getLoc(), diag::note_spelling_suggestion) << "'private_copies'";
-    if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
+    if (checkAttrMutualExclusion<SYCLIntelPrivateCopiesAttr>(S, D, Attr))
       return;
   }
 
   checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
   if (isa<VarDecl>(D) &&
-      checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+      checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
     return;
 
   S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(
@@ -7830,9 +7826,8 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
 }
 
 /// Handle the [[intel::singlepump]] attribute.
-<<<<<<< HEAD
-static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
-                                              const ParsedAttr &AL) {
+static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
+                                          const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -7840,12 +7835,7 @@ static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGASinglePumpAttr>(S, D, AL);
-=======
-static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
-                                          const ParsedAttr &AL) {
   checkForDuplicateAttribute<SYCLIntelSinglePumpAttr>(S, D, AL);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 
   // If the declaration does not have an [[intel::fpga_memory]]
   // attribute, this creates one as an implicit attribute.
@@ -7857,9 +7847,8 @@ static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
 }
 
 /// Handle the [[intel::doublepump]] attribute.
-<<<<<<< HEAD
-static void handleSYCLIntelFPGADoublePumpAttr(Sema &S, Decl *D,
-                                              const ParsedAttr &AL) {
+static void handleSYCLIntelDoublePumpAttr(Sema &S, Decl *D,
+                                          const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -7867,12 +7856,7 @@ static void handleSYCLIntelFPGADoublePumpAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGADoublePumpAttr>(S, D, AL);
-=======
-static void handleSYCLIntelDoublePumpAttr(Sema &S, Decl *D,
-                                          const ParsedAttr &AL) {
   checkForDuplicateAttribute<SYCLIntelDoublePumpAttr>(S, D, AL);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 
   // If the declaration does not have an [[intel::fpga_memory]]
   // attribute, this creates one as an implicit attribute.
@@ -7885,8 +7869,7 @@ static void handleSYCLIntelDoublePumpAttr(Sema &S, Decl *D,
 
 /// Handle the [[intel::fpga_memory]] attribute.
 /// This is incompatible with the [[intel::fpga_register]] attribute.
-<<<<<<< HEAD
-static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
+static void handleSYCLIntelMemoryAttr(Sema &S, Decl *D,
                                       const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
@@ -7895,14 +7878,8 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGAMemoryAttr>(S, D, AL);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
-=======
-static void handleSYCLIntelMemoryAttr(Sema &S, Decl *D,
-                                  const ParsedAttr &AL) {
   checkForDuplicateAttribute<SYCLIntelMemoryAttr>(S, D, AL);
   if (checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, AL))
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
     return;
 
   SYCLIntelMemoryAttr::MemoryKind Kind;
@@ -7932,7 +7909,7 @@ static void handleSYCLIntelMemoryAttr(Sema &S, Decl *D,
 
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
-static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
+static bool checkSYCLIntelRegisterAttrCompatibility(Sema &S, Decl *D,
                                                     const ParsedAttr &Attr) {
   bool InCompat = false;
   if (auto *MA = D->getAttr<SYCLIntelMemoryAttr>())
@@ -7949,8 +7926,7 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 
 /// Handle the [[intel::fpga_register]] attribute.
 /// This is incompatible with most of the other memory attributes.
-<<<<<<< HEAD
-static void handleIntelFPGARegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -7958,13 +7934,8 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGARegisterAttr>(S, D, A);
-=======
-static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D,
-		                        const ParsedAttr &A) {
   checkForDuplicateAttribute<SYCLIntelRegisterAttr>(S, D, A);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
-  if (checkIntelFPGARegisterAttrCompatibility(S, D, A))
+  if (checkSYCLIntelRegisterAttrCompatibility(S, D, A))
     return;
 
   handleSimpleAttribute<SYCLIntelRegisterAttr>(S, D, A);
@@ -8048,7 +8019,6 @@ Sema::MergeSYCLIntelBankWidthAttr(Decl *D, const SYCLIntelBankWidthAttr &A) {
 
 static void handleSYCLIntelBankWidthAttr(Sema &S, Decl *D,
                                          const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8056,10 +8026,7 @@ static void handleSYCLIntelBankWidthAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  S.AddIntelFPGABankWidthAttr(D, A, A.getArgAsExpr(0));
-=======
   S.AddSYCLIntelBankWidthAttr(D, A, A.getArgAsExpr(0));
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 }
 
 void Sema::AddSYCLIntelNumBanksAttr(Decl *D, const AttributeCommonInfo &CI,
@@ -8147,8 +8114,7 @@ Sema::MergeSYCLIntelNumBanksAttr(Decl *D, const SYCLIntelNumBanksAttr &A) {
   return ::new (Context) SYCLIntelNumBanksAttr(Context, A, A.getValue());
 }
 
-<<<<<<< HEAD
-static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+static void handleSYCLIntelNumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8156,11 +8122,11 @@ static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  S.AddIntelFPGANumBanksAttr(D, A, A.getArgAsExpr(0));
+  S.AddSYCLIntelNumBanksAttr(D, A, A.getArgAsExpr(0));
 }
 
-static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
-                                              const ParsedAttr &AL) {
+static void handleIntelSimpleDualPortAttr(Sema &S, Decl *D,
+                                          const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -8168,16 +8134,7 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGASimpleDualPortAttr>(S, D, AL);
-=======
-static void handleSYCLIntelNumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-  S.AddSYCLIntelNumBanksAttr(D, A, A.getArgAsExpr(0));
-}
-
-static void handleIntelSimpleDualPortAttr(Sema &S, Decl *D,
-                                          const ParsedAttr &AL) {
   checkForDuplicateAttribute<SYCLIntelSimpleDualPortAttr>(S, D, AL);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 
   if (!D->hasAttr<SYCLIntelMemoryAttr>())
     D->addAttr(SYCLIntelMemoryAttr::CreateImplicit(
@@ -8221,14 +8178,14 @@ void Sema::AddSYCLIntelMaxReplicatesAttr(Decl *D, const AttributeCommonInfo &CI,
     }
     // [[intel::fpga_register]] and [[intel::max_replicates()]]
     // attributes are incompatible.
-    if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(*this, D, CI))
+    if (checkAttrMutualExclusion<SYCLIntelRegisterAttr>(*this, D, CI))
       return;
 
     // If the declaration does not have an [[intel::fpga_memory]]
     // attribute, this creates one as an implicit attribute.
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
+    if (!D->hasAttr<SYCLIntelMemoryAttr>())
+      D->addAttr(SYCLIntelMemoryAttr::CreateImplicit(
+          Context, SYCLIntelMemoryAttr::Default));
   }
 
   // If the declaration does not have an [[intel::fpga_memory]]
@@ -8261,9 +8218,8 @@ Sema::MergeSYCLIntelMaxReplicatesAttr(Decl *D,
   return ::new (Context) SYCLIntelMaxReplicatesAttr(Context, A, A.getValue());
 }
 
-<<<<<<< HEAD
-static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
-                                             const ParsedAttr &A) {
+static void handleSYCLIntelMaxReplicatesAttr(Sema &S, Decl *D,
+                                          const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8271,20 +8227,14 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  S.AddIntelFPGAMaxReplicatesAttr(D, A, A.getArgAsExpr(0));
-=======
-static void handleSYCLIntelMaxReplicatesAttr(Sema &S, Decl *D,
-                                          const ParsedAttr &A) {
   S.AddSYCLIntelMaxReplicatesAttr(D, A, A.getArgAsExpr(0));
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 }
 
 /// Handle the merge attribute.
 /// This requires two string arguments.  The first argument is a name, the
 /// second is a direction.  The direction must be "depth" or "width".
 /// This is incompatible with the register attribute.
-<<<<<<< HEAD
-static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+static void handleSYCLIntelMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
@@ -8293,11 +8243,7 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, AL);
-=======
-static void handleSYCLIntelMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   checkForDuplicateAttribute<SYCLIntelMergeAttr>(S, D, AL);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 
   SmallVector<StringRef, 2> Results;
   for (int I = 0; I < 2; I++) {
@@ -8328,8 +8274,7 @@ static void handleSYCLIntelMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 /// hasn't been added yet an implicit one is added with the correct value.
 /// If the user later adds a numbanks attribute the implicit one is removed.
 /// The values must be consecutive values (i.e. 3,4,5 or 2,1).
-<<<<<<< HEAD
-static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+static void handleSYCLIntelBankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8337,11 +8282,7 @@ static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGABankBitsAttr>(S, D, A);
-=======
-static void handleSYCLIntelBankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   checkForDuplicateAttribute<SYCLIntelBankBitsAttr>(S, D, A);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 
   if (!A.checkAtLeastNumArgs(S, 1))
     return;
@@ -8462,7 +8403,6 @@ void Sema::AddSYCLIntelPrivateCopiesAttr(Decl *D, const AttributeCommonInfo &CI,
 
 static void handleSYCLIntelPrivateCopiesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8470,10 +8410,7 @@ static void handleSYCLIntelPrivateCopiesAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  S.AddIntelFPGAPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
-=======
   S.AddSYCLIntelPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 }
 
 void Sema::AddSYCLIntelForcePow2DepthAttr(Decl *D,
@@ -8545,7 +8482,6 @@ Sema::MergeSYCLIntelForcePow2DepthAttr(Decl *D,
 
 static void handleSYCLIntelForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -8553,10 +8489,7 @@ static void handleSYCLIntelForcePow2DepthAttr(Sema &S, Decl *D,
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
-  S.AddIntelFPGAForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
-=======
   S.AddSYCLIntelForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -12869,7 +12802,6 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   case ParsedAttr::AT_SYCLIntelPrivateCopies:
     handleSYCLIntelPrivateCopiesAttr(S, D, AL);
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_VecLenHint:
     handleVecLenHint(S, D, AL);
@@ -12955,12 +12887,8 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     handleAllowCpuFeaturesAttr(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
-  case ParsedAttr::AT_IntelFPGAMaxReplicates:
-    handleIntelFPGAMaxReplicatesAttr(S, D, AL);
-=======
   case ParsedAttr::AT_SYCLIntelMaxReplicates:
     handleSYCLIntelMaxReplicatesAttr(S, D, AL);
->>>>>>> 94894eea6770c9a8411d93c602fc4df46eca3e16
     break;
   case ParsedAttr::AT_SYCLIntelSimpleDualPort:
     handleIntelSimpleDualPortAttr(S, D, AL);
@@ -13208,9 +13136,9 @@ void Sema::ProcessDeclAttributeList(
       D->getKind() == Decl::ParmVar && !IsAgentMemory(*this, D)) {
     // Check that memory attributes are only added to agent memory.
     if (diagnoseMemoryAttrs<
-            IntelFPGAMemoryAttr, IntelFPGANumBanksAttr, IntelFPGABankWidthAttr,
-            IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr,
-            IntelFPGABankBitsAttr>(*this, D))
+            SYCLIntelMemoryAttr, SYCLIntelNumBanksAttr, SYCLIntelBankWidthAttr,
+            SYCLIntelSinglePumpAttr, SYCLIntelDoublePumpAttr,
+            SYCLIntelBankBitsAttr>(*this, D))
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
