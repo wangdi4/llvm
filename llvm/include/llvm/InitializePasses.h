@@ -250,11 +250,7 @@ void initializeIndirectBrExpandPassPass(PassRegistry&);
 void initializeInferAddressSpacesPass(PassRegistry&);
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeInjectTLIMappingsLegacyPass(PassRegistry &);
-<<<<<<< HEAD
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
-void initializeInlineCostAnalysisPass(PassRegistry&);
-=======
->>>>>>> 23ad3dac0a21d8454e088682db2ae0b887eb5b98
 void initializeInstCountLegacyPassPass(PassRegistry &);
 void initializeInstNamerPass(PassRegistry&);
 void initializeInstSimplifyLegacyPassPass(PassRegistry &);
@@ -327,6 +323,9 @@ void initializeLoopSimplifyPass(PassRegistry&);
 void initializeLoopStrengthReducePass(PassRegistry&);
 void initializeLoopUnrollAndJamPass(PassRegistry&);
 void initializeLoopUnrollPass(PassRegistry&);
+#ifdef INTEL_CUSTOMIZATION
+void initializeLoopUnswitchPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializeLoopVectorizePass(PassRegistry&);
 void initializeLoopVersioningLICMLegacyPassPass(PassRegistry &);
 void initializeLoopVersioningLegacyPassPass(PassRegistry &);
