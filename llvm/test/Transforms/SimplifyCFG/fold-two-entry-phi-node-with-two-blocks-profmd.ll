@@ -2,7 +2,7 @@
 ; INTEL_CUSTOMIZATION
 ; Auto-generated checks differ in xmain vs llorg in these ways:
 ; * Order of add and sub checks is reversed.
-; RUN: opt -S -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -two-entry-phi-node-folding-threshold=4 -phi-node-folding-threshold=0 < %s | FileCheck %s
+; RUN: opt -S -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -two-entry-phi-node-folding-threshold=4 -phi-node-folding-threshold=0 < %s | FileCheck %s
 
 declare void @sideeffect0()
 declare void @sideeffect1()
