@@ -921,7 +921,6 @@ void PassManagerBuilder::populateModulePassManager(
     }
 #endif // INTEL_COLLAB
 
-    MPM.add(createAnnotationRemarksLegacyPass());
     return;
   }
 
@@ -1165,8 +1164,6 @@ void PassManagerBuilder::populateModulePassManager(
   }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-
-  MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
@@ -2057,8 +2054,6 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 
   if (OptLevel != 0)
     addLateLTOOptimizationPasses(PM);
-
-  PM.add(createAnnotationRemarksLegacyPass());
 
   if (VerifyOutput)
     PM.add(createVerifierPass());
