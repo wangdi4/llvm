@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 ; INTEL
-; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -disable-output
-=======
-; RUN: opt < %s -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -disable-output
->>>>>>> 5fdc6846c55f31d443a0f98fad8a7570e5416dec
+; RUN: opt < %s -S -convert-to-subscript | opt -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -disable-output
 ; END.
 
 target datalayout = "e-m:o-p:32:32-f64:32:64-v64:32:64-v128:32:128-a:0:32-n32-S32"

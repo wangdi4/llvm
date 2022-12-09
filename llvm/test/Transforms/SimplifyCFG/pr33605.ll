@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
-; INTEL
-; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
-=======
 ; RUN: opt < %s -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
->>>>>>> 5fdc6846c55f31d443a0f98fad8a7570e5416dec
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -passes=simplifycfg -S | FileCheck %s
 
 ; Skip simplifying unconditional branches from empty blocks in simplifyCFG,
 ; when it can destroy canonical loop structure.

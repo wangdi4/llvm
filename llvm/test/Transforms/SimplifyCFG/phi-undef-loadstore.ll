@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S < %s | FileCheck %s
-; INTEL
-; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
-=======
 ; RUN: opt -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S < %s | FileCheck %s
->>>>>>> 5fdc6846c55f31d443a0f98fad8a7570e5416dec
+; INTEL
+; RUN: opt < %s -S -convert-to-subscript | opt -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
 
 declare void @bar() nounwind
 
