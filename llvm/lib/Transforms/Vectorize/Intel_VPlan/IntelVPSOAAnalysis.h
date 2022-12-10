@@ -24,6 +24,7 @@
 
 namespace llvm {
 class Type;
+class raw_ostream;
 namespace vpo {
 
 class VPAllocatePrivate;
