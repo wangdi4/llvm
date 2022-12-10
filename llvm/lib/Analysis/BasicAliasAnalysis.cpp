@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -332,7 +332,9 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
     return true;
 
   return I != Iter.first->second &&
-         !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, &LI);
+#if INTEL_CUSTOMIZATION
+         !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, LI);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void EarliestEscapeInfo::removeInstruction(Instruction *I) {
@@ -1498,6 +1500,59 @@ AliasResult BasicAAResult::aliasGEP(
   return AliasResult::MayAlias;
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if the input Value O1 is not captured before or by Value O2.
+// Else return false. This check will use the function
+// EarliestCaptureInfo::isNotCapturedBeforeOrAt, which is a more expensive
+// analysis.
+bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
+                                                 const Value *O2) {
+  if (!DT || O1 == O2)
+    return false;
+
+  assert(O1 && "Trying to check if O1 is captured but value is null");
+  assert(O2 && "Trying to check if O2 will capture but value is null");
+
+  if (!isIdentifiedFunctionLocal(O1))
+    return false;
+
+  auto *Call = dyn_cast<CallBase>(O2);
+  if (!Call)
+    return false;
+
+  // Calls to subscript intrinsics are a form of GEP.
+  // TODO: Subscript instructions shouldn't be here. The function isEscapeSource
+  // calls isIntrinsicReturningPointerAliasingArgumentWithoutCapturing, and it
+  // needs to be updated to consider subscript intrinsics (CMPLRLLVM-42509).
+  if(isa<SubscriptInst>(O2))
+    return false;
+
+  // We currently don't process indirect calls and/or varargs to save compile
+  // time. The function isNotCapturedBeforeOrAt is expensive.
+  auto *F = Call->getCalledFunction();
+  if (Call->isIndirectCall() || !F || F->isVarArg())
+    return false;
+
+  // Do some simple check in case the value is passed to the call.
+  //
+  // NOTE: This is conservative, perhaps we could relax for no-capture and/or
+  // read-only attributes. Also, we may want to check that the call doesn't
+  // have operand bundles too.
+  for (Value *Arg : Call->args()) {
+    if (Arg == O1)
+      return false;
+  }
+
+  // AAQI.CI in BasicAA uses SimpleCaptureInfo, which won't identify if the
+  // captured instruction happens after the value. We are going to use
+  // EarliestEscapeInfo, which checks if the capture instruction happens
+  // after the value.
+  const SmallPtrSet<const Value *, 4> EphValues;
+  EarliestEscapeInfo EI(*DT, EphValues);
+  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Call);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static AliasResult MergeAliasResults(AliasResult A, AliasResult B) {
   // If the results agree, take it.
   if (A == B)
@@ -1778,7 +1833,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 //   ...
 //   %303 = getelementptr inbounds i8, i8* %297, i64 3
 //
-// This routine can be extended to cover more cases by making it as 
+// This routine can be extended to cover more cases by making it as
 // recursive routine and considering more IR operands.
 //
 static Value* getNoAliasPtrOfPHI(const Value* U) {
@@ -1795,7 +1850,7 @@ static Value* getNoAliasPtrOfPHI(const Value* U) {
   for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
     Value* V = PN->getIncomingValue(I);
     if (GEPOperator *G = dyn_cast<GEPOperator>(V)) {
-      Value* GEP1 = G->getPointerOperand(); 
+      Value* GEP1 = G->getPointerOperand();
       // Skip it if PointerOperand of GEP is the PHI node
       // that we are currently processing.
       if (GEP1 == PN) continue;
@@ -1946,12 +2001,18 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL, // INTEL
-                                         cast<Instruction>(O1)))    // INTEL
+#if INTEL_CUSTOMIZATION
+            (AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL,
+                                             cast<Instruction>(O1)) ||
+        valueIsNotCapturedBeforeOrAt(O2, O1)))
+#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-        AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, // INTEL
-                                         cast<Instruction>(O2)))    // INTEL
+#if INTEL_CUSTOMIZATION
+            (AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL,
+                                             cast<Instruction>(O2)) ||
+        valueIsNotCapturedBeforeOrAt(O1, O2)))
+#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
 
 #if INTEL_CUSTOMIZATION
@@ -1976,7 +2037,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
     // Return NoAlias if O1 and O2 are PHINodes and they point to two
     // different addresses that are returned by noalias functions.
-    // Ex: They point to addresses that are returned by two 
+    // Ex: They point to addresses that are returned by two
     // different malloc calls.
     //
     if (isa<PHINode>(O2) && isa<PHINode>(O1)) {
