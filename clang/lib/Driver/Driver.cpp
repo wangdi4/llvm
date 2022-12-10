@@ -120,6 +120,7 @@
 #include <memory>
 #include <regex>
 #include <sstream>
+#include <optional>
 #include <utility>
 #if LLVM_ON_UNIX
 #include <unistd.h> // getpid
@@ -974,7 +975,7 @@ static llvm::Triple computeTargetTriple(const Driver &D, StringRef TargetTriple,
 
   // On AIX, the env OBJECT_MODE may affect the resulting arch variant.
   if (Target.isOSAIX()) {
-    if (Optional<std::string> ObjectModeValue =
+    if (std::optional<std::string> ObjectModeValue =
             llvm::sys::Process::GetEnv("OBJECT_MODE")) {
       StringRef ObjectMode = *ObjectModeValue;
       llvm::Triple::ArchType AT = llvm::Triple::UnknownArch;
@@ -1852,11 +1853,11 @@ bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
                       .Default("");
     // Use of 'DPCPPCFG' is deprecated.
     if (IsDPCPPMode()) {
-      if (Optional<std::string> EnvVarValue =
+      if (std::optional<std::string>EnvVarValue =
               llvm::sys::Process::GetEnv("DPCPPCFG"))
         Diag(diag::warn_drv_deprecated_env_var) << "DPCPPCFG" << EnvVar;
     }
-    if (Optional<std::string> EnvVarValue =
+    if (std::optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
       if (!readConfigFile(*EnvVarValue, ExpCtx)) {
         // The default .cfg file can be empty, allow for more config
@@ -2126,7 +2127,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     A->claim();
     PrefixDirs.push_back(A->getValue(0));
   }
-  if (Optional<std::string> CompilerPathValue =
+  if (std::optional<std::string> CompilerPathValue =
           llvm::sys::Process::GetEnv("COMPILER_PATH")) {
     StringRef CompilerPath = *CompilerPathValue;
     while (!CompilerPath.empty()) {
@@ -3964,7 +3965,7 @@ getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
   SmallVector<std::string, 8> LibPaths;
   bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
   // Add search directories from LIBRARY_PATH/LIB env variable
-  llvm::Optional<std::string> LibPath =
+  std::optional<std::string> LibPath =
       llvm::sys::Process::GetEnv(IsMSVC ? "LIB" : "LIBRARY_PATH");
   if (LibPath) {
     SmallVector<StringRef, 8> SplitPaths;
@@ -9552,7 +9553,7 @@ const char *Driver::CreateTempFile(Compilation &C, StringRef Prefix,
                                    types::ID Type) const {
   SmallString<128> TmpName;
   Arg *A = C.getArgs().getLastArg(options::OPT_fcrash_diagnostics_dir);
-  Optional<std::string> CrashDirectory =
+  std::optional<std::string> CrashDirectory =
       CCGenDiagnostics && A
           ? std::string(A->getValue())
           : llvm::sys::Process::GetEnv("CLANG_CRASH_DIAGNOSTICS_DIR");
