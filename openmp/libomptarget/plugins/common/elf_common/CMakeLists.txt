@@ -26,6 +26,7 @@
 # Common ELF functionality for target plugins
 #
 ##===----------------------------------------------------------------------===##
+<<<<<<< HEAD
 if(INTEL_COLLAB)
 add_library(elf_common OBJECT elf_common.cpp elf_light.cpp)
 else(INTEL_COLLAB)
@@ -52,7 +53,26 @@ add_dependencies(elf_common ${LINK_LLVM_LIBS})
 
 # The code uses Debug.h, which requires threads support.
 target_link_libraries(elf_common INTERFACE ${OPENMP_PTHREAD_LIB})
+=======
+
+add_llvm_library(elf_common elf_common.cpp ELFSymbols.cpp
+  BUILDTREE_ONLY
+
+  LINK_COMPONENTS
+    BinaryFormat
+    Object
+    Support
+
+  LINK_LIBS
+    ${OPENMP_PTHREAD_LIB}
+)
+
+# Build elf_common with PIC to be able to link it with plugin shared libraries.
+set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)
+>>>>>>> e682a76c3bf61c52628d79d6ec4db221430768c0
 
 # Expose elf_common.h directory to the users of this library.
-target_include_directories(elf_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(elf_common PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
+target_include_directories(elf_common
+  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
+  PRIVATE ${LIBOMPTARGET_INCLUDE_DIR}
+)
