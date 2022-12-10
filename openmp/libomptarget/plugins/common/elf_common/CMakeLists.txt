@@ -30,6 +30,7 @@ if(INTEL_COLLAB)
   add_llvm_library(elf_common elf_common.cpp elf_light.cpp ELFSymbols.cpp
   BUILDTREE_ONLY
 
+<<<<<<< HEAD
   LINK_COMPONENTS
     BinaryFormat
     Object
@@ -51,9 +52,22 @@ add_llvm_library(elf_common elf_common.cpp ELFSymbols.cpp
     ${OPENMP_PTHREAD_LIB}
 )
 endif(INTEL_COLLAB)
+=======
+add_library(elf_common OBJECT elf_common.cpp ELFSymbols.cpp)
+>>>>>>> aa6ea6009fc50b02dbf3788ee9fe605081b154f6
 
 # Build elf_common with PIC to be able to link it with plugin shared libraries.
 set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)
+llvm_update_compile_flags(elf_common)
+set(LINK_LLVM_LIBS LLVMBinaryFormat LLVMObject LLVMSupport)
+if (LLVM_LINK_LLVM_DYLIB)
+  set(LINK_LLVM_LIBS LLVM)
+endif()
+target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
+add_dependencies(elf_common ${LINK_LLVM_LIBS})
+
+# The code uses Debug.h, which requires threads support.
+target_link_libraries(elf_common INTERFACE ${OPENMP_PTHREAD_LIB})
 
 # INTEL_CUSTOMIZATION
   # Statically link C run-time library on Windows.
@@ -65,7 +79,5 @@ set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)
 # end INTEL_CUSTOMIZATION
 
 # Expose elf_common.h directory to the users of this library.
-target_include_directories(elf_common
-  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
-  PRIVATE ${LIBOMPTARGET_INCLUDE_DIR}
-)
+target_include_directories(elf_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(elf_common PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
