@@ -42,12 +42,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # or not)
 
       # default repo path for public xmain builds, not using ICS
-      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
-      set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # Author: Gorban, Igor <igor.gorban@intel.com>
-      # Date:   Thu Nov 24 17:13:40 2022 +0000
-      # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
-      set(LLVMGenXIntrinsics_GIT_TAG 782fbf7301dc73acaa049a4324c976ad94f587f7)
+      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
+      set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
+      # Author: Victor Mustya <victor.mustya@intel.com>
+      # Date:   Wed Dec 7 23:06:41 2022 +0000
+      # Add support for new PM in SPIRV reader adaptor and CM simd CF lowering pass
+      set(LLVMGenXIntrinsics_GIT_TAG 12953f1fadee62ee453018d6eb15fede68a42334)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Mariya Podchishchaeva <mariya.podchishchaeva@intel.com>
-        # Date:   Fri Nov 25 18:10:12 2022 +0100
-        # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
-        set(LLVMGenXIntrinsics_GIT_TAG a841e49dd3948f7de0b5f4aed7b7a435cb3928e3)
+        # Author: Victor Mustya <victor.mustya@intel.com>
+        # Date:   Wed Dec 7 15:31:03 2022 -0800
+        # Open Source repo sync
+        set(LLVMGenXIntrinsics_GIT_TAG a4f36dae1fde1cde5ec5a0b9e2e00703e27a6bbd)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is

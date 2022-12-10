@@ -79,7 +79,6 @@
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -87,9 +86,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
 #include <optional>
->>>>>>> 68931d8c87813cd159d36bd73344d7a79680d39c
 #include <system_error>
 using namespace llvm;
 

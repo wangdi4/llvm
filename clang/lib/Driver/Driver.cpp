@@ -1853,11 +1853,11 @@ bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
                       .Default("");
     // Use of 'DPCPPCFG' is deprecated.
     if (IsDPCPPMode()) {
-      if (Optional<std::string> EnvVarValue =
+      if (std::optional<std::string>EnvVarValue =
               llvm::sys::Process::GetEnv("DPCPPCFG"))
         Diag(diag::warn_drv_deprecated_env_var) << "DPCPPCFG" << EnvVar;
     }
-    if (Optional<std::string> EnvVarValue =
+    if (std::optional<std::string> EnvVarValue =
             llvm::sys::Process::GetEnv(EnvVar)) {
       if (!readConfigFile(*EnvVarValue, ExpCtx)) {
         // The default .cfg file can be empty, allow for more config
