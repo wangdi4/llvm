@@ -501,10 +501,9 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       CSs.push_back(CSIR->get());
     }
   }
-  FunctionInliningReport *NewFIR =
-      new FunctionInliningReport(F, &CSs, false /*isDead*/);
+  FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/);
   MDIR.addCallback(F);
-  return NewFIR->get();
+  return NewFIR.get();
 }
 
 // This function implements two tasks:
