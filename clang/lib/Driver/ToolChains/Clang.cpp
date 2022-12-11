@@ -7961,6 +7961,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString("-fms-compatibility-version=" + MSVT.getAsString()));
 
   bool IsMSVC2015Compatible = MSVT.getMajor() >= 19;
+#if INTEL_CUSTOMIZATION
+  bool IsMSVC2019Compatible =
+      MSVT.getMajor() >= 19 && MSVT.getMinor().value_or(0) >= 20;
+#endif // INTEL_CUSTOMIZATION
   if (ImplyVCPPCVer) {
     StringRef LanguageStandard;
     if (const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std)) {
@@ -7991,8 +7995,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     if (LanguageStandard.empty()) {
-      if (IsSYCL)
-        // For DPC++, C++17 is the default.
+#if INTEL_CUSTOMIZATION
+      if (IsSYCL || (IsMSVC2019Compatible && D.IsIntelMode()))
+      // For DPC++ and MSVC2019 or greater, C++17 is the default.
+#endif // INTEL_CUSTOMIZATION
         LanguageStandard = "-std=c++17";
       else if (IsMSVC2015Compatible)
         LanguageStandard = "-std=c++14";
