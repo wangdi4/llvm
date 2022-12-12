@@ -191,8 +191,8 @@ private:
   // Desired vectorization width
   int DesiredVF = 1;
 
-  // Total weight of all instructions
-  float TotalWeight;
+  // Total weight of all instructions. Initialize to 1 for safety.
+  float TotalWeight = 1.0f;
 
   // for statistical purposes, cost of
   // basic block (without probability and trip count)
@@ -293,9 +293,6 @@ void InstCountResultImpl::analyze() {
 
   // for statistics:
   DPCPP_STAT_GATHER_CHECK(BlockCosts.clear(););
-
-  // This is for safety - don't return 0.
-  TotalWeight = 1;
 
   // Check if this is the "pre" stage.
   // If it is, compute things that are relevant only here.
