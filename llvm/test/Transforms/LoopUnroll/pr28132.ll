@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Without Intel Customization, this test expects no unrolling to occur when a cleanuppad is there on a critical edge destination BB. Current llorg source base does not break this edge.
 ; Intel custom changes enable breaking this critical edge. In this test the critical edges that get broken are:
@@ -5,6 +6,9 @@
 ; This enables loop unrolling, so removing the CHECK statements.
 ; RUN: opt -loop-unroll -S < %s -verify
 ; END INTEL_CUSTOMIZATION
+=======
+; RUN: opt -passes=loop-unroll -S < %s | FileCheck %s
+>>>>>>> 5103ef64fe4f60cc0fd518b514c712f4b4c03d98
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i686-pc-windows-msvc"
 
