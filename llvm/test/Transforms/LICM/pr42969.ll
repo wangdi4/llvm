@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt %s -S -scoped-noalias-aa -licm | FileCheck %s
+=======
+; RUN: opt %s -S -passes=licm | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 
 define i16 @main(i1 %a_b_mayalias, ptr %a, ptr %b) {
 ; CHECK:       scalar.body:

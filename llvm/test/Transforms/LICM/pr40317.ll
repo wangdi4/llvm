@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -mcpu=z13 -tbaa -licm -licm-control-flow-hoisting -verify-memoryssa < %s | FileCheck %s
+=======
+; RUN: opt -S -mcpu=z13 -passes=licm -licm-control-flow-hoisting -verify-memoryssa < %s | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 
 target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64"
 target triple = "s390x-ibm-linux"

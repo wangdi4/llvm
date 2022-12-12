@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -licm -disable-output
+=======
+; RUN: opt < %s -passes=licm -disable-output
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 
 ;%MoveArray = external global [64 x ulong]
 

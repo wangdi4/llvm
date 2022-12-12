@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -tbaa -licm -S | FileCheck %s
+=======
+; RUN: opt < %s -passes=licm -S | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 ; PR9634
 
 @g_58 = common global i32 0, align 4

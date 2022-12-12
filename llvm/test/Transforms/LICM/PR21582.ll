@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -licm -S | FileCheck %s
+=======
+; RUN: opt < %s -passes=licm -S | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 @b = external global i32, align 4
 @fn3.i = external global i32, align 4
 

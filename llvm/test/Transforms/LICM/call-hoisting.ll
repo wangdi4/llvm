@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -basic-aa -licm %s | FileCheck %s
+=======
+; RUN: opt -S -passes=licm %s | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 ; RUN: opt -aa-pipeline=basic-aa -passes='require<aa>,require<targetir>,require<scalar-evolution>,require<opt-remark-emit>,loop-mssa(licm)' < %s -S | FileCheck %s
 
 declare i32 @load(ptr %p) argmemonly readonly nounwind

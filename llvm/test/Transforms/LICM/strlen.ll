@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -inferattrs -basic-aa -licm < %s | FileCheck %s
+=======
+; RUN: opt -S -passes='inferattrs,function(loop-mssa(licm))' < %s | FileCheck %s
+>>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
 
 define void @test(ptr noalias %loc, ptr noalias %a) {
 ; CHECK-LABEL: @test
