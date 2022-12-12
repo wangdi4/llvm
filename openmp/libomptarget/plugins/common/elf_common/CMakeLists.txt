@@ -26,16 +26,12 @@
 # Common ELF functionality for target plugins
 #
 ##===----------------------------------------------------------------------===##
-<<<<<<< HEAD
 if(INTEL_COLLAB)
 add_library(elf_common OBJECT elf_common.cpp elf_light.cpp)
 else(INTEL_COLLAB)
-=======
-
 # NOTE: Don't try to build `elf_common` using `add_llvm_library`.
 # See openmp/libomptarget/plugins-nextgen/common/PluginInterface/CMakeLists.txt
 # for more explanation.
->>>>>>> 59ae4529838395da115293ac54d733fd91dbefc6
 add_library(elf_common OBJECT elf_common.cpp ELFSymbols.cpp)
 endif(INTEL_COLLAB)
 
@@ -47,19 +43,6 @@ if (LLVM_LINK_LLVM_DYLIB)
 else()
   llvm_map_components_to_libnames(llvm_libs BinaryFormat Object Support)
 endif()
-<<<<<<< HEAD
-target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
-# INTEL_CUSTOMIZATION
-  # Statically link C run-time library on Windows.
-  # Otherwise, we cannot use LLVMObject and LLVMSupport.
-  # Alternatively we can link LLVMSupport_dyn (which we already build)
-  # and LLVMObject_dyn (yet another component library to be built
-  # in two flavors).
-  set_msvc_crt_flags(elf_common)
-# end INTEL_CUSTOMIZATION
-add_dependencies(elf_common ${LINK_LLVM_LIBS})
-=======
->>>>>>> 59ae4529838395da115293ac54d733fd91dbefc6
 
 target_link_libraries(elf_common PUBLIC ${llvm_libs} ${OPENMP_PTHREAD_LIB})
 
