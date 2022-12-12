@@ -55,8 +55,11 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
+<<<<<<< HEAD
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/ScopeExit.h" // INTEL
+=======
+>>>>>>> 405fc404bf84fcc13e10bfac754d398199f69b7d
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
