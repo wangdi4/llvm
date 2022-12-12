@@ -1680,7 +1680,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
   case LibFunc_re_search_2:
-    return (NumParams = 9 && FTy.getReturnType()->isIntegerTy() &&
+    return (NumParams == 9 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
@@ -4287,7 +4287,7 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
-    return (NumParams = 4 && FTy.getReturnType()->isVoidTy() &&
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
