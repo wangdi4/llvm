@@ -6,11 +6,11 @@
 ; (2) KNL and SKX targets have different behavior due to TTI customizations
 ;     thus new AVX512F checks were added for KNL.
 ;
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=SSE
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=AVX
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=AVX2
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=AVX512F
-; RUN:  opt < %s -slp-vectorizer -slp-compatibility-mode -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=AVX512VL
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -slp-compatibility-mode -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=SSE
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -slp-compatibility-mode -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=AVX
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -slp-compatibility-mode -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=AVX2
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -slp-compatibility-mode -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=AVX512F
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -slp-compatibility-mode -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=AVX512VL
 
 ; Customization note:
 ; these RUN lines invoke opt the same way as non-customized test version but
@@ -21,11 +21,11 @@
 ; If community alters or adds more RUN lines both RUN pools must be
 ; modified accordingly.
 ;
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=XMAIN,XMAINSSE
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=XMAIN,XMAINAVX
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=XMAIN,XMAINAVX2
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=XMAIN,XMAINAVX512F
-; RUN:  opt < %s -slp-vectorizer -instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=XMAIN,XMAINAVX512VL
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -S -mtriple=x86_64-unknown-linux -mattr=+sse2     | FileCheck %s --check-prefixes=XMAIN,XMAINSSE
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx      | FileCheck %s --check-prefixes=XMAIN,XMAINAVX
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx2     | FileCheck %s --check-prefixes=XMAIN,XMAINAVX2
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512f  | FileCheck %s --check-prefixes=XMAIN,XMAINAVX512F
+; RUN:  opt < %s -passes=slp-vectorizer,instcombine -S -mtriple=x86_64-unknown-linux -mattr=+avx512vl | FileCheck %s --check-prefixes=XMAIN,XMAINAVX512VL
 ; end INTEL_CUSTOMIZATION
 
 define void @gather_load(i32* noalias nocapture %0, i32* noalias nocapture readonly %1) {
