@@ -240,21 +240,12 @@ struct Chunk {
 };
 
 struct Section : public Chunk {
-<<<<<<< HEAD
   ELF_SHT Type = ELF::SHT_NULL; // INTEL
-  Optional<ELF_SHF> Flags;
-  Optional<llvm::yaml::Hex64> Address;
-  Optional<StringRef> Link;
-  llvm::yaml::Hex64 AddressAlign = 0; // INTEL
-  Optional<llvm::yaml::Hex64> EntSize;
-=======
-  ELF_SHT Type;
   std::optional<ELF_SHF> Flags;
   std::optional<llvm::yaml::Hex64> Address;
   std::optional<StringRef> Link;
-  llvm::yaml::Hex64 AddressAlign;
+  llvm::yaml::Hex64 AddressAlign = 0; // INTEL
   std::optional<llvm::yaml::Hex64> EntSize;
->>>>>>> c589730ad5286fc784b8aacf2f0214149603f312
 
   std::optional<yaml::BinaryRef> Content;
   std::optional<llvm::yaml::Hex64> Size;
