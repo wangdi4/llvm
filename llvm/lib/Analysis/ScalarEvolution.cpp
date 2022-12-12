@@ -5505,7 +5505,7 @@ struct BinaryOp {
 
 } // end anonymous namespace
 
-/// Try to map \p V into a BinaryOp, and return \c None on failure.
+/// Try to map \p V into a BinaryOp, and return \c std::nullopt on failure.
 static std::optional<BinaryOp> MatchBinaryOp(Value *V, const DataLayout &DL,
                                              AssumptionCache &AC,
                                              const DominatorTree &DT,
