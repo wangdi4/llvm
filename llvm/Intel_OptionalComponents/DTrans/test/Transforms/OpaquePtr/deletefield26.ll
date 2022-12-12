@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -19,33 +19,32 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-SAME: %__DFT_struct.test { i32 300, i32 30000 },
 ; CHECK-SAME: %__DFT_struct.test { i32 400, i32 40000 }]
 
-define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
+define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
   %res = call i32 @f()
   ret i32 %res
 }
 
 define internal i32 @f() {
-  %p = getelementptr [4 x %struct.test], [4 x %struct.test]* @g_test,
-                     i64 0, i32 2
+  %p = getelementptr [4 x %struct.test], ptr @g_test, i64 0, i32 2
   ; read A and C
-  %pA = getelementptr %struct.test, %struct.test* %p, i64 0, i32 0
-  %valA = load i32, i32* %pA
-  %pC = getelementptr %struct.test, %struct.test* %p, i64 0, i32 2
-  %valC = load i32, i32* %pC
+  %pA = getelementptr %struct.test, ptr %p, i64 0, i32 0
+  %valA = load i32, ptr %pA
+  %pC = getelementptr %struct.test, ptr %p, i64 0, i32 2
+  %valC = load i32, ptr %pC
   %sum = add i32 %valA, %valC
 
   ; write B
-  %pB = getelementptr %struct.test, %struct.test* %p, i64 0, i32 1
-  store i64 3, i64* %pB
+  %pB = getelementptr %struct.test, ptr %p, i64 0, i32 1
+  store i64 3, ptr %pB
 
   ret i32 %sum
 }
 ; CHECK-LABEL: define internal i32 @f() {
-; CHECK: %p = getelementptr [4 x %__DFT_struct.test], {{.*}} @g_test, i64 0, i32 2
-; CHECK: %pA = getelementptr %__DFT_struct.test, {{.*}} %p, i64 0, i32 0
-; CHECK: %valA = load i32, {{.*}} %pA
-; CHECK: %pC = getelementptr %__DFT_struct.test, {{.*}} %p, i64 0, i32 1
-; CHECK: %valC = load i32, {{.*}} %pC
+; CHECK: %p = getelementptr [4 x %__DFT_struct.test], ptr @g_test, i64 0, i32 2
+; CHECK: %pA = getelementptr %__DFT_struct.test, ptr %p, i64 0, i32 0
+; CHECK: %valA = load i32, ptr %pA
+; CHECK: %pC = getelementptr %__DFT_struct.test, ptr %p, i64 0, i32 1
+; CHECK: %valC = load i32, ptr %pC
 
 ; CHECK-NOT: %pB =
 ; CHECK-NOT: store

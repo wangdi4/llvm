@@ -1,4 +1,4 @@
-; RUN: opt %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -11,18 +11,18 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.A = type { i32, i32, i32 }
 ; CHECK: %__DFT_struct.A = type { i32, i32 }
 
-define i32 @bar([4 x %struct.A]* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
+define i32 @bar(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
 entry:
-  %x = getelementptr inbounds [4 x %struct.A], [4 x %struct.A]* %a, i64 0, i64 0, i32 0
-  %tmp0 = load i32, i32* %x, align 4
-  %z = getelementptr inbounds [4 x %struct.A], [4 x %struct.A]* %a, i64 0, i64 3, i32 2
-  %tmp1 = load i32, i32* %z, align 4
+  %x = getelementptr inbounds [4 x %struct.A], ptr %a, i64 0, i64 0, i32 0
+  %tmp0 = load i32, ptr %x, align 4
+  %z = getelementptr inbounds [4 x %struct.A], ptr %a, i64 0, i64 3, i32 2
+  %tmp1 = load i32, ptr %z, align 4
   %add = add nsw i32 %tmp1, %tmp0
   ret i32 %add
 }
-; CHECK-LABEL: define internal i32 @bar
-; CHECK: %x = getelementptr inbounds [4 x %__DFT_struct.A], {{.*}} %a, i64 0, i64 0, i32 0
-; CHECK: %z = getelementptr inbounds [4 x %__DFT_struct.A], {{.*}} %a, i64 0, i64 3, i32 1
+; CHECK-LABEL: define i32 @bar
+; CHECK: %x = getelementptr inbounds [4 x %__DFT_struct.A], ptr %a, i64 0, i64 0, i32 0
+; CHECK: %z = getelementptr inbounds [4 x %__DFT_struct.A], ptr %a, i64 0, i64 3, i32 1
 
 
 !1 = !{i32 0, i32 0}  ; i32
