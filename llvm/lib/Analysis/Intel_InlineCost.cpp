@@ -2196,13 +2196,12 @@ static bool boundConstArg(Function *F, Loop *L) {
     unsigned ArgNo = Arg->getArgNo();
     for (Use &U : F->uses()) {
       if (auto CB = dyn_cast<CallBase>(U.getUser())) {
-        if (!CB)
-          return false;
         if (!CB->isCallee(&U))
           return false;
         if (!isa<Constant>(CB->getOperand(ArgNo)))
           return false;
-      }
+      } else 
+        return false;
     }
     return true;
   }

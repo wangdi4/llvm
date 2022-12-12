@@ -2583,11 +2583,12 @@ bool CallTreeCloningImpl::run(
     return PPResult;
 
   MultiVersionImpl MV(M, LeafSeeds, Clones, this);
-  bool MVResult = MV.run();
+  MV.run();
 
   // Return true if at least 1 of the CTC, PP or MV is triggered and modified
-  // the module
-  return CTCResult || PPResult || MVResult;
+  // the module - CTCResult is guaranteed to be true if we reach this point,
+  // thus true is returned
+  return true;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
