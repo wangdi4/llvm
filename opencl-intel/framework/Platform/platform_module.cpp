@@ -811,7 +811,9 @@ cl_err_code PlatformModule::clCreateSubDevices(
 
   ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids,
                                      &tNumDevices, sizes);
-  if (ret != CL_SUCCESS) {
+  if (CL_SUCCESS != ret) {
+    delete[] sizes;
+    delete[] subdevice_ids;
     return ret;
   }
   // If we're here, the device was successfully fissioned. Create the new

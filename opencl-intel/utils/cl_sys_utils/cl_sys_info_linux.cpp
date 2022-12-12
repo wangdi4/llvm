@@ -426,8 +426,10 @@ bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
   char cpumask[128];
   if (fgets(cpumask, 128, cpumap)) {
     int len = strlen(cpumask);
-    if (len < 1)
+    if (len < 1) {
+      fclose(cpumap);
       return false;
+    }
     const char *maskEnd = cpumask + len - 1;
     uint16_t core = 0;
     while (maskEnd >= cpumask) {

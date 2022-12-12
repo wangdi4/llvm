@@ -200,7 +200,11 @@ void OclSocket::connect(const string &host, unsigned short port) {
     throw OclSocketError("failed getaddrinfo() in connect(): " + gai_error_str);
   }
 
-  if (::connect(d->sock, res->ai_addr, static_cast<int>(res->ai_addrlen)) != 0)
+  int connect_ret =
+      ::connect(d->sock, res->ai_addr, static_cast<int>(res->ai_addrlen));
+  freeaddrinfo(res);
+
+  if (connect_ret)
     d->system_error("failed connect()");
 }
 

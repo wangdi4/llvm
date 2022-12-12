@@ -291,6 +291,7 @@ ProgramService::CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
   if (CL_DEV_FAILED(err)) {
     CpuErrLog(m_pLogDescriptor, m_iLogHandle,
               TEXT("CreateLibraryProgram failed with %x"), err);
+    delete Entry;
     return err;
   }
 
