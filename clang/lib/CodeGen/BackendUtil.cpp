@@ -117,9 +117,7 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
-<<<<<<< HEAD
 #include <optional>
-=======
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
@@ -128,7 +126,6 @@
 #include "llvm/Transforms/Scalar/NewGVN.h"
 #endif // INTEL_CUSTOMIZATION
 
->>>>>>> 8b3326a31f99e1a5730c52d90badb537655f2bf1
 using namespace clang;
 using namespace llvm;
 

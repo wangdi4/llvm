@@ -57,9 +57,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/Utils/Local.h"
-<<<<<<< HEAD
 #include <optional>
-=======
 
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"
@@ -70,7 +68,6 @@
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
->>>>>>> 8b3326a31f99e1a5730c52d90badb537655f2bf1
 using namespace clang;
 using namespace CodeGen;
 
