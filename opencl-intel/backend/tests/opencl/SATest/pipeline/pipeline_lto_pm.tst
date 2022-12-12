@@ -129,6 +129,7 @@
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
 ; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis

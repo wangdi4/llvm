@@ -64,6 +64,7 @@
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
