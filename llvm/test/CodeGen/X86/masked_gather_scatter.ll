@@ -505,20 +505,12 @@ define <8 x i32> @test9(ptr %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpsrlq $32, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpmuludq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpsllq $32, %zmm0, %zmm0
-<<<<<<< HEAD
 ; KNL_64-NEXT:    vpbroadcastq %rdi, %zmm2
 ; KNL_64-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
 ; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpaddq %zmm0, %zmm3, %zmm1
-=======
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
-; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm4, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm1
->>>>>>> f8ed7093452aabd71650a3bb5dbca942815f9563
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1}
@@ -599,20 +591,12 @@ define <8 x i32> @test10(ptr %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpsrlq $32, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpmuludq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpsllq $32, %zmm0, %zmm0
-<<<<<<< HEAD
 ; KNL_64-NEXT:    vpbroadcastq %rdi, %zmm2
 ; KNL_64-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
 ; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpaddq %zmm0, %zmm3, %zmm1
-=======
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
-; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
-; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm4, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm1
->>>>>>> f8ed7093452aabd71650a3bb5dbca942815f9563
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1}
