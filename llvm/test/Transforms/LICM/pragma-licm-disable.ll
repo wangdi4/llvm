@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -S -basic-aa -licm | FileCheck %s
-=======
-; RUN: opt < %s -S -passes=licm | FileCheck %s
->>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
+; RUN: opt < %s -S -aa-pipeline=basic-aa -passes=licm | FileCheck %s
 
 ; Check that the LICM pass does not operate on a loop which has the
 ; llvm.licm.disable metadata.

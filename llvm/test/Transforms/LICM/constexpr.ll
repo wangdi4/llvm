@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -S -basic-aa -licm | FileCheck %s
-=======
-; RUN: opt < %s -S -passes=licm | FileCheck %s
->>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
+; RUN: opt < %s -S -aa-pipeline=basic-aa -passes=licm | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes='require<opt-remark-emit>,loop-mssa(licm)' < %s -S | FileCheck %s
 ; This fixes PR22460
 

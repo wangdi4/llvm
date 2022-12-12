@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -tbaa -licm -S | FileCheck %s
-=======
-; RUN: opt < %s -passes=licm -S | FileCheck %s
->>>>>>> 80e8f2beeb954f8c241897099bb01b24da400e8a
+; RUN: opt < %s -aa-pipeline=tbaa -passes=licm -S | FileCheck %s
 ; PR9634
 
 @g_58 = common global i32 0, align 4
