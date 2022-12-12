@@ -52,9 +52,13 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Path.h" //INTEL
 #include <algorithm>
 #include <cstring>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 
 const Expr *Expr::getBestDynamicClassTypeExpr() const {

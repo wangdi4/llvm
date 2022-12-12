@@ -36,22 +36,17 @@
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
-#if INTEL_COLLAB
-#include "intel/CGOpenMPLateOutline.h"
-#endif // INTEL_COLLAB
 #include "TargetInfo.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/CodeGenOptions.h"
-#include "clang/Basic/LangOptions.h" // INTEL
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSet.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Assumptions.h"
 #include "llvm/IR/Attributes.h"
@@ -61,8 +56,17 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
+
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/LangOptions.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 

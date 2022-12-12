@@ -43,12 +43,15 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/CodeGen.h"
-#include "llvm/Support/FileUtilities.h" // INTEL
-#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include <system_error>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/LineIterator.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang::driver;
 using namespace clang::driver::toolchains;

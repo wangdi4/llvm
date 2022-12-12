@@ -38,7 +38,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
@@ -67,9 +66,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Support/WithColor.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/ObjectYAML/ELFYAML.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <cassert>
@@ -82,6 +78,11 @@
 #include <tuple>
 
 #define OPENMP_OFFLOAD_IMAGE_VERSION "1.0"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Config/dpcpp.version.info.h"
+#include "llvm/ObjectYAML/ELFYAML.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::object;

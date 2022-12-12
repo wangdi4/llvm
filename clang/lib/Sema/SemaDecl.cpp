@@ -44,7 +44,6 @@
 #include "clang/AST/Randstruct.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
-#include "clang/Basic/TargetBuiltins.h" // INTEL
 #include "clang/Basic/HLSLRuntime.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
@@ -69,6 +68,10 @@
 #include <cstring>
 #include <functional>
 #include <unordered_map>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/TargetBuiltins.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace sema;

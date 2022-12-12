@@ -29,9 +29,6 @@
 
 #include "CGCleanup.h"
 #include "CGOpenMPRuntime.h"
-#if INTEL_COLLAB
-#include "intel/CGOpenMPLateOutline.h"
-#endif // INTEL_COLLAB
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -43,8 +40,6 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/OpenMPKinds.h"
-#include "clang/AST/StmtVisitor.h" // INTEL
-#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/BinaryFormat/Dwarf.h"
@@ -56,6 +51,14 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/AtomicOrdering.h"
+
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;

@@ -81,12 +81,9 @@
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"      // INTEL
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"      // INTEL
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -109,7 +106,6 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
-#include "llvm/Transforms/Scalar/NewGVN.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/Debugify.h"
@@ -118,6 +114,14 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include <memory>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Scalar/NewGVN.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace llvm;
 

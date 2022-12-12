@@ -30,11 +30,6 @@
 #include "CGOpenMPRuntime.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
-#if INTEL_COLLAB
-#include "intel/CGOpenMPLateOutline.h"
-#include "clang/AST/ASTLambda.h"
-#include "clang/AST/StmtVisitor.h"
-#endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "TargetInfo.h"
@@ -61,10 +56,17 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/MD5.h" // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <numeric>
+
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#include "clang/AST/ASTLambda.h"
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/MD5.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
