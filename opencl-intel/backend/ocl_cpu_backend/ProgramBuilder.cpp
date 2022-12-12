@@ -465,6 +465,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
       kernelAttributes << "int";
     } else if (VTHTy->isIntegerTy(64)) {
       kernelAttributes << "long";
+    } else if (VTHTy->isHalfTy()) {
+      kernelAttributes << "half";
     }
 
     if (vecSize > 1)
