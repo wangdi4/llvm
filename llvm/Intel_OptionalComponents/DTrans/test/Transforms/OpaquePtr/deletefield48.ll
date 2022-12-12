@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 ; This test checks that the DTrans delete field pass updates the align value on
 ; the load/store instructions when the structure changes because after fields
@@ -15,40 +15,39 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK: %__DFT_struct.test = type { i16, i64, i16 }
 
 @someValue = internal global i64 zeroinitializer, align 16
-define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
+define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
   ; Allocate an array of structures.
-  %p = call align 16 i8* @malloc(i64 96)
-  %p_test = bitcast i8* %p to %struct.test*
+  %p = call align 16 ptr @malloc(i64 96)
 
   ; Call a function to do something.
   %unknown = zext i32 %argc to i64
-  %res = call i16 @doSomething(i64 %unknown, %struct.test* %p_test)
+  %res = call i16 @doSomething(i64 %unknown, ptr %p)
 
   ; Free the structures
-  call void @free(i8* %p)
+  call void @free(ptr %p)
 
   %val = zext i16 %res to i32
   ret i32 %val
 }
 
-define i16 @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" align 16 %p_test) !intel.dtrans.func.type !7 {
+define i16 @doSomething(i64 %idx, ptr "intel_dtrans_func_index"="1" align 16 %p_test) !intel.dtrans.func.type !7 {
   ; Get pointers to each field
-  %p_test_A = getelementptr %struct.test, %struct.test* %p_test, i64 %idx, i32 0
-  %p_test_B = getelementptr %struct.test, %struct.test* %p_test, i64 %idx, i32 1
-  %p_test_C = getelementptr %struct.test, %struct.test* %p_test, i64 %idx, i32 2
-  %p_test_D = getelementptr %struct.test, %struct.test* %p_test, i64 %idx, i32 3
-  %p_test_E = getelementptr %struct.test, %struct.test* %p_test, i64 %idx, i32 4
+  %p_test_A = getelementptr %struct.test, ptr %p_test, i64 %idx, i32 0
+  %p_test_B = getelementptr %struct.test, ptr %p_test, i64 %idx, i32 1
+  %p_test_C = getelementptr %struct.test, ptr %p_test, i64 %idx, i32 2
+  %p_test_D = getelementptr %struct.test, ptr %p_test, i64 %idx, i32 3
+  %p_test_E = getelementptr %struct.test, ptr %p_test, i64 %idx, i32 4
 
   ; read and write A and C.
-  store i16 1, i16* %p_test_A, align 16
-  %valA = load i16, i16* %p_test_A, align 16
-  store i16 2, i16* %p_test_C, align 8
-  %valC = load i16, i16* %p_test_C, align 8
+  store i16 1, ptr %p_test_A, align 16
+  %valA = load i16, ptr %p_test_A, align 16
+  store i16 2, ptr %p_test_C, align 8
+  %valC = load i16, ptr %p_test_C, align 8
   %sum = add i16 %valA, %valC
 
   ; read B and store it somewhere else to prevent the field from being deleted.
-  %valB = load i64, i64* %p_test_B, align 8
-  store i64 %valB, i64* @someValue, align 16
+  %valB = load i64, ptr %p_test_B, align 8
+  store i64 %valB, ptr @someValue, align 16
 
   ret i16 %sum
 }
@@ -56,17 +55,17 @@ define i16 @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" al
 ; Delete field should reset the alignment of structure elements back to the
 ; default alignment for the type.
 
-; CHECK-LABEL: define internal i16 @doSomething
-; CHECK:  store i16 1, i16* %p_test_A, align 2
-; CHECK:  %valA = load i16, i16* %p_test_A, align 2
-; CHECK:  store i16 2, i16* %p_test_C, align 2
-; CHECK:  %valC = load i16, i16* %p_test_C, align 2
+; CHECK-LABEL: define i16 @doSomething
+; CHECK:  store i16 1, ptr %p_test_A, align 2
+; CHECK:  %valA = load i16, ptr %p_test_A, align 2
+; CHECK:  store i16 2, ptr %p_test_C, align 2
+; CHECK:  %valC = load i16, ptr %p_test_C, align 2
 
-; CHECK:   %valB = load i64, i64* %p_test_B, align 8
-; CHECK:  store i64 %valB, i64* @someValue, align 16
+; CHECK:   %valB = load i64, ptr %p_test_B, align 8
+; CHECK:  store i64 %valB, ptr @someValue, align 16
 
-declare !intel.dtrans.func.type !9 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" i8* @malloc(i64 noundef) #0
-declare !intel.dtrans.func.type !10 dso_local void @free(i8* "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #1
+declare !intel.dtrans.func.type !9 dso_local noalias noundef align 16 "intel_dtrans_func_index"="1" ptr @malloc(i64 noundef) #0
+declare !intel.dtrans.func.type !10 dso_local void @free(ptr "intel_dtrans_func_index"="1" nocapture noundef) local_unnamed_addr #1
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

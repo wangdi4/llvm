@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -13,52 +13,46 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This case should update the memcpy size parameter based on the new outer
 ; structure type.
-define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %s1, %struct.test01* "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !5 {
-  %p1 = bitcast %struct.test01* %s1 to i8*
-  %p2 = bitcast %struct.test01* %s2 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 16, i1 false)
-  %p3 = getelementptr %struct.test01, %struct.test01* %s1, i64 0, i32 0
-  %r1 = load i32, i32* %p3
-  %p4 = getelementptr %struct.test01, %struct.test01* %s1, i64 0, i32 2, i32 1
-  %r2 = load i32, i32* %p4
+define i32 @test01(ptr "intel_dtrans_func_index"="1" %s1, ptr "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !5 {
+  call void @llvm.memcpy.p0.p0.i64(ptr %s1, ptr %s2, i64 16, i1 false)
+  %p3 = getelementptr %struct.test01, ptr %s1, i64 0, i32 0
+  %r1 = load i32, ptr %p3
+  %p4 = getelementptr %struct.test01, ptr %s1, i64 0, i32 2, i32 1
+  %r2 = load i32, ptr %p4
   %r = add i32 %r1, %r2
   ret i32 %r
 }
-; CHECK-LABEL: define internal i32 @test01
+; CHECK-LABEL: define i32 @test01
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 8
-; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s1, i64 0, i32 0
-; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s1, i64 0, i32 1, i32 0
+; CHECK: getelementptr %__DFT_struct.test01, ptr %s1, i64 0, i32 0
+; CHECK: getelementptr %__DFT_struct.test01, ptr %s1, i64 0, i32 1, i32 0
 
 ; This case should update the memcpy size parameter based on the new inner
 ; structure type.
-define i32 @test02(%struct.test01t* "intel_dtrans_func_index"="1" %s1, %struct.test01* "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !7 {
-  %pDst = bitcast %struct.test01t* %s1 to i8*
-  %pField = getelementptr %struct.test01, %struct.test01* %s2, i64 0, i32 2
-  %pSrc = bitcast %struct.test01t* %pField to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define i32 @test02(ptr "intel_dtrans_func_index"="1" %s1, ptr "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !7 {
+  %pField = getelementptr %struct.test01, ptr %s2, i64 0, i32 2
+  call void @llvm.memcpy.p0.p0.i64(ptr %s1, ptr %pField, i64 8, i1 false)
   ret i32 0
 }
-; CHECK-LABEL: define internal i32 @test02
-; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s2, i64 0, i32 1
+; CHECK-LABEL: define i32 @test02
+; CHECK: getelementptr %__DFT_struct.test01, ptr %s2, i64 0, i32 1
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 4
 
 ; This case should update the memcpy size parameter based on the new inner
 ; structure type.
-define i32 @test03(%struct.test01t* "intel_dtrans_func_index"="1" %s1, %struct.test01* "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !8 {
-  %pSrc = bitcast %struct.test01t* %s1 to i8*
-  %pField = getelementptr %struct.test01, %struct.test01* %s2, i64 0, i32 2
-  %pDst = bitcast %struct.test01t* %pField to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
+define i32 @test03(ptr "intel_dtrans_func_index"="1" %s1, ptr "intel_dtrans_func_index"="2" %s2) !intel.dtrans.func.type !8 {
+  %pField = getelementptr %struct.test01, ptr %s2, i64 0, i32 2
+  call void @llvm.memcpy.p0.p0.i64(ptr %pField, ptr %s1, i64 8, i1 false)
   ret i32 0
 }
-; CHECK-LABEL: define internal i32 @test03
-; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s2, i64 0, i32 1
+; CHECK-LABEL: define i32 @test03
+; CHECK: getelementptr %__DFT_struct.test01, ptr %s2, i64 0, i32 1
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 4
 
-declare !intel.dtrans.func.type !10 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !10 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

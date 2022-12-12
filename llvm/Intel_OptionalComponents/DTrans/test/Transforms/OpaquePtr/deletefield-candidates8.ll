@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -15,24 +15,24 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.B = type { i8, i16, i32 }
 %struct.C = type { i32 }
 
-define void @foo(%struct.A* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
+define void @foo(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
 entry:
-  %0 = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 2
-  call void @bas(%struct.C* %0)
+  %0 = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 2
+  call void @bas(ptr %0)
   ret void
 }
 
-define i16 @bar(%struct.B* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !9 {
+define i16 @bar(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !9 {
 entry:
-  %y = getelementptr inbounds %struct.B, %struct.B* %b, i64 0, i32 1
-  %0 = load i16, i16* %y, align 4
+  %y = getelementptr inbounds %struct.B, ptr %b, i64 0, i32 1
+  %0 = load i16, ptr %y, align 4
   ret i16 %0
 }
 
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
 ; CHECK: No candidates found.
 
-declare !intel.dtrans.func.type !11 void @bas(%struct.C* "intel_dtrans_func_index"="1" %c)
+declare !intel.dtrans.func.type !11 void @bas(ptr "intel_dtrans_func_index"="1" %c)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.B zeroinitializer, i32 0}  ; %struct.B

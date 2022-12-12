@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -12,29 +12,29 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: @g_test = private global %__DFT_struct.test zeroinitializer, align 4
 
 
-define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
+define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
   ; Get pointers to each field
-  %p_test_A = getelementptr %struct.test, %struct.test* @g_test, i64 0, i32 0
-  %p_test_B = getelementptr %struct.test, %struct.test* @g_test, i64 0, i32 1
-  %p_test_C = getelementptr %struct.test, %struct.test* @g_test, i64 0, i32 2
+  %p_test_A = getelementptr %struct.test, ptr @g_test, i64 0, i32 0
+  %p_test_B = getelementptr %struct.test, ptr @g_test, i64 0, i32 1
+  %p_test_C = getelementptr %struct.test, ptr @g_test, i64 0, i32 2
 
   ; read and write A and C
-  store i32 1, i32* %p_test_A
-  %valA = load i32, i32* %p_test_A
-  store i32 2, i32* %p_test_C
-  %valC = load i32, i32* %p_test_C
+  store i32 1, ptr %p_test_A
+  %valA = load i32, ptr %p_test_A
+  store i32 2, ptr %p_test_C
+  %valC = load i32, ptr %p_test_C
 
   ; write B
-  store i64 3, i64* %p_test_B
+  store i64 3, ptr %p_test_B
 
   %sum = add i32 %valA, %valC
   ret i32 %sum
 }
 
 ; CHECK-LABEL: define i32 @main
-; CHECK: %p_test_A = getelementptr %__DFT_struct.test, {{.*}} @g_test, i64 0, i32 0
+; CHECK: %p_test_A = getelementptr %__DFT_struct.test, ptr @g_test, i64 0, i32 0
 ; CHECK-NOT: %p_test_B = getelementptr
-; CHECK: %p_test_C = getelementptr %__DFT_struct.test, {{.*}} @g_test, i64 0, i32 1
+; CHECK: %p_test_C = getelementptr %__DFT_struct.test, ptr @g_test, i64 0, i32 1
 ; CHECK-NOT: store i64 3
 
 !1 = !{i32 0, i32 0}  ; i32

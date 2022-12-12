@@ -1,4 +1,4 @@
-; RUN: opt %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -14,23 +14,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DAG: %__DFT_struct.B = type { i16 }
 
 
-define i16 @foo(%struct.A* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !6 {
+define i16 @foo(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !6 {
 entry:
-  %y = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 1, i32 1
-  %z = load i16, i16* %y, align 4
+  %y = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 1, i32 1
+  %z = load i16, ptr %y, align 4
   ret i16 %z
 }
-; CHECK-LABEL: define internal i16 @foo
-; CHECK: %y = getelementptr inbounds %__DFT_struct.A, {{.*}} %a, i64 0, i32 0, i32 0
+; CHECK-LABEL: define i16 @foo
+; CHECK: %y = getelementptr inbounds %__DFT_struct.A, ptr %a, i64 0, i32 0, i32 0
 
-define i16 @bar(%struct.B* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !8 {
+define i16 @bar(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !8 {
 entry:
-  %y = getelementptr inbounds %struct.B, %struct.B* %b, i64 0, i32 1
-  %z = load i16, i16* %y, align 4
+  %y = getelementptr inbounds %struct.B, ptr %b, i64 0, i32 1
+  %z = load i16, ptr %y, align 4
   ret i16 %z
 }
-; CHECK-LABEL: define internal i16 @bar
-; CHECK: %y = getelementptr inbounds %__DFT_struct.B, {{.*}} %b, i64 0, i32 0
+; CHECK-LABEL: define i16 @bar
+; CHECK: %y = getelementptr inbounds %__DFT_struct.B, ptr %b, i64 0, i32 0
 
 !1 = !{i16 0, i32 0}  ; i16
 !2 = !{%struct.B zeroinitializer, i32 0}  ; %struct.B
