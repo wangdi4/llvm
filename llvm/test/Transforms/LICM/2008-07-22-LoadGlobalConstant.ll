@@ -1,4 +1,4 @@
-; RUN: opt < %s -basic-aa -licm -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -S | FileCheck %s
 
 @a = external constant ptr
 
