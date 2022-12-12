@@ -200,13 +200,11 @@ llvm::InlineCost static getDefaultInlineAdvice(
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                    WholeProgramInfo *WPI, InlineCost **IC) {
+                                    WholeProgramInfo *WPI) {
   InlineCost MIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, WPI);
-  auto UP = std::make_unique<DefaultInlineAdvice>(
+  return std::make_unique<DefaultInlineAdvice>(
       this, CB, MIC,
       FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
-  *IC = UP->getInlineCost();
-  return UP;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -604,8 +602,7 @@ InlineAdvisor::~InlineAdvisor() {
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                  WholeProgramInfo *WPI, InlineCost **IC,
-                                  bool Advice) {
+                                  WholeProgramInfo *WPI, bool Advice) {
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
   auto &ORE = getCallerORE(CB); 
@@ -623,10 +620,7 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
           : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
   if (IsAlways)
     MIC.setIsRecommended(true);
-  auto UP =
-      std::make_unique<MandatoryInlineAdvice>(this, CB, MIC, ORE, Advice);
-  *IC = UP->getInlineCost();
-  return UP;
+  return std::make_unique<MandatoryInlineAdvice>(this, CB, MIC, ORE, Advice);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -698,13 +692,12 @@ InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                         WholeProgramInfo *WPI, InlineCost **IC,
-                         bool MandatoryOnly) {
+                         WholeProgramInfo *WPI, bool MandatoryOnly) {
   if (!MandatoryOnly) {
     bool NeedLocalILIC = !ILIC;
     if (NeedLocalILIC)
       ILIC = new InliningLoopInfoCache();
-    auto RV = getAdviceImpl(CB, ILIC, WPI, IC);
+    auto RV = getAdviceImpl(CB, ILIC, WPI);
     if (NeedLocalILIC) {
       delete ILIC;
       ILIC = nullptr;
@@ -719,7 +712,7 @@ InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool NeedLocalILIC = !ILIC;
   if (NeedLocalILIC)
     ILIC = new InliningLoopInfoCache();
-  auto RV = getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  auto RV = getMandatoryAdvice(CB, ILIC, WPI, Advice);
   if (NeedLocalILIC) {
     delete ILIC;
     ILIC = nullptr;
