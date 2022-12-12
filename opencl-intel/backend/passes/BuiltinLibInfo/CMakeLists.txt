@@ -29,12 +29,12 @@ set(TARGET_EXTRA_INCLUDE_FILES Driver/Volcano/VolcanoOpenclRuntime.h
                                Driver/Functions.h)
 
 set(TARGET_INCLUDE_FILES
-    BuiltinLibInfo.h RuntimeServices.h VectorizerFunction.h
+    RuntimeServices.h VectorizerFunction.h
     Driver/OpenCL/OpenclRuntime.h Driver/Shared/DriverVectorizerFunction.h
     ${TARGET_EXTRA_INCLUDE_FILES})
 
 set(TARGET_SOURCE_FILES
-    BuiltinLibInfo.cpp Driver/OpenCL/OpenclRuntime.cpp
+    Driver/OpenCL/OpenclRuntime.cpp
     Driver/Shared/DriverVectorizerFunction.cpp ${TARGET_EXTRA_SOURCE_FILES})
 
 add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
