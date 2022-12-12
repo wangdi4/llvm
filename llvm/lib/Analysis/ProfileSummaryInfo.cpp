@@ -37,6 +37,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/ProfileData/ProfileCommon.h"
 #include "llvm/Support/CommandLine.h"
+#include <optional>
 using namespace llvm;
 
 // Knobs for profile summary based thresholds.
@@ -93,7 +94,7 @@ void ProfileSummaryInfo::refresh() {
   computeThresholds();
 }
 
-Optional<uint64_t> ProfileSummaryInfo::getProfileCount(
+std::optional<uint64_t> ProfileSummaryInfo::getProfileCount(
     const CallBase &Call, BlockFrequencyInfo *BFI, bool AllowSynthetic) const {
   assert((isa<CallInst>(Call) || isa<InvokeInst>(Call)) &&
          "We can only get profile count for call/invoke instruction.");
