@@ -228,10 +228,10 @@ public:
   /// @param Size - The size of the common symbol.
   /// @param ByteAlignment - The alignment of the common symbol in bytes.
   void emitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
-                             unsigned ByteAlignment) override;
+                             Align ByteAlignment) override;
 
   void emitZerofill(MCSection *Section, MCSymbol *Symbol = nullptr,
-                    uint64_t Size = 0, unsigned ByteAlignment = 0,
+                    uint64_t Size = 0, Align ByteAlignment = Align(1),
                     SMLoc Loc = SMLoc()) override;
 
   void emitTBSSSymbol(MCSection *Section, MCSymbol *Symbol, uint64_t Size,
@@ -996,12 +996,10 @@ void MCAsmStreamer::emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
   Symbol->print(OS, MAI);
   OS << ',' << Size;
 
-  if (ByteAlignment != 0) {
-    if (MAI->getCOMMDirectiveAlignmentIsInBytes())
-      OS << ',' << ByteAlignment;
-    else
-      OS << ',' << Log2_32(ByteAlignment);
-  }
+  if (MAI->getCOMMDirectiveAlignmentIsInBytes())
+    OS << ',' << ByteAlignment;
+  else
+    OS << ',' << Log2_32(ByteAlignment);
   EmitEOL();
 
   // Print symbol's rename (original name contains invalid character(s)) if
@@ -1013,7 +1011,7 @@ void MCAsmStreamer::emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
 }
 
 void MCAsmStreamer::emitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
-                                          unsigned ByteAlign) {
+                                          Align ByteAlign) {
   OS << "\t.lcomm\t";
   Symbol->print(OS, MAI);
   OS << ',' << Size;
@@ -1023,11 +1021,10 @@ void MCAsmStreamer::emitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
     case LCOMM::NoAlignment:
       llvm_unreachable("alignment not supported on .lcomm!");
     case LCOMM::ByteAlignment:
-      OS << ',' << ByteAlign;
+      OS << ',' << ByteAlign.value();
       break;
     case LCOMM::Log2Alignment:
-      assert(isPowerOf2_32(ByteAlign) && "alignment must be a power of 2");
-      OS << ',' << Log2_32(ByteAlign);
+      OS << ',' << Log2(ByteAlign);
       break;
     }
   }
@@ -1035,7 +1032,7 @@ void MCAsmStreamer::emitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
 }
 
 void MCAsmStreamer::emitZerofill(MCSection *Section, MCSymbol *Symbol,
-                                 uint64_t Size, unsigned ByteAlignment,
+                                 uint64_t Size, Align ByteAlignment,
                                  SMLoc Loc) {
   if (Symbol)
     assignFragment(Symbol, &Section->getDummyFragment());
@@ -1054,8 +1051,7 @@ void MCAsmStreamer::emitZerofill(MCSection *Section, MCSymbol *Symbol,
     OS << ',';
     Symbol->print(OS, MAI);
     OS << ',' << Size;
-    if (ByteAlignment != 0)
-      OS << ',' << Log2_32(ByteAlignment);
+    OS << ',' << Log2(ByteAlignment);
   }
   EmitEOL();
 }
