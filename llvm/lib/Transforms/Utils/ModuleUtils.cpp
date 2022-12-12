@@ -28,20 +28,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "moduleutils"

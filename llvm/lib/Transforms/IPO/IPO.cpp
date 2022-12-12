@@ -36,9 +36,12 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

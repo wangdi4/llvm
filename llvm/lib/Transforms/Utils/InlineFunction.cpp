@@ -28,11 +28,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
@@ -49,10 +44,6 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Analysis/MemoryProfileInfo.h"
 #include "llvm/Analysis/ObjCARCAnalysisUtils.h"
 #include "llvm/Analysis/ObjCARCUtil.h"
@@ -72,19 +63,12 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h" // INTEL
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/ADT/Triple.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-#include "llvm/IR/IntrinsicsCSA.h"
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
@@ -95,8 +79,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"  // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"  // INTEL
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -111,6 +93,23 @@
 #include <vector>
 
 #define DEBUG_TYPE "inline-function"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL

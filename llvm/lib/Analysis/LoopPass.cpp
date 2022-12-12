@@ -33,7 +33,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/PrintPasses.h"
@@ -42,6 +41,11 @@
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/LegacyPassManager.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-pass-manager"

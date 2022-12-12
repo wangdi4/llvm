@@ -36,10 +36,6 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -67,11 +63,16 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" //INTEL
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include <cassert>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

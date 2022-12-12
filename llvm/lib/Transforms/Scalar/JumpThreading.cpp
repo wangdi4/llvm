@@ -45,18 +45,12 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h" // INTEL
-#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PostDominators.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -92,7 +86,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/IntrinsicUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -102,6 +95,16 @@
 #include <iterator>
 #include <memory>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace jumpthreading;

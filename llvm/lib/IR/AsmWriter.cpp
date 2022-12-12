@@ -46,9 +46,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/VPOParoptConstants.h"
-#endif // INTEL_COLLAB
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
@@ -88,7 +85,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -107,6 +103,13 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/VPOParoptConstants.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 

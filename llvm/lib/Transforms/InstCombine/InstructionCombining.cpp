@@ -56,7 +56,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
-#include "llvm/ADT/ScopeExit.h" // INTEL
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -69,8 +68,6 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -78,14 +75,10 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -113,7 +106,6 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -124,9 +116,6 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
@@ -137,6 +126,18 @@
 
 #define DEBUG_TYPE "instcombine"
 #include "llvm/Transforms/Utils/InstructionWorklist.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/IR/Verifier.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

@@ -46,15 +46,18 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"    // INTEL
-#include "llvm/Pass.h"                // INTEL
-#include "llvm/PassRegistry.h"        // INTEL
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/ObjCARC.h"
 
 #define DEBUG_TYPE "objc-arc-expand"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/PassRegistry.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::objcarc;

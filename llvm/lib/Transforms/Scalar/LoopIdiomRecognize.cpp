@@ -77,7 +77,6 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -119,6 +118,10 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

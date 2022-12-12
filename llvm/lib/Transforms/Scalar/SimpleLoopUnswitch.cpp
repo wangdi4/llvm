@@ -47,10 +47,6 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#if INTEL_CUSTOMIZATION
-// fix is targeted to HIR loopopt
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -87,6 +83,11 @@
 #include <utility>
 
 #define DEBUG_TYPE "simple-loop-unswitch"
+
+#if INTEL_CUSTOMIZATION
+// fix is targeted to HIR loopopt
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

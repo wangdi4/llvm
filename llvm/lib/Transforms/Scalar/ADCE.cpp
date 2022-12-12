@@ -41,7 +41,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -71,6 +70,10 @@
 #include <cassert>
 #include <cstddef>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

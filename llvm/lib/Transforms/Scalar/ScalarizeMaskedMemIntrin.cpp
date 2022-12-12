@@ -34,7 +34,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/VectorUtils.h" // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -45,16 +44,20 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/PatternMatch.h" //INTEL
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Local.h" // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/Utils/Local.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

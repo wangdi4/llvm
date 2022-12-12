@@ -31,7 +31,6 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/StackSafetyAnalysis.h"
@@ -76,6 +75,10 @@
 #include "llvm/Transforms/Utils/SplitModule.h"
 
 #include <set>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace lto;

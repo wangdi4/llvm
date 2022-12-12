@@ -89,10 +89,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif //INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -106,6 +102,13 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace PatternMatch;

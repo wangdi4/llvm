@@ -50,8 +50,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionPrecedenceTracking.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h" // INTEL
-#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
@@ -60,7 +58,6 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -97,6 +94,12 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::gvn;

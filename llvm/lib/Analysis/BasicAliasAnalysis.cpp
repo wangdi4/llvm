@@ -39,14 +39,10 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -81,6 +77,13 @@
 #include <utility>
 
 #define DEBUG_TYPE "basicaa"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 

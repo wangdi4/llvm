@@ -67,8 +67,6 @@
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"        // INTEL
-#include "llvm/Analysis/Intel_WP.h"               // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -88,6 +86,12 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-simplify"

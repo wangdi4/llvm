@@ -57,16 +57,17 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
+
+#if INTEL_COLLAB
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 #if INTEL_COLLAB

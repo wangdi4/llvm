@@ -42,7 +42,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CodeMetrics.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -85,6 +84,10 @@
 #include <string>
 #include <tuple>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

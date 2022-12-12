@@ -39,7 +39,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/MemorySSA.h"
@@ -76,6 +75,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

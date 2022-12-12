@@ -47,7 +47,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Support/raw_ostream.h"
@@ -55,6 +54,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace irsymtab;

@@ -57,12 +57,15 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/IPO.h"                    // INTEL
-#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
 #include "llvm/Transforms/Utils/SplitModule.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace lto;

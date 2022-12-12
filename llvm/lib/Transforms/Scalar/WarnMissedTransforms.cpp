@@ -32,7 +32,10 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#include "llvm/Support/CommandLine.h" // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

@@ -48,7 +48,6 @@
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/Bitstream/BitCodes.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
-#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -87,7 +86,6 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/SHA1.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -100,6 +98,11 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Config/dpcpp.version.info.h"
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

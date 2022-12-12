@@ -45,7 +45,6 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/CodeGenCommonISel.h"
@@ -117,6 +116,10 @@
 #include <iterator>
 #include <limits>
 #include <tuple>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace PatternMatch;

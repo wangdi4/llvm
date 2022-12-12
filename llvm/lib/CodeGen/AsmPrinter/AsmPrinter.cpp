@@ -31,11 +31,6 @@
 #include "CodeViewDebug.h"
 #include "DwarfDebug.h"
 #include "DwarfException.h"
-#if INTEL_CUSTOMIZATION
-#include "Intel_TraceBackDebug.h"
-#include "intel/Intel_AsmOptReport.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif // INTEL_CUSTOMIZATION
 #include "PseudoProbePrinter.h"
 #include "WasmException.h"
 #include "WinCFGuard.h"
@@ -144,6 +139,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "Intel_TraceBackDebug.h"
+#include "intel/Intel_AsmOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

@@ -35,9 +35,6 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h" // INTEL
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
@@ -65,6 +62,12 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

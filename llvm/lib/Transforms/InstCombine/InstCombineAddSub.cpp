@@ -30,7 +30,6 @@
 #include "InstCombineInternal.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/DepthFirstIterator.h" // INTEL
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -46,11 +45,15 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AlignOf.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include <cassert>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace PatternMatch;

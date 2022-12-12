@@ -40,7 +40,6 @@
 #include "llvm/Bitcode/BitcodeCommon.h"
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/Bitstream/BitstreamReader.h"
-#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -104,6 +103,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Config/dpcpp.version.info.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

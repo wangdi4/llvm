@@ -48,7 +48,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -84,6 +83,10 @@
 #include <functional>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL

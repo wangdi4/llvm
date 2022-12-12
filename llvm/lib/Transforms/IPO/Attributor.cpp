@@ -42,7 +42,6 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MustExecute.h"
-#include "llvm/Analysis/Intel_WP.h"            // INTEL
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantFold.h"
@@ -73,6 +72,10 @@
 
 #include <cassert>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

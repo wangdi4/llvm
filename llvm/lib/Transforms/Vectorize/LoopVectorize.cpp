@@ -99,7 +99,6 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -170,6 +169,10 @@
 #include <string>
 #include <tuple>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

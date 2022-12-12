@@ -77,11 +77,15 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include <algorithm>
 #include <bitset>
 #include <cctype>
 #include <numeric>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-isel"

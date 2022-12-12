@@ -47,7 +47,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/Verifier.h"
@@ -74,8 +73,6 @@
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
 #include "llvm/Transforms/IPO/Internalize.h"
-#include "llvm/Transforms/IPO.h" // INTEL
-#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
@@ -87,6 +84,13 @@
 #else
 #include <io.h>
 #endif
+
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
