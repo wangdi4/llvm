@@ -1247,6 +1247,7 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
   // to spec.
   for (cl_uint i = 0; i < uiNumDevices; ++i) {
     if (NULL == ppDevicePrograms[i]) {
+      delete[] ppDevicePrograms;
       return CL_INVALID_DEVICE;
     }
   }

@@ -71,7 +71,7 @@ void BitCodeContainer::SetModule(std::unique_ptr<llvm::Module> M) {
 
 void BitCodeContainer::SetModule(llvm::orc::ThreadSafeModule TSM) {
   // At this point, module ownership is already transferred to TSM
-  m_M.release();
+  m_M.reset(nullptr);
 
   m_TSM = std::move(TSM);
 }
