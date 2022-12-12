@@ -33,6 +33,11 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/STLArrayExtras.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
 using namespace clang::driver::tools;

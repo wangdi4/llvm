@@ -54,8 +54,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FileUtilities.h" // INTEL
-#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VersionTuple.h"
@@ -64,6 +62,11 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/LineIterator.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace driver;

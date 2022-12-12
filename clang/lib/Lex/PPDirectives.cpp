@@ -66,10 +66,10 @@
 #include <new>
 #include <string>
 #include <utility>
+
 #if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 #include "clang/Lex/HeaderSearchOptions.h"
-#include "clang/Lex/PreprocessorOptions.h"
 #include "llvm/Support/Program.h"
 #ifndef NOMINMAX
 #define NOMINMAX

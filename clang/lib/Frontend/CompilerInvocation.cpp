@@ -91,9 +91,6 @@
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Support/DynamicLibrary.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
@@ -123,6 +120,10 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/DynamicLibrary.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace driver;
