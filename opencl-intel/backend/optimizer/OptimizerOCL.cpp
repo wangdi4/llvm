@@ -97,7 +97,7 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   PTO.MergeFunctions = false;
   PTO.CallGraphProfile = true;
 
-  Optional<PGOOptions> PGOOpt;
+  std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
   bool DebugPassManager = DebugPM != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
