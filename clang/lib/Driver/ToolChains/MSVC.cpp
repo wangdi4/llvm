@@ -26,7 +26,6 @@
 #include "MSVC.h"
 #include "CommonArgs.h"
 #include "Darwin.h"
-#include "Arch/X86.h" // INTEL
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
@@ -56,6 +55,10 @@
   #endif
   #include <windows.h>
 #endif
+
+#if INTEL_CUSTOMIZATION
+#include "Arch/X86.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang::driver;
 using namespace clang::driver::toolchains;

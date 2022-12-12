@@ -38,12 +38,16 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/StmtVisitor.h"
-#include "llvm/ADT/DenseMap.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/DenseMap.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 

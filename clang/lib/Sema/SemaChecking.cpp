@@ -44,9 +44,6 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/FormatString.h"
-#if INTEL_CUSTOMIZATION
-#include "clang/AST/IntelFunctionProtoTypeFinder.h"
-#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/NSAPI.h"
 #include "clang/AST/NonTrivialTypeVisitor.h"
 #include "clang/AST/OperationKinds.h"
@@ -104,7 +101,6 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/Locale.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SaveAndRestore.h"
@@ -120,6 +116,11 @@
 #include <string>
 #include <tuple>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/IntelFunctionProtoTypeFinder.h"
+#include "llvm/Support/Intel_CPU_utils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace sema;

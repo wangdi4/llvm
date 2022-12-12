@@ -43,11 +43,15 @@
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Lookup.h" // INTEL
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallVector.h"
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Sema/Lookup.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 
 /// Simple precedence-based parser for binary/ternary operators.
