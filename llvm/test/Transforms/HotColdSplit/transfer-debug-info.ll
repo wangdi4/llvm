@@ -35,12 +35,8 @@ target triple = "x86_64-apple-macosx10.14.0"
 ; CHECK: [[FILE:![0-9]+]] = !DIFile(filename: "<stdin>"
 ; CHECK: [[EMPTY_MD:![0-9]+]] = !{}
 ; CHECK: [[EMPTY_TYPE:![0-9]+]] = !DISubroutineType(types: [[EMPTY_MD]])
-<<<<<<< HEAD
-; CHECK: [[NEWSCOPE:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1", scope: [[FILE]], file: [[FILE]], line: 1, type: [[EMPTY_TYPE]], scopeLine: 1, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized ;INTEL
-=======
 ; CHECK: [[INLINE_ME_SCOPE:![0-9]+]] = distinct !DISubprogram(name: "inline_me"
-; CHECK: [[NEWSCOPE:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1", linkageName: "foo.cold.1", scope: null, file: [[FILE]], type: [[EMPTY_TYPE]], spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized
->>>>>>> 62b27f893ecceade799df80b343d00851db250ba
+; CHECK: [[NEWSCOPE:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1", scope: [[FILE]], file: [[FILE]], line: 1, type: [[EMPTY_TYPE]], scopeLine: 1, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized ;INTEL
 
 ; - Line locations in @foo.cold.1 point to the new scope for @foo.cold.1
 ; CHECK: [[LINE1]] = !DILocation(line: 1, column: 1, scope: [[NEWSCOPE]])
