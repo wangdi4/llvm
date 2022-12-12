@@ -71,11 +71,7 @@ inline constexpr bool is_group_v =
 
 namespace ext::oneapi::experimental {
 template <class T>
-<<<<<<< HEAD
 inline constexpr bool is_group_helper_v =
-=======
-__SYCL_INLINE_CONSTEXPR bool is_group_helper_v =
->>>>>>> 030700e5c5c1fccc6a7ff5a60b80b5d16ee6a4af
     detail::is_group_helper<std::decay_t<T>>::value;
 } // namespace ext::oneapi::experimental
 
