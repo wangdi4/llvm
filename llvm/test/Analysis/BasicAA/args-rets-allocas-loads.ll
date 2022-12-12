@@ -122,8 +122,12 @@ define void @caller_a(double* %arg_a0,
 ; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %normal_ret_a0
 ; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a0
 ; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %normal_ret_a0
+; INTEL_CUSTOMIZATION
+; This check now produces NoAlias rather than MayAlias because the escape
+; analysis was updated in xmain
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a0
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a0
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a0
 ; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a0
 ; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %normal_ret_a1
@@ -134,8 +138,12 @@ define void @caller_a(double* %arg_a0,
 ; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %normal_ret_a1
 ; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a1
 ; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %normal_ret_a1
+; INTEL_CUSTOMIZATION
+; This check now produces NoAlias rather than MayAlias because the escape
+; analysis was updated in xmain
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a1
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a1
 ; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a1
 ; CHECK-NEXT: MayAlias:	double* %normal_ret_a0, double* %normal_ret_a1
@@ -354,11 +362,19 @@ define void @caller_a(double* %arg_a0,
 ; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   call void @nocap_callee(double* %noescape_alloca_a0)
 ; CHECK: ===== Alias Analysis Evaluator Report =====
 ; CHECK-NEXT:   120 Total Alias Queries Performed
-; CHECK-NEXT:   84 no alias responses (70.0%)
-; CHECK-NEXT:   36 may alias responses (30.0%)
+; INTEL_CUSTOMIZATION
+; This check now produces a different alias result because the escape analysis
+; was updated in xmain
+; CHECK-NEXT: 88 no alias responses (73.3%)
+; CHECK-NEXT:   32 may alias responses (26.6%)
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   0 partial alias responses (0.0%)
 ; CHECK-NEXT:   0 must alias responses (0.0%)
-; CHECK-NEXT:   Alias Analysis Evaluator Pointer Alias Summary: 70%/30%/0%
+; INTEL_CUSTOMIZATION
+; This check now produces a different alias result because the escape analysis
+; was updated in xmain
+; CHECK-NEXT: Alias Analysis Evaluator Pointer Alias Summary: 73%/26%/0%/0%
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   184 Total ModRef Queries Performed
 ; CHECK-NEXT:   44 no mod/ref responses (23.9%)
 ; CHECK-NEXT:   0 mod responses (0.0%)

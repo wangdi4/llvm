@@ -395,6 +395,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
   cl_err_code err = MemObjCreateDevMappedRegion(
       device_to_map, &pclDevCmdParamMap->cmd_param_map, pHostMapDataPtr);
   if (CL_FAILED(err)) {
+    delete pclDevCmdParamMap;
     return err;
   }
 

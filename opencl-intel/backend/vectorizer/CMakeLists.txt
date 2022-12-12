@@ -56,12 +56,8 @@ add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES}
 
 add_dependencies(${TARGET_NAME} LoopUtils OclBackendUtils VectorizationInfoGen)
 
-set(BACKEND_PASSES_FOLDER_NAME ${BACKEND_FOLDER_NAME}/passes)
-set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
-                                                ${BACKEND_PASSES_FOLDER_NAME})
-
 if(NOT OPENCL_INTREE_BUILD)
   set_property(GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME})
 endif()
-set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
-                                                ${BACKEND_PASSES_FOLDER_NAME})
+set_target_properties(${TARGET_NAME}
+                      PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/vectorizer)

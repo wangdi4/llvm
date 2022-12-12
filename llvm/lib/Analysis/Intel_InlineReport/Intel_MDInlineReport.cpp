@@ -273,15 +273,14 @@ bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
 void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   if (!isMDIREnabled())
     return;
+  CallSiteInliningReport CSIR(CB, nullptr, NinlrMultiversionedCallsite);
   Function *Caller = CB->getCaller();
   Function *Callee = CB->getCalledFunction();
   std::string FuncName = std::string(Callee ? Callee->getName() : "");
-  CallSiteInliningReport *CSIR =
-      new CallSiteInliningReport(CB, nullptr, NinlrMultiversionedCallsite);
-  CB->setMetadata(CallSiteTag, CSIR->get());
+  CB->setMetadata(CallSiteTag, CSIR.get());
   LLVMContext &Ctx = CB->getFunction()->getParent()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
-  CSIR->get()->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+  CSIR.get()->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
   // Recreate the call site list for the caller, makeing the new call site
   // the last call in the list.
   SmallVector<Metadata *, 100> Ops;
@@ -294,7 +293,7 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
     for (unsigned I = 1; I < CSsNumOps; ++I)
       Ops.push_back(CSs->getOperand(I));
   }
-  Ops.push_back(CSIR->get());
+  Ops.push_back(CSIR.get());
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   CallerMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
   addCallback(CB);

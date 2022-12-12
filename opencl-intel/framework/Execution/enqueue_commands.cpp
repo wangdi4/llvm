@@ -1766,6 +1766,7 @@ cl_err_code NDRangeKernelCommand::Init() {
 
           pMemObj = pContext->GetMemObjectPtr(clMemId);
           if (nullptr == pMemObj) {
+            ALIGNED_FREE(pDispatchBuffer);
             return CL_INVALID_KERNEL_ARGS;
           }
         }
@@ -1785,6 +1786,7 @@ cl_err_code NDRangeKernelCommand::Init() {
         // Mark as used
         res = pMemObj->CreateDeviceResource(m_pDevice);
         if (CL_FAILED(res)) {
+          ALIGNED_FREE(pDispatchBuffer);
           assert(0 && "CreateDeviceResource() supposed to success");
           return res;
         }
@@ -1796,6 +1798,7 @@ cl_err_code NDRangeKernelCommand::Init() {
         if (pArg->IsSvmPtr() || pArg->IsUsmPtr())
           m_argDevDescMemObjects.push_back(*devObjSrc);
         if (CL_FAILED(res)) {
+          ALIGNED_FREE(pDispatchBuffer);
           assert(0 && "GetMemObjectDescriptor() supposed to success");
           return res;
         }

@@ -341,12 +341,13 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
     return CL_INVALID_HANDLE;
   }
 
-  if (FrameworkProxy::Instance()->GetOCLConfig()->EnableParallelCopy()) {
+  if (FrameworkProxy::Instance()->GetOCLConfig()->EnableParallelCopy())
     clErrRet = initializeLibraryProgram(pContext, uiNumDevices, ppDevices);
-    if (CL_FAILED(clErrRet))
-      return CL_INVALID_HANDLE;
-  }
+
   delete[] ppDevices;
+
+  if (CL_FAILED(clErrRet))
+    return CL_INVALID_HANDLE;
 
   cl_context clContextId = (cl_context)m_mapContexts.AddObject(pContext);
   LOG_INFO(TEXT("CONTEXT_TEST: New context created. (id = %d)"), clContextId);

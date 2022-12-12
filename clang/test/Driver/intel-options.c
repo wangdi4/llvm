@@ -521,7 +521,7 @@
 // CHECK-STD-C11: clang{{.*}} "-std=c11"
 
 // /Qstd only is supported for /Qstd:c++14 and up
-// RUN: %clang_cl -### --intel /Qstd:c++11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-CXX11 %s
+// RUN: %clang_cl -### --intel -fmsc-version=1900 /Qstd:c++11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-CXX11 %s
 // CHECK-STD-CXX11-NOT: "-std=c++11"
 // CHECK-STD-CXX11: argument unused
 // CHECK-STD-CXX11: "-std=c++14"
