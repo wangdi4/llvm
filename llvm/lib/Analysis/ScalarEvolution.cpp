@@ -10598,7 +10598,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
         auto *BECount =
             ComputeMaxBECountOnly ? getCouldNotCompute() : MaxBECount;
 
-        return ExitLimit(BECount, MaxBECount, false);
+        return ExitLimit(BECount, MaxBECount, MaxBECount, false);
       }
     }
   }
@@ -10626,7 +10626,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
         unsigned Count = InMSB - CmpWithShiftedIV;
         const SCEV *BECount =
             getConstant(getEffectiveSCEVType(RHS->getType()), Count);
-        return ExitLimit(BECount, BECount, false);
+        return ExitLimit(BECount, BECount, BECount, false);
       }
     }
   }
@@ -15000,16 +15000,11 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     ConstantMaxBECount = BECountIfBackedgeTaken;
     MaxOrZero = true;
   } else {
-<<<<<<< HEAD
-    MaxBECount = computeMaxBECountForLT(
+    ConstantMaxBECount = computeMaxBECountForLT(
 #if INTEL_CUSTOMIZATION
         Start, Stride, RHS, getTypeSizeInBits(LHS->getType()), IsSigned,
         IVMaxValIsUB);
 #endif // INTEL_CUSTOMIZATION
-=======
-    ConstantMaxBECount = computeMaxBECountForLT(
-        Start, Stride, RHS, getTypeSizeInBits(LHS->getType()), IsSigned);
->>>>>>> 49e928bee8812829a34730700106377b54f09923
   }
 
   if (isa<SCEVCouldNotCompute>(ConstantMaxBECount) &&
