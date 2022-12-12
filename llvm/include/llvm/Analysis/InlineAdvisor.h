@@ -3,13 +3,13 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Modifications, Copyright (C) 2021 Intel Corporation
+ * Modifications, Copyright (C) 2021-2022 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -205,9 +205,10 @@ public:
   /// TODO: Consider removing the Null return scenario by incorporating the
   /// SampleProfile inliner into an InlineAdvisor
 #if INTEL_CUSTOMIZATION
-  std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI,
-            InlineCost **IC, bool MandatoryOnly = false);
+  std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
+                                          InliningLoopInfoCache *ILIC,
+                                          WholeProgramInfo *WPI,
+                                          bool MandatoryOnly = false);
 #endif // INTEL_CUSTOMIZATION
 
   /// This must be called when the Inliner pass is entered, to allow the
@@ -236,10 +237,10 @@ protected:
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
-                WholeProgramInfo *WPI = nullptr, InlineCost **IC = nullptr) = 0;
+                WholeProgramInfo *WPI = nullptr) = 0;
   virtual std::unique_ptr<InlineAdvice>
   getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                     WholeProgramInfo *WPI, InlineCost **IC, bool Advice);
+                     WholeProgramInfo *WPI, bool Advice);
 #endif // INTEL_CUSTOMIZATION
 
   Module &M;
@@ -273,8 +274,7 @@ private:
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
-            WholeProgramInfo *WPI = nullptr,
-            InlineCost **IC = nullptr) override;
+                WholeProgramInfo *WPI = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
 
   InlineParams Params;

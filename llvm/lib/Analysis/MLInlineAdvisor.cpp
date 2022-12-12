@@ -299,7 +299,7 @@ FunctionPropertiesInfo &MLInlineAdvisor::getCachedFPI(Function &F) const {
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                               WholeProgramInfo *WPI, InlineCost **IC) {
+                               WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   if (auto Skip = getSkipAdviceIfUnreachableCallsite(CB))
     return Skip;
@@ -321,7 +321,7 @@ MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   if (MandatoryKind == InlineAdvisor::MandatoryInliningKind::Never ||
       &Caller == &Callee)
 #if INTEL_CUSTOMIZATION
-    return getMandatoryAdvice(CB, nullptr, nullptr, nullptr, false);
+    return getMandatoryAdvice(CB, nullptr, nullptr, false);
 #endif // INTEL_CUSTOMIZATION
 
   bool Mandatory =
@@ -366,7 +366,9 @@ MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   }
 
   if (Mandatory)
-    return getMandatoryAdvice(CB, nullptr, nullptr, nullptr, true);
+#if INTEL_CUSTOMIZATION
+    return getMandatoryAdvice(CB, nullptr, nullptr, true);
+#endif // INTEL_CUSTOMIZATION
 
   auto NrCtantParams = 0;
   for (auto I = CB.arg_begin(), E = CB.arg_end(); I != E; ++I) {
@@ -431,8 +433,7 @@ MLInlineAdvisor::getSkipAdviceIfUnreachableCallsite(CallBase &CB) {
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 MLInlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                    WholeProgramInfo *WPI, InlineCost **IC,
-                                    bool Advice) {
+                                    WholeProgramInfo *WPI, bool Advice) {
   // Make sure we track inlinings in all cases - mandatory or not.
   if (auto Skip = getSkipAdviceIfUnreachableCallsite(CB))
     return Skip;
