@@ -67,12 +67,12 @@ protected:
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
-            WholeProgramInfo *WPI = nullptr,
-            InlineCost **IC = nullptr) override;
+                WholeProgramInfo *WPI = nullptr) override;
 
-  std::unique_ptr<InlineAdvice>
-  getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                     WholeProgramInfo *WPI, InlineCost **IC, bool Advice) override;
+  std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
+                                                   InliningLoopInfoCache *ILIC,
+                                                   WholeProgramInfo *WPI,
+                                                   bool Advice) override;
 #endif // INTEL_CUSTOMIZATION
 
   virtual std::unique_ptr<MLInlineAdvice> getMandatoryAdviceImpl(CallBase &CB);

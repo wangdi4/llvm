@@ -1110,9 +1110,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       }
 
 #if INTEL_CUSTOMIZATION
-      InlineCost *IC = nullptr;
       std::unique_ptr<InlineAdvice> Advice =
-          Advisor.getAdvice(*CB, ILIC, WPI, &IC, OnlyMandatory);
+          Advisor.getAdvice(*CB, ILIC, WPI, OnlyMandatory);
+      InlineCost *IC = Advice->getInlineCost();
 #endif // INTEL_CUSTOMIZATION
 
       // Check whether we want to inline this callsite.
