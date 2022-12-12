@@ -394,10 +394,13 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   m_disableOptimization = buildOptions.GetDisableOpt();
   m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
-  // Default to C++ new-pm pipeline if triple is spir64_x86_64.
+  // Default to C++ new-pm pipeline if triple is spir64_x86_64 or input is
+  // OpenCL C++/SYCL.
   llvm::Triple TT(pModule->getTargetTriple());
   if (m_passManagerType == PM_NONE &&
-      TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
+      (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 ||
+       (CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+        !CompilationUtils::isGeneratedFromOMP(*pModule))))
     m_passManagerType = PM_LTO;
 
   applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
