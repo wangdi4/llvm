@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -12,26 +12,25 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test = type { i32, i64, i32 }
 @result = global i32 zeroinitializer
 
-define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
+define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
   ; Allocate a struct and get pointers to its fields.
-  %p = call i8* @malloc(i64 16)
-  %p_test = bitcast i8* %p to %struct.test*
-  %p_test_A = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 0
-  %p_test_B = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 1
-  %p_test_C = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 2
+  %p = call ptr @malloc(i64 16)
+  %p_test_A = getelementptr %struct.test, ptr %p, i64 0, i32 0
+  %p_test_B = getelementptr %struct.test, ptr %p, i64 0, i32 1
+  %p_test_C = getelementptr %struct.test, ptr %p, i64 0, i32 2
 
-  store i32 %argc, i32* %p_test_A
-  store i32 %argc, i32* %p_test_C
+  store i32 %argc, ptr %p_test_A
+  store i32 %argc, ptr %p_test_C
 
-  call void @free(i8* %p)
+  call void @free(ptr %p)
   ret i32 0
 }
 
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
 ; CHECK: No candidates found.
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64)
+declare !intel.dtrans.func.type !7 void @free(ptr "intel_dtrans_func_index"="1")
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

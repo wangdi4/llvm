@@ -1,5 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -9,54 +8,45 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test = type { i32, i64, i32 }
 ; CHECK: %__DFT_struct.test = type { i32, i32 }
 
-define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
+define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate a structure.
-  %p = call i8* @malloc(i64 16)
-  %p_test = bitcast i8* %p to %struct.test*
+  %p = call ptr @malloc(i64 16)
 
   ; Call a function to do something.
-  %val = call i32 @doSomething(%struct.test* %p_test)
+  %val = call i32 @doSomething(ptr %p)
 
   ; Free the structure
-  call void @free(i8* %p)
+  call void @free(ptr %p)
   ret i32 %val
 }
 ; CHECK-LABEL: define i32 @main
-; CHECK-NONOPAQUE: %p = call i8* @malloc(i64 8)
-; CHECK-NONOPAQUE: %p_test = bitcast i8* %p to %__DFT_struct.test*
-; CHECK-NONOPAQUE: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
 
-; CHECK-OPAQUE: %p = call ptr @malloc(i64 8)
-; CHECK-OPAQUE: %p_test = bitcast ptr %p to ptr
-; CHECK-OPAQUE: %val = call i32 @doSomething(ptr %p_test)
+; CHECK: %p = call ptr @malloc(i64 8)
+; CHECK: %val = call i32 @doSomething(ptr %p)
 
-define i32 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !intel.dtrans.func.type !4 {
+define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans.func.type !4 {
   ; Get pointers to each field
-  %p_test_A = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 0
-  %p_test_B = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 1
-  %p_test_C = getelementptr %struct.test, %struct.test* %p_test, i64 0, i32 2
+  %p_test_A = getelementptr %struct.test, ptr %p_test, i64 0, i32 0
+  %p_test_B = getelementptr %struct.test, ptr %p_test, i64 0, i32 1
+  %p_test_C = getelementptr %struct.test, ptr %p_test, i64 0, i32 2
 
   ; read and write A and C
-  store i32 1, i32* %p_test_A
-  store i32 2, i32* %p_test_C
-  %valA = load i32, i32* %p_test_A
-  %valC = load i32, i32* %p_test_C
+  store i32 1, ptr %p_test_A
+  store i32 2, ptr %p_test_C
+  %valA = load i32, ptr %p_test_A
+  %valC = load i32, ptr %p_test_C
   %sum = add i32 %valA, %valC
 
   ret i32 %sum
 }
-; CHECK-NONOPAQUE: define internal i32 @doSomething.1
-; CHECK-NONOPAQUE: %p_test_A = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p_test, i64 0, i32 0
-; CHECK-NONOPAQUE-NOT: %p_test_B = getelementptr
-; CHECK-NONOPAQUE: %p_test_C = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p_test, i64 0, i32 1
 
-; CHECK-OPAQUE: define i32 @doSomething
-; CHECK-OPAQUE: %p_test_A = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 0
-; CHECK-OPAQUE-NOT: %p_test_B = getelementptr
-; CHECK-OPAQUE: %p_test_C = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 1
+; CHECK: define i32 @doSomething
+; CHECK: %p_test_A = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 0
+; CHECK-NOT: %p_test_B = getelementptr
+; CHECK: %p_test_C = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 1
 
-declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
-declare !intel.dtrans.func.type !9 void @free(i8* "intel_dtrans_func_index"="1") #1
+declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
+declare !intel.dtrans.func.type !9 void @free(ptr "intel_dtrans_func_index"="1") #1
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

@@ -1,4 +1,4 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -14,12 +14,12 @@ target triple = "x86_64-unknown-linux-gnu"
 @glob = internal global %struct.test01 { i32 0, i16 1, %struct.test01t { i32 2, i16 3 } }
 ; CHECK: @glob = internal global %__DFT_struct.test01 { i32 0, %__DFT_struct.test01t { i32 2 } }
 
-define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %s1) !intel.dtrans.func.type !5 {
-  %pA = getelementptr %struct.test01, %struct.test01* %s1, i64 0, i32 0
-  %pC0 = getelementptr %struct.test01, %struct.test01* %s1, i64 0, i32 2, i32 0
+define i32 @test01(ptr "intel_dtrans_func_index"="1" %s1) !intel.dtrans.func.type !5 {
+  %pA = getelementptr %struct.test01, ptr %s1, i64 0, i32 0
+  %pC0 = getelementptr %struct.test01, ptr %s1, i64 0, i32 2, i32 0
 
-  %vA = load i32, i32* %pA
-  %vC0 = load i32, i32* %pC0
+  %vA = load i32, ptr %pA
+  %vC0 = load i32, ptr %pC0
 
   %res = add i32 %vC0, %vA
   ret i32 %res

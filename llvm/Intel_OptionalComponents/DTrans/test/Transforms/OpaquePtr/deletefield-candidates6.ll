@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -12,30 +12,29 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.A = type { i32, %struct.B, i32 }
 %struct.B = type { i8, i16, i32 }
 
-define i32 @foo(%struct.A* "intel_dtrans_func_index"="1" %a, i32** "intel_dtrans_func_index"="2" %q) !intel.dtrans.func.type !7 {
+define i32 @foo(ptr "intel_dtrans_func_index"="1" %a, ptr "intel_dtrans_func_index"="2" %q) !intel.dtrans.func.type !7 {
 entry:
-  %p = bitcast %struct.A* %a to i8*
-  call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 16, i1 false)
 
-  %x = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 0
-  %y = getelementptr inbounds %struct.A, %struct.A* %a, i64 0, i32 2
-  %0 = load i32, i32* %x, align 4
-  %1 = load i32, i32* %y, align 4
+  %x = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 0
+  %y = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 2
+  %0 = load i32, ptr %x, align 4
+  %1 = load i32, ptr %y, align 4
   %2 = add i32 %0, %1
 
-  store i32* %x, i32** %q
+  store ptr %x, ptr %q
 
   ret i32 %2
 }
 
-define i16 @bar(%struct.B* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !9 {
+define i16 @bar(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !9 {
 entry:
-  %y = getelementptr inbounds %struct.B, %struct.B* %b, i64 0, i32 1
-  %0 = load i16, i16* %y, align 4
+  %y = getelementptr inbounds %struct.B, ptr %b, i64 0, i32 1
+  %0 = load i16, ptr %y, align 4
   ret i16 %0
 }
 
-declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
 ; CHECK: Selected for deletion: %struct.B

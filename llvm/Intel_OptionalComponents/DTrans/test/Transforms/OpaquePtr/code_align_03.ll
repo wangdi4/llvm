@@ -17,56 +17,56 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: DTRANS Code Align increased: bar: 64
 
 %"class.xalanc_1_10::XalanDOMStringCache" = type { %"class.xalanc_1_10::XalanVector", %"class.xalanc_1_10::XalanVector", i32, [4 x i8], %"class.xalanc_1_10::XalanDOMStringReusableAllocator" }
-%"class.xalanc_1_10::XalanVector" = type { %"class.xercesc_2_7::MemoryManager"*, i64, i64, %"class.xalanc_1_10::XalanDOMString"** }
+%"class.xalanc_1_10::XalanVector" = type { ptr, i64, i64, ptr }
 %"class.xalanc_1_10::XalanDOMString" = type <{ %"class.xalanc_1_10::XalanVector.0", i32, [4 x i8] }>
-%"class.xalanc_1_10::XalanVector.0" = type { %"class.xercesc_2_7::MemoryManager"*, i64, i64, i16* }
+%"class.xalanc_1_10::XalanVector.0" = type { ptr, i64, i64, i16* }
 %"class.xalanc_1_10::XalanDOMStringReusableAllocator" = type { %"class.xalanc_1_10::ReusableArenaAllocator" }
 %"class.xalanc_1_10::ReusableArenaAllocator" = type <{ %"class.xalanc_1_10::ArenaAllocator", i8, [7 x i8] }>
-%"class.xalanc_1_10::ArenaAllocator" = type { i32 (...)**, i16, %"class.xalanc_1_10::XalanList" }
-%"class.xalanc_1_10::XalanList" = type { %"class.xercesc_2_7::MemoryManager"*, %"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node"*, %"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node"* }
-%"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node" = type { %"class.xalanc_1_10::ReusableArenaBlock"*, %"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node"*, %"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node"* }
+%"class.xalanc_1_10::ArenaAllocator" = type { ptr, i16, %"class.xalanc_1_10::XalanList" }
+%"class.xalanc_1_10::XalanList" = type { ptr, ptr, ptr }
+%"struct.xalanc_1_10::XalanList<xalanc_1_10::ReusableArenaBlock<xalanc_1_10::XalanDOMString> *>::Node" = type { ptr, ptr, ptr }
 %"class.xalanc_1_10::ReusableArenaBlock" = type <{ %"class.xalanc_1_10::ArenaBlockBase", i16, i16, [4 x i8] }>
-%"class.xalanc_1_10::ArenaBlockBase" = type { %"class.xalanc_1_10::XalanAllocator", i16, i16, %"class.xalanc_1_10::XalanDOMString"* }
-%"class.xalanc_1_10::XalanAllocator" = type { %"class.xercesc_2_7::MemoryManager"* }
-%"class.xercesc_2_7::MemoryManager" = type { i32 (...)** }
+%"class.xalanc_1_10::ArenaBlockBase" = type { %"class.xalanc_1_10::XalanAllocator", i16, i16, ptr }
+%"class.xalanc_1_10::XalanAllocator" = type { ptr }
+%"class.xercesc_2_7::MemoryManager" = type { ptr }
 
 
-%__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64 }
-%__SOADT_AR_struct.Arr = type { i32, [4 x i8], %__SOADT_EL_class.F*, i32, [4 x i8] }
-%__SOADT_EL_class.F = type { i32*, float* }
+%__SOADT_class.F = type { ptr, i64 }
+%__SOADT_AR_struct.Arr = type { i32, [4 x i8], ptr, i32, [4 x i8] }
+%__SOADT_EL_class.F = type { ptr, ptr }
 
 
 ; Function Attrs: uwtable
-define dso_local void @baz1(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this, %"class.xercesc_2_7::MemoryManager"* "intel_dtrans_func_index"="2" %theManager, i32 %theMaximumSize) align 2  #39 !intel.dtrans.func.type !45 {
+define dso_local void @baz1(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %theManager, i32 %theMaximumSize) align 2  #39 !intel.dtrans.func.type !45 {
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local void @baz2(%"class.xalanc_1_10::XalanVector"* "intel_dtrans_func_index"="1" %this) align 2 !dtrans-soatoaos !38 !intel.dtrans.func.type !44 {
+define linkonce_odr dso_local void @baz2(ptr "intel_dtrans_func_index"="1" %this) align 2 !dtrans-soatoaos !38 !intel.dtrans.func.type !44 {
 entry:
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @baz3(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this) align 2 #40 !intel.dtrans.func.type !43 {
+define dso_local void @baz3(ptr "intel_dtrans_func_index"="1" %this) align 2 #40 !intel.dtrans.func.type !43 {
 entry:
   ret void
 }
 
 ; Function Attrs: uwtable
-define dso_local void @baz4(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this) align 128 !intel.dtrans.func.type !42 {
+define dso_local void @baz4(ptr "intel_dtrans_func_index"="1" %this) align 128 !intel.dtrans.func.type !42 {
 entry:
   ret void
 }
 
 ; Function Attrs: uwtable mustprogress
-define dso_local %"class.xalanc_1_10::XalanDOMString"* @baz5(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this) align 2 !intel.dtrans.func.type !41 {
+define dso_local ptr @baz5(ptr "intel_dtrans_func_index"="1" %this) align 2 !intel.dtrans.func.type !41 {
 entry:
-  ret %"class.xalanc_1_10::XalanDOMString"* null
+  ret ptr null
 }
 
 ; Function Attrs: uwtable
-define dso_local zeroext i1 @bar(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this, %"class.xalanc_1_10::XalanDOMString"* "intel_dtrans_func_index"="2" %theString) align 2 !intel.dtrans.func.type !36 {
+define dso_local zeroext i1 @bar(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %theString) align 2 !intel.dtrans.func.type !36 {
 bb_1:
   br label %bb_2
 
@@ -117,14 +117,14 @@ bb_g:
 }
 
 ; Function Attrs: uwtable mustprogress
-define dso_local void @baz6(%"class.xalanc_1_10::XalanDOMStringCache"* "intel_dtrans_func_index"="1" %this) align 2 !intel.dtrans.func.type !35 {
+define dso_local void @baz6(ptr "intel_dtrans_func_index"="1" %this) align 2 !intel.dtrans.func.type !35 {
 entry:
   ret void
 }
 
 define dso_local void @foo() {
-  call i1 @bar(%"class.xalanc_1_10::XalanDOMStringCache"* null, %"class.xalanc_1_10::XalanDOMString"* null)
-  call i1 @bar(%"class.xalanc_1_10::XalanDOMStringCache"* null, %"class.xalanc_1_10::XalanDOMString"* null)
+  call i1 @bar(ptr null, ptr null)
+  call i1 @bar(ptr null, ptr null)
   ret void
 }
 
