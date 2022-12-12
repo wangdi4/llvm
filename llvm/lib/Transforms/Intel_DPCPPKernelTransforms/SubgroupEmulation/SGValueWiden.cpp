@@ -13,11 +13,13 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
@@ -50,15 +52,18 @@ static std::string encodeVectorVariant(Function *F, unsigned EmuSize) {
   return std::string(Out.str());
 }
 
-bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
+PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
+  const SGSizeInfo &SSI = AM.getResult<SGSizeAnalysisPass>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
   if (!DPCPPEnableSubGroupEmulation)
-    return false;
+    return PreservedAnalyses::all();
 
   Helper.initialize(M);
   FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();
 
   if (FunctionsToBeWidened.empty())
-    return false;
+    return PreservedAnalyses::all();
 
   ConstZero = Helper.getZero();
 
@@ -66,7 +71,7 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
     LLVM_DEBUG(dbgs() << "Adding vector-variants for " << Fn->getName()
                       << "\n");
     // Add vector-variants attribute.
-    const std::set<unsigned> Sizes = SSI->getEmuSizes(Fn);
+    const std::set<unsigned> Sizes = SSI.getEmuSizes(Fn);
     SmallVector<std::string, 4> Variants;
     for (auto I = Sizes.begin(), E = Sizes.end(); I != E; I++) {
       Variants.push_back(encodeVectorVariant(Fn, *I));
@@ -148,7 +153,8 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
         continue;
       LLVM_DEBUG(dbgs() << "Widen function: " << WideFn->getName() << "\n");
       VFInfo Variant = VFABI::demangleForVFABI(WideFn->getName());
-      runOnFunction(*WideFn, Variant.getVF());
+      DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*WideFn);
+      runOnFunction(*WideFn, Variant.getVF(), DT);
       auto It = find(KernelRange, Fn);
       if (It != Kernels.end()) {
         Kernels.erase(It);
@@ -191,7 +197,7 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
   for (auto *Fn : FnToRemove)
     Fn->eraseFromParent();
 
-  return true;
+  return PreservedAnalyses::none();
 }
 
 void SGValueWidenPass::collectWideCalls(Module &) {
@@ -243,7 +249,8 @@ bool SGValueWidenPass::isWIRelated(Value *V) {
   // return WIRelatedAnalysis->isWIRelated(V);
 }
 
-void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
+void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size,
+                                     DominatorTree &DT) {
   LLVM_DEBUG(dbgs() << "Begin widening: " << F.getName()
                     << " with size: " << Size << "\n");
   InstSet SyncInsts = Helper.getSyncInstsForFunction(&F);
@@ -271,10 +278,10 @@ void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
 
   for (auto *I : WorkList) {
     if (isa<AllocaInst>(I)) {
-      widenAlloca(I, FirstI, Size);
+      widenAlloca(I, FirstI, Size, DT);
     } else if (isCrossBarrier(I, SyncInsts)) {
       if (isWIRelated(I))
-        widenValue(I, FirstI, Size);
+        widenValue(I, FirstI, Size, DT);
       else {
         Instruction *IP = FirstI;
         // For WG uniform calls, we need to create an alloca instruction in
@@ -290,7 +297,7 @@ void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
             }
           }
         }
-        hoistUniformValue(I, IP);
+        hoistUniformValue(I, IP, DT);
       }
     }
   }
@@ -323,7 +330,8 @@ void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
   }
 }
 
-void SGValueWidenPass::hoistUniformValue(Instruction *V, Instruction *FirstI) {
+void SGValueWidenPass::hoistUniformValue(Instruction *V, Instruction *FirstI,
+                                         DominatorTree &DT) {
   LLVM_DEBUG(dbgs() << "Update Uniform Instruction" << *V << "\n");
   IRBuilder<> Builder(FirstI);
   Type *VType = V->getType();
@@ -342,7 +350,7 @@ void SGValueWidenPass::hoistUniformValue(Instruction *V, Instruction *FirstI) {
 
   for (auto *UI : UsersToUpdate) {
     LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
-    Builder.SetInsertPoint(getInsertPoint(UI, V));
+    Builder.SetInsertPoint(getInsertPoint(UI, V, DT));
     auto *NewV = Builder.CreateLoad(VType, VPtr);
     UI->replaceUsesOfWith(V, NewV);
   }
@@ -502,7 +510,8 @@ void SGValueWidenPass::setWIValue(Value *V) {
   Builder.CreateStore(Promoted, Offset);
 }
 
-Value *SGValueWidenPass::getWIValue(Instruction *U, Value *V) {
+Value *SGValueWidenPass::getWIValue(Instruction *U, Value *V,
+                                    DominatorTree &DT) {
   // If all the path from V to U don't cross barrier, we can return V. But for
   // wide calls, they will be removed later, so we can't use the scalar one.
   // TODO: Can we replace this approximate analyis (Use and Def are in the same
@@ -511,7 +520,7 @@ Value *SGValueWidenPass::getWIValue(Instruction *U, Value *V) {
     return V;
   assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
   Value *Src = VecValueMap[V];
-  Instruction *IP = getInsertPoint(U, V);
+  Instruction *IP = getInsertPoint(U, V, DT);
   IRBuilder<> Builder(IP);
   auto *Offset = getWIOffset(IP, Src);
   auto *LI =
@@ -529,7 +538,8 @@ Value *SGValueWidenPass::getWIOffset(Instruction *IP, Value *Src) {
                            {ConstZero, Idx});
 }
 
-Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V) {
+Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V,
+                                              DominatorTree &DT) {
 
   if (isWideCall(I) || isa<ReturnInst>(I)) {
     auto *IP = I->getPrevNode();
@@ -541,7 +551,7 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V) {
     // ret %0
     if (!Helper.isBarrier(IP))
       IP = Helper.insertBarrierBefore(I);
-    return getInsertPoint(IP, V);
+    return getInsertPoint(IP, V, DT);
   }
 
   // Barrier and dummy barrier should always be the first instruction in a
@@ -551,6 +561,7 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V) {
     std::string BBName = SyncBB->getName().str();
     SyncBB->setName("");
     SyncBB->splitBasicBlock(I, BBName);
+    DT.splitBlock(SyncBB);
     return SyncBB->getTerminator();
   }
 
@@ -559,12 +570,22 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V) {
 
   auto *PHI = cast<PHINode>(I);
   auto *BB = PHI->getParent();
+  Instruction *IP = nullptr;
   for (auto BI = pred_begin(BB), BE = pred_end(BB); BI != BE; BI++) {
     auto *BV = PHI->getIncomingValueForBlock(*BI);
-    if (BV == V)
-      return (*BI)->getTerminator();
+    if (BV != V)
+      continue;
+    if (IP) {
+      // There're multiple incoming blocks with the same incoming value,
+      // we need to find the nearest common dominator of these blocks.
+      auto *Dom = DT.findNearestCommonDominator(*BI, IP->getParent());
+      IP = Dom->getTerminator();
+    } else {
+      IP = (*BI)->getTerminator();
+    }
   }
-  llvm_unreachable("Can't find incoming basicblock for value");
+  assert(IP && "Can't find incoming basicblock for value");
+  return IP;
 }
 
 static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
@@ -691,7 +712,7 @@ void SGValueWidenPass::widenCalls() {
 }
 
 void SGValueWidenPass::widenValue(Instruction *V, Instruction *FirstI,
-                                  unsigned Size) {
+                                  unsigned Size, DominatorTree &DT) {
   // Skip value w/o any user.
   if (V->user_empty())
     return;
@@ -731,7 +752,7 @@ void SGValueWidenPass::widenValue(Instruction *V, Instruction *FirstI,
 
   for (auto *UI : UsersToUpdate) {
     LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
-    auto *NewV = getWIValue(UI, V);
+    auto *NewV = getWIValue(UI, V, DT);
     UI->replaceUsesOfWith(V, NewV);
   }
 
@@ -741,7 +762,7 @@ void SGValueWidenPass::widenValue(Instruction *V, Instruction *FirstI,
 }
 
 void SGValueWidenPass::widenAlloca(Instruction *V, Instruction *FirstI,
-                                   unsigned Size) {
+                                   unsigned Size, DominatorTree &DT) {
   // Skip value w/o any user.
   if (V->user_empty())
     return;
@@ -809,7 +830,7 @@ void SGValueWidenPass::widenAlloca(Instruction *V, Instruction *FirstI,
 
   for (auto *UI : UsersToUpdate) {
     LLVM_DEBUG(dbgs() << "Updating Use:" << *UI << "\n");
-    auto *IP = getInsertPoint(UI, V);
+    auto *IP = getInsertPoint(UI, V, DT);
     auto *Idx = Helper.createGetSubGroupLId(IP);
     // This action also sets Debug Location.
     Builder.SetInsertPoint(IP);

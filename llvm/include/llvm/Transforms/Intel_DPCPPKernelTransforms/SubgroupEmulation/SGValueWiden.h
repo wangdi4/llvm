@@ -13,10 +13,10 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
+class DominatorTree;
 
 /// 1. Widen the prototype for functions to be emulated except for kernels. This
 ///    makes the function looks like being vectorized. All sub-group built-in
@@ -45,14 +45,7 @@ namespace llvm {
 /// 5. Fix debug info for parameters, llvm.dbg.value intrinsics.
 class SGValueWidenPass : public PassInfoMixin<SGValueWidenPass> {
 public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
-    if (!runImpl(M, &AM.getResult<SGSizeAnalysisPass>(M)))
-      return PreservedAnalyses::all();
-    return PreservedAnalyses::none();
-  }
-
-  // Glue for old PM.
-  bool runImpl(Module &M, const SGSizeInfo *SSI);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
 private:
   SGHelper Helper;
@@ -61,20 +54,23 @@ private:
 
   Value *ConstZero = nullptr;
 
-  void runOnFunction(Function &F, const unsigned &Sizes);
+  void runOnFunction(Function &F, const unsigned &Sizes, DominatorTree &DT);
 
   /// Alloca vector / array for original "scalar" alloca instruction.
-  void widenAlloca(Instruction *V, Instruction *FirstI, unsigned Size);
+  void widenAlloca(Instruction *V, Instruction *FirstI, unsigned Size,
+                   DominatorTree &DT);
 
   /// Alloca vector for values whose type is int / float / pointer.
   /// Alloca array for values with other types.
   /// Fill VecValueMap.
-  void widenValue(Instruction *V, Instruction *FirstI, unsigned Size);
+  void widenValue(Instruction *V, Instruction *FirstI, unsigned Size,
+                  DominatorTree &DT);
 
   /// If the value is uniform in sub-group, there is no need to alloca
   /// a vector /array counterpart. We can just alloca a scalar counterpart
   /// for it.
-  void hoistUniformValue(Instruction *V, Instruction *FirstI);
+  void hoistUniformValue(Instruction *V, Instruction *FirstI,
+                         DominatorTree &DT);
 
   /// Collect all calls to be widned.
   void collectWideCalls(Module &M);
@@ -109,12 +105,12 @@ private:
   bool isWIRelated(Value *V);
 
   /// Get the insert point for I when processing operand V.
-  Instruction *getInsertPoint(Instruction *I, Value *V);
+  Instruction *getInsertPoint(Instruction *I, Value *V, DominatorTree &DT);
 
   /// Get current address of Val for U.
   Value *getWIOffset(Instruction *U, Value *Val);
   /// Get current value of Val for U.
-  Value *getWIValue(Instruction *U, Value *Val);
+  Value *getWIValue(Instruction *U, Value *Val, DominatorTree &DT);
   /// Set current value of Val.
   void setWIValue(Value *Val);
 
