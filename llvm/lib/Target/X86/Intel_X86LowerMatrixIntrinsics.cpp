@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -126,6 +126,36 @@ FunctionPass *llvm::createX86LowerMatrixIntrinsicsPass() {
   return new X86LowerMatrixIntrinsicsPass();
 }
 
+static bool isMatBPacked(Metadata *MatUse, Metadata *MemLayout,
+                         Metadata *MatLayout) {
+  return (cast<MDString>(MatUse)->getString().equals(
+              "matrix.use.unnecessary") &&
+          cast<MDString>(MemLayout)->getString().equals("matrix.packed.b") &&
+          cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) ||
+         (cast<MDString>(MemLayout)->getString().equals("matrix.packed") &&
+          cast<MDString>(MatUse)->getString().equals("matrix.use.b"));
+}
+
+static bool isMatCRowmajor(Metadata *MatUse, Metadata *MemLayout,
+                           Metadata *MatLayout) {
+  return (cast<MDString>(MatUse)->getString().equals(
+              "matrix.use.unnecessary") &&
+          cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor")) ||
+         (cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatUse)->getString().equals("matrix.use.accumulator"));
+}
+
+static bool isMatARowmajor(Metadata *MatUse, Metadata *MemLayout,
+                           Metadata *MatLayout) {
+  return (cast<MDString>(MatUse)->getString().equals(
+              "matrix.use.unnecessary") &&
+          cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor")) ||
+         (cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatUse)->getString().equals("matrix.use.a"));
+}
+
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
   bool MadeChange = false;
   switch (II->getIntrinsicID()) {
@@ -161,12 +191,25 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   // i16).
   // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
   //   i32* addressspace(4) ptr, i64 stride, i1 false, i32 4, i32 2,
-  //   metadata !"matrix.packed_b", metadata !"matrix.packed_b", metadata
+  //   metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata
   //   !"scope.subgroup")
   // =>
   // %val = call x86_amx @llvm.x86.tileloadd64.internal(i32 1, i32 8, i8* ptr,
   // i64 stride).
   // %res = call x86_amx @llvm.x86.cast.tile.to.vector.v4i8(<4 x i8> %val)
+  //
+  // In the unified matrix, we switch to check the matrixuse instead of
+  // matrixlayout, we don't care the value of matrixlayout metadata.
+  //
+  // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
+  //   i32* addressspace(4) ptr, i64 stride, i1 false, i32 4, i32 2,
+  //   metadata !"matrix.rowmajor", metadata !"matrix.packed", metadata
+  //   !"scope.subgroup", metadata !"matrix.use.b")
+  // =>
+  // %val = call x86_amx @llvm.x86.tileloadd64.internal(i32 1, i32 8, i8* ptr,
+  // i64 stride).
+  // %res = call x86_amx @llvm.x86.cast.tile.to.vector.v4i8(<4 x i8> %val)
+  //
   IRBuilder<> Builder(II);
   int64_t MRows = cast<ConstantInt>(II->getOperand(3))->getSExtValue();
   int64_t MCols = cast<ConstantInt>(II->getOperand(4))->getSExtValue();
@@ -186,22 +229,28 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
               "float!\n";
     llvm_unreachable(nullptr);
   }
-  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(8))->getMetadata();
+  Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
+  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
   // If it is packed_b, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
   // be 1.
-  if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+  else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
+           isMatCRowmajor(MatUse, MemLayout, MatLayout))
     Factor = 1;
   else {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
            << "!\n"
-           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+           << "!\n"
+           << "We support layout&use: matrix.rowmajor(A,C) and "
+              "matrix.packed(B)!\n";
     llvm_unreachable(nullptr);
   }
   // Handle cases where it is vxi8 and packedb.
@@ -240,8 +289,20 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   // Calculate the formatted size according to the real size, layout&type(i8 or
   // i16).
   // %val = call void @llvm.experimental.matrix.store.v4i8.p4i8(<8 x i8> %src,
-  // i32* ptr, i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor",
-  // metadata !"matrix.rowmajor", metadata !"scope.subgroup").
+  // i32* ptr, i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b",
+  // metadata !"matrix.packed.b", metadata !"scope.subgroup").
+  // =>
+  // %amxsrc = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %src)
+  // %val = call x86_amx @llvm.x86.tilestored64.internal(i32 1, i32 8, i8* ptr,
+  // i64 stride, x86_amx %amxsrc).
+  //
+  // In the unified matrix, we switch to check the matrixuse instead of
+  // matrixlayout, we don't care the value of matrixlayout metadata.
+  //
+  // %val = call void @llvm.experimental.matrix.store.v4i8.p4i8(<8 x i8> %src,
+  // i32* ptr, i64 %stride, i1 false, i32 4, i32 2, metadata
+  // !"matrix.columnmajor", metadata
+  // !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b").
   // =>
   // %amxsrc = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %src)
   // %val = call x86_amx @llvm.x86.tilestored64.internal(i32 1, i32 8, i8* ptr,
@@ -267,21 +328,27 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
               "float!\n";
     llvm_unreachable(nullptr);
   }
-  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(9))->getMetadata();
+  Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
+  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
   // If it is wordpackedb, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32.
-  if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+  else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
+           isMatCRowmajor(MatUse, MemLayout, MatLayout))
     Factor = 1;
   else {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
            << "!\n"
-           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+           << "!\n"
+           << "We support layout&use: matrix.rowmajor(A,C) and "
+              "matrix.packed(B)!\n";
     llvm_unreachable(nullptr);
   }
   assert(MRows >= Factor && MRows % Factor == 0 &&
@@ -392,9 +459,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
   int64_t ElemNum = cast<ConstantInt>(II->getOperand(3))->getSExtValue();
   FixedVectorType *SliceType = cast<FixedVectorType>(II->getType());
 
-  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
-  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
+  if (!cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
            << "!\n"
            << "We support layout for slicing: matrix.rowmajor!\n";
     llvm_unreachable(nullptr);
@@ -425,9 +492,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixInsertRowSlice(
   IRBuilder<> Builder(II);
   int64_t ElemNum = cast<ConstantInt>(II->getOperand(4))->getSExtValue();
 
-  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
-  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
+  if (!cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
            << "!\n"
            << "We support layout for slicing: matrix.rowmajor!\n";
     llvm_unreachable(nullptr);
@@ -453,7 +520,17 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
   // Transform
   // %fill = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4,
   // i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
-  // into:
+  // =>
+  // %tmp0 = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
+  // %tmp1 = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx %tmp0)
+  //
+  // In the unified matrix, we switch to check the matrixuse instead of
+  // matrixlayout, we don't care the value of matrixlayout metadata.
+  //
+  // %fill = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4,
+  // i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata
+  // !"matrix.use.b")
+  // =>
   // %tmp0 = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
   // %tmp1 = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx %tmp0)
   IRBuilder<> Builder(II);
@@ -495,22 +572,29 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
               "float!\n";
     llvm_unreachable(nullptr);
   }
-  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
+  Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
   // If it is packed_b, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
   // be 1.
-  if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
+       cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+  else if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
+            cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+  else if (cast<MDString>(MatUse)->getString().equals("matrix.use.a") ||
+           cast<MDString>(MatUse)->getString().equals(
+               "matrix.use.accumulator") ||
+           cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor"))
     Factor = 1;
   else {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+    errs() << "Unsuppoted matrix use:" << cast<MDString>(MatUse)->getString()
            << "!\n"
-           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+           << "We support matrix use: matrix.use.a, matrix.use.b and "
+              "matrix.use.accumulator!\n";
     llvm_unreachable(nullptr);
   }
   // Handle cases where it is vxi8 and packedb.
