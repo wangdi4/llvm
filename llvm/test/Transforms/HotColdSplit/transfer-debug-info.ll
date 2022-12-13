@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S -intel-codeextractor-debug=false < %s | FileCheck %s ;INTEL
-=======
-; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=0 -S < %s | FileCheck %s
->>>>>>> 22d6d0f4b1f505fe6ffe560f89e4aff762ea190d
+; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=0 -S -intel-codeextractor-debug=false < %s | FileCheck %s ;INTEL
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.14.0"
