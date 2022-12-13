@@ -11135,10 +11135,12 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
 #if INTEL_COLLAB
   // Allow constant variables with internal linkage to fallback to normal
   // behavior, i.e. end up on the DeferredDecls list and emit if used.
+  // Also need for static constant data member which has LinkOnceODRLinkage.
   const auto *VD = cast<VarDecl>(GD.getDecl());
   if (CGM.getLangOpts().OpenMPLateOutline && VD->isConstexpr() &&
-      CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
-          llvm::GlobalValue::InternalLinkage)
+      (CGM.getLangOpts().OpenMPIsDevice && VD->isStaticDataMember() ||
+       CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
+           llvm::GlobalValue::InternalLinkage))
     return false;
 #endif // INTEL_COLLAB
 

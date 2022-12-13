@@ -11,7 +11,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i32 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64, i32 }
 
 ; Data layout
 ; Oringal             New
@@ -49,12 +49,11 @@ define void @init() {
 ; CHECK-NEXT:    [[TMP37:%.*]] = call i32 @__DYN_encoder(i64 [[TMP16]])
 ; CHECK-NEXT:    store i32 [[TMP37]], ptr [[TMP36]], align 4
 ;
-  %call1 = tail call noalias i8* @calloc(i64 10, i64 56)
-  %tp1 = bitcast i8* %call1 to %struct.test.01*
-  %F1 = getelementptr %struct.test.01, ptr %tp1, i32 0, i32 1
+  %call1 = tail call noalias ptr @calloc(i64 10, i64 56)
+  %F1 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
   store i64 %g1, ptr %F1, align 8
-  %F6 = getelementptr %struct.test.01, ptr %tp1, i32 0, i32 6
+  %F6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
   store i64 %g2, ptr %F6, align 8
   store i64 20000000000, ptr %F6, align 8

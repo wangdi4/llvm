@@ -3,18 +3,18 @@
 ; fields.
 
 ; REQUIRES: asserts
-;  RUN: opt < %s -dtransop-allow-typed-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: Verification of Multi field Load/Stores Failed
-; CHECK-NOT: store i8 1, i8* @__Shrink__Happened__
+; CHECK-NOT: store i8 1, ptr @__Shrink__Happened__
 
-%struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64 }
 
 ; Type of AOSTOSOA variable.
-%struct.ns = type { i64*, %struct.test.01**, %struct.test.01**, i64* }
+%struct.ns = type { ptr, ptr, ptr, ptr }
 
 ; Memory allocation pointers, which are returned by calloc in "init" routine,
 ; are stored in 2nd and 3rd array fields of @n.
@@ -32,52 +32,49 @@ target triple = "x86_64-unknown-linux-gnu"
 ; not be triggered since it can't handle %L currently during
 ; transformation.
 define void @proc1() {
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %tp2 = bitcast i8* %call1 to %struct.test.01*
-  %F2 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 2
-  %A2 = call i32* @llvm.ptr.annotation.p0i32(i32* %F2, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
-  %F3 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 3
-  %M = select i1 undef, i32* %F2, i32* %F3
-  %L = load i32, i32* %M
-  %I6 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 6
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %F2 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 2
+  %A2 = call ptr @llvm.ptr.annotation.p0i32(ptr %F2, ptr getelementptr inbounds ([41 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr null, i32 0, ptr null)
+  %F3 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 3
+  %M = select i1 undef, ptr %F2, ptr %F3
+  %L = load i32, ptr %M
+  %I6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6
   ret void
 }
 
 
 ; This routine is selected as InitRoutine.
-define "intel_dtrans_func_index"="1" %struct.test.01* @init() !intel.dtrans.func.type !7 {
-  %call0 = call i8* @calloc(i64 1000, i64 32)
-  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0, i8* null)
-  %C01 = getelementptr i8, i8* %call0, i64 0
-  %C02 = bitcast i8* %C01 to i64*
-  store i64* %C02, i64** getelementptr (%struct.ns, %struct.ns* @n, i64 0, i32 0)
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %tp1 = bitcast i8* %call1 to %struct.test.01*
-  %tp2 = getelementptr %struct.test.01, %struct.test.01* %tp1, i64 2
+define "intel_dtrans_func_index"="1" ptr @init() !intel.dtrans.func.type !7 {
+  %call0 = call ptr @calloc(i64 1000, i64 32)
+  %call.ptr = call ptr @llvm.ptr.annotation.p0i8(ptr %call0, ptr getelementptr inbounds ([38 x i8], ptr @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr null, i32 0, ptr null)
+  %C01 = getelementptr i8, ptr %call0, i64 0
+  store ptr %C01, ptr getelementptr (%struct.ns, ptr @n, i64 0, i32 0)
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %tp2 = getelementptr %struct.test.01, ptr %call1, i64 2
 
 ; Below instructions are needed to select this routine as InitRoutine and
 ; increase field frequency of struct.test.01.
-  %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
+  %F1 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
-  store i64 %g1, i64* %F1, align 8
-  %F6 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 6
+  store i64 %g1, ptr %F1, align 8
+  %F6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
-  store i64 %g2, i64* %F6, align 8
+  store i64 %g2, ptr %F6, align 8
 
-  ret %struct.test.01* null
+  ret ptr null
 }
 
 ; Call to "init" routine is qualified as InitRoutine for DynClone.
 define i32 @main() {
 entry:
-  %tp2 = call %struct.test.01* @init();
+  %tp2 = call ptr @init();
   call void @proc1();
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
-declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
+declare ptr @llvm.ptr.annotation.p0i8(ptr, ptr, ptr, i32, ptr)
+declare ptr @llvm.ptr.annotation.p0i32(ptr, ptr, ptr, i32, ptr)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
