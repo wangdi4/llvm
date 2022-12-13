@@ -667,16 +667,46 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   return true;
 }
 
+bool CanonExprUtils::canReplaceStandAloneBlobByCanonExpr(CanonExpr *CE1,
+                                                         unsigned BlobIndex,
+                                                         const CanonExpr *CE2) {
+  assert(CE1->containsStandAloneBlob(BlobIndex) &&
+         "Blob is not standalone in CE1!");
+
+  if ((CE2->getDenominator() != 1) ||
+      (CE2->getSrcType() != CE2->getDestType())) {
+    // TODO: handle case where CE1 is a self-blob so it can essentially be
+    // overwritten by CE2.
+    return CE2->canConvertToStandAloneBlobOrConstant();
+  }
+
+  return true;
+}
+
 void CanonExprUtils::replaceStandAloneBlobByCanonExpr(CanonExpr *CE1,
                                                       unsigned BlobIndex,
                                                       const CanonExpr *CE2) {
-  assert(CE1->containsStandAloneBlob(BlobIndex) &&
-         "Blob is not standalone in CE1!");
-  assert(CE2->getDenominator() == 1 && "Cannot handle CE2 with denominator!");
+  assert(canReplaceStandAloneBlobByCanonExpr(CE1, BlobIndex, CE2) &&
+         "Cannot replace CE2 in CE1!");
+
+  CanonExpr *CE2Copy = nullptr;
+
+  // Convert CE2 to stand-alone blob for cases where simple merging is
+  // problematic.
+  if ((CE2->getDenominator() != 1) ||
+      (CE2->getSrcType() != CE2->getDestType())) {
+
+    CE2Copy = CE2->clone();
+    CE2Copy->convertToStandAloneBlobOrConstant();
+  }
 
   CE1->removeBlob(BlobIndex);
 
-  CanonExprUtils::add(CE1, CE2, true);
+  CanonExprUtils::add(CE1, CE2Copy ? CE2Copy : CE2, true);
+
+  if (CE2Copy) {
+    CE2->getCanonExprUtils().destroy(CE2Copy);
+  }
 }
 
 bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
