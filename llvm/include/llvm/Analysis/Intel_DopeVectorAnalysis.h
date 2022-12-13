@@ -1047,7 +1047,7 @@ public:
 
     NestedDopeVectors.clear();
   }
-
+  GlobalDopeVector &operator=(const GlobalDopeVector &) = delete;
   // Return the dope vector information related to the global
   DopeVectorInfo *getGlobalDopeVectorInfo() {
     return GlobalDVInfo;
