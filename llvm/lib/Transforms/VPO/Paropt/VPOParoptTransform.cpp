@@ -3248,7 +3248,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
           &*Builder.GetInsertPoint());
       GroupId = Builder.CreateTruncOrBitCast(GroupId, Builder.getInt32Ty());
       auto *LocalBufOff = Builder.CreateMul(
-          GroupId, Builder.getInt32(AtomicFreeRedGlobalBufSize));
+          GroupId, Builder.getInt32(AtomicFreeRedLocalBufSize));
       Value *LocalIdTrunc =
           Builder.CreateTruncOrBitCast(LocalId, Builder.getInt32Ty());
       LocalBufOff = Builder.CreateAdd(LocalBufOff, LocalIdTrunc);
