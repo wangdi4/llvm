@@ -116,13 +116,7 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif // INTEL_COLLAB
-=======
->>>>>>> c8b84ba0835327a4d4ed94b36e8589ea48ed2910
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
