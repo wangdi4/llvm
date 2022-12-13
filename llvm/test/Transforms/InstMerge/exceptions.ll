@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -memdep -mldst-motion -S < %s | FileCheck %s
+=======
+; RUN: opt -passes=mldst-motion -S < %s | FileCheck %s
+>>>>>>> 230129ab75d14a6087296fa1fe000f96d9b4c889
 ; RUN: opt -aa-pipeline=basic-aa -passes='require<memdep>',mldst-motion \
 ; RUN:   -S < %s | FileCheck %s
 
