@@ -594,6 +594,18 @@ if (NOT APPLE)
   # Build the sanitizers with CET support if the compiler allows.
   # reg1runC/check_cet_property@default checks for CET support in libraries.
   append_list_if(COMPILER_RT_HAS_FCF_PROTECTION_FLAG -fcf-protection=full SANITIZER_COMMON_CFLAGS)
+
+  if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # Adding the flag -D_FILE_OFFSET_BITS=64 when compiling compiler-rt tests
+    # is to get rid of more than 100 test failures with the "shard JSON
+    # output does not exist" error reported in CMPLRLLVM-35150 on the
+    # Linux Alloy zsc2 pool.
+    # It remains to be determined why our development environment and SC
+    # pool don't require this flag. Adding this flag in those environments
+    # has no effect on the tests.
+    # For more info on this flag, please consult https://www.gnu.org/software/libc/manual/html_mono/libc.html#index-_005fFILE_005fOFFSET_005fBITS
+    string(APPEND COMPILER_RT_TEST_COMPILER_CFLAGS " -D_FILE_OFFSET_BITS=64 ")
+  endif()
 endif()
 # end INTEL_CUSTOMIZATION
 
