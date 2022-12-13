@@ -63,8 +63,11 @@
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MathExtras.h"
-#include "intel/SemaIntelImpl.h" // INTEL
 #include "llvm/Support/raw_ostream.h"
+
+#if INTEL_CUSTOMIZATION
+#include "intel/SemaIntelImpl.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace sema;

@@ -38,8 +38,11 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
-#include "clang/AST/StmtCXX.h" // INTEL
 #include "llvm/ADT/STLExtras.h"
+
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/StmtCXX.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 

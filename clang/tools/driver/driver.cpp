@@ -44,7 +44,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringSwitch.h"    // INTEL
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
@@ -69,6 +68,11 @@
 #include <optional>
 #include <set>
 #include <system_error>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/StringSwitch.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace clang::driver;
 using namespace llvm::opt;

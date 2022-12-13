@@ -30,7 +30,6 @@
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Job.h"
 #include "clang/Driver/Options.h"
-#include "clang/Driver/Tool.h"  // INTEL
 #include "clang/Driver/ToolChain.h"
 #include "clang/Driver/Util.h"
 #include "llvm/ADT/None.h"
@@ -41,7 +40,6 @@
 #include "llvm/Option/OptSpecifier.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"  // INTEL
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -49,6 +47,11 @@
 #include <string>
 #include <system_error>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Driver/Tool.h"
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace driver;
