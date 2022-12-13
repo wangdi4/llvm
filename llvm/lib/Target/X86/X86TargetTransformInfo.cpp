@@ -73,17 +73,12 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
-<<<<<<< HEAD
-#include "llvm/IR/IRBuilder.h" // INTEL
-#include "llvm/IR/Module.h" // INTEL
 #include <optional>
-=======
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #endif // INTEL_CUSTOMIZATION
->>>>>>> c8b84ba0835327a4d4ed94b36e8589ea48ed2910
 
 using namespace llvm;
 
