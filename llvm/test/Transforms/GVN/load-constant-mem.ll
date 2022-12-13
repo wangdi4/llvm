@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -gvn -instcombine -S | FileCheck %s
-=======
 ; RUN: opt < %s -passes=gvn,instcombine -S | FileCheck %s
->>>>>>> 0aeedf581c88fe77cb34af14b80c1a8cae31c03c
 ; PR4189
 @G = external constant [4 x i32]
 

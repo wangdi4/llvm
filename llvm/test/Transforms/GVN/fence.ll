@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -gvn < %s | FileCheck %s
-=======
 ; RUN: opt -S -passes=gvn < %s | FileCheck %s
->>>>>>> 0aeedf581c88fe77cb34af14b80c1a8cae31c03c
 
 @a = external constant i32
 ; We can value forward across the fence since we can (semantically)
