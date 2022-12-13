@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ;  RUN: opt -basic-aa -loop-idiom -use-lir-code-size-heurs=true < %s -S | FileCheck %s
+=======
+;  RUN: opt -passes=loop-idiom -use-lir-code-size-heurs=true < %s -S | FileCheck %s
+>>>>>>> 48c6b2729e2111bec08799c65b8b459e12413546
 
 ; When compiling for codesize we avoid idiom recognition for a
 ; multi-block loop unless it is one of
@@ -130,7 +134,7 @@ for.end11:                                        ; preds = %for.end11.loopexit,
 
 ; LIR avoided: memset idiom in multi-block top-level loop.
 ; ========================================================
-; CHECK-LABEL: @Non_NestedMemset 
+; CHECK-LABEL: @Non_NestedMemset
 ; CHECK-NOT: call void @llvm.memset
 ;
 define i32 @Non_NestedMemset(i8* noalias nocapture %DST, i32 %SIZE) local_unnamed_addr optsize {
