@@ -1,4 +1,4 @@
-; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S < %s | FileCheck %s
+; RUN: opt -hotcoldsplit -hotcoldsplit-threshold=0 -S -intel-codeextractor-debug=false < %s | FileCheck %s ;INTEL
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.14.0"
@@ -10,7 +10,7 @@ target triple = "x86_64-apple-macosx10.14.0"
 
 ; - The llvm.dbg.value intrinsic pointing to an argument in @foo (%arg1) is
 ;   dropped
-; CHECK: llvm.dbg.value(metadata i32 %arg1, metadata [[ARG1:![0-9]+]], metadata !DIExpression()) ;INTEL
+; CHECK-NOT: llvm.dbg.value
 
 ; - Instructions without locations in the original function have no
 ;   location in the new function
@@ -36,7 +36,7 @@ target triple = "x86_64-apple-macosx10.14.0"
 ; CHECK: [[EMPTY_MD:![0-9]+]] = !{}
 ; CHECK: [[EMPTY_TYPE:![0-9]+]] = !DISubroutineType(types: [[EMPTY_MD]])
 ; CHECK: [[INLINE_ME_SCOPE:![0-9]+]] = distinct !DISubprogram(name: "inline_me"
-; CHECK: [[NEWSCOPE:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1", scope: [[FILE]], file: [[FILE]], line: 1, type: [[EMPTY_TYPE]], scopeLine: 1, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized ;INTEL
+; CHECK: [[NEWSCOPE:![0-9]+]] = distinct !DISubprogram(name: "foo.cold.1", linkageName: "foo.cold.1", scope: null, file: [[FILE]], type: [[EMPTY_TYPE]], spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized
 
 ; - Line locations in @foo.cold.1 point to the new scope for @foo.cold.1
 ; CHECK: [[LINE1]] = !DILocation(line: 1, column: 1, scope: [[NEWSCOPE]])
