@@ -9,7 +9,7 @@
 ; CHECK: |   %code.addr.0.out = %code.addr.0;
 ; CHECK: |   %or = %res.0.out  |  trunc.i32.i1(%code.addr.0.out);
 ; CHECK: |   %code.addr.0 = %code.addr.0  >>  1;
-; CHECK: |   %res.0 = %or  <<  1;
+; CHECK: |   %res.0 = %res.0.out + zext.i1.i32(trunc.i32.i1(%code.addr.0.out))  <<  1;
 ; CHECK: + END LOOP
 
 
