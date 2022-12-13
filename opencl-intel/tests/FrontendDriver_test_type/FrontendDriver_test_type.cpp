@@ -342,6 +342,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       true,  // images support
+      false, // fp16 support
       true,  // fp64 support
       false, // source level profiling
       false  // fpga emu
@@ -374,6 +375,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       true,  // images support
+      false, // fp16 support
       false, // fp64 support
       false, // source level profiling
       false  // fpga emu
@@ -395,6 +397,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       false, // images support
+      false, // fp16 support
       true,  // fp64 support
       false, // source level profiling
       false  // fpga emu
@@ -424,6 +427,58 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     ASSERT_EQ(CL_INVALID_PROGRAM, err)
         << "Unexpected retcode for a device w\\o image support.\n";
   }
+}
+
+// test that a module requiring fp16  is accepted by a device
+// which supports it and is rejected by a device which doesn't
+// support fp16
+TEST_F(ClangCompilerTestType, Test_SpirvWithFP16) {
+  // Hand made SPIR-V module
+  std::uint32_t const spvBC[] = {// First 5 mandatory words
+                                 spv::MagicNumber, SPIRV12Version, 0, 0, 0,
+                                 // Common capabilities
+                                 SPIRVOpCapability, spv::CapabilityFloat16,
+                                 // Memory model
+                                 SPIRVOpMemoryModel,
+                                 spv::AddressingModelPhysical64,
+                                 spv::MemoryModelOpenCL};
+  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+  CLANG_DEV_INFO devInfo1 = {
+      "",    // extensions
+      false, // images support
+      false, // fp16 support
+      false, // fp64 support
+      false, // source level profiling
+      false  // fpga emu
+  };
+  std::unique_ptr<IOCLFECompiler> spFeCompiler1;
+  IOCLFECompiler *pFeCompiler1 = spFeCompiler1.get();
+
+  int err1 = CreateFrontEndInstance(&devInfo1, sizeof(devInfo1), &pFeCompiler1);
+  ASSERT_EQ(0, err1) << "Failed to create FE instance.\n";
+
+  err1 = pFeCompiler1->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_EQ(CL_INVALID_PROGRAM, err1)
+      << "Unexpected retcode for a device w\\o fp16 support.\n";
+
+  CLANG_DEV_INFO devInfo2 = {
+      "",    // extensions
+      false, // images support
+      true,  // fp16 support
+      false, // fp64 support
+      false, // source level profiling
+      false  // fpga emu
+  };
+  std::unique_ptr<IOCLFECompiler> spFeCompiler2;
+  IOCLFECompiler *pFeCompiler2 = spFeCompiler2.get();
+
+  int err2 = CreateFrontEndInstance(&devInfo2, sizeof(devInfo2), &pFeCompiler2);
+  ASSERT_EQ(0, err2) << "Failed to create FE instance.\n";
+
+  err2 = pFeCompiler2->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_EQ(CL_SUCCESS, err2)
+      << "Unexpected retcode for a device with fp16 support.\n";
 }
 
 TEST_F(ClangCompilerTestType, Test_SPIRV_BIsRepresentation) {
@@ -512,6 +567,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       false, // images support
+      false, // fp16 support
       true,  // fp64 support
       false, // source level profiling
       true   // fpga emu
@@ -544,6 +600,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       false, // images support
+      false, // fp16 support
       true,  // fp64 support
       false, // source level profiling
       true   // fpga emu
@@ -617,6 +674,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
     CLANG_DEV_INFO devInfo = {
         "",    // extensions
         false, // images support
+        false, // fp16 support
         true,  // fp64 support
         false, // source level profiling
         true   // true: fpga emu; false: CPU
@@ -670,6 +728,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
       false, // images support
+      false, // fp16 support
       true,  // fp64 support
       false, // source level profiling
       false  // CPU
