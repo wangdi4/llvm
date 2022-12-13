@@ -17,7 +17,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFastMath.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 

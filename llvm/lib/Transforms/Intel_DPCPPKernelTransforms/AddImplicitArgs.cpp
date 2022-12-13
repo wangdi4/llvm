@@ -12,7 +12,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"

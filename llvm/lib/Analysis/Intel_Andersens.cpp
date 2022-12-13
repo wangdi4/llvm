@@ -257,36 +257,26 @@ static const char *(Andersens_Dealloc_Intrinsics[]) = {
 // This table contains lib calls that don't change points-to
 // info.
 static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
-  "atoi", "atof", "atol", "atoll",
-  "remove", "unlink", "rename", "memcmp", "free",
-  "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64",
-  "strcmp", "strncmp", "strlen", "strnlen", 
-  "execl", "execlp", "execle", "execv", "execvp"
-  "chmod", "puts", "write", "open",
-  "create", "truncate",  "chdir", "mkdir",
-  "rmdir", "read",  "pipe", "wait", "utime", 
-  "time", "stat",  "fstat", "lstat",
-  "fflush", "feof", "fclose", "fcloseall", 
-  "fileno", "clearerr", "rewind", "ftell", "ftello",
-  "ferror", "fgetc", "getc", "_IO_getc", "ungetc",
-  "fwrite", "fread", "fputc", "fputs", "putc",
-  "_IO_putc", "fseek", "fgetpos",
-  "fsetpos", "printf", "fprintf", "sprintf", "vsnprintf",
-  "vprintf", "vfprintf", "vsprintf", "scanf",
-  "fscanf", "sscanf", "vfscanf", "vscanf", "vsscanf", "__assert_fail",
-  "modf", "modff", "modfl", "setjmp", "longjmp", 
-  "gammaf_r", "lgammaf_r", "remquo", "remquof", "remquol", 
-  "sincos", "sincosf", "sincosl", "sincosd", "sincosdf", "sincosdl",
-  "setbuf", "setvbuf", "strspn", "strcspn", "frexp", "frexpf", "frexpl",
-  "system", "sinhcosh", "sinhcoshf", "sinhcoshl",   
-  "wcstombs", "mbstowcs", "mblen",
-  // TODO: Adding these two intrinsics causes an issue with
-  // self-build compiler on efi2linux. Need more investigation
-  // before adding them again.
-  // "llvm.lifetime.start", "llvm.lifetime.end",
-  "llvm.invariant.start", "llvm.invariant.end",
-  nullptr      
-};
+    "atoi", "atof", "atol", "atoll", "remove", "unlink", "rename", "memcmp",
+    "free", "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64", "strcmp", "strncmp",
+    "strlen", "strnlen", "execl", "execlp", "execle", "execv", "execvp",
+    "chmod", "puts", "write", "open", "create", "truncate", "chdir", "mkdir",
+    "rmdir", "read", "pipe", "wait", "utime", "time", "stat", "fstat", "lstat",
+    "fflush", "feof", "fclose", "fcloseall", "fileno", "clearerr", "rewind",
+    "ftell", "ftello", "ferror", "fgetc", "getc", "_IO_getc", "ungetc",
+    "fwrite", "fread", "fputc", "fputs", "putc", "_IO_putc", "fseek", "fgetpos",
+    "fsetpos", "printf", "fprintf", "sprintf", "vsnprintf", "vprintf",
+    "vfprintf", "vsprintf", "scanf", "fscanf", "sscanf", "vfscanf", "vscanf",
+    "vsscanf", "__assert_fail", "modf", "modff", "modfl", "setjmp", "longjmp",
+    "gammaf_r", "lgammaf_r", "remquo", "remquof", "remquol", "sincos",
+    "sincosf", "sincosl", "sincosd", "sincosdf", "sincosdl", "setbuf",
+    "setvbuf", "strspn", "strcspn", "frexp", "frexpf", "frexpl", "system",
+    "sinhcosh", "sinhcoshf", "sinhcoshl", "wcstombs", "mbstowcs", "mblen",
+    // TODO: Adding these two intrinsics causes an issue with
+    // self-build compiler on efi2linux. Need more investigation
+    // before adding them again.
+    // "llvm.lifetime.start", "llvm.lifetime.end",
+    "llvm.invariant.start", "llvm.invariant.end", nullptr};
 
 // Table contains fortran's io library calls.
 //

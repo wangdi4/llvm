@@ -21,6 +21,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
@@ -1737,8 +1738,13 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
         auto *IndexCE = Ref->getDimensionIndex(I);
 
         if (IndexCE->containsStandAloneBlob(DefIndex)) {
-          CanonExprUtils::replaceStandAloneBlobByCanonExpr(
-              IndexCE, DefIndex, ConstOrCopyRef->getSingleCanonExpr());
+          auto *ReplaceByCE = ConstOrCopyRef->getSingleCanonExpr();
+
+          if (CanonExprUtils::canReplaceStandAloneBlobByCanonExpr(
+                  IndexCE, DefIndex, ReplaceByCE)) {
+            CanonExprUtils::replaceStandAloneBlobByCanonExpr(IndexCE, DefIndex,
+                                                             ReplaceByCE);
+          }
         }
       }
 

@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-remove-duplicated-barrier"
 

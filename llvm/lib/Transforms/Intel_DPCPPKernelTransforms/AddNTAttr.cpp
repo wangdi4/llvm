@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddNTAttr.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-add-nt-attr"
 

@@ -26,12 +26,10 @@ OCLObject<HandleType, ParentHandleType>::OCLObject(ParentHandleType *parent,
     // By default use logger of the parent object
     SET_LOGGER_CLIENT(
         ((OCLObject<ParentHandleType> *)parent->object)->GetLoggerClient());
+  } else {
+    m_handle.dispatch = nullptr;
+    m_handle.crtDispatch = nullptr;
   }
-#ifdef _DEBUG
-  else {
-    memset(&m_handle, 0, sizeof(ocl_entry_points));
-  }
-#endif
 }
 
 template <class HandleType, class ParentHandleType>
