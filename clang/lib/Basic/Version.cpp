@@ -31,14 +31,17 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Config/config.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Path.h"          // INTEL
-#include "llvm/Support/FileSystem.h"    // INTEL
-#include "clang/Basic/intel/versparm.h" // INTEL
-#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include <cstdlib>
 #include <cstring>
 
 #include "VCSVersion.inc"
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/intel/versparm.h"
+#include "llvm/Config/dpcpp.version.info.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace clang {
 

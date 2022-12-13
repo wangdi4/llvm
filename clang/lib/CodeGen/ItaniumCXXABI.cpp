@@ -41,9 +41,6 @@
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
-#if INTEL_COLLAB
-#include "CGOpenMPRuntime.h"
-#endif  // INTEL_COLLAB
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/StmtCXX.h"
@@ -55,6 +52,10 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ScopedPrinter.h"
+
+#if INTEL_COLLAB
+#include "CGOpenMPRuntime.h"
+#endif // INTEL_COLLAB
 
 using namespace clang;
 using namespace CodeGen;

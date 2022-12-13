@@ -67,10 +67,6 @@
 #include "clang/Sema/SemaFixItUtils.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
-#if INTEL_CUSTOMIZATION
-// Needed for llvm::join
-#include "llvm/ADT/StringExtras.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"

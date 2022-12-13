@@ -34,9 +34,6 @@
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
-#if INTEL_COLLAB
-#include "intel/CGOpenMPLateOutline.h"
-#endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
 #include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
@@ -64,6 +61,10 @@
 #include "llvm/Transforms/Utils/SanitizerStats.h"
 
 #include <string>
+
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 
 using namespace clang;
 using namespace CodeGen;

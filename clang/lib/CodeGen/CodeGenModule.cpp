@@ -39,8 +39,6 @@
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
 #include "CGOpenMPRuntimeGPU.h"
-#include "intel/CGSPIRMetadataAdder.h" // INTEL
-#include "CGRecordLayout.h" // INTEL
 #include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
@@ -67,9 +65,6 @@
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/ADT/SmallVector.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -89,16 +84,17 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MD5.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Support/ScopedPrinter.h"
-#endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
+#include "llvm/Support/xxhash.h"
+
 #if INTEL_CUSTOMIZATION
+#include "CGRecordLayout.h"
+#include "intel/CGSPIRMetadataAdder.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Support/xxhash.h"
 
 using namespace clang;
 using namespace CodeGen;
