@@ -9,8 +9,6 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGBarrierPropagate.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 

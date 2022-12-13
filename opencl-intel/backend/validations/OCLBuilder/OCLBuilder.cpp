@@ -93,6 +93,15 @@ OCLBuilder &OCLBuilder::withFpgaEmulator(bool IsFPGA) {
   }
 }
 
+OCLBuilder &OCLBuilder::withFP16Support(bool FP16) {
+  try {
+    m_CommonBuilder.withFP16Support(FP16);
+    return *this;
+  } catch (ocl_string_exception &Error) {
+    throw Validation::Exception::OperationFailed(Error.what());
+  }
+}
+
 // cleanup function
 void OCLBuilder::close() {
   try {

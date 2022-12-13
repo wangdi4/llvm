@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;

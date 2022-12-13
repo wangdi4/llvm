@@ -10,8 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InternalizeNonKernelFunc.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;

@@ -20,8 +20,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"

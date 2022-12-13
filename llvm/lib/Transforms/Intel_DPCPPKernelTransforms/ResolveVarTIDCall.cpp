@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveVarTIDCall.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"

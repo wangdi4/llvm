@@ -10,8 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"

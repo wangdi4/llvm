@@ -47,6 +47,11 @@ CommonOCLBuilder &CommonOCLBuilder::withExtensions(const char *extensions) {
   return *this;
 }
 
+CommonOCLBuilder &CommonOCLBuilder::withFP16Support(bool isFP16Supported) {
+  m_bSupportFP16 = isFP16Supported;
+  return *this;
+}
+
 CommonOCLBuilder &CommonOCLBuilder::withFP64Support(bool isFP64Supported) {
   m_bSupportFP64 = isFP64Supported;
   return *this;
@@ -111,8 +116,8 @@ IOCLFEBinaryResult *CommonOCLBuilder::build() {
 }
 
 CommonOCLBuilder::CommonOCLBuilder()
-    : m_pCompiler(nullptr), m_bSupportFP64(true), m_bSupportImages(true),
-      m_bFpgaEmulator(false) {}
+    : m_pCompiler(nullptr), m_bSupportFP16(true), m_bSupportFP64(true),
+      m_bSupportImages(true), m_bFpgaEmulator(false) {}
 
 IOCLFECompiler *CommonOCLBuilder::createCompiler(const char *lib) {
   IOCLFECompiler *ret;
@@ -121,7 +126,8 @@ IOCLFECompiler *CommonOCLBuilder::createCompiler(const char *lib) {
   const char *strDeviceOptions = m_extensions.c_str();
 
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
-      strDeviceOptions, m_bSupportImages, m_bSupportFP64, 0, m_bFpgaEmulator};
+      strDeviceOptions, m_bSupportImages, m_bSupportFP16, m_bSupportFP64, 0,
+      m_bFpgaEmulator};
 
   //
   // loading clang dll

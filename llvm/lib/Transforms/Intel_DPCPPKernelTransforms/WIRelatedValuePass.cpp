@@ -13,7 +13,6 @@
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ModuleSlotTracker.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>

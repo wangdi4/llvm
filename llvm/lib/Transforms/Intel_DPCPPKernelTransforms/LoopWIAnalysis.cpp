@@ -12,7 +12,6 @@
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"

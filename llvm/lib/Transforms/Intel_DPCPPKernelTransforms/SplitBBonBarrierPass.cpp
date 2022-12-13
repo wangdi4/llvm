@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 

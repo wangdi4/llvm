@@ -148,6 +148,13 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       }
       break;
 
+    case spv::CapabilityFloat16:
+      if (!m_sDeviceInfo.bHalfSupport) {
+        error = "SPIRV module requires fp16 data type,"
+                " but device doesn't support it";
+        return false;
+      }
+      break;
     case spv::CapabilityFloat64:
       if (!m_sDeviceInfo.bDoubleSupport) {
         error = "SPIRV module requires fp64 data type,"

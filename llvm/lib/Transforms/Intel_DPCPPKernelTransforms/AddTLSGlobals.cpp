@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddTLSGlobals.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"

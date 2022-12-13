@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RelaxedMath.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 

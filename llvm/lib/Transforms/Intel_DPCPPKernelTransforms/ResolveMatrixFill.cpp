@@ -17,8 +17,6 @@
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 

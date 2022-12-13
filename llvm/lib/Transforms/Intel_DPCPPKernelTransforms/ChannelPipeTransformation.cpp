@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"

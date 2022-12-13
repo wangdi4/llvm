@@ -76,6 +76,7 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 
   m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
   m_sDeviceInfo.bImageSupport = pDevInfo->bImageSupport;
+  m_sDeviceInfo.bHalfSupport = pDevInfo->bHalfSupport;
   m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
   m_sDeviceInfo.bEnableSourceLevelProfiling =
       pDevInfo->bEnableSourceLevelProfiling;

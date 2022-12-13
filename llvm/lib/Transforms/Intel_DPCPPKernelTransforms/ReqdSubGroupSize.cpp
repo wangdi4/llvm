@@ -15,7 +15,6 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReqdSubGroupSize.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 

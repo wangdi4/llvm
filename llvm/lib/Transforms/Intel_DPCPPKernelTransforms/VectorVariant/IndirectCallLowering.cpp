@@ -12,7 +12,6 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #define DEBUG_TYPE "IndirectCallLowering"

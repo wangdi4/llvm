@@ -99,15 +99,15 @@ typedef struct _ndrange_t {
  *  \brief Defines extended information for a kernel arguments.
  */
 struct cl_kernel_argument_info {
-  char *name;     //!< String specifies the name of the argument
-  char *typeName; //!< String specifies the argument type
-  cl_kernel_arg_address_qualifier
-      addressQualifier; //!< Argument's address qualifier
-  cl_kernel_arg_access_qualifier
-      accessQualifier;                        //!< Argument's access qualifier
-  cl_kernel_arg_type_qualifier typeQualifier; //!< Argument's type qualifier
-  bool hostAccessible; //!< Argument's host accessible flag
-  int localMemSize;    //!< Argument's local_mem_size
+  char *name = nullptr;     //!< String specifies the name of the argument
+  char *typeName = nullptr; //!< String specifies the argument type
+  cl_kernel_arg_address_qualifier addressQualifier =
+      0; //!< Argument's address qualifier
+  cl_kernel_arg_access_qualifier accessQualifier =
+      0; //!< Argument's access qualifier
+  cl_kernel_arg_type_qualifier typeQualifier = 0; //!< Argument's type qualifier
+  bool hostAccessible = false; //!< Argument's host accessible flag
+  int localMemSize = 0;        //!< Argument's local_mem_size
 };
 
 /*! \struct cl_prog_binary_desc

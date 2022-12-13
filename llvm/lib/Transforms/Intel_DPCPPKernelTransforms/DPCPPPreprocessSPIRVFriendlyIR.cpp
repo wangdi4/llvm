@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPreprocessSPIRVFriendlyIR.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;

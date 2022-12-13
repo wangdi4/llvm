@@ -16,7 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReplaceScalarWithMask.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"

@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGLoopConstruct.h"
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"

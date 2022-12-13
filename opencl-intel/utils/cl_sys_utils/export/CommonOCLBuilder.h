@@ -44,6 +44,7 @@ public:
 
   CommonOCLBuilder &withExtensions(const char *extentions);
 
+  CommonOCLBuilder &withFP16Support(bool);
   CommonOCLBuilder &withFP64Support(bool);
   CommonOCLBuilder &withImageSupport(bool);
   CommonOCLBuilder &withFpgaEmulator(bool);
@@ -75,6 +76,8 @@ private:
   std::string m_options;
   // extensions
   std::string m_extensions;
+  // Indicates whether halfs are supported by the device
+  bool m_bSupportFP16;
   // Indicates whether doubles are supported by the device
   bool m_bSupportFP64;
   // Indicates whether images are supported by the device

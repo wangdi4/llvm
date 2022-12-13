@@ -12,7 +12,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;

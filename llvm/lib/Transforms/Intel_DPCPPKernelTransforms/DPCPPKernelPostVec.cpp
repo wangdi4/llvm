@@ -16,7 +16,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelPostVec.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 

@@ -15,7 +15,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
