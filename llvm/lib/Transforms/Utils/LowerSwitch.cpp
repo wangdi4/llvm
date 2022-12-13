@@ -35,16 +35,12 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/GlobalsModRef.h" // INTEL
-#include "llvm/Analysis/Intel_Andersens.h" // INTEL
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Dominators.h" // INTEL
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
@@ -65,6 +61,13 @@
 #include <iterator>
 #include <limits>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/Dominators.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

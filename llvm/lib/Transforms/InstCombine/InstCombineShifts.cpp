@@ -31,8 +31,12 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/TypeSize.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/TypeSize.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace PatternMatch;
 

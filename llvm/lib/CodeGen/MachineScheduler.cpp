@@ -75,7 +75,6 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -86,6 +85,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Target/TargetMachine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

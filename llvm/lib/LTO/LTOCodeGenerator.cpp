@@ -79,6 +79,8 @@
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include <optional>
+#include <system_error>
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -86,8 +88,6 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-#include <optional>
-#include <system_error>
 using namespace llvm;
 
 const char* LTOCodeGenerator::getVersionString() {

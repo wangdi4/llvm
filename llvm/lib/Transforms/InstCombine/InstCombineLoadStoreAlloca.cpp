@@ -32,7 +32,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/Intel_DopeVectorAnalysis.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -41,6 +40,11 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace PatternMatch;
 

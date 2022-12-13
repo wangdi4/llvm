@@ -42,7 +42,10 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Transforms/Utils/Local.h" // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Local.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

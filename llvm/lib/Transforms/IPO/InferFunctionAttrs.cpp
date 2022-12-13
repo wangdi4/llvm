@@ -24,13 +24,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
-#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "inferattrs"

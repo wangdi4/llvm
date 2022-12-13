@@ -197,8 +197,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h" // INTEL
-#include "llvm/Pass.h" // INTEL
 #include "llvm/IR/ValueMap.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -219,6 +217,11 @@
 #include <memory>
 #include <string>
 #include <tuple>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

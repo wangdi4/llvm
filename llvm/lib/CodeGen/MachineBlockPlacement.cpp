@@ -79,7 +79,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Transforms/Utils/CodeLayout.h"
 #include <algorithm>
 #include <cassert>
@@ -90,6 +89,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

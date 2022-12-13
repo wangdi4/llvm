@@ -32,7 +32,6 @@
 #include "llvm/Transforms/Utils/SCCPSolver.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/Analysis/ValueLattice.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/Casting.h"
@@ -42,6 +41,10 @@
 #include <cassert>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/AbstractCallSite.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
