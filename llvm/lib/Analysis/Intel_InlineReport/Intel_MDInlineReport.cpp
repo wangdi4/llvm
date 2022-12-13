@@ -537,11 +537,11 @@ static Metadata *cloneInliningReportHelper(
     CallSiteInliningReport OldRep(cast<MDTuple>(CurrentCallInstReport));
     unsigned LineNum = 0, ColNum = 0;
     OldRep.getLineAndCol(&LineNum, &ColNum);
-    CallSiteInliningReport *NewRep = new CallSiteInliningReport(
+    CallSiteInliningReport NewRep(
         &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
         OldRep.getSuppressPrint(), -1, -1, -1, INT_MAX, INT_MAX, LineNum,
         ColNum, std::string(OldRep.getModuleName()));
-    NewMD = NewRep->get();
+    NewMD = NewRep.get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
     int NumOps = OldTupleMD->getNumOperands();
