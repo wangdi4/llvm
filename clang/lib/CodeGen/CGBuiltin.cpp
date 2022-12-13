@@ -41,13 +41,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
-#if INTEL_CUSTOMIZATION
-#include "clang/AST/IntelFunctionProtoTypeFinder.h"
-#endif  // INTEL_CUSTOMIZATION
 #include "clang/AST/OSLog.h"
-#if INTEL_CUSTOMIZATION
-#include "clang/AST/StmtVisitor.h"
-#endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -63,11 +57,6 @@
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/IntrinsicsBPF.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-#include "llvm/IR/IntrinsicsCSA.h"
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/IntrinsicsHexagon.h"
 #include "llvm/IR/IntrinsicsLoongArch.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
@@ -81,10 +70,18 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/MatrixBuilder.h"
 #include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/X86TargetParser.h"
 #include <sstream>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/IntelFunctionProtoTypeFinder.h"
+#include "clang/AST/StmtVisitor.h"
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#include "llvm/Support/Intel_CPU_utils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;

@@ -49,12 +49,13 @@
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/IR/IntrinsicsS390.h"
 #include "llvm/IR/Type.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;

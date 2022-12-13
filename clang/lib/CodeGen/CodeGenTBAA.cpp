@@ -32,10 +32,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenTBAA.h"
-#if INTEL_CUSTOMIZATION
-#include "CGRecordLayout.h"
-#include "CodeGenModule.h"
-#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
@@ -47,6 +43,11 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#if INTEL_CUSTOMIZATION
+#include "CGRecordLayout.h"
+#include "CodeGenModule.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 

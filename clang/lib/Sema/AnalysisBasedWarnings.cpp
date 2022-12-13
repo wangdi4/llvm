@@ -51,11 +51,7 @@
 #include "clang/Analysis/CFGStmtMap.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TargetInfo.h" // INTEL
 #include "clang/Lex/Preprocessor.h"
-#if INTEL_CUSTOMIZATION
-#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
-#endif // INTEL_CUSTOMIZATION
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -68,6 +64,11 @@
 #include <algorithm>
 #include <deque>
 #include <iterator>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 

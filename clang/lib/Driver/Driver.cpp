@@ -126,14 +126,12 @@
 #include <unistd.h> // getpid
 #endif
 
-// clang-format off
 #if INTEL_CUSTOMIZATION
+#include "ToolChains/Arch/X86.h"
 #if INTEL_FEATURE_CSA
 #include "ToolChains/Intel_CSA.h"
 #endif  // INTEL_FEATURE_CSA
-#include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
-// clang-format on
 
 using namespace clang::driver;
 using namespace clang;
