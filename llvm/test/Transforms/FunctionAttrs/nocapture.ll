@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -opaque-pointers -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -opaque-pointers -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -opaque-pointers -S -convert-to-subscript < %s | opt -function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; RUN: opt -opaque-pointers -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR
+>>>>>>> 091aabc18169113f86824bd1da821907c85ead50
 
 @g = global ptr null		; <ptr> [#uses=1]
 
