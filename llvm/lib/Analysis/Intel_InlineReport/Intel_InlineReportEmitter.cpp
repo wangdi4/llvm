@@ -469,6 +469,7 @@ bool IREmitterInfo::runImpl() {
   }
 
   OS << "---- End Inlining Report ------ (via metadata)\n";
+  delete getMDInlineReport();
   return true;
 }
 
