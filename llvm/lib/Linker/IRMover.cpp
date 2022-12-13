@@ -187,6 +187,7 @@ public:
     if (DtransTypeMDReader)
       delete DtransTypeMDReader;
   }
+  DTransStructsMap &operator=(const DTransStructsMap &) = delete;
 
   // Return the DTransStructType mapped to the input StructType if it is
   // available, else return nullptr

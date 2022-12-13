@@ -182,6 +182,7 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
   // InlineReportTreeNode.
   for (unsigned I = InsertAt + 1; I < Children.size(); ++I)
     Children[I]->Idx += 1;
+  delete CSIR;
   return NewChild;
 }
 
@@ -493,12 +494,10 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
         if (Callee->isDeclaration())
           Reason = NinlrExtern;
       }
-
-      CallSiteInliningReport *CSIR =
-          new CallSiteInliningReport(CB, nullptr, Reason);
-      CB->setMetadata(CallSiteTag, CSIR->get());
+      CallSiteInliningReport CSIR(CB, nullptr, Reason);
+      CB->setMetadata(CallSiteTag, CSIR.get());
       MDIR.addCallback(&I);
-      CSs.push_back(CSIR->get());
+      CSs.push_back(CSIR.get());
     }
   }
   FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/);
