@@ -9,9 +9,6 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGBuiltin.h"
-
-#include "llvm/InitializePasses.h"
-
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"

@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"

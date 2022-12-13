@@ -14,7 +14,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
