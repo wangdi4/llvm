@@ -30,7 +30,6 @@
 #include "llvm/Transforms/Scalar/LoopRotation.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -43,7 +42,15 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+<<<<<<< HEAD
 #include <optional>
+=======
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
+
+>>>>>>> c8b84ba0835327a4d4ed94b36e8589ea48ed2910
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-rotate"

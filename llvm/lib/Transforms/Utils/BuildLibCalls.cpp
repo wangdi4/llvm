@@ -30,7 +30,6 @@
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h" // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Argument.h"
@@ -43,6 +42,10 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Support/TypeSize.h"
 #include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/Triple.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

@@ -38,8 +38,6 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -48,6 +46,11 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/AbstractCallSite.h"
+#include "llvm/IR/DerivedTypes.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

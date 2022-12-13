@@ -91,7 +91,10 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
-#include "llvm/Target/TargetMachine.h" // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Target/TargetMachine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

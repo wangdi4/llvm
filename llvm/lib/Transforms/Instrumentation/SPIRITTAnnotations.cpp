@@ -17,12 +17,13 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#if INTEL_COLLAB
-#include "llvm/IR/IRBuilder.h"
-#endif // INTEL_COLLAB
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+
+#if INTEL_COLLAB
+#include "llvm/IR/IRBuilder.h"
+#endif // INTEL_COLLAB
 
 /** Following functions are used for ITT instrumentation:
  * * * * * * * * * * *

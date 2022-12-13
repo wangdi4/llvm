@@ -31,7 +31,6 @@
 #include "InstCombineInternal.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h" // INTEL
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
@@ -54,6 +53,10 @@
 
 #define DEBUG_TYPE "instcombine"
 #include "llvm/Transforms/Utils/InstructionWorklist.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_FPValueRangeAnalysis.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace PatternMatch;
