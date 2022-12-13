@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -domfrontier -indvars -loop-deletion
+=======
+; RUN: opt < %s -passes=indvars,loop-deletion
+>>>>>>> 6017d9a628fc71e5679c0e80bf6e13c2d55e0a1b
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:128:128"
 
