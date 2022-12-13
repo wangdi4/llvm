@@ -1,11 +1,11 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" -hir-details -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that we eliminate the first two stores to (%A)[0] by forward
-; substituting the intermediate load with the second store's RHS.
+; Verify that we eliminate the store to (%A)[0] by replacing it and the
+; intermediate load with temp.
 
-; Load becomes a copy and but the copy's rval isn't propagated to the use in the
-; add instruction by the copy propagation utility because rval canon expr
-; sext.i16.i32(i1 + %t)  src and dst type do not match and we cannot create a
+; Store becomes a copy and but the copy's rval isn't propagated to the use in
+; the load instruction by the copy propagation utility because rval canon expr
+; sext.i16.i32(i1 + %t) src and dst type do not match and we cannot create a
 ; blob out of it.
 
 ; Note that it is still possible to propagate the rval in the use without
@@ -27,7 +27,8 @@
 
 ; CHECK:      modified
 ; CHECK: + DO i16 i1 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   %ld = i1 + %t;
+; CHECK: |   %temp = i1 + %t;
+; CHECK: |   %ld = %temp;
 ; CHECK: |   %t.02 = %t.02  +  %ld;
 ; CHECK: |   (%A)[0] = 5;
 ; CHECK: + END LOOP
