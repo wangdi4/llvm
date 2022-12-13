@@ -30,7 +30,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -3773,11 +3772,11 @@ Error BitcodeReader::rememberAndSkipFunctionBodies() {
 }
 
 Error BitcodeReaderBase::readBlockInfo() {
-  Expected<Optional<BitstreamBlockInfo>> MaybeNewBlockInfo =
+  Expected<std::optional<BitstreamBlockInfo>> MaybeNewBlockInfo =
       Stream.ReadBlockInfoBlock();
   if (!MaybeNewBlockInfo)
     return MaybeNewBlockInfo.takeError();
-  Optional<BitstreamBlockInfo> NewBlockInfo =
+  std::optional<BitstreamBlockInfo> NewBlockInfo =
       std::move(MaybeNewBlockInfo.get());
   if (!NewBlockInfo)
     return error("Malformed block");
