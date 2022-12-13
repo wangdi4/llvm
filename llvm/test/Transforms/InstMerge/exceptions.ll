@@ -1,10 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -memdep -mldst-motion -S < %s | FileCheck %s
-=======
-; RUN: opt -passes=mldst-motion -S < %s | FileCheck %s
->>>>>>> 230129ab75d14a6087296fa1fe000f96d9b4c889
-; RUN: opt -aa-pipeline=basic-aa -passes='require<memdep>',mldst-motion \
-; RUN:   -S < %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes='require<memdep>,mldst-motion' -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
