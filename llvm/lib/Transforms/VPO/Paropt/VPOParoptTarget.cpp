@@ -446,7 +446,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         SmallVector<Type *, 3> KernelInfoInitMemberTypes;
         SmallVector<Constant *, 10> KernelInfoInitBuffer;
 
-        // The current version is 3.
+        // The current version is 4.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt32Ty(C), 4));
@@ -489,9 +489,11 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), Attributes1));
 
-        uint64_t UseGPURedWGLimit = (HasTeamsReduction && HasGlobalAFReduction)
-                                        ? AtomicFreeRedGlobalBufSize
-                                        : 0;
+        uint64_t UseGPURedWGLimit =
+            ((HasTeamsReduction && HasGlobalAFReduction) ||
+             (!AtomicFreeReductionUseSLM && HasLocalAFReduction))
+                ? AtomicFreeRedGlobalBufSize
+                : 0;
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
