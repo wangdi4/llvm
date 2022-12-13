@@ -42,6 +42,7 @@ public:
 
   OCLBuilder &withExtensions(const char *extentions);
 
+  OCLBuilder &withFP16Support(bool);
   OCLBuilder &withFP64Support(bool);
   OCLBuilder &withImageSupport(bool);
   OCLBuilder &withFpgaEmulator(bool);

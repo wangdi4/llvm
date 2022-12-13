@@ -137,8 +137,14 @@ cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config,
 
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *
 GetCPUDevInfo(CPUDeviceConfig &config) {
-  static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {nullptr, 1,
-                                                                     1, 0, 0};
+  static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {
+      nullptr, // extensions
+      true,    // images support
+      true,    // fp16 support
+      true,    // fp64 support
+      false,   // source level profiling
+      false    // fpga emu
+  };
   if (nullptr == CPUDevInfo.sExtensionStrings) {
     CPUDevInfo.sExtensionStrings = config.GetExtensions();
   }
