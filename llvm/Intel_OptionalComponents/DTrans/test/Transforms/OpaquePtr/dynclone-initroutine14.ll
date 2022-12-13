@@ -3,13 +3,13 @@
 ; for DynClone transformation because unexpected library call (i.e free)
 ; is called in init routine.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; 1 and 6 fields are candidates to shrunk.
-%struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64 }
 
 ; CHECK:  Calls in InitRoutine Failed
 
@@ -17,24 +17,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; call "free" is called.
 @glob2 = internal global i8 zeroinitializer
 define void @init() {
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %tp1 = bitcast i8* %call1 to %struct.test.01*
-  %F1 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 1
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %F1 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 1
   %g1 = select i1 undef, i64 500, i64 1000
-  store i64 %g1, i64* %F1, align 8
-  %F6 = getelementptr %struct.test.01, %struct.test.01* %tp1, i32 0, i32 6
+  store i64 %g1, ptr %F1, align 8
+  %F6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6
   %g2 = select i1 undef, i64 -5000, i64 20000
-  store i64 %g2, i64* %F6, align 8
-  tail call void @free(i8* @glob2)
+  store i64 %g2, ptr %F6, align 8
+  tail call void @free(ptr @glob2)
   ret void
 }
 
 ; This routine just accesses candidate field.
 define void @proc1() {
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %tp2 = bitcast i8* %call1 to %struct.test.01*
-  %F6 = getelementptr %struct.test.01, %struct.test.01* %tp2, i32 0, i32 6
-  store i64 0, i64* %F6, align 8
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %F6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6
+  store i64 0, ptr %F6, align 8
   ret void
 }
 
@@ -44,8 +42,8 @@ define i32 @main() {
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
-declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1") #1
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !7 void @free(ptr "intel_dtrans_func_index"="1") #1
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

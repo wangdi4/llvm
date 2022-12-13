@@ -2,7 +2,7 @@
 ; This test verifies only i64 type fields are selected as candidates for
 ; DynClone transformation.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DynCloning Transformation
 ; CHECK:    Possible Candidate fields:
@@ -14,18 +14,17 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Only 1 and 6 fields are selected for candidates.
-%struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64 }
 
 define i32 @main() {
 entry:
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %j = bitcast i8* %call1 to %struct.test.01*
-  %f01 = getelementptr %struct.test.01, %struct.test.01* %j, i64 0, i32 0
-  store i32 10, i32* %f01
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %f01 = getelementptr %struct.test.01, ptr %call1, i64 0, i32 0
+  store i32 10, ptr %f01
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

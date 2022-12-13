@@ -10,7 +10,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64, i32 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64, i32 }
 
 ; Data layout
 ; Oringal             New
@@ -60,7 +60,7 @@ define void @init() {
 ; CHECK-NEXT:    [[D_SEL3:%.*]] = select i1 [[D_CMP2]], i64 [[D_LD1]], i64 [[G1]]
 ; CHECK-NEXT:    store i64 [[D_SEL3]], ptr [[D_MAX]], align 8
 ; CHECK-NEXT:    store i64 [[G1]], ptr [[F1]], align 8
-  store i64 %g1, i64* %F1, align 8
+  store i64 %g1, ptr %F1, align 8
 
 ; CHECK-NEXT:    [[F6:%.*]] = getelementptr [[STRUCT_TEST_01]], ptr [[CALL1]], i32 0, i32 6
   %F6 = getelementptr %struct.test.01, ptr %call1, i32 0, i32 6

@@ -80,7 +80,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; 2nd array fields of @n.
 define "intel_dtrans_func_index"="1" ptr @init() !intel.dtrans.func.type !7 {
   %call0 = call ptr @calloc(i64 1000, i64 32)
-  %call.ptr = call ptr @llvm.ptr.annotation.p0(ptr %call0, ptr getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr null, i32 0, ptr null)
+  %call.ptr = call ptr @llvm.ptr.annotation.p0(ptr %call0, ptr getelementptr inbounds ([38 x i8], ptr @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr null, i32 0, ptr null)
   %C01 = getelementptr i8, ptr %call0, i64 0
   ; DynClone uses pattern match to find the GEPOperator as the pointer parameter
   ; of the store. Use index 1 to avoid the GEP removal.

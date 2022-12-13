@@ -2,14 +2,14 @@
 ; This test verifies that structs with safety violations are rejected for
 ; DynClone transformation.
 
-;  RUN: opt < %s -dtransop-allow-typed-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
+;  RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Both %struct.test.01 and %struct.test.02 are not considered as
 ; candidates due to safety checks.
-%struct.test.01 = type { i32, i64, i32, i32, i16, %struct.test.02*, i64 }
+%struct.test.01 = type { i32, i64, i32, i32, i16, ptr, i64 }
 %struct.test.02 = type { i32, i64, i32, i32, i16, i64, i64 }
 
 ; CHECK: DynCloning Transformation
@@ -20,15 +20,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main() {
 entry:
-  %call1 = tail call i8* @calloc(i64 10, i64 48)
-  %j = bitcast i8* %call1 to %struct.test.01*
-  %k = bitcast %struct.test.01* %j to %struct.test.02*
-  %f01 = getelementptr %struct.test.01, %struct.test.01* %j, i64 0, i32 0
-  %g01 = getelementptr %struct.test.02, %struct.test.02* %k, i64 0, i32 0
+  %call1 = tail call ptr @calloc(i64 10, i64 48)
+  %f01 = getelementptr %struct.test.01, ptr %call1, i64 0, i32 0
+  %g01 = getelementptr %struct.test.02, ptr %call1, i64 0, i32 0
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64
