@@ -2,7 +2,11 @@
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-atomic-free-reduction=true -S %s | FileCheck %s
 
 ; Check that reduction items which are unsupported by atomic-free approach (UDR in this exmaple) do not pass WG and WI limits to libomptarget via kernel_info
-; CHECK: @__omp_offloading_805_b43487__Z3foo_l3_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 3, [3 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 1, i64 0, i64 0 }
+
+
+; CHECK: %[[KINFO_TYPE:[^,]+]] = type { i32, i32, [3 x %1], i64, i64, i64 }
+; CHECK: %[[KINFO_ARGMAP_TYPE:[^,]+]] = type { i32, i32 }
+; CHECK: @__omp_offloading_805_b43487__Z3foo_l3_kernel_info = weak target_declare addrspace(1) constant %[[KINFO_TYPE]] { i32 4, i32 3, [3 x %[[KINFO_ARGMAP_TYPE]]] [%[[KINFO_ARGMAP_TYPE]] { i32 0, i32 8 }, %[[KINFO_ARGMAP_TYPE]] { i32 0, i32 8 }, %[[KINFO_ARGMAP_TYPE]] { i32 0, i32 8 }], i64 1, i64 0, i64 0 }
 
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
