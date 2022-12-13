@@ -35,7 +35,6 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -61,16 +60,18 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
-#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
-#endif //INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

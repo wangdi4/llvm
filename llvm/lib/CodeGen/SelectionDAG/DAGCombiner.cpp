@@ -68,11 +68,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-#include "llvm/IR/IntrinsicsCSA.h"
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CodeGen.h"
@@ -96,6 +91,12 @@
 #include <tuple>
 #include <utility>
 #include <variant>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

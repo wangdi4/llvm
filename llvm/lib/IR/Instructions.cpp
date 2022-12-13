@@ -34,7 +34,6 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -54,7 +53,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/ModRef.h"
@@ -63,6 +61,11 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/AbstractCallSite.h"
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

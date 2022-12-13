@@ -96,8 +96,6 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/GlobalsModRef.h" // INTEL
-#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -129,6 +127,11 @@
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include <cassert>
 #include <cstdint>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace PatternMatch;

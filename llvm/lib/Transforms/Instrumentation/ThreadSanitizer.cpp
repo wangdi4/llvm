@@ -55,7 +55,6 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -66,6 +65,10 @@
 #include "llvm/Transforms/Utils/EscapeEnumerator.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/InitializePasses.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

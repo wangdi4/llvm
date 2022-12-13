@@ -63,12 +63,13 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#if INTEL_CUSTOMIZATION
-#include "Intel_X86MemOpKey.h"
-#endif
 #include <cassert>
 #include <cstdint>
 #include <iterator>
+
+#if INTEL_CUSTOMIZATION
+#include "Intel_X86MemOpKey.h"
+#endif
 
 using namespace llvm;
 

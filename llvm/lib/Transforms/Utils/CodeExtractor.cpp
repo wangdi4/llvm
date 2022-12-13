@@ -77,15 +77,16 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
-#endif // INTEL_COLLAB
 #include <cassert>
 #include <cstdint>
 #include <iterator>
 #include <map>
 #include <utility>
 #include <vector>
+
+#if INTEL_COLLAB
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

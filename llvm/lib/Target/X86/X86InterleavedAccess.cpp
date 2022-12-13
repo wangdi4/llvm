@@ -32,11 +32,8 @@
 
 #include "X86ISelLowering.h"
 #include "X86Subtarget.h"
-#include "X86TargetTransformInfo.h"                // INTEL
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/Intel_OptVLS.h"            // INTEL
-#include "llvm/Analysis/Intel_OptVLSClientUtils.h" // INTEL
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -53,6 +50,12 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+
+#if INTEL_CUSTOMIZATION
+#include "X86TargetTransformInfo.h"
+#include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Analysis/Intel_OptVLSClientUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

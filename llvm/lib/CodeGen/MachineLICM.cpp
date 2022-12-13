@@ -66,12 +66,15 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <limits>
 #include <vector>
-#include "llvm/CodeGen/RegisterClassInfo.h" // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/RegisterClassInfo.h"
+#include "llvm/Target/TargetMachine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

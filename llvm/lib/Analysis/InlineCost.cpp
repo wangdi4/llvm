@@ -38,11 +38,6 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-#include "llvm/Analysis/Intel_InlineCost.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -56,7 +51,6 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -65,10 +59,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
 #include <climits>
 #include <limits>
 #include <optional>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_InlineCost.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL

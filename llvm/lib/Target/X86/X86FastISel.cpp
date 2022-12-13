@@ -38,7 +38,6 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -58,6 +57,11 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetOptions.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 namespace {

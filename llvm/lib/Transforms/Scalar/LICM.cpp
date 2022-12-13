@@ -63,7 +63,6 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GuardUtils.h"
-#include "llvm/Analysis/Intel_WP.h"        // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -103,6 +102,11 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 namespace llvm {

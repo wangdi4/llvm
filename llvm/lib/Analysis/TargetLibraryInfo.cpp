@@ -30,9 +30,13 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Operator.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/Operator.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
