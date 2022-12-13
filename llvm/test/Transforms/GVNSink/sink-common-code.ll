@@ -1,12 +1,8 @@
-<<<<<<< HEAD
 ; INTEL
 ; The customization used to force -phi-node-folding-threshold=2,
 ;   which is LLVM original.
-; RUN: opt < %s -gvn-sink -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -hoist-common-insts=true -simplifycfg-sink-common=false -phi-node-folding-threshold=2 -S | FileCheck %s
+; RUN: opt < %s -passes=gvn-sink,simplifycfg -simplifycfg-require-and-preserve-domtree=1 -hoist-common-insts=true -simplifycfg-sink-common=false -phi-node-folding-threshold=2 -S | FileCheck %s
 ; END INTEL CUSTOMIZATION
-=======
-; RUN: opt < %s -passes=gvn-sink,simplifycfg -simplifycfg-require-and-preserve-domtree=1 -hoist-common-insts=true -simplifycfg-sink-common=false -S | FileCheck %s
->>>>>>> 2adab06db90c30e5478c2b11bca2b319f55233f6
 
 define zeroext i1 @test1(i1 zeroext %flag, i32 %blksA, i32 %blksB, i32 %nblks) {
 entry:
