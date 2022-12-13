@@ -805,39 +805,15 @@ public:
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB) {
+    // Note that we intentionally defeat the caching effect typically
+    // provided by BatchAAResults here by not passing AAQI. This avoids the
+    // need for any AAQI instance to handle both alias() and loopCarriedAlias()
+    // semantics simultaneously.
+    //
+    // This leaves BatchAAResults::loopCarriedAlias with no advantage over
+    // AAResults::loopCarriedAlias; it's implemented only because
+    // AliasSetTracker uses BatchAAResults exclusively.
     return AA.loopCarriedAlias(LocA, LocB);
-  }
-
-  AliasResult loopCarriedAlias(const Value *V1, LocationSize V1Size,
-                               const Value *V2, LocationSize V2Size) {
-    return AA.loopCarriedAlias(V1, V1Size, V2, V2Size);
-  }
-
-  AliasResult loopCarriedAlias(const Value *V1, const Value *V2) {
-    return AA.loopCarriedAlias(V1, V2);
-  }
-
-  bool isLoopCarriedNoAlias(const Value *V1, LocationSize V1Size,
-                            const Value *V2, LocationSize V2Size) {
-    return AA.isLoopCarriedNoAlias(V1, V1Size, V2, V2Size);
-  }
-
-  /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
-  bool isLoopCarriedNoAlias(const Value *V1, const Value *V2) {
-    return AA.isLoopCarriedNoAlias(V1, V2);
-  }
-
-  /// A trivial helper function to check to see if the specified pointers are
-  /// must-alias in the loop-carried sense.
-  bool isLoopCarriedMustAlias(const MemoryLocation &LocA,
-                              const MemoryLocation &LocB) {
-    return AA.isLoopCarriedMustAlias(LocA, LocB);
-  }
-
-  /// A convenience wrapper around the \c isLoopCarriedMustAlias helper
-  /// interface.
-  bool isLoopCarriedMustAlias(const Value *V1, const Value *V2) {
-    return AA.isLoopCarriedMustAlias(V1, V2);
   }
 #endif // INTEL_CUSTOMIZATION
 
