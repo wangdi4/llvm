@@ -33,7 +33,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -51,7 +50,15 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <map>
+<<<<<<< HEAD
 #include <optional>
+=======
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#endif // INTEL_CUSTOMIZATION
+
+>>>>>>> c8b84ba0835327a4d4ed94b36e8589ea48ed2910
 using namespace llvm;
 
 #define DEBUG_TYPE "clone-function"

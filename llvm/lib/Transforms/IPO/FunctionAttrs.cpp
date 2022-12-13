@@ -46,12 +46,9 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
-#include "llvm/Analysis/Intel_WP.h"                  // INTEL
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -84,6 +81,12 @@
 #include <iterator>
 #include <map>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/AbstractCallSite.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

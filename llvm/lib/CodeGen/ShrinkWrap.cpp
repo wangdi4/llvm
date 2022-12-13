@@ -69,9 +69,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/AliasAnalysis.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
@@ -104,6 +101,10 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/AliasAnalysis.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

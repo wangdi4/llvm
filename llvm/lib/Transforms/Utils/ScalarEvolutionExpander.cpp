@@ -33,7 +33,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/Triple.h" // INTEL
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -51,6 +50,10 @@
 #else
 #define SCEV_DEBUG_WITH_TYPE(TYPE, X)
 #endif
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/Triple.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

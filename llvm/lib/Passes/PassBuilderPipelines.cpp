@@ -146,8 +146,7 @@
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 #if INTEL_CUSTOMIZATION
-// clang-format off
-#include "llvm/ADT/ScopeExit.h" // INTEL
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
@@ -186,8 +185,8 @@
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #include "llvm/Transforms/IPO/Internalize.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
-#include "llvm/Transforms/Scalar/Intel_IVSplit.h"               // INTEL
+#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
+#include "llvm/Transforms/Scalar/Intel_IVSplit.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -336,7 +335,6 @@
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #else // ! INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
-// clang-format on
 #endif // INTEL_COLLAB
 
 using namespace llvm::loopopt;                 // INTEL

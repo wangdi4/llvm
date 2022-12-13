@@ -32,10 +32,13 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/CommandLine.h"                        // INTEL
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"          // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

@@ -59,24 +59,21 @@
 #include "llvm/Transforms/Vectorize.h"
 
 #if INTEL_CUSTOMIZATION
-// clang-format off
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/Verifier.h"
-
-#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -88,22 +85,20 @@
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
-#endif  // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
-
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #endif // INTEL_COLLAB
-// clang-format on
 
 using namespace llvm;
 

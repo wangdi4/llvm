@@ -33,7 +33,6 @@
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Scalar.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -42,11 +41,13 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
