@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -S -basic-aa -gvn -enable-load-pre < %s | FileCheck %s
+=======
+; RUN: opt -S -passes=gvn -enable-load-pre < %s | FileCheck %s
+>>>>>>> 0aeedf581c88fe77cb34af14b80c1a8cae31c03c
 ;
 ; The partially redundant load in bb1 should be hoisted to "bb".  This comes
 ; from this C code (GCC PR 23455):
