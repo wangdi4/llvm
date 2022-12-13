@@ -2664,26 +2664,35 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
       return CGF.MakeAddrLValue(Addr, T, AlignmentSource::Decl);
   }
 
+  llvm::Value *V = CGF.CGM.GetAddrOfGlobalVar(VD);
+
 #if INTEL_COLLAB
   // Diagnose uses of globals that are not marked for target. This typically
   // causes an offload failure at runtime.
   if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsDevice &&
-      CGF.CGM.inTargetRegion() && E->getExprLoc().isValid() &&
-      !(CGF.CapturedStmtInfo &&
-        CGF.CapturedStmtInfo->inNestedTargetConstruct())) {
+      CGF.CGM.inTargetRegion() && E->getExprLoc().isValid()) {
     llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res) {
-      CGF.CGM.getDiags().Report(E->getExprLoc(),
-                                diag::err_omp_used_target_variable_not_marked)
-          << VD;
-      CGF.CGM.getDiags().Report(VD->getBeginLoc(), diag::note_previous_decl)
-          << VD;
+      if (!VD->isConstexpr() &&
+          !(CGF.CapturedStmtInfo &&
+            CGF.CapturedStmtInfo->inNestedTargetConstruct())) {
+        CGF.CGM.getDiags().Report(E->getExprLoc(),
+                                  diag::err_omp_used_target_variable_not_marked)
+            << VD;
+        CGF.CGM.getDiags().Report(VD->getBeginLoc(), diag::note_previous_decl)
+            << VD;
+      }
+      if (VD->isConstexpr()) {
+        // Temporarily set target_declare attribute for global constexpr
+        // variable which used in the target region.
+        auto *GV = dyn_cast<llvm::GlobalValue>(V->stripPointerCasts());
+        assert(GV && "expect GlobalValue");
+        GV->setTargetDeclare(true);
+      }
     }
   }
 #endif // INTEL_COLLAB
-
-  llvm::Value *V = CGF.CGM.GetAddrOfGlobalVar(VD);
 
   if (VD->getTLSKind() != VarDecl::TLS_None)
     V = CGF.Builder.CreateThreadLocalAddress(V);
@@ -2888,6 +2897,15 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
                                         /* forPointeeType= */ true);
         Addr = Address(Val, ConvertTypeForMem(E->getType()), Alignment);
       }
+#if INTEL_COLLAB
+      // Temporarily set target_declare attribute for global constexpr
+      // variable which used in the target region.
+      if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+          CGM.inTargetRegion() && VD->isConstexpr())
+        if (auto *GV = dyn_cast<llvm::GlobalValue>(
+                Addr.getPointer()->stripPointerCasts()))
+          GV->setTargetDeclare(true);
+#endif // INTEL_COLLAB
       return MakeAddrLValue(Addr, T, AlignmentSource::Decl);
     }
 
