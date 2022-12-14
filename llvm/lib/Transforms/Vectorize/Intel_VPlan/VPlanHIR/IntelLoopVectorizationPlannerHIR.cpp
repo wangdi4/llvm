@@ -178,13 +178,6 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         Red->getRecurrenceKind() == RecurKind::SelectFCmp)
       return false;
 
-  for (auto Ind : LE->vpinductions()) {
-    if (Ind->getKind() == InductionDescriptor::IK_PtrInduction) {
-      LLVM_DEBUG(dbgs() << "LVP: Pointer induction currently not supported.\n");
-      return false;
-    }
-  }
-
   // All checks passed.
   return true;
 }

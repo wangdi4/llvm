@@ -4545,7 +4545,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     int StartConst = isMult ? 1 : 0;
     Constant *StartCoeff =
         IsFloat ? ConstantFP::get(VPInst->getType(), StartConst)
-                : ConstantInt::get(VPInst->getType(), StartConst);
+                : ConstantInt::get(StepVal->getDestType(), StartConst);
     RegDDRef *VectorStep;
     assert(!isMult && "Mutiplication induction is not supported.");
     // Generate sequence of vector operations:
@@ -4557,7 +4557,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     for (unsigned I = 1; I < VF; I++) {
       Constant *ConstVal =
           IsFloat ? ConstantFP::get(VPInst->getType(), I)
-                  : ConstantInt::getSigned(VPInst->getType(), I);
+                  : ConstantInt::getSigned(StepVal->getDestType(), I);
       IndStep.push_back(ConstVal);
     }
     RegDDRef *VecConst =
@@ -4580,11 +4580,35 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       addInstUnmasked(VectorStepInst);
       VectorStep = VectorStepInst->getLvalDDRef()->clone();
     }
-    HLInst *RetInst = HLNodeUtilities.createBinaryHLInst(
-        static_cast<Instruction::BinaryOps>(Opc), VectorStart, VectorStep);
-    addInstUnmasked(RetInst);
 
-    addVPValueWideRefMapping(VPInst, RetInst->getLvalDDRef()->clone());
+    if (VPInst->getType()->isPointerTy()) {
+      // Create starting vector of pointers for pointer induction. Here, we
+      // broadcast the starting ptr and use the initial step vector for the
+      // indices.
+      RegDDRef *BaseRef = StartVal;
+      if (!StartVal->isSelfBlob()) {
+        HLInst *BaseRefCopy =
+            HLNodeUtilities.createCopyInst(VectorStart, "base.addr.copy");
+        addInstUnmasked(BaseRefCopy);
+        BaseRef = BaseRefCopy->getLvalDDRef();
+      }
+      auto *StartVecPtrs =
+          DDRefUtilities.createAddressOfRef(
+              getInt8OrPointerElementTy(StartVal->getDestType()),
+              BaseRef->getSelfBlobIndex(),
+              getNestingLevelFromInsertPoint(),
+              BaseRef->getSymbase());
+      StartVecPtrs->addDimension(VectorStep->getSingleCanonExpr());
+      StartVecPtrs->makeConsistent({VectorStep},
+                                   getNestingLevelFromInsertPoint());
+      StartVecPtrs->setBitCastDestVecOrElemType(VectorStart->getDestType());
+      addVPValueWideRefMapping(VPInst, StartVecPtrs->clone());
+    } else {
+      HLInst *RetInst = HLNodeUtilities.createBinaryHLInst(
+          static_cast<Instruction::BinaryOps>(Opc), VectorStart, VectorStep);
+      addInstUnmasked(RetInst);
+      addVPValueWideRefMapping(VPInst, RetInst->getLvalDDRef()->clone());
+    }
     addVPValueScalRefMapping(VPInst, StartVal, 0);
     return;
   }
@@ -4758,16 +4782,32 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
           addInstUnmasked(MulInst);
           MulRef = MulInst->getLvalDDRef()->clone();
         }
-        assert(!VPInst->getType()->isPointerTy() &&
-               "Pointer type is not supported.");
         // Write last value back to original temp, if it's not a constant.
-        auto *IndFinalLval =
-            Start->getSymbase() == ConstantSymbase ? nullptr : Start->clone();
-        HLInst *LastValInst = HLNodeUtilities.createBinaryHLInst(
-            static_cast<Instruction::BinaryOps>(Opc), Start, MulRef->clone(),
-            "ind.final", IndFinalLval);
-        addInstUnmasked(LastValInst);
-        LastValue = LastValInst->getLvalDDRef()->clone();
+        if (VPInst->getType()->isPointerTy()) {
+          RegDDRef *BaseAddr = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+          if (!BaseAddr->isSelfBlob()) {
+            HLInst *BaseAddrCopy =
+                HLNodeUtilities.createCopyInst(BaseAddr, "base.addr.copy");
+            addInstUnmasked(BaseAddrCopy);
+            BaseAddr = BaseAddrCopy->getLvalDDRef();
+          }
+          LastValue = DDRefUtilities.createAddressOfRef(
+              getInt8OrPointerElementTy(BaseAddr->getDestType()),
+              BaseAddr->getSelfBlobIndex(), getNestingLevelFromInsertPoint(),
+              BaseAddr->getSymbase());
+          LastValue->addDimension(MulRef->getSingleCanonExpr());
+          LastValue->makeConsistent({MulRef}, getNestingLevelFromInsertPoint());
+          LastValue->setBitCastDestVecOrElemType(
+              getInt8OrPointerElementTy(BaseAddr->getDestType()));
+        } else {
+          auto *IndFinalLval =
+              Start->getSymbase() == ConstantSymbase ? nullptr : Start->clone();
+          HLInst *LastValInst = HLNodeUtilities.createBinaryHLInst(
+              static_cast<Instruction::BinaryOps>(Opc), Start, MulRef->clone(),
+              "ind.final", IndFinalLval);
+          addInstUnmasked(LastValInst);
+          LastValue = LastValInst->getLvalDDRef()->clone();
+        }
       }
     }
     // The value is scalar
@@ -7040,13 +7080,33 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       //   %gep = getelementptr %base, i32 offset ; usually negative
       auto SVA = Plan->getVPlanSVA();
       (void)SVA;
-      assert(SVA->retValNeedsFirstScalarCode(VPInst) &&
+      assert((SVA->retValNeedsFirstScalarCode(VPInst) ||
+             SVA->retValNeedsVectorCode(VPInst)) &&
              !SVA->retValNeedsLastScalarCode(VPInst) &&
-             !SVA->retValNeedsVectorCode(VPInst) &&
              "GetElementPtr not fully supported!");
       if (!Widen) {
         // FIXME: generateHIR is called two times. Non-widen case has more
         // conditions, so generate during the widening call.
+        return;
+      }
+
+      if (SVA->retValNeedsVectorCode(VPInst)) {
+        // This case needed for closed form update of ptr induction where we
+        // take existing vector of pointers and index with (step * VF)
+        // broadcasted.
+        auto *VecPtrs = widenRef(VPInst->getOperand(0), VF);
+        auto *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+        auto *VecIdx = widenRef(Idx, VF);
+        VectorType *VecTy = cast<VectorType>(VecPtrs->getDestType());
+        PointerType *PtrTy = cast<PointerType>(VecTy->getElementType());
+        auto *VecPtrsUpdate = DDRefUtilities.createAddressOfRef(
+            getInt8OrPointerElementTy(PtrTy), VecPtrs->getSelfBlobIndex(),
+            getNestingLevelFromInsertPoint(), VecPtrs->getSymbase());
+        VecPtrsUpdate->addDimension(VecIdx->getSingleCanonExpr());
+        VecPtrsUpdate->makeConsistent({VecIdx},
+                                      getNestingLevelFromInsertPoint());
+        VecPtrsUpdate->setBitCastDestVecOrElemType(VecPtrs->getDestType());
+        addVPValueWideRefMapping(VPInst, VecPtrsUpdate);
         return;
       }
 
