@@ -1213,7 +1213,8 @@ static std::string getDescription(const Function &F) {
 
 bool VPlanDriver::skipFunction(const Function &F) const {
   OptPassGate &Gate = F.getContext().getOptPassGate();
-  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+  if (Gate.isEnabled() &&
+      !Gate.shouldRunPass(this->getPassName(), getDescription(F)))
     return true;
 
   bool IsOmpSimdKernel = (F.getMetadata("omp_simd_kernel") != nullptr);

@@ -4,7 +4,8 @@
 ; We should be able to prove this loop body executes 8 times.
 
 ; CHECK: Loop %do.body: backedge-taken count is 7
-; CHECK: Loop %do.body: max backedge-taken count is 7
+; CHECK: Loop %do.body: constant max backedge-taken count is 7
+; CHECK: Loop %do.body: symbolic max backedge-taken count is 7
 
 define void @foo(i8 %x) {
 entry:
@@ -27,7 +28,8 @@ do.end:                                           ; preds = %do.body
 ; compare is using the IV phi instead of the shifted value.
 
 ; CHECK: Loop %do.body1: backedge-taken count is 8
-; CHECK: Loop %do.body1: max backedge-taken count is 8
+; CHECK: Loop %do.body1: constant max backedge-taken count is 8
+; CHECK: Loop %do.body1: symbolic max backedge-taken count is 8
 
 define void @foo1(i8 %x) {
 entry:

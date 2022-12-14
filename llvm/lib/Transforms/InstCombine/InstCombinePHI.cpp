@@ -37,6 +37,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include <optional>
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -1345,7 +1346,7 @@ static Value *simplifyUsingControlFlow(InstCombiner &Self, PHINode &PN,
 
   // Check that edges outgoing from the idom's terminators dominate respective
   // inputs of the Phi.
-  Optional<bool> Invert;
+  std::optional<bool> Invert;
   for (auto Pair : zip(PN.incoming_values(), PN.blocks())) {
     auto *Input = cast<ConstantInt>(std::get<0>(Pair));
     BasicBlock *Pred = std::get<1>(Pair);

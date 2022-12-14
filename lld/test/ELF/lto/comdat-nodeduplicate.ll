@@ -10,7 +10,7 @@
 ; RUN: llvm-as %t/b.ll -o %t/b.bc
 ; RUN: llvm-as %t/c.ll -o %t/c.bc
 
-; RUN: ld.lld --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: ld.lld -mllvm -opaque-pointers --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
@@ -20,7 +20,7 @@
 ; DATA: 0x[[#%x,]] 01000000 00000000  ........
 
 ;; __profc_foo from c.bc is non-prevailing and thus discarded.
-; RUN: ld.lld --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: ld.lld -mllvm -opaque-pointers --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: FileCheck %s --check-prefix=RESOL_ABC < %t/abc.resolution.txt
 ; RUN: llvm-readelf -x .data %t/abc | FileCheck %s --check-prefix=DATA
 
@@ -34,22 +34,22 @@
 ; RUN: opt --module-summary %t/b.ll -o %t/b.bc
 ; RUN: opt --module-summary %t/c.ll -o %t/c.bc
 
-; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc %t/b.bc -o %t/ab
+; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-; RUN: ld.lld -u foo %t/a.bc %t/b.bc -o %t/ab
+; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
-; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
-; RUN: ld.lld --thinlto-index-only --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: FileCheck %s --check-prefix=RESOL_ABC < %t/abc.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_ABC
-; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: llvm-readelf -x .data %t/abc | FileCheck %s --check-prefix=DATA
 
 ; IR_AB-DAG: gv: (name: "__profd_foo", {{.*}} guid = [[PROFD:[0-9]+]]
@@ -72,14 +72,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 $__profc_foo = comdat nodeduplicate
 @__profc_foo = private global i64 1, comdat, align 8
-@__profd_foo = private global i64* @__profc_foo, comdat($__profc_foo), align 8
+@__profd_foo = private global ptr @__profc_foo, comdat($__profc_foo), align 8
 
 declare void @b()
 
 define i64 @foo() {
-  %v = load i64, i64* @__profc_foo
+  %v = load i64, ptr @__profc_foo
   %inc = add i64 1, %v
-  store i64 %inc, i64* @__profc_foo
+  store i64 %inc, ptr @__profc_foo
   ret i64 %inc
 }
 
@@ -94,12 +94,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 $__profc_foo = comdat nodeduplicate
 @__profc_foo = weak hidden global i64 2, comdat, align 8
-@__profd_foo = private global i64* @__profc_foo, comdat($__profc_foo)
+@__profd_foo = private global ptr @__profc_foo, comdat($__profc_foo)
 
 define weak i64 @foo() {
-  %v = load i64, i64* @__profc_foo
+  %v = load i64, ptr @__profc_foo
   %inc = add i64 1, %v
-  store i64 %inc, i64* @__profc_foo
+  store i64 %inc, ptr @__profc_foo
   ret i64 %inc
 }
 
@@ -113,12 +113,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 $__profc_foo = comdat nodeduplicate
 @__profc_foo = weak hidden global i64 3, comdat, align 8
-@__profd_foo = private global i64* @__profc_foo, comdat($__profc_foo)
+@__profd_foo = private global ptr @__profc_foo, comdat($__profc_foo)
 
 define weak i64 @foo() {
-  %v = load i64, i64* @__profc_foo
+  %v = load i64, ptr @__profc_foo
   %inc = add i64 1, %v
-  store i64 %inc, i64* @__profc_foo
+  store i64 %inc, ptr @__profc_foo
   ret i64 %inc
 }
 

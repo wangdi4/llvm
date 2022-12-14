@@ -80,6 +80,7 @@
 #include <cassert>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <utility>
 
 #define DEBUG_TYPE "simple-loop-unswitch"
@@ -1136,7 +1137,8 @@ static BasicBlock *buildClonedLoopBlocks(
     const SmallDenseMap<BasicBlock *, BasicBlock *, 16> &DominatingSucc,
     ValueToValueMapTy &VMap,
     SmallVectorImpl<DominatorTree::UpdateType> &DTUpdates, AssumptionCache &AC,
-    DominatorTree &DT, LoopInfo &LI, MemorySSAUpdater *MSSAU) {
+    DominatorTree &DT, LoopInfo &LI, MemorySSAUpdater *MSSAU,
+    ScalarEvolution *SE) {
   SmallVector<BasicBlock *, 4> NewBlocks;
   NewBlocks.reserve(L.getNumBlocks() + ExitBlocks.size());
 
@@ -1211,6 +1213,10 @@ static BasicBlock *buildClonedLoopBlocks(
           "Bad instruction in exit block!");
       // We should have a value map between the instruction and its clone.
       assert(VMap.lookup(&I) == &ClonedI && "Mismatch in the value map!");
+
+      // Forget SCEVs based on exit phis in case SCEV looked through the phi.
+      if (SE && isa<PHINode>(I))
+        SE->forgetValue(&I);
 
       auto *MergePN =
           PHINode::Create(I.getType(), /*NumReservedValues*/ 2, ".us-phi",
@@ -2240,7 +2246,7 @@ static void unswitchNontrivialInvariants(
     VMaps.emplace_back(new ValueToValueMapTy());
     ClonedPHs[SuccBB] = buildClonedLoopBlocks(
         L, LoopPH, SplitBB, ExitBlocks, ParentBB, SuccBB, RetainedSuccBB,
-        DominatingSucc, *VMaps.back(), DTUpdates, AC, DT, LI, MSSAU);
+        DominatingSucc, *VMaps.back(), DTUpdates, AC, DT, LI, MSSAU, SE);
   }
 
   // Drop metadata if we may break its semantics by moving this instr into the
@@ -3012,7 +3018,7 @@ static NonTrivialUnswitchCandidate findBestNonTrivialUnswitchCandidate(
     return (LoopCost - Cost) * (SuccessorsCount - 1);
   };
 
-  Optional<NonTrivialUnswitchCandidate> Best;
+  std::optional<NonTrivialUnswitchCandidate> Best;
   for (auto &Candidate : UnswitchCandidates) {
     Instruction &TI = *Candidate.TI;
     ArrayRef<Value *> Invariants = Candidate.Invariants;
@@ -3252,7 +3258,7 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
     U.markLoopAsDeleted(L, Name);
   };
 
-  Optional<MemorySSAUpdater> MSSAU;
+  std::optional<MemorySSAUpdater> MSSAU;
   if (AR.MSSA) {
     MSSAU = MemorySSAUpdater(AR.MSSA);
     if (VerifyMemorySSA)
@@ -3262,8 +3268,8 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
   if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TLI, AR.TTI, Trivial,
                     NonTrivial,
 #endif // INTEL_CUSTOMIZATION
-                    UnswitchCB, &AR.SE, MSSAU ? MSSAU.getPointer() : nullptr,
-                    PSI, AR.BFI, DestroyLoopCB))
+                    UnswitchCB, &AR.SE, MSSAU ? &*MSSAU : nullptr, PSI, AR.BFI,
+                    DestroyLoopCB))
     return PreservedAnalyses::all();
 
   if (AR.MSSA && VerifyMemorySSA)

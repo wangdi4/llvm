@@ -54,9 +54,7 @@ define i16 @mand16_mem(ptr %x, ptr %y) {
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    kmovw (%rdi), %k0 ## encoding: [0xc5,0xf8,0x90,0x07]
 ; CHECK-NEXT:    kmovw (%rsi), %k1 ## encoding: [0xc5,0xf8,0x90,0x0e]
-; CHECK-NEXT:    kandw %k1, %k0, %k2 ## encoding: [0xc5,0xfc,0x41,0xd1]
-; CHECK-NEXT:    kxorw %k1, %k0, %k0 ## encoding: [0xc5,0xfc,0x47,0xc1]
-; CHECK-NEXT:    korw %k0, %k2, %k0 ## encoding: [0xc5,0xec,0x45,0xc0]
+; CHECK-NEXT:    korw %k1, %k0, %k0 ## encoding: [0xc5,0xfc,0x45,0xc1]
 ; CHECK-NEXT:    kmovd %k0, %eax ## encoding: [0xc5,0xfb,0x93,0xc0]
 ; CHECK-NEXT:    ## kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -67,9 +65,7 @@ define i16 @mand16_mem(ptr %x, ptr %y) {
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx ## encoding: [0x8b,0x4c,0x24,0x04]
 ; X86-NEXT:    kmovw (%ecx), %k0 ## encoding: [0xc5,0xf8,0x90,0x01]
 ; X86-NEXT:    kmovw (%eax), %k1 ## encoding: [0xc5,0xf8,0x90,0x08]
-; X86-NEXT:    kandw %k1, %k0, %k2 ## encoding: [0xc5,0xfc,0x41,0xd1]
-; X86-NEXT:    kxorw %k1, %k0, %k0 ## encoding: [0xc5,0xfc,0x47,0xc1]
-; X86-NEXT:    korw %k0, %k2, %k0 ## encoding: [0xc5,0xec,0x45,0xc0]
+; X86-NEXT:    korw %k1, %k0, %k0 ## encoding: [0xc5,0xfc,0x45,0xc1]
 ; X86-NEXT:    kmovd %k0, %eax ## encoding: [0xc5,0xfb,0x93,0xc0]
 ; X86-NEXT:    ## kill: def $ax killed $ax killed $eax
 ; X86-NEXT:    retl ## encoding: [0xc3]

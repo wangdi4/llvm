@@ -61,6 +61,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <climits>
 #include <limits>
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -602,7 +603,7 @@ public:
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
-  Optional<Constant *> getSimplifiedValue(Instruction *I) {
+  std::optional<Constant *> getSimplifiedValue(Instruction *I) {
     if (SimplifiedValues.find(I) != SimplifiedValues.end())
       return SimplifiedValues[I];
     return None;
@@ -956,7 +957,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // Determine whether we should inline the given call site, taking into account
   // both the size cost and the cycle savings.  Return None if we don't have
   // suficient profiling information to determine.
-  Optional<bool> costBenefitAnalysis() {
+  std::optional<bool> costBenefitAnalysis() {
     if (!CostBenefitAnalysisEnabled)
       return None;
 

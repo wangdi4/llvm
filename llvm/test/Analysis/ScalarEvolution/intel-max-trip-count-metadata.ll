@@ -5,7 +5,7 @@
 
 ; Check that llvm.loop.intel.loopcount_maximum is recognized.
 ; CHECK-LABEL: @loopcount_maximum
-; CHECK: Loop %L1: max backedge-taken count is 7
+; CHECK: Loop %L1: constant max backedge-taken count is 7
 define void @loopcount_maximum(i64 %n, i64 %s) {
 entry:
   br label %L1
@@ -25,7 +25,7 @@ exit:
 
 ; Check that llvm.loop.intel.max.trip_count is recognized.
 ; CHECK-LABEL: @max_trip_count
-; CHECK: Loop %L1: max backedge-taken count is 15
+; CHECK: Loop %L1: constant max backedge-taken count is 15
 define void @max_trip_count(i64 %n, i64 %s) {
 entry:
   br label %L1
@@ -46,9 +46,9 @@ exit:
 ; Check that if both metadata are present the smaller one is used to bound the
 ; trip count.
 ; CHECK-LABEL: @both_metadata
-; CHECK: Loop %L3: max backedge-taken count is 3
-; CHECK: Loop %L2: max backedge-taken count is 7
-; CHECK: Loop %L1: max backedge-taken count is 7
+; CHECK: Loop %L3: constant max backedge-taken count is 3
+; CHECK: Loop %L2: constant max backedge-taken count is 7
+; CHECK: Loop %L1: constant max backedge-taken count is 7
 define void @both_metadata(i64 %n, i64 %s) {
 entry:
   br label %L1
@@ -88,7 +88,7 @@ exit:
 
 ; Check that this min operation is correctly unsigned.
 ; CHECK-LABEL: @both_metadata_unsigned
-; CHECK: Loop %L1: max backedge-taken count is 7
+; CHECK: Loop %L1: constant max backedge-taken count is 7
 define void @both_metadata_unsigned(i64 %n, i64 %s) {
 entry:
   br label %L1
@@ -108,7 +108,7 @@ exit:
 
 ; Check that it can also handle differing types correctly.
 ; CHECK-LABEL: @both_metadata_types
-; CHECK: Loop %L1: max backedge-taken count is 4294967294
+; CHECK: Loop %L1: constant max backedge-taken count is 4294967294
 define void @both_metadata_types(i64 %n, i64 %s) {
 entry:
   br label %L1
@@ -129,8 +129,8 @@ exit:
 ; Check that if the max trip count can be determined by other means, it will
 ; also be used instead of the metadata values if it is smaller.
 ; CHECK-LABEL: @known_max_trip_count
-; CHECK: Loop %L2: max backedge-taken count is 3
-; CHECK: Loop %L1: max backedge-taken count is 6
+; CHECK: Loop %L2: constant max backedge-taken count is 3
+; CHECK: Loop %L1: constant max backedge-taken count is 6
 define void @known_max_trip_count(i64 %n) {
 entry:
   %n.mask = and i64 %n, 7
@@ -161,7 +161,7 @@ exit:
 ; Check that a metadata max trip count of zero is handled correctly and doesn't
 ; underflow.
 ; CHECK-LABEL: @zero_trip_count
-; CHECK: Loop %L1: max backedge-taken count is 0
+; CHECK: Loop %L1: constant max backedge-taken count is 0
 define void @zero_trip_count(i64 %n, i64 %s) {
 entry:
   br label %L1

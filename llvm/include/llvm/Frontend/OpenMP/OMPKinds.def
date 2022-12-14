@@ -560,6 +560,35 @@ __OMP_ATTRS_SET(
                        EnumAttr(WillReturn),
                        MemoryAttr(MemoryEffects::inaccessibleOrArgMemOnly()))
         : AttributeSet(EnumAttr(NoUnwind)))
+#if INTEL_COLLAB
+// kmpc_for_static_init_* functions.
+
+// Same as above but with "NoFree".
+// Would be cleaner with an "|" operator.
+// Investigate whether "WillReturn" and "NoSync" will help any cases.
+__OMP_ATTRS_SET(
+    GetterArgWithNoFree,
+    OptimisticAttributes
+        ? AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoSync), EnumAttr(NoFree),
+                       EnumAttr(WillReturn),
+                       MemoryAttr(MemoryEffects::inaccessibleOrArgMemOnly()))
+        : AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)))
+__OMP_ATTRS_SET(
+    InaccessibleArgWithNoFree,
+    OptimisticAttributes
+         ? AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoSync), EnumAttr(NoFree),
+                        EnumAttr(WillReturn),
+                        MemoryAttr(MemoryEffects::inaccessibleOrArgMemOnly()))
+         : AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)))
+
+// Need these set all the time, not dependent on "OptimisticAttributes".
+__OMP_ATTRS_SET(
+    ReadOnlyPtrAlways,
+    AttributeSet(EnumAttr(ReadOnly), EnumAttr(NoFree), EnumAttr(NoCapture)))
+__OMP_ATTRS_SET(
+    ArgPtrAlways,
+    AttributeSet(EnumAttr(NoCapture), EnumAttr(NoFree)))
+#endif // INTEL_COLLAB
 __OMP_ATTRS_SET(
   SetterAttrs,
   OptimisticAttributes
@@ -649,7 +678,6 @@ __OMP_ATTRS_SET(ReturnAlignedPtrAttrs,
                                    EnumAttrInt(DereferenceableOrNull, 8))
                     : AttributeSet())
 #endif
-
 #undef __OMP_ATTRS_SET
 #undef OMP_ATTRS_SET
 
@@ -781,46 +809,34 @@ __OMP_RTL_ATTRS(__kmpc_ordered, BarrierAttrs, AttributeSet(),
 __OMP_RTL_ATTRS(__kmpc_end_ordered, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 __OMP_RTL_ATTRS(
     __kmpc_for_static_init_4,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+    GetterArgWithNoFree, AttributeSet(),
+    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
+               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
+               AttributeSet(), AttributeSet()))
 __OMP_RTL_ATTRS(
     __kmpc_for_static_init_4u,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+    GetterArgWithNoFree, AttributeSet(),
+    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
+               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
+               AttributeSet(), AttributeSet()))
 __OMP_RTL_ATTRS(
     __kmpc_for_static_init_8,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+    GetterArgWithNoFree, AttributeSet(),
+    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
+               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
+               AttributeSet(), AttributeSet()))
 __OMP_RTL_ATTRS(
     __kmpc_for_static_init_8u,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
-__OMP_RTL_ATTRS(__kmpc_for_static_fini,
-                AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)),
-                AttributeSet(),
-                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
-                                                     EnumAttr(ReadOnly)),
-                                        AttributeSet()}))
-#endif // INTEL_CUSTOMIZATION
+    GetterArgWithNoFree, AttributeSet(),
+    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
+               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
+               AttributeSet(), AttributeSet()))
+__OMP_RTL_ATTRS(__kmpc_for_static_fini, InaccessibleArgWithNoFree,
+                AttributeSet(), ParamAttrs(ReadOnlyPtrAlways))
+#endif // INTEL_COLLAB
 __OMP_RTL_ATTRS(__kmpc_distribute_static_init_4, GetterArgWriteAttrs,
                 AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),

@@ -31,6 +31,7 @@ add_llvm_component_library(LLVMInstrumentation
 # INTEL_CUSTOMIZATION
   Intel_FunctionSplitting.cpp
 # end INTEL_CUSTOMIZATION
+  KCFI.cpp
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
   PoisonChecking.cpp

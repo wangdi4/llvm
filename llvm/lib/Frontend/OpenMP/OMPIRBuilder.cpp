@@ -3898,7 +3898,7 @@ CallInst *OpenMPIRBuilder::createCachedThreadPrivate(
   Value *Ident = getOrCreateIdent(SrcLocStr, SrcLocStrSize);
   Value *ThreadId = getOrCreateThreadID(Ident);
   Constant *ThreadPrivateCache =
-      getOrCreateOMPInternalVariable(Int8PtrPtr, Name);
+      getOrCreateInternalVariable(Int8PtrPtr, Name.str());
   llvm::Value *Args[] = {Ident, ThreadId, Pointer, Size, ThreadPrivateCache};
 
   Function *Fn =
@@ -3982,6 +3982,62 @@ void OpenMPIRBuilder::createTargetDeinit(const LocationDescription &Loc,
   Builder.CreateCall(Fn, {Ident, IsSPMDVal, RequiresFullRuntimeVal});
 }
 
+void OpenMPIRBuilder::setOutlinedTargetRegionFunctionAttributes(
+    Function *OutlinedFn, int32_t NumTeams, int32_t NumThreads) {
+  if (Config.isEmbedded()) {
+    OutlinedFn->setLinkage(GlobalValue::WeakODRLinkage);
+    // TODO: Determine if DSO local can be set to true.
+    OutlinedFn->setDSOLocal(false);
+    OutlinedFn->setVisibility(GlobalValue::ProtectedVisibility);
+    if (Triple(M.getTargetTriple()).isAMDGCN())
+      OutlinedFn->setCallingConv(CallingConv::AMDGPU_KERNEL);
+  }
+
+  if (NumTeams > 0)
+    OutlinedFn->addFnAttr("omp_target_num_teams", std::to_string(NumTeams));
+  if (NumThreads > 0)
+    OutlinedFn->addFnAttr("omp_target_thread_limit",
+                          std::to_string(NumThreads));
+}
+
+Constant *OpenMPIRBuilder::createOutlinedFunctionID(Function *OutlinedFn,
+                                                    StringRef EntryFnIDName) {
+  if (Config.isEmbedded()) {
+    assert(OutlinedFn && "The outlined function must exist if embedded");
+    return ConstantExpr::getBitCast(OutlinedFn, Builder.getInt8PtrTy());
+  }
+
+  return new GlobalVariable(
+      M, Builder.getInt8Ty(), /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
+      Constant::getNullValue(Builder.getInt8Ty()), EntryFnIDName);
+}
+
+Constant *OpenMPIRBuilder::createTargetRegionEntryAddr(Function *OutlinedFn,
+                                                       StringRef EntryFnName) {
+  if (OutlinedFn)
+    return OutlinedFn;
+
+  assert(!M.getGlobalVariable(EntryFnName, true) &&
+         "Named kernel already exists?");
+  return new GlobalVariable(
+      M, Builder.getInt8Ty(), /*isConstant=*/true, GlobalValue::InternalLinkage,
+      Constant::getNullValue(Builder.getInt8Ty()), EntryFnName);
+}
+
+Constant *OpenMPIRBuilder::registerTargetRegionFunction(
+    OffloadEntriesInfoManager &InfoManager, TargetRegionEntryInfo &EntryInfo,
+    Function *OutlinedFn, StringRef EntryFnName, StringRef EntryFnIDName,
+    int32_t NumTeams, int32_t NumThreads) {
+  if (OutlinedFn)
+    setOutlinedTargetRegionFunctionAttributes(OutlinedFn, NumTeams, NumThreads);
+  auto OutlinedFnID = createOutlinedFunctionID(OutlinedFn, EntryFnIDName);
+  auto EntryAddr = createTargetRegionEntryAddr(OutlinedFn, EntryFnName);
+  InfoManager.registerTargetRegionEntryInfo(
+      EntryInfo, EntryAddr, OutlinedFnID,
+      OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion);
+  return OutlinedFnID;
+}
+
 std::string OpenMPIRBuilder::getNameWithSeparators(ArrayRef<StringRef> Parts,
                                                    StringRef FirstSeparator,
                                                    StringRef Separator) {
@@ -3995,18 +4051,16 @@ std::string OpenMPIRBuilder::getNameWithSeparators(ArrayRef<StringRef> Parts,
   return OS.str().str();
 }
 
-Constant *OpenMPIRBuilder::getOrCreateOMPInternalVariable(
-    llvm::Type *Ty, const llvm::Twine &Name, unsigned AddressSpace) {
-  // TODO: Replace the twine arg with stringref to get rid of the conversion
-  // logic. However This is taken from current implementation in clang as is.
-  // Since this method is used in many places exclusively for OMP internal use
-  // we will keep it as is for temporarily until we move all users to the
-  // builder and then, if possible, fix it everywhere in one go.
-  SmallString<256> Buffer;
-  llvm::raw_svector_ostream Out(Buffer);
-  Out << Name;
-  StringRef RuntimeName = Out.str();
-  auto &Elem = *InternalVars.try_emplace(RuntimeName, nullptr).first;
+std::string
+OpenMPIRBuilder::createPlatformSpecificName(ArrayRef<StringRef> Parts) const {
+  return OpenMPIRBuilder::getNameWithSeparators(Parts, Config.firstSeparator(),
+                                                Config.separator());
+}
+
+GlobalVariable *
+OpenMPIRBuilder::getOrCreateInternalVariable(Type *Ty, const StringRef &Name,
+                                             unsigned AddressSpace) {
+  auto &Elem = *InternalVars.try_emplace(Name, nullptr).first;
   if (Elem.second) {
     assert(cast<PointerType>(Elem.second->getType())
                ->isOpaqueOrPointeeTypeMatches(Ty) &&
@@ -4016,20 +4070,19 @@ Constant *OpenMPIRBuilder::getOrCreateOMPInternalVariable(
     // variable for possibly changing that to internal or private, or maybe
     // create different versions of the function for different OMP internal
     // variables.
-    Elem.second = new llvm::GlobalVariable(
-        M, Ty, /*IsConstant*/ false, llvm::GlobalValue::CommonLinkage,
-        llvm::Constant::getNullValue(Ty), Elem.first(),
-        /*InsertBefore=*/nullptr, llvm::GlobalValue::NotThreadLocal,
-        AddressSpace);
+    Elem.second = new GlobalVariable(
+        M, Ty, /*IsConstant=*/false, GlobalValue::CommonLinkage,
+        Constant::getNullValue(Ty), Elem.first(),
+        /*InsertBefore=*/nullptr, GlobalValue::NotThreadLocal, AddressSpace);
   }
 
-  return Elem.second;
+  return cast<GlobalVariable>(&*Elem.second);
 }
 
 Value *OpenMPIRBuilder::getOMPCriticalRegionLock(StringRef CriticalName) {
   std::string Prefix = Twine("gomp_critical_user_", CriticalName).str();
   std::string Name = getNameWithSeparators({Prefix, "var"}, ".", ".");
-  return getOrCreateOMPInternalVariable(KmpCriticalNameTy, Name);
+  return getOrCreateInternalVariable(KmpCriticalNameTy, Name);
 }
 
 GlobalVariable *
@@ -4739,11 +4792,10 @@ void OpenMPIRBuilder::OutlineInfo::collectBlocks(
   }
 }
 
-void OpenMPIRBuilder::createOffloadEntry(bool IsTargetCodegen, Constant *ID,
-                                         Constant *Addr, uint64_t Size,
-                                         int32_t Flags,
+void OpenMPIRBuilder::createOffloadEntry(Constant *ID, Constant *Addr,
+                                         uint64_t Size, int32_t Flags,
                                          GlobalValue::LinkageTypes) {
-  if (!IsTargetCodegen) {
+  if (!Config.isTargetCodegen()) {
     emitOffloadingEntry(ID, Addr->getName(), Size, Flags);
     return;
   }
@@ -4774,8 +4826,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
     bool IsLateOutline,
 #endif // INTEL_COLLAB
-    OffloadEntriesInfoManager &OffloadEntriesInfoManager, bool IsTargetCodegen,
-    bool IsEmbedded, bool HasRequiresUnifiedSharedMemory,
+    OffloadEntriesInfoManager &OffloadEntriesInfoManager,
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
@@ -4930,7 +4981,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         ErrorFn(EMIT_MD_TARGET_REGION_ERROR, EntryInfo);
         continue;
       }
-      createOffloadEntry(IsTargetCodegen, CE->getID(), CE->getAddress(),
+      createOffloadEntry(CE->getID(), CE->getAddress(),
                          /*Size=*/0, CE->getFlags(),
                          GlobalValue::WeakAnyLinkage);
     } else if (const auto *CE = dyn_cast<
@@ -4941,7 +4992,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
               CE->getFlags());
       switch (Flags) {
       case OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo: {
-        if (IsEmbedded && HasRequiresUnifiedSharedMemory)
+        if (Config.isEmbedded() && Config.hasRequiresUnifiedSharedMemory())
           continue;
         if (!CE->getAddress()) {
           ErrorFn(EMIT_MD_DECLARE_TARGET_ERROR, E.second);
@@ -4953,10 +5004,10 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         break;
       }
       case OffloadEntriesInfoManager::OMPTargetGlobalVarEntryLink:
-        assert(((IsEmbedded && !CE->getAddress()) ||
-                (!IsEmbedded && CE->getAddress())) &&
+        assert(((Config.isEmbedded() && !CE->getAddress()) ||
+                (!Config.isEmbedded() && CE->getAddress())) &&
                "Declaret target link address is set.");
-        if (IsEmbedded)
+        if (Config.isEmbedded())
           continue;
         if (!CE->getAddress()) {
           ErrorFn(EMIT_MD_GLOBAL_VAR_LINK_ERROR, TargetRegionEntryInfo());
@@ -4972,8 +5023,8 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         if (GV->hasLocalLinkage() || GV->hasHiddenVisibility())
           continue;
 
-      createOffloadEntry(IsTargetCodegen, CE->getAddress(), CE->getAddress(),
-                         CE->getVarSize(), Flags, CE->getLinkage());
+      createOffloadEntry(CE->getAddress(), CE->getAddress(), CE->getVarSize(),
+                         Flags, CE->getLinkage());
 
     } else {
       llvm_unreachable("Unsupported entry kind.");
@@ -5090,7 +5141,7 @@ int OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 #endif // INTEL_COLLAB
     TargetRegionEntryInfo EntryInfo, Constant *Addr, Constant *ID,
-    OMPTargetRegionEntryKind Flags, bool IsDevice) {
+    OMPTargetRegionEntryKind Flags) {
   assert(EntryInfo.Count == 0 && "expected default EntryInfo");
 
   // Update the EntryInfo with the next available count for this location.
@@ -5098,7 +5149,7 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
-  if (IsDevice) {
+  if (Config.isEmbedded()) {
     // This could happen if the device compilation is invoked standalone.
     if (!hasTargetRegionEntryInfo(EntryInfo)) {
 #if INTEL_COLLAB
@@ -5173,9 +5224,8 @@ void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
 
 void OffloadEntriesInfoManager::registerDeviceGlobalVarEntryInfo(
     StringRef VarName, Constant *Addr, int64_t VarSize,
-    OMPTargetGlobalVarEntryKind Flags, GlobalValue::LinkageTypes Linkage,
-    bool IsDevice) {
-  if (IsDevice) {
+    OMPTargetGlobalVarEntryKind Flags, GlobalValue::LinkageTypes Linkage) {
+  if (Config.isEmbedded()) {
     // This could happen if the device compilation is invoked standalone.
     if (!hasDeviceGlobalVarEntryInfo(VarName))
       return;

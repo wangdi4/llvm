@@ -1,6 +1,6 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; RUN: ld.lld %t.o -o %t.so -save-temps -shared
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t.so -save-temps -shared
 ; RUN: llvm-dis %t.so.0.4.opt.bc -o - | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -8,8 +8,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 
 @a = internal unnamed_addr constant i8 42
 
-define i8* @f() {
-  ret i8* @a
+define ptr @f() {
+  ret ptr @a
 }
 
 ; CHECK: @a = internal unnamed_addr constant i8 42

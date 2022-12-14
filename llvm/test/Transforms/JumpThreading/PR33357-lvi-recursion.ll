@@ -1,4 +1,4 @@
-; RUN: opt -S -jump-threading -jump-thread-loop-header=false -verify -o - %s | FileCheck %s ;INTEL
+; RUN: opt -S -passes=jump-threading,verify -jump-thread-loop-header=false -o - %s | FileCheck %s ;INTEL
 @a = external global i16, align 1
 
 ; CHECK-LABEL: f
@@ -23,7 +23,7 @@ bb2:
   br i1 %2, label %bb3, label %bb4
 
 bb3:
-  store i16 undef, i16* @a, align 1
+  store i16 undef, ptr @a, align 1
   br label %bb4
 
 bb4:

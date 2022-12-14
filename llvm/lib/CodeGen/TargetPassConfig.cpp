@@ -66,6 +66,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include <cassert>
+#include <optional>
 #include <string>
 
 #if INTEL_CUSTOMIZATION
@@ -594,7 +595,7 @@ static void registerPartialPipelineCallback(PassInstrumentationCallbacks &PIC,
 
   PIC.registerShouldRunOptionalPassCallback(
       [=, EnableCurrent = StartBefore.empty() && StartAfter.empty(),
-       EnableNext = Optional<bool>(), StartBeforeCount = 0u,
+       EnableNext = std::optional<bool>(), StartBeforeCount = 0u,
        StartAfterCount = 0u, StopBeforeCount = 0u,
        StopAfterCount = 0u](StringRef P, Any) mutable {
         bool StartBeforePass = !StartBefore.empty() && P.contains(StartBefore);

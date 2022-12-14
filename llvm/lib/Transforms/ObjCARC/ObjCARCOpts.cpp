@@ -503,8 +503,8 @@ namespace {
 
   /// The main ARC optimization pass.
 class ObjCARCOpt {
-  bool Changed;
-  bool CFGChanged;
+  bool Changed = false;
+  bool CFGChanged = false;
   ProvenanceAnalysis PA;
 
   /// A cache of references to runtime entry point constants.

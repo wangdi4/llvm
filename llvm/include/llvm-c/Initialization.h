@@ -38,7 +38,6 @@ void LLVMInitializeObjCARCOpts(LLVMPassRegistryRef R);
 #endif // INTEL_CUSTOMIZATION
 void LLVMInitializeVectorization(LLVMPassRegistryRef R);
 void LLVMInitializeInstCombine(LLVMPassRegistryRef R);
-void LLVMInitializeAggressiveInstCombiner(LLVMPassRegistryRef R);
 void LLVMInitializeIPO(LLVMPassRegistryRef R);
 void LLVMInitializeAnalysis(LLVMPassRegistryRef R);
 void LLVMInitializeIPA(LLVMPassRegistryRef R);

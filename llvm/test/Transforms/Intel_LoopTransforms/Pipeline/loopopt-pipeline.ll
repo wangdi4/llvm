@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -O2 -loopopt -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
 ; RUN: opt -passes='default<O2>' -loopopt -debug-pass-manager=quiet < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=NEWPM
 
 ; Verify that loopopt marker pass runs at the very beginning of the pipeline just after module verification

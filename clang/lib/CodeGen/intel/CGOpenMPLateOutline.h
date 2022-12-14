@@ -366,6 +366,9 @@ class OpenMPLateOutliner {
   void emitOMPDynamicAllocatorsClause(const OMPDynamicAllocatorsClause *);
   void
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
+  void emitOMPAtClause(const OMPAtClause *);
+  void emitOMPSeverityClause(const OMPSeverityClause *);
+  void emitOMPMessageClause(const OMPMessageClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);

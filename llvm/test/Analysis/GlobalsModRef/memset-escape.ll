@@ -1,7 +1,4 @@
-; RUN: opt < %s -enable-new-pm=0 -O1 -S | FileCheck %s
-; RUN; opt < %s -passes='default<O1>' -S | FileCheck %s
-; INTEL
-; RUN: opt < %s -enable-new-pm=0 -convert-to-subscript -O1 -S | FileCheck --check-prefix=CHECK-BB %s
+; RUN: opt < %s -passes='default<O1>' -S | FileCheck %s
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.10.0"
@@ -18,26 +15,6 @@ target triple = "x86_64-apple-macosx10.10.0"
 ; CHECK: load i32, i32* getelementptr {{.*}} @a
 ; CHECK: icmp eq i32
 ; CHECK: br i1
-
-; INTEL
-; Sequence of transformations: complete unroll and instcombine
-; FIXME: This is not a sufficiently reduced unit test and the intent of the
-;        Intel-specific RUN line as a test for the llvm.intel.subscript support
-;        in IR/Value.cpp and Analysis/Loads.cpp is not clear. We do need proper
-;        specific tests (not the whole -O1 pipeline) for that support.
-; CHECK-BB-LABEL: @main
-; CHECK-BB-NOT: load
-; CHECK-BB-NOT: br
-; First store to @a
-; CHECK-BB:      store i32 1
-; Unrolled loop after first store to @a
-; CHECK-BB:      store i32 0
-; CHECK-BB:      store i32 0
-; CHECK-BB:      store i32 0
-; Store to @b
-; CHECK-BB:      store i32 3
-; CHECK-BB-NEXT: ret i32 0
-; INTEL
 
 
 define i32 @main() {

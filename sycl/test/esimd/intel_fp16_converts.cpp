@@ -20,7 +20,7 @@ using namespace sycl::ext::intel::experimental::esimd;
 SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void bf16_vector();
 SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void bf16_scalar();
 
-using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
+using bfloat16 = sycl::ext::oneapi::bfloat16;
 
 class EsimdFunctor {
 public:
@@ -60,8 +60,8 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void bf16_scalar() {
   // The actual support in GPU RT is on the way though.
   float F32B_scalar = 1;
   bfloat16 BF16B_scalar = F32B_scalar;
-  // CHECK: call spir_func noundef zeroext i16 @_Z27__spirv_ConvertFToBF16INTELf(float {{[^)]+}})
+  // CHECK: call spir_func zeroext i16 @__devicelib_ConvertFToBF16INTEL(float {{[^)]+}})
   float F32B_scalar_conv = BF16B_scalar;
-  // CHECK: call spir_func noundef float @_Z27__spirv_ConvertBF16ToFINTELt(i16 {{[^)]+}})
+  // CHECK: call spir_func float @__devicelib_ConvertBF16ToFINTEL(i16 {{[^)]+}})
 }
 // end INTEL_FEATURE_ESIMD_EMBARGO

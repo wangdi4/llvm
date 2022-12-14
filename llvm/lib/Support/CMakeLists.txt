@@ -140,6 +140,7 @@ set (SUPPORT_SOURCES
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
+  ARMTargetParserCommon.cpp
   AMDGPUMetadata.cpp
   APFixedPoint.cpp
   APFloat.cpp
@@ -189,7 +190,6 @@ set (SUPPORT_SOURCES
   FileUtilities.cpp
   FileOutputBuffer.cpp
   FoldingSet.cpp
-  Format.cpp
   FormattedStream.cpp
   FormatVariadic.cpp
   GlobPattern.cpp

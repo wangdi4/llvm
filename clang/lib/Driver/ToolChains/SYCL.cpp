@@ -33,11 +33,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
-
-#if INTEL_CUSTOMIZATION
-#include "llvm/ADT/STLArrayExtras.h"
-#endif // INTEL_CUSTOMIZATION
-
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
 using namespace clang::driver::tools;
@@ -163,7 +158,8 @@ static llvm::SmallVector<StringRef, 16> SYCLDeviceLibList {
       "imf", "imf-fp64", "itt-compiler-wrappers", "itt-stubs",
       "itt-user-wrappers", "fallback-cassert", "fallback-cstring",
       "fallback-cmath", "fallback-cmath-fp64", "fallback-complex",
-      "fallback-complex-fp64", "fallback-imf", "fallback-imf-fp64"
+      "fallback-complex-fp64", "fallback-imf", "fallback-imf-fp64",
+      "fallback-imf-bf16"
 };
 
 #if INTEL_CUSTOMIZATION

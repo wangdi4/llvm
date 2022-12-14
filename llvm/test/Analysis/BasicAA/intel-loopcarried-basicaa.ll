@@ -1,5 +1,3 @@
-; RUN: opt -disable-output -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=AST %s
 ; RUN: opt -disable-output -passes=aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes=print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=AST %s
 

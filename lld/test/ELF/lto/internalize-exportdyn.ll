@@ -1,7 +1,7 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 ; RUN: llvm-as %p/Inputs/internalize-exportdyn.ll -o %t2.o
-; RUN: ld.lld %t.o %t2.o -o %t2 --export-dynamic -save-temps
+; RUN: ld.lld -mllvm -opaque-pointers %t.o %t2.o -o %t2 --export-dynamic -save-temps
 ; RUN: llvm-dis < %t2.0.2.internalize.bc | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -35,7 +35,7 @@ define linkonce_odr void @baz() {
   ret void
 }
 
-@use_baz = global void ()* @baz
+@use_baz = global ptr @baz
 
 ; Check what gets internalized.
 ; CHECK: define dso_local void @_start()
