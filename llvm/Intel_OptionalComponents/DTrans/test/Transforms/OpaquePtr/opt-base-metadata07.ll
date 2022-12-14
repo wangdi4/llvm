@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Case with empty and opaque structure types
 %struct.test01a = type {}
 %struct.test02a = type opaque
-%struct.test03a = type { %struct.test01a*, %struct.test02a* }
+%struct.test03a = type { ptr, ptr }
 
 @globVar03a = global %struct.test03a zeroinitializer
 
