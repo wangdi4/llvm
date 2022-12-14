@@ -34,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %"XObjectResultTreeFragProxyText" = type { %"XalanText", ptr, ptr }
 %"XalanText" = type { %"XalanCharacterData" }
 %"XalanCharacterData" = type { %"XalanNode" }
-%"XPathExecutionContext::GetAndReleaseCachedString" = type { ptr, %"XalanDOMString"* }
+%"XPathExecutionContext::GetAndReleaseCachedString" = type { ptr, ptr }
 %"XPathExecutionContext" = type { %"ExecutionContext", ptr }
 %"ExecutionContext" = type { ptr, ptr }
 %"XalanDOMString" = type <{ %"XalanVector", i32, [4 x i8] }>
@@ -45,7 +45,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %"DeleteFunctor" = type { ptr }
 %"XalanListIteratorBase.0" = type { ptr }
 %"class.std::reverse_iterator" = type { %"XalanListIteratorBase.0" }
-%"XalanAllocationGuard" = type { ptr, i8* }
+%"XalanAllocationGuard" = type { ptr, ptr }
 %"ReusableArenaBlock<XStringCached>::NextBlock" = type { i16, i32 }
 %"struct.std::less" = type { i8 }
 %"XalanDestroyFunctor" = type { i8 }
@@ -73,10 +73,10 @@ define void @test() {
 define linkonce_odr dso_local void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr nonnull dereferenceable(41) "intel_dtrans_func_index"="1" %this, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %theManager, i16 zeroext %theBlockSize, i1 zeroext %destroyBlocks) unnamed_addr align 2 !intel.dtrans.func.type !43 {
 entry:
   %frombool = zext i1 %destroyBlocks to i8
-  %0 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0
-  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(40) %0, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
-  %1 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 0
-  store ptr bitcast (ptr getelementptr inbounds ({ [8 x ptr] }, ptr null, i64 0, inrange i32 0, i64 2) to ptr), ptr %1, align 8
+  %i0 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0
+  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(40) %i0, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
+  %i1 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 0
+  store ptr bitcast (ptr getelementptr inbounds ({ [8 x ptr] }, ptr null, i64 0, inrange i32 0, i64 2) to ptr), ptr %i1, align 8
   %m_destroyBlocks = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 1
   store i8 %frombool, ptr %m_destroyBlocks, align 8
   ret void
@@ -87,8 +87,8 @@ define dso_local "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1022XStringCac
 entry:
   %m_allocator = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0
   %call = tail call ptr @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(ptr nonnull dereferenceable(41) %m_allocator)
-  %0 = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0, i32 0
-  %call3 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr nonnull dereferenceable(40) %0)
+  %i0 = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0, i32 0
+  %call3 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr nonnull dereferenceable(40) %i0)
   tail call void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(ptr nonnull dereferenceable(80) %call, ptr nonnull align 8 dereferenceable(16) %theValue, ptr nonnull align 8 dereferenceable(8) %call3)
   tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(ptr nonnull dereferenceable(41) %m_allocator, ptr nonnull %call)
   ret ptr %call
@@ -100,32 +100,30 @@ entry:
 define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(ptr nonnull dereferenceable(41) "intel_dtrans_func_index"="2" %this) unnamed_addr align 2 !intel.dtrans.func.type !46 {
 entry:
   %ref.tmp = alloca ptr, align 8, !intel_dtrans_type !12
-  %0 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0
+  %i0 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0
   %m_blocks = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 2
   %call = tail call zeroext i1 @_ZNK11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5emptyEv(ptr nonnull dereferenceable(24) %m_blocks)
   br i1 %call, label %if.then, label %lor.lhs.false
 
 lor.lhs.false:                                    ; preds = %entry
   %call3 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) %m_blocks)
-  %1 = bitcast ptr %call3 to ptr
-  %2 = load ptr, ptr %1, align 8
-  %call4 = tail call zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtE14blockAvailableEv(ptr nonnull dereferenceable(24) %2)
+  %i2 = load ptr, ptr %call3, align 8
+  %call4 = tail call zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtE14blockAvailableEv(ptr nonnull dereferenceable(24) %i2)
   br i1 %call4, label %if.end, label %if.then
 
 if.then:                                          ; preds = %lor.lhs.false, %entry
-  %3 = bitcast ptr %ref.tmp to i8*
-  %call6 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr nonnull dereferenceable(40) %0)
+  %call6 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr nonnull dereferenceable(40) %i0)
   %m_blockSize = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 1
-  %4 = load i16, ptr %m_blockSize, align 8
-  %call7 = tail call ptr @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE6createERN11xercesc_2_713MemoryManagerEt(ptr nonnull align 8 dereferenceable(8) %call6, i16 zeroext %4)
+  %i4 = load i16, ptr %m_blockSize, align 8
+  %call7 = tail call ptr @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE6createERN11xercesc_2_713MemoryManagerEt(ptr nonnull align 8 dereferenceable(8) %call6, i16 zeroext %i4)
   store ptr %call7, ptr %ref.tmp, align 8
   call void @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE10push_frontERKS4_(ptr nonnull dereferenceable(24) %m_blocks, ptr nonnull align 8 dereferenceable(8) %ref.tmp)
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %lor.lhs.false
   %call9 = call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) %m_blocks)
-  %5 = load ptr, ptr %call9, align 8
-  %call10 = call ptr @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE13allocateBlockEv(ptr nonnull dereferenceable(28) %5)
+  %i5 = load ptr, ptr %call9, align 8
+  %call10 = call ptr @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE13allocateBlockEv(ptr nonnull dereferenceable(28) %i5)
   ret ptr %call10
 }
 
@@ -145,19 +143,17 @@ entry:
   %fullBlock = alloca ptr, align 8, !intel_dtrans_type !12
   %m_blocks = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 2
   %call = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) %m_blocks)
-  %0 = load ptr, ptr %call, align 8
-  tail call void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE16commitAllocationEPS1_(ptr nonnull dereferenceable(28) %0, ptr %theObject)
+  %i0 = load ptr, ptr %call, align 8
+  tail call void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE16commitAllocationEPS1_(ptr nonnull dereferenceable(28) %i0, ptr %theObject)
   %call3 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) %m_blocks)
-  %1 = bitcast ptr %call3 to ptr
-  %2 = load ptr, ptr %1, align 8
-  %call4 = tail call zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtE14blockAvailableEv(ptr nonnull dereferenceable(24) %2)
+  %i2 = load ptr, ptr %call3, align 8
+  %call4 = tail call zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtE14blockAvailableEv(ptr nonnull dereferenceable(24) %i2)
   br i1 %call4, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %3 = bitcast ptr %fullBlock to i8*
   %call6 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) %m_blocks)
-  %4 = load ptr, ptr %call6, align 8
-  store ptr %4, ptr %fullBlock, align 8
+  %i4 = load ptr, ptr %call6, align 8
+  store ptr %i4, ptr %fullBlock, align 8
   tail call void @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9pop_frontEv(ptr nonnull dereferenceable(24) %m_blocks)
   call void @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9push_backERKS4_(ptr nonnull dereferenceable(24) %m_blocks, ptr nonnull align 8 dereferenceable(8) %fullBlock)
   br label %if.end
@@ -186,8 +182,8 @@ entry:
 ; Function Attrs: uwtable
 define dso_local void @_ZN11xalanc_1_1022XStringCachedAllocator5resetEv(ptr nonnull dereferenceable(48) "intel_dtrans_func_index"="1" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !53 {
 entry:
-  %0 = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0, i32 0
-  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv(ptr nonnull dereferenceable(40) %0)
+  %i0 = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0, i32 0
+  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv(ptr nonnull dereferenceable(40) %i0)
   ret void
 }
 
@@ -200,8 +196,8 @@ entry:
 ; Function Attrs: uwtable
 define linkonce_odr dso_local void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(40) "intel_dtrans_func_index"="1" %this, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %theManager, i16 zeroext %theBlockSize) unnamed_addr align 2 !intel.dtrans.func.type !55 {
 entry:
-  %0 = getelementptr inbounds %"ArenaAllocator", ptr %this, i64 0, i32 0
-  store ptr bitcast (ptr getelementptr inbounds ({ [8 x ptr] }, ptr null, i64 0, inrange i32 0, i64 2) to ptr), ptr %0, align 8
+  %i0 = getelementptr inbounds %"ArenaAllocator", ptr %this, i64 0, i32 0
+  store ptr bitcast (ptr getelementptr inbounds ({ [8 x ptr] }, ptr null, i64 0, inrange i32 0, i64 2) to ptr), ptr %i0, align 8
   %m_blockSize = getelementptr inbounds %"ArenaAllocator", ptr %this, i64 0, i32 1
   store i16 %theBlockSize, ptr %m_blockSize, align 8
   %m_blocks = getelementptr inbounds %"ArenaAllocator", ptr %this, i64 0, i32 2
@@ -215,16 +211,15 @@ entry:
   %m_memoryManager = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 0
   store ptr %theManager, ptr %m_memoryManager, align 8
   %m_listHead = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 1
-  %0 = bitcast ptr %m_listHead to i8*
-  call void @llvm.memset.p0i8.i64(ptr nonnull align 8 dereferenceable(16) %0, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0i8.i64(ptr nonnull align 8 dereferenceable(16) %m_listHead, i8 0, i64 16, i1 false)
   ret void
 }
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: noreturn nounwind
-define linkonce_odr hidden void @__clang_call_terminate(ptr "intel_dtrans_func_index"="1" %0) local_unnamed_addr !intel.dtrans.func.type !58 {
-  %2 = tail call ptr @__cxa_begin_catch(ptr %0)
+define linkonce_odr hidden void @__clang_call_terminate(ptr "intel_dtrans_func_index"="1" %i0) local_unnamed_addr !intel.dtrans.func.type !58 {
+  %i2 = tail call ptr @__cxa_begin_catch(ptr %i0)
   tail call void @_ZSt9terminatev()
   unreachable
 }
@@ -240,8 +235,8 @@ define linkonce_odr dso_local void @_ZN11xalanc_1_109XalanListIPNS_18ReusableAre
 entry:
   %call = tail call nonnull align 8 dereferenceable(24) ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE11getListHeadEv(ptr nonnull dereferenceable(24) %this)
   %next = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %call, i64 0, i32 2
-  %0 = load ptr, ptr %next, align 8
-  tail call void @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEC2ERS9_(ptr nonnull dereferenceable(8) %agg.result, ptr nonnull align 8 dereferenceable(24) %0)
+  %i0 = load ptr, ptr %next, align 8
+  tail call void @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEC2ERS9_(ptr nonnull dereferenceable(8) %agg.result, ptr nonnull align 8 dereferenceable(24) %i0)
   ret void
 }
 
@@ -257,16 +252,16 @@ entry:
 define linkonce_odr dso_local nonnull align 8 dereferenceable(24)  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEE4nodeEv(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !63 {
 entry:
   %currentNode = getelementptr inbounds %"XalanListIteratorBase", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %currentNode, align 8
-  ret ptr %0
+  %i0 = load ptr, ptr %currentNode, align 8
+  ret ptr %i0
 }
 
 ; Function Attrs: uwtable
 define linkonce_odr dso_local nonnull align 8 dereferenceable(24)  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE11getListHeadEv(ptr nonnull dereferenceable(24) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !64 {
 entry:
   %m_listHead = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 1
-  %0 = load ptr, ptr %m_listHead, align 8
-  %cmp = icmp eq ptr %0, null
+  %i0 = load ptr, ptr %m_listHead, align 8
+  %cmp = icmp eq ptr %i0, null
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
@@ -279,8 +274,8 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  %1 = phi ptr [ %call, %if.then ], [ %0, %entry ]
-  ret ptr %1
+  %i1 = phi ptr [ %call, %if.then ], [ %i0, %entry ]
+  ret ptr %i1
 }
 
 ; Function Attrs: nounwind uwtable
@@ -296,14 +291,12 @@ define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_
 entry:
   %mul = mul i64 %size, 24
   %m_memoryManager = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %m_memoryManager, align 8
-  %1 = bitcast ptr %0 to i8* (ptr, i64)***
-  %vtable = load ptr (ptr, i64)**, i8* (ptr, i64)*** %1, align 8
-  %vfn = getelementptr inbounds ptr (ptr, i64)*, i8* (ptr, i64)** %vtable, i64 2
-  %2 = load ptr (ptr, i64)*, i8* (ptr, i64)** %vfn, align 8
-  %call = tail call ptr %2(ptr nonnull dereferenceable(8) %0, i64 %mul), !intel_dtrans_type !67
-  %3 = bitcast ptr %call to ptr
-  ret ptr %3
+  %i0 = load ptr, ptr %m_memoryManager, align 8
+  %vtable = load ptr, ptr %i0, align 8
+  %vfn = getelementptr inbounds ptr, ptr %vtable, i64 2
+  %i2 = load ptr, ptr %vfn, align 8
+  %call = tail call ptr %i2(ptr nonnull dereferenceable(8) %i0, i64 %mul), !intel_dtrans_type !67
+  ret ptr %call
 }
 
 ; Function Attrs: nobuiltin nounwind
@@ -314,11 +307,9 @@ define linkonce_odr dso_local zeroext i1 @_ZNK11xalanc_1_109XalanListIPNS_18Reus
 entry:
   %ref.tmp = alloca %"XalanListIteratorBase.0", align 8
   %ref.tmp2 = alloca %"XalanListIteratorBase.0", align 8
-  %0 = bitcast ptr %ref.tmp to i8*
   %call = tail call ptr @_ZNK11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5beginEv(ptr nonnull dereferenceable(24) %this)
   %coerce.dive = getelementptr inbounds %"XalanListIteratorBase.0", ptr %ref.tmp, i64 0, i32 0
   store ptr %call, ptr %coerce.dive, align 8
-  %1 = bitcast ptr %ref.tmp2 to i8*
   %call3 = tail call ptr @_ZNK11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE3endEv(ptr nonnull dereferenceable(24) %this)
   %coerce.dive4 = getelementptr inbounds %"XalanListIteratorBase.0", ptr %ref.tmp2, i64 0, i32 0
   store ptr %call3, ptr %coerce.dive4, align 8
@@ -330,10 +321,10 @@ entry:
 define linkonce_odr dso_local zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtE14blockAvailableEv(ptr nonnull dereferenceable(24) "intel_dtrans_func_index"="1" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !74 {
 entry:
   %m_objectCount = getelementptr inbounds %"ArenaBlockBase", ptr %this, i64 0, i32 1
-  %0 = load i16, ptr %m_objectCount, align 8
+  %i0 = load i16, ptr %m_objectCount, align 8
   %m_blockSize = getelementptr inbounds %"ArenaBlockBase", ptr %this, i64 0, i32 2
-  %1 = load i16, ptr %m_blockSize, align 2
-  %cmp = icmp ult i16 %0, %1
+  %i1 = load i16, ptr %m_blockSize, align 2
+  %cmp = icmp ult i16 %i0, %i1
   ret i1 %cmp
 }
 
@@ -352,7 +343,6 @@ entry:
   %theBlockSize.addr = alloca i16, align 2
   %theInstance = alloca ptr, align 8, !intel_dtrans_type !12
   store i16 %theBlockSize, ptr %theBlockSize.addr, align 2
-  %0 = bitcast ptr %theInstance to ptr
   %call = call ptr @_ZN11xalanc_1_1014XalanConstructINS_18ReusableArenaBlockINS_13XStringCachedEtEEN11xercesc_2_713MemoryManagerEtEEPT_RS5_RS7_RT0_RKT1_(ptr nonnull align 8 dereferenceable(8) %theManager, ptr nonnull align 8 dereferenceable(8) %theInstance, ptr nonnull align 8 dereferenceable(8) %theManager, ptr nonnull align 2 dereferenceable(2) %theBlockSize.addr)
   ret ptr %call
 }
@@ -369,21 +359,21 @@ entry:
   %retval = alloca %"XalanListIteratorBase.0", align 8
   %call = tail call nonnull align 8 dereferenceable(24) ptr @_ZNK11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE11getListHeadEv(ptr nonnull dereferenceable(24) %this)
   %next = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %call, i64 0, i32 2
-  %0 = load ptr, ptr %next, align 8
-  call void @_ZN11xalanc_1_1021XalanListIteratorBaseINS_28XalanListConstIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEC2ERS9_(ptr nonnull dereferenceable(8) %retval, ptr nonnull align 8 dereferenceable(24) %0)
+  %i0 = load ptr, ptr %next, align 8
+  call void @_ZN11xalanc_1_1021XalanListIteratorBaseINS_28XalanListConstIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEC2ERS9_(ptr nonnull dereferenceable(8) %retval, ptr nonnull align 8 dereferenceable(24) %i0)
   %coerce.dive = getelementptr inbounds %"XalanListIteratorBase.0", ptr %retval, i64 0, i32 0
-  %1 = load ptr, ptr %coerce.dive, align 8
-  ret ptr %1
+  %i1 = load ptr, ptr %coerce.dive, align 8
+  ret ptr %i1
 }
 
 ; Function Attrs: nounwind uwtable
 define linkonce_odr dso_local zeroext i1 @_ZNK11xalanc_1_1021XalanListIteratorBaseINS_28XalanListConstIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEeqERKSA_(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="1" %this, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %theRhs) local_unnamed_addr align 2 !intel.dtrans.func.type !81 {
 entry:
   %currentNode = getelementptr inbounds %"XalanListIteratorBase.0", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %currentNode, align 8
+  %i0 = load ptr, ptr %currentNode, align 8
   %currentNode2 = getelementptr inbounds %"XalanListIteratorBase.0", ptr %theRhs, i64 0, i32 0
-  %1 = load ptr, ptr %currentNode2, align 8
-  %cmp = icmp eq ptr %0, %1
+  %i1 = load ptr, ptr %currentNode2, align 8
+  %cmp = icmp eq ptr %i0, %i1
   ret i1 %cmp
 }
 
@@ -394,8 +384,8 @@ entry:
   %call = tail call nonnull align 8 dereferenceable(24) ptr @_ZNK11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE11getListHeadEv(ptr nonnull dereferenceable(24) %this)
   call void @_ZN11xalanc_1_1021XalanListIteratorBaseINS_28XalanListConstIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEC2ERS9_(ptr nonnull dereferenceable(8) %retval, ptr nonnull align 8 dereferenceable(24) %call)
   %coerce.dive = getelementptr inbounds %"XalanListIteratorBase.0", ptr %retval, i64 0, i32 0
-  %0 = load ptr, ptr %coerce.dive, align 8
-  ret ptr %0
+  %i0 = load ptr, ptr %coerce.dive, align 8
+  ret ptr %i0
 }
 
 ; Function Attrs: uwtable
@@ -417,8 +407,8 @@ entry:
 define linkonce_odr dso_local nonnull align 8 dereferenceable(8)  "intel_dtrans_func_index"="1" ptr @_ZNK11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEdeEv(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !85 {
 entry:
   %currentNode = getelementptr inbounds %"XalanListIteratorBase", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %currentNode, align 8
-  %value = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %0, i64 0, i32 0
+  %i0 = load ptr, ptr %currentNode, align 8
+  %value = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %i0, i64 0, i32 0
   ret ptr %value
 }
 
@@ -426,13 +416,13 @@ entry:
 define linkonce_odr dso_local nonnull align 8 dereferenceable(24)  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE13constructNodeERKS4_NS_21XalanListIteratorBaseINS_23XalanListIteratorTraitsIS4_EENS5_4NodeEEE(ptr nonnull dereferenceable(24) "intel_dtrans_func_index"="2" %this, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %data, ptr "intel_dtrans_func_index"="4" %pos) local_unnamed_addr align 2 !intel.dtrans.func.type !86 {
 entry:
   %m_freeListHeadPtr = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 2
-  %0 = load ptr, ptr %m_freeListHeadPtr, align 8
-  %cmp.not = icmp eq ptr %0, null
+  %i0 = load ptr, ptr %m_freeListHeadPtr, align 8
+  %cmp.not = icmp eq ptr %i0, null
   br i1 %cmp.not, label %if.else, label %if.then
 
 if.then:                                          ; preds = %entry
-  %next = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %0, i64 0, i32 2
-  %1 = load ptr, ptr %next, align 8
+  %next = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %i0, i64 0, i32 2
+  %i1 = load ptr, ptr %next, align 8
   br label %if.end
 
 if.else:                                          ; preds = %entry
@@ -441,24 +431,24 @@ if.else:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %newNode.0 = phi ptr [ %0, %if.then ], [ %call, %if.else ]
-  %nextFreeNode.0 = phi ptr [ %1, %if.then ], [ null, %if.else ]
+  %newNode.0 = phi ptr [ %i0, %if.then ], [ %call, %if.else ]
+  %nextFreeNode.0 = phi ptr [ %i1, %if.then ], [ null, %if.else ]
   %value = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %newNode.0, i64 0, i32 0
   %m_memoryManager = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 0
-  %2 = load ptr, ptr %m_memoryManager, align 8
-  %call6 = tail call ptr @_ZN11xalanc_1_1028ConstructWithNoMemoryManagerIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9constructEPS4_RKS4_RN11xercesc_2_713MemoryManagerE(ptr %value, ptr nonnull align 8 dereferenceable(8) %data, ptr nonnull align 8 dereferenceable(8) %2)
+  %i2 = load ptr, ptr %m_memoryManager, align 8
+  %call6 = tail call ptr @_ZN11xalanc_1_1028ConstructWithNoMemoryManagerIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9constructEPS4_RKS4_RN11xercesc_2_713MemoryManagerE(ptr %value, ptr nonnull align 8 dereferenceable(8) %data, ptr nonnull align 8 dereferenceable(8) %i2)
   %prev = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %newNode.0, i64 0, i32 1
   %call7 = tail call nonnull align 8 dereferenceable(24) ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEE4nodeEv(ptr nonnull dereferenceable(8) %pos)
   %prev8 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %call7, i64 0, i32 1
-  %3 = load ptr, ptr %prev8, align 8
-  store ptr %3, ptr %prev, align 8
+  %i3 = load ptr, ptr %prev8, align 8
+  store ptr %i3, ptr %prev, align 8
   %next9 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %newNode.0, i64 0, i32 2
   %call10 = tail call nonnull align 8 dereferenceable(24) ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEE4nodeEv(ptr nonnull dereferenceable(8) %pos)
   store ptr %call10, ptr %next9, align 8
   %call11 = tail call nonnull align 8 dereferenceable(24) ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEE4nodeEv(ptr nonnull dereferenceable(8) %pos)
   %prev12 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %call11, i64 0, i32 1
-  %4 = load ptr, ptr %prev12, align 8
-  %next13 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %4, i64 0, i32 2
+  %i4 = load ptr, ptr %prev12, align 8
+  %next13 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %i4, i64 0, i32 2
   store ptr %newNode.0, ptr %next13, align 8
   %call14 = tail call nonnull align 8 dereferenceable(24) ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEE4nodeEv(ptr nonnull dereferenceable(8) %pos)
   %prev15 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %call14, i64 0, i32 1
@@ -468,10 +458,10 @@ if.end:                                           ; preds = %if.else, %if.then
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1028ConstructWithNoMemoryManagerIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9constructEPS4_RKS4_RN11xercesc_2_713MemoryManagerE(ptr "intel_dtrans_func_index"="2" %address, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %theRhs, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="4" %0) local_unnamed_addr align 2 !intel.dtrans.func.type !87 {
+define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1028ConstructWithNoMemoryManagerIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE9constructEPS4_RKS4_RN11xercesc_2_713MemoryManagerE(ptr "intel_dtrans_func_index"="2" %address, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %theRhs, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="4" %i0) local_unnamed_addr align 2 !intel.dtrans.func.type !87 {
 entry:
-  %1 = load ptr, ptr %theRhs, align 8
-  store ptr %1, ptr %address, align 8
+  %i1 = load ptr, ptr %theRhs, align 8
+  store ptr %i1, ptr %address, align 8
   ret ptr %address
 }
 
@@ -479,25 +469,22 @@ entry:
 define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1014XalanConstructINS_18ReusableArenaBlockINS_13XStringCachedEtEEN11xercesc_2_713MemoryManagerEtEEPT_RS5_RS7_RT0_RKT1_(ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %theMemoryManager, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %theInstance, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="4" %theParam1, ptr nonnull align 2 dereferenceable(2) "intel_dtrans_func_index"="5" %theParam2) local_unnamed_addr personality ptr bitcast (ptr @__gxx_personality_v0 to ptr) !intel.dtrans.func.type !88 {
 entry:
   %theGuard = alloca %"XalanAllocationGuard", align 8
-  %0 = bitcast ptr %theGuard to i8*
   call void @_ZN11xalanc_1_1020XalanAllocationGuardC2ERN11xercesc_2_713MemoryManagerEm(ptr nonnull dereferenceable(16) %theGuard, ptr nonnull align 8 dereferenceable(8) %theMemoryManager, i64 32)
   %call = call ptr @_ZNK11xalanc_1_1020XalanAllocationGuard3getEv(ptr nonnull dereferenceable(16) %theGuard)
-  %1 = bitcast ptr %call to ptr
-  %2 = load i16, ptr %theParam2, align 2
-  invoke void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(28) %1, ptr nonnull align 8 dereferenceable(8) %theParam1, i16 zeroext %2)
+  %i2 = load i16, ptr %theParam2, align 2
+  invoke void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(28) %call, ptr nonnull align 8 dereferenceable(8) %theParam1, i16 zeroext %i2)
           to label %invoke.cont1 unwind label %lpad
 
 invoke.cont1:                                     ; preds = %entry
-  %3 = bitcast ptr %theInstance to ptr
-  store ptr %call, ptr %3, align 8
+  store ptr %call, ptr %theInstance, align 8
   call void @_ZN11xalanc_1_1020XalanAllocationGuard7releaseEv(ptr nonnull dereferenceable(16) %theGuard)
-  %4 = load ptr, ptr %theInstance, align 8
-  ret ptr %4
+  %i4 = load ptr, ptr %theInstance, align 8
+  ret ptr %i4
 
 lpad:                                             ; preds = %entry
-  %5 = landingpad { ptr, i32 }
+  %i5 = landingpad { ptr, i32 }
           cleanup
-  resume { ptr, i32 } %5
+  resume { ptr, i32 } %i5
 }
 
 ; Function Attrs: uwtable
@@ -506,11 +493,10 @@ entry:
   %m_memoryManager = getelementptr inbounds %"XalanAllocationGuard", ptr %this, i64 0, i32 0
   store ptr %theMemoryManager, ptr %m_memoryManager, align 8
   %m_pointer = getelementptr inbounds %"XalanAllocationGuard", ptr %this, i64 0, i32 1
-  %0 = bitcast ptr %theMemoryManager to ptr (ptr, i64)***
-  %vtable = load ptr (ptr, i64)**, i8* (ptr, i64)*** %0, align 8
-  %vfn = getelementptr inbounds ptr (ptr, i64)*, i8* (ptr, i64)** %vtable, i64 2
-  %1 = load ptr (ptr, i64)*, i8* (ptr, i64)** %vfn, align 8
-  %call = tail call ptr %1(ptr nonnull dereferenceable(8) %theMemoryManager, i64 %theSize), !intel_dtrans_type !67
+  %vtable = load ptr, ptr %theMemoryManager, align 8
+  %vfn = getelementptr inbounds ptr, ptr %vtable, i64 2
+  %i1 = load ptr, ptr %vfn, align 8
+  %call = tail call ptr %i1(ptr nonnull dereferenceable(8) %theMemoryManager, i64 %theSize), !intel_dtrans_type !67
   store ptr %call, ptr %m_pointer, align 8
   ret void
 }
@@ -519,15 +505,15 @@ entry:
 define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZNK11xalanc_1_1020XalanAllocationGuard3getEv(ptr nonnull dereferenceable(16) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !91 {
 entry:
   %m_pointer = getelementptr inbounds %"XalanAllocationGuard", ptr %this, i64 0, i32 1
-  %0 = load ptr, ptr %m_pointer, align 8
-  ret ptr %0
+  %i0 = load ptr, ptr %m_pointer, align 8
+  ret ptr %i0
 }
 
 ; Function Attrs: uwtable
 define linkonce_odr dso_local void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(28) "intel_dtrans_func_index"="1" %this, ptr nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %theManager, i16 zeroext %theBlockSize) unnamed_addr align 2 !intel.dtrans.func.type !92 {
 entry:
-  %0 = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 0
-  tail call void @_ZN11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(24) %0, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
+  %i0 = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 0
+  tail call void @_ZN11xalanc_1_1014ArenaBlockBaseINS_13XStringCachedEtEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(24) %i0, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
   %m_firstFreeBlock = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 1
   store i16 0, ptr %m_firstFreeBlock, align 8
   %m_nextFreeBlock = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 2
@@ -562,10 +548,10 @@ invoke.cont:                                      ; preds = %entry
   ret void
 
 lpad:                                             ; preds = %entry
-  %0 = landingpad { ptr, i32 }
+  %i0 = landingpad { ptr, i32 }
           cleanup
   tail call void @_ZN11xalanc_1_1014XalanAllocatorINS_13XStringCachedEED2Ev(ptr nonnull dereferenceable(8) %m_allocator)
-  resume { ptr, i32 } %0
+  resume { ptr, i32 } %i0
 }
 
 ; Function Attrs: nounwind uwtable
@@ -577,18 +563,16 @@ entry:
 }
 
 ; Function Attrs: uwtable
-define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1014XalanAllocatorINS_13XStringCachedEE8allocateEmPKv(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="2" %this, i64 %size, ptr "intel_dtrans_func_index"="3" %0) local_unnamed_addr align 2 !intel.dtrans.func.type !97 {
+define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1014XalanAllocatorINS_13XStringCachedEE8allocateEmPKv(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="2" %this, i64 %size, ptr "intel_dtrans_func_index"="3" %i0) local_unnamed_addr align 2 !intel.dtrans.func.type !97 {
 entry:
   %m_memoryManager = getelementptr inbounds %"XalanAllocator", ptr %this, i64 0, i32 0
-  %1 = load ptr, ptr %m_memoryManager, align 8
+  %i1 = load ptr, ptr %m_memoryManager, align 8
   %mul = mul i64 %size, 80
-  %2 = bitcast ptr %1 to i8* (ptr, i64)***
-  %vtable = load ptr (ptr, i64)**, i8* (ptr, i64)*** %2, align 8
-  %vfn = getelementptr inbounds ptr (ptr, i64)*, i8* (ptr, i64)** %vtable, i64 2
-  %3 = load ptr (ptr, i64)*, i8* (ptr, i64)** %vfn, align 8
-  %call = tail call ptr %3(ptr nonnull dereferenceable(8) %1, i64 %mul), !intel_dtrans_type !67
-  %4 = bitcast ptr %call to ptr
-  ret ptr %4
+  %vtable = load ptr, ptr %i1, align 8
+  %vfn = getelementptr inbounds ptr, ptr %vtable, i64 2
+  %i3 = load ptr, ptr %vfn, align 8
+  %call = tail call ptr %i3(ptr nonnull dereferenceable(8) %i1, i64 %mul), !intel_dtrans_type !67
+  ret ptr %call
 }
 
 ; Function Attrs: nounwind uwtable
@@ -598,12 +582,12 @@ entry:
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE16commitAllocationEPS1_(ptr nonnull dereferenceable(28) "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %0) local_unnamed_addr align 2 !intel.dtrans.func.type !99 {
+define linkonce_odr dso_local void @_ZN11xalanc_1_1018ReusableArenaBlockINS_13XStringCachedEtE16commitAllocationEPS1_(ptr nonnull dereferenceable(28) "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %i0) local_unnamed_addr align 2 !intel.dtrans.func.type !99 {
 entry:
   %m_nextFreeBlock = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 2
-  %1 = load i16, ptr %m_nextFreeBlock, align 2
+  %i1 = load i16, ptr %m_nextFreeBlock, align 2
   %m_firstFreeBlock = getelementptr inbounds %"ReusableArenaBlock", ptr %this, i64 0, i32 1
-  store i16 %1, ptr %m_firstFreeBlock, align 8
+  store i16 %i1, ptr %m_firstFreeBlock, align 8
   ret void
 }
 
@@ -611,11 +595,11 @@ entry:
 define linkonce_odr dso_local  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1021XalanListIteratorBaseINS_28XalanListConstIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEmmEv(ptr nonnull dereferenceable(8) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !100 {
 entry:
   %currentNode = getelementptr inbounds %"XalanListIteratorBase.0", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %currentNode, align 8
-  %prev = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %0, i64 0, i32 1
-  %1 = load ptr, ptr %prev, align 8
-  store ptr %1, ptr %currentNode, align 8
-  ret ptr %1
+  %i0 = load ptr, ptr %currentNode, align 8
+  %prev = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", ptr %i0, i64 0, i32 1
+  %i1 = load ptr, ptr %prev, align 8
+  store ptr %i1, ptr %currentNode, align 8
+  ret ptr %i1
 }
 
 ; Function Attrs: nounwind uwtable
@@ -623,19 +607,19 @@ define linkonce_odr dso_local zeroext i1 @_ZNK11xalanc_1_1014ArenaBlockBaseINS_1
 entry:
   %functor = alloca %"struct.std::less", align 1
   %m_blockSize = getelementptr inbounds %"ArenaBlockBase", ptr %this, i64 0, i32 2
-  %0 = load i16, ptr %m_blockSize, align 2
-  %1 = getelementptr inbounds %"struct.std::less", ptr %functor, i64 0, i32 0
+  %i0 = load i16, ptr %m_blockSize, align 2
+  %i1 = getelementptr inbounds %"struct.std::less", ptr %functor, i64 0, i32 0
   %m_objectBlock = getelementptr inbounds %"ArenaBlockBase", ptr %this, i64 0, i32 3
-  %2 = load ptr, ptr %m_objectBlock, align 8
-  %call = call zeroext i1 @_ZNKSt4lessIPKN11xalanc_1_1013XStringCachedEEclES3_S3_(ptr nonnull dereferenceable(1) %functor, ptr %theObject, ptr %2)
+  %i2 = load ptr, ptr %m_objectBlock, align 8
+  %call = call zeroext i1 @_ZNKSt4lessIPKN11xalanc_1_1013XStringCachedEEclES3_S3_(ptr nonnull dereferenceable(1) %functor, ptr %theObject, ptr %i2)
   br i1 %call, label %if.else, label %land.lhs.true
 
 land.lhs.true:                                    ; preds = %entry
-  %cmp = icmp ult i16 %0, %rightBoundary
-  %spec.select = select i1 %cmp, i16 %0, i16 %rightBoundary
-  %3 = load ptr, ptr %m_objectBlock, align 8
+  %cmp = icmp ult i16 %i0, %rightBoundary
+  %spec.select = select i1 %cmp, i16 %i0, i16 %rightBoundary
+  %i3 = load ptr, ptr %m_objectBlock, align 8
   %idx.ext = zext i16 %spec.select to i64
-  %add.ptr = getelementptr inbounds %"XStringCached", ptr %3, i64 %idx.ext
+  %add.ptr = getelementptr inbounds %"XStringCached", ptr %i3, i64 %idx.ext
   %call8 = call zeroext i1 @_ZNKSt4lessIPKN11xalanc_1_1013XStringCachedEEclES3_S3_(ptr nonnull dereferenceable(1) %functor, ptr %theObject, ptr %add.ptr)
   br i1 %call8, label %cleanup, label %if.else
 
@@ -658,7 +642,6 @@ entry:
 define linkonce_odr dso_local nonnull align 8 dereferenceable(8)  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5frontEv(ptr nonnull dereferenceable(24) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !104 {
 entry:
   %ref.tmp = alloca %"XalanListIteratorBase", align 8
-  %0 = bitcast ptr %ref.tmp to i8*
   call void @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE5beginEv(ptr nonnull sret(%"XalanListIteratorBase") align 8 %ref.tmp, ptr nonnull dereferenceable(24) %this)
   %call = call nonnull align 8 dereferenceable(8) ptr @_ZNK11xalanc_1_1021XalanListIteratorBaseINS_23XalanListIteratorTraitsIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEEENS_9XalanListIS5_E4NodeEEdeEv(ptr nonnull dereferenceable(8) %ref.tmp)
   ret ptr %call
@@ -677,8 +660,8 @@ entry:
 define linkonce_odr dso_local nonnull align 8 dereferenceable(8)  "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_109XalanListIPNS_18ReusableArenaBlockINS_13XStringCachedEtEEE16getMemoryManagerEv(ptr nonnull dereferenceable(24) "intel_dtrans_func_index"="2" %this) local_unnamed_addr align 2 !intel.dtrans.func.type !106 {
 entry:
   %m_memoryManager = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 0
-  %0 = load ptr, ptr %m_memoryManager, align 8
-  ret ptr %0
+  %i0 = load ptr, ptr %m_memoryManager, align 8
+  ret ptr %i0
 }
 
 ; Function Attrs: uwtable

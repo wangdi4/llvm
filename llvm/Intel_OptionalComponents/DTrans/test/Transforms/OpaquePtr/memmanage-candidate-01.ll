@@ -11,78 +11,78 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %"XStringCachedAllocator" = type { %"ReusableArenaAllocator" }
 %"ReusableArenaAllocator" = type <{ %"ArenaAllocator", i8, [7 x i8] }>
-%"ArenaAllocator" = type { i32 (...)**, i16, %"XalanList" }
-%"XalanList" = type { %"MemoryManager"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
-%"XalanList<ReusableArenaBlock<XStringCached> *>::Node" = type { %"ReusableArenaBlock"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
+%"ArenaAllocator" = type { ptr, i16, %"XalanList" }
+%"XalanList" = type { ptr, ptr, ptr }
+%"XalanList<ReusableArenaBlock<XStringCached> *>::Node" = type { ptr, ptr, ptr }
 %"ReusableArenaBlock" = type <{ %"ArenaBlockBase", i16, i16, [4 x i8] }>
-%"ArenaBlockBase" = type { %"XalanAllocator", i16, i16, %"XStringCached"* }
-%"XalanAllocator" = type { %"MemoryManager"* }
+%"ArenaBlockBase" = type { %"XalanAllocator", i16, i16, ptr }
+%"XalanAllocator" = type { ptr }
 %"XStringCached" = type { %"XStringBase", %"XPathExecutionContext::GetAndReleaseCachedString" }
 %"XStringBase" = type { %"XObject", double, %"XObjectResultTreeFragProxy" }
-%"XObject" = type { %"XalanReferenceCountedObject.base", i32, %"XObjectFactory"* }
-%"XalanReferenceCountedObject.base" = type <{ i32 (...)**, i32 }>
+%"XObject" = type { %"XalanReferenceCountedObject.base", i32, ptr }
+%"XalanReferenceCountedObject.base" = type <{ ptr, i32 }>
 %"XObjectFactory" = type opaque
 %"XObjectResultTreeFragProxy" = type { %"XObjectResultTreeFragProxyBase", %"XObjectResultTreeFragProxyText" }
 %"XObjectResultTreeFragProxyBase" = type { %"XalanDocumentFragment" }
 %"XalanDocumentFragment" = type { %"XalanNode" }
-%"XalanNode" = type { i32 (...)** }
-%"XObjectResultTreeFragProxyText" = type { %"XalanText", %"XObject"*, %"MemoryManager"* }
+%"XalanNode" = type { ptr }
+%"XObjectResultTreeFragProxyText" = type { %"XalanText", ptr, ptr }
 %"XalanText" = type { %"XalanCharacterData" }
 %"XalanCharacterData" = type { %"XalanNode" }
-%"XPathExecutionContext::GetAndReleaseCachedString" = type { %"XPathExecutionContext"*, %"XalanDOMString"* }
-%"XPathExecutionContext" = type { %"ExecutionContext", %"XObjectFactory"* }
-%"ExecutionContext" = type { i32 (...)**, %"MemoryManager"* }
+%"XPathExecutionContext::GetAndReleaseCachedString" = type { ptr, %"XalanDOMString"* }
+%"XPathExecutionContext" = type { %"ExecutionContext", ptr }
+%"ExecutionContext" = type { ptr, ptr }
 %"XalanDOMString" = type <{ %"XalanVector", i32, [4 x i8] }>
-%"XalanVector" = type { %"MemoryManager"*, i64, i64, i16* }
-%"MemoryManager" = type { i32 (...)** }
-%"XalanListIteratorBase" = type { %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
+%"XalanVector" = type { ptr, i64, i64, ptr }
+%"MemoryManager" = type { ptr }
+%"XalanListIteratorBase" = type { ptr }
 %"class.std::reverse_iterator.1" = type { %"XalanListIteratorBase" }
-%"DeleteFunctor" = type { %"MemoryManager"* }
-%"XalanListIteratorBase.0" = type { %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* }
+%"DeleteFunctor" = type { ptr }
+%"XalanListIteratorBase.0" = type { ptr }
 %"class.std::reverse_iterator" = type { %"XalanListIteratorBase.0" }
-%"XalanAllocationGuard" = type { %"MemoryManager"*, i8* }
+%"XalanAllocationGuard" = type { ptr, i8* }
 %"ReusableArenaBlock<XStringCached>::NextBlock" = type { i16, i32 }
 %"struct.std::less" = type { i8 }
 %"XalanDestroyFunctor" = type { i8 }
 
 ; Function Attrs: uwtable
-define dso_local void @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt(%"XStringCachedAllocator"* "intel_dtrans_func_index"="1" nonnull dereferenceable(48) %this, %"MemoryManager"* "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount) unnamed_addr align 2 !intel.dtrans.func.type !41 {
+define dso_local void @_ZN11xalanc_1_1022XStringCachedAllocatorC2ERN11xercesc_2_713MemoryManagerEt(ptr "intel_dtrans_func_index"="1" nonnull dereferenceable(48) %this, ptr "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount) unnamed_addr align 2 !intel.dtrans.func.type !41 {
 entry:
-  %m_allocator = getelementptr inbounds %"XStringCachedAllocator", %"XStringCachedAllocator"* %this, i64 0, i32 0
-  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(%"ReusableArenaAllocator"* nonnull dereferenceable(41) %m_allocator, %"MemoryManager"* nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount, i1 zeroext false)
+  %m_allocator = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0
+  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr nonnull dereferenceable(41) %m_allocator, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockCount, i1 zeroext false)
   ret void
 }
 
 ; Function Attrs: uwtable
-define linkonce_odr dso_local void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(%"ReusableArenaAllocator"* "intel_dtrans_func_index"="1" nonnull dereferenceable(41) %this, %"MemoryManager"* "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize, i1 zeroext %destroyBlocks) unnamed_addr align 2 !intel.dtrans.func.type !43 {
+define linkonce_odr dso_local void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(ptr "intel_dtrans_func_index"="1" nonnull dereferenceable(41) %this, ptr "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize, i1 zeroext %destroyBlocks) unnamed_addr align 2 !intel.dtrans.func.type !43 {
 entry:
   %frombool = zext i1 %destroyBlocks to i8
-  %0 = getelementptr inbounds %"ReusableArenaAllocator", %"ReusableArenaAllocator"* %this, i64 0, i32 0
-  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(%"ArenaAllocator"* nonnull dereferenceable(40) %0, %"MemoryManager"* nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
-  %1 = getelementptr inbounds %"ReusableArenaAllocator", %"ReusableArenaAllocator"* %this, i64 0, i32 0, i32 0
-  store i32 (...)** bitcast (i8** getelementptr inbounds ({ [8 x i8*] }, { [8 x i8*] }* null, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** %1, align 8
-  %m_destroyBlocks = getelementptr inbounds %"ReusableArenaAllocator", %"ReusableArenaAllocator"* %this, i64 0, i32 1
-  store i8 %frombool, i8* %m_destroyBlocks, align 8
+  %0 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0
+  tail call void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(ptr nonnull dereferenceable(40) %0, ptr nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
+  %1 = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 0, i32 0
+  store ptr bitcast (ptr getelementptr inbounds ({ [8 x ptr] }, ptr null, i64 0, inrange i32 0, i64 2) to ptr), ptr %1, align 8
+  %m_destroyBlocks = getelementptr inbounds %"ReusableArenaAllocator", ptr %this, i64 0, i32 1
+  store i8 %frombool, ptr %m_destroyBlocks, align 8
   ret void
 }
 
 ; Function Attrs: uwtable
-define dso_local "intel_dtrans_func_index"="1" %"XStringCached"* @_ZN11xalanc_1_1022XStringCachedAllocator12createStringERNS_21XPathExecutionContext25GetAndReleaseCachedStringE(%"XStringCachedAllocator"* "intel_dtrans_func_index"="2" nonnull dereferenceable(48) %this, %"XPathExecutionContext::GetAndReleaseCachedString"* "intel_dtrans_func_index"="3" nonnull align 8 dereferenceable(16) %theValue) local_unnamed_addr align 2 !intel.dtrans.func.type !45 {
+define dso_local "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1022XStringCachedAllocator12createStringERNS_21XPathExecutionContext25GetAndReleaseCachedStringE(ptr "intel_dtrans_func_index"="2" nonnull dereferenceable(48) %this, ptr "intel_dtrans_func_index"="3" nonnull align 8 dereferenceable(16) %theValue) local_unnamed_addr align 2 !intel.dtrans.func.type !45 {
 entry:
-  %m_allocator = getelementptr inbounds %"XStringCachedAllocator", %"XStringCachedAllocator"* %this, i64 0, i32 0
-  %call = tail call %"XStringCached"* @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(%"ReusableArenaAllocator"* nonnull dereferenceable(41) %m_allocator)
-  %0 = getelementptr inbounds %"XStringCachedAllocator", %"XStringCachedAllocator"* %this, i64 0, i32 0, i32 0
-  %call3 = tail call nonnull align 8 dereferenceable(8) %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* nonnull dereferenceable(40) %0)
-  tail call void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull dereferenceable(80) %call, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull align 8 dereferenceable(16) %theValue, %"MemoryManager"* nonnull align 8 dereferenceable(8) %call3)
-  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(%"ReusableArenaAllocator"* nonnull dereferenceable(41) %m_allocator, %"XStringCached"* nonnull %call)
-  ret %"XStringCached"* %call
+  %m_allocator = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0
+  %call = tail call ptr @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(ptr nonnull dereferenceable(41) %m_allocator)
+  %0 = getelementptr inbounds %"XStringCachedAllocator", ptr %this, i64 0, i32 0, i32 0
+  %call3 = tail call nonnull align 8 dereferenceable(8) ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr nonnull dereferenceable(40) %0)
+  tail call void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(ptr nonnull dereferenceable(80) %call, ptr nonnull align 8 dereferenceable(16) %theValue, ptr nonnull align 8 dereferenceable(8) %call3)
+  tail call void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(ptr nonnull dereferenceable(41) %m_allocator, ptr nonnull %call)
+  ret ptr %call
 }
 
-declare !intel.dtrans.func.type !46 dso_local void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* "intel_dtrans_func_index"="1" nonnull dereferenceable(80), %"XPathExecutionContext::GetAndReleaseCachedString"* "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(16), %"MemoryManager"* "intel_dtrans_func_index"="3" nonnull align 8 dereferenceable(8)) unnamed_addr
-declare !intel.dtrans.func.type !48 "intel_dtrans_func_index"="1" %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* "intel_dtrans_func_index"="2" nonnull dereferenceable(40) %this)
-declare !intel.dtrans.func.type !49 void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(%"ArenaAllocator"* "intel_dtrans_func_index"="1" nonnull dereferenceable(40) %this, %"MemoryManager"* "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
-declare !intel.dtrans.func.type !50 "intel_dtrans_func_index"="1" %"XStringCached"* @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(%"ReusableArenaAllocator"* "intel_dtrans_func_index"="2" nonnull dereferenceable(41) %this)
-declare !intel.dtrans.func.type !51 void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(%"ReusableArenaAllocator"* "intel_dtrans_func_index"="1" nonnull dereferenceable(41) %this, %"XStringCached"* "intel_dtrans_func_index"="2" %theObject)
+declare !intel.dtrans.func.type !46 dso_local void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(ptr "intel_dtrans_func_index"="1" nonnull dereferenceable(80), ptr "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(16), ptr "intel_dtrans_func_index"="3" nonnull align 8 dereferenceable(8)) unnamed_addr
+declare !intel.dtrans.func.type !48 "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(ptr "intel_dtrans_func_index"="2" nonnull dereferenceable(40) %this)
+declare !intel.dtrans.func.type !49 void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(ptr "intel_dtrans_func_index"="1" nonnull dereferenceable(40) %this, ptr "intel_dtrans_func_index"="2" nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
+declare !intel.dtrans.func.type !50 "intel_dtrans_func_index"="1" ptr @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(ptr "intel_dtrans_func_index"="2" nonnull dereferenceable(41) %this)
+declare !intel.dtrans.func.type !51 void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(ptr "intel_dtrans_func_index"="1" nonnull dereferenceable(41) %this, ptr "intel_dtrans_func_index"="2" %theObject)
 
 !1 = !{%"ReusableArenaAllocator" zeroinitializer, i32 0}  ; %"ReusableArenaAllocator"
 !2 = !{%"ArenaAllocator" zeroinitializer, i32 0}  ; %"ArenaAllocator"
