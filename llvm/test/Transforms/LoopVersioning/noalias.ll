@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -loop-versioning -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=loop-versioning -S < %s | FileCheck %s
->>>>>>> 79a1a5b33e111c96fa1356c72b3d9c27ffed6bcb
 
 ; A very simple case.  After versioning the %loadA and %loadB can't alias with
 ; the store.
