@@ -1,12 +1,12 @@
 // INTEL_CUSTOMIZATION
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -56,6 +56,12 @@ template <typename T> constexpr dpas_argument_type dpas_precision_from_type() {
     return dpas_argument_type::u8;
   else if constexpr (__ESIMD_DNS::is_type<T, char, signed char>())
     return dpas_argument_type::s8;
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  else if constexpr (std::is_same_v<T, double>)
+    return dpas_argument_type::df;
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
   else
     return dpas_argument_type::Invalid;
 }
@@ -67,17 +73,24 @@ template <dpas_argument_type T> constexpr int dpas_bitsize_from_precision() {
     return 4;
   else if constexpr (T == dpas_argument_type::u8 || T == dpas_argument_type::s8)
     return 8;
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-  else if constexpr (T == dpas_argument_type::bf8)
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  else if constexpr (T == dpas_argument_type::bf8 ||
+                     T == dpas_argument_type::hf8)
     return 8;
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
   else if constexpr (T == dpas_argument_type::bf16 ||
                      T == dpas_argument_type::fp16)
     return 16;
   else if constexpr (T == dpas_argument_type::tf32)
     return 32;
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  else if constexpr (T == dpas_argument_type::df)
+    return 64;
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
   else
     return -1;
 }
@@ -96,6 +109,13 @@ constexpr void verify_repeat_count() {
             (AElemBitSize != 2 && (AElemBitSize != 4 || BElemBitSize <= 4)),
         "Unsupported repeat count for DPASW operation");
   }
+
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  static_assert(AElemBitSize != 64 || RepeatCount == 4,
+                "Repeat count must be equal to 4 for double arguments");
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
 }
 
 template <int SystolicDepth, int RepeatCount, typename T, typename CT,
@@ -117,7 +137,7 @@ constexpr int verify_parameters_and_deduce_exec_size() {
   verify_repeat_count<RepeatCount, AElemBitSize, BElemBitSize, IsDPASW>();
 
   constexpr int OpsPerChannel =
-      std::min(32 / std::max(AElemBitSize, BElemBitSize), 8);
+      std::max(std::min(32 / std::max(AElemBitSize, BElemBitSize), 8), 1);
 
   // A(_Mx_K) * B(_Kx_N) + C(_Mx_N)
   // where:
@@ -169,19 +189,29 @@ constexpr int verify_parameters_and_deduce_exec_size() {
                     " Result |   C   |   B  |  A  \n"
                     " f, hf  | f, hf |  hf  |  hf \n");
     }
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-  } else if constexpr (APrecision == dpas_argument_type::BF8) {
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+  } else if constexpr (APrecision == dpas_argument_type::bf8 ||
+                       APrecision == dpas_argument_type::hf8) {
     static_assert(ExecutionSize == 16,
-                  "bf8 type can be used only with ExecutionSize=16");
-    static_assert(APrecision == BPrecision &&
-                      __ESIMD_DNS::is_type<T, float, sycl::half, bfloat16>() &&
-                      __ESIMD_DNS::is_type<CT, float, sycl::half, bfloat16>(),
+                  "bf8 and hf16 types can be used only with ExecutionSize=16");
+    static_assert(APrecision == BPrecision && std::is_same_v<T, float>() &&
+                      std::is_same_v<CT, float>(),
                   "Unsupported DPAS types! The supported types are:\n"
-                  " Result |   C   |   B  |  A        \n"
-                  " f,hf,bf|f,hf,bf|  bf8 |  bf8      \n");
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
+                  " Result | C |  B  |  A  \n"
+                  " f      | f | bf8 | bf8 \n"
+                  " f      | f | hf8 | hf8 \n");
+  } else if constexpr (APrecision == dpas_argument_type::df) {
+    static_assert(ExecutionSize == 8,
+                  "double type can be used only with ExecutionSize=8");
+    static_assert(APrecision == BPrecision && std::is_same_v<T, double> &&
+                      std::is_same_v<CT, double>,
+                  "Unsupported DPAS types! The supported types are:\n"
+                  " Result |    C   |    B   |    A   \n"
+                  " double | double | double | double \n"
+                  " double | double | double | double \n");
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
   } else if constexpr (APrecision == dpas_argument_type::bf16 ||
                        BPrecision == dpas_argument_type::bf16) {
     using bfloat16 = sycl::ext::oneapi::experimental::bfloat16;
@@ -257,14 +287,27 @@ __ESIMD_NS::simd<T, N> dpas(__ESIMD_NS::simd<CT, N> C,
       SystolicDepth, RepeatCount, T, CT, BT, AT, BPrecision, APrecision, BN,
       AN>();
 
-  constexpr int ANCasted = AN / (sizeof(int) / sizeof(AT));
-  constexpr int BNCasted = BN / (sizeof(int) / sizeof(BT));
-  __ESIMD_NS::simd<int, ANCasted> ACasted = A.template bit_cast_view<int>();
-  __ESIMD_NS::simd<int, BNCasted> BCasted = B.template bit_cast_view<int>();
+  using MsgT =
+      /* INTEL_CUSTOMIZATION */
+      /* INTEL_FEATURE_ESIMD_EMBARGO */
+      typename std::conditional_t<APrecision == dpas_argument_type::df, double,
+                                  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                                  /* end INTEL_CUSTOMIZATION */
+                                  int
+                                  /* INTEL_CUSTOMIZATION */
+                                  /* INTEL_FEATURE_ESIMD_EMBARGO */
+                                  >
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      ;
+  constexpr int ANCasted = AN * sizeof(AT) / sizeof(MsgT);
+  constexpr int BNCasted = BN * sizeof(BT) / sizeof(MsgT);
+  __ESIMD_NS::simd<MsgT, ANCasted> ACasted = A.template bit_cast_view<MsgT>();
+  __ESIMD_NS::simd<MsgT, BNCasted> BCasted = B.template bit_cast_view<MsgT>();
   using CRawT = typename __ESIMD_NS::simd<CT, N>::raw_element_type;
   using RawT = typename __ESIMD_NS::simd<T, N>::raw_element_type;
   return __esimd_dpas2<BPrecision, APrecision, SystolicDepth, RepeatCount, RawT,
-                       CRawT, int, int, N, BNCasted, ANCasted>(
+                       CRawT, MsgT, MsgT, N, BNCasted, ANCasted>(
       C.data(), BCasted.data(), ACasted.data());
 }
 
@@ -292,16 +335,30 @@ auto dpas(__ESIMD_NS::simd<BT, BN> B, __ESIMD_NS::simd<AT, AN> A) {
   //   _N = ExecutionSize (unknown, but deducible), must be 8 or 16.
   constexpr int ResultN = RepeatCount * ExecutionSize;
 
-  constexpr int ANCasted = AN / (sizeof(int) / sizeof(AT));
-  constexpr int BNCasted = BN / (sizeof(int) / sizeof(BT));
-  __ESIMD_NS::simd<int, ANCasted> ACasted = A.template bit_cast_view<int>();
-  __ESIMD_NS::simd<int, BNCasted> BCasted = B.template bit_cast_view<int>();
+  using MsgT =
+      /* INTEL_CUSTOMIZATION */
+      /* INTEL_FEATURE_ESIMD_EMBARGO */
+      typename std::conditional_t<APrecision == dpas_argument_type::df, double,
+                                  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                                  /* end INTEL_CUSTOMIZATION */
+                                  int
+                                  /* INTEL_CUSTOMIZATION */
+                                  /* INTEL_FEATURE_ESIMD_EMBARGO */
+                                  >
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      ;
+
+  constexpr int ANCasted = AN * sizeof(AT) / sizeof(MsgT);
+  constexpr int BNCasted = BN * sizeof(BT) / sizeof(MsgT);
+  __ESIMD_NS::simd<MsgT, ANCasted> ACasted = A.template bit_cast_view<MsgT>();
+  __ESIMD_NS::simd<MsgT, BNCasted> BCasted = B.template bit_cast_view<MsgT>();
 
   constexpr int Info = (RepeatCount << 24) + (SystolicDepth << 16) +
                        ((int)APrecision << 8) + (int)BPrecision;
   using RawT = typename __ESIMD_NS::simd<T, ResultN>::raw_element_type;
   __ESIMD_NS::simd<T, ResultN> Result =
-      __esimd_dpas_nosrc0<Info, RawT, int, int, ResultN, BNCasted, ANCasted>(
+      __esimd_dpas_nosrc0<Info, RawT, MsgT, MsgT, ResultN, BNCasted, ANCasted>(
           BCasted.data(), ACasted.data());
   return Result;
 }
@@ -327,8 +384,8 @@ __ESIMD_NS::simd<T, N> dpasw(__ESIMD_NS::simd<T, N> C,
       SystolicDepth, RepeatCount, T, T, BT, AT, BPrecision, APrecision, BN, AN,
       IsDPASW>();
 
-  constexpr int ANCasted = AN / (sizeof(int) / sizeof(AT));
-  constexpr int BNCasted = BN / (sizeof(int) / sizeof(BT));
+  constexpr int ANCasted = AN * sizeof(AT) / sizeof(int);
+  constexpr int BNCasted = BN * sizeof(BT) / sizeof(int);
   __ESIMD_NS::simd<int, ANCasted> ACasted = A.template bit_cast_view<int>();
   __ESIMD_NS::simd<int, BNCasted> BCasted = B.template bit_cast_view<int>();
 
@@ -364,8 +421,8 @@ auto dpasw(__ESIMD_NS::simd<BT, BN> B, __ESIMD_NS::simd<AT, AN> A) {
   //   _N = ExecutionSize (unknown, but deducible), must be 8 or 16.
   constexpr int ResultN = RepeatCount * ExecutionSize;
 
-  constexpr int ANCasted = AN / (sizeof(int) / sizeof(AT));
-  constexpr int BNCasted = BN / (sizeof(int) / sizeof(BT));
+  constexpr int ANCasted = AN * sizeof(AT) / sizeof(int);
+  constexpr int BNCasted = BN * sizeof(BT) / sizeof(int);
   __ESIMD_NS::simd<int, ANCasted> ACasted = A.template bit_cast_view<int>();
   __ESIMD_NS::simd<int, BNCasted> BCasted = B.template bit_cast_view<int>();
 
