@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -loop-interchange -cache-line-size=64 -pass-remarks='loop-interchange' -pass-remarks-output=%t -S \
+=======
+; RUN: opt < %s -passes=loop-interchange -cache-line-size=64 -pass-remarks='loop-interchange' -pass-remarks-output=%t -S \
+>>>>>>> 25a87862a02f900974b424a58ec92abac66ae843
 ; RUN:     -verify-dom-info -verify-loop-info | FileCheck %s
 ; RUN: FileCheck -check-prefix=REMARK --input-file=%t %s
 
