@@ -121,6 +121,10 @@ public:
     return *cast<ItaniumVTableContext>(VTContext);
   }
 
+  const ItaniumVTableContext &getItaniumVTableContext() const {
+    return *cast<ItaniumVTableContext>(VTContext);
+  }
+
   MicrosoftVTableContext &getMicrosoftVTableContext() {
     return *cast<MicrosoftVTableContext>(VTContext);
   }
