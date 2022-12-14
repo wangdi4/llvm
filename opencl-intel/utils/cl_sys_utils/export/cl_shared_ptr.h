@@ -464,7 +464,10 @@ public:
    */
   SharedPtr(const SharedPtr &other) : SharedPtrBase<T>(other) {}
 
-  SharedPtr &operator=(const SharedPtr &other) = default;
+  SharedPtr &operator=(const SharedPtr &other) {
+    SharedPtrBase<T>::operator=(other);
+    return *this;
+  }
 
   template <typename S>
   SharedPtr(const SharedPtr<S> &other) : SharedPtrBase<T>(other) {}
@@ -549,7 +552,10 @@ public:
    */
   ConstSharedPtr(const ConstSharedPtr &other) : SharedPtrBase<const T>(other) {}
 
-  ConstSharedPtr &operator=(const ConstSharedPtr &other) = default;
+  ConstSharedPtr &operator=(const ConstSharedPtr &other) {
+    SharedPtrBase<const T>::operator=(other);
+    return *this;
+  }
 
   template <typename S>
   ConstSharedPtr(const ConstSharedPtr<S> &other)

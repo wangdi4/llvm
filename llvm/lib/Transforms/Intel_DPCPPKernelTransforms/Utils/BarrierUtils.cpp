@@ -175,7 +175,7 @@ CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
 
   // Get the kernels using the barrier for work group loops.
   SmallVector<Function *, 4> KernelsWithBarrier;
-  for (auto Func : Kernels) {
+  for (auto *Func : Kernels) {
     auto kimd = KernelInternalMetadataAPI(Func);
     if (kimd.NoBarrierPath.get())
       continue;
