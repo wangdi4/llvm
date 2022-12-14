@@ -144,7 +144,6 @@ endif(WIN32)
 #   PROC            - target CPU
 #   INPUT_FILE      - full path to input file
 #   OUTPUT_DIR      - directory for output file
-#   DISABLE_LLVM_PASSES - whether to add '--disable-llvm-passes' option to clang
 #
 
 function(
@@ -153,18 +152,15 @@ function(
   OUTPUT_FILE_VAR
   PROC
   INPUT_FILE
-  OUTPUT_DIR
-  DISABLE_LLVM_PASSES)
+  OUTPUT_DIR)
 
   get_filename_component(NAME ${INPUT_FILE} NAME_WE)
   set(OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION})
 
   # Provide an option to explicitly disable llvm optimization pipeline when we
-  # compile OpenCL sources, especially when the output bitcode will later be
-  # optimized by `opt -O3`, avoiding running duplication optimizations.
-  if(${DISABLE_LLVM_PASSES})
-    set(COMPILE_OPTIONS ${COMPILE_OPTIONS} -disable-llvm-passes)
-  endif(${DISABLE_LLVM_PASSES})
+  # compile sources. The output bitcode will later be optimized by `opt -O3`,
+  # avoiding running duplication optimizations.
+  set(COMPILE_OPTIONS ${COMPILE_OPTIONS} -disable-llvm-passes)
 
   add_custom_command(
     OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
@@ -225,14 +221,14 @@ function(
   # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 
   foreach(FILE ${FILES})
-    compile("${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR} TRUE)
+    compile("${CLANG_COMPILE_FLAGS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
     list(APPEND TMP_FILES ${TMP_RTL})
   endforeach(FILE)
 
   if(NOT ("${C_FILES}" STREQUAL "IGNORE"))
     foreach(FILE ${C_FILES})
       compile("${CLANG_C_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE}
-              ${OUTPUT_DIR} TRUE)
+              ${OUTPUT_DIR})
       list(APPEND TMP_FILES ${TMP_RTL})
     endforeach(FILE)
   endif()
