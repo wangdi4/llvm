@@ -327,8 +327,10 @@ private:
     BasicBlock *UpdateBB = nullptr;
     BasicBlock *ExitBB = nullptr;
     PHINode *IVPhi = nullptr;
+    PHINode *TeamsIVPhi = nullptr;
     BasicBlock *ScalarUpdateBB = nullptr;
-    BasicBlock *LatchBB = nullptr;
+    BasicBlock *InnerLatchBB = nullptr;
+    BasicBlock *OuterLatchBB = nullptr;
   };
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
