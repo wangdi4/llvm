@@ -290,6 +290,9 @@ public:
     if (DTransDstStructsMap)
       delete DTransDstStructsMap;
   }
+  TypeMapTy(const TypeMapTy &) = delete;
+  TypeMapTy &operator=(const TypeMapTy &) = delete;
+
 #else // INTEL_FEATURE_SW_DTRANS
   TypeMapTy(IRMover::IdentifiedStructTypeSet &DstStructTypesSet)
       : DstStructTypesSet(DstStructTypesSet) {}
