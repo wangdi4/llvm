@@ -149,7 +149,10 @@ WholeProgramInfo::WholeProgramInfo(Module *M,
   //                     debugging transformations that require internalization,
   //                     for example: devirtualization.
   WholeProgramHidden = true;
-
+  
+  IsLibIRCAllowedEverywhere = false;
+  MainDefSeen = false;
+  
   // Another important term:
   // WholeProgramRead: All symbols were resolved by the linker.
 
