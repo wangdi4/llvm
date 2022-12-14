@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -tbaa -newgvn -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=newgvn -S < %s | FileCheck %s
->>>>>>> 1010977fdea36b9b361502da5a3209f3c5645b67
 
 %struct.t = type { i32* }
 

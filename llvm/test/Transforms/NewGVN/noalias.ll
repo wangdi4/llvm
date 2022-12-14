@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -scoped-noalias-aa -basic-aa -newgvn -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=newgvn -S < %s | FileCheck %s
->>>>>>> 1010977fdea36b9b361502da5a3209f3c5645b67
 
 define i32 @test1(i32* %p, i32* %q) {
 ; CHECK-LABEL: @test1(i32* %p, i32* %q)
