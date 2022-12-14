@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=loop-vectorize,dce,instcombine -force-vector-interleave=1 -force-vector-width=4 -S | FileCheck %s
+=======
+; RUN: opt < %s -passes=loop-vectorize,dce,instcombine -force-vector-interleave=1 -force-vector-width=4 -S | FileCheck %s
+>>>>>>> 1e08a08a871830c708f81a5f28b794fb32ae0dc2
 
 ; From a simple program with two address spaces:
 ; char Y[4*10000] __attribute__((address_space(1)));
