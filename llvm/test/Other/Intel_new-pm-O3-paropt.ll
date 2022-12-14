@@ -90,10 +90,12 @@
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}> on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
-;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module]
 ;CHECK-NEXT: Running pass: SROAPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
+;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module] ;INTEL
+;CHECK-NEXT: Running pass: SROAPass on foo ;INTEL
+;CHECK-NEXT: Running pass: SimplifyCFGPass on foo ;INTEL
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo

@@ -1294,6 +1294,13 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
         /*MaxDevirtIterations=*/0);
     // Process OpenMP directives at -O1 and above.
     AddPreCGSCCModulePasses(PMIWP);
+#if INTEL_CUSTOMIZATION
+    if (Level.getSpeedupLevel() > 2) {
+      CGSCCPassManager &PMICgsccPM = PMIWP.getPM();
+      PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SROAPass()));
+      PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SimplifyCFGPass()));
+    }
+#endif // INTEL_CUSTOMIZATION
     MPM->addPass(std::move(PMIWP));
     FunctionPassManager FPM;
     addVPOPasses(*MPM, FPM, Level, /*RunVec=*/false, /*Simplify=*/true);
