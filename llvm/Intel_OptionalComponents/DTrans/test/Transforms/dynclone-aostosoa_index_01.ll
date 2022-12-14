@@ -46,8 +46,8 @@ define void @proc1() {
 ; CHECK: [[GEP1:%[0-9]+]] = getelementptr %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC1]], i32 0, i32 4
 ; CHECK: %F2 = bitcast i16* [[GEP1]] to i32*
 
-  %A2 = call i32* @llvm.ptr.annotation.p0i32(i32* %F2, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
-; CHECK: %A2 = call i32* @llvm.ptr.annotation.p0i32(i32* %F2,
+  %A2 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %F2, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
+; CHECK: %A2 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %F2,
 
   %L1 = load i32, i32* %F2
 ; CHECK: [[BC2:%[0-9]+]] = bitcast i32* %F2 to i16*
@@ -59,8 +59,8 @@ define void @proc1() {
 ; CHECK: [[GEP2:%[0-9]+]] = getelementptr %__DYN_struct.test.01, %__DYN_struct.test.01* [[BC3]], i32 0, i32 5
 ; CHECK: %F3 = bitcast i16* [[GEP2]] to i32*
 
-  %A3 = call i32* @llvm.ptr.annotation.p0i32(i32* %F3, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
-; CHECK: %A3 = call i32* @llvm.ptr.annotation.p0i32(i32* %F3,
+  %A3 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %F3, i8* getelementptr inbounds ([41 x i8], [41 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* null, i32 0, i8* null)
+; CHECK: %A3 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %F3,
 
   store i32 0, i32* %F3
 ; CHECK: [[TRUNC1:%[0-9]+]] = trunc i32 0 to i16
@@ -91,7 +91,7 @@ define void @proc1() {
 ; This routine is selected as InitRoutine.
 define %struct.test.01* @init() {
   %call0 = call noalias i8* @calloc(i64 1000, i64 32)
-  %call.ptr = call i8* @llvm.ptr.annotation.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0, i8* null)
+  %call.ptr = call i8* @llvm.ptr.annotation.p0i8.p0i8(i8* %call0, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), i8* null, i32 0, i8* null)
   %C01 = getelementptr i8, i8* %call0, i64 0
   %C02 = bitcast i8* %C01 to i64*
   store i64* %C02, i64** getelementptr (%struct.ns, %struct.ns* @n, i64 0, i32 0)
@@ -121,7 +121,7 @@ entry:
 
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64) #0
-declare dso_local noalias i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*)
-declare dso_local noalias i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
+declare dso_local noalias i8* @llvm.ptr.annotation.p0i8.p0i8(i8*, i8*, i8*, i32, i8*)
+declare dso_local noalias i32* @llvm.ptr.annotation.p0i32.p0i8(i32*, i8*, i8*, i32, i8*)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }

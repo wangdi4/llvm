@@ -35,7 +35,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %in, ptr "intel_dtrans_fun
 
 ; CHECK-LABEL: define internal void @test02.1(i64 %in, ptr "intel_dtrans_func_index"="1" %in1)
 ; CHECK: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 %in, ptr %p1, align 8
 ; CHECK: ret void
 

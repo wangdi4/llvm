@@ -27,7 +27,7 @@ define i32 @test01() {
 ; CHECK-LABEL: define i32 @test01
 
 ; CHECK: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %p1 = load i32, ptr %p0
 ; CHECK: %[[GEP1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 2
 ; CHECK: %[[LOAD1:[0-9]+]] = load ptr, ptr %[[GEP1]]
@@ -50,7 +50,7 @@ define i32 @test02(i64 %n) {
 ; CHECK-LABEL: define i32 @test02
 
 ; CHECK: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %p1 = load i32, ptr %p0
 ; CHECK: %[[TRUNC1:[0-9]+]] = trunc i64 %n to i32
 ; CHECK: %p2 = add i32 %p1, %[[TRUNC1]]
@@ -74,7 +74,7 @@ define i32 @test03(i64 %n) {
 ; CHECK-LABEL: define i32 @test03
 
 ; CHECK: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %p1 = load i32, ptr %p0
 ; CHECK: %[[GEP1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 2
 ; CHECK: %[[LOAD1:[0-9]+]] = load ptr, ptr %[[GEP1]]

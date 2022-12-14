@@ -32,9 +32,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32* @foo(i32* %p) {
 entry:
-  %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
-  %1 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 3, i8* null)
-  %2 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 4, i8* null)
+  %0 = tail call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 2, i8* null)
+  %1 = tail call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 3, i8* null)
+  %2 = tail call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %p, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 4, i8* null)
   %3 = load i32, i32* %p, align 4
   %cmp = icmp eq i32 %3, 0
   %4 = select i1 %cmp, i32* %0, i32* %1
@@ -45,5 +45,5 @@ entry:
   ret i32* %6
 }
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*) #1
+declare i32* @llvm.ptr.annotation.p0i32.p0i8(i32*, i8*, i8*, i32, i8*) #1
 

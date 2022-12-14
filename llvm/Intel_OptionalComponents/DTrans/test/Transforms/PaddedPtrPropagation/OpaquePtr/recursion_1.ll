@@ -14,7 +14,7 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @0, ptr @.str, i32 2, ptr null) :: 32
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr @0, ptr @.str, i32 2, ptr null) :: 32
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -24,7 +24,7 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @0, ptr @.str, i32 2, ptr null) :: 32
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr @0, ptr @.str, i32 2, ptr null) :: 32
 ; CHECK-NEXT:      %call = call ptr @foo(ptr %p) :: 32
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
@@ -35,13 +35,13 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private constant [14 x i8] c"recursion_1.c\00", section "llvm.metadata"
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr) #0
 
 ; Function Attrs: nounwind uwtable
 define internal "intel_dtrans_func_index"="1" ptr @foo(ptr "intel_dtrans_func_index"="2" %p) #1 !intel.dtrans.func.type !6 {
 entry:
   %call = call ptr @foo(ptr %p)
-  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
+  %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
   ret ptr %t0
 }
 

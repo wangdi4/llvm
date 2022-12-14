@@ -29,7 +29,7 @@ define internal void @test01(i64 %num) {
   ; Allocate %num elements. (structure size = 16)
   %size = mul nsw i64 %num, 16
   %mem = call i8* @malloc(i64 %size)
-; CHECK:   call i8* @llvm.ptr.annotation.p0i8(i8* %mem
+; CHECK:   call i8* @llvm.ptr.annotation.p0i8.p0i8(i8* %mem
 ; CHECK-SAME: @__intel_dtrans_aostosoa_alloc
 
   store i8* %mem, i8** bitcast (%struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0)  to i8**)
@@ -42,21 +42,21 @@ define internal void @test02() {
 ; CHECK-LABEL: define internal void @test02
 
   ; test with constant object GEP
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr
 ; CHECK-SAME: __intel_dtrans_aostosoa_index
 
   %st01_ptr = load %struct.test01*, %struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0)
 
   ; test with a field from the peeled structure
   %ptr1 = getelementptr %struct.test01, %struct.test01* %st01_ptr, i64 0, i32 0
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %ptr1
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %ptr1
 ; CHECK-SAME: @__intel_dtrans_aostosoa_index
 
   %val1 = load %struct.test01*, %struct.test01** %ptr1
 
   ; test with a field from a dependent struture
   %ptr2 = getelementptr %struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %ptr2
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %ptr2
 ; CHECK-SAME: @__intel_dtrans_aostosoa_index
 
   store %struct.test01* %val1, %struct.test01** %ptr2

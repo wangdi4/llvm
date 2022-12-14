@@ -19,14 +19,14 @@
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
+; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
 ; CHECK: Function info(callee):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 32
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
+; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
 ; CHECK: Function info(caller):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 32
@@ -42,13 +42,13 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private constant [11 x i8] c"return_3.c\00", section "llvm.metadata"
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr) #0
 
 ; Function Attrs: nounwind uwtable
 define internal "intel_dtrans_func_index"="1" ptr @callee() #1 !intel.dtrans.func.type !7 {
 bb:
   %i = load ptr, ptr @IP, align 8
-  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null)
+  %i1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null)
   ret ptr %i1
 }
 

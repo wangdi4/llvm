@@ -11,14 +11,14 @@
 ; CHECK-NEXT:   HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %i6 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 6, ptr null) :: 32
+; CHECK-NEXT:      %i6 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr @0, ptr @.str, i32 6, ptr null) :: 32
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
 ; CHECK: Function info(callee):
 ; CHECK-NEXT:   HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 32
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %i6 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 6, ptr null) :: 32
+; CHECK-NEXT:      %i6 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr @0, ptr @.str, i32 6, ptr null) :: 32
 ; CHECK: Function info(caller):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
@@ -36,7 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @_ZTIi = external dso_local constant ptr, !intel_dtrans_type !0
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr) #0
 
 ; Function Attrs: mustprogress nofree noinline uwtable
 define internal noalias "intel_dtrans_func_index"="1" ptr @callee() #1 !intel.dtrans.func.type !8 {
@@ -52,7 +52,7 @@ bb2:                                              ; preds = %bb
   unreachable
 
 bb5:                                              ; preds = %bb
-  %i6 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([13 x i8], ptr @.str, i64 0, i64 0), i32 6, ptr null)
+  %i6 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([13 x i8], ptr @.str, i64 0, i64 0), i32 6, ptr null)
   ret ptr %i6
 }
 

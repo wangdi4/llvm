@@ -7,7 +7,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
-; Test that calls to @llvm.ptr.annotation.p0 are analyzed as producing a
+; Test that calls to @llvm.ptr.annotation.p0.p0 are analyzed as producing a
 ; result type that matches the type of the first argument when using opaque
 ; pointers.
 
@@ -32,12 +32,12 @@ define i32 @test01() {
 ; CHECK:      Element pointees:
 ; CHECK:        %__SOADT_struct.test01dep @ 0
 
-  %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0,
-                                                ptr @__intel_dtrans_aostosoa_index,
-                                                ptr @__intel_dtrans_aostosoa_filename,
-                                                i32 0,
-                                                ptr null)
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+  %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p0,
+                                                   ptr @__intel_dtrans_aostosoa_index,
+                                                   ptr @__intel_dtrans_aostosoa_filename,
+                                                   i32 0,
+                                                   ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK:    LocalPointerInfo:
 ; CHECK-NOT: UNHANDLED
 ; CHECK:      Aliased types:
@@ -49,7 +49,7 @@ define i32 @test01() {
   ret i32 0
 }
 
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr)
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr)
 
 !1 = !{i32 0, i32 1}  ; i32*
 !2 = !{i64 0, i32 1}  ; i64*

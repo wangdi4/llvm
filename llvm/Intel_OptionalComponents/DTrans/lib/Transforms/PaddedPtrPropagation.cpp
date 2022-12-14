@@ -508,7 +508,9 @@ void insertPaddedMarkUpInt(IRBuilder<> &Builder, Value *V, int Padding,
   Value *File = Builder.CreateGlobalStringPtr(M->getSourceFileName());
   Constant *LNum = Constant::getIntegerValue(I32Ty, APInt(32, 0, false));
   ConstantPointerNull *CPN = ConstantPointerNull::get(Type::getInt8PtrTy(Ctx));
-  auto *F = Intrinsic::getDeclaration(M, Intrinsic::ptr_annotation, PType);
+  auto *F =
+      Intrinsic::getDeclaration(M, Intrinsic::ptr_annotation,
+                                {PType, Type::getInt8PtrTy(M->getContext())});
   assert(F && "Can't find appropriate ptr_annotation intrinsic");
   auto *A = Builder.CreateCall(F, {V, MarkupStrPtr, File, LNum, CPN},
       V->getName());
@@ -941,17 +943,23 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
 
   Function *Annotations[] = {
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getInt8PtrTy(M.getContext())),
+                                {Type::getInt8PtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())}),
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getInt16PtrTy(M.getContext())),
+                                {Type::getInt16PtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())}),
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getInt32PtrTy(M.getContext())),
+                                {Type::getInt32PtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())}),
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getInt64PtrTy(M.getContext())),
+                                {Type::getInt64PtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())}),
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getFloatPtrTy(M.getContext())),
+                                {Type::getFloatPtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())}),
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                Type::getDoublePtrTy(M.getContext()))};
+                                {Type::getDoublePtrTy(M.getContext()),
+                                 Type::getInt8PtrTy(M.getContext())})};
 
   for (auto AFunc : Annotations) {
     for (auto U : AFunc->users()) {
