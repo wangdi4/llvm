@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -279,6 +279,10 @@ public:
   OclOsDependentEvent(bool AutoReset);
   ~OclOsDependentEvent();
 
+  // Delete assignment operator
+  OclOsDependentEvent &operator=(const OclOsDependentEvent &) = delete;
+  OclOsDependentEvent &operator=(OclOsDependentEvent &&) = delete;
+
   // Initializes the event. Must be called before any use. Can fail.
   bool Init(bool bAutoReset = false);
   // Waits on an initialized event. Returns when the event was fired. Can fail,
@@ -301,6 +305,10 @@ class OclBinarySemaphore {
 public:
   OclBinarySemaphore();
   virtual ~OclBinarySemaphore();
+
+  // Delete assignment operator
+  OclBinarySemaphore &operator=(const OclBinarySemaphore &) = delete;
+  OclBinarySemaphore &operator=(OclBinarySemaphore &&) = delete;
 
   // Signals the semaphore.
   void Signal();

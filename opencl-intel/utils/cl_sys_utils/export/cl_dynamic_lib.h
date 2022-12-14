@@ -33,6 +33,10 @@ public:
   OclDynamicLib(bool bUnloadOnDestructor = true);
   virtual ~OclDynamicLib();
 
+  // Delete assignment operator
+  OclDynamicLib &operator=(const OclDynamicLib &) = delete;
+  OclDynamicLib &operator=(OclDynamicLib &&) = delete;
+
   // Checks for existance of a file with specified name
   // Input
   //        pLibName    - A pointer to null tirminated string that describes
