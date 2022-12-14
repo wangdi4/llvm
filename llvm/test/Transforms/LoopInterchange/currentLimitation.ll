@@ -1,16 +1,8 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basic-aa -loop-interchange -cache-line-size=64 -pass-remarks-missed='loop-interchange' \
-; RUN:   -pass-remarks-output=%t -verify-loop-info -verify-dom-info -S | FileCheck -check-prefix=IR %s
-; RUN: FileCheck --input-file=%t %s
-
-; RUN: opt < %s -basic-aa -loop-interchange -cache-line-size=64 -pass-remarks-missed='loop-interchange' \
-=======
 ; RUN: opt < %s -passes=loop-interchange -cache-line-size=64 -pass-remarks-missed='loop-interchange' \
 ; RUN:   -pass-remarks-output=%t -verify-loop-info -verify-dom-info -S | FileCheck -check-prefix=IR %s
 ; RUN: FileCheck --input-file=%t %s
 
 ; RUN: opt < %s -passes=loop-interchange -cache-line-size=64 -pass-remarks-missed='loop-interchange' \
->>>>>>> 25a87862a02f900974b424a58ec92abac66ae843
 ; RUN:   -da-disable-delinearization-checks -pass-remarks-output=%t             \
 ; RUN:   -verify-loop-info -verify-dom-info -S | FileCheck -check-prefix=IR %s
 ; RUN: FileCheck --check-prefix=DELIN --input-file=%t %s
