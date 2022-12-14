@@ -1,4 +1,21 @@
 //===- DIBuilder.h - Debug Information Builder ------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -491,6 +508,48 @@ namespace llvm {
 				       DIDerivedType *Discriminator,
 				       DINodeArray Elements,
 				       StringRef UniqueIdentifier = "");
+#if INTEL_CUSTOMIZATION
+    /* This routine returns a template type wrapped as a DIDerived type.
+    This implementation will be under a switch,
+    enable-template-as-type-parameter , which CLANG should check for and
+    call the appropriate DIBuilder routine accordingly. CLANG/Codegen should
+    add this node to the template parameters list even though it is not a valid
+    DITemplateParameter as represented by the following IR:
+
+    !11 = !DIBasicType(name: "int", size: 32,encoding: DW_ATE_signed)
+    !14 = distinct !DICompositeType(tag:DW_TAG_structure_type, name: "A", file:
+    !1, line: 2, size: 64, flags:DIFlagTypePassByValue | DIFlagNonTrivial,
+    elements: !15, templateParams: !23,identifier: "ZTS1AIiE")
+    !16 = !DIDerivedType(tag: DW_TAG_member, name: "val_",scope: !14, file: !1,
+    line: 5, baseType: !17, size: 32) !17 = !DIDerivedType(tag:
+    DW_TAG_template_type_parameter, name: "T", scope: !14,baseType: !11) !23 =
+    !{!17}
+
+    Note this is temporary until we create a proper
+    DITemplateTypeParameterAsType node in the community. This routine will
+    change to create and return a DITemplateTypeParameterAsType already wrapping
+    the DIDerivedType. This new node should then be added to the template params
+    list as represented bythe following IR:
+
+    !11 = !DIBasicType(name: "int", size: 32, encoding:DW_ATE_signed)
+    !14 = distinct !DICompositeType(tag: DW_TAG_structure_type, name:"A", file:
+    !1, line: 2, size: 64, flags: DIFlagTypePassByValue | DIFlagNonTrivial,
+    elements: !15, templateParams: !23, identifier: "ZTS1AIiE")
+    !15 = !{!16}
+    !16 = !DIDerivedType(tag: DW_TAG_member, name: "val_", scope: !14, file:
+    !1,line: 5, baseType: !17, size: 32)
+    !17 = !DITemplateTypeParameterAsType(tag: DW_TAG_template_as_type, scope:
+    !14, type: !18) !18 = !DIDerivedType(tag:
+    DW_TAG_template_type_parameter,name: "T", scope: !14, baseType: !11) !23 =
+    !{!17}
+    */
+    /// \param Scope        Scope in which this type is defined.
+    /// \param Name         Type parameter name.
+    /// \param Ty           Parameter type.
+    DIDerivedType *createTemplateTypeParameterAsType(DIScope *Scope,
+                                                     StringRef Name,
+                                                     DIType *Ty);
+#endif
 
     /// Create debugging information for template
     /// type parameter.

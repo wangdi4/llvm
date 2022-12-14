@@ -1,4 +1,21 @@
 //===--- DIBuilder.cpp - Debug Information Builder ------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -446,6 +463,16 @@ DIBuilder::createObjCProperty(StringRef Name, DIFile *File, unsigned LineNumber,
   return DIObjCProperty::get(VMContext, Name, File, LineNumber, GetterName,
                              SetterName, PropertyAttributes, Ty);
 }
+
+#if INTEL_CUSTOMIZATION
+DIDerivedType *DIBuilder::createTemplateTypeParameterAsType(DIScope *Context,
+                                                            StringRef Name,
+                                                            DIType *Ty) {
+  return DIDerivedType::get(VMContext, dwarf::DW_TAG_template_type_parameter,
+                            Name, nullptr, 0, Context, Ty, 0, 0, 0, None,
+                            DINode::FlagZero);
+}
+#endif
 
 DITemplateTypeParameter *
 DIBuilder::createTemplateTypeParameter(DIScope *Context, StringRef Name,
