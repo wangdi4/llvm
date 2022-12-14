@@ -1,7 +1,7 @@
 ; INTEL
 ; We need to pass -inlineoptsize-threshold=75 explicitly now,
 ; because we have changed the default value on xmain.
-; RUN: opt -S -inline %s  -inlineoptsize-threshold=75 -debug-only=inline-cost 2>&1 \
+; RUN: opt -S -passes=inline %s -inlineoptsize-threshold=75 -debug-only=inline-cost 2>&1 \
 ; RUN: | FileCheck %s
 ; end INTEL
 ; REQUIRES: asserts
