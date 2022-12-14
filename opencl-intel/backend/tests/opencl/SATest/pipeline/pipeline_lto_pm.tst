@@ -24,9 +24,8 @@
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
-; CHECK:      Running pass: FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
+; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
@@ -199,7 +198,6 @@
 ; QUIET-NEXT: Running pass: DPCPPEqualizerPass
 ; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
-; QUIET-NEXT: Running pass: FMASplitterPass
 ; QUIET-NEXT: Running pass: AddFunctionAttrsPass
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
 ; QUIET-NEXT: Running pass: SROAPass

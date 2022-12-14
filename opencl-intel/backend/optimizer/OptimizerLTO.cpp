@@ -34,7 +34,6 @@
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
@@ -195,8 +194,6 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         if (Level != OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
-
-        MPM.addPass(createModuleToFunctionPassAdaptor(FMASplitterPass()));
 
         MPM.addPass(AddFunctionAttrsPass());
 

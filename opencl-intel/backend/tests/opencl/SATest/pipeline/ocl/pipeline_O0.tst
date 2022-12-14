@@ -6,14 +6,12 @@
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Skipping pass FMASplitterPass
-; CHECK-NEXT: Skipping pass: FMASplitterPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: SGRemapWICallPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
