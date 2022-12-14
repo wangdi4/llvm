@@ -8,7 +8,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @_Z3tstv() {
+define void @simd() {
 entry:
   br label %preheader
 
@@ -21,6 +21,23 @@ preheader:
 
 DIR.OMP.END.SIMD.2:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %exitblock
+
+exitblock:
+  ret void
+}
+
+define void @autovec() {
+entry:
+  br label %preheader
+
+preheader:
+  %0 = call token @llvm.directive.region.entry() [
+   "DIR.VPO.AUTO.VEC"() ]
+  br label %exitblock
+
+DIR.OMP.END.SIMD.2:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.VPO.END.AUTO.VEC"() ]
   br label %exitblock
 
 exitblock:

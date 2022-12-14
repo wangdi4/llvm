@@ -2273,7 +2273,8 @@ llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
       ++NumDeadInst;
 #if INTEL_COLLAB
     IntrinsicInst *BeginDir = nullptr;
-    if (vpo::VPOAnalysisUtils::getDirectiveID(Inst) == DIR_OMP_END_SIMD)
+    if (vpo::VPOAnalysisUtils::getDirectiveID(Inst) == DIR_OMP_END_SIMD ||
+        vpo::VPOAnalysisUtils::getDirectiveID(Inst) == DIR_VPO_END_AUTO_VEC)
       BeginDir = dyn_cast<IntrinsicInst>(Inst->getOperand(0));
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
@@ -2287,12 +2288,13 @@ llvm::removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB) {
     Inst->eraseFromParent();
 #if INTEL_COLLAB
     if (BeginDir) {
-      // If Inst is an unreachable END_SIMD, the loop is malformed.
+      // If Inst is an unreachable END SIMD or AUTO_VEC, the loop is malformed.
       // Change the begin directive to a no-op. (We don't delete it as it will
       // break the worklist)
       auto *Func = Intrinsic::getDeclaration(BeginDir->getModule(),
                                              Intrinsic::donothing);
       BeginDir->mutateFunctionType(Func->getFunctionType());
+      BeginDir->setName("");
       BeginDir->setCalledFunction(Func);
     }
 #endif // INTEL_COLLAB
