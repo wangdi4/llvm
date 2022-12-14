@@ -1,4 +1,7 @@
 ; Simple checks of -exec-on-ir-change=cat functionality
+; INTEL_CUSTOMIZATION
+; REQUIRES: asserts
+; end INTEL_CUSTOMIZATION
 ;
 ; Simple functionality check.
 ; RUN: opt -S -exec-on-ir-change=cat -passes=instsimplify 2>&1 -o /dev/null < %s | FileCheck %s --check-prefix=CHECK-SIMPLE

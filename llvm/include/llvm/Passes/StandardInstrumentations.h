@@ -600,8 +600,8 @@ class StandardInstrumentations {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   DotCfgChangeReporter WebsiteChangeReporter;
   PrintCrashIRInstrumentation PrintCrashIR;
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   IRChangedTester ChangeTester;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   VerifyInstrumentation Verify;
 
   bool VerifyEach;
