@@ -1,13 +1,9 @@
-<<<<<<< HEAD
 ; INTEL
 ; We need to pass -inlineoptsize-threshold=75 explicitly now,
 ; because we have changed the default value on xmain.
-; RUN: opt -S -inline %s  -inlineoptsize-threshold=75 -debug-only=inline-cost 2>&1 \
+; RUN: opt -S -passes=inline %s -inlineoptsize-threshold=75 -debug-only=inline-cost 2>&1 \
 ; RUN: | FileCheck %s
 ; end INTEL
-=======
-; RUN: opt -S -passes=inline %s -debug-only=inline-cost 2>&1 | FileCheck %s
->>>>>>> e5369823bc0655806469724335d0ca5a4c17d8c7
 ; REQUIRES: asserts
 
 @a = global i32 4
