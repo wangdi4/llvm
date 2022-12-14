@@ -4128,6 +4128,61 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::ReductionInitArr: {
+    // Generate code to initialize array reduction by using a simple algorithm
+    // that iterates over each allocated element and initializes it with
+    // reduction's identity value. This algorithm assumes contiguous allocation
+    // of arrays and its elements.
+    auto *PrivArr = cast<VPAllocatePrivate>(VPInst->getOperand(1));
+    assert(PrivateMemBlobRefs.count(PrivArr) &&
+           "Wide alloca missing for VPAllocatePrivate");
+    unsigned PrivArrSym = PrivateMemBlobRefs[PrivArr].second;
+    auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
+    Type *ElemTy = ArrTy->getElementType();
+    unsigned NumElems = ArrTy->getNumElements();
+
+    // Pseudo HIR for generic array reduction initialization -
+    //
+    // %bc = bitcast.[N x Ty]*.Ty*(&(([N x Ty]*)(%priv.wide.arr)[0]));
+    // + DO i1 = 0, (VF * N) - 1, 1   <DO_LOOP>
+    // |   (Ty*)(%bc)[i1] = %identity;
+    // + END LOOP
+    //
+    // TODO: Generate vectorized version of initialization loop similar to
+    // finalization.
+
+    // Bitcast base address from array type to element type.
+    auto BaseAddrBc = createBitCast(
+        PointerType::get(
+            ElemTy, cast<PointerType>(PrivArr->getType())->getAddressSpace()),
+        getOrCreateScalarRef(PrivArr, 0), nullptr /*Container*/,
+        "arr.red.base.addr.bc");
+
+    unsigned NumIters = NumElems * getVF();
+    std::pair<HLLoop *, RegDDRef *> LoopIVPair = emitHLLoopSkeletonAndLoopIVRef(
+        0 /*LB*/, NumIters - 1 /*UB*/, 1 /*Stride*/);
+    auto *InitLoop = LoopIVPair.first;
+    auto *IVRef = LoopIVPair.second;
+
+    // Create memref to access each element of wide alloca (assumes contiguous
+    // memory). Looks like - (ElemTy*)(%arr.red.base.addr.bc)[i1]
+    RegDDRef *Addr = BaseAddrBc->getLvalDDRef()->clone();
+    InitLoop->addLiveInTemp(Addr);
+    unsigned PtrLvl = InitLoop->getNestingLevel() - 1;
+    RegDDRef *Memref = DDRefUtilities.createMemRefWithIndices(
+        ElemTy, Addr->getSelfBlobIndex(), PtrLvl, PtrLvl + 1, {IVRef}, ElemTy,
+        PrivArrSym);
+
+    // Store reduction's identity value in generated memref.
+    HLInst *StoreInst = HLNodeUtilities.createStore(
+        getOrCreateScalarRef(VPInst->getOperand(0), 0), "arr.red.init.store",
+        Memref);
+    HLNodeUtilities.insertAsLastChild(InitLoop, StoreInst);
+    // Update insertion point for next nodes to be inserted after the loop.
+    InsertPoint = InitLoop;
+    return;
+  }
+
   case VPInstruction::ReductionFinal: {
     const VPReductionFinal *RedFinal = cast<VPReductionFinal>(VPInst);
     HLContainerTy RedTail;
@@ -4216,6 +4271,192 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       auto *CombinerCall =
           HLNodeUtilities.createCall(CombinerFn, {Orig->clone(), LanePvtPtr});
       addInstUnmasked(CombinerCall);
+    }
+
+    return;
+  }
+
+  case VPInstruction::ReductionFinalArr: {
+    // Generate code to finalize array reduction using following algorithm -
+    // 1. Load custom length of subarray from each private and original arrays.
+    // 2. Compute reduced value using all loaded subarrays.
+    // 3. Store the subarray back to original array.
+    // 4. Execute any remaining iterations in a scalar remainder loop.
+    //
+    // Subarray length is determined using target's maximum vector register
+    // width and number of elements in array.
+    auto *RedFinalArr = cast<VPReductionFinalArray>(VPInst);
+    auto *PrivArr = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    auto *OrigArr = getOrCreateScalarRef(VPInst->getOperand(1), 0 /*Lane*/);
+    auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
+    Type *ElemTy = ArrTy->getElementType();
+    unsigned NumElems = ArrTy->getNumElements();
+
+    // Pseudo HIR for generic array reduction finalization -
+    //
+    // final.main.loop:
+    // + DO i1 = 0, FinLpUB - 1, FinLpVF   <DO_LOOP>
+    // |   %ld.orig = (<FinLpVF x Ty>*)(%orig.arr)[0][i1];
+    // |   %ld.lane0 = (<FinLpVF x Ty>*)(%lane0.arr)[0][i1];
+    // |   %red.op1 = red-opcode %ld.orig, %ld.lane0;
+    // |   ... (SIMD loop nest VF-times)
+    // |   (<FinLpVF x Ty>*)(%orig.arr)[0][i1] = %red.op.last;
+    // + END LOOP
+    //
+    // final.rem.loop:
+    // + DO i1 = FinLpUB, NumElems - 1, 1   <DO_LOOP>
+    // |   %ld.orig = (Ty*)(%orig.arr)[0][i1];
+    // |   %ld.lane0 = (Ty*)(%lane0.arr)[0][i1];
+    // |   %red.op1 = red-opcode %ld.orig, %ld.lane0
+    // |   ... (SIMD loop nest VF-times)
+    // |   (Ty*)(%orig.arr)[0][i1] = %red.op.last;
+    // + END LOOP
+    //
+    // final.rem.loop is omitted if array size is equally divisible by
+    // finalization loop VF. TODO; final.rem.loop can be vectorized in masked
+    // mode for AVX512 and newer targets.
+
+    // Compute VF that can be used for finalization loop of array reductions.
+    // For example -
+    // NumElems = 5
+    // ElemTy = float (32 bits)
+    // FinalLoopMaxVF = 8 (assuming AVX2)
+    // FinalLoopVF = 4 (since array size is less than max VF)
+    const unsigned MaxVectorWidth =
+        TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+            .getFixedSize();
+    unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
+    unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
+    unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
+    if (FinalLoopVF > FinalLoopMaxVF)
+      FinalLoopVF = FinalLoopMaxVF;
+
+    // For the same example used above -
+    // FinalRemLoopIters = 1
+    // FinalLoopUB = 4
+    unsigned FinalRemLoopIters = NumElems % FinalLoopVF;
+    unsigned FinalLoopUB = NumElems - FinalRemLoopIters;
+
+    // Helper lambda to generate array reduction's finalization loop structure.
+    // It will be invoked for main and remainder loops needed for finalization.
+    // The generated HLLoop is returned.
+    auto EmitArrayRednFinalLoop = [this, RedFinalArr, ArrTy, OrigArr,
+                                   PrivArr](Type *ElemLdTy, unsigned LoopLB,
+                                            unsigned LoopStride,
+                                            unsigned LoopUB) -> HLLoop * {
+      const DataLayout &DL = *Plan->getDataLayout();
+      // Determine alignment of wide load/store using element type of array.
+      Align Alignment = Align(DL.getABITypeAlignment(ArrTy->getElementType()));
+      assert(PrivateMemBlobRefs.count(PrivArr) &&
+             "Wide alloca missing for VPAllocatePrivate");
+      unsigned PrivArrSym = PrivateMemBlobRefs[PrivArr].second;
+
+      std::pair<HLLoop *, RegDDRef *> LoopIVPair =
+          emitHLLoopSkeletonAndLoopIVRef(LoopLB, LoopUB, LoopStride);
+      auto *FinLoop = LoopIVPair.first;
+      auto *IVRef = LoopIVPair.second;
+
+      // Create memref to access current element(s) from original array. Looks
+      // like - (ElemLdTy*)(%original.arr)[0][i1]
+      Type *IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+      RegDDRef *ZeroRef = DDRefUtilities.createConstDDRef(IVTy, 0);
+      FinLoop->addLiveInTemp(OrigArr);
+      unsigned PtrLvl = FinLoop->getNestingLevel() - 1;
+      RegDDRef *OrigArrMemref = DDRefUtilities.createMemRefWithIndices(
+          ArrTy, OrigArr->getSelfBlobIndex(), PtrLvl, PtrLvl + 1,
+          {ZeroRef->clone(), IVRef->clone()}, ElemLdTy, OrigArr->getSymbase());
+      OrigArrMemref->setAlignment(Alignment.value());
+      // Load element(s) from original array.
+      HLInst *OrigArrLd =
+          HLNodeUtilities.createLoad(OrigArrMemref, "orig.arr.ld");
+      HLNodeUtilities.insertAsLastChild(FinLoop, OrigArrLd);
+
+      // Load element(s) from private arrays and compute running reduction for
+      // current subarray.
+      RegDDRef *ReducedSubArr = OrigArrLd->getLvalDDRef()->clone();
+      for (unsigned Lane = 0; Lane < getVF(); ++Lane) {
+        RegDDRef *LaneArr = getOrCreateScalarRef(PrivArr, Lane);
+        // If current lane's private array memref is not a self-blob then emit
+        // an extra copy to make it a self-blob.
+        if (!LaneArr->isSelfBlob()) {
+          // For example -
+          // %priv.arr.copy0 = &(([N x Ty]*)(%priv.mem)[0])
+          auto *CopyInst = HLNodeUtilities.createCopyInst(
+              LaneArr, "priv.arr.copy" + Twine(Lane));
+          HLNodeUtilities.insertBefore(FinLoop, CopyInst);
+          LaneArr = CopyInst->getLvalDDRef()->clone();
+        }
+        FinLoop->addLiveInTemp(LaneArr);
+        // Create memref to access current element(s) from lane's private array.
+        // Looks like - (ElemLdTy*)(%lane.arr)[0][i1]
+        RegDDRef *LaneArrMemref = DDRefUtilities.createMemRefWithIndices(
+            ArrTy, LaneArr->getSelfBlobIndex(), PtrLvl, PtrLvl + 1,
+            {ZeroRef->clone(), IVRef->clone()}, ElemLdTy, PrivArrSym);
+        LaneArrMemref->setAlignment(Alignment.value());
+        HLInst *LaneArrLd = HLNodeUtilities.createLoad(
+            LaneArrMemref, "priv.arr.ld.lane" + Twine(Lane));
+        RegDDRef *LaneArrLdRef = LaneArrLd->getLvalDDRef()->clone();
+        HLNodeUtilities.insertAsLastChild(FinLoop, LaneArrLd);
+
+        // Combine the running reduction value and loaded value using
+        // reduction's binop. Result is then used to update running reduction
+        // value.
+        assert(ReducedSubArr->getDestType() == LaneArrLdRef->getDestType() &&
+               "Expected same type to compute running reduction.");
+        HLInst *RedOpInst = nullptr;
+        FastMathFlags FMF = RedFinalArr->hasFastMathFlags()
+                                ? RedFinalArr->getFastMathFlags()
+                                : FastMathFlags();
+        if (Instruction::isBinaryOp(RedFinalArr->getBinOpcode())) {
+          // For arithmetic reduction we need to emit binary HLInst or
+          // FPMathBinOp.
+          if (RedFinalArr->hasFastMathFlags())
+            RedOpInst = HLNodeUtilities.createFPMathBinOp(
+                RedFinalArr->getBinOpcode(), ReducedSubArr, LaneArrLdRef, FMF,
+                "arr.fin.red");
+          else
+            RedOpInst = HLNodeUtilities.createBinaryHLInst(
+                RedFinalArr->getBinOpcode(), ReducedSubArr, LaneArrLdRef,
+                "arr.fin.red");
+        } else {
+          // For min/max reduction we emit an LLVM intrinsic call.
+          Function *IntrinFn = Intrinsic::getDeclaration(
+              &HLNodeUtilities.getModule(),
+              getIntrinsicForMinMaxOpcode(RedFinalArr->getBinOpcode()),
+              {ElemLdTy});
+          RedOpInst = HLNodeUtilities.createCall(
+              IntrinFn, {ReducedSubArr, LaneArrLdRef}, "arr.fin.red",
+              nullptr /*Lval*/, {} /*Bundle*/, {} /*BundleOps*/, FMF);
+        }
+
+        HLNodeUtilities.insertAsLastChild(FinLoop, RedOpInst);
+        // Update running reduction value.
+        ReducedSubArr = RedOpInst->getLvalDDRef()->clone();
+      }
+
+      // Store final reduced subarray to original array.
+      HLInst *OrigArrSt = HLNodeUtilities.createStore(
+          ReducedSubArr, "orig.arr.st", OrigArrMemref->clone());
+      HLNodeUtilities.insertAsLastChild(FinLoop, OrigArrSt);
+
+      return FinLoop;
+    };
+
+    // Emit code for main loop.
+    Type *FinalLoopWideDataTy =
+        cast<FixedVectorType>(getWidenedType(ElemTy, FinalLoopVF));
+    auto *FinalMainLp = EmitArrayRednFinalLoop(
+        FinalLoopWideDataTy, 0 /*LoopLB*/, FinalLoopVF, FinalLoopUB - 1);
+    // Update insertion point after emitting main loop.
+    InsertPoint = FinalMainLp;
+
+    // Emit code for remainder loop, if needed. Note that we emit scalar
+    // remainder for now.
+    if (FinalRemLoopIters != 0) {
+      auto *FinalRemLp = EmitArrayRednFinalLoop(ElemTy, FinalLoopUB,
+                                                1 /*LoopStride*/, NumElems - 1);
+      // Update insertion point after emitting remainder loop.
+      InsertPoint = FinalRemLp;
     }
 
     return;
@@ -5707,8 +5948,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                             ScalarLaneID);
     return;
   case VPInstruction::ReductionInit:
+  case VPInstruction::ReductionInitArr:
   case VPInstruction::ReductionFinal:
   case VPInstruction::ReductionFinalUdr:
+  case VPInstruction::ReductionFinalArr:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
@@ -8099,4 +8342,25 @@ void VPOCodeGenHIR::eraseGuardMemMotionDirsFromScalarLoops() {
       HLNodeUtils::remove(GuardBegin);
   }
 }
+
+std::pair<HLLoop *, RegDDRef *>
+VPOCodeGenHIR::emitHLLoopSkeletonAndLoopIVRef(unsigned LB, unsigned UB,
+                                              unsigned Stride) {
+  Type *IVTy = Type::getInt64Ty(HLNodeUtilities.getContext());
+  auto *LowerRef = DDRefUtilities.createConstDDRef(IVTy, LB);
+  auto *StrideRef = DDRefUtilities.createConstDDRef(IVTy, Stride);
+  auto *UpperRef = DDRefUtilities.createConstDDRef(IVTy, UB);
+  // Emit skeleton of HIR loop.
+  HLLoop *HLoop = HLNodeUtilities.createHLLoop(
+      nullptr /*ZttIf*/, LowerRef, UpperRef, StrideRef, 1 /*NumEx*/);
+  HLNodeUtilities.insertAfter(InsertPoint, HLoop);
+
+  // Generate DDRef to represent loop's IV.
+  auto *IVCE = CanonExprUtilities.createCanonExpr(IVTy);
+  IVCE->addIV(HLoop->getNestingLevel(), InvalidBlobIndex /*no blob*/,
+              1 /*constant IV coefficient*/);
+  auto *IVRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, IVCE);
+  return std::make_pair(HLoop, IVRef);
+}
+
 } // end namespace llvm

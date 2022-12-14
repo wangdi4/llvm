@@ -151,6 +151,26 @@ public:
                                    unsigned Level = 0,
                                    unsigned SB = InvalidSymbase);
 
+  /// Create a memref with dimensions using \p BasePtrElementType as the element
+  /// type of the base pointer defined by blob index \p BasePtrBlobIndex. \p
+  /// BasePtrDefLevel is the defined-at-level of the base pointer. \p
+  /// MemRefLevel is the level at which the memref will be attached (clients are
+  /// expected to provide this ahead of time in-order to make the blobs in the
+  /// memref consistent). The list of indices \p Idxs is used to populate
+  /// dimensions of this memref and \p BitcastType is used to set the bitcast
+  /// destination type of the generated memref. If no symbase is supplied by the
+  /// caller, a new one is assigned to the ref. For example, for input %blob,
+  /// indices {0, i1} and bitcast dest type i32, it creates
+  /// (i32*)(%blob)[0][i1].
+  // NOTE: This utility works only if \p BasePtrElementType has correct
+  // information about all the dimensions which is true for C/C++ array
+  // accesses.
+  RegDDRef *
+  createMemRefWithIndices(Type *BasePtrElementType, unsigned BasePtrBlobIndex,
+                          unsigned BasePtrDefLevel, unsigned MemRefLevel,
+                          ArrayRef<RegDDRef *> Idxs, Type *BitcastType,
+                          unsigned SB = InvalidSymbase);
+
   /// Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
   /// and attach it to the new RegDDRef.
