@@ -731,21 +731,15 @@ bool CodeGenVTables::useRelativeLayout() const {
 llvm::Type *CodeGenModule::getVTableComponentType() const {
   if (UseRelativeLayout(*this))
     return Int32Ty;
+#if INTEL_COLLAB
+  return DefaultInt8PtrTy;
+#else // INTEL_COLLAB
   return Int8PtrTy;
+#endif // INTEL_COLLAB
 }
 
 llvm::Type *CodeGenVTables::getVTableComponentType() const {
-<<<<<<< HEAD
-  if (useRelativeLayout())
-    return CGM.Int32Ty;
-#if INTEL_COLLAB
-  return CGM.DefaultInt8PtrTy;
-#else // INTEL_COLLAB
-  return CGM.Int8PtrTy;
-#endif // INTEL_COLLAB
-=======
   return CGM.getVTableComponentType();
->>>>>>> 003b6033e1b254dd96ddb341f375b73ee5bed2af
 }
 
 static void AddPointerLayoutOffset(const CodeGenModule &CGM,
