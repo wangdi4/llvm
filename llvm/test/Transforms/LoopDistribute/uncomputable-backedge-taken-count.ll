@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-distribute -enable-loop-distribute -verify-loop-info -verify-dom-info -S \
+=======
+; RUN: opt -passes=loop-distribute -enable-loop-distribute -verify-loop-info -verify-dom-info -S \
+>>>>>>> 25275bf1961a4529bd49cab1ac9bffa02bdb61e9
 ; RUN:   < %s | FileCheck %s
 
 target datalayout = "e-m:o-i32:64-f80:128-n8:16:32:64-S128"
