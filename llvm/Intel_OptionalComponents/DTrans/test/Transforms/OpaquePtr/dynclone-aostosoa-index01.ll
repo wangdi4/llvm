@@ -42,7 +42,7 @@ define void @proc1() {
 ; CHECK:  %F2 = getelementptr %__DYN_struct.test.01, ptr %call1, i32 0, i32 4
 
   %A2 = call ptr @llvm.ptr.annotation.p0.p0(ptr %F2, ptr getelementptr inbounds ([41 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr null, i32 0, ptr null)
-; CHECK: %A2 = call ptr @llvm.ptr.annotation.p0i32(ptr %F2,
+; CHECK: %A2 = call ptr @llvm.ptr.annotation.p0.p0(ptr %F2,
 
   %L1 = load i32, ptr %F2
 ; CHECK: [[LD1:%[0-9]+]] = load i16, ptr %F2, align 2
@@ -52,7 +52,7 @@ define void @proc1() {
 ; CHECK: %F3 = getelementptr %__DYN_struct.test.01, ptr %call1, i32 0, i32 5
 
   %A3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %F3, ptr getelementptr inbounds ([41 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr null, i32 0, ptr null)
-; CHECK: %A3 = call ptr @llvm.ptr.annotation.p0(ptr %F3,
+; CHECK: %A3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %F3,
 
   store i32 0, ptr %F3
 ; CHECK: [[TRUNC1:%[0-9]+]] = trunc i32 0 to i16
@@ -80,7 +80,6 @@ define void @proc1() {
 ; CHECK: store i8 1, ptr @__Shrink__Happened__
 
 ; This routine is selected as InitRoutine.
-
 define "intel_dtrans_func_index"="1" ptr @init() !intel.dtrans.func.type !7 {
   %call0 = call ptr @calloc(i64 1000, i64 32)
   %call.ptr = call ptr @llvm.ptr.annotation.p0.p0(ptr %call0, ptr getelementptr inbounds ([38 x i8], ptr @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr null, i32 0, ptr null)
@@ -110,7 +109,6 @@ entry:
 }
 
 declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
-declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr)
 declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
