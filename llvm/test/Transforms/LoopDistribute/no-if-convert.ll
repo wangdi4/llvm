@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -loop-distribute -enable-loop-distribute -verify-loop-info -verify-dom-info -S < %s \
-=======
-; RUN: opt -passes=loop-distribute -enable-loop-distribute -verify-loop-info -verify-dom-info -S < %s \
->>>>>>> 25275bf1961a4529bd49cab1ac9bffa02bdb61e9
+; RUN: opt -aa-pipeline=basic-aa -passes=loop-distribute -enable-loop-distribute -verify-loop-info -verify-dom-info -S < %s \
 ; RUN:   | FileCheck %s
 
 ; We should distribute this loop along === but not along ---.  The last

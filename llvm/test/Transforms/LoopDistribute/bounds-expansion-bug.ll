@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -loop-distribute -enable-loop-distribute -S < %s | FileCheck %s
-=======
-; RUN: opt -passes=loop-distribute -enable-loop-distribute -S < %s | FileCheck %s
->>>>>>> 25275bf1961a4529bd49cab1ac9bffa02bdb61e9
+; RUN: opt -aa-pipeline=basic-aa -passes=loop-distribute -enable-loop-distribute -S < %s | FileCheck %s
 
 ; When emitting the memchecks for:
 ;
