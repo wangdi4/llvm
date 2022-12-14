@@ -466,6 +466,16 @@ operations
 
 **Default**: Disabled
 
+``LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Value> := 1 | T | t | 0 | F | f
+
+Enables/disables using immediate command list instead of queue for interop objects
+
+**Default**: Disabled
+
 ``LIBOMPTARGET_LEVEL_ZERO_REDUCTION_POOL=<PoolInfo>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
