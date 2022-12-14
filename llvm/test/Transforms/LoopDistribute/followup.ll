@@ -1,4 +1,4 @@
-; RUN: opt -basic-aa -loop-distribute -S < %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes=loop-distribute -S < %s | FileCheck %s
 ;
 ; Check that followup loop-attributes are applied to the loops after
 ; loop distribution.
