@@ -450,6 +450,8 @@ class AndersensAAResult : public AAResultBase,
   public:
     IntelModRef(AndersensAAResult *AnderAA, AndersGetTLITy GetTLI);
     ~IntelModRef();
+    IntelModRef(const IntelModRef &) = delete;
+    IntelModRef &operator=(const IntelModRef &) = delete;
 
     void runAnalysis(Module &M);
     ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
