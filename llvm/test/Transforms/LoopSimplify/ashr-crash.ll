@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -basic-aa -loop-rotate -licm -instcombine -indvars -loop-unroll -S %s | FileCheck %s
+=======
+; RUN: opt -passes='loop-mssa(loop-rotate,licm),instcombine,indvars,loop-unroll' -S %s | FileCheck %s
+>>>>>>> 80a89c55c6d958dc100c91d9e87c0f6e9f6794a6
 ;
 ; PR18361: ScalarEvolution::getAddRecExpr():
 ;          Assertion `isLoopInvariant(Operands[i],...
