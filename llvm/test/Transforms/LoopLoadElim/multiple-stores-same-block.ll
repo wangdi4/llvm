@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -basic-aa -loop-load-elim -S < %s | FileCheck %s
-=======
 ; RUN: opt -passes=loop-load-elim -S < %s | FileCheck %s
->>>>>>> 971bc46f8af1b334f4d5df44cb0e037ed9ec9d8e
 
 ; In this case the later store forward to the load:
 ;
