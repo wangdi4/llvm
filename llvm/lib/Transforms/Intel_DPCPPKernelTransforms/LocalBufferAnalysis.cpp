@@ -140,7 +140,7 @@ void LocalBufferInfoImpl::updateLocalUseMap() {
         WGBoundDecoder::isWGBoundFunction(F->getName()))
       continue;
     const CallGraphNode *N = CG[F];
-    for (auto Pair : *N) {
+    for (const auto &Pair : *N) {
       Function *Callee = Pair.second->getFunction();
       if (!Callee || Callee->isDeclaration() ||
           WGBoundDecoder::isWGBoundFunction(Callee->getName()))

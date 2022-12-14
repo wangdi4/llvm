@@ -8,9 +8,8 @@
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 
-; CHECK:      Running pass: FMASplitterPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
+; CHECK:      Running pass: SimplifyCFGPass
 
 ; CHECK:      Running pass: SROAPass
 

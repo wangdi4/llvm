@@ -1228,6 +1228,12 @@ private:
   /// preserve them after VPlan codegen.
   void eraseGuardMemMotionDirsFromScalarLoops();
 
+  /// Helper utility to create a HLLoop skeleton using given constant LB, UB and
+  /// Stride values. It also creates a RegDDRef to represent generated loop's
+  /// IV. Note that the new loop is emitted at current InsertionPoint.
+  std::pair<HLLoop *, RegDDRef *>
+  emitHLLoopSkeletonAndLoopIVRef(unsigned LB, unsigned UB, unsigned Stride);
+
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
   // the cost model.

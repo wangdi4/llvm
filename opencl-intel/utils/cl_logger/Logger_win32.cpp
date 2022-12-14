@@ -123,6 +123,10 @@ struct LoggerSingletonHandler {
     }
   }
 
+  // Delete assignment operator
+  LoggerSingletonHandler &operator=(const LoggerSingletonHandler &) = delete;
+  LoggerSingletonHandler &operator=(LoggerSingletonHandler &&) = delete;
+
   // Pointer to a singleton object
   static Logger *pLogger;
   HANDLE hMapFile;

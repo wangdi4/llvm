@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -45,6 +45,10 @@ public:
                  IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config,
                  ICLDevBackendServiceFactory *pBackendFactory);
   virtual ~ProgramService();
+
+  // Delete assignment operator
+  ProgramService &operator=(const ProgramService &) = delete;
+  ProgramService &operator=(ProgramService &&) = delete;
 
   cl_dev_err_code Init();
 

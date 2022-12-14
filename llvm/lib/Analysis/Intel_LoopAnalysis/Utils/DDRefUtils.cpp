@@ -103,6 +103,23 @@ RegDDRef *DDRefUtils::createSelfAddressOfRef(Type *BasePtrElementType, unsigned 
   return SelfAddrRef;
 }
 
+RegDDRef *DDRefUtils::createMemRefWithIndices(Type *BasePtrElementType,
+                                              unsigned BasePtrBlobIndex,
+                                              unsigned BasePtrDefLevel,
+                                              unsigned MemRefLevel,
+                                              ArrayRef<RegDDRef *> Idxs,
+                                              Type *BitcastType, unsigned SB) {
+  RegDDRef *Memref =
+      createMemRef(BasePtrElementType, BasePtrBlobIndex, BasePtrDefLevel, SB);
+  for (auto *Idx : Idxs)
+    Memref->addDimension(Idx->getSingleCanonExpr());
+
+  Memref->makeConsistent(Idxs, MemRefLevel);
+  Memref->setBitCastDestVecOrElemType(BitcastType);
+
+  return Memref;
+}
+
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty, 0, Val);

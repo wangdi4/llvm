@@ -1,12 +1,12 @@
 // INTEL_CUSTOMIZATION
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -129,7 +129,6 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
   return retv.data();
 }
 #endif // __SYCL_DEVICE_ONLY__
-
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -480,6 +479,11 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, SZ)
 inline constexpr __ESIMD_NS::uint
 __esimd_dpas_bits_precision(__ESIMD_XMX_NS::dpas_argument_type precisionType) {
   return precisionType == __ESIMD_XMX_NS::dpas_argument_type::tf32 ? 32
+         /* INTEL_CUSTOMIZATION */
+         /* INTEL_FEATURE_ESIMD_EMBARGO */
+         : precisionType == __ESIMD_XMX_NS::dpas_argument_type::df ? 64
+         /* end INTEL_FEATURE_ESIMD_EMBARGO */
+         /* end INTEL_CUSTOMIZATION */
          : precisionType == __ESIMD_XMX_NS::dpas_argument_type::bf16 ||
                  precisionType == __ESIMD_XMX_NS::dpas_argument_type::fp16
              ? 16
@@ -518,7 +522,8 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
 
   constexpr auto max_el_bits = std::max(src1_el_bits, src2_el_bits);
   constexpr __ESIMD_NS::uint ops_per_chan =
-      std::min(32 / max_el_bits, static_cast<__ESIMD_NS::uint>(8));
+      std::max(std::min(32 / max_el_bits, static_cast<uint32_t>(8)),
+               static_cast<uint32_t>(1));
 
   uint32_t src1_signed =
       src1_precision == __ESIMD_XMX_NS::dpas_argument_type::s2 ||
@@ -568,12 +573,36 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
            (src1_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16 &&
             src2_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16)),
 
+      /* INTEL_CUSTOMIZATION */
+      /* INTEL_FEATURE_ESIMD_EMBARGO */
+      RLTDoubleType = src1_precision == __ESIMD_ENS::argument_type::df &&
+                      std::is_same_v<RT, double>,
+      RLTDestChecks = src1_precision == src2_precision &&
+                      ((SIMDSize == 8 && RLTDoubleType) ||
+                       (SIMDSize == 16 &&
+                        (src1_precision == __ESIMD_ENS::argument_type::bf8 ||
+                         src1_precision == __ESIMD_ENS::argument_type::hf8))),
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+
       destTypeChk =
           (!pvcBfOrHfDest && __ESIMD_EMU_DNS::is_fp_or_dword_type<RT>::value) ||
+          /* INTEL_CUSTOMIZATION */
+          /* INTEL_FEATURE_ESIMD_EMBARGO */
+          RLTDestChecks ||
+          /* end INTEL_FEATURE_ESIMD_EMBARGO */
+          /* end INTEL_CUSTOMIZATION */
           (pvcBfOrHfDest && (pvcBfDestChecks || pvcHfDestChecks)),
 
-      srcTypeChk = __ESIMD_EMU_DNS::is_dword_type<T1>::value &&
-                   __ESIMD_EMU_DNS::is_dword_type<T2>::value,
+      srcTypeChk = (__ESIMD_EMU_DNS::is_dword_type<T1>::value &&
+                    __ESIMD_EMU_DNS::is_dword_type<T2>::value)
+                   /* INTEL_CUSTOMIZATION */
+                   /* INTEL_FEATURE_ESIMD_EMBARGO */
+                   || (RLTDoubleType && std::is_same_v<T1, double> &&
+                       std::is_same_v<T2, double>)
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+      ,
 
       destSizeChk = SZ >= /*TODO: ==*/SIMDSize * repeat_count,
 
@@ -630,6 +659,16 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
 
     for (unsigned s = 0; s < systolic_depth; s++) {
       src1_ops_per_dword = 32 / (ops_per_chan * src1_el_bits);
+      /* INTEL_CUSTOMIZATION */
+      /* INTEL_FEATURE_ESIMD_EMBARGO */
+      // TODO: The meaning of this variable changes for RTL and double type,
+      // but let's keep/reuse it for now to avoid noticable changes
+      // in open source.
+      if (RLTDoubleType)
+        src1_ops_per_dword = 1;
+      /* end INTEL_FEATURE_ESIMD_EMBARGO */
+      /* end INTEL_CUSTOMIZATION */
+
       // U = s / src1_ops_per_dword;
       U = s >> unsigned(log2(src1_ops_per_dword));
 
@@ -638,7 +677,8 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
           p = d + (s % src1_ops_per_dword) * ops_per_chan;
           uint32_t extension_temp = false;
 
-          if (src2_precision == __ESIMD_XMX_NS::dpas_argument_type::bf16) {
+          if constexpr (src2_precision ==
+                        __ESIMD_XMX_NS::dpas_argument_type::bf16) {
             const auto s1 =
                 extract<uint32_t>(src1_el_bits, p * src1_el_bits,
                                   src1[U * SIMDSize + n], extension_temp)
@@ -649,8 +689,8 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
                 << 16;
             simdAcc[n] += reinterpret_cast<const float &>(s2) *
                           reinterpret_cast<const float &>(s1);
-          } else if (src2_precision ==
-                     __ESIMD_XMX_NS::dpas_argument_type::fp16) {
+          } else if constexpr (src2_precision ==
+                               __ESIMD_XMX_NS::dpas_argument_type::fp16) {
             const auto s1 =
                 extract<short>(src1_el_bits, p * src1_el_bits,
                                src1[U * SIMDSize + n], extension_temp);
@@ -659,6 +699,14 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
                                src2[V * 8 + k / ops_per_chan], src2_signed);
             simdAcc[n] += reinterpret_cast<const __ESIMD_EMU_DNS::half &>(s1) *
                           reinterpret_cast<const __ESIMD_EMU_DNS::half &>(s2);
+            /* INTEL_CUSTOMIZATION */
+            /* INTEL_FEATURE_ESIMD_EMBARGO */
+          } else if constexpr (src2_precision ==
+                               __ESIMD_XMX_NS::dpas_argument_type::df) {
+
+            simdAcc[n] += src1[U * SIMDSize + n] * src2[V * 8 + k];
+            /* end INTEL_FEATURE_ESIMD_EMBARGO */
+            /* end INTEL_CUSTOMIZATION */
           } else {
             int src = (sizeof(T2) * 8) / (ops_per_chan * src2_el_bits);
             int off = s % src * (ops_per_chan * src2_el_bits);

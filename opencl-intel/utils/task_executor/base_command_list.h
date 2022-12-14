@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -108,6 +108,10 @@ public:
   PREPARE_SHARED_PTR(base_command_list)
 
   ~base_command_list();
+
+  // Delete assignment operator
+  base_command_list &operator=(const base_command_list &) = delete;
+  base_command_list &operator=(base_command_list &&) = delete;
 
   unsigned int
   Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase> &pTask) override;
