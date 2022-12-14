@@ -12,11 +12,13 @@
 
 int foo(int n) {
   double *e;
+  double sum;
   #pragma omp target parallel reduction(+: e[:1])
     *e=10;
   #pragma omp target parallel map(e[:1]) reduction(+: e[:1])
     *e=10;
-  ;
+  #pragma omp target parallel reduction(+: sum)
+    sum += e[0];
   return 0;
 }
 class S2 {
@@ -25,6 +27,10 @@ public:
   S2():a(0) { }
   S2(S2 &s2):a(s2.a) { }
   S2 &operator +(S2 &s);
+  void moo() {
+    #pragma omp target parallel reduction(+:a)
+    a += 10;
+  }
 };
 int bar() {
  S2 o[5];
@@ -33,6 +39,7 @@ int bar() {
   double b[10][10][10];
 #pragma omp target parallel for reduction(task, +: b[0:2][2:4][1])
   for (long long i = 0; i < 10; ++i);
+  o[0].moo();
   return 0;
 }
 void sum(int* input, int size, int* output)
@@ -68,8 +75,10 @@ int main()
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[N_ADDR:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[E:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[SUM:%.*]] = alloca double, align 8
 // CHECK-NEXT:    [[E_MAP_PTR_TMP:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[E_MAP_PTR_TMP3:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[E_MAP_PTR_TMP4:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    store i32 [[N]], ptr [[N_ADDR]], align 4
 // CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[E]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[E]], align 8
@@ -90,6 +99,13 @@ int main()
 // CHECK-NEXT:    "DIR.OMP.TARGET"()
 // CHECK-SAME:    "QUAL.OMP.MAP.TOFROM"(ptr [[TMP7]], ptr [[ARRAYIDX1]], i64 8, i64 35, ptr null, ptr null),
 // CHECK-SAME:    "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[TMP9]], ptr [[ARRAYIDX2]], i64 8, i64 515, ptr null, ptr null)
+// CHECK:         "DIR.OMP.PARALLEL"()
+// CHECK:         "DIR.OMP.END.PARALLEL"()
+// CHECK:         "DIR.OMP.END.TARGET"()
+// CHECK:         [[TMP14:%.*]] = load ptr, ptr [[E]], align 8
+// CHECK-NEXT:    "DIR.OMP.TARGET"
+// CHECK-SAME:    "QUAL.OMP.MAP.TOFROM"(ptr [[SUM]], ptr [[SUM]], i64 8, i64 33315
+// CHECK-SAME:    "QUAL.OMP.MAP.TOFROM"(ptr [[TMP14]], ptr [[TMP14]], i64 0, i64 544
 // CHECK:         "DIR.OMP.PARALLEL"()
 // CHECK:         "DIR.OMP.END.PARALLEL"()
 // CHECK:         "DIR.OMP.END.TARGET"()
@@ -124,11 +140,24 @@ int main()
 // CHECK:         "DIR.OMP.END.PARALLEL"()
 // CHECK-NEXT:    "DIR.OMP.END.TARGET"()
 // CHECK-NEXT:    "DIR.OMP.TARGET"()
-// CHECK-SAME:    "QUAL.OMP.MAP.TOFROM"(ptr [[B]], ptr [[B]], i64 8000, i64 547, ptr null, ptr null)
+// CHECK-SAME:    "QUAL.OMP.MAP.TOFROM"(ptr [[B]], ptr [[B]], i64 8000, i64 33315, ptr null, ptr null)
 // CHECK:         "DIR.OMP.PARALLEL.LOOP"()
 // CHECK:         "DIR.OMP.END.PARALLEL.LOOP"()
 // CHECK:         "DIR.OMP.END.TARGET"()
-// CHECK-NEXT:    ret i32 0
+// CHECK:    ret i32 0
+//
+// CHECK-LABEL: define {{[^@]+}}@_ZN2S23mooEv
+// CHECK: [[THIS:%.*]] = alloca ptr
+// CHECK: [[A:%.*]] = alloca ptr
+// CHECK: [[THIS1:%.*]] = load ptr, ptr [[THIS]]
+// CHECK: [[A2:%.*]] = getelementptr inbounds %class.S2, ptr [[THIS1]]
+// CHECK: [[A3:%.*]] = getelementptr inbounds %class.S2, ptr [[THIS1]]
+// CHECK: "DIR.OMP.TARGET"
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[A3]], ptr [[A3]], i64 4, i64 33315
+// CHECK: "DIR.OMP.PARALLEL"
+// CHECK: "DIR.OMP.END.PARALLEL"
+// CHECK: "DIR.OMP.END.TARGET"
+// CHECK: ret void
 //
 // CHECK-LABEL: define {{[^@]+}}@_Z3sumPiiS_
 // CHECK-SAME: (ptr noundef [[INPUT:%.*]], i32 noundef [[SIZE:%.*]], ptr noundef [[OUTPUT:%.*]]) #[[ATTR0]] {
