@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -inline -instcombine -reassociate -dse -disable-output
+=======
+; RUN: opt < %s -passes=inline,instcombine,reassociate,dse -disable-output
+>>>>>>> 87ae9fe415fbe729c828dbfb1491e66b11a147de
 ; PR12245
 
 @a = common global i32 0, align 4
