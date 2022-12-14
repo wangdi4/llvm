@@ -342,11 +342,6 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
   // Exclude FMA instructions when FP_CONTRACT is disabled
   llvm::TargetOptions TargetOpts =
       ExternInitTargetOptionsFromCodeGenFlags(ModuleTriple);
-  if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
-    TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-  } else {
-    TargetOpts.AllowFPOpFusion = llvm::FPOpFusion::Standard;
-  }
 
   // When -cl-fast-relaxed-math is enabled, Codegen's fast fp-model is too
   // aggressive for OpenCL, leading to "fdiv fast" precision loss (violates

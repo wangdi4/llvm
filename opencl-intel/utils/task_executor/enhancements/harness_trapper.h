@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2021 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2022 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -93,6 +93,10 @@ public:
       delete my_barrier;
     }
   }
+
+  // Delete assignment operator
+  TbbWorkersTrapper &operator=(const TbbWorkersTrapper &) = delete;
+  TbbWorkersTrapper &operator=(TbbWorkersTrapper &&) = delete;
 
   bool IsTrapped() const { return is_trapped; }
 

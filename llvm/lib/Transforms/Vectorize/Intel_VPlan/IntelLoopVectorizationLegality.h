@@ -326,19 +326,15 @@ private:
 
     // Other temporary bailouts for array reductions.
     if (auto *ArrTy = dyn_cast<ArrayType>(Type)) {
-      // Prototype supported only for LLVM-IR.
-      if (IR == IRKind::HIR)
-        return bailout(BailoutReason::ArrayReduction);
-
       // Prototype supported only for POD type arrays.
       Type = ArrTy->getElementType();
       if (!Type->isSingleValueType())
         return bailout(BailoutReason::ArrayReduction);
 
-      // VPEntities framework can only handle single-element allocas.
-      if (IR == IRKind::LLVMIR)
-        if (cast<AllocaInst>(Item->getOrig())->isArrayAllocation())
-          return bailout(BailoutReason::ArrayReduction);
+      // VPEntities framework can only handle single-element allocas. This check
+      // works for both LLVM-IR and HIR.
+      if (cast<AllocaInst>(Item->getOrig())->isArrayAllocation())
+        return bailout(BailoutReason::ArrayReduction);
     }
 
     ValueTy *Val = Item->getOrig<IR>();
