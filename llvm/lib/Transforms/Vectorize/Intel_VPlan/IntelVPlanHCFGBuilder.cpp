@@ -55,10 +55,10 @@ bool VPlanPrintLegality = false;
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
-                                   ScalarEvolution *SE,
+                                   AssumptionCache &AC, ScalarEvolution *SE,
                                    BlockFrequencyInfo *BFI)
     : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
-      SE(SE) {
+      SE(SE), AC(AC) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -149,6 +149,10 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
 }
 
 bool VPlanHCFGBuilder::buildHierarchicalCFG() {
+
+  // Initialize the VPlan assumption cache in preparation for it being populated
+  // while building the plain CFG.
+  Plan->setVPAC(std::make_unique<VPAssumptionCache>(AC));
 
   VPLoopEntityConverterList CvtVec;
 

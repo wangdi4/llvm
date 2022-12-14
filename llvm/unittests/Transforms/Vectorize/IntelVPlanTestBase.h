@@ -91,18 +91,17 @@ protected:
     Legal.get()->canVectorize(*DT, nullptr /* use auto induction detection */);
 
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
+
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get(),
-                                 SE.get());
+                                 *AC, SE.get());
     HCFGBuilder.buildHierarchicalCFG();
-    Plan->setVPSE(
-        std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin(),
-                                                  *Plan->getLLVMContext(),
-                                                  DL.get()));
+    Plan->setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(
+        *SE, *LI->begin(), *Plan->getLLVMContext(), DL.get()));
     auto &VPSE =
         *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
-    Plan->setVPVT(
-        std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, &*AC, &*DT));
+    Plan->setVPVT(std::make_unique<VPlanValueTrackingLLVM>(
+        VPSE, *DL, Plan->getVPAC(), &*DT));
 
     LVP->runInitialVecSpecificTransforms(Plan.get());
     LVP->createLiveInOutLists(*Plan.get());
@@ -113,7 +112,7 @@ protected:
   std::unique_ptr<VPlanNonMasked> buildFCFG(Function *F) {
     doAnalysis(*F, &F->getEntryBlock());
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
-    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F);
+    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F, *AC.get());
     FCFGBuilder.buildCFG();
     return Plan;
   }

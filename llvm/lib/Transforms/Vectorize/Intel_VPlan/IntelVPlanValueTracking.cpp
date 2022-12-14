@@ -1,6 +1,6 @@
 //===- IntelVPlanValueTracking.cpp ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -58,7 +58,7 @@ KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
 
   if (auto *ScevUnknown = dyn_cast<SCEVUnknown>(Scev)) {
     Value *V = ScevUnknown->getValue();
-    return computeKnownBits(V, *DL, 0, AC, CtxI, DT);
+    return llvm::computeKnownBits(V, *DL, 0, VPAC->getLLVMCache(), CtxI, DT);
   }
 
   if (auto *ScevAdd = dyn_cast<SCEVAddExpr>(Scev)) {
@@ -99,5 +99,5 @@ KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
 
 KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const Value *Val,
                                                    const Instruction *CtxI) {
-  return computeKnownBits(Val, *DL, 0, AC, CtxI, DT);
+  return llvm::computeKnownBits(Val, *DL, 0, VPAC->getLLVMCache(), CtxI, DT);
 }

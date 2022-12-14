@@ -442,13 +442,13 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE,
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, &SE,
                               CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
 
-  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL);
+  VPAnalysesFactory VPAF(SE, Lp, DT, DL);
   populateVPlanAnalyses(LVP, VPAF);
 
 #else
@@ -1081,7 +1081,7 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
     if (!Plan.getVPSE())
       Plan.setVPSE(VPAF.createVPSE());
     if (!Plan.getVPVT())
-      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
+      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE(), Plan.getVPAC()));
   }
 }
 
@@ -1550,7 +1550,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                          "loopopt vplan-vec\n");
     return false;
   }
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *getAC())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1559,7 +1559,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
-  VPAnalysesFactoryHIR VPAF(Lp, getDT(), getAC(), DL);
+  VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
   populateVPlanAnalyses(LVP, VPAF);
 
   // VPlan construction stress test ends here.

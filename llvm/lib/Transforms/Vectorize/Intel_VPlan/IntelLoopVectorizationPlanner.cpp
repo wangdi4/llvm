@@ -385,11 +385,9 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
   return 1;
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
-                                                      const DataLayout *DL,
-                                                      std::string VPlanName,
-                                                      ScalarEvolution *SE,
-                                                      bool IsLegalToVec) {
+unsigned LoopVectorizationPlanner::buildInitialVPlans(
+    LLVMContext *Context, const DataLayout *DL, std::string VPlanName,
+    AssumptionCache &AC, ScalarEvolution *SE, bool IsLegalToVec) {
   ++VPlanOrderNumber;
   // Concatenate VPlan order number into VPlanName which allows to align
   // VPlans in all different VPlan internal dumps.
@@ -404,7 +402,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
   // TODO: revisit when we build multiple VPlans.
   std::shared_ptr<VPlanVector> Plan =
-      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, SE);
+      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, AC, SE);
   if (!Plan) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
     return 0;
@@ -1658,9 +1656,8 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
-    VPExternalValues &Ext,
-    VPUnlinkedInstructions &UnlinkedVPInsts, std::string VPlanName,
-    ScalarEvolution *SE) {
+    VPExternalValues &Ext, VPUnlinkedInstructions &UnlinkedVPInsts,
+    std::string VPlanName, AssumptionCache &AC, ScalarEvolution *SE) {
   // Create new empty VPlan. At this stage we want to create only NonMasked
   // VPlans.
   std::shared_ptr<VPlanVector> SharedPlan =
@@ -1676,7 +1673,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
     Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE, BFI);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, AC, SE,
+                               BFI);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 

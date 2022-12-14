@@ -25,6 +25,7 @@ class Value;
 
 namespace vpo {
 
+class VPAssumptionCache;
 class VPInstruction;
 class VPlanSCEV;
 class VPlanScalarEvolutionLLVM;
@@ -48,8 +49,8 @@ public:
 class VPlanValueTrackingLLVM final : public VPlanValueTracking {
 public:
   VPlanValueTrackingLLVM(VPlanScalarEvolutionLLVM &VPSE, const DataLayout &DL,
-                         AssumptionCache *AC, const DominatorTree *DT)
-      : VPSE(&VPSE), DL(&DL), AC(AC), DT(DT) {}
+                         const VPAssumptionCache *VPAC, const DominatorTree *DT)
+      : VPSE(&VPSE), DL(&DL), VPAC(VPAC), DT(DT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
   KnownBits getKnownBits(const VPValue *Val, const VPInstruction *CtxI) override;
@@ -66,7 +67,7 @@ private:
 private:
   VPlanScalarEvolutionLLVM *VPSE;
   const DataLayout *DL;
-  AssumptionCache *AC;
+  const VPAssumptionCache *VPAC;
   const DominatorTree *DT;
 };
 

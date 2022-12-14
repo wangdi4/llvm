@@ -28,10 +28,6 @@ protected:
     BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
     std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
 
-    VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin(),
-                                  *Plan->getLLVMContext(), DL.get());
-    VPlanValueTrackingLLVM VT(VPSE, *DL, &*AC, &*DT);
-
     VPLoadStoreInst *Store = nullptr;
     for (auto &BB : *Plan)
       for (auto &VPInst : BB) {
@@ -42,8 +38,8 @@ protected:
       }
 
     VPlanSCEV *Scev = Store->getAddressSCEV();
-    auto Induction = VPSE.asConstStepInduction(Scev);
-    return VT.getKnownBits(Induction->InvariantBase, Store);
+    auto Induction = Plan->getVPSE()->asConstStepInduction(Scev);
+    return Plan->getVPVT()->getKnownBits(Induction->InvariantBase, Store);
   }
 };
 

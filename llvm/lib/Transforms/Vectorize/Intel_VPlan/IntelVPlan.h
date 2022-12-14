@@ -39,6 +39,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 
+#include "IntelVPAssumptionCache.h"
 #include "IntelVPBasicBlock.h"
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanAlignmentAnalysis.h"
@@ -142,24 +143,21 @@ struct TripCountInfo;
 class VPAnalysesFactoryBase {
 private:
   DominatorTree *DT = nullptr;
-  AssumptionCache *AC = nullptr;
   const DataLayout *DL = nullptr;
 
 protected:
   virtual ~VPAnalysesFactoryBase() {}
 
 public:
-  VPAnalysesFactoryBase(DominatorTree *DT, AssumptionCache *AC,
-                        const DataLayout *DL)
-      : DT(DT), AC(AC), DL(DL) {}
+  VPAnalysesFactoryBase(DominatorTree *DT, const DataLayout *DL)
+      : DT(DT), DL(DL) {}
 
   virtual std::unique_ptr<VPlanScalarEvolution> createVPSE() = 0;
 
   virtual std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) = 0;
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) = 0;
 
   DominatorTree *getDominatorTree() { return DT; }
-  AssumptionCache *getAssumptionCache() { return AC; }
   const DataLayout *getDataLayout() { return DL; }
 };
 
@@ -170,8 +168,8 @@ private:
 
 public:
   VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
-                    AssumptionCache *AC, const DataLayout *DL)
-      : VPAnalysesFactoryBase(DT, AC, DL), SE(SE), Lp(Lp) {}
+                    const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, DL), SE(SE), Lp(Lp) {}
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
     auto &Context = Lp->getHeader()->getContext();
@@ -180,10 +178,10 @@ public:
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) override {
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) override {
     auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
-    return std::make_unique<VPlanValueTrackingLLVM>(
-        *VPSELLVM, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+    return std::make_unique<VPlanValueTrackingLLVM>(*VPSELLVM, *getDataLayout(),
+                                                    VPAC, getDominatorTree());
   }
 
   const Loop *getLoop() { return Lp; }
@@ -195,17 +193,17 @@ private:
 
 public:
   VPAnalysesFactoryHIR(loopopt::HLLoop *HLp, DominatorTree *DT,
-                       AssumptionCache *AC, const DataLayout *DL)
-      : VPAnalysesFactoryBase(DT, AC, DL), HLp(HLp) {}
+                       const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, DL), HLp(HLp) {}
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
     return std::make_unique<VPlanScalarEvolutionHIR>(HLp);
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) override {
-    return std::make_unique<VPlanValueTrackingHIR>(
-        HLp, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) override {
+    return std::make_unique<VPlanValueTrackingHIR>(HLp, *getDataLayout(), VPAC,
+                                                   getDominatorTree());
   }
 
   loopopt::HLLoop *getLoop() { return HLp; }
@@ -5259,6 +5257,12 @@ public:
     VPVT = std::move(A);
   }
 
+  /// Getter for Assumption Cache
+  VPAssumptionCache *getVPAC() { return PlanAC.get(); }
+  const VPAssumptionCache *getVPAC() const { return PlanAC.get(); }
+
+  void setVPAC(std::unique_ptr<VPAssumptionCache> A) { PlanAC = std::move(A); }
+
   void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysisBase> VPSVA) {
     VPlanSVA = std::move(VPSVA);
   }
@@ -5378,6 +5382,9 @@ private:
 
   /// Post-Dominator Tree for the Plan.
   std::unique_ptr<VPPostDominatorTree> PlanPDT;
+
+  /// Assumption Cache for the Plan.
+  std::unique_ptr<VPAssumptionCache> PlanAC;
 
   // We need to force full linearization for certain cases. Currently this
   // happens for cases where while-loop canonicalization or merge loop exits
