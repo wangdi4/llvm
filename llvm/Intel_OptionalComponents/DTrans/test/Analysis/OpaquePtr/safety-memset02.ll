@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { [200 x i8], i32, i32, i32, i32 }
 @var01 = internal global %struct.test01 zeroinitializer
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
-  call void @llvm.memset.p0i8.i64(ptr getelementptr (%struct.test01, ptr @var01, i64 0, i32 0, i32 0),
+  call void @llvm.memset.p0.i64(ptr getelementptr (%struct.test01, ptr @var01, i64 0, i32 0, i32 0),
                                   i8 1, i64 216, i1 false)
   ret void
 }
@@ -42,7 +42,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test02 = type { [200 x i8], i32, i32, i32, i32 }
 @var02 = internal global %struct.test02 zeroinitializer
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
-  call void @llvm.memset.p0i8.i64(ptr getelementptr (%struct.test02, ptr @var02, i64 0, i32 0, i32 0),
+  call void @llvm.memset.p0.i64(ptr getelementptr (%struct.test02, ptr @var02, i64 0, i32 0, i32 0),
                                   i8 1, i64 200, i1 false)
   ret void
 }
@@ -67,7 +67,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test03 = type { [200 x i8], i32, i32, i32, i32 }
 @var03 = internal global %struct.test03 zeroinitializer
 define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
-  call void @llvm.memset.p0i8.i64(ptr getelementptr (%struct.test03, ptr @var03, i64 0, i32 0, i32 0),
+  call void @llvm.memset.p0.i64(ptr getelementptr (%struct.test03, ptr @var03, i64 0, i32 0, i32 0),
                                   i8 1, i64 100, i1 false)
   ret void
 }
@@ -77,7 +77,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 ; CHECK: End LLVMType: %struct.test03
 
 
-declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8

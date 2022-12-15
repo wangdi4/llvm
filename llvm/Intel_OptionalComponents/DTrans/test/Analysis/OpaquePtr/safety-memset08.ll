@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01b = type { i32, i32 }
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
   %pField = getelementptr %struct.test01a, ptr %pStruct, i64 0, i32 1
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 16, i1 false)
   ret void
 }
 ; Not including the actual types of the pointer fields in check lines, because
@@ -52,7 +52,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !8 {
   %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 0
   %pValue = load ptr, ptr %pField
-  call void @llvm.memset.p0i8.i64(ptr %pValue, i8 1, i64 40, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pValue, i8 1, i64 40, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -67,7 +67,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test03 = type { i32, i32, i32 }
 define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !10 {
   %mem = call ptr @malloc(i64 64)
-  call void @llvm.memset.p0i8.i64(ptr %mem, i8 0, i64 64, i1 false)
+  call void @llvm.memset.p0.i64(ptr %mem, i8 0, i64 64, i1 false)
   ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -82,7 +82,7 @@ define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !10 {
 ; CHECK: End LLVMType: %struct.test03
 
 
-declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

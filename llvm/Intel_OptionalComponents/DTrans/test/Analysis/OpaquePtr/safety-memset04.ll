@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; memset call.
 %struct.test01 = type { i32, i16, i8 }
 define void @test01(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
-  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 8, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %a, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -32,7 +32,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.typ
 ; for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
-  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 32, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %a, i8 0, i64 32, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -53,7 +53,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.typ
 define void @test03(ptr "intel_dtrans_func_index"="1" %a, i32 %n) !intel.dtrans.func.type !9 {
   %conv = sext i32 %n to i64
   %mul = mul i64 %conv, 8
-  tail call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 %mul, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %a, i8 0, i64 %mul, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -74,7 +74,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %a, i32 %n) !intel.dtrans.
 %struct.test04b = type { i32, i16, i8 }
 %struct.test04c = type { %struct.test04a, %struct.test04b }
 define void @test04(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !14 {
-  tail call void @llvm.memset.p0i8.i64(ptr %c, i8 0, i64 24, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %c, i8 0, i64 24, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -112,7 +112,7 @@ define void @test04(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.typ
 %struct.test05b = type { i32, i16, i8 }
 %struct.test05c = type { ptr, ptr }
 define void @test05(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !18 {
-  tail call void @llvm.memset.p0i8.i64(ptr %c, i8 0, i64 16, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %c, i8 0, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -149,7 +149,7 @@ define void @test05(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.typ
 ; CHECK: End LLVMType: %struct.test05c
 
 
-declare !intel.dtrans.func.type !20 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !20 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

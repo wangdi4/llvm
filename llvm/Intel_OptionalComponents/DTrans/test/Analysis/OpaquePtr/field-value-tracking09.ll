@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, float }
 define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
   %ptr = call ptr @malloc(i64 8)
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 8, i1 false)
 
   %obj = bitcast ptr %ptr to ptr
   ret ptr %obj
@@ -28,7 +28,7 @@ define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !4 {
 %struct.test02 = type { i32, float }
 define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !6 {
   %ptr = call ptr @malloc(i64 8)
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 205, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 205, i64 8, i1 false)
 
   %obj = bitcast ptr %ptr to ptr
   ret ptr %obj
@@ -47,7 +47,7 @@ define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !6 {
 %struct.test03 = type { i32, float }
 define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !8 {
   %ptr = call ptr @malloc(i64 64)
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 64, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 64, i1 false)
 
   %obj = bitcast ptr %ptr to ptr
   ret ptr %obj
@@ -65,7 +65,7 @@ define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !8 {
 %struct.test04 = type { i32, i32, i32 }
 define "intel_dtrans_func_index"="1" ptr @test04() !intel.dtrans.func.type !10 {
   %ptr = call ptr @malloc(i64 12)
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 8, i1 false)
 
   %obj = bitcast ptr %ptr to ptr
   ret ptr %obj
@@ -86,7 +86,7 @@ define "intel_dtrans_func_index"="1" ptr @test04() !intel.dtrans.func.type !10 {
 %struct.test05 = type { i32, i32, i32 }
 define "intel_dtrans_func_index"="1" ptr @test05() !intel.dtrans.func.type !12 {
   %ptr = call ptr @malloc(i64 12)
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 6, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 6, i1 false)
 
   %obj = bitcast ptr %ptr to ptr
   ret ptr %obj
@@ -106,7 +106,7 @@ define "intel_dtrans_func_index"="1" ptr @test05() !intel.dtrans.func.type !12 {
 ; CHECK: End LLVMType: %struct.test05
 
 
-declare !intel.dtrans.func.type !14 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1)
+declare !intel.dtrans.func.type !14 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1)
 declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

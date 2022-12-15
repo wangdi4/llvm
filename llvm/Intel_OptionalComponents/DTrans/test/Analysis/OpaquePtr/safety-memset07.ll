@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !5 {
   %mem = call ptr @malloc(i64 24)
   %addr0 = getelementptr i8, ptr %mem, i32 8
-  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %addr0, i8 1, i64 16, i1 false)
   ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -37,7 +37,7 @@ define "intel_dtrans_func_index"="1" ptr @test01() !intel.dtrans.func.type !5 {
 define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !7 {
   %mem = call ptr @malloc(i64 24)
   %addr0 = getelementptr i8, ptr %mem, i32 4
-  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr %addr0, i8 1, i64 20, i1 false)
   ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -61,7 +61,7 @@ define "intel_dtrans_func_index"="1" ptr @test02() !intel.dtrans.func.type !7 {
 define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !9 {
   %mem = call ptr @malloc(i64 24)
   %addr0 = getelementptr i8, ptr %mem, i32 12
-  call void @llvm.memset.p0i8.i64(ptr %addr0, i8 1, i64 12, i1 false)
+  call void @llvm.memset.p0.i64(ptr %addr0, i8 1, i64 12, i1 false)
   ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -71,7 +71,7 @@ define "intel_dtrans_func_index"="1" ptr @test03() !intel.dtrans.func.type !9 {
 
 
 declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
-declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

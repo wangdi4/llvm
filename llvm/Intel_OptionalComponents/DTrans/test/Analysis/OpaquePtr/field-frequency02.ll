@@ -24,17 +24,17 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
   ; Write fields 0 - 4
   %pField0 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
   %pStart = bitcast ptr %pField0 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %pStart, i8 1, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pStart, i8 1, i64 20, i1 false)
 
   ; Write fields 1 - 2
   %pField1 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
   %pStart1 = bitcast ptr %pField1 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %pStart1, i8 2, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pStart1, i8 2, i64 8, i1 false)
 
   ; Write fields 2 - 4
   %pField2 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 2
   %pStart2 = bitcast ptr %pField2 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %pStart2, i8 3, i64 12, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pStart2, i8 3, i64 12, i1 false)
 
   ret void
 }
@@ -52,16 +52,16 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
   %pDst = bitcast ptr %pFieldA to ptr
   %pSrc = bitcast ptr %pFieldB to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
 
   ; Write fields 0 - 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
 
   ret void
 }
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
-declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

@@ -56,7 +56,7 @@ define internal void @test02() {
 define internal void @test03(i32 %x) {
   %local = alloca %struct.test03
   %pad_addr = getelementptr i8, ptr %local, i32 6
-  call void @llvm.memset.p0i8.i64(ptr %pad_addr, i8 0, i64 6, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pad_addr, i8 0, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -66,7 +66,7 @@ define internal void @test03(i32 %x) {
 ; CHECK: Local instance{{ *$}}
 
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32
