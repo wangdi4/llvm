@@ -140,7 +140,6 @@ add_llvm_component_library(LLVMipo
   TransformUtils
   Vectorize
   Instrumentation
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -148,8 +147,6 @@ add_llvm_component_library(LLVMipo
   Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
   Scalar
-=======
->>>>>>> 42c2dc401742266da3e0251b6c1ca491f4779963
   )
 
 # INTEL_CUSTOMIZATION

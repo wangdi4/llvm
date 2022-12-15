@@ -50,6 +50,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/AbstractCallSite.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -78,6 +79,19 @@ static void findReturnsToZap(Function &F,
            "it\n");
     return;
   }
+
+// Commented to unblock the pulldown
+// #if INTEL_CUSTOMIZATION
+//   // Cannot do this if function is used as a callback.
+//   if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
+//         AbstractCallSite ACS(&U);
+//         return ACS && ACS.isCallbackCall();
+//       })) {
+//     LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
+//                       << " because it is used as a callback\n");
+//     return;
+//   }
+// #endif // INTEL_CUSTOMIZATION
 
   assert(
       all_of(F.users(),
@@ -374,6 +388,12 @@ static bool runIPSCCP(
       SI->eraseFromParent();
       MadeChanges = true;
     }
+#if INTEL_COLLAB
+    if (GV->isTargetDeclare())
+      LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
+                        << "' is target-declare and not removed\n");
+    else
+#endif // INTEL_COLLAB
     M.getGlobalList().erase(GV);
     ++NumGlobalConst;
   }
