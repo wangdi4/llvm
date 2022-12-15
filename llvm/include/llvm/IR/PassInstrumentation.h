@@ -52,7 +52,7 @@
 ///      executed and IRUnit it works on. There can be different schemes of
 ///      providing names in future, currently it is just a name() of the pass.
 ///
-///    - PassInstrumentation wraps address of IRUnit into std::any and passes
+///    - PassInstrumentation wraps address of IRUnit into llvm::Any and passes
 ///      control to all the registered callbacks. Note that we specifically wrap
 ///      'const IRUnitT*' so as to avoid any accidental changes to IR in
 ///      instrumenting callbacks.
@@ -66,10 +66,10 @@
 #ifndef LLVM_IR_PASSINSTRUMENTATION_H
 #define LLVM_IR_PASSINSTRUMENTATION_H
 
+#include "llvm/ADT/Any.h"
 #include "llvm/ADT/FunctionExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
-#include <any>
 #include <type_traits>
 #include <vector>
 
@@ -84,7 +84,7 @@ class StringRef;
 class PassInstrumentationCallbacks {
 public:
   // Before/After callbacks accept IRUnits whenever appropriate, so they need
-  // to take them as constant pointers, wrapped with std::any.
+  // to take them as constant pointers, wrapped with llvm::Any.
   // For the case when IRUnit has been invalidated there is a different
   // callback to use - AfterPassInvalidated.
   // We call all BeforePassFuncs to determine if a pass should run or not.
@@ -93,22 +93,15 @@ public:
   // already invalidated IRUnit is unsafe. There are ways to handle invalidated
   // IRUnits in a safe way, and we might pursue that as soon as there is a
   // useful instrumentation that needs it.
-<<<<<<< HEAD
   using BeforePassFunc = bool(StringRef, Any);
   using BeforeLimitedPassFunc = bool(StringRef, LoopOptLimiter, Any);    // INTEL
   using BeforeSkippedPassFunc = void(StringRef, Any);
   using BeforeNonSkippedPassFunc = void(StringRef, Any);
   using AfterPassFunc = void(StringRef, Any, const PreservedAnalyses &);
-=======
-  using BeforePassFunc = bool(StringRef, std::any);
-  using BeforeSkippedPassFunc = void(StringRef, std::any);
-  using BeforeNonSkippedPassFunc = void(StringRef, std::any);
-  using AfterPassFunc = void(StringRef, std::any, const PreservedAnalyses &);
->>>>>>> aeac2e4884a3ce62c920cd51806a9396da64d9f7
   using AfterPassInvalidatedFunc = void(StringRef, const PreservedAnalyses &);
-  using BeforeAnalysisFunc = void(StringRef, std::any);
-  using AfterAnalysisFunc = void(StringRef, std::any);
-  using AnalysisInvalidatedFunc = void(StringRef, std::any);
+  using BeforeAnalysisFunc = void(StringRef, Any);
+  using AfterAnalysisFunc = void(StringRef, Any);
+  using AnalysisInvalidatedFunc = void(StringRef, Any);
   using AnalysesClearedFunc = void(StringRef);
 
 public:
@@ -279,15 +272,15 @@ public:
 
     if (ShouldRun && !isRequired(Pass)) {          // INTEL
       for (auto &C : Callbacks->ShouldRunOptionalPassCallbacks)
-        ShouldRun &= C(Pass.name(), std::any(&IR));
+        ShouldRun &= C(Pass.name(), llvm::Any(&IR));
     }
 
     if (ShouldRun) {
       for (auto &C : Callbacks->BeforeNonSkippedPassCallbacks)
-        C(Pass.name(), std::any(&IR));
+        C(Pass.name(), llvm::Any(&IR));
     } else {
       for (auto &C : Callbacks->BeforeSkippedPassCallbacks)
-        C(Pass.name(), std::any(&IR));
+        C(Pass.name(), llvm::Any(&IR));
     }
 
     return ShouldRun;
@@ -301,7 +294,7 @@ public:
                     const PreservedAnalyses &PA) const {
     if (Callbacks)
       for (auto &C : Callbacks->AfterPassCallbacks)
-        C(Pass.name(), std::any(&IR), PA);
+        C(Pass.name(), llvm::Any(&IR), PA);
   }
 
   /// AfterPassInvalidated instrumentation point - takes \p Pass instance
@@ -321,7 +314,7 @@ public:
   void runBeforeAnalysis(const PassT &Analysis, const IRUnitT &IR) const {
     if (Callbacks)
       for (auto &C : Callbacks->BeforeAnalysisCallbacks)
-        C(Analysis.name(), std::any(&IR));
+        C(Analysis.name(), llvm::Any(&IR));
   }
 
   /// AfterAnalysis instrumentation point - takes \p Analysis instance
@@ -330,7 +323,7 @@ public:
   void runAfterAnalysis(const PassT &Analysis, const IRUnitT &IR) const {
     if (Callbacks)
       for (auto &C : Callbacks->AfterAnalysisCallbacks)
-        C(Analysis.name(), std::any(&IR));
+        C(Analysis.name(), llvm::Any(&IR));
   }
 
   /// AnalysisInvalidated instrumentation point - takes \p Analysis instance
@@ -340,7 +333,7 @@ public:
   void runAnalysisInvalidated(const PassT &Analysis, const IRUnitT &IR) const {
     if (Callbacks)
       for (auto &C : Callbacks->AnalysisInvalidatedCallbacks)
-        C(Analysis.name(), std::any(&IR));
+        C(Analysis.name(), llvm::Any(&IR));
   }
 
   /// AnalysesCleared instrumentation point - takes name of IR that analyses
