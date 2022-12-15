@@ -117,8 +117,7 @@ TEST_F(CloneVPlan, TestCloneVPlan) {
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   std::unique_ptr<VPlanNonMasked> OrigVPlan = buildHCFG(LoopHeader);
   ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
-  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(),
-                         DL.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), DL.get());
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
@@ -163,8 +162,7 @@ TEST_F(CloneVPlan, TestCloneLoop) {
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   std::unique_ptr<VPlanNonMasked> OrigVPlan = buildHCFG(LoopHeader);
   ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
-  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(),
-                         DL.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), DL.get());
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
@@ -272,8 +270,7 @@ TEST_F(CloneVPlan, TestCloneDA) {
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   std::unique_ptr<VPlanNonMasked> OrigVPlan = buildHCFG(LoopHeader);
   ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
-  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(),
-                         DL.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), DL.get());
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
@@ -309,8 +306,7 @@ TEST_F(CloneVPlan, TestCloneVPLiveInOut) {
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   std::unique_ptr<VPlanNonMasked> OrigVPlan = buildHCFG(LoopHeader);
   ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
-  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(),
-                         DL.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), DL.get());
   // Compute DA.
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));

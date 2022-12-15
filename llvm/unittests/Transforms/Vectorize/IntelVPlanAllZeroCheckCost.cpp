@@ -56,13 +56,15 @@ entry:
   Function *F = M.getFunction("foo");
   EXPECT_TRUE(F);
 
+  const auto AC = std::make_unique<AssumptionCache>(*F, TTI.get());
+
   // Construct simple function-based VPlan and run the minimal set of
   // analyses needed.
   auto Externals =
       std::make_unique<VPExternalValues>(&M.getContext(), &M.getDataLayout());
   auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
   auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
-  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F);
+  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get());
   FunctionCFGBuilder.buildCFG();
   Plan->setName(F->getName());
   Plan->computeDT();

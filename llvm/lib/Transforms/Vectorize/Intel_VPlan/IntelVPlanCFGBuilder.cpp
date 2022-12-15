@@ -411,6 +411,11 @@ void VPlanLoopCFGBuilder::buildCFG() {
 }
 
 void VPlanFunctionCFGBuilder::buildCFG() {
+
+  // Initialize the VPlan assumption cache in preparation for it being populated
+  // while processing basic blocks.
+  Plan->setVPAC(std::make_unique<VPAssumptionCache>(AC));
+
   ReversePostOrderTraversal<BasicBlock *> RPOT(&F.getEntryBlock());
   assert(count_if(F,
                   [](const BasicBlock &BB) {

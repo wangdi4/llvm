@@ -84,7 +84,8 @@ protected:
   void commonSetup() {
     VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(
       *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
-    VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
+    VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, Plan->getVPAC(),
+                                                    &*DT);
   }
 
   void setupPeelingAnalysis() {

@@ -91,7 +91,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
     VPExternalValues &Ext, VPUnlinkedInstructions &UVPI, std::string VPlanName,
-    ScalarEvolution *SE) {
+    AssumptionCache &AC, ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlanVector> SharedPlan =
       std::make_shared<VPlanNonMasked>(Ext, UVPI);
@@ -109,7 +109,7 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
-  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
+  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, AC);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 

@@ -1105,9 +1105,10 @@ bool PlainCFGBuilderHIR::buildPlainCFG() {
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlanVector *Plan,
                                          HIRVectorizationLegality *Legal,
-                                         const DDGraph &DDG)
+                                         const DDGraph &DDG,
+                                         AssumptionCache &AC)
     : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
-                       WRL, Plan, nullptr),
+                       WRL, Plan, nullptr, AC),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
   Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
