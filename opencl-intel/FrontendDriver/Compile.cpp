@@ -269,6 +269,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
   }
 
+  optionsEx << " -no-opaque-pointers";
+
   IOCLFEBinaryResultPtr spBinaryResult;
 
   int res = ::Compile(m_pProgDesc->pProgramSource, InputHeaders.data(),
