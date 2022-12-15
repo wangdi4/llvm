@@ -506,11 +506,11 @@ define <8 x i32> @test9(ptr %base, <8 x i64> %ind1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpmuludq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpsllq $32, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpbroadcastq %rdi, %zmm2
-; KNL_64-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
+; KNL_64-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm3, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm1, %zmm3, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm1
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1}
@@ -592,11 +592,11 @@ define <8 x i32> @test10(ptr %base, <8 x i64> %i1, <8 x i32>%ind5) {
 ; KNL_64-NEXT:    vpmuludq %zmm2, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpsllq $32, %zmm0, %zmm0
 ; KNL_64-NEXT:    vpbroadcastq %rdi, %zmm2
-; KNL_64-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
+; KNL_64-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
 ; KNL_64-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero
 ; KNL_64-NEXT:    vpmuldq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm1, %zmm1
-; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
-; KNL_64-NEXT:    vpaddq %zmm0, %zmm3, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm1, %zmm3, %zmm1
+; KNL_64-NEXT:    vpaddq %zmm1, %zmm0, %zmm1
 ; KNL_64-NEXT:    kxnorw %k0, %k0, %k1
 ; KNL_64-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; KNL_64-NEXT:    vpgatherqd 72(,%zmm1), %ymm0 {%k1}
@@ -4449,30 +4449,30 @@ define <2 x i64> @gather_2i64_constant_indices(ptr %ptr, <2 x i1> %mask) {
 ; SKX-NEXT:  .LBB58_3: # %cond.load1
 ; SKX-NEXT:    vpinsrq $1, -16(%rdi), %xmm0, %xmm0
 ; SKX-NEXT:    retq
-; end INTEL_CUSTOMIZATION
 ;
 ; SKX_32-LABEL: gather_2i64_constant_indices:
 ; SKX_32:       # %bb.0:
 ; SKX_32-NEXT:    vpsllq $63, %xmm0, %xmm0
 ; SKX_32-NEXT:    vpmovq2m %xmm0, %k0
-; SKX_32-NEXT:    movl {{[0-9]+}}(%esp), %eax ;INTEL
-; SKX_32-NEXT:    kmovw %k0, %ecx ;INTEL
+; SKX_32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKX_32-NEXT:    kmovw %k0, %ecx
 ; SKX_32-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; SKX_32-NEXT:    testb $1, %cl ;INTEL
+; SKX_32-NEXT:    testb $1, %cl
 ; SKX_32-NEXT:    jne .LBB58_1
 ; SKX_32-NEXT:  # %bb.2: # %else
-; SKX_32-NEXT:    testb $2, %cl ;INTEL
+; SKX_32-NEXT:    testb $2, %cl
 ; SKX_32-NEXT:    jne .LBB58_3
 ; SKX_32-NEXT:  .LBB58_4: # %else2
 ; SKX_32-NEXT:    retl
 ; SKX_32-NEXT:  .LBB58_1: # %cond.load
 ; SKX_32-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
-; SKX_32-NEXT:    testb $2, %cl ;INTEL
+; SKX_32-NEXT:    testb $2, %cl
 ; SKX_32-NEXT:    je .LBB58_4
 ; SKX_32-NEXT:  .LBB58_3: # %cond.load1
-; SKX_32-NEXT:    vpinsrd $2, -16(%eax), %xmm0, %xmm0 ;INTEL
-; SKX_32-NEXT:    vpinsrd $3, -12(%eax), %xmm0, %xmm0 ;INTEL
+; SKX_32-NEXT:    vpinsrd $2, -16(%eax), %xmm0, %xmm0
+; SKX_32-NEXT:    vpinsrd $3, -12(%eax), %xmm0, %xmm0
 ; SKX_32-NEXT:    retl
+; end INTEL_CUSTOMIZATION
   %gep = getelementptr i64, ptr %ptr, <2 x i64> <i64 0, i64 -2>
   %res = tail call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> %gep, i32 8, <2 x i1> %mask, <2 x i64> zeroinitializer) #1
   ret <2 x i64> %res
@@ -4559,30 +4559,30 @@ define void @scatter_2i64_constant_indices(ptr %ptr, <2 x i1> %mask, <2 x i32> %
 ; KNL_64-NEXT:    vzeroupper
 ; KNL_64-NEXT:    retq
 ;
+; INTEL_CUSTOMIZATION
 ; KNL_32-LABEL: scatter_2i64_constant_indices:
 ; KNL_32:       # %bb.0:
 ; KNL_32-NEXT:    vpsllq $63, %xmm0, %xmm0
 ; KNL_32-NEXT:    vptestmq %zmm0, %zmm0, %k0
-; KNL_32-NEXT:    movl {{[0-9]+}}(%esp), %eax ;INTEL
-; KNL_32-NEXT:    kmovw %k0, %ecx ;INTEL
-; KNL_32-NEXT:    testb $1, %cl ;INTEL
+; KNL_32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; KNL_32-NEXT:    kmovw %k0, %ecx
+; KNL_32-NEXT:    testb $1, %cl
 ; KNL_32-NEXT:    jne .LBB60_1
 ; KNL_32-NEXT:  # %bb.2: # %else
-; KNL_32-NEXT:    testb $2, %cl ;INTEL
+; KNL_32-NEXT:    testb $2, %cl
 ; KNL_32-NEXT:    jne .LBB60_3
 ; KNL_32-NEXT:  .LBB60_4: # %else2
 ; KNL_32-NEXT:    vzeroupper
 ; KNL_32-NEXT:    retl
 ; KNL_32-NEXT:  .LBB60_1: # %cond.store
-; KNL_32-NEXT:    vmovss %xmm1, (%eax) ;INTEL
-; KNL_32-NEXT:    testb $2, %cl ;INTEL
+; KNL_32-NEXT:    vmovss %xmm1, (%eax)
+; KNL_32-NEXT:    testb $2, %cl
 ; KNL_32-NEXT:    je .LBB60_4
 ; KNL_32-NEXT:  .LBB60_3: # %cond.store1
-; KNL_32-NEXT:    vextractps $1, %xmm1, -8(%eax) ;INTEL
+; KNL_32-NEXT:    vextractps $1, %xmm1, -8(%eax)
 ; KNL_32-NEXT:    vzeroupper
 ; KNL_32-NEXT:    retl
 ;
-; INTEL_CUSTOMIZATION
 ; SKX-LABEL: scatter_2i64_constant_indices:
 ; SKX:       # %bb.0:
 ; SKX-NEXT:    vpsllq $63, %xmm0, %xmm0
@@ -4602,28 +4602,28 @@ define void @scatter_2i64_constant_indices(ptr %ptr, <2 x i1> %mask, <2 x i32> %
 ; SKX-NEXT:  .LBB60_3: # %cond.store1
 ; SKX-NEXT:    vextractps $1, %xmm1, -8(%rdi)
 ; SKX-NEXT:    retq
-; end INTEL_CUSTOMIZATION
 ;
 ; SKX_32-LABEL: scatter_2i64_constant_indices:
 ; SKX_32:       # %bb.0:
 ; SKX_32-NEXT:    vpsllq $63, %xmm0, %xmm0
 ; SKX_32-NEXT:    vpmovq2m %xmm0, %k0
-; SKX_32-NEXT:    movl {{[0-9]+}}(%esp), %eax ;INTEL
-; SKX_32-NEXT:    kmovw %k0, %ecx ;INTEL
-; SKX_32-NEXT:    testb $1, %cl ;INTEL
+; SKX_32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKX_32-NEXT:    kmovw %k0, %ecx
+; SKX_32-NEXT:    testb $1, %cl
 ; SKX_32-NEXT:    jne .LBB60_1
 ; SKX_32-NEXT:  # %bb.2: # %else
-; SKX_32-NEXT:    testb $2, %cl ;INTEL
+; SKX_32-NEXT:    testb $2, %cl
 ; SKX_32-NEXT:    jne .LBB60_3
 ; SKX_32-NEXT:  .LBB60_4: # %else2
 ; SKX_32-NEXT:    retl
 ; SKX_32-NEXT:  .LBB60_1: # %cond.store
-; SKX_32-NEXT:    vmovss %xmm1, (%eax) ;INTEL
-; SKX_32-NEXT:    testb $2, %cl ;INTEL
+; SKX_32-NEXT:    vmovss %xmm1, (%eax)
+; SKX_32-NEXT:    testb $2, %cl
 ; SKX_32-NEXT:    je .LBB60_4
 ; SKX_32-NEXT:  .LBB60_3: # %cond.store1
-; SKX_32-NEXT:    vextractps $1, %xmm1, -8(%eax) ;INTEL
+; SKX_32-NEXT:    vextractps $1, %xmm1, -8(%eax)
 ; SKX_32-NEXT:    retl
+; end INTEL_CUSTOMIZATION
   %gep = getelementptr i32, ptr %ptr, <2 x i64> <i64 0, i64 -2>
   call void @llvm.masked.scatter.v2i32.v2p0(<2 x i32> %src0, <2 x ptr> %gep, i32 4, <2 x i1> %mask)
   ret void
