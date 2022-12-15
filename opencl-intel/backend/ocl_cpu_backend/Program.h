@@ -246,7 +246,7 @@ public:
 
   virtual llvm::orc::LLJIT *GetLLJIT() = 0;
 
-  virtual void LoadProfileLib() const = 0;
+  virtual void LoadProfileLib() = 0;
 
   /// get runtime service
   RuntimeServiceSharedPtr GetRuntimeService() const { return m_RuntimeService; }
