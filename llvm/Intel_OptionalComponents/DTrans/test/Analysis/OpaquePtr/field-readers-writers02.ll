@@ -2,18 +2,16 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test that allocation via calloc is identified as a writer of the
 ; structure fields.
 
 %struct.test01 = type { i32, i32 }
-@var01 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
-define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in, i64 %index) !intel.dtrans.func.type !3 {
-  %mem = call i8* @calloc(i64 16, i64 8)
-  %st = bitcast i8* %mem to %struct.test01*
-  store %struct.test01* %st, %struct.test01** @var01
+@var01 = internal global ptr zeroinitializer, !intel_dtrans_type !2
+define internal void @test01(ptr "intel_dtrans_func_index"="1" %in, i64 %index) !intel.dtrans.func.type !3 {
+  %mem = call ptr @calloc(i64 16, i64 8)
+  store ptr %mem, ptr @var01
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
@@ -30,7 +28,7 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in, 
 ; CHECK: End LLVMType: %struct.test01
 
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

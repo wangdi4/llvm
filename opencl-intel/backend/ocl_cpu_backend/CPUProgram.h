@@ -58,7 +58,7 @@ public:
   // Get LLJIT instance
   llvm::orc::LLJIT *GetLLJIT() override { return m_LLJIT.get(); }
 
-  void LoadProfileLib() const override;
+  void LoadProfileLib() override;
 
   void ReleaseExecutionEngine();
 
@@ -87,6 +87,8 @@ public:
   void CreateAndSetBlockToKernelMapper();
 
 private:
+  using funcPtr = void (*)(void);
+  funcPtr llvmWriteoutFilesPtr = nullptr;
   std::unique_ptr<llvm::ExecutionEngine> m_pExecutionEngine;
   std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
   llvm::SmallVector<llvm::Module *, 2> m_bltnFuncList;

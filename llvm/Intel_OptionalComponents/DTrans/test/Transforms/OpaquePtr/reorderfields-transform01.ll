@@ -22,13 +22,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main() {
 entry:
-  %call = tail call noalias i8* @calloc(i64 10, i64 48)
+  %call = tail call noalias ptr @calloc(i64 10, i64 48)
   %i = getelementptr %struct.test, ptr %call, i64 0, i32 0
   store i32 10, ptr %i, align 8
   ret i32 0
 }
 
-declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

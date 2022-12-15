@@ -928,7 +928,9 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(
     return CL_INVALID_OPERATION;
   }
 
-  if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb))) {
+  const size_t pszOrigin[MAX_WORK_DIM] = {szOffset, 0, 0};
+  const size_t pszRegion[MAX_WORK_DIM] = {szCb, 1, 1};
+  if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(pszOrigin, pszRegion))) {
     // Out of bounds check.
     return errVal;
   }
@@ -949,9 +951,6 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(
     if (CL_SUCCEEDED(errVal))
       return errVal;
   }
-
-  const size_t pszOrigin[3] = {szOffset, 0, 0};
-  const size_t pszRegion[3] = {szCb, 1, 1};
 
   Command *pEnqueueReadBufferCmd =
       new ReadBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer,
@@ -1101,7 +1100,9 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(
     return CL_INVALID_OPERATION;
   }
 
-  if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(&szOffset, &szCb))) {
+  const size_t pszOrigin[MAX_WORK_DIM] = {szOffset, 0, 0};
+  const size_t pszRegion[MAX_WORK_DIM] = {szCb, 1, 1};
+  if (CL_SUCCESS != (errVal = pBuffer->CheckBounds(pszOrigin, pszRegion))) {
     // Out of bounds check.
     return errVal;
   }
@@ -1122,9 +1123,6 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(
     if (CL_SUCCEEDED(errVal))
       return errVal;
   }
-
-  const size_t pszOrigin[3] = {szOffset, 0, 0};
-  const size_t pszRegion[3] = {szCb, 1, 1};
 
   const size_t largeBufferThreshold = 1024 * 1024;
   // If the buffer big enough, there is no dependencies and it is blocking
@@ -1392,10 +1390,15 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
   }
 
   // Check boundaries.
-  if (CL_SUCCESS != (errVal = pSrcBuffer->CheckBounds(&szSrcOffset, &szCb))) {
+  const size_t pszSrcOrigin[MAX_WORK_DIM] = {szSrcOffset, 0, 0};
+  const size_t pszDstOrigin[MAX_WORK_DIM] = {szDstOffset, 0, 0};
+  const size_t pszRegion[MAX_WORK_DIM] = {szCb, 1, 1};
+  if (CL_SUCCESS !=
+      (errVal = pSrcBuffer->CheckBounds(pszSrcOrigin, pszRegion))) {
     return errVal;
   }
-  if (CL_SUCCESS != (errVal = pDstBuffer->CheckBounds(&szDstOffset, &szCb))) {
+  if (CL_SUCCESS !=
+      (errVal = pDstBuffer->CheckBounds(pszDstOrigin, pszRegion))) {
     return errVal;
   }
 
@@ -1408,10 +1411,6 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     if (CL_SUCCEEDED(errVal))
       return errVal;
   }
-
-  const size_t pszSrcOrigin[3] = {szSrcOffset, 0, 0};
-  const size_t pszDstOrigin[3] = {szDstOffset, 0, 0};
-  const size_t pszRegion[3] = {szCb, 1, 1};
 
   if (clSrcBuffer == clDstBuffer) {
     // Check overlapping
@@ -2910,9 +2909,11 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
   size_t szDstCb = CalcRegionSizeInBytes(pSrcImage, szRegion);
 
   // Check boundaries.
+  size_t pszDstOffset[MAX_WORK_DIM] = {szDstOffset, 0, 0};
+  size_t dstRegion[MAX_WORK_DIM] = {szDstCb, 1, 1};
   if (CL_SUCCESS != (errVal = pSrcImage->CheckBounds(szSrcOrigin, szRegion)) ||
       CL_SUCCESS !=
-          (errVal = pDstBuffer->CheckBounds(&szDstOffset, &szDstCb))) {
+          (errVal = pDstBuffer->CheckBounds(pszDstOffset, dstRegion))) {
     return errVal;
   }
   // check that if pSrcImage is a 1D image buffer it wasn't created from
@@ -2930,7 +2931,6 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
   //
   // Input parameters validated, enqueue the command
   //
-  size_t pszDstOffset[3] = {szDstOffset, 0, 0};
   Command *pCopyImageToBufferCmd = new CopyImageToBufferCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcImage, pDstBuffer, szSrcOrigin,
       szRegion, pszDstOffset /*szDstOffset*/);
@@ -2991,8 +2991,10 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
   size_t szDstCb = CalcRegionSizeInBytes(pDstImage, szRegion);
 
   // Check boundaries.
+  size_t pszSrcOffset[MAX_WORK_DIM] = {szSrcOffset, 0, 0};
+  size_t srcRegion[MAX_WORK_DIM] = {szDstCb, 1, 1};
   if (CL_SUCCESS !=
-          (errVal = pSrcBuffer->CheckBounds(&szSrcOffset, &szDstCb)) ||
+          (errVal = pSrcBuffer->CheckBounds(pszSrcOffset, srcRegion)) ||
       CL_SUCCESS != (errVal = pDstImage->CheckBounds(szDstOrigin, szRegion))) {
     return errVal;
   }
@@ -3012,7 +3014,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
   // Input parameters validated, enqueue the command
   //
 
-  size_t pszSrcOffset[3] = {szSrcOffset, 0, 0};
   Command *pCopyBufferToImageCmd = new CopyBufferToImageCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstImage, pszSrcOffset,
       szDstOrigin, szRegion);

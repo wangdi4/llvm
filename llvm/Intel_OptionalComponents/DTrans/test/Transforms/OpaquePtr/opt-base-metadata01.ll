@@ -1,4 +1,4 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -6,9 +6,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; type transformation for structure types.
 
 ; Case with self & circular references
-%struct.test01a = type { i32, %struct.test01a*, %struct.test01b* }
-%struct.test01b = type { i32, %struct.test01b*, %struct.test01c* }
-%struct.test01c = type { %struct.test01d, %struct.test01c*, %struct.test01a* }
+%struct.test01a = type { i32, ptr, ptr }
+%struct.test01b = type { i32, ptr, ptr }
+%struct.test01c = type { %struct.test01d, ptr, ptr }
 %struct.test01d = type { i64, i64 }
 
 @globVar01a = global %struct.test01a zeroinitializer
@@ -26,15 +26,18 @@ target triple = "x86_64-unknown-linux-gnu"
 !9 = !{!"S", %struct.test01c zeroinitializer, i32 3, !5, !4, !2} ; { %struct.test01d, %struct.test01c*, %struct.test01a* }
 !10 = !{!"S", %struct.test01d zeroinitializer, i32 2, !6, !6} ; { i64, i64 }
 
+; With opaque pointers, only structure '%struct.test01a' is changed to a new
+; structure type, because the other types were just pointer references.
+
 ; CHECK: ![[S01A:[0-9]+]] = !{!"S", %__DTT_struct.test01a zeroinitializer, i32 3, ![[I32:[0-9]+]], ![[PTR_S01A:[0-9]+]], ![[PTR_S01B:[0-9]+]]}
 ; CHECK: ![[I32]] = !{i32 0, i32 0}
 ; CHECK: ![[PTR_S01A]] = !{%__DTT_struct.test01a zeroinitializer, i32 1}
-; CHECK: ![[PTR_S01B]] = !{%__DDT_struct.test01b zeroinitializer, i32 1}
+; CHECK: ![[PTR_S01B]] = !{%struct.test01b zeroinitializer, i32 1}
 
-; CHECK: ![[S01B:[0-9]+]] = !{!"S", %__DDT_struct.test01b zeroinitializer, i32 3, ![[I32]], ![[PTR_S01B]], ![[PTR_S01C:[0-9]+]]}
-; CHECK: ![[PTR_S01C]] = !{%__DDT_struct.test01c zeroinitializer, i32 1}
+; CHECK: ![[S01B:[0-9]+]] = !{!"S", %struct.test01b zeroinitializer, i32 3, ![[I32]], ![[PTR_S01B]], ![[PTR_S01C:[0-9]+]]}
+; CHECK: ![[PTR_S01C]] = !{%struct.test01c zeroinitializer, i32 1}
 
-; CHECK: ![[S01C:[0-9]+]] = !{!"S", %__DDT_struct.test01c zeroinitializer, i32 3, ![[PTR_S01D:[0-9]+]], ![[PTR_S01C]], ![[PTR_S01A]]}
+; CHECK: ![[S01C:[0-9]+]] = !{!"S", %struct.test01c zeroinitializer, i32 3, ![[PTR_S01D:[0-9]+]], ![[PTR_S01C]], ![[PTR_S01A]]}
 ; CHECK: ![[PTR_S01D]] = !{%struct.test01d zeroinitializer, i32 0}
 
 ; CHECK: ![[S01D:[0-9]+]] = !{!"S", %struct.test01d zeroinitializer, i32 2, ![[I64:[0-9]+]], ![[I64]]}

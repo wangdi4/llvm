@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(ptr "intel_dtrans_func_index"="1" %a, ptr "intel_dtrans_func_index"="2" %q) !intel.dtrans.func.type !7 {
 entry:
-  call void @llvm.memset.p0i8.i64(ptr %a, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %a, i8 0, i64 16, i1 false)
 
   %x = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 0
   %y = getelementptr inbounds %struct.A, ptr %a, i64 0, i32 2
@@ -34,7 +34,7 @@ entry:
   ret i16 %0
 }
 
-declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
 ; CHECK: Selected for deletion: %struct.B

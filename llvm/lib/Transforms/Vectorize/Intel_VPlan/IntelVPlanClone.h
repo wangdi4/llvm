@@ -89,6 +89,14 @@ public:
     (void)It;
     Value2ValueMap[OrigVal] = ClonedVal;
   }
+
+  // Get the remapped value of \p V, if one exists, otherwise return `nullptr`.
+  VPValue *getRemappedValue(const VPValue *V) const {
+    auto It = Value2ValueMap.find(V);
+    if (It != Value2ValueMap.end())
+      return It->second;
+    return nullptr;
+  }
 };
 
 } // namespace vpo

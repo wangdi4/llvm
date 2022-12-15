@@ -60,12 +60,12 @@ target triple = "x86_64-unknown-linux-gnu"
 define "intel_dtrans_func_index"="1" i32 @foo(ptr "intel_dtrans_func_index"="2" %ptr) local_unnamed_addr #0 !intel.dtrans.func.type !18 {
   %bgep1 = getelementptr %struct.test.a, ptr %ptr, i64 0, i32 2
   %arrgep1 = getelementptr [4 x i8], ptr %bgep1, i64 0, i32 1
-  %val = load i8, i8* %arrgep1
+  %val = load i8, ptr %arrgep1
 
   %agep = getelementptr %struct.test.a, ptr %ptr, i64 0, i32 0
   %boostgep = getelementptr %"struct.test.array", ptr %agep, i64 0, i32 0
   %arrgep = getelementptr [4 x i32], ptr %boostgep, i64 0, i32 0
-  %ret = load i32, i32* %arrgep
+  %ret = load i32, ptr %arrgep
 
   ret i32 %ret
 }

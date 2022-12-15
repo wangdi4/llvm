@@ -20,7 +20,7 @@ define dso_local i32 @bar() {
 
 %struct.MYSTRUCT = type { ptr, ptr }
 
-@globstruct = internal global %struct.MYSTRUCT { i32 ()* @foo, i32 ()* @bar }, align 8
+@globstruct = internal global %struct.MYSTRUCT { ptr @foo, ptr @bar }, align 8
 
 @globstructptr = internal global ptr @globstruct, align 8, !intel_dtrans_type !4
 

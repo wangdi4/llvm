@@ -43,7 +43,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(ptr "intel_dtrans_func_index"="1" %ptr) local_unnamed_addr #0 !intel.dtrans.func.type !11 {
   %tmp1 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 2
   %tmp2 = getelementptr inbounds [4 x i8], ptr %tmp1, i64 0, i32 0
-  store i32 2, i32* %tmp2
+  store i32 2, ptr %tmp2
 
   ret void
 }

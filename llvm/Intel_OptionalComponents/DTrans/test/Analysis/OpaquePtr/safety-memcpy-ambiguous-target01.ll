@@ -17,7 +17,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pField = select i1 undef, ptr %pField0, ptr %pField4
 
   %pSrcField0 = getelementptr %struct.test01, ptr %pStructB, i64 0, i32 0
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pField, ptr %pSrcField0, i64 4, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pField, ptr %pSrcField0, i64 4, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -34,7 +34,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pField = select i1 undef, ptr %pField0, ptr %pField4
 
   %pDstField0 = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDstField0, ptr %pField, i64 4, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDstField0, ptr %pField, i64 4, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -42,7 +42,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
 ; CHECK: Safety data: Bad memfunc manipulation | Ambiguous pointer target{{ *$}}
 ; CHECK: End LLVMType: %struct.test02
 
-declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32

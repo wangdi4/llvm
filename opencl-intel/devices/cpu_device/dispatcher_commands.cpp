@@ -1058,9 +1058,13 @@ void *NDRange::AttachToThread(void *pWgContextBase, size_t uiNumberOfWorkGroups,
     // Make sure all values are 64 bit.
     cl_ulong firstWGID64[MAX_WORK_DIM];
     cl_ulong lastWGID64[MAX_WORK_DIM];
-    for (int i = 0; i < MAX_WORK_DIM; ++i) {
+    for (unsigned i = 0; i < cmdParams->work_dim; ++i) {
       firstWGID64[i] = firstWGID[i];
       lastWGID64[i] = lastWGID[i];
+    }
+    for (unsigned i = cmdParams->work_dim; i < MAX_WORK_DIM; ++i) {
+      firstWGID64[i] = 0;
+      lastWGID64[i] = 0;
     }
 
     // Do not use string metadata, it is VERY slow.

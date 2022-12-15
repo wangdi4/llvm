@@ -1,80 +1,63 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-TYPED
-; RUN: opt -opaque-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that all DTrans type metadata is removed from the IR.
 
 %struct.test01 = type { i32 }
-%struct.test02 = type { i64, %struct.test05* }
+%struct.test02 = type { i64, ptr }
 %struct.test03 = type { i32, i32 }
-%struct.test04 = type { %struct.test03* }
-%struct.test05 = type { i64*, i64* }
+%struct.test04 = type { ptr }
+%struct.test05 = type { ptr, ptr }
 
 ; Verify metadata is removed from global variables
-@gVar = internal global i64* null, !intel_dtrans_type !5
-@gConst = internal constant i64* null, !intel_dtrans_type !5
+@gVar = internal global ptr null, !intel_dtrans_type !5
+@gConst = internal constant ptr null, !intel_dtrans_type !5
 
-; CHECK-TYPED: @gVar = internal global i64* null
-; CHECK-TYPED-NOT: !intel_dtrans_type
-; CHECK-TYPED: @gConst = internal constant  i64* null
-; CHECK-TYPED-NOT: !intel_dtrans_type
-; CHECK-OPAQUE: @gVar = internal global ptr null
-; CHECK-OPAQUE-NOT: !intel_dtrans_type
-; CHECK-OPAQUE: @gConst = internal constant ptr null
-; CHECK-OPAQUE-NOT: !intel_dtrans_type
+; CHECK: @gVar = internal global ptr null
+; CHECK-NOT: !intel_dtrans_type
+; CHECK: @gConst = internal constant ptr null
+; CHECK-NOT: !intel_dtrans_type
 
 ; Verify attributes and metadata are removed from return type
-define "intel_dtrans_func_index"="1" %struct.test01* @used() !intel.dtrans.func.type !7 {
+define "intel_dtrans_func_index"="1" ptr @used() !intel.dtrans.func.type !7 {
   ; Verify metadata is removed from alloca
-  %alloc = alloca %struct.test01**, !intel_dtrans_type !8
-  %mem = call i8* @malloc(i64 64)
-  ret %struct.test01* null
+  %alloc = alloca ptr, !intel_dtrans_type !8
+  %mem = call ptr @malloc(i64 64)
+  ret ptr null
 }
-; CHECK-TYPED: define %struct.test01* @used()
-; CHECK-TYPED-NOT: !intel.dtrans.func.type
- ;CHECK-TYPED %alloc = alloca %struct.test01**
-; CHECK-TYPED-NOT: !intel_dtrans_type
-; CHECK-OPAQUE: define ptr @used()
-; CHECK-OPAQUE-NOT: !intel.dtrans.func.type
- ;CHECK-OPAQUE %alloc = alloca ptr
-; CHECK-OPAQUE-NOT: !intel_dtrans_type
+; CHECK: define ptr @used()
+; CHECK-NOT: !intel.dtrans.func.type
+ ;CHECK %alloc = alloca ptr
+; CHECK-NOT: !intel_dtrans_type
 
 
 ; Verify attributes and metadata are removed from argument
-define "intel_dtrans_func_index"="1" %struct.test02* @unused(%struct.test02* "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !10 {
-  ret  %struct.test02* null
+define "intel_dtrans_func_index"="1" ptr @unused(ptr "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !10 {
+  ret  ptr null
 }
-; CHECK-TYPED: define %struct.test02* @unused(%struct.test02* %in)
-; CHECK-TYPED-NOT: !intel.dtrans.func.type
-; CHECK-OPAQUE: define ptr @unused(ptr %in)
-; CHECK-OPAQUE-NOT: !intel.dtrans.func.type
+; CHECK: define ptr @unused(ptr %in)
+; CHECK-NOT: !intel.dtrans.func.type
 
 
-define void @fptruser(%struct.test01* (%struct.test04*)* "intel_dtrans_func_index"="1" %fptr) !intel.dtrans.func.type !15 {
+define void @fptruser(ptr "intel_dtrans_func_index"="1" %fptr) !intel.dtrans.func.type !15 {
   %t4 = alloca %struct.test04
   ; Verify metadata is removed from indirect function call
-  %res = call %struct.test01* %fptr(%struct.test04* %t4), !intel_dtrans_type !13
+  %res = call ptr %fptr(ptr %t4), !intel_dtrans_type !13
   ret void
 }
-; CHECK-TYPED: define void @fptruser(%struct.test01* (%struct.test04*)* %fptr) {
-; CHECK-TYPED-NOT: !intel.dtrans.func.type
-; CHECK-TYPED:  %res = call %struct.test01* %fptr(%struct.test04* %t4)
-; CHECK-TYPED-NOT: !intel_dtrans_type
-; CHECK-OPAQUE: define void @fptruser(ptr %fptr) {
-; CHECK-OPAQUE-NOT: !intel.dtrans.func.type
-; CHECK-OPAQUE:  %res = call ptr %fptr(ptr %t4)
-; CHECK-OPAQUE-NOT: !intel_dtrans_type
+; CHECK: define void @fptruser(ptr %fptr) {
+; CHECK-NOT: !intel.dtrans.func.type
+; CHECK:  %res = call ptr %fptr(ptr %t4)
+; CHECK-NOT: !intel_dtrans_type
 
 
 ; Verify attributes and metadata are removed from function declaration
-declare !intel.dtrans.func.type !17 "intel_dtrans_func_index"="1" i8* @malloc(i64)
-; CHECK-TYPED: declare i8* @malloc(i64)
-; CHECK-OPAQUE: declare ptr @malloc(i64)
+declare !intel.dtrans.func.type !17 "intel_dtrans_func_index"="1" ptr @malloc(i64)
+; CHECK: declare ptr @malloc(i64)
 
 ; Verify named metadata is removed
-; CHECK-TYPED-NOT: !intel.dtrans.types
-; CHECK-OPAQUE-NOT: !intel.dtrans.types
+; CHECK-NOT: !intel.dtrans.types
 !intel.dtrans.types = !{!18, !19, !20, !21, !22}
 
 !1 = !{i32 0, i32 0}  ; i32

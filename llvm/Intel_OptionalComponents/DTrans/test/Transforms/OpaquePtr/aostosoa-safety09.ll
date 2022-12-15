@@ -31,14 +31,14 @@ define void @test01() {
 
 define void @test02() {
   %st = load ptr, ptr getelementptr (%struct.dep01, ptr @glob, i64 0, i32 1)
-  call void @llvm.memset.p0i8.i64(ptr %st, i8 0, i64 240, i1 false)
+  call void @llvm.memset.p0.i64(ptr %st, i8 0, i64 240, i1 false)
   ret void
 }
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported safety data: %struct.dep01
 ; CHECK-DAG: AOS-to-SOA rejecting -- Unsupported call info use: %struct.test01
 
 declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
-declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
+declare !intel.dtrans.func.type !6 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

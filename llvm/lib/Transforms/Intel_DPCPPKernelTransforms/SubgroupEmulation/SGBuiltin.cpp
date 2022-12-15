@@ -108,7 +108,7 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
 
       auto MatchingVariants = make_filter_range(
           CandidateVariants,
-          [EmuSizes](
+          [&EmuSizes](
               const std::tuple<std::string, std::string, std::string> &Info) {
             return EmuSizes.count(VFABI::demangleForVFABI(std::get<2>(Info)).getVF());
           });

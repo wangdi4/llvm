@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test01 = type { i32, i16, i8 }
 define void @test01(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !5 {
   %ptr = bitcast ptr %in1 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test01
@@ -30,7 +30,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 %struct.test02 = type { i32, i16, i8 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !7 {
   %ptr = bitcast ptr %in1 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 32, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 32, i1 false)
   ret void
 }
 ; CHECK: Function: test02
@@ -45,7 +45,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 %struct.test03 = type { i32, i16, i16, i8 }
 define void @test03(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !9 {
   %ptr = bitcast ptr %in1 to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 6, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 6, i1 false)
   ret void
 }
 ; CHECK: Function: test03
@@ -63,7 +63,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 define void @test04(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !12 {
   %faddr = getelementptr inbounds %struct.test04, ptr %in1, i64 0, i32 0
   %ptr = bitcast ptr %faddr to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 24, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 24, i1 false)
   ret void
 }
 ; CHECK: Function: test04
@@ -81,7 +81,7 @@ define void @test04(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 define void @test05(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !14 {
   %faddr = getelementptr inbounds %struct.test05, ptr %in1, i64 0, i32 1
   %ptr = bitcast ptr %faddr to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 24, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 24, i1 false)
   ret void
 }
 ; CHECK: Function: test05
@@ -99,7 +99,7 @@ define void @test05(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 define void @test06(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !16 {
   %faddr = getelementptr inbounds %struct.test06, ptr %in1, i64 0, i32 0
   %ptr = bitcast ptr %faddr to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 40, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 40, i1 false)
   ret void
 }
 ; CHECK: Function: test06
@@ -121,7 +121,7 @@ define void @test06(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 define void @test07(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !19 {
   %faddr = getelementptr inbounds %struct.test07.b, ptr %in1, i64 0, i32 1
   %ptr = bitcast ptr %faddr to ptr
-  call void @llvm.memset.p0i8.i64(ptr %ptr, i8 0, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ptr, i8 0, i64 20, i1 false)
   ret void
 }
 ; CHECK: Function: test07
@@ -136,7 +136,7 @@ define void @test07(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 ; This test checks using memset with an array type.
 define void @test08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !22 {
   %arr_addr = bitcast ptr %in1 to ptr
-  tail call void @llvm.memset.p0i8.i64(ptr %arr_addr, i8 0, i64 100, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %arr_addr, i8 0, i64 100, i1 false)
   ret void
 }
 ; CHECK: Function: test08
@@ -155,7 +155,7 @@ define void @test08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 define void @test09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !24 {
   %ptr1 = bitcast ptr %in1 to ptr
   %ptr2 = bitcast ptr %in2 to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test09
@@ -177,7 +177,7 @@ define void @test10(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
   %ptr1 = bitcast ptr %faddr1 to ptr
   %faddr2 = getelementptr inbounds %struct.test10, ptr %in2, i64 0, i32 0
   %ptr2 = bitcast ptr %faddr2 to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr1, ptr %ptr2, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr1, ptr %ptr2, i64 16, i1 false)
   ret void
 }
 ; CHECK: Function: test10
@@ -197,7 +197,7 @@ define void @test10(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 define void @test11(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !28 {
   %ptr1 = bitcast ptr %in1 to ptr
   %ptr2 = bitcast ptr %in2 to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test11
@@ -223,7 +223,7 @@ define void @test12(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
   %ptr1 = bitcast ptr %faddr1 to ptr
   %faddr2 = getelementptr inbounds %struct.test12, ptr %in2, i64 0, i32 1
   %ptr2 = bitcast ptr %faddr2 to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr1, ptr %ptr2, i64 24, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr1, ptr %ptr2, i64 24, i1 false)
   ret void
 }
 ; CHECK: Function: test12
@@ -245,7 +245,7 @@ define void @test12(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 define void @test13(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !33 {
   %arr_addr1 = bitcast ptr %in1 to ptr
   %arr_addr2 = bitcast ptr %in2 to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %arr_addr1, ptr %arr_addr2, i64 200, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %arr_addr1, ptr %arr_addr2, i64 200, i1 false)
   ret void
 }
 ; CHECK: Function: test13
@@ -269,7 +269,7 @@ define void @test13(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 define void @test14(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !35 {
   %ptr1 = bitcast ptr %in1 to ptr
   %ptr2 = bitcast ptr %in2 to ptr
-  call void @llvm.memmove.p0i8.p0i8.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
+  call void @llvm.memmove.p0.p0.i64(ptr %ptr1, ptr %ptr2, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test14
@@ -282,9 +282,9 @@ define void @test14(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 ; CHECK:     Complete: true
 ; CHECK:     Type: %struct.test14 = type { i32, i32 }
 
-declare !intel.dtrans.func.type !37 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
-declare !intel.dtrans.func.type !38 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
-declare !intel.dtrans.func.type !39 void @llvm.memmove.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1" , ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !37 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !38 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !39 void @llvm.memmove.p0.p0.i64(ptr "intel_dtrans_func_index"="1" , ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

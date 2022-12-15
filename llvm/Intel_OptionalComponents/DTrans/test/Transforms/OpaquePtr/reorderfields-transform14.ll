@@ -28,7 +28,7 @@ entry:
   %num2 = sdiv i64 %diff2, %mul
   call void @foo(ptr %call)
 
-  %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
+  %call1 = tail call noalias ptr @calloc(i64 10, i64 48)
   %i = getelementptr %struct.test2, ptr %call1, i64 0, i32 0
   store i32 10, ptr %i, align 8
   ret i32 0

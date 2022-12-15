@@ -26,7 +26,7 @@ define void @AcquireKernelBuiltIn(ptr "intel_dtrans_func_index"="1" %i23, i64 %i
 
   store ptr %i227, ptr %i232
   %i233 = icmp eq ptr %i227, null
-  tail call void @llvm.memset.p0i8.i64(ptr %i227, i8 0, i64 %i217, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %i227, i8 0, i64 %i217, i1 false)
   ret void
 }
 
@@ -39,7 +39,7 @@ define void @AcquireKernelBuiltIn(ptr "intel_dtrans_func_index"="1" %i23, i64 %i
 ; CHECK: No element pointees.
 
 declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-declare !intel.dtrans.func.type !9 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !9 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -13,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; type.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32, i32 }
-%struct.test01c = type { i32, %struct.test01a* (i32, %struct.test01b*)* }
+%struct.test01c = type { i32, ptr }
 
 @globVar01c = global %struct.test01c zeroinitializer
 
@@ -22,16 +21,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: TypeRemapper types after preparing types:
 ; CHECK-NEXT: DTransOPTypeRemapper LLVM Type Mappings:
-; CHECK-NONOPAQUE-DAG: %struct.test01a = type { i32, i32 } -> %__DTT_struct.test01a = type { i32, i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test01c = type { i32, %struct.test01a* (i32, %struct.test01b*)* } -> %__DDT_struct.test01c = type { i32, %__DTT_struct.test01a* (i32, %struct.test01b*)* }
 
-; CHECK-OPAQUE-DAG: %struct.test01a = type { i32, i32 } -> %__DTT_struct.test01a = type { i32, i32 }
+; CHECK-DAG: %struct.test01a = type { i32, i32 } -> %__DTT_struct.test01a = type { i32, i32 }
 ; CHECK-LABEL: End of DTransOPTypeRemapper LLVM Type Mappings
 
 ; CHECK-LABEL: DTransOPTypeRemapper DTrans Type Mappings:
-; CHECK-NONOPAQUE-DAG: %struct.test01c = type { i32, %struct.test01a* (i32, %struct.test01b*)* } -> %__DDT_struct.test01c = type { i32, %__DTT_struct.test01a* (i32, %struct.test01b*)* }
 
-; CHECK-OPAQUE-DAG: %struct.test01a = type { i32, i32 } -> %__DTT_struct.test01a = type { i32, i32 }
+; CHECK-DAG: %struct.test01a = type { i32, i32 } -> %__DTT_struct.test01a = type { i32, i32 }
 ; CHECK-LABEL: End DTransOPTypeRemapper DTrans Type Mappings
 
 !1 = !{i32 0, i32 0}  ; i32

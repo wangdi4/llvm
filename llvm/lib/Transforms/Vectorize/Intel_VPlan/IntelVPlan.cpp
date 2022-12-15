@@ -36,14 +36,15 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPAssumptionCache.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanUtils.h"
 #include "IntelVPlanScalarEvolution.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
@@ -1621,8 +1622,12 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   // Set SCEV to Cloned Plan
   TargetPlan->setVPSE(VPAF.createVPSE());
 
-  // Set Value Tracking to Cloned Plan
-  TargetPlan->setVPVT(VPAF.createVPVT(TargetPlan->getVPSE()));
+  // Clone VPAssumptionCache for the new Plan.
+  TargetPlan->setVPAC(std::make_unique<VPAssumptionCache>(getVPAC()->clone()));
+
+  // Create ValueTracking for the new VPlan.
+  TargetPlan->setVPVT(
+      VPAF.createVPVT(TargetPlan->getVPSE(), TargetPlan->getVPAC()));
 
   // Update dominator tree and post-dominator tree of new VPlan
   TargetPlan->computeDT();

@@ -44,7 +44,7 @@ define internal void @test02(ptr "intel_dtrans_func_index"="1" %p) !intel.dtrans
   %addr1 = getelementptr [2 x %struct.test02inner], ptr %p, i64 0, i32 0, i32 0, i32 0
   %val1 = load ptr, ptr %addr1
 
-  %addr2 = bitcast ptr %p to i32**
+  %addr2 = bitcast ptr %p to ptr
   %val2 = load ptr, ptr %addr2
 
   ret void

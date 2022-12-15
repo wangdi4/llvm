@@ -40,7 +40,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test02c = type { i32, i32 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !12 {
   %pField = getelementptr %struct.test02a, ptr %pStruct, i64 0, i32 0
-  %pField.as.p32 = bitcast ptr %pField to i32*
+  %pField.as.p32 = bitcast ptr %pField to ptr
   store i32 2, ptr %pField.as.p32
   ret void
 }

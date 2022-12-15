@@ -344,7 +344,7 @@ public:
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
-                              std::string VPlanName,
+                              std::string VPlanName, AssumptionCache &AC,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
@@ -518,7 +518,8 @@ protected:
   virtual std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext,
                     VPUnlinkedInstructions &UnlinkedVPInsts,
-                    std::string VPlanName, ScalarEvolution *SE = nullptr);
+                    std::string VPlanName, AssumptionCache &AC,
+                    ScalarEvolution *SE = nullptr);
 
   /// If FoorcedVF if specified, puts it into vector of VFs. Else if
   /// "llvm.loop.vector.vectorlength" metadata is specified, fills vector of VFs

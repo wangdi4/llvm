@@ -33,11 +33,11 @@ define internal void @test01() {
 %struct.test02 = type { i64, i64 }
 define internal void @test02() {
   %struct = alloca [2 x %struct.test02]
-  %mem = bitcast ptr %struct to i8*
-  call void @llvm.memset.p0i8.i64(ptr %mem, i8 0, i64 32, i1 false)
+  %mem = bitcast ptr %struct to ptr
+  call void @llvm.memset.p0.i64(ptr %mem, i8 0, i64 32, i1 false)
   ret void
 }
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 ; In this case, the memset call does not return pointer information, but the
 ; call should trigger the result of the bitcast instruction to be seen as
 ; an i8*.

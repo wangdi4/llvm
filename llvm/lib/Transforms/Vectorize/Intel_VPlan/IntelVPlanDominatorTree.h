@@ -1,6 +1,6 @@
 //===- IntelVPlanDominatorTree.h---------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -24,23 +24,22 @@
 
 namespace llvm {
 namespace vpo {
-/// Template specialization of the standard LLVM dominator tree utility for
-/// VPBasicBlocks.
-class VPDominatorTree : public DomTreeBase<VPBasicBlock> {};
 
-using VPDomTreeNode = DomTreeNodeBase<VPBasicBlock>;
+namespace detail {
+// Base class for VPDominatorTree and VPPostDominatorTree containing operations
+// agnostic to the underlying tree.
+template <typename DomTreeBase> struct VPDomTreeBase : public DomTreeBase {
+  // Whether this is a post dominator tree or not.
+  static constexpr bool IsPostDom =
+      std::is_same<DomTreeBase, PostDomTreeBase<VPBasicBlock>>::value;
 
-/// Template specialization of the standard LLVM post-dominator tree utility for
-/// VPBasicBlocks.
-class VPPostDominatorTree : public PostDomTreeBase<VPBasicBlock> {
-  using Base = PostDomTreeBase<VPBasicBlock>;
+  // Ensure base class overloads are visible.
+  using DomTreeBase::dominates;
+  using DomTreeBase::properlyDominates;
 
-public:
-  /// Ensure base class overloads are visible.
-  using Base::dominates;
-
-  /// Return true if \p I1 dominates \p I2. This checks if \p I2 comes before
-  /// \p I1 if they belongs to the same basic block.
+  /// Return true if \p I1 dominates (or post-dominates) \p I2. This checks if
+  /// \p I2 comes before \p I1 (or vice-versa) if they belongs to the same basic
+  /// block.
   bool dominates(const VPInstruction *I1, const VPInstruction *I2) const {
     assert(I1 && I2 && "Expecting valid I1 and I2.");
 
@@ -48,9 +47,9 @@ public:
     const VPBasicBlock *BB2 = I2->getParent();
 
     if (BB1 != BB2)
-      return Base::dominates(BB1, BB2);
+      return DomTreeBase::dominates(BB1, BB2);
 
-    // An instruction post dominates itself.
+    // An instruction dominates or post-dominates itself.
     if (I1 == I2)
       return true;
 
@@ -63,9 +62,31 @@ public:
     for (; &*I != I1 && &*I != I2; ++I)
       /*empty*/;
 
-    return &*I == I2;
+    // If checking for post-dominance, I2 comes first, otherwise I1 comes first.
+    return IsPostDom ? &*I == I2 : &*I == I1;
+  }
+
+  /// Return true if \p I1 properly dominates (or post-dominates) \p I2. This
+  /// checks if \p I2 comes before \p I1 (or vice-versa) if they belongs to the
+  /// same basic block.
+  bool properlyDominates(const VPInstruction *I1,
+                         const VPInstruction *I2) const {
+    return I1 != I2 && dominates(I1, I2);
   }
 };
+} // namespace detail
+
+/// Template specialization of the standard LLVM dominator tree utility for
+/// VPBasicBlocks.
+class VPDominatorTree
+    : public detail::VPDomTreeBase<DomTreeBase<VPBasicBlock>> {};
+
+using VPDomTreeNode = DomTreeNodeBase<VPBasicBlock>;
+
+/// Template specialization of the standard LLVM post-dominator tree utility for
+/// VPBasicBlocks.
+class VPPostDominatorTree
+    : public detail::VPDomTreeBase<PostDomTreeBase<VPBasicBlock>> {};
 
 } // namespace vpo
 

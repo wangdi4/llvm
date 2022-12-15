@@ -38,14 +38,14 @@ target triple = "x86_64-unknown-linux-gnu"
 %"XObjectResultTreeFragProxyText" = type { %"XalanText", ptr, ptr }
 %"XalanText" = type { %"XalanCharacterData" }
 %"XalanCharacterData" = type { %"XalanNode" }
-%"XPathExecutionContext::GetAndReleaseCachedString" = type { ptr, %"XalanDOMString"* }
+%"XPathExecutionContext::GetAndReleaseCachedString" = type { ptr, ptr }
 %"XPathExecutionContext" = type { %"ExecutionContext", ptr }
 %"ExecutionContext" = type { ptr, ptr }
 %"XalanDOMString" = type <{ %"XalanVector", i32, [4 x i8] }>
 %"XalanVector" = type { ptr, i64, i64, ptr }
 %"MemoryManager" = type { ptr }
 %"DeleteFunctor" = type { ptr }
-%"XalanAllocationGuard" = type { ptr, i8* }
+%"XalanAllocationGuard" = type { ptr, ptr }
 %"ReusableArenaBlock<XStringCached>::NextBlock" = type { i16, i32 }
 %"struct.std::less" = type { i8 }
 %"XalanDestroyFunctor" = type { i8 }
@@ -140,9 +140,6 @@ define void @doSomething() {
   call void @foo()
   ret void
 }
-
-; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare !intel.dtrans.func.type !54 void @llvm.memset.p0i8.i64(ptr nocapture "intel_dtrans_func_index"="1" writeonly, i8, i64, i1 immarg)
 
 declare !intel.dtrans.func.type !55 void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(ptr nonnull "intel_dtrans_func_index"="1", ptr nonnull "intel_dtrans_func_index"="2", ptr nonnull "intel_dtrans_func_index"="3" )
 

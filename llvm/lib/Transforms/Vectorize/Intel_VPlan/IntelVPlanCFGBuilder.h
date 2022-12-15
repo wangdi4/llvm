@@ -116,15 +116,17 @@ class VPlanFunctionCFGBuilder
     : public VPlanCFGBuilderBase<VPlanFunctionCFGBuilder> {
   Function &F;
 
+  AssumptionCache &AC;
+
 public:
   bool contains(Instruction *Inst) const {
     assert(Inst->getParent()->getParent() == &F && "Use from another function?");
     return true;
   }
 
-  VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F,
-      BlockFrequencyInfo *BFI = nullptr)
-      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan, BFI), F(F) {}
+  VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F, AssumptionCache &AC,
+                          BlockFrequencyInfo *BFI = nullptr)
+      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan, BFI), F(F), AC(AC) {}
 
   void buildCFG();
 };

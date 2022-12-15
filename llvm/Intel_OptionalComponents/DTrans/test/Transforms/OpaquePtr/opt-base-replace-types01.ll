@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -21,42 +20,42 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test03b = type { i32, %struct.test03a }
 
 ; Case where type to be converted has a pointer to another type
-%struct.test04a = type { i32, %struct.test04b* }
+%struct.test04a = type { i32, ptr }
 %struct.test04b = type { i32 }
 
 ; Case where type to be converted is pointed-to by another type
 %struct.test05a = type { i32 }
-%struct.test05b = type { i32, %struct.test05a* }
+%struct.test05b = type { i32, ptr }
 
 ; Case where a type has multiple dependent types
 %struct.test06a = type { i32 }
-%struct.test06b = type { %struct.test06a* }
-%struct.test06c = type { %struct.test06a* }
+%struct.test06b = type { ptr }
+%struct.test06c = type { ptr }
 %struct.test06d = type { %struct.test06a }
 %struct.test06e = type { %struct.test06a }
 
 ; Case where type is pointed-to by another type, and contains another type.
 %struct.test07a = type { i32, %struct.test07c }
-%struct.test07b = type { i32, %struct.test07a* }
+%struct.test07b = type { i32, ptr }
 %struct.test07c = type { i32 }
 
 ; Case with self & circular references. This case also shows where a
 ; dependent type affects another type.
-%struct.test08a = type { i32, %struct.test08a*, %struct.test08b* }
-%struct.test08b = type { i32, %struct.test08b*, %struct.test08c* }
-%struct.test08c = type { i32, %struct.test08c*, %struct.test08a* }
+%struct.test08a = type { i32, ptr, ptr }
+%struct.test08b = type { i32, ptr, ptr }
+%struct.test08c = type { i32, ptr, ptr }
 
 ; Case with pointer-to-pointer reference
 %struct.test09a = type { i32, i32 }
-%struct.test09b = type { i32, %struct.test09a** }
+%struct.test09b = type { i32, ptr }
 
 ; Case with an empty structure
 %struct.test10a = type {}
-%struct.test10b = type { %struct.test10a* }
+%struct.test10b = type { ptr }
 
 ; Case with an opaque structure
 %struct.test11a = type opaque
-%struct.test11b = type { %struct.test11a* }
+%struct.test11b = type { ptr }
 
 @globVar01a = global %struct.test01a zeroinitializer
 @globVar02b = global %struct.test02b zeroinitializer
@@ -80,46 +79,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; The types whose names end in 'a' were remapped by the transformation pass, and
 ; the rest are computed by the base class based on dependencies.
 
-; CHECK-NONOPAQUE-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
-; CHECK-NONOPAQUE-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
-; CHECK-NONOPAQUE-DAG: %struct.test04a = type { i32, %struct.test04b* } -> %__DTT_struct.test04a = type { i32, %struct.test04b* }
-; CHECK-NONOPAQUE-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test05b = type { i32, %struct.test05a* } -> %__DDT_struct.test05b = type { i32, %__DTT_struct.test05a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test06b = type { %struct.test06a* } -> %__DDT_struct.test06b = type { %__DTT_struct.test06a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06c = type { %struct.test06a* } -> %__DDT_struct.test06c = type { %__DTT_struct.test06a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
-; CHECK-NONOPAQUE-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
-; CHECK-NONOPAQUE-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
-; CHECK-NONOPAQUE-DAG: %struct.test07b = type { i32, %struct.test07a* } -> %__DDT_struct.test07b = type { i32, %__DTT_struct.test07a* }
-; CHECK-NONOPAQUE-DAG: %struct.test08a = type { i32, %struct.test08a*, %struct.test08b* } -> %__DTT_struct.test08a = type { i32, %__DTT_struct.test08a*, %__DDT_struct.test08b* }
-; CHECK-NONOPAQUE-DAG: %struct.test08b = type { i32, %struct.test08b*, %struct.test08c* } -> %__DDT_struct.test08b = type { i32, %__DDT_struct.test08b*, %__DDT_struct.test08c* }
-; CHECK-NONOPAQUE-DAG: %struct.test08c = type { i32, %struct.test08c*, %struct.test08a* } -> %__DDT_struct.test08c = type { i32, %__DDT_struct.test08c*, %__DTT_struct.test08a* }
-; CHECK-NONOPAQUE-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test09b = type { i32, %struct.test09a** } -> %__DDT_struct.test09b = type { i32, %__DTT_struct.test09a** }
-; CHECK-NONOPAQUE-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
-; CHECK-NONOPAQUE-DAG: %struct.test10b = type { %struct.test10a* } -> %__DDT_struct.test10b = type { %__DTT_struct.test10a* }
-; CHECK-NONOPAQUE-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
-; CHECK-NONOPAQUE-DAG: %struct.test11b = type { %struct.test11a* } -> %__DDT_struct.test11b = type { %__DTT_struct.test11a* }
 
 ; The following are checks that will replace the above checks when opaque pointers are in use.
 ; Types with pointer dependencies no longer need to be remapped when opaque pointers are used.
-; CHECK-OPAQUE-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
-; CHECK-OPAQUE-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
-; CHECK-OPAQUE-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
-; CHECK-OPAQUE-DAG: %struct.test04a = type { i32, ptr } -> %__DTT_struct.test04a = type { i32, ptr }
-; CHECK-OPAQUE-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
-; CHECK-OPAQUE-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
-; CHECK-OPAQUE-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
-; CHECK-OPAQUE-DAG: %struct.test08a = type { i32, ptr, ptr } -> %__DTT_struct.test08a = type { i32, ptr, ptr }
-; CHECK-OPAQUE-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
-; CHECK-OPAQUE-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
-; CHECK-OPAQUE-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
+; CHECK-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
+; CHECK-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
+; CHECK-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
+; CHECK-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
+; CHECK-DAG: %struct.test04a = type { i32, ptr } -> %__DTT_struct.test04a = type { i32, ptr }
+; CHECK-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
+; CHECK-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
+; CHECK-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
+; CHECK-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
+; CHECK-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
+; CHECK-DAG: %struct.test08a = type { i32, ptr, ptr } -> %__DTT_struct.test08a = type { i32, ptr, ptr }
+; CHECK-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
+; CHECK-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
+; CHECK-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
 
 ; CHECK-LABEL: End of DTransOPTypeRemapper LLVM Type Mappings
 
@@ -128,46 +104,23 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Types that get remapped when not using opaque pointers.
 
-; CHECK-NONOPAQUE-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
-; CHECK-NONOPAQUE-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
-; CHECK-NONOPAQUE-DAG: %struct.test04a = type { i32, %struct.test04b* } -> %__DTT_struct.test04a = type { i32, %struct.test04b* }
-; CHECK-NONOPAQUE-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test05b = type { i32, %struct.test05a* } -> %__DDT_struct.test05b = type { i32, %__DTT_struct.test05a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test06b = type { %struct.test06a* } -> %__DDT_struct.test06b = type { %__DTT_struct.test06a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06c = type { %struct.test06a* } -> %__DDT_struct.test06c = type { %__DTT_struct.test06a* }
-; CHECK-NONOPAQUE-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
-; CHECK-NONOPAQUE-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
-; CHECK-NONOPAQUE-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
-; CHECK-NONOPAQUE-DAG: %struct.test07b = type { i32, %struct.test07a* } -> %__DDT_struct.test07b = type { i32, %__DTT_struct.test07a* }
-; CHECK-NONOPAQUE-DAG: %struct.test08a = type { i32, %struct.test08a*, %struct.test08b* } -> %__DTT_struct.test08a = type { i32, %__DTT_struct.test08a*, %__DDT_struct.test08b* }
-; CHECK-NONOPAQUE-DAG: %struct.test08b = type { i32, %struct.test08b*, %struct.test08c* } -> %__DDT_struct.test08b = type { i32, %__DDT_struct.test08b*, %__DDT_struct.test08c* }
-; CHECK-NONOPAQUE-DAG: %struct.test08c = type { i32, %struct.test08c*, %struct.test08a* } -> %__DDT_struct.test08c = type { i32, %__DDT_struct.test08c*, %__DTT_struct.test08a* }
-; CHECK-NONOPAQUE-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
-; CHECK-NONOPAQUE-DAG: %struct.test09b = type { i32, %struct.test09a** } -> %__DDT_struct.test09b = type { i32, %__DTT_struct.test09a** }
-; CHECK-NONOPAQUE-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
-; CHECK-NONOPAQUE-DAG: %struct.test10b = type { %struct.test10a* } -> %__DDT_struct.test10b = type { %__DTT_struct.test10a* }
-; CHECK-NONOPAQUE-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
-; CHECK-NONOPAQUE-DAG: %struct.test11b = type { %struct.test11a* } -> %__DDT_struct.test11b = type { %__DTT_struct.test11a* }
 
 ; The following are checks that will replace the above checks when opaque pointers are in use.
 ; Types with pointer dependencies no longer need to be remapped when opaque pointers are used.
-; CHECK-OPAQUE-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
-; CHECK-OPAQUE-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
-; CHECK-OPAQUE-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
-; CHECK-OPAQUE-DAG: %struct.test04a = type { i32, %struct.test04b* } -> %__DTT_struct.test04a = type { i32, %struct.test04b* }
-; CHECK-OPAQUE-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
-; CHECK-OPAQUE-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
-; CHECK-OPAQUE-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
-; CHECK-OPAQUE-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
-; CHECK-OPAQUE-DAG: %struct.test08a = type { i32, %struct.test08a*, %struct.test08b* } -> %__DTT_struct.test08a = type { i32, %__DTT_struct.test08a*, %struct.test08b* }
-; CHECK-OPAQUE-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
-; CHECK-OPAQUE-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
-; CHECK-OPAQUE-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
+; CHECK-DAG: %struct.test01a = type { i32, i32, i32 } -> %__DTT_struct.test01a = type { i32, i32, i32 }
+; CHECK-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
+; CHECK-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
+; CHECK-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
+; CHECK-DAG: %struct.test04a = type { i32, %struct.test04b* } -> %__DTT_struct.test04a = type { i32, %struct.test04b* }
+; CHECK-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
+; CHECK-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
+; CHECK-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
+; CHECK-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
+; CHECK-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
+; CHECK-DAG: %struct.test08a = type { i32, %struct.test08a*, %struct.test08b* } -> %__DTT_struct.test08a = type { i32, %__DTT_struct.test08a*, %struct.test08b* }
+; CHECK-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
+; CHECK-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
+; CHECK-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque
 ; CHECK-LABEL: End DTransOPTypeRemapper DTrans Type Mappings
 
 

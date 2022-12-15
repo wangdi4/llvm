@@ -13,8 +13,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { i64, i64 }
 define void @test01() {
   %a = alloca [8 x [16384 x %struct.test01]]
-  %a.p8 = bitcast ptr %a to i8*
-  call void @llvm.memset.p0i8.i64(ptr %a.p8, i8 1, i64 2097152, i1 false)
+  %a.p8 = bitcast ptr %a to ptr
+  call void @llvm.memset.p0.i64(ptr %a.p8, i8 1, i64 2097152, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -31,8 +31,8 @@ define void @test01() {
 %struct.test02 = type { i64, i64 }
 define void @test02() {
   %a = alloca [8 x [16384 x ptr]], !intel_dtrans_type !2
-  %a.p8 = bitcast ptr %a to i8*
-  call void @llvm.memset.p0i8.i64(ptr %a.p8, i8 1, i64 1048576, i1 false)
+  %a.p8 = bitcast ptr %a to ptr
+  call void @llvm.memset.p0.i64(ptr %a.p8, i8 1, i64 1048576, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -45,7 +45,7 @@ define void @test02() {
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !6 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{!"A", i32 8, !3}  ; [8 x [16384 x %struct.test02*]]

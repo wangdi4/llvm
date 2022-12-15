@@ -1,4 +1,3 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=remove-dead-dtranstypemetadata %s | FileCheck %s
 ; RUN: opt -opaque-pointers -S -passes=remove-dead-dtranstypemetadata %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @gVar = internal global %struct.test01 zeroinitializer
 
 define i64 @test() {
-  %ld = load i64, i64* getelementptr (%struct.test02, %struct.test02* bitcast (%struct.test01* @gVar to %struct.test02*), i64 0, i32 1)
+  %ld = load i64, ptr getelementptr (%struct.test02, ptr bitcast (ptr @gVar to ptr), i64 0, i32 1)
   ret i64 %ld
 }
 

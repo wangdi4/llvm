@@ -49,7 +49,7 @@ private:
 
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
-                    std::string VPlanName,
+                    std::string VPlanName, AssumptionCache &AC,
                     ScalarEvolution *SE = nullptr) override;
 
   /// Replace original upper bound of the loop with

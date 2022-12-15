@@ -1125,7 +1125,9 @@ bool MCAssembler::relaxTraceLine(MCAsmLayout &Layout, MCTraceLineFragment &TF) {
   uint64_t OldSize = TF.getContents().size();
   assert(OldSize <= 8 && "The longest line record is LN4 + PC4");
   int64_t DeltaPC;
-  TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  bool Abs = TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  assert(Abs && "We created a delta PC with an invalid expression");
+  (void)Abs;
   assert(isUInt<32>(DeltaPC) && "Unsupported delta PC");
   SmallVectorImpl<char> &Data = TF.getContents();
   Data.clear();

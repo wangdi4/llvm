@@ -467,9 +467,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %"struct._ZTSSt4pairIKPKtPN11xalanc_1_1022XalanSourceTreeElementEE.std::pair" = type { ptr, ptr }
 
 ; SOA-to-AOS created types
-%__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64 }
-%__SOADT_AR_struct.Arr = type { i32, [4 x i8], %__SOADT_EL_class.F*, i32, [4 x i8] }
-%__SOADT_EL_class.F = type { i32*, float* }
+%__SOADT_class.F = type { ptr, i64 }
+%__SOADT_AR_struct.Arr = type { i32, [4 x i8], ptr, i32, [4 x i8] }
+%__SOADT_EL_class.F = type { ptr, ptr }
 
 $_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb = comdat any
 
@@ -626,9 +626,7 @@ bb5:                                              ; preds = %bb
   tail call void @llvm.assume(i1 %i10) #21
   %i11 = getelementptr inbounds ptr, ptr %i9, i64 24
   %i12 = load ptr, ptr %i11, align 8
-  %i13 = bitcast ptr %i12 to ptr
-  %i14 = bitcast ptr @_ZN11xalanc_1_1033StylesheetExecutionContextDefault19releaseCachedStringERNS_14XalanDOMStringE to ptr
-  %i15 = icmp eq ptr %i13, %i14
+  %i15 = icmp eq ptr %i12, @_ZN11xalanc_1_1033StylesheetExecutionContextDefault19releaseCachedStringERNS_14XalanDOMStringE
   br i1 %i15, label %bb16, label %bb18
 
 bb16:                                             ; preds = %bb5
@@ -718,9 +716,7 @@ bb15:                                             ; preds = %bb11
   tail call void @llvm.assume(i1 %i19) #21
   %i20 = getelementptr inbounds ptr, ptr %i18, i64 2
   %i21 = load ptr, ptr %i20, align 8, !noalias !1096
-  %i22 = bitcast ptr %i21 to ptr
-  %i23 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i24 = icmp eq ptr %i22, %i23
+  %i24 = icmp eq ptr %i21, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i24, label %bb25, label %bb27
 
 bb25:                                             ; preds = %bb15
@@ -758,9 +754,7 @@ bb37:                                             ; preds = %bb34
   tail call void @llvm.assume(i1 %i43) #21
   %i44 = getelementptr inbounds ptr, ptr %i42, i64 3
   %i45 = load ptr, ptr %i44, align 8
-  %i46 = bitcast ptr %i45 to ptr
-  %i47 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i48 = icmp eq ptr %i46, %i47
+  %i48 = icmp eq ptr %i45, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i48, label %bb49, label %bb50
 
 bb49:                                             ; preds = %bb37
@@ -794,9 +788,7 @@ bb61:                                             ; preds = %bb55
   tail call void @llvm.assume(i1 %i64) #21
   %i65 = getelementptr inbounds ptr, ptr %i60, i64 3
   %i66 = load ptr, ptr %i65, align 8
-  %i67 = bitcast ptr %i66 to ptr
-  %i68 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i69 = icmp eq ptr %i67, %i68
+  %i69 = icmp eq ptr %i66, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i69, label %bb70, label %bb71
 
 bb70:                                             ; preds = %bb61
@@ -816,9 +808,7 @@ bb73:                                             ; preds = %bb55
   tail call void @llvm.assume(i1 %i75) #21
   %i76 = getelementptr inbounds ptr, ptr %i60, i64 3
   %i77 = load ptr, ptr %i76, align 8
-  %i78 = bitcast ptr %i77 to ptr
-  %i79 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i80 = icmp eq ptr %i78, %i79
+  %i80 = icmp eq ptr %i77, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i80, label %bb81, label %bb82
 
 bb81:                                             ; preds = %bb73
@@ -882,9 +872,7 @@ bb4:                                              ; preds = %bb
   tail call void @llvm.assume(i1 %i9)
   %i10 = getelementptr inbounds ptr, ptr %i8, i64 2
   %i11 = load ptr, ptr %i10, align 8
-  %i12 = bitcast ptr %i11 to ptr
-  %i13 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i14 = icmp eq ptr %i12, %i13
+  %i14 = icmp eq ptr %i11, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i14, label %bb15, label %bb17
 
 bb15:                                             ; preds = %bb4
@@ -933,9 +921,7 @@ bb36:                                             ; preds = %bb28, %bb24, %bb21
   tail call void @llvm.assume(i1 %i42)
   %i43 = getelementptr inbounds ptr, ptr %i41, i64 2
   %i44 = load ptr, ptr %i43, align 8
-  %i45 = bitcast ptr %i44 to ptr
-  %i46 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i47 = icmp eq ptr %i45, %i46
+  %i47 = icmp eq ptr %i44, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i47, label %bb48, label %bb50
 
 bb48:                                             ; preds = %bb36
@@ -966,9 +952,7 @@ bb54:                                             ; preds = %bb52
   %i63 = mul nuw nsw i64 %i62, 80
   %i64 = getelementptr inbounds ptr, ptr %i60, i64 2
   %i65 = load ptr, ptr %i64, align 8
-  %i66 = bitcast ptr %i65 to ptr
-  %i67 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i68 = icmp eq ptr %i66, %i67
+  %i68 = icmp eq ptr %i65, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i68, label %bb69, label %bb71
 
 bb69:                                             ; preds = %bb54
@@ -1019,9 +1003,7 @@ bb91:                                             ; preds = %bb71, %bb69
   tail call void @llvm.assume(i1 %i95) #21
   %i96 = getelementptr inbounds ptr, ptr %i94, i64 3
   %i97 = load ptr, ptr %i96, align 8
-  %i98 = bitcast ptr %i97 to ptr
-  %i99 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i100 = icmp eq ptr %i98, %i99
+  %i100 = icmp eq ptr %i97, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i100, label %bb101, label %bb102
 
 bb101:                                            ; preds = %bb91
@@ -1064,9 +1046,7 @@ bb114:                                            ; preds = %bb108
   tail call void @llvm.assume(i1 %i119)
   %i120 = getelementptr inbounds ptr, ptr %i118, i64 2
   %i121 = load ptr, ptr %i120, align 8, !noalias !1108
-  %i122 = bitcast ptr %i121 to ptr
-  %i123 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i124 = icmp eq ptr %i122, %i123
+  %i124 = icmp eq ptr %i121, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i124, label %bb125, label %bb127
 
 bb125:                                            ; preds = %bb114
@@ -1110,9 +1090,7 @@ bb142:                                            ; preds = %bb134
   tail call void @llvm.assume(i1 %i147)
   %i148 = getelementptr inbounds ptr, ptr %i146, i64 2
   %i149 = load ptr, ptr %i148, align 8
-  %i150 = bitcast ptr %i149 to ptr
-  %i151 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i152 = icmp eq ptr %i150, %i151
+  %i152 = icmp eq ptr %i149, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i152, label %bb153, label %bb155
 
 bb153:                                            ; preds = %bb142
@@ -1165,9 +1143,7 @@ bb176:                                            ; preds = %bb160
   tail call void @llvm.assume(i1 %i181)
   %i182 = getelementptr inbounds ptr, ptr %i180, i64 2
   %i183 = load ptr, ptr %i182, align 8, !noalias !1111
-  %i184 = bitcast ptr %i183 to ptr
-  %i185 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i186 = icmp eq ptr %i184, %i185
+  %i186 = icmp eq ptr %i183, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i186, label %bb187, label %bb189
 
 bb187:                                            ; preds = %bb176
@@ -1253,9 +1229,7 @@ bb8:                                              ; preds = %bb
   tail call void @llvm.assume(i1 %i13)
   %i14 = getelementptr inbounds ptr, ptr %i12, i64 2
   %i15 = load ptr, ptr %i14, align 8, !noalias !1115
-  %i16 = bitcast ptr %i15 to ptr
-  %i17 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i18 = icmp eq ptr %i16, %i17
+  %i18 = icmp eq ptr %i15, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i18, label %bb19, label %bb21
 
 bb19:                                             ; preds = %bb8
@@ -1345,9 +1319,7 @@ bb4:                                              ; preds = %bb
   tail call void @llvm.assume(i1 %i9)
   %i10 = getelementptr inbounds ptr, ptr %i8, i64 2
   %i11 = load ptr, ptr %i10, align 8, !noalias !1123
-  %i12 = bitcast ptr %i11 to ptr
-  %i13 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i14 = icmp eq ptr %i12, %i13
+  %i14 = icmp eq ptr %i11, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i14, label %bb15, label %bb17
 
 bb15:                                             ; preds = %bb4
@@ -1420,9 +1392,7 @@ bb52:                                             ; preds = %bb48
   tail call void @llvm.assume(i1 %i58) #21
   %i59 = getelementptr inbounds ptr, ptr %i57, i64 3
   %i60 = load ptr, ptr %i59, align 8
-  %i61 = bitcast ptr %i60 to ptr
-  %i62 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i63 = icmp eq ptr %i61, %i62
+  %i63 = icmp eq ptr %i60, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i63, label %bb64, label %bb65
 
 bb64:                                             ; preds = %bb52
@@ -1487,9 +1457,7 @@ bb97:                                             ; preds = %bb66, %bb48
   tail call void @llvm.assume(i1 %i100)
   %i101 = getelementptr inbounds ptr, ptr %i99, i64 3
   %i102 = load ptr, ptr %i101, align 8
-  %i103 = bitcast ptr %i102 to ptr
-  %i104 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to ptr
-  %i105 = icmp eq ptr %i103, %i104
+  %i105 = icmp eq ptr %i102, @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv
   br i1 %i105, label %bb106, label %bb107
 
 bb106:                                            ; preds = %bb97
@@ -1526,9 +1494,7 @@ bb117:                                            ; preds = %bb114
   tail call void @llvm.assume(i1 %i122)
   %i123 = getelementptr inbounds ptr, ptr %i121, i64 2
   %i124 = load ptr, ptr %i123, align 8, !noalias !1132
-  %i125 = bitcast ptr %i124 to ptr
-  %i126 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i127 = icmp eq ptr %i125, %i126
+  %i127 = icmp eq ptr %i124, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i127, label %bb128, label %bb130
 
 bb128:                                            ; preds = %bb117
@@ -1642,9 +1608,7 @@ bb5:                                              ; preds = %bb
   tail call void @llvm.assume(i1 %i10)
   %i11 = getelementptr inbounds ptr, ptr %i9, i64 2
   %i12 = load ptr, ptr %i11, align 8
-  %i13 = bitcast ptr %i12 to ptr
-  %i14 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i15 = icmp eq ptr %i13, %i14
+  %i15 = icmp eq ptr %i12, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i15, label %bb16, label %bb18
 
 bb16:                                             ; preds = %bb5
@@ -1758,9 +1722,7 @@ bb81:                                             ; preds = %bb60
   tail call void @llvm.assume(i1 %i86)
   %i87 = getelementptr inbounds ptr, ptr %i85, i64 2
   %i88 = load ptr, ptr %i87, align 8, !noalias !1144
-  %i89 = bitcast ptr %i88 to ptr
-  %i90 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i91 = icmp eq ptr %i89, %i90
+  %i91 = icmp eq ptr %i88, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i91, label %bb92, label %bb94
 
 bb92:                                             ; preds = %bb81
@@ -1822,9 +1784,7 @@ bb120:                                            ; preds = %bb104
   tail call void @llvm.assume(i1 %i125)
   %i126 = getelementptr inbounds ptr, ptr %i124, i64 2
   %i127 = load ptr, ptr %i126, align 8, !noalias !1147
-  %i128 = bitcast ptr %i127 to ptr
-  %i129 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i130 = icmp eq ptr %i128, %i129
+  %i130 = icmp eq ptr %i127, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i130, label %bb131, label %bb133
 
 bb131:                                            ; preds = %bb120
@@ -1864,9 +1824,7 @@ bb147:                                            ; preds = %bb137
   tail call void @llvm.assume(i1 %i151)
   %i152 = getelementptr inbounds ptr, ptr %i150, i64 2
   %i153 = load ptr, ptr %i152, align 8
-  %i154 = bitcast ptr %i153 to ptr
-  %i155 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i156 = icmp eq ptr %i154, %i155
+  %i156 = icmp eq ptr %i153, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i156, label %bb157, label %bb159
 
 bb157:                                            ; preds = %bb147
@@ -1923,9 +1881,7 @@ bb182:                                            ; preds = %bb179
   tail call void @llvm.assume(i1 %i187)
   %i188 = getelementptr inbounds ptr, ptr %i186, i64 2
   %i189 = load ptr, ptr %i188, align 8
-  %i190 = bitcast ptr %i189 to ptr
-  %i191 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i192 = icmp eq ptr %i190, %i191
+  %i192 = icmp eq ptr %i189, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i192, label %bb193, label %bb195
 
 bb193:                                            ; preds = %bb182
@@ -2021,9 +1977,7 @@ bb245:                                            ; preds = %bb236
   tail call void @llvm.assume(i1 %i250)
   %i251 = getelementptr inbounds ptr, ptr %i249, i64 2
   %i252 = load ptr, ptr %i251, align 8, !noalias !1160
-  %i253 = bitcast ptr %i252 to ptr
-  %i254 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i255 = icmp eq ptr %i253, %i254
+  %i255 = icmp eq ptr %i252, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i255, label %bb256, label %bb258
 
 bb256:                                            ; preds = %bb245
@@ -2131,9 +2085,7 @@ bb317:                                            ; preds = %bb298
   tail call void @llvm.assume(i1 %i322)
   %i323 = getelementptr inbounds ptr, ptr %i321, i64 2
   %i324 = load ptr, ptr %i323, align 8, !noalias !1168
-  %i325 = bitcast ptr %i324 to ptr
-  %i326 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i327 = icmp eq ptr %i325, %i326
+  %i327 = icmp eq ptr %i324, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i327, label %bb328, label %bb330
 
 bb328:                                            ; preds = %bb317
@@ -2195,9 +2147,7 @@ bb356:                                            ; preds = %bb340
   tail call void @llvm.assume(i1 %i361)
   %i362 = getelementptr inbounds ptr, ptr %i360, i64 2
   %i363 = load ptr, ptr %i362, align 8, !noalias !1173
-  %i364 = bitcast ptr %i363 to ptr
-  %i365 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i366 = icmp eq ptr %i364, %i365
+  %i366 = icmp eq ptr %i363, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i366, label %bb367, label %bb369
 
 bb367:                                            ; preds = %bb356
@@ -2237,9 +2187,7 @@ bb383:                                            ; preds = %bb373
   tail call void @llvm.assume(i1 %i387)
   %i388 = getelementptr inbounds ptr, ptr %i386, i64 2
   %i389 = load ptr, ptr %i388, align 8
-  %i390 = bitcast ptr %i389 to ptr
-  %i391 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i392 = icmp eq ptr %i390, %i391
+  %i392 = icmp eq ptr %i389, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i392, label %bb393, label %bb395
 
 bb393:                                            ; preds = %bb383
@@ -2296,9 +2244,7 @@ bb418:                                            ; preds = %bb415
   tail call void @llvm.assume(i1 %i423)
   %i424 = getelementptr inbounds ptr, ptr %i422, i64 2
   %i425 = load ptr, ptr %i424, align 8
-  %i426 = bitcast ptr %i425 to ptr
-  %i427 = bitcast ptr @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to ptr
-  %i428 = icmp eq ptr %i426, %i427
+  %i428 = icmp eq ptr %i425, @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm
   br i1 %i428, label %bb429, label %bb431
 
 bb429:                                            ; preds = %bb418

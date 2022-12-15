@@ -26,11 +26,10 @@ define dso_local i32 @bar() {
 
 @globstruct = internal global %struct.MYSTRUCT zeroinitializer, align 8
 
-declare !intel.dtrans.func.type !5 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !5 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 define dso_local i32 @main() {
-  %t2 = bitcast ptr @globstruct to ptr
-  call void @llvm.memset.p0i8.i64(ptr %t2, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr @globstruct, i8 0, i64 16, i1 false)
   store ptr @foo, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @globstruct, i32 0, i32 0), align 8
   store ptr @bar, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @globstruct, i32 0, i32 1), align 8
   %t0 = load ptr, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @globstruct, i32 0, i32 0), align 8

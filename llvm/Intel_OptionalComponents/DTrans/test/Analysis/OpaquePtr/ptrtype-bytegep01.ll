@@ -218,7 +218,7 @@ define internal void @test08() {
 %struct.test09 = type { i32, i64, i32 } ; Size = 24
 define internal void @test09() {
   %local = alloca [10 x %struct.test09]
-  %flat = bitcast ptr %local to i8*
+  %flat = bitcast ptr %local to ptr
 
   ; i64 field of 2nd array element
   %faddr = getelementptr i8, ptr %flat, i64 56
@@ -239,7 +239,7 @@ define internal void @test09() {
 %struct.test10 = type { i32, i64, i32 } ; Size = 24
 define internal void @test10(i64 %idx) {
   %local = alloca [10 x %struct.test10]
-  %flat = bitcast ptr %local to i8*
+  %flat = bitcast ptr %local to ptr
 
   ; access unknown field
   %faddr = getelementptr i8, ptr %flat, i64 %idx

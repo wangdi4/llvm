@@ -35,9 +35,10 @@ template <class blocked_range_3d> struct TaskLoopBody3D : public TaskLoopBody {
   void operator()(const blocked_range_3d &r) const {
     size_t uiNumberOfWorkGroups;
 
-    size_t firstWGID[3] = {r.cols().begin(), r.rows().begin(),
-                           r.pages().begin()};
-    size_t lastWGID[3] = {r.cols().end(), r.rows().end(), r.pages().end()};
+    size_t firstWGID[MAX_WORK_DIM] = {r.cols().begin(), r.rows().begin(),
+                                      r.pages().begin()};
+    size_t lastWGID[MAX_WORK_DIM] = {r.cols().end(), r.rows().end(),
+                                     r.pages().end()};
 
     uiNumberOfWorkGroups =
         (r.pages().size()) * (r.rows().size()) * (r.cols().size());
@@ -82,8 +83,8 @@ template <class blocked_range_2d> struct TaskLoopBody2D : public TaskLoopBody {
 
   void operator()(const blocked_range_2d &r) const {
     size_t uiNumberOfWorkGroups;
-    size_t firstWGID[2] = {r.cols().begin(), r.rows().begin()};
-    size_t lastWGID[2] = {r.cols().end(), r.rows().end()};
+    size_t firstWGID[MAX_WORK_DIM] = {r.cols().begin(), r.rows().begin(), 0};
+    size_t lastWGID[MAX_WORK_DIM] = {r.cols().end(), r.rows().end(), 0};
 
     uiNumberOfWorkGroups = (r.rows().size()) * (r.cols().size());
     assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -126,8 +127,8 @@ template <class blocked_range_1d> struct TaskLoopBody1D : public TaskLoopBody {
 
   void operator()(const blocked_range_1d &r) const {
     size_t uiNumberOfWorkGroups;
-    size_t firstWGID[1] = {r.begin()};
-    size_t lastWGID[1] = {r.end()};
+    size_t firstWGID[MAX_WORK_DIM] = {r.begin(), 0, 0};
+    size_t lastWGID[MAX_WORK_DIM] = {r.end(), 0, 0};
 
     uiNumberOfWorkGroups = r.size();
     assert(uiNumberOfWorkGroups <= CL_MAX_INT32);

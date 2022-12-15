@@ -28,20 +28,18 @@ static constexpr LoopWIInfo::Dependency STR = LoopWIInfo::Dependency::STRIDED;
 static constexpr LoopWIInfo::Dependency RND = LoopWIInfo::Dependency::RANDOM;
 
 static constexpr LoopWIInfo::Dependency
-    AddConversion[LoopWIInfo::Dependency::NumDeps]
-                 [LoopWIInfo::Dependency::NumDeps] = {
-                     /*         UNI, STR, RND */
-                     /* UNI */ {UNI, STR, RND},
-                     /* STR */ {STR, STR, RND},
-                     /* RND */ {RND, RND, RND}};
+    AddConversion[LoopWIInfo::NumDeps][LoopWIInfo::NumDeps] = {
+        /*         UNI, STR, RND */
+        /* UNI */ {UNI, STR, RND},
+        /* STR */ {STR, STR, RND},
+        /* RND */ {RND, RND, RND}};
 
 static constexpr LoopWIInfo::Dependency
-    MulConversion[LoopWIInfo::Dependency::NumDeps]
-                 [LoopWIInfo::Dependency::NumDeps] = {
-                     /*         UNI, STR, RND */
-                     /* UNI */ {UNI, STR, RND},
-                     /* STR */ {STR, RND, RND},
-                     /* RND */ {RND, RND, RND}};
+    MulConversion[LoopWIInfo::NumDeps][LoopWIInfo::NumDeps] = {
+        /*         UNI, STR, RND */
+        /* UNI */ {UNI, STR, RND},
+        /* STR */ {STR, RND, RND},
+        /* RND */ {RND, RND, RND}};
 
 void LoopWIInfo::run(Loop *L, DominatorTree *DT, LoopInfo *LI) {
   if (!L->isLoopSimplifyForm()) {

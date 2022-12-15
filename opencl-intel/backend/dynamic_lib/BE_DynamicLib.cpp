@@ -44,12 +44,7 @@ void BE_DynamicLib::Load(const char *pLibName) {
 }
 
 ptrdiff_t BE_DynamicLib::GetFuncPtr(const char *funcName) {
-  try {
-    return GetFunctionPtrByName(funcName);
-  } catch (ocl_string_exception &errMsg) {
-    throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(
-        errMsg.what());
-  }
+  return GetFunctionPtrByName(funcName);
 }
 
 } // namespace Utils

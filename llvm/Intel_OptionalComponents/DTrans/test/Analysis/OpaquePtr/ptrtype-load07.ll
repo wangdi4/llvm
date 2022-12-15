@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 1
   %mem = load ptr, ptr %pField
-  call void @llvm.memset.p0i8.i64(ptr %mem, i8 0, i64 256, i1 false)
+  call void @llvm.memset.p0.i64(ptr %mem, i8 0, i64 256, i1 false)
   ret void
 }
 ; CHECK-LABEL: define void @test01
@@ -28,7 +28,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
   %pField = getelementptr %struct.test02, ptr %pStruct, i32 0, i32 1
   %mem = load ptr, ptr %pField
-  call void @llvm.memset.p0i8.i64(ptr %mem, i8 0, i64 256, i1 false)
+  call void @llvm.memset.p0.i64(ptr %mem, i8 0, i64 256, i1 false)
 
   ret void
 }
@@ -41,7 +41,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 ; CHECK-NEXT:      No element pointees.
 ; CHECK-NEXT:      DomTy: i32*
 
-declare !intel.dtrans.func.type !8 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !8 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i64 0, i32 1}  ; i64*
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

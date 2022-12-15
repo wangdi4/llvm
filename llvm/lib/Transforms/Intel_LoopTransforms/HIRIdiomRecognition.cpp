@@ -81,6 +81,11 @@ struct MemOpCandidate {
   }
 };
 
+struct HoistLocation {
+  bool Preheader = true;
+  bool Postexit = true;
+};
+
 class HIRIdiomRecognition {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
@@ -96,28 +101,34 @@ class HIRIdiomRecognition {
   SmallPtrSet<HLNode *, 8> RemovedNodes;
 
   // Checks if the candidate is legal from DDG point of view.
-  bool isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
-                   const DirectionVector &DV, unsigned Level, bool IsStore);
+  template <bool IsOutgoing>
+  bool isLegalDV(const DirectionVector &DV, DDEdge &Edge, unsigned Level,
+                 HoistLocation &HoistLoc);
 
   template <bool IsOutgoing>
   bool isLegalGraph(const DDGraph &DDG, const HLLoop *Loop, const RegDDRef *Ref,
-                    bool IsStore);
-  bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate);
+                    HoistLocation &HoistLoc);
+
+  bool isLegalCandidate(const HLLoop *Loop, const MemOpCandidate &Candidate,
+                        HoistLocation &HoistLoc);
 
   // Analyze and create the transformation candidate for the reference.
   bool analyzeStore(HLLoop *Loop, RegDDRef *Ref, MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memset calls
   bool processMemset(HLLoop *Loop, bool &ExtractPreheader,
-                     MemOpCandidate &Candidate);
+                     MemOpCandidate &Candidate, HoistLocation &HoistLoc,
+                     HLNode *PostexitInsertPt);
 
   // Transform \p Candidates into memcpy calls
   bool processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
-                     MemOpCandidate &Candidate);
+                     MemOpCandidate &Candidate, HoistLocation &HoistLoc,
+                     HLNode *PostexitInsertPt);
 
   // Helper method to emit memset call.
   bool genMemset(HLLoop *Loop, MemOpCandidate &Candidate, int64_t StoreSize,
-                 bool IsNegStride, bool &ExtractPreheader);
+                 bool IsNegStride, bool &ExtractPreheader,
+                 HoistLocation &HoistLoc, HLNode *PostexitInsertPt);
 
   // Check if the \p Ref could be represented by a repeating i8 type.
   // Update RegDDRef if \p DoBitcast is true.
@@ -200,40 +211,81 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
   return false;
 }
 
-// Check that it's legal to hoist store/load to the pre-header.
-bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
-                                      const DirectionVector &DV, unsigned Level,
-                                      bool IsStore) {
+// Check whether it is legal to hoist candidate with DV to either preheader or
+// postexit.
+template <bool IsOutgoing>
+bool HIRIdiomRecognition::isLegalDV(const DirectionVector &DV, DDEdge &Edge,
+                                    unsigned Level, HoistLocation &HoistLoc) {
   if (DV.isIndepFromLevel(Level)) {
     return true;
   }
 
-  // No stores should be before the idiom DDRef.
-  if (IsStore && E.isOutput()) {
-    DVKind Kind = DV[Level - 1];
-    return (Kind == DVKind::EQ || Kind == DVKind::LT) && E.getSrc() == Ref;
-  }
+  if (IsOutgoing) {
+    // If there is an outoing edge from the candidate ref, we can hoist to
+    // preheader to maintain 'before' relationship of the edge but not to
+    // postexit.
+    //
+    // For example-
+    //
+    // DO i1
+    //   A[i1+1] = 0;       // preheader memcpy candidate
+    //   B[i1] = A[i1] + 1;
+    // END DO
+    //
+    // A[i1+1] -> A[i1] FLOW (<)
+    //
+    HoistLoc.Postexit = false;
 
-  assert(!E.isInput() && "Input edges are not expected");
+    LLVM_DEBUG(dbgs() << "Edge prevents sinking to postexit:\n");
+    LLVM_DEBUG(Edge.dump());
 
-  // No loads should be before the idiom DDRef.
-  // Legality table:
-  //      | Store | Load  |
-  // ANTI |   >   |   <   |
-  // FLOW |   <   |   >   |
-  DVKind Kind;
-  if (E.isAnti() ^ !IsStore) {
-    Kind = DVKind::GT;
+    // Hoisting to preheader was previously found illegal, just return false.
+    if (!HoistLoc.Preheader) {
+      return false;
+    }
+
   } else {
-    Kind = DVKind::LT;
+    // If there is an incoming edge to the candidate ref, we can sink to
+    // postexit to maintain 'after' relationship of the edge but not to
+    // preheader.
+    //
+    // For example-
+    //
+    // DO i1
+    //   A[i1] = 0;       // postexit memcpy candidate
+    //   B[i1] = A[i1+1] + 1;
+    // END DO
+    //
+    // A[i1+1] -> A[i1] ANTI (<)
+    //
+    HoistLoc.Preheader = false;
+
+    LLVM_DEBUG(dbgs() << "Edge prevents hoisting to preheader:\n");
+    LLVM_DEBUG(Edge.dump());
+
+    // Hoisting to postexit was previously found illegal, just return false.
+    if (!HoistLoc.Postexit) {
+      return false;
+    }
   }
 
-  return DV[Level - 1] == Kind;
+  DVKind DVElem = DV[Level - 1];
+
+  // '<' and '=' maintain before/after relationship.
+  bool IsLegal = (DVElem == DVKind::EQ || DVElem == DVKind::LT);
+
+  if (!IsLegal) {
+    LLVM_DEBUG(dbgs() << "Edge with illegal DV:\n");
+    LLVM_DEBUG(Edge.dump());
+  }
+
+  return IsLegal;
 }
 
 template <bool IsOutgoing>
 bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
-                                       const RegDDRef *Ref, bool IsStore) {
+                                       const RegDDRef *Ref,
+                                       HoistLocation &HoistLoc) {
   unsigned Level = Loop->getNestingLevel();
 
   auto Range = IsOutgoing ? DDG.outgoing(Ref) : DDG.incoming(Ref);
@@ -268,8 +320,7 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
       }
     }
 
-    if (!isLegalEdge(Ref, *E, *DV, Level, IsStore)) {
-      LLVM_DEBUG(E->dump());
+    if (!isLegalDV<IsOutgoing>(*DV, *E, Level, HoistLoc)) {
       return false;
     }
   }
@@ -278,24 +329,24 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
 }
 
 bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
-                                           const MemOpCandidate &Candidate) {
-  LLVM_DEBUG(dbgs() << "R: ");
+                                           const MemOpCandidate &Candidate,
+                                           HoistLocation &HoistLoc) {
   DDGraph DDG = DDA.getGraph(Loop);
 
-  if (!isLegalGraph<true>(DDG, Loop, Candidate.StoreRef, true)) {
+  if (!isLegalGraph<true>(DDG, Loop, Candidate.StoreRef, HoistLoc)) {
     return false;
   }
 
-  if (!isLegalGraph<false>(DDG, Loop, Candidate.StoreRef, true)) {
+  if (!isLegalGraph<false>(DDG, Loop, Candidate.StoreRef, HoistLoc)) {
     return false;
   }
 
   if (Candidate.isMemcopy()) {
-    if (!isLegalGraph<true>(DDG, Loop, Candidate.RHS, false)) {
+    if (!isLegalGraph<true>(DDG, Loop, Candidate.RHS, HoistLoc)) {
       return false;
     }
 
-    if (!isLegalGraph<false>(DDG, Loop, Candidate.RHS, false)) {
+    if (!isLegalGraph<false>(DDG, Loop, Candidate.RHS, HoistLoc)) {
       return false;
     }
   }
@@ -446,7 +497,9 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
 
 bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     int64_t StoreSize, bool IsNegStride,
-                                    bool &ExtractPreheader) {
+                                    bool &ExtractPreheader,
+                                    HoistLocation &HoistLoc,
+                                    HLNode *PostexitInsertPt) {
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
 
   std::unique_ptr<RegDDRef> Ref(Candidate.StoreRef->clone());
@@ -480,9 +533,22 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
     Loop->extractPreheader();
     ExtractPreheader = false;
   }
-  HNU.insertAsLastPreheaderNode(Loop, MemsetInst);
 
-  LLVM_DEBUG(dbgs() << "G: ");
+  if (HoistLoc.Preheader) {
+    HLNodeUtils::insertAsLastPreheaderNode(Loop, MemsetInst);
+
+  } else {
+    assert(HoistLoc.Postexit &&
+           "Legal candidate should be hoistable to preheader or postexit!");
+
+    if (PostexitInsertPt) {
+      HLNodeUtils::insertBefore(PostexitInsertPt, MemsetInst);
+    } else {
+      HLNodeUtils::insertAsLastPostexitNode(Loop, MemsetInst);
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "Generated memset:\n");
   LLVM_DEBUG(MemsetInst->dump());
   LLVM_DEBUG(dbgs() << "\n");
 
@@ -492,12 +558,14 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
 }
 
 bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
-                                        MemOpCandidate &Candidate) {
+                                        MemOpCandidate &Candidate,
+                                        HoistLocation &HoistLoc,
+                                        HLNode *PostexitInsertPt) {
 
   unsigned StoreSize = Candidate.RHS->getDestTypeSizeInBytes();
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride,
-                ExtractPreheader)) {
+                ExtractPreheader, HoistLoc, PostexitInsertPt)) {
     OptReportBuilder &ORBuilder =
         Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -514,7 +582,9 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
 }
 
 bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
-                                        MemOpCandidate &Candidate) {
+                                        MemOpCandidate &Candidate,
+                                        HoistLocation &HoistLoc,
+                                        HLNode *PostexitInsertPt) {
 
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
 
@@ -546,12 +616,25 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
     Loop->extractPreheader();
     ExtractPreheader = false;
   }
-  HNU.insertAsLastPreheaderNode(Loop, MemcpyInst);
+
+  if (HoistLoc.Preheader) {
+    HLNodeUtils::insertAsLastPreheaderNode(Loop, MemcpyInst);
+
+  } else {
+    assert(HoistLoc.Postexit &&
+           "Legal candidate should be hoistable to preheader or postexit!");
+
+    if (PostexitInsertPt) {
+      HLNodeUtils::insertBefore(PostexitInsertPt, MemcpyInst);
+    } else {
+      HLNodeUtils::insertAsLastPostexitNode(Loop, MemcpyInst);
+    }
+  }
 
   HLNodeUtils::remove(Candidate.DefInst);
   RemovedNodes.insert(Candidate.DefInst);
 
-  LLVM_DEBUG(dbgs() << "G: ");
+  LLVM_DEBUG(dbgs() << "Generated memcpy:\n");
   LLVM_DEBUG(MemcpyInst->dump());
   LLVM_DEBUG(dbgs() << "\n");
 
@@ -655,11 +738,6 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     if ((SmallTripCountCheck = createTripCountCheck(Loop))) {
       ExtractPreheader = true;
       OrigLoopClone = Loop->clone();
-      OrigLoopClone->removePreheader();
-      OrigLoopClone->removeZtt();
-      OrigLoopClone->setPragmaBasedMaximumTripCount(SmallTripCount);
-      OrigLoopClone->setMaxTripCountEstimate(SmallTripCount);
-      OrigLoopClone->setLegalMaxTripCount(SmallTripCount);
     }
 
     LLVM_DEBUG(dbgs() << "Loop DD graph:\n");
@@ -668,19 +746,28 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   }
 
   bool Changed = false;
+  // Postexit candidates will be inserted before the first postexit node, if it
+  // exists.
+  HLNode *PostexitInsertPt = Loop->getFirstPostexitNode();
+
   for (MemOpCandidate &Candidate : Candidates) {
-    LLVM_DEBUG(dbgs() << "A: ");
+    LLVM_DEBUG(dbgs() << "Analyzing candidate:\n");
     LLVM_DEBUG(Candidate.DefInst->dump(true));
     LLVM_DEBUG(dbgs() << "\n");
 
-    if (!isLegalCandidate(Loop, Candidate)) {
+    HoistLocation HoistLoc;
+    if (!isLegalCandidate(Loop, Candidate, HoistLoc)) {
       continue;
     }
 
     if (Candidate.isMemset()) {
-      Changed = processMemset(Loop, ExtractPreheader, Candidate) || Changed;
+      Changed = processMemset(Loop, ExtractPreheader, Candidate, HoistLoc,
+                              PostexitInsertPt) ||
+                Changed;
     } else if (Candidate.isMemcopy()) {
-      Changed = processMemcpy(Loop, ExtractPreheader, Candidate) || Changed;
+      Changed = processMemcpy(Loop, ExtractPreheader, Candidate, HoistLoc,
+                              PostexitInsertPt) ||
+                Changed;
     } else {
       llvm_unreachable("Unknown memopt kind");
     }
@@ -697,6 +784,15 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::replace(Loop, SmallTripCountCheck);
       HLNodeUtils::insertAsFirstThenChild(SmallTripCountCheck, Loop);
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
+
+      // Ztt and Preheader nodes are shared by both the loops.
+      OrigLoopClone->removePreheader();
+      OrigLoopClone->removeZtt();
+
+      // Update max trip count info of known small trip count loop.
+      OrigLoopClone->setPragmaBasedMaximumTripCount(SmallTripCount);
+      OrigLoopClone->setMaxTripCountEstimate(SmallTripCount);
+      OrigLoopClone->setLegalMaxTripCount(SmallTripCount);
 
       // The loop has been multiversioned for the small trip count
       // Multiversioned v1

@@ -46,12 +46,9 @@ void CPUProgram::ReleaseExecutionEngine() {
 }
 
 CPUProgram::~CPUProgram() {
-  using llvm_writeout_files_ptr = void (*)(void);
-  if (m_codeProfilingStatus == PROFILING_GCOV) {
-    auto llvm_writeout_files = reinterpret_cast<llvm_writeout_files_ptr>(
-        GetPointerToFunction("llvm_writeout_files"));
-    llvm_writeout_files();
-  }
+  if (m_codeProfilingStatus == PROFILING_GCOV)
+    llvmWriteoutFilesPtr();
+
   // Freeing the execution engine is sufficient to cleanup all memory in
   // MCJIT
   ReleaseExecutionEngine();
@@ -169,7 +166,7 @@ cl_dev_err_code CPUProgram::Finalize() {
   return CL_DEV_SUCCESS;
 }
 
-void CPUProgram::LoadProfileLib() const {
+void CPUProgram::LoadProfileLib() {
   assert(m_LLJIT && "profiling only supports LLJIT now");
   std::string ClangRuntimePath = Intel::OpenCL::Utils::GetClangRuntimePath();
   SmallString<128> ProfileLibPath(ClangRuntimePath);
@@ -202,6 +199,9 @@ void CPUProgram::LoadProfileLib() const {
     throw Exceptions::CompilerException("Failed to load clang profile library");
   }
   JD.addGenerator(std::move(*G));
+  // Get code coverage data write out functions
+  llvmWriteoutFilesPtr =
+      reinterpret_cast<funcPtr>(GetPointerToFunction("llvm_writeout_files"));
 }
 
 void CPUProgram::Deserialize(IInputStream &ist, SerializationStatus *stats) {

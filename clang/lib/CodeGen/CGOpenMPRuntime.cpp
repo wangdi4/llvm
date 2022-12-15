@@ -9932,21 +9932,25 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
 #if INTEL_CUSTOMIZATION
     if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
-      llvm::DenseSet<const Expr *> ReductionExprs;
+      llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
       for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
-        for (const Expr *E : C->varlists())
-          ReductionExprs.insert(E);
+        for (const Expr *E : C->varlists()) {
+          const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E);
+          assert(VD && "expected VarDecl in use_device_addr clause");
+          ReductionExprs.insert({VD, E});
+        }
       if (!ReductionExprs.empty())
         for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
              ++I)
           if (!CombinedInfo.VarChain[I].second &&
               (CombinedInfo.Types[I] &
                MappableExprsHandler::OMP_MAP_IMPLICIT)) {
-            auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapExpr());
-            if (It != ReductionExprs.end())
-              if (CombinedInfo.Types[I] &
-                  MappableExprsHandler::OMP_MAP_IMPLICIT)
+            auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl());
+            if (It != ReductionExprs.end()) {
+              if (!CombinedInfo.Exprs[I].getMapExpr() ||
+                  It->second == CombinedInfo.Exprs[I].getMapExpr())
                 CombinedInfo.Types[I] |= MappableExprsHandler::OMP_MAP_HOST_MEM;
+            }
           }
     }
 #endif // INTEL_CUSTOMIZATION
