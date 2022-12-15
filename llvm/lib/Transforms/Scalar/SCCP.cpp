@@ -99,6 +99,12 @@ STATISTIC(
     IPNumInstReplaced,
     "Number of instructions replaced with (simpler) instruction by IPSCCP");
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
+                    cl::desc("propagate constants to callback calls"));
+#endif // INTEL_CUSTOMIZATION
+
 // Helper to check if \p LV is either a constant or a constant
 // range with a single element. This should cover exactly the same cases as the
 // old ValueLatticeElement::isConstant() and is intended to be used in the
@@ -250,6 +256,15 @@ static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
   for (Instruction &Inst : make_early_inc_range(BB)) {
     if (Inst.getType()->isVoidTy())
       continue;
+#if INTEL_CUSTOMIZATION
+    // If a +CData is used in other non-fneg instructions, we don't fold the
+    // -CData, because this usually generate unnecessary load -CData from Data
+    // section. We tend to combine the fneg with its user at Codegen.
+    // e.g fneg(+CData) + fmadd --> fnmadd
+    if (Inst.getOpcode() == Instruction::FNeg &&
+        ConstantHasNonFNegUse(Inst.getOperand(0)))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (tryToReplaceWithConstant(Solver, &Inst)) {
       if (canRemoveInstruction(&Inst))
         Inst.eraseFromParent();
@@ -395,8 +410,6 @@ INITIALIZE_PASS_END(SCCPLegacyPass, "sccp",
 
 // createSCCPPass - This is the public interface to this file.
 FunctionPass *llvm::createSCCPPass() { return new SCCPLegacyPass(); }
-<<<<<<< HEAD
-=======
 
 static void findReturnsToZap(Function &F,
                              SmallVector<ReturnInst *, 8> &ReturnsToZap,
@@ -413,6 +426,18 @@ static void findReturnsToZap(Function &F,
            "it\n");
     return;
   }
+#if INTEL_CUSTOMIZATION
+
+  // Cannot do this if function is used as a callback.
+  if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
+        AbstractCallSite ACS(&U);
+        return ACS && ACS.isCallbackCall();
+      })) {
+    LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
+                      << " because it is used as a callback\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   assert(
       all_of(F.users(),
@@ -565,7 +590,7 @@ bool llvm::runIPSCCP(
 
     // Determine if we can track the function's arguments. If so, add the
     // function to the solver's set of argument-tracked functions.
-    if (canTrackArgumentsInterprocedurally(&F)) {
+    if (canTrackArgumentsInterprocedurally(&F, EnableCallbacks)) { // INTEL
       Solver.addArgumentTrackedFunction(&F);
       continue;
     }
@@ -803,10 +828,15 @@ bool llvm::runIPSCCP(
       SI->eraseFromParent();
       MadeChanges = true;
     }
+#if INTEL_COLLAB
+    if (GV->isTargetDeclare())
+      LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
+                        << "' is target-declare and not removed\n");
+    else
+#endif // INTEL_COLLAB
     M.getGlobalList().erase(GV);
     ++IPNumGlobalConst;
   }
 
   return MadeChanges;
 }
->>>>>>> cb03b1bd99313a728d47060b909a73e7f5991231
