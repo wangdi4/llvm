@@ -61,15 +61,14 @@ public:
   enum Dependency {
     /// Value is loop invariant. For vectors, this means all vector elements are
     /// the same (broadcast).
-    UNIFORM,
+    UNIFORM = 0,
     /// Elements are in strides. For vectors, this assumes stride between vector
     /// elements and between loops.
-    STRIDED,
+    STRIDED = 1,
     /// Unknown or non-consecutive order.
-    RANDOM,
-    /// Overall number of dependencies.
-    NumDeps = 3
+    RANDOM = 2,
   };
+  static constexpr int NumDeps = 3; /// Overall number of dependencies.
 
   /// Run analysis.
   void run(Loop *L, DominatorTree *DT, LoopInfo *LI);

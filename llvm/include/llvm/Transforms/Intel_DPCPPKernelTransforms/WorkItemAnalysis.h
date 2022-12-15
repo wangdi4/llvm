@@ -52,8 +52,8 @@ public:
     PTR_CONSECUTIVE = 2, /// Elements are pointers which are consecutive.
     STRIDED = 3,         /// Elements are in strides.
     RANDOM = 4,          /// Unknown or non consecutive order.
-    NumDeps = 5,         /// Overall amount of dependencies.
   };
+  static constexpr int NumDeps = 5; /// Overall amount of dependencies.
 
   /// Returns a map with scheduling constraints.
   SchdConstMap &getSchedulingConstraints() { return SchedulingConstraints; }

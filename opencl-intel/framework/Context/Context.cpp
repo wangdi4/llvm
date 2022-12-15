@@ -1500,7 +1500,7 @@ size_t Context::CalculateSupportedImageFormats(const cl_mem_flags clMemFlags,
       break;
     }
 
-    std::sort(&pFormats[0], &pFormats[devSpecificFormatsCount],
+    std::sort(pFormats, pFormats + devSpecificFormatsCount,
               compareImageFormats);
 
     if (rDev != rDevSet->begin()) {
