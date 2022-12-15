@@ -1039,7 +1039,6 @@ bool _pi_queue::isDiscardEvents() const {
   return ((this->Properties & PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS) != 0);
 }
 
-<<<<<<< HEAD
 bool _pi_queue::isPriorityLow() const {
   return ((this->Properties & PI_EXT_ONEAPI_QUEUE_PRIORITY_LOW) != 0);
 }
@@ -1048,16 +1047,10 @@ bool _pi_queue::isPriorityHigh() const {
   return ((this->Properties & PI_EXT_ONEAPI_QUEUE_PRIORITY_HIGH) != 0);
 }
 
-pi_result
-_pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
-                            bool MakeAvailable,
-                            std::vector<pi_event> &EventListToCleanup) {
-=======
 pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
                                       bool MakeAvailable,
                                       std::vector<pi_event> &EventListToCleanup,
                                       bool CheckStatus) {
->>>>>>> 50620141bdb082212a991183d4d513abc8491537
   bool UseCopyEngine = CommandList->second.isCopy(this);
 
   // Immediate commandlists do not have an associated fence.
@@ -1083,18 +1076,6 @@ pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
     EventList.clear();
   } else if (!isDiscardEvents()) {
     // For immediate commandlist reset only those events that have signalled.
-<<<<<<< HEAD
-    for (auto it = EventList.begin(); it != EventList.end();) {
-      std::scoped_lock<pi_shared_mutex> EventLock((*it)->Mutex);
-      ze_result_t ZeResult =
-          ZE_CALL_NOCHECK(zeEventQueryStatus, ((*it)->ZeEvent));
-      if (ZeResult == ZE_RESULT_SUCCESS) {
-        EventListToCleanup.push_back(std::move((*it)));
-        it = EventList.erase(it);
-      } else {
-        it++;
-      }
-=======
     // If events in the queue are discarded then we can't check their status.
     for (auto it = EventList.begin(); it != EventList.end();) {
       std::scoped_lock<pi_shared_mutex> EventLock((*it)->Mutex);
@@ -1116,7 +1097,6 @@ pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
 
       EventListToCleanup.push_back(std::move((*it)));
       it = EventList.erase(it);
->>>>>>> 50620141bdb082212a991183d4d513abc8491537
     }
   }
 
