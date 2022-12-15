@@ -44,19 +44,15 @@
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/ValueLattice.h"
-#include "llvm/Analysis/ValueLatticeUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
@@ -92,6 +88,7 @@ STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
 STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
+<<<<<<< HEAD
 STATISTIC(IPNumInstRemoved, "Number of instructions removed by IPSCCP");
 STATISTIC(IPNumArgsElimed ,"Number of arguments constant propagated by IPSCCP");
 STATISTIC(IPNumGlobalConst, "Number of globals found to be constant by IPSCCP");
@@ -283,6 +280,8 @@ static bool removeNonFeasibleEdges(const SCCPSolver &Solver, BasicBlock *BB,
                                    DomTreeUpdater &DTU,
                                    BasicBlock *&NewUnreachableBB);
 
+=======
+>>>>>>> 42c2dc401742266da3e0251b6c1ca491f4779963
 // runSCCP() - Run the Sparse Conditional Constant Propagation algorithm,
 // and return true if the function was modified.
 static bool runSCCP(Function &F, const DataLayout &DL,
@@ -411,6 +410,7 @@ INITIALIZE_PASS_END(SCCPLegacyPass, "sccp",
 // createSCCPPass - This is the public interface to this file.
 FunctionPass *llvm::createSCCPPass() { return new SCCPLegacyPass(); }
 
+<<<<<<< HEAD
 static void findReturnsToZap(Function &F,
                              SmallVector<ReturnInst *, 8> &ReturnsToZap,
                              SCCPSolver &Solver) {
@@ -840,3 +840,5 @@ bool llvm::runIPSCCP(
 
   return MadeChanges;
 }
+=======
+>>>>>>> 42c2dc401742266da3e0251b6c1ca491f4779963
