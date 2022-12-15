@@ -2078,7 +2078,7 @@ public:
       return detail::errHandler(err, __GET_DEVICE_IDS_ERR);
     }
 
-    devices->assign(&ids[0], &ids[n]);
+    devices->assign(&ids[0], ids + n);
     return CL_SUCCESS;
   }
 
@@ -4871,8 +4871,10 @@ public:
     } else {
       Device device = context.getInfo<CL_CONTEXT_DEVICES>()[0];
 
+      cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, properties,
+                                                0};
       object_ = ::clCreateCommandQueueWithProperties(context(), device(),
-                                                     &properties, &error);
+                                                     queue_properties, &error);
 
       detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
       if (err != NULL) {
@@ -4900,8 +4902,10 @@ public:
       return;
     }
 
+    cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, properties,
+                                              0};
     object_ = ::clCreateCommandQueueWithProperties(context(), devices[0](),
-                                                   &properties, &error);
+                                                   queue_properties, &error);
 
     detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
 
@@ -4913,8 +4917,10 @@ public:
   CommandQueue(const Context &context, const Device &device,
                cl_command_queue_properties properties = 0, cl_int *err = NULL) {
     cl_int error;
+    cl_queue_properties queue_properties[] = {CL_QUEUE_PROPERTIES, properties,
+                                              0};
     object_ = ::clCreateCommandQueueWithProperties(context(), device(),
-                                                   &properties, &error);
+                                                   queue_properties, &error);
 
     detail::errHandler(error, __CREATE_COMMAND_QUEUE_ERR);
     if (err != NULL) {

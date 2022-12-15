@@ -217,8 +217,6 @@ void WorkItemInfo::print(raw_ostream &OS) const {
     case RANDOM:
       OS << "RND";
       break;
-    default:
-      llvm_unreachable("Unknown WorkItem dependency");
     }
     OS << " " << I << "\n";
   }
