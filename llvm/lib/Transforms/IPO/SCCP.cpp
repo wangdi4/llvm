@@ -28,22 +28,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/SCCP.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/ValueLattice.h"
-#include "llvm/Analysis/ValueLatticeUtils.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Support/ModRef.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar/SCCP.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SCCPSolver.h"
 
 #if INTEL_CUSTOMIZATION
@@ -55,6 +47,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #define DEBUG_TYPE "sccp"
 
 #if INTEL_CUSTOMIZATION
@@ -406,6 +399,8 @@ static bool runIPSCCP(
   return MadeChanges;
 }
 
+=======
+>>>>>>> c9ec5a92ab04dbab322d00458810f07815f68b7f
 PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   const DataLayout &DL = M.getDataLayout();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
