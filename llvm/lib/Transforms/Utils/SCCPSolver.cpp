@@ -33,13 +33,11 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ValueLattice.h"
-#include "llvm/Analysis/ValueLatticeUtils.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <utility>
 #include <vector>
@@ -68,7 +66,7 @@ static ValueLatticeElement::MergeOptions getMaxWidenStepsOpts() {
       MaxNumRangeExtensions);
 }
 
-namespace llvm {
+namespace {
 
 // Helper to check if \p LV is either a constant or a constant
 // range with a single element. This should cover exactly the same cases as the
@@ -87,132 +85,9 @@ bool isOverdefined(const ValueLatticeElement &LV) {
   return !LV.isUnknownOrUndef() && !isConstant(LV);
 }
 
-static bool canRemoveInstruction(Instruction *I) {
-  if (wouldInstructionBeTriviallyDead(I))
-    return true;
+} // namespace
 
-  // Some instructions can be handled but are rejected above. Catch
-  // those cases by falling through to here.
-  // TODO: Mark globals as being constant earlier, so
-  // TODO: wouldInstructionBeTriviallyDead() knows that atomic loads
-  // TODO: are safe to remove.
-  return isa<LoadInst>(I);
-}
-
-bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
-  Constant *Const = nullptr;
-  if (V->getType()->isStructTy()) {
-    std::vector<ValueLatticeElement> IVs = Solver.getStructLatticeValueFor(V);
-    if (llvm::any_of(IVs, isOverdefined))
-      return false;
-    std::vector<Constant *> ConstVals;
-    auto *ST = cast<StructType>(V->getType());
-    for (unsigned i = 0, e = ST->getNumElements(); i != e; ++i) {
-      ValueLatticeElement V = IVs[i];
-      ConstVals.push_back(isConstant(V)
-                              ? Solver.getConstant(V)
-                              : UndefValue::get(ST->getElementType(i)));
-    }
-    Const = ConstantStruct::get(ST, ConstVals);
-  } else {
-    const ValueLatticeElement &IV = Solver.getLatticeValueFor(V);
-    if (isOverdefined(IV))
-      return false;
-
-    Const =
-        isConstant(IV) ? Solver.getConstant(IV) : UndefValue::get(V->getType());
-  }
-  assert(Const && "Constant is nullptr here!");
-
-  // Replacing `musttail` instructions with constant breaks `musttail` invariant
-  // unless the call itself can be removed.
-  // Calls with "clang.arc.attachedcall" implicitly use the return value and
-  // those uses cannot be updated with a constant.
-  CallBase *CB = dyn_cast<CallBase>(V);
-  if (CB && ((CB->isMustTailCall() &&
-              !canRemoveInstruction(CB)) ||
-             CB->getOperandBundle(LLVMContext::OB_clang_arc_attachedcall))) {
-    Function *F = CB->getCalledFunction();
-
-    // Don't zap returns of the callee
-    if (F)
-      Solver.addToMustPreserveReturnsInFunctions(F);
-
-    LLVM_DEBUG(dbgs() << "  Can\'t treat the result of call " << *CB
-                      << " as a constant\n");
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << "  Constant: " << *Const << " = " << *V << '\n');
-
-  // Replaces all of the uses of a variable with uses of the constant.
-  V->replaceAllUsesWith(Const);
-  return true;
-}
-
-/// Try to replace signed instructions with their unsigned equivalent.
-static bool replaceSignedInst(SCCPSolver &Solver,
-                              SmallPtrSetImpl<Value *> &InsertedValues,
-                              Instruction &Inst) {
-  // Determine if a signed value is known to be >= 0.
-  auto isNonNegative = [&Solver](Value *V) {
-    // If this value was constant-folded, it may not have a solver entry.
-    // Handle integers. Otherwise, return false.
-    if (auto *C = dyn_cast<Constant>(V)) {
-      auto *CInt = dyn_cast<ConstantInt>(C);
-      return CInt && !CInt->isNegative();
-    }
-    const ValueLatticeElement &IV = Solver.getLatticeValueFor(V);
-    return IV.isConstantRange(/*UndefAllowed=*/false) &&
-           IV.getConstantRange().isAllNonNegative();
-  };
-
-  Instruction *NewInst = nullptr;
-  switch (Inst.getOpcode()) {
-  // Note: We do not fold sitofp -> uitofp here because that could be more
-  // expensive in codegen and may not be reversible in the backend.
-  case Instruction::SExt: {
-    // If the source value is not negative, this is a zext.
-    Value *Op0 = Inst.getOperand(0);
-    if (InsertedValues.count(Op0) || !isNonNegative(Op0))
-      return false;
-    NewInst = new ZExtInst(Op0, Inst.getType(), "", &Inst);
-    break;
-  }
-  case Instruction::AShr: {
-    // If the shifted value is not negative, this is a logical shift right.
-    Value *Op0 = Inst.getOperand(0);
-    if (InsertedValues.count(Op0) || !isNonNegative(Op0))
-      return false;
-    NewInst = BinaryOperator::CreateLShr(Op0, Inst.getOperand(1), "", &Inst);
-    break;
-  }
-  case Instruction::SDiv:
-  case Instruction::SRem: {
-    // If both operands are not negative, this is the same as udiv/urem.
-    Value *Op0 = Inst.getOperand(0), *Op1 = Inst.getOperand(1);
-    if (InsertedValues.count(Op0) || InsertedValues.count(Op1) ||
-        !isNonNegative(Op0) || !isNonNegative(Op1))
-      return false;
-    auto NewOpcode = Inst.getOpcode() == Instruction::SDiv ? Instruction::UDiv
-                                                           : Instruction::URem;
-    NewInst = BinaryOperator::Create(NewOpcode, Op0, Op1, "", &Inst);
-    break;
-  }
-  default:
-    return false;
-  }
-
-  // Wire up the new instruction and update state.
-  assert(NewInst && "Expected replacement instruction");
-  NewInst->takeName(&Inst);
-  InsertedValues.insert(NewInst);
-  Inst.replaceAllUsesWith(NewInst);
-  Solver.removeLatticeValueFor(&Inst);
-  Inst.eraseFromParent();
-  return true;
-}
-
+<<<<<<< HEAD
 bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
                           SmallPtrSetImpl<Value *> &InsertedValues,
                           Statistic &InstRemovedStat,
@@ -337,6 +212,9 @@ bool removeNonFeasibleEdges(const SCCPSolver &Solver, BasicBlock *BB,
   }
   return true;
 }
+=======
+namespace llvm {
+>>>>>>> cb03b1bd99313a728d47060b909a73e7f5991231
 
 /// Helper class for SCCPSolver. This implements the instruction visitor and
 /// holds all the state.
