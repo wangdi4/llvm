@@ -22,7 +22,10 @@
 
 ; CHECK-LABEL: define internal void @test.loop1(i8* %p1)
 ; CHECK-NEXT: newFuncRoot:
-; CHECK-NEXT:   br
+; INTEL_CUSTOMIZATION
+; xmain has debug information here
+; end INTEL_CUSTOMIZATION
+; CHECK:   br
 
 define void @test() {
 entry:
