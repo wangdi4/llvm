@@ -116,11 +116,22 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/tools/llvm-mca/X86/ @HaohaiWen
 /llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
 /llvm/test/tools/llvm-tli-checker/ps4-tli-check.yaml @robertcox-github @pvbattin
-/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
-/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
-/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
+/llvm/include/llvm/BinaryFormat/Intel_Trace.h @KanRobert
+/llvm/include/llvm/BinaryFormat/Intel_Trace.def @KanRobert
+/llvm/include/llvm/MC/Intel_MCTrace.h @KanRobert
+/llvm/test/DebugInfo/X86/Intel_TraceBack/ @KanRobert
+/llvm/test/DebugInfo/Inputs/Intel_TraceBack/ @KanRobert
+/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert @KanRobert
 /llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
 /llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
+/llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.h @KanRobert
+/llvm/lib/DebugInfo/Intel_TraceBack/ @KanRobert
+/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
+/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
+/llvm/unittests/DebugInfo/Intel_TraceBack/ @KanRobert
+/clang/test/CodeGen/Intel_traceback.c @KanRobert
+/clang/test/Driver/Intel_traceback.c @KanRobert
+/llvm/docs/Intel/TraceBack.rst @KanRobert
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders
