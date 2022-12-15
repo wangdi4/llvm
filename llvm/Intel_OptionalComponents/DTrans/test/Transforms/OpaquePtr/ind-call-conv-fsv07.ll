@@ -31,9 +31,9 @@ define dso_local i32 @bar() {
 
 %struct.MYSTRUCT = type { ptr, ptr }
 
-@globstruct1 = internal global %struct.MYSTRUCT { i32 ()* @foo, i32 ()* @bar }, align 8
+@globstruct1 = internal global %struct.MYSTRUCT { ptr @foo, ptr @bar }, align 8
 
-@globstruct2 = internal global %struct.MYSTRUCT { i32 ()* @foo, i32 ()* @bar }, align 8
+@globstruct2 = internal global %struct.MYSTRUCT { ptr @foo, ptr @bar }, align 8
 
 define dso_local i32 @main() {
   %t3 = load ptr, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @globstruct2, i32 0, i32 0), align 8

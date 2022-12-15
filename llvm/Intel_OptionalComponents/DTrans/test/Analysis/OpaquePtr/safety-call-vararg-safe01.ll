@@ -68,7 +68,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.ty
 define void @test03va(i8 %in, ...) {
 entry:
   %args = alloca [1 x %struct._ZTS13__va_list_tag.__va_list_tag]
-  %args.as.p8 = bitcast ptr %args to i8*
+  %args.as.p8 = bitcast ptr %args to ptr
   call void @llvm.va_start(ptr %args.as.p8)
   %gp_offset_p = getelementptr inbounds [1 x %struct._ZTS13__va_list_tag.__va_list_tag], ptr %args, i64 0, i64 0, i32 0
   %gp_offset = load i32, ptr %gp_offset_p

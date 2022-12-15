@@ -64,7 +64,7 @@ define dso_local i32 @baf() {
 
 %struct.MYSTRUCT = type { ptr, ptr }
 
-@globstruct = internal global %struct.MYSTRUCT { i32 ()* @foo, i32 ()* @bar }, align 8
+@globstruct = internal global %struct.MYSTRUCT { ptr @foo, ptr @bar }, align 8
 
 define dso_local i32 @main() #0 {
 entry:
