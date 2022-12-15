@@ -615,6 +615,16 @@ public:
     return (BaseVal && isa<Argument>(BaseVal));
   }
 
+  /// Returns true if the Ref access function argument with noalias attribute.
+  bool accessesNoAliasFunctionArgument() const {
+    auto BaseVal = getTempBaseValue();
+    if (!BaseVal) {
+      return false;
+    }
+    auto *Arg = dyn_cast<Argument>(BaseVal);
+    return (Arg && Arg->hasNoAliasAttr());
+  }
+
   /// Returns true if Ref is an alloca access.
   bool accessesAlloca() const {
     auto BaseVal = getTempBaseValue();
