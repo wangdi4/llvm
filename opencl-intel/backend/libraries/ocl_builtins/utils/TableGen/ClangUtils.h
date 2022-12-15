@@ -25,7 +25,7 @@
 // Purpose: generates a dummy body for the given ocl (primitive) type, with the
 // given vector length.
 ///////////////////////////////////////////////////////////////////////////////
-std::string generateDummyBody(const std::string &type, size_t veclen);
+std::string generateDummyBody(const std::string &type, unsigned int veclen);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Purpose: compiles the given ocl code (using clang), and writes the result to

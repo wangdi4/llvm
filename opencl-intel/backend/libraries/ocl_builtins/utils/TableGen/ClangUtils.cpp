@@ -93,7 +93,7 @@ void build(const std::string &code, std::string fileName) {
 }
 
 // generates 'dummy code' (which does nothing but lets the module compile)
-std::string generateDummyBody(const std::string &type, size_t veclen) {
+std::string generateDummyBody(const std::string &type, unsigned int veclen) {
   std::stringstream sstream;
   sstream << "{return ";
   if ("void" == type) {
