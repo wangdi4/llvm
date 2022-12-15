@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { i64, i64 }
 define void @test01() {
   %a = alloca [8 x [16384 x %struct.test01]]
-  %a.p8 = bitcast ptr %a to i8*
+  %a.p8 = bitcast ptr %a to ptr
   call void @llvm.memset.p0i8.i64(ptr %a.p8, i8 1, i64 2097152, i1 false)
   ret void
 }
@@ -31,7 +31,7 @@ define void @test01() {
 %struct.test02 = type { i64, i64 }
 define void @test02() {
   %a = alloca [8 x [16384 x ptr]], !intel_dtrans_type !2
-  %a.p8 = bitcast ptr %a to i8*
+  %a.p8 = bitcast ptr %a to ptr
   call void @llvm.memset.p0i8.i64(ptr %a.p8, i8 1, i64 1048576, i1 false)
   ret void
 }

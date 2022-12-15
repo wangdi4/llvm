@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01b = type { i32, [10 x %struct.test01a] }
 define void @test14(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !5 {
   %a = getelementptr inbounds %struct.test01b, ptr %b, i64 0, i32 1
-  %t0 = bitcast ptr %a to i8*
+  %t0 = bitcast ptr %a to ptr
   tail call void @llvm.memset.p0i8.i64(ptr %t0, i8 0, i64 100, i1 false)
   ret void
 }

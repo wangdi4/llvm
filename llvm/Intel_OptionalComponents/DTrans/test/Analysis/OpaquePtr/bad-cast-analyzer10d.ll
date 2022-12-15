@@ -80,7 +80,7 @@ if.end:                                           ; preds = %if.then, %entry
   store i32 15, ptr %field03, align 8
   %field14 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
   %t15 = ptrtoint ptr %i1 to i64
-  store i64 %t15, i64* @mysloppyint
+  store i64 %t15, ptr @mysloppyint
   store ptr @myglobalint1, ptr %field14, align 8
   ret void
 }

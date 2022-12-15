@@ -32,7 +32,7 @@ define void @foo(ptr "intel_dtrans_func_index"="1" %ptr) local_unnamed_addr #0 !
   %agep = getelementptr %struct.test.a, ptr %ptr, i64 0, i32 0
   %boostgep = getelementptr %"struct.test.array", ptr %agep, i64 0, i32 0
   %arrgep = getelementptr [4 x i32], ptr %boostgep, i64 0, i32 0
-  store i32 2, i32* %arrgep
+  store i32 2, ptr %arrgep
 
   ret void
 }

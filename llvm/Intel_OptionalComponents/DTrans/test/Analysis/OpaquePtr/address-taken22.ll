@@ -14,13 +14,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %"struct.test" = type { ptr }
 
-define hidden "intel_dtrans_func_index"="1" ptr @foo(i8* "intel_dtrans_func_index"="2" %obj) #1  !intel.dtrans.func.type !2 {
-  call void @free(i8* %obj)
+define hidden "intel_dtrans_func_index"="1" ptr @foo(ptr "intel_dtrans_func_index"="2" %obj) #1  !intel.dtrans.func.type !2 {
+  call void @free(ptr %obj)
   ret ptr %obj
 }
 
 ; Function Attrs: allockind("free")
-declare !intel.dtrans.func.type !2 void @free(i8* "intel_dtrans_func_index"="1") #0
+declare !intel.dtrans.func.type !2 void @free(ptr "intel_dtrans_func_index"="1") #0
 
 attributes #0 = { allockind("free") "alloc-family"="malloc" }
 attributes #1 = { "intel-mempool-destructor" }

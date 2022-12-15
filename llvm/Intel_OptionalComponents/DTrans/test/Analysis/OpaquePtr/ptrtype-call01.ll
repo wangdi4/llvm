@@ -33,7 +33,7 @@ define internal void @test01() {
 %struct.test02 = type { i64, i64 }
 define internal void @test02() {
   %struct = alloca [2 x %struct.test02]
-  %mem = bitcast ptr %struct to i8*
+  %mem = bitcast ptr %struct to ptr
   call void @llvm.memset.p0i8.i64(ptr %mem, i8 0, i64 32, i1 false)
   ret void
 }
