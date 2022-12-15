@@ -3212,6 +3212,10 @@ void LinkerDriver::link(opt::InputArgList &args) {
   if (!config->relocatable)
     combineEhSections();
 
+  // Merge .riscv.attributes sections.
+  if (config->emachine == EM_RISCV)
+    mergeRISCVAttributesSections();
+
   {
     llvm::TimeTraceScope timeScope("Assign sections");
 
