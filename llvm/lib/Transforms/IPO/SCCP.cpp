@@ -57,6 +57,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sccp"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
+                    cl::desc("propagate constants to callback calls"));
+#endif // INTEL_CUSTOMIZATION
+
 STATISTIC(NumInstRemoved, "Number of instructions removed");
 STATISTIC(NumArgsElimed ,"Number of arguments constant propagated");
 STATISTIC(NumGlobalConst, "Number of globals found to be constant");
@@ -80,18 +86,17 @@ static void findReturnsToZap(Function &F,
     return;
   }
 
-// Commented to unblock the pulldown
-// #if INTEL_CUSTOMIZATION
-//   // Cannot do this if function is used as a callback.
-//   if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
-//         AbstractCallSite ACS(&U);
-//         return ACS && ACS.isCallbackCall();
-//       })) {
-//     LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
-//                       << " because it is used as a callback\n");
-//     return;
-//   }
-// #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+  // Cannot do this if function is used as a callback.
+  if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
+        AbstractCallSite ACS(&U);
+        return ACS && ACS.isCallbackCall();
+      })) {
+    LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
+                      << " because it is used as a callback\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   assert(
       all_of(F.users(),
@@ -150,7 +155,7 @@ static bool runIPSCCP(
 
     // Determine if we can track the function's arguments. If so, add the
     // function to the solver's set of argument-tracked functions.
-    if (canTrackArgumentsInterprocedurally(&F)) {
+    if (canTrackArgumentsInterprocedurally(&F, EnableCallbacks)) {
       Solver.addArgumentTrackedFunction(&F);
       continue;
     }
