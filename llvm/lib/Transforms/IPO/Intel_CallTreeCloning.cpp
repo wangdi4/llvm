@@ -402,6 +402,7 @@ public:
   ParamIndSet(const ParamIndSet &S) : SmallBitVector(S) {}
   ParamIndSet(const SmallBitVector &V) : SmallBitVector(V) {}
   ParamIndSet(size_t N) : SmallBitVector(N) {}
+  ParamIndSet &operator=(const ParamIndSet &) = default;
 
   ParamIndSet &set(unsigned Idx) {
     if (Idx >= size())
