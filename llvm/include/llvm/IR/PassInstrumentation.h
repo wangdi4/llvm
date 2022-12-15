@@ -94,7 +94,10 @@ public:
   // IRUnits in a safe way, and we might pursue that as soon as there is a
   // useful instrumentation that needs it.
   using BeforePassFunc = bool(StringRef, Any);
+<<<<<<< HEAD
   using BeforeLimitedPassFunc = bool(StringRef, LoopOptLimiter, Any);    // INTEL
+=======
+>>>>>>> 19158eb7f06d7ed4a834a35a3afa6bda2685a05b
   using BeforeSkippedPassFunc = void(StringRef, Any);
   using BeforeNonSkippedPassFunc = void(StringRef, Any);
   using AfterPassFunc = void(StringRef, Any, const PreservedAnalyses &);

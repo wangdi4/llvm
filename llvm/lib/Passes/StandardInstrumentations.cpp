@@ -965,7 +965,10 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+>>>>>>> 19158eb7f06d7ed4a834a35a3afa6bda2685a05b
 bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
   if (isIgnored(PassName))
     return true;
@@ -1047,6 +1050,17 @@ void PrintPassInstrumentation::registerCallbacks(
     OS << "\n";
     Indent += 2;
   });
+<<<<<<< HEAD
+=======
+  PIC.registerAfterPassCallback(
+      [this, SpecialPasses](StringRef PassID, Any IR,
+                            const PreservedAnalyses &) {
+        if (isSpecialPass(PassID, SpecialPasses))
+          return;
+
+        Indent -= 2;
+      });
+>>>>>>> 19158eb7f06d7ed4a834a35a3afa6bda2685a05b
   PIC.registerAfterPassInvalidatedCallback(
       [this, SpecialPasses](StringRef PassID, Any IR) {
         if (isSpecialPass(PassID, SpecialPasses))
@@ -1057,7 +1071,10 @@ void PrintPassInstrumentation::registerCallbacks(
 
   if (!Opts.SkipAnalyses) {
     PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+>>>>>>> 19158eb7f06d7ed4a834a35a3afa6bda2685a05b
       print() << "Running analysis: " << PassID << " on " << getIRName(IR)
               << "\n";
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
