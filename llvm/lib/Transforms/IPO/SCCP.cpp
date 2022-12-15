@@ -469,13 +469,10 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();        // INTEL
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
     AU.addRequired<TargetTransformInfoWrapperPass>();
-=======
->>>>>>> 0f0cb92cb2ad3aeb6479acaa5bfbdefd17b764a7
   }
 };
 
