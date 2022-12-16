@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basic-aa -globalopt -instcombine -loop-rotate -licm -instcombine -indvars -loop-deletion -constmerge -S | FileCheck %s
+=======
+; RUN: opt -temporarily-allow-old-pass-syntax < %s -globalopt -temporarily-allow-old-pass-syntax -instcombine -loop-rotate -licm -instcombine -indvars -loop-deletion -constmerge -S | FileCheck %s
+>>>>>>> de787f5994022a5cf24c286963975a4a6542a779
 ; PR11882: ComputeLoadConstantCompareExitLimit crash.
 ;
 ; for.body is deleted leaving a loop-invariant load.

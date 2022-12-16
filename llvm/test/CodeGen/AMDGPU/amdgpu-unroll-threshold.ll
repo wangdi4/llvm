@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -S -mtriple=amdgcn-- -basic-aa -loop-unroll | FileCheck %s
+=======
+; RUN: opt -temporarily-allow-old-pass-syntax < %s -S -mtriple=amdgcn-- -loop-unroll | FileCheck %s
+>>>>>>> de787f5994022a5cf24c286963975a4a6542a779
 
 ; Check that the loop in unroll_default is not fully unrolled using the default
 ; unroll threshold

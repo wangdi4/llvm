@@ -1,12 +1,17 @@
-; RUN: opt -S -licm %s | FileCheck %s
+; RUN: opt -temporarily-allow-old-pass-syntax -S -licm %s | FileCheck %s
 ;
 ; LICM should null out debug locations when it hoists instructions out of a loop.
 ; INTEL: LICM is expected to keep debug locations for hoisted instructions.
 ;
 ; Generated with
 ; clang -O0 -S -emit-llvm test.cpp -g -gline-tables-only -o t.ll
+<<<<<<< HEAD
 ; opt -S -sroa -adce -simplifycfg -reassociate -domtree -loops \
 ;     -loop-simplify -lcssa -basic-aa -aa -scalar-evolution -loop-rotate t.ll > test.ll
+=======
+; opt -temporarily-allow-old-pass-syntax -S -sroa -adce -simplifycfg -reassociate -domtree -loops \
+;     -loop-simplify -lcssa -aa -scalar-evolution -loop-rotate t.ll > test.ll
+>>>>>>> de787f5994022a5cf24c286963975a4a6542a779
 ;
 ; void bar(int *);
 ; void foo(int k, int p)
