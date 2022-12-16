@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="2">
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">1.0</Vector>
+        <Vector id="1">1.0</Vector>
+        <Vector id="2">1.0</Vector>
+        <Vector id="3">1.0</Vector>
+        <Vector id="4">1.0</Vector>
+        <Vector id="5">1.0</Vector>
+        <Vector id="6">1.0</Vector>
+        <Vector id="7">1.0</Vector>
+      </Buffer> 
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">1.0</Vector>
+        <Vector id="1">1.0</Vector>
+        <Vector id="2">1.0</Vector>
+        <Vector id="3">1.0</Vector>
+        <Vector id="4">1.0</Vector>
+        <Vector id="5">1.0</Vector>
+        <Vector id="6">1.0</Vector>
+        <Vector id="7">1.0</Vector>
+      </Buffer>
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>
