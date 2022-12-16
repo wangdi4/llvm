@@ -1,4 +1,10 @@
 # RUN: env CLANGD_FLAGS=-compile-commands-dir=no-such-dir not clangd -lit-test </dev/null 2>&1 >/dev/null | FileCheck %s
+
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-42768
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
+
 CHECK: I[{{.*}}]{{.*}} clangd version {{.*}}
 CHECK: Working directory: {{.*}}
 CHECK: argv[0]: clangd

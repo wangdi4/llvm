@@ -5,6 +5,12 @@
 //
 // RUN: %clang -c -o %t %s
 // RUN: %llvm_jitlink %t
+
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42778
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 	.text
 	.def	@feat.00;
 	.scl	3;

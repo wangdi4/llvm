@@ -2,6 +2,11 @@
 // RUN:   -- -isystem %S/Inputs/Headers -I %S/Inputs/overlapping | \
 // RUN:   not grep "note: this fix will not be applied because it overlaps with another fix"
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42770
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 #include <s.h>
 #include "o.h"
 
