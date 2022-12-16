@@ -1267,16 +1267,12 @@ public:
   /// frugal here since we just bail out of actually constructing and
   /// canonicalizing an expression in the cases where the result isn't going
   /// to be a constant.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // INTEL: Added extra parameter.
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
-                                            bool *SignedOverflow = nullptr);
+  std::optional<APInt>
+  computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                            bool *SignedOverflow = nullptr);
 #endif // INTEL_CUSTOMIZATION
-=======
-  std::optional<APInt> computeConstantDifference(const SCEV *LHS,
-                                                 const SCEV *RHS);
->>>>>>> ea6ed399b29c25fb685af16eb7f722fd1649b37a
 
   /// Update no-wrap flags of an AddRec. This may drop the cached info about
   /// this AddRec (such as range info) in case if new flags may potentially

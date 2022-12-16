@@ -10158,7 +10158,6 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
   return computeExitCountExhaustively(L, ExitCond, ExitIfTrue);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns true if IV being the max signed/unsigned value of its type results
 /// in undefined behavior.
@@ -10186,10 +10185,7 @@ static bool isIVMaxValUB(const SCEV *IV, ICmpInst::Predicate Pred,
 }
 #endif // INTEL_CUSTOMIZATION
 
-Optional<ScalarEvolution::ExitLimit>
-=======
 std::optional<ScalarEvolution::ExitLimit>
->>>>>>> ea6ed399b29c25fb685af16eb7f722fd1649b37a
 ScalarEvolution::computeExitLimitFromCondFromBinOp(
     ExitLimitCacheTy &Cache, const Loop *L, Value *ExitCond, bool ExitIfTrue,
     bool ControlsExit, bool AllowPredicates) {
@@ -13118,8 +13114,8 @@ public:
       return ZExt;
 
     bool SignedOverflow = false;
-    Optional<APInt> Diff = SE.computeConstantDifference(AddOp, NonNegativeExpr,
-                                                        &SignedOverflow);
+    std::optional<APInt> Diff =
+        SE.computeConstantDifference(AddOp, NonNegativeExpr, &SignedOverflow);
 
     if (!Diff || !Diff->isNonNegative() || SignedOverflow)
       return ZExt;
@@ -13298,13 +13294,13 @@ static Optional<bool> isImpliedCondOperandsViaConstantDifference(
   //
   // This is because RHSDiff underflows to big positive number.
   bool SignedOverflow = false;
-  Optional<APInt> LHSDiff = SE.computeConstantDifference(
+  std::optional<APInt> LHSDiff = SE.computeConstantDifference(
       FoundLHS, LHS, IgnoreWraparound ? nullptr : &SignedOverflow);
 
   if (!LHSDiff || SignedOverflow)
     return None;
 
-  Optional<APInt> RHSDiff = SE.computeConstantDifference(
+  std::optional<APInt> RHSDiff = SE.computeConstantDifference(
       FoundRHS, RHS, IgnoreWraparound ? nullptr : &SignedOverflow);
 
   if (!RHSDiff || SignedOverflow)
@@ -13703,17 +13699,11 @@ bool ScalarEvolution::splitBinaryAdd(const SCEV *Expr,
   return true;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-Optional<APInt>
-ScalarEvolution::computeConstantDifference(const SCEV *More,
-                                           const SCEV *Less,
+std::optional<APInt>
+ScalarEvolution::computeConstantDifference(const SCEV *More, const SCEV *Less,
                                            bool *SignedOverflow) {
 #endif // INTEL_CUSTOMIZATION
-=======
-std::optional<APInt>
-ScalarEvolution::computeConstantDifference(const SCEV *More, const SCEV *Less) {
->>>>>>> ea6ed399b29c25fb685af16eb7f722fd1649b37a
   // We avoid subtracting expressions here because this function is usually
   // fairly deep in the call stack (i.e. is called many times).
 

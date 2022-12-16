@@ -86,7 +86,8 @@ Optional<bool> HIRCleanup::isImpliedUsingSCEVAnalysis(Value *Cond) {
   auto *LHS = SE.getSCEV(ICmp->getOperand(0));
   auto *RHS = SE.getSCEV(ICmp->getOperand(1));
 
-  return SE.evaluatePredicateAt(CmpInst::ICMP_EQ, LHS, RHS, ICmp);
+  return Optional<bool>(
+      *SE.evaluatePredicateAt(CmpInst::ICMP_EQ, LHS, RHS, ICmp));
 }
 
 // Replaces HLIfs which can be proven to be true/false using ValueTracking's
