@@ -22,8 +22,6 @@
 //
 //===---------------------------------------------------------------------===//
 
-#if __cplusplus >= 201703L
-
 #ifndef _SYCL_SPAN
 #define _SYCL_SPAN
 
@@ -652,5 +650,3 @@ span(const _Container &) -> span<const typename _Container::value_type>;
 } // namespace sycl
 
 #endif // _SYCL_SPAN
-
-#endif // __cplusplus >= 201703L
