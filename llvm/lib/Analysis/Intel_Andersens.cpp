@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -52,7 +52,7 @@
 // equivalences.  Pointer equivalences are those pointers that will have the
 // same points-to sets, and location equivalences are those variables that
 // always appear together in points-to sets.  It also includes an offline
-// cycle detection algorithm that allows cycles to be collapsed sooner 
+// cycle detection algorithm that allows cycles to be collapsed sooner
 // during solving.
 //
 // The inclusion constraint solving phase iteratively propagates the inclusion
@@ -534,171 +534,57 @@ static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
   return true;
 }
 
-// Return true if the type of a function pointer (FPType) matches with
-// the type of the target (TargetType). What we are looking here is for
-// types that aren't exactly the same with the indirect call but they
-// match. For example:
+// Checks 'CallTy' and 'TargetTy' are isomorphic types by treating pointers
+// as opaque pointers.
 //
-//   %struct.A =    { {}*, i32 }
-//   %struct.A.01 = { %struct.A.01 (i32)*, i32 }
+// Ex: "i32 (%struct.A*)*" and "i32 (%struct.B*)*" are considered as
+// isomorphic types with opaque pointers by treating %struct.A* and
+// %struct.B* are same type.
 //
-// Type %struct.A is composed by an empty structure and an i32, while
-// %struct.A.01 is a function pointer and an i32. The clang CFE sometimes
-// use an empty structure to represent a function pointer. This is a case
-// when the structures aren't equal, but they match because we will assume
-// that the empty structure is the same as a function pointer. We use the
-// same assumption during DTrans analysis.
-bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
-    DenseSet<std::pair<Type *, Type *>> &TypesUsed) {
-
-  // Return true if the input type is an empty structure.
-  auto IsEmptyStructure = [](Type *InType) {
-    return InType->isStructTy() && InType->getStructNumElements() == 0;
-  };
-
-  // Types match
-  if (FPType == TargetType)
+bool AndersensAAResult::areTypesIsomorphicWithOpaquePtrs(Type *CallTy,
+                                                         Type *TargetTy) {
+  if (CallTy == TargetTy)
     return true;
 
-  // If the types were checked before then assume that it is OK.
-  if (!TypesUsed.insert(std::make_pair(FPType, TargetType)).second) {
+  if (CallTy->getTypeID() != TargetTy->getTypeID())
+    return false;
+
+  if (TargetTy->getNumContainedTypes() != CallTy->getNumContainedTypes())
+    return false;
+
+  // Sizes are not same if CallTy/TargetTy is IntegerType.
+  if (isa<IntegerType>(CallTy))
+    return false;
+
+  if (PointerType *PT = dyn_cast<PointerType>(CallTy)) {
+    if (PT->getAddressSpace() != cast<PointerType>(TargetTy)->getAddressSpace())
+      return false;
+
+    // Treat pointers as opaque pointers.
     return true;
+  } else if (FunctionType *FT = dyn_cast<FunctionType>(CallTy)) {
+    if (FT->isVarArg() != cast<FunctionType>(TargetTy)->isVarArg())
+      return false;
+  } else if (StructType *DSTy = dyn_cast<StructType>(CallTy)) {
+    StructType *SSTy = cast<StructType>(TargetTy);
+    if (DSTy->isLiteral() != SSTy->isLiteral() ||
+        DSTy->isPacked() != SSTy->isPacked())
+      return false;
+  } else if (auto *DArrTy = dyn_cast<ArrayType>(CallTy)) {
+    if (DArrTy->getNumElements() != cast<ArrayType>(TargetTy)->getNumElements())
+      return false;
+  } else if (auto *DVecTy = dyn_cast<VectorType>(CallTy)) {
+    if (DVecTy->getElementCount() !=
+        cast<VectorType>(TargetTy)->getElementCount())
+      return false;
   }
 
-  // Check for pointer types
-  if (PointerType *FPPtr = dyn_cast<PointerType>(FPType)) {
+  for (unsigned I = 0, E = TargetTy->getNumContainedTypes(); I != E; ++I)
+    if (!areTypesIsomorphicWithOpaquePtrs(CallTy->getContainedType(I),
+                                          TargetTy->getContainedType(I)))
+      return false;
 
-    // Get the type that is being pointed to
-    if (PointerType *TargetPtr = dyn_cast<PointerType>(TargetType))
-      return isSimilarType(FPPtr->getElementType(),
-          TargetPtr->getElementType(), TypesUsed);
-
-    // Pointer type mismatch
-    return false;
-  }
-
-  // Check for function types
-  if (FunctionType *FPFunc = dyn_cast<FunctionType>(FPType)) {
-
-    // Target is a function type
-    if (FunctionType *TargetFunc = dyn_cast<FunctionType>(TargetType)) {
-
-      // Make sure the parameters match. If they don't match with a
-      // quick check then verify entry by entry.
-      if (FPFunc->params() != TargetFunc->params()) {
-        unsigned FPNumParams = FPFunc->getNumParams();
-        unsigned CurrParam = 0;
-
-        if (FPNumParams != TargetFunc->getNumParams())
-          return false;
-
-        // Check that the parameters match
-        for (CurrParam = 0; CurrParam < FPNumParams; CurrParam++) {
-          if (!isSimilarType(FPFunc->getParamType(CurrParam),
-                          TargetFunc->getParamType(CurrParam), TypesUsed))
-            return false;
-        }
-      }
-      // Check the return type
-      return isSimilarType(FPFunc->getReturnType(), TargetFunc->getReturnType(),
-          TypesUsed);
-    }
-
-    // Clang CFE can sometimes emit empty structures to represent function
-    // pointers. We will go conservative and assume that this will be a
-    // possible target.
-    else if (IsEmptyStructure(TargetType)) {
-      return true;
-    }
-
-    // Function type mismatch
-    return false;
-  }
-
-  // Check for structure types
-  if (StructType *FPStruct = dyn_cast<StructType>(FPType)) {
-
-    // The target is also a structure
-    if (StructType *TargetStruct = dyn_cast<StructType>(TargetType)) {
-
-      // Do a quick check if both are identical
-      if (FPStruct->isLayoutIdentical(TargetStruct))
-        return true;
-
-      unsigned FPNumElems = FPStruct->getNumElements();
-      unsigned CurrElem = 0;
-
-      // Number of elements mismatch
-      if (FPNumElems != TargetStruct->getNumElements())
-        return false;
-
-      // Go through each field of the structures and compare them
-      for (CurrElem = 0; CurrElem < FPNumElems; CurrElem++){
-
-        Type *FPElemType = FPStruct->getElementType(CurrElem);
-        Type *TargetElemType = TargetStruct->getElementType(CurrElem);
-
-        if (!isSimilarType(FPElemType, TargetElemType, TypesUsed))
-          return false;
-      }
-      // Structure type matches
-      return true;
-    }
-
-    // Clang CFE can sometimes emit empty structures to represent function
-    // pointers. We will go conservative and assume that this will be a
-    // possible target.
-    else if (IsEmptyStructure(FPType) && TargetType->isFunctionTy()) {
-      return true;
-    }
-
-    // Struct type mismatch
-    return false;
-  }
-
-  // Array and vector types are Sequential types
-  if (isa<FixedVectorType, ArrayType>(FPType)) {
-    // The target is also sequential type
-    if (isa<FixedVectorType, ArrayType>(TargetType)) {
-      // If the function pointer is array type, then the target must
-      // be array type. Also, if the function pointer is vector type
-      // then the target must be vector type.
-      if ((FPType->isArrayTy() && !TargetType->isArrayTy()) ||
-          (FPType->isVectorTy() && !TargetType->isVectorTy()))
-        return false;
-
-      // Handle the bit width from the vector type
-      if (auto *FPVector = dyn_cast<FixedVectorType>(FPType)) {
-        // We can use cast because we proved that the function pointer
-        // and the target are vector types
-        auto *TargetVector = cast<FixedVectorType>(TargetType);
-        if (FPVector->getPrimitiveSizeInBits() !=
-            TargetVector->getPrimitiveSizeInBits())
-          return false;
-
-        // Check that the number of elements and their types match
-        if (FPVector->getNumElements() != TargetVector->getNumElements())
-          return false;
-        return isSimilarType(FPVector->getElementType(),
-                             TargetVector->getElementType(), TypesUsed);
-      }
-
-      ArrayType *FPArray = cast<ArrayType>(FPType);
-      ArrayType *TargetArray = cast<ArrayType>(TargetType);
-
-      // Check that the number of elements and their types match
-      if (FPArray->getNumElements() != TargetArray->getNumElements())
-        return false;
-      return isSimilarType(FPArray->getElementType(),
-                           TargetArray->getElementType(), TypesUsed);
-    }
-
-    // Sequential type mismatch
-    return false;
-  }
-
-  // Type mismatch
-  return false;
+  return true;
 }
 
 // Interface routine to get possible targets of given function pointer 'FP'.
@@ -775,12 +661,12 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // Add it to the Target list only if signatures of call and possible
     // target do match. This behavior is different from icc. For icc, unsafe
     // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
-    // to the Target list. 
-    DenseSet<std::pair<Type *, Type *>> TypesUsed;
+    // to the Target list.
     if (FP->getType() == V->getType()) {
       Targets.push_back(V);
-    }
-    else {
+    } else if (FP->getType()->getContext().supportsTypedPointers()) {
+      Type *CallTy = Call->getFunctionType();
+      Type *TargetTy = cast<Function>(V)->getFunctionType();
       bool TypeComputed = false;
       // If there is a chance that the types are similar, then it means
       // that we don't have a complete set. V can be a possible target
@@ -789,21 +675,20 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
       // A set will be marked as partially complete only if it is complete.
       // If the previous checks found that the set is incomplete, then that
       // result can't be reverted.
-      if (IsComplete == AndersenSetResult::Complete
-          && isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
+      if (IsComplete == AndersenSetResult::Complete &&
+          areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
         IsComplete = AndersenSetResult::PartiallyComplete;
         TypeComputed = true;
       }
 
       if (Trace) {
         if (TypeComputed ||
-            isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
-          dbgs() << "    Types might be similar: Ignoring " <<
-                        cast<Function>(V)->getName() << "\n";
-        }
-        else {
-          dbgs() << "    Args mismatch: Ignoring " <<
-                        cast<Function>(V)->getName() << "\n";
+            areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
+          dbgs() << "    Types might be similar: Ignoring "
+                 << cast<Function>(V)->getName() << "\n";
+        } else {
+          dbgs() << "    Args mismatch: Ignoring "
+                 << cast<Function>(V)->getName() << "\n";
         }
       }
     }
