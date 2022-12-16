@@ -48,6 +48,10 @@ public:
   /// @brief dtor does nothing
   virtual ~XMLBufferContainerListReader() {}
 
+  XMLBufferContainerListReader(const XMLBufferContainerListReader &) = delete;
+  XMLBufferContainerListReader &
+  operator=(const XMLBufferContainerListReader &) = delete;
+
   /// @brief read data to IBufferContainerList object from XML node
   /// @param [INOUT] - pContainer pointer to object with
   ///        IBufferContainerList interface
@@ -80,11 +84,6 @@ public:
   }
 
 private:
-  /// hide copy constructor
-  XMLBufferContainerListReader(const XMLBufferContainerListReader &)
-      : IDataReader() {}
-  /// hide assignment operator
-  void operator=(const XMLBufferContainerListReader &) {}
   /// file name
   const std::string m_fileName;
 };

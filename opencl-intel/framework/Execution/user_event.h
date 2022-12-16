@@ -26,6 +26,9 @@ class UserEvent : public OclEvent {
 public:
   PREPARE_SHARED_PTR(UserEvent)
 
+  UserEvent(const UserEvent &) = delete;
+  UserEvent &operator=(const UserEvent &) = delete;
+
   static SharedPtr<UserEvent> Allocate(_cl_context_int *context) {
     return SharedPtr<UserEvent>(new UserEvent(context));
   }
@@ -43,10 +46,6 @@ protected:
   UserEvent(_cl_context_int *context);
 
   virtual ~UserEvent();
-
-  // A UserEvent object cannot be copied
-  UserEvent(const UserEvent &);            // copy constructor
-  UserEvent &operator=(const UserEvent &); // assignment operator
 };
 
 } // namespace Framework

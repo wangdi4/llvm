@@ -50,6 +50,9 @@ public:
   OclThread(std::string name = "", bool bAutoDelete = false);
   virtual ~OclThread();
 
+  OclThread(const OclThread &) = delete;
+  OclThread &operator=(const OclThread &) = delete;
+
   virtual int Start();
   virtual int Join();
   virtual int WaitForCompletion();
@@ -81,11 +84,6 @@ protected:
   AtomicCounter m_numWaiters;
   bool m_bAutoDelete;
   std::string m_Name;
-
-private:
-  // A thread object cannot be copied
-  OclThread(const OclThread &);            // copy constructor
-  OclThread &operator=(const OclThread &); // assignment operator
 };
 
 } // namespace Utils

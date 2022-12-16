@@ -46,6 +46,9 @@ public:
   OclSocket();
   ~OclSocket();
 
+  OclSocket(const OclSocket &) = delete;
+  OclSocket &operator=(const OclSocket &) = delete;
+
   // Server socket initialization
   //
   void bind(char const *IPv4Addr, unsigned short port);
@@ -94,11 +97,6 @@ private:
 
   struct OclSocketImpl;
   std::unique_ptr<OclSocketImpl> d;
-
-private:
-  // Disallow copying
-  OclSocket(const OclSocket &);
-  OclSocket &operator=(const OclSocket &);
 };
 
 #endif // OCLSOCKET_H

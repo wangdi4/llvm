@@ -42,6 +42,9 @@ public:
     }
   }
 
+  BufferContainerList(const BufferContainerList &) = delete;
+  BufferContainerList &operator=(BufferContainerList &) = delete;
+
   virtual std::size_t GetBufferContainerCount() const override {
     return m_BCV.size();
   }
@@ -72,11 +75,6 @@ public:
   }
 
 private:
-  /// hide copy constructor
-  BufferContainerList(const BufferContainerList &) : IBufferContainerList() {}
-  /// hide assignment operator
-  void operator=(BufferContainerList &) {}
-
   typedef std::vector<BufferContainer *> BufferContainerVector;
   /// List of buffers
   BufferContainerVector m_BCV;

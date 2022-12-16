@@ -100,6 +100,10 @@ public:
 
   /// @brief dtor does nothing
   virtual ~XMLBufferContainerListReadWrite() {}
+
+  XMLBufferContainerListReadWrite &
+  operator=(const XMLBufferContainerListReadWrite &) = delete;
+
   /// const defining floating point representation precision of stringstream
   /// used for saving FP data
   static const int32_t StreamPrecision;
@@ -125,8 +129,6 @@ private:
   /// hide copy constructor
   XMLBufferContainerListReadWrite(const XMLBufferContainerListReadWrite &)
       : IXMLReadWriteBase() {}
-  /// hide assignment operator
-  void operator=(const XMLBufferContainerListReadWrite &) {}
 };
 
 } // namespace Validation

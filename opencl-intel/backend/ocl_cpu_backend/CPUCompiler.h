@@ -43,9 +43,8 @@ public:
   CPUCompiler(const ICompilerConfig &pConfig);
   virtual ~CPUCompiler();
 
-  // Disable the copy ctor and assignment operator
   CPUCompiler(const CPUCompiler &) = delete;
-  bool operator=(const CPUCompiler &) = delete;
+  CPUCompiler &operator=(const CPUCompiler &) = delete;
 
   // Create execution engine for the given module
   // Execution engine depends on module configuration

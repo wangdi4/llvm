@@ -63,6 +63,9 @@ public:
   /// @brief Destructor
   virtual ~RunResult(void);
 
+  RunResult(const RunResult &) = delete;
+  RunResult &operator=(const RunResult &) = delete;
+
   /// @brief Returns test execution output
   /// @return Test output
   virtual IBufferContainerList &GetOutput(const char *name) override;
@@ -97,11 +100,6 @@ public:
   virtual size_t GetOutputsCount() const override;
 
 private:
-  /// hide copy constructor
-  RunResult(const RunResult &);
-  /// hide assignment operator
-  void operator=(RunResult &);
-
   typedef std::map<std::string, BufferContainerList *> OutputsMap;
   /// @brief Output buffers
   OutputsMap m_refOutputs;

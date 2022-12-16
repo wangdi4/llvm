@@ -113,10 +113,7 @@ public:
   virtual void Lock() = 0;
   virtual void Unlock() = 0;
   virtual ~IMutex() {}
-
-private:
-  // Disallow copying
-  IMutex(const IMutex &) {}
+  IMutex(const IMutex &) = delete;
 };
 
 /************************************************************************

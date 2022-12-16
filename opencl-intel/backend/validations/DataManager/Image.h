@@ -33,6 +33,9 @@ public:
 
   virtual ~Image();
 
+  Image(const Image &) = delete;
+  Image &operator=(const Image &) = delete;
+
   virtual void *GetDataPtr() const override { return (void *)m_data; }
 
   virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
@@ -46,12 +49,6 @@ public:
   void Accept(IContainerVisitor &visitor) const override;
 
 private:
-  /// hide copy constructor
-  Image(const Image &) : IMemoryObject(), m_desc() {}
-
-  /// hide assignment operator
-  void operator=(Image &) {}
-
   /// @brief Allocates memory for image's data using existing buffer
   /// description values
   void AllocateMemoryForData();

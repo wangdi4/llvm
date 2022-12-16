@@ -87,6 +87,9 @@ public:
 
   virtual ~Kernel();
 
+  Kernel(const Kernel &) = delete;
+  Kernel &operator=(const Kernel &) = delete;
+
   /*
    * ICLDevBackendKernel interface implementation
    */
@@ -358,9 +361,6 @@ protected:
 private:
   // Minimum alignment in bytes for Kernel Uniform Args
   static const unsigned MinRequiredKernelArgAlignment = 8;
-  // Disable copy ctor and assignment operator
-  Kernel(const Kernel &);
-  bool operator=(const Kernel &);
 
 protected:
 #ifdef OCL_DEV_BACKEND_PLUGINS

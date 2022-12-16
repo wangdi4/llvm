@@ -43,6 +43,9 @@ public:
   EventsManager();
   virtual ~EventsManager();
 
+  EventsManager(const EventsManager &) = delete;
+  EventsManager &operator=(const EventsManager &) = delete;
+
   // OpenCL API Event related functions
   cl_err_code RetainEvent(cl_event event);
   cl_err_code ReleaseEvent(cl_event event);
@@ -123,10 +126,6 @@ private:
   private:
     std::list<SharedPtr<EventClass>> &m_out_list;
   };
-
-  // An EventManger object cannot be copied
-  EventsManager(const EventsManager &);            // copy constructor
-  EventsManager &operator=(const EventsManager &); // assignment operator
 };
 
 } // namespace Framework

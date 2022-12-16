@@ -32,6 +32,9 @@ public:
   BufferContainer() {}
   /// dtor. Should be called only by BufferContainerList object
   virtual ~BufferContainer();
+  BufferContainer(const BufferContainer &) = delete;
+  BufferContainer &operator=(const BufferContainer &) = delete;
+
   std::size_t GetMemoryObjectCount() const override;
   IMemoryObject *GetMemoryObject(std::size_t buffId) const override;
   IMemoryObject *CreateBuffer(const BufferDesc &buffDesc) override;
@@ -40,10 +43,6 @@ public:
   void Accept(IContainerVisitor &visitor) const override;
 
 private:
-  /// hide copy constructor
-  BufferContainer(const BufferContainer &) : IBufferContainer() {}
-  /// hide assignment operator
-  void operator=(BufferContainer &) {}
   /// typedef for MemoryObjectList
   typedef std::vector<IMemoryObject *> MemoryObjectList;
   /// List of buffers

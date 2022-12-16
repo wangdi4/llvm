@@ -124,6 +124,8 @@ typedef enum {
 class OclEvent : public OCLObject<_cl_event_int>, public IEventObserver {
 public:
   OclEvent(_cl_context_int *context);
+  OclEvent(const OclEvent &) = delete;
+  OclEvent &operator=(const OclEvent &) = delete;
 
   PREPARE_SHARED_PTR(OclEvent)
 
@@ -212,10 +214,6 @@ protected:
   void WaitSpin();
   void WaitYield();
   void WaitOSEvent();
-
-  // An OclEvent object cannot be copied
-  OclEvent(const OclEvent &);            // copy constructor
-  OclEvent &operator=(const OclEvent &); // assignment operator
 
   // typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<IEventObserver*>
   // ObserversQ_t;
