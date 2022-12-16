@@ -70,13 +70,8 @@ struct BCDumpOptions {
 class BitcodeAnalyzer {
   BitstreamCursor Stream;
   BitstreamBlockInfo BlockInfo;
-<<<<<<< HEAD
-  CurStreamTypeType CurStreamType;
-  std::optional<BitstreamCursor> BlockInfoStream;
-=======
   CurStreamTypeType CurStreamType = UnknownBitstream; // INTEL
-  Optional<BitstreamCursor> BlockInfoStream;
->>>>>>> abcf93c7b19397f4d939b6c7e77a7bd0da3a262a
+  std::optional<BitstreamCursor> BlockInfoStream;
   unsigned NumTopBlocks = 0;
 
   struct PerRecordStats {
