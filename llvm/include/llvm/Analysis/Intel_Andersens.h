@@ -486,6 +486,8 @@ class AndersensAAResult : public AAResultBase,
 public:
   AndersensAAResult(AndersensAAResult &&Arg);
   ~AndersensAAResult();
+  AndersensAAResult(const AndersensAAResult &) = delete;
+  AndersensAAResult &operator=(const AndersensAAResult &) = delete;
 
   enum AndersenSetResult {
     Complete,                // All targets have the same type
