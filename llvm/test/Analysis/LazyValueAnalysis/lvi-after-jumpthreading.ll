@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-; RUN: opt < %s -jump-threading -jump-thread-loop-header=false -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s ;INTEL
-; RUN: opt < %s -passes=jump-threading -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
-=======
-; RUN: opt -temporarily-allow-old-pass-syntax < %s -jump-threading -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
+; RUN: opt -temporarily-allow-old-pass-syntax < %s -jump-threading -jump-thread-loop-header=false -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s ;INTEL
 ; RUN: opt -temporarily-allow-old-pass-syntax < %s -passes=jump-threading -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
->>>>>>> de787f5994022a5cf24c286963975a4a6542a779
 
 ; Testing LVI cache after jump-threading
 
