@@ -633,9 +633,7 @@ def OMP_Error : Directive<"error"> {
 def OMP_TaskWait : Directive<"taskwait"> {
   let allowedClauses = [
     VersionedClause<OMPC_Depend, 50>,
-#if INTEL_COLLAB
     VersionedClause<OMPC_NoWait, 51>,
-#endif // INTEL_COLLAB
   ];
 }
 def OMP_TaskGroup : Directive<"taskgroup"> {
