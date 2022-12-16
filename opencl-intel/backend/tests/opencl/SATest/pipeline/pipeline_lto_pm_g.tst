@@ -146,11 +146,11 @@
 
 ; CHECK:      Running pass: AddTLSGlobalsPass
 ; CHECK:      Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
 ; CHECK:      Running pass: BuiltinCallToInstPass

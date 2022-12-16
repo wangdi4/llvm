@@ -74,6 +74,8 @@
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running pass: AddTLSGlobalsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Invalidating analysis: SGSizeAnalysisPass
 ; CHECK:      Invalidating analysis: DataPerBarrierAnalysis
 ; CHECK:      Invalidating analysis: WIRelatedValueAnalysis
@@ -81,8 +83,6 @@
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: VerifierPass
