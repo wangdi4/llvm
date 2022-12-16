@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 //===- SROA.h - Scalar Replacement Of Aggregates ----------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -17,9 +16,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-=======
-﻿//===- SROA.h - Scalar Replacement Of Aggregates ----------------*- C++ -*-===//
->>>>>>> 5a4ceaa25fc2a8360634a15717760288c9ddc44d
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -36,17 +32,14 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_SROA_H
 #define LLVM_TRANSFORMS_SCALAR_SROA_H
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PointerIntPair.h"
->>>>>>> 5a4ceaa25fc2a8360634a15717760288c9ddc44d
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"

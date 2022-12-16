@@ -710,13 +710,9 @@ FUNCTION_PASS("sink", SinkingPass())
 FUNCTION_PASS("slp-vectorizer", SLPVectorizerPass())
 FUNCTION_PASS("slsr", StraightLineStrengthReducePass())
 FUNCTION_PASS("speculative-execution", SpeculativeExecutionPass())
-<<<<<<< HEAD
-FUNCTION_PASS("sroa", SROAPass())
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("std-container-opt", StdContainerOptPass())
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 5a4ceaa25fc2a8360634a15717760288c9ddc44d
 FUNCTION_PASS("strip-gc-relocates", StripGCRelocates())
 FUNCTION_PASS("structurizecfg", StructurizeCFGPass())
 FUNCTION_PASS("tailcallelim", TailCallElimPass())

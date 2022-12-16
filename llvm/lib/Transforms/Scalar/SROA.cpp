@@ -5197,14 +5197,10 @@ PreservedAnalyses SROAPass::runImpl(Function &F, DomTreeUpdater &RunDTU,
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-<<<<<<< HEAD
-  PA.preserveSet<CFGAnalyses>();
-  PA.preserve<WholeProgramAnalysis>(); // INTEL
-=======
   if (!CFGChanged)
     PA.preserveSet<CFGAnalyses>();
   PA.preserve<DominatorTreeAnalysis>();
->>>>>>> 5a4ceaa25fc2a8360634a15717760288c9ddc44d
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }
 
@@ -5259,13 +5255,9 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-<<<<<<< HEAD
     AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
-    AU.setPreservesCFG();
-=======
     AU.addPreserved<DominatorTreeWrapperPass>();
->>>>>>> 5a4ceaa25fc2a8360634a15717760288c9ddc44d
   }
 
   StringRef getPassName() const override { return "SROA"; }
@@ -5310,7 +5302,7 @@ public:
         // has problems with scheduling DominatorTree analysis. An attempt to
         // get it from the legacy pass manager triggers llvm_unreachable().
         DominatorTree DT(*F);
-        auto PA = SROAPass().runImpl(
+        auto PA = SROAPass(SROAOptions::ModifyCFG).runImpl(
             *F, DT,
             getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F));
         Changed |= !PA.areAllPreserved();
