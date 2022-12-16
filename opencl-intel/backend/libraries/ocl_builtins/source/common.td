@@ -45,7 +45,7 @@ let Types = common_types,
 defset list<OclBuiltin> common_all_type_builtins_with_general_vect_info = {
   def max_all_type : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
   def min_all_type : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, gentype:$y)>;
-} // defset common_builtins_with_general_vect_info
+} // defset common_all_type_builtins_with_general_vect_info
 
   def max_s_all_type : OclBuiltin<"max", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<common_scalar_types>;
   def min_s_all_type : OclBuiltin<"min", (outs gentype:$ret), (ins gentype:$x, sgentype:$y)>, Except<common_scalar_types>;
@@ -62,15 +62,25 @@ def : OclBuiltinImpl<degrees_f16, degrees_f16.Types, false, [{
   return 180 * M_1_PI_H * $Arg0VarName;
 }]>, SHARED;
 
+// !!! order of arguments in comparison is important. DO NOT CHANGE
+// Reason is fmax implement rely on max implement
+// and will affect how fmax NaN input is treated.
+// order should be "y < x ? y : x" sequence
+// fmax treats NaN differently in case NaN is in 1st argument or in 2nd argument
 foreach bi = [max_all_type, max_s_all_type] in {
   def : OclBuiltinImpl<bi, bi.Types, false, [{
-    return select($Arg0VarName, $Arg1VarName, ($Arg0igentype)($Arg1VarName > $Arg0VarName));
+    return select($Arg1VarName, $Arg0VarName, ($Arg0igentype)($Arg1VarName < $Arg0VarName));
   }]>, SHARED;
 }
 
+// !!! order of arguments in comparison is important. DO NOT CHANGE
+// Reason is fmin implement rely on min implement
+// and will affect how fmin NaN input is treated.
+// order should be "x < y ? x : y" sequence
+// fmin treats NaN differently in case NaN is in 1st argument or in 2nd argument
 foreach bi = [min_all_type, min_s_all_type] in {
   def : OclBuiltinImpl<bi, bi.Types, false, [{
-    return select($Arg0VarName, $Arg1VarName, ($Arg0igentype)($Arg1VarName < $Arg0VarName));
+    return select($Arg1VarName, $Arg0VarName, ($Arg0igentype)($Arg0VarName < $Arg1VarName));
   }]>, SHARED;
 }
 
