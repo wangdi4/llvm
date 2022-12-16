@@ -307,6 +307,29 @@ void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
 }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+static bool areDistinctLocations(const RegDDRef *MemRef1,
+                                 const RegDDRef *MemRef2) {
+  assert(MemRef1->getNumDimensions() == MemRef2->getNumDimensions() &&
+         "Number of dimensions don't match!");
+
+  unsigned NumDims = MemRef1->getNumDimensions();
+
+  for (unsigned I = 1; I <= NumDims; ++I) {
+    int64_t Const1 = 0, Const2 = 0;
+    if (MemRef1->getDimensionIndex(I)->isIntConstant(&Const1) &&
+        MemRef2->getDimensionIndex(I)->isIntConstant(&Const2) &&
+        (Const1 != Const2)) {
+      return true;
+    }
+
+    if (DDRefUtils::compareOffsets(MemRef1, MemRef2, I) != 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Returns true if there is an intervening load/store between \p StoreRef and \p
 // PostDomStoreRef which aliases with \p StoreRef. For example-
 //
@@ -416,18 +439,6 @@ static bool foundInterveningLoadOrStore(
         continue;
       }
 
-      // In case of different parent loops we consider any loads which fall into
-      // calculated lexical range as intervening as they can cause loop-carried
-      // dependency. We can still analyze stores and refs which are structurally
-      // loop-invariant.
-      if (InDifferentLoops && !StoreRef->isStructurallyInvariantAtLevel(1) &&
-          (IsFake || AliasingMemRef->isRval())) {
-
-        LLVM_DEBUG(dumpInterveningRefInfo(AliasingMemRef, StoreNode,
-                                          PostDomStoreNode));
-        return true;
-      }
-
       int64_t Distance;
       if (!DDRefUtils::getConstByteDistance(StoreRef, AliasingMemRef,
                                             &Distance)) {
@@ -468,6 +479,31 @@ static bool foundInterveningLoadOrStore(
         // StoreRef - (%A)[1]
         // AliasingMemRef - (i16*)(%A)[0]
         //
+        LLVM_DEBUG(dumpInterveningRefInfo(AliasingMemRef, StoreNode,
+                                          PostDomStoreNode));
+        return true;
+      }
+
+      // When StoreRef and PostDomStoreRef are in different parent loops
+      // checking constant distance is not enough. Unless we can prove that
+      // StoreRef and AliasingMemRef are always distinct locations we have to
+      // give up on possible loop-carried dependency. For example-
+      //
+      // DO i1 = 0, 10
+      //     = A[i1-1] // load used store's value
+      //   A[i1] =
+      // END DO
+      //
+      // DO i1 = 0, 10
+      //   A[i1] =
+      // END DO
+      //
+      // If store is structurally invariant in loopnest, constant distance
+      // implies distinct locations.
+      if (InDifferentLoops && AliasingMemRef->isRval() &&
+          !StoreRef->isStructurallyInvariantAtLevel(1) &&
+          !areDistinctLocations(StoreRef, AliasingMemRef)) {
+
         LLVM_DEBUG(dumpInterveningRefInfo(AliasingMemRef, StoreNode,
                                           PostDomStoreNode));
         return true;
@@ -858,6 +894,7 @@ removeDeadStore(HLDDNode *StoreNode,
 bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
     const RegDDRef *Ref) const {
   unsigned Symbase = Ref->getSymbase();
+  unsigned BaseIndex = Ref->getBasePtrBlobIndex();
 
   for (auto *AddressRef : AddressOfRefVec) {
     if (AddressRef->getSymbase() != Symbase) {
@@ -874,6 +911,15 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
 
     // Give up on non-call insts.
     if (!Call) {
+      // We can ignore copy insts which are defining the base ptr of the ref.
+      if ((Inst->isCopyInst() ||
+           isa<GetElementPtrInst>(Inst->getLLVMInstruction())) &&
+          (Inst->getLvalDDRef()->getSelfBlobIndex() == BaseIndex)) {
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "Base ptr alloca of ref: "; Ref->dump();
+                 dbgs() << "escapes in: "; Inst->dump());
       return true;
     }
 
@@ -887,6 +933,8 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
     for (auto *FakeRef :
          make_range(Inst->fake_ddref_begin(), Inst->fake_ddref_end())) {
       if (FakeRef->getSymbase() == Symbase) {
+        LLVM_DEBUG(dbgs() << "Base ptr alloca of ref: "; Ref->dump();
+                   dbgs() << "escapes in: "; Inst->dump());
         return true;
       }
     }
@@ -932,12 +980,16 @@ bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
   }
 
   if (!Region.containsAllUses(Alloca, true) || basePtrEscapesAnalysis(Ref)) {
+    LLVM_DEBUG(dbgs() << "Base ptr alloca of ref: "; Ref->dump();
+               dbgs() << "either escapes or is not local to region.\n");
     AllUsesInSingleRegion[Alloca] = false;
     return false;
   }
 
   AllUsesInSingleRegion[Alloca] = true;
 
+  LLVM_DEBUG(dbgs() << "Alloca: "; Alloca->printAsOperand(dbgs());
+             dbgs() << " identified as region local alloca\n");
   return true;
 }
 
