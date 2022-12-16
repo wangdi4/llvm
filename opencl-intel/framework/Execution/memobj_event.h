@@ -29,6 +29,9 @@ class MemoryObjectEvent : public OclEvent {
 public:
   PREPARE_SHARED_PTR(MemoryObjectEvent)
 
+  MemoryObjectEvent(const MemoryObjectEvent &) = delete;
+  MemoryObjectEvent &operator=(const MemoryObjectEvent &) = delete;
+
   static SharedPtr<MemoryObjectEvent>
   Allocate(IOCLDevMemoryObject **ppDevMemObj,
            SharedPtr<MemoryObject> pMemObject,
@@ -59,11 +62,6 @@ protected:
   IOCLDevMemoryObject **m_ppDevMemObj;
   SharedPtr<MemoryObject> m_pMemObject;
   SharedPtr<FissionableDevice> m_pDevice;
-
-  // A MemObjectEvent object cannot be copied
-  MemoryObjectEvent(const MemoryObjectEvent &); // copy constructor
-  MemoryObjectEvent &
-  operator=(const MemoryObjectEvent &); // assignment operator
 };
 
 } // namespace Framework

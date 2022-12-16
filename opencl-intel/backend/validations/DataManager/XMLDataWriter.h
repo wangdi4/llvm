@@ -45,6 +45,10 @@ public:
   /// dtor
   virtual ~XMLBufferContainerListWriter() {}
 
+  XMLBufferContainerListWriter(const XMLBufferContainerListWriter &) = delete;
+  XMLBufferContainerListWriter &
+  operator=(const XMLBufferContainerListWriter &) = delete;
+
   /// @brief write data from IBufferContainerList object to XML node
   /// @param [IN] - pContainer pointer to object with IBufferContainerList
   ///        interface
@@ -70,13 +74,6 @@ public:
 
     XMLDoc.SaveFile(m_fileName);
   };
-
-private:
-  /// hide copy constructor
-  XMLBufferContainerListWriter(const XMLBufferContainerListWriter &)
-      : IDataWriter() {}
-  /// hide assignment operator
-  void operator=(const XMLBufferContainerListWriter &) {}
 
 private:
   /// file name to write to

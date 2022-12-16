@@ -31,6 +31,10 @@ class CPUProgram : public Program {
 public:
   CPUProgram() : LLJITLogStream(LLJITLog) {}
   virtual ~CPUProgram();
+
+  CPUProgram(const CPUProgram &) = delete;
+  CPUProgram &operator=(const CPUProgram &) = delete;
+
   void SetBuiltinModule(
       llvm::SmallVector<llvm::Module *, 2> &bltnFuncList) override {
     m_bltnFuncList = bltnFuncList;
@@ -96,10 +100,6 @@ private:
   // Store log from LLJIT
   mutable llvm::raw_string_ostream LLJITLogStream;
   mutable std::string LLJITLog;
-
-  // Disable copy ctor and assignment operator
-  CPUProgram(const CPUProgram &);
-  bool operator=(const CPUProgram &);
 };
 
 } // namespace DeviceBackend

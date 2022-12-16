@@ -12,8 +12,6 @@
 #define INTEL_DPCPP_KERNEL_TRANSFORMS_SUBGROUP_EMULATION_SIZE_ANALYSIS_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 
 #include <map>
 #include <set>

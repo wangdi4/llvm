@@ -75,8 +75,6 @@ public:
   }
 
 private:
-  ///// Hide assignment operator for BufferAccessor
-  // VectorWidthWrapper & operator=(const VectorWidthWrapper &ba) {}
   /// VectorWidth value
   VectorWidth m_value;
 

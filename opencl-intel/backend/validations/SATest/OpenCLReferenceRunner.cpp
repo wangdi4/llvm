@@ -51,8 +51,8 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -139,6 +139,30 @@ OpenCLReferenceRunner::~OpenCLReferenceRunner(void) {
   m_ClMemObjScratchMemList.clear();
 }
 
+static void SplitFmuladdIntrinsic(Module &M) {
+  for (Function &F : M) {
+    SmallVector<Instruction *, 8> ToDelete;
+    for (auto &I : instructions(F)) {
+      auto *Intrin = dyn_cast<IntrinsicInst>(&I);
+      if (!Intrin || Intrin->getIntrinsicID() != Intrinsic::fmuladd)
+        continue;
+
+      Value *Mul0 = Intrin->getArgOperand(0);
+      Value *Mul1 = Intrin->getArgOperand(1);
+      Value *Add0 = Intrin->getArgOperand(2);
+      Instruction *MulResult =
+          BinaryOperator::CreateFMul(Mul0, Mul1, "splitfma", Intrin);
+      Instruction *AddResult =
+          BinaryOperator::CreateFAdd(MulResult, Add0, "splitfma", Intrin);
+      Intrin->replaceAllUsesWith(AddResult);
+      ToDelete.push_back(Intrin);
+    }
+
+    for (auto I : ToDelete)
+      I->eraseFromParent();
+  }
+}
+
 void OpenCLReferenceRunner::Run(IRunResult *runResult, const IProgram *program,
                                 const IProgramConfiguration *programConfig,
                                 const IRunComponentConfiguration *runConfig) {
@@ -154,15 +178,10 @@ void OpenCLReferenceRunner::Run(IRunResult *runResult, const IProgram *program,
   // if FP_CONTRACT is on, use fma in NEAT
   m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
 
-  llvm::legacy::PassManager PM;
-
   // As interpreter cannot lower "llvm.fmuladd.*" intrinsics, split to
   // "fmul + fadd"
-  if (m_bUseFmaNEAT) {
-    PM.add(createFMASplitterPass());
-  }
-
-  PM.run(*m_pModule);
+  if (m_bUseFmaNEAT)
+    SplitFmuladdIntrinsic(*m_pModule);
 
   for (OpenCLProgramConfiguration::KernelConfigList::const_iterator it =
            pProgramConfig->beginKernels();

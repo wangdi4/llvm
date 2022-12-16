@@ -10,6 +10,8 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddTLSGlobals.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
@@ -23,19 +25,17 @@ static cl::opt<bool, true> OptEnableTLSGlobals(
 
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, IAInfo))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserve<ImplicitArgsAnalysis>();
-  return PA;
-}
+  LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
 
-bool AddTLSGlobalsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
-  this->M = &M;
-  Ctx = &M.getContext();
+  bool HasLocalBuffer = llvm::any_of(M.functions(), [&](const Function &F) {
+    return F.isDeclaration() ? false : LBInfo->getDirectLocalsMap().count(&F);
+  });
 
   // Create TLS globals
   for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
+    if (I == ImplicitArgsUtils::IA_SLM_BUFFER && !HasLocalBuffer)
+      continue;
+
     // TODO handle name conflicts
     assert(!M.getGlobalVariable(ImplicitArgsUtils::getArgName(I)));
     Type *ArgType = IAInfo->getArgType(I);
@@ -44,23 +44,10 @@ bool AddTLSGlobalsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         UndefValue::get(ArgType), ImplicitArgsUtils::getArgName(I), nullptr,
         GlobalValue::GeneralDynamicTLSModel);
     GV->setAlignment(M.getDataLayout().getPreferredAlign(GV));
-    if (I == ImplicitArgsUtils::IA_SLM_BUFFER)
-      LocalMemBase = GV;
   }
 
-  // Collect all module functions that are not declarations for handling
-  SmallVector<Function *> FunctionsToHandle;
-  for (Function &Func : M) {
-    if (Func.isDeclaration()) {
-      // Function is not defined inside module
-      continue;
-    }
-    // No need to handle global ctors/dtors
-    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&Func))
-      continue;
-
-    FunctionsToHandle.push_back(&Func);
-  }
-
-  return true;
+  PreservedAnalyses PA;
+  PA.preserve<ImplicitArgsAnalysis>();
+  PA.preserve<LocalBufferAnalysis>();
+  return PA;
 }

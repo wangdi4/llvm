@@ -33,6 +33,8 @@ public:
 
   virtual ~Buffer();
 
+  Buffer &operator=(Buffer &) = delete;
+
   virtual void *GetDataPtr() const override { return (void *)m_data; }
 
   virtual const IMemoryObjectDesc *GetMemoryObjectDesc() const override {
@@ -49,9 +51,6 @@ private:
   /// hide copy constructor
   Buffer(const Buffer &)
       : IMemoryObject(), m_desc(0, INVALID_WIDTH, INVALID_DATA_TYPE, false) {}
-
-  /// hide assignment operator
-  void operator=(Buffer &) {}
 
   /// @brief Allocates memory for buffer's data using existing buffer
   /// description values
@@ -118,12 +117,11 @@ public:
     *dataPointer = newVal;
   }
 
+  BufferAccessor(const BufferAccessor &b) = delete;
+  BufferAccessor &operator=(const BufferAccessor &) = delete;
+
 private:
   const IMemoryObject &m_buf;
-  /// Hide assignment operator for BufferAccessor
-  BufferAccessor &operator=(const BufferAccessor &ba) {}
-  /// Hide copy constructor
-  BufferAccessor(const BufferAccessor &b) {}
   // pointer to data
   void *m_data;
   /// number of vector elements

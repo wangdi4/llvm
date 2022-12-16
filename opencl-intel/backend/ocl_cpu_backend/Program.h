@@ -50,6 +50,9 @@ public:
   Program();
   virtual ~Program();
 
+  Program(const Program &) = delete;
+  Program &operator=(const Program &) = delete;
+
   /**
    * @returns an unsigned long which represents the program id - this id is
    * unique per program - ; in case of failure 0 will be returned
@@ -297,11 +300,6 @@ protected:
   std::vector<std::string> m_globalDtors;
   // Whether the device code enabled clang profiling or gcov
   unsigned int m_codeProfilingStatus;
-
-private:
-  // Disable copy ctor and assignment operator
-  Program(const Program &);
-  bool operator=(const Program &);
 };
 } // namespace DeviceBackend
 } // namespace OpenCL

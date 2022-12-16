@@ -37,6 +37,9 @@ public:
   DebugCommunicator(unsigned short port);
   ~DebugCommunicator();
 
+  DebugCommunicator(const DebugCommunicator &) = delete;
+  DebugCommunicator &operator=(const DebugCommunicator &) = delete;
+
   enum State { NO_CLIENT, CLIENT_CONNECTED, TERMINATED };
 
   // Wait until the communicator starts listening on the port
@@ -103,11 +106,6 @@ private:
   // Event used to signal that a client has connected
   //
   OclBinarySemaphore m_connect_event;
-
-  // Disallow copying
-  //
-  DebugCommunicator(const DebugCommunicator &);
-  DebugCommunicator &operator=(const DebugCommunicator &);
 };
 
 #endif // DEBUG_COMMUNICATOR_H

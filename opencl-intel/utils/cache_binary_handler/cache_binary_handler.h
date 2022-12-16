@@ -37,6 +37,9 @@ public:
   CacheBinaryReader(const void *pBlob, size_t size);
   virtual ~CacheBinaryReader();
 
+  CacheBinaryReader(const CacheBinaryReader &) = delete;
+  CacheBinaryReader &operator=(const CacheBinaryReader &) = delete;
+
   static bool IsValidCacheObject(const void *pBlob, size_t size);
 
   bool IsCachedObject() const;
@@ -46,10 +49,6 @@ public:
   const CLElfLib::SElf64Header *GetElfHeader();
 
 private:
-  // Disable copy ctor and assignment operator
-  CacheBinaryReader(const CacheBinaryReader &);
-  bool operator=(const CacheBinaryReader &);
-
   static int GetSectionIndexByName(CLElfLib::CElfReader *pReader,
                                    std::string Name);
   CLElfLib::CElfReader *m_pReader;
@@ -59,16 +58,16 @@ class CacheBinaryWriter {
 public:
   CacheBinaryWriter(CLElfLib::E_EH_MACHINE machine, CLElfLib::E_EH_FLAGS flag);
   virtual ~CacheBinaryWriter();
+
+  CacheBinaryWriter(const CacheBinaryWriter &) = delete;
+  CacheBinaryWriter &operator=(const CacheBinaryWriter &) = delete;
+
   bool AddSection(const char *sectionName, const char *sectionData,
                   size_t sectionSize);
   size_t GetBinarySize() const;
   bool GetBinary(char *pBinary) const;
 
 private:
-  // Disable copy ctor and assignment operator
-  CacheBinaryWriter(const CacheBinaryWriter &);
-  bool operator=(const CacheBinaryWriter &);
-
   CLElfLib::CElfWriter *m_pWriter;
 };
 } // namespace ELFUtils

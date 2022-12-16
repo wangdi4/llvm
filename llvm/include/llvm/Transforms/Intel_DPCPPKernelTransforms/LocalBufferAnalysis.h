@@ -13,7 +13,6 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 class LocalBufferInfoImpl;

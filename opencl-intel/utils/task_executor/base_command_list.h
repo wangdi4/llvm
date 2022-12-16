@@ -109,7 +109,7 @@ public:
 
   ~base_command_list();
 
-  // Delete assignment operator
+  base_command_list(const base_command_list &l) = delete;
   base_command_list &operator=(const base_command_list &) = delete;
   base_command_list &operator=(base_command_list &&) = delete;
 
@@ -218,10 +218,6 @@ protected:
   TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
   volatile bool m_bCanceled;
-
-private:
-  // Disallow copy constructor
-  base_command_list(const base_command_list &l);
 };
 
 class in_order_command_list : public base_command_list {

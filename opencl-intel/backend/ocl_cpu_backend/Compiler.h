@@ -150,6 +150,9 @@ public:
   Compiler(const ICompilerConfig &config);
   virtual ~Compiler();
 
+  Compiler(const Compiler &) = delete;
+  Compiler &operator=(const Compiler &) = delete;
+
   /**
    * Initializes the LLVM environment.
    * Must be called from single threaded environment, before any
@@ -255,9 +258,6 @@ protected:
   static bool s_globalStateInitialized;
 
 private:
-  // Disable copy ctor and assignment operator
-  Compiler(const Compiler &);
-  bool operator=(const Compiler &);
   // Validate if the vectorized mode is supported by a target arch.
   // If not then issue an error and interrupt the compilation.
   void validateVectorizerMode(llvm::raw_ostream &log) const;

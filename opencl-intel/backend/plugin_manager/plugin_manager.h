@@ -63,6 +63,9 @@ public:
   ~PluginManager();
   PluginManager();
 
+  PluginManager(const PluginManager &) = delete;
+  PluginManager &operator=(const PluginManager &) = delete;
+
   /////////////////////////////////////////////////
   // Description:
   //   invoked by the OCL Backend, when the runtime initializes an NDRange.
@@ -120,9 +123,6 @@ private:
   PluginsList m_listPlugins;
   // Initialization state;
   bool m_bInitialized;
-  // don't allow Copy constructor and assignment operator
-  PluginManager(const PluginManager &);
-  PluginManager &operator=(const PluginManager &);
 }; // end class PluginManager
 } // namespace OpenCL
 } // namespace Intel

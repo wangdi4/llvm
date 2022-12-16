@@ -383,6 +383,9 @@ private:
   public:
     PREPARE_SHARED_PTR(DataCopyEvent)
 
+    DataCopyEvent(const DataCopyEvent &) = delete;
+    DataCopyEvent &operator=(const DataCopyEvent &) = delete;
+
     static SharedPtr<DataCopyEvent> Allocate(_cl_context_int *context) {
       return new GenericMemObject::DataCopyEvent(context);
     }
@@ -399,11 +402,6 @@ private:
     };
 
     virtual ~DataCopyEvent(){};
-
-  private:
-    // A MemObjectEvent object cannot be copied
-    DataCopyEvent(const DataCopyEvent &);            // copy constructor
-    DataCopyEvent &operator=(const DataCopyEvent &); // assignment operator
   };
 
   //
@@ -413,6 +411,9 @@ private:
   class DataCopyJointEvent : public DataCopyEvent {
   public:
     PREPARE_SHARED_PTR(DataCopyJointEvent)
+
+    DataCopyJointEvent(const DataCopyJointEvent &) = delete;
+    DataCopyJointEvent &operator=(const DataCopyJointEvent &) = delete;
 
     static SharedPtr<DataCopyJointEvent>
     Allocate(_cl_context_int *context, unsigned int destDevSharingGroupId,
@@ -503,11 +504,6 @@ private:
           m_pOutEvent(pOutEvent){};
 
     virtual ~DataCopyJointEvent(){};
-
-    // A MemObjectEvent object cannot be copied
-    DataCopyJointEvent(const DataCopyJointEvent &); // copy constructor
-    DataCopyJointEvent &
-    operator=(const DataCopyJointEvent &); // assignment operator
 
     unsigned int m_destDevSharingGroupId;
     MemObjUsage m_memoryUsage;

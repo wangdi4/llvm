@@ -230,6 +230,9 @@ public:
 
   ~ImageCallbackLibrary();
 
+  ImageCallbackLibrary(const ImageCallbackLibrary &) = delete;
+  ImageCallbackLibrary &operator=(const ImageCallbackLibrary &) = delete;
+
 private:
   /// Get the path to the builtin library
   std::string getLibraryBasename();
@@ -240,11 +243,6 @@ private:
   ImageCallbackFunctions *m_ImageFunctions;
   // Pointer to Compiler. Owned by this class.
   CPUCompiler *m_Compiler;
-
-private:
-  // Disable copy ctor and assignment operator
-  ImageCallbackLibrary(const ImageCallbackLibrary &);
-  bool operator=(const ImageCallbackLibrary &);
 };
 
 } // namespace DeviceBackend

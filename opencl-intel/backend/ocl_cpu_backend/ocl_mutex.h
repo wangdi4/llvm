@@ -18,10 +18,9 @@ public:
   virtual void Lock() = 0;
   virtual void Unlock() = 0;
   virtual ~IMutex() {}
+  IMutex(const IMutex &) = delete;
 
 private:
-  // Disallow copying
-  IMutex(const IMutex & /*im*/) {}
   void operator=(const IMutex &);
 };
 
