@@ -17,7 +17,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStructB) !intel.dtrans.f
   %field = getelementptr %struct.test01b, ptr %pStructA, i64 0, i32 1
   store i32 0, ptr %field
 
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pStructA, ptr %pStructB, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pStructA, ptr %pStructB, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -30,7 +30,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStructB) !intel.dtrans.f
 ; CHECK: Safety data: Ambiguous GEP | Ambiguous pointer target{{ *$}}
 ; CHECK: End LLVMType: %struct.test01b
 
-declare !intel.dtrans.func.type !6 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !6 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i64 0, i32 0}  ; i64

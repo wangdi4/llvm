@@ -27,7 +27,7 @@ no_mem1:
   br label %done
 
 good1:
-  call void @llvm.memset.p0i8.i64(ptr %ar1_mem, i8 0, i64 64, i1 false)
+  call void @llvm.memset.p0.i64(ptr %ar1_mem, i8 0, i64 64, i1 false)
 
   store ptr %ar1_mem, ptr %array_field_addr
   br label %done
@@ -118,7 +118,7 @@ define void @test01writers2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans
   %array_field_addr = getelementptr %struct.test01, ptr %in, i64 0, i32 1
   %array_begin = load ptr, ptr %array_field_addr
   %array_elem_addr = getelementptr i32, ptr %array_begin, i64 0
-  call void @llvm.memset.p0i8.i64(ptr %array_elem_addr, i8 0, i64 64, i1 false)
+  call void @llvm.memset.p0.i64(ptr %array_elem_addr, i8 0, i64 64, i1 false)
   ret void
 }
 
@@ -156,7 +156,7 @@ define i32 @main() {
 }
 
 declare !intel.dtrans.func.type !15 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
-declare !intel.dtrans.func.type !16 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !16 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

@@ -17,7 +17,7 @@ define internal void @test01(i32 %x) {
   %local = alloca %struct.test01
   %flat = bitcast ptr %local to ptr
   %pad_addr = getelementptr i8, ptr %flat, i32 6
-  call void @llvm.memset.p0i8.i64(ptr %pad_addr, i8 0, i64 6, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pad_addr, i8 0, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: void @test01
@@ -28,7 +28,7 @@ define internal void @test01(i32 %x) {
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ not-field ByteOffset: 6
 
-declare !intel.dtrans.func.type !4 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !4 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

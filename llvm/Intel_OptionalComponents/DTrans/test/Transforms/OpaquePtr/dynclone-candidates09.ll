@@ -92,12 +92,12 @@ entry:
   %call1 = tail call ptr @calloc(i64 10, i64 56)
   call void @proc1(ptr %call1);
   call void @proc2(ptr %call1);
-  call void @llvm.memset.p0i8.i64(ptr %call1, i8 0, i64 56, i1 false)
+  call void @llvm.memset.p0.i64(ptr %call1, i8 0, i64 56, i1 false)
   ret i32 0
 }
 
 declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
-declare !intel.dtrans.func.type !11 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 

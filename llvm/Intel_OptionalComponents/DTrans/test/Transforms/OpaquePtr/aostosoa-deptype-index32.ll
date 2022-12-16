@@ -29,7 +29,7 @@ define void @test01() {
   store ptr %p, ptr @dep_var
 
   ; Perform memfunc call on the depdendent structure type
-  call void @llvm.memset.p0i8.i64(ptr %p, i8 0, i64 240, i1 false)
+  call void @llvm.memset.p0.i64(ptr %p, i8 0, i64 240, i1 false)
 ; CHECK: call void @llvm.memset.p0.i64(ptr %p, i8 0, i64 120, i1 false)
 
   ; Perform byte-flattened GEP accesses on the dependent structure type.
@@ -66,7 +66,7 @@ define void @test01() {
 }
 
 declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1 immarg)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 

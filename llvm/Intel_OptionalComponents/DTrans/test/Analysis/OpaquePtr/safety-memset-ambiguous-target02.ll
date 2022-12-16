@@ -17,7 +17,7 @@ define void @test01() {
   %field = getelementptr %struct.test01b, ptr %pStructA, i64 0, i32 1
   store i32 0, ptr %field
 
-  call void @llvm.memset.p0i8.i64(ptr %pStructA, i8 1, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pStructA, i8 1, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -31,7 +31,7 @@ define void @test01() {
 ; CHECK: End LLVMType: %struct.test01b
 
 
-declare !intel.dtrans.func.type !4 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !4 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32

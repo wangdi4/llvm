@@ -30,24 +30,24 @@ other design concerns.
 ``Goals``
 ---------
 - **Orthogonal to debug information** Traceback must be able to operate
- independent of the presence of symbolic debugging information in an executable
- or shareable image.
+  independent of the presence of symbolic debugging information in an executable
+  or shareable image.
 - **Compactness** Traceback information should take up as little space in object
- and image files as possible.
+  and image files as possible.
 - **Platform support** Traceback must be supported on at least 32/64-bit
- Windows, Linux and MacOS(not supported yet).
+  Windows, Linux and MacOS(not supported yet).
 - **Platform independence** To reduce the burden of supporting multiple variants
- of the code that produces and interprets the traceback data, the data format
- should be as similar as possible between the various target platforms.
+  of the code that produces and interprets the traceback data, the data format
+  should be as similar as possible between the various target platforms.
 - **Source language independence** Traceback should be designed such that it can
- be used with programming languages other than Fortran.
+  be used with programming languages other than Fortran.
 
 ``Non-Goals``
 -------------
 - **Run-time performance** The primary purpose of Traceback is to provide a
- formatted call stack trace when a fatal application error occurs. Since the
- application usually will be terminating anyway, the time taken to produce the
- trace is not a critical concern.
+  formatted call stack trace when a fatal application error occurs. Since the
+  application usually will be terminating anyway, the time taken to produce the
+  trace is not a critical concern.
 
 ``Alternative Designs Considered``
 ----------------------------------
@@ -57,16 +57,17 @@ therefore, implement traceback by extracting the interesting data from the
 debug information of DWARF/CodeView in the case of a debug compilation.
 
 The **advantage** to this approach is:
+
 - Object file size savings for the "-traceback -g" case.
 
 The **disadvantages** are:
 
 - Loss of traceback information when debug information is stripped.
 - Verbosity. The DWARF line number information contains information not needed
- for traceback and is not as compact as it could be. Studies of some
- representative object modules show that the DWARF source correlation
- information is about 50% larger than the same information represented as
- documented below.
+  for traceback and is not as compact as it could be. Studies of some
+  representative object modules show that the DWARF source correlation
+  information is about 50% larger than the same information represented as
+  documented below.
 
 Use of stripped-down DWARF to represent traceback information was rejected
 because it was thought that the disadvantages outweigh the advantages.
@@ -95,20 +96,20 @@ The first record in the sequence must be a header (HDR) record. The header
 describes the properties of a contiguous set of traceback records:
 
 - The major and minor version ID of the traceback information format that this
- set of records conforms to. Any upward-compatible change to the format
- requires incrementing the minor ID. An incompatible change requires changing
- the major ID. Thus, a processor of traceback section data knows that it can
- understand the set of records covered by a HDR record if the major ID exactly
- matches that of the format it understands and the minor ID is less than or
- equal to that of the format it understands. Changes to the traceback format
- must not change the HDR record’s record type value, nor the position in a HDR
- record of the major ID, minor ID, and length fields.
+  set of records conforms to. Any upward-compatible change to the format
+  requires incrementing the minor ID. An incompatible change requires changing
+  the major ID. Thus, a processor of traceback section data knows that it can
+  understand the set of records covered by a HDR record if the major ID exactly
+  matches that of the format it understands and the minor ID is less than or
+  equal to that of the format it understands. Changes to the traceback format
+  must not change the HDR record’s record type value, nor the position in a HDR
+  record of the major ID, minor ID, and length fields.
 - The length in bytes of the set of records covered by the header.
 - The contiguous range of PC values used by the records covered by the header.
 - The module name (if any) associated with the records covered by the header.
 - The file specification strings referred to by other records covered by the
- header. The strings reside in the HDR record so that they need appear only
- once.
+  header. The strings reside in the HDR record so that they need appear only
+  once.
 
 A routine (RTNxx) record starts a set of records associated with a particular
 routine. It contains a starting PC value and a routine name.
@@ -130,8 +131,8 @@ interpreter follows these steps:
 1. Add the correlation’s line number delta to curline.
 
 2. Record the mapping: the PC range starting a curPC, and extending for the PC
- delta given in the correlation, maps to the routine, module, file and line
- number given by curroutine, curmodule, curfile, and curline.
+   delta given in the correlation, maps to the routine, module, file and line
+   number given by curroutine, curmodule, curfile, and curline.
 
 3. Add the PC delta given in the correlation to curPC.
 
@@ -220,18 +221,18 @@ fields are:
 
 - **Record type** (1 byte): always 0x0a
 - **Major ID value** (2 bytes): unsigned major ID value (always 2 for the format
- described here)
+  described here)
 - **Minor ID value** (1 byte): unsigned minor ID value (always 0 for the format
- described here)
+  described here)
 - **Length** (4 bytes): unsigned length in bytes of the records that this HDR
- record describes (including the length of the HDR record itself)
+  record describes (including the length of the HDR record itself)
 - **Base PC** (address): lowest PC value covered by this header
 - **File count** (4 bytes): unsigned number of file name strings
 - **Code length** (4 bytes): bytes of PC (starting at the base) covered by this
- header
+  header
 - **Module name**: a 2-byte unsigned length (in bytes) followed by the module
- name string itself. (always empty in current implementation) The string is not
- NUL-terminated. A length of 0 means that there is no module name.
+  name string itself. (always empty in current implementation) The string is not
+  NUL-terminated. A length of 0 means that there is no module name.
 
 **RTN32**—Set Routine (32-bit addresses). Sets new curroutine and curPC values.
 The record must be aligned on a 4-byte boundary.
@@ -240,9 +241,9 @@ The record must be aligned on a 4-byte boundary.
 - **Pad** (1 byte): always zero
 - **Routine name length** (2 bytes): unsigned length of the routine name field
 - **Start PC** (4 bytes): starting PC value for the routine. The interpreter
- sets curPC to this value.
+  sets curPC to this value.
 - **Routine name**: the name of the routine as a string that is not
- NUL-terminated. The interpreter sets curroutine to this value.
+  NUL-terminated. The interpreter sets curroutine to this value.
 
 **RTN64**—Set Routine (64-bit addresses). Sets new curroutine and curPC values.
 The record must be aligned on a 8-byte boundary.
@@ -251,15 +252,15 @@ The record must be aligned on a 8-byte boundary.
 - **Pad** (1 byte): always zero
 - **Routine name length** (2 bytes): unsigned length of the routine name field
 - **Start PC** (8 bytes): starting PC value for the routine. The interpreter
- sets curPC to this value.
+  sets curPC to this value.
 - **Routine name**: the name of the routine as a string that is not
- NUL-terminated. The interpreter sets curroutine to this value.
+  NUL-terminated. The interpreter sets curroutine to this value.
 
 **FIL**—Set File. Sets a new curfile value.
 
 - **Record type** (1 byte): always 0x03
 - **File index** (4 bytes): zero-based index into the list of files in the HDR
- record of the file string. The interpreter sets curfile to this value.
+  record of the file string. The interpreter sets curfile to this value.
 
 **LN1**—One-byte Line Delta.
 

@@ -16,7 +16,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
   %pFieldA = getelementptr %struct.test01, ptr %pStructA, i64 0, i32 0
   %pFieldB = getelementptr %struct.test01, ptr %pStructB, i64 0, i32 0
-  call void @llvm.memmove.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 12, i1 false)
+  call void @llvm.memmove.p0.p0.i64(ptr %pFieldA, ptr %pFieldB, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -34,7 +34,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
 ; Move that uses a multiple of the structure size, such as for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !7 {
-  call void @llvm.memmove.p0i8.p0i8.i64(ptr %pStruct1, ptr %pStruct2, i64 80, i1 false)
+  call void @llvm.memmove.p0.p0.i64(ptr %pStruct1, ptr %pStruct2, i64 80, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -49,7 +49,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct1, ptr "intel_dtra
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !9 void @llvm.memmove.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !9 void @llvm.memmove.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

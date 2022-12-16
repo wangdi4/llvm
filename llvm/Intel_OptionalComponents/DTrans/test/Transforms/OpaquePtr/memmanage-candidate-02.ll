@@ -229,7 +229,7 @@ entry:
   %m_memoryManager = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 0
   store ptr %theManager, ptr %m_memoryManager, align 8
   %m_listHead = getelementptr inbounds %"XalanList", ptr %this, i64 0, i32 1
-  call void @llvm.memset.p0i8.i64(ptr nonnull align 8 dereferenceable(16) %m_listHead, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr nonnull align 8 dereferenceable(16) %m_listHead, i8 0, i64 16, i1 false)
   ret void
 }
 
@@ -712,7 +712,7 @@ entry:
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare !intel.dtrans.func.type !111 void @llvm.memset.p0i8.i64(ptr nocapture "intel_dtrans_func_index"="1" writeonly, i8, i64, i1 immarg)
+declare !intel.dtrans.func.type !111 void @llvm.memset.p0.i64(ptr nocapture "intel_dtrans_func_index"="1" writeonly, i8, i64, i1 immarg)
 
 !1 = !{%"ReusableArenaAllocator" zeroinitializer, i32 0}  ; %"ReusableArenaAllocator"
 !2 = !{%"ArenaAllocator" zeroinitializer, i32 0}  ; %"ArenaAllocator"

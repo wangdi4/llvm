@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.test01 = type { i32, i32, i32, i32, i32 }
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 20, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -36,7 +36,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test02 = type { i32, i32, i32, i32, i32 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
   %pField = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 0
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 12, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -59,7 +59,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test03 = type { i32, i32, i32, i32, i32 }
 define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
   %pField = getelementptr %struct.test03, ptr %pStruct, i64 0, i32 0
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 40, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 40, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -72,7 +72,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test04 = type { i32, i32, i32, i32, i32 }
 define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
   %pField = getelementptr %struct.test04, ptr %pStruct, i64 0, i32 2
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -95,7 +95,7 @@ define void @test04(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test05 = type { i32, i32, i32, i32, i32 }
 define void @test05(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
   %pField = getelementptr %struct.test05, ptr %pStruct, i64 0, i32 2
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -108,7 +108,7 @@ define void @test05(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 %struct.test06 = type { i32, i32, i32, i32, i32 }
 define void @test06(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !13 {
   %pField = getelementptr %struct.test06, ptr %pStruct, i64 0, i32 2
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 6, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -117,7 +117,7 @@ define void @test06(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 ; CHECK: End LLVMType: %struct.test06
 
 
-declare !intel.dtrans.func.type !15 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !15 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

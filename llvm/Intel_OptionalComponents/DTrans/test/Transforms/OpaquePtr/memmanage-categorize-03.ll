@@ -148,9 +148,6 @@ define hidden void @__typeid__ZTSN11xalanc_1_1011XStringBaseE_64_branch_funnel(p
   ret void
 }
 
-; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare !intel.dtrans.func.type !56 void @llvm.memset.p0i8.i64(ptr nocapture "intel_dtrans_func_index"="1" writeonly, i8, i64, i1 immarg)
-
 declare !intel.dtrans.func.type !57 void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(ptr nonnull "intel_dtrans_func_index"="1", ptr nonnull "intel_dtrans_func_index"="2", ptr nonnull "intel_dtrans_func_index"="3" )
 
 declare !intel.dtrans.func.type !58 void @_ZN11xalanc_1_1013XStringCachedD2Ev(ptr nonnull "intel_dtrans_func_index"="1")

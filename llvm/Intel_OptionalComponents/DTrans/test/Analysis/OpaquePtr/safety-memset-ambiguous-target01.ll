@@ -15,7 +15,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
   %pField0 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 0
   %pField4 = getelementptr %struct.test01, ptr %pStruct, i64 0, i32 4
   %pField = select i1 undef, ptr %pField0, ptr %pField4
-  call void @llvm.memset.p0i8.i64(ptr %pField, i8 1, i64 20, i1  false)
+  call void @llvm.memset.p0.i64(ptr %pField, i8 1, i64 20, i1  false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -30,7 +30,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
   %pField0 = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 0
   %pField4 = getelementptr %struct.test02, ptr %pStruct, i64 0, i32 4
   %pStart = select i1 undef, ptr %pField0, ptr %pField4
-  call void @llvm.memset.p0i8.i64(ptr %pStart, i8 1, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pStart, i8 1, i64 20, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -39,7 +39,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.fu
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

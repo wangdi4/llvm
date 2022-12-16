@@ -13,11 +13,11 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test() {
   %dst = getelementptr [512 x i8], ptr @buf, i64 0, i64 0
   %src = getelementptr [11 x i8], ptr @digit, i64 0, i64 0
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(ptr %dst, ptr %src, i64 11, i1 false)
+  tail call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 11, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !2 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !2 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i8 0, i32 1}  ; i8*
 !2 = distinct !{!1, !1}

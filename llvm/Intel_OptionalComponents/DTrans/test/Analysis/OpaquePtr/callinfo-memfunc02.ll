@@ -19,7 +19,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pDst = bitcast ptr %pStructA to ptr
   %pField = getelementptr %struct.test01b, ptr %pStructB, i64 0, i32 1
   %pSrc = bitcast ptr %pField to ptr
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 20, i1 false)
+  tail call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 20, i1 false)
   ret void
 }
 ; CHECK-LABEL: Function: test01
@@ -42,7 +42,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pSrc = bitcast ptr %pStructA to ptr
   %pField = getelementptr %struct.test02b, ptr %pStructB, i64 0, i32 1
   %pDst = bitcast ptr %pField to ptr
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 20, i1 false)
+  tail call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 20, i1 false)
   ret void
 }
 ; CHECK-LABEL: Function: test02
@@ -56,7 +56,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
 ; CHECK:     Type: %struct.test02a = type { i32, i32, i32, i32, i32 }
 
 
-declare !intel.dtrans.func.type !11 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !11 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01a zeroinitializer, i32 0}  ; %struct.test01a

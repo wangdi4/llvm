@@ -13,7 +13,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; include the padding bytes in the call to memset.
 %struct.test01 = type { i32, i16, i32 }
 define void @test01(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !4 {
-  tail call void @llvm.memset.p0i8.i64(ptr %b, i8 0, i64 6, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %b, i8 0, i64 6, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -31,7 +31,7 @@ define void @test01(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.typ
 ; the padding bytes in the call to memset.
 %struct.test02 = type { i32, i16, i32 }
 define void @test02(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !6 {
-  tail call void @llvm.memset.p0i8.i64(ptr %b, i8 0, i64 8, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %b, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -46,7 +46,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.typ
 ; CHECK: End LLVMType: %struct.test02
 
 
-declare !intel.dtrans.func.type !8 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !8 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16

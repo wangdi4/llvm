@@ -31,7 +31,7 @@ define void @test1(i64 %offset) {
   %i126 = getelementptr inbounds ptr, ptr %i105, i64 %offset
   %i128 = load ptr, ptr %i126
 
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %i123, ptr %i128, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %i123, ptr %i128, i64 8, i1 false)
 
   ret void
 }
@@ -52,7 +52,7 @@ define void @user(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type
   ret void
 }
 
-declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !8 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
 !2 = !{%struct.test01 zeroinitializer, i32 2}  ; %struct.test01**

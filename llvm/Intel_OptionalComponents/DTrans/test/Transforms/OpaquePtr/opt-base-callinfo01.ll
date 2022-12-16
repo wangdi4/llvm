@@ -55,7 +55,7 @@ define void @test02() {
 define void @test03() {
   %local1 = alloca ptr, !intel_dtrans_type !4
   %local1_ptr = load ptr, ptr %local1
-  call void @llvm.memset.p0i8.i64(ptr %local1_ptr, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %local1_ptr, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test03
@@ -77,7 +77,7 @@ define void @test04() {
   %local2 = alloca ptr, !intel_dtrans_type !5
   %local1_ptr = load ptr, ptr %local1
   %local2_ptr = load ptr, ptr %local2
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %local1_ptr, ptr %local2_ptr, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %local1_ptr, ptr %local2_ptr, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test04
@@ -130,7 +130,7 @@ define void @test06(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.ty
 ; Test to verify call info about memfunc is moved to the cloned
 ; function, and type information gets remapped.
 define void @test07(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !8 {
-  call void @llvm.memset.p0i8.i64(ptr %in1, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %in1, i8 0, i64 16, i1 false)
   ret void
 }
 ; CHECK: Function: test07{{ *$}}
@@ -147,7 +147,7 @@ define void @test07(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.t
 ; this test will allow catching regressions if independent type lists
 ; are to be stored in the future.)
 define void @test08(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !9 {
-  call void @llvm.memmove.p0i8.p0i8.i64(ptr %in1, ptr %in2, i64 8, i1 false)
+  call void @llvm.memmove.p0.p0.i64(ptr %in1, ptr %in2, i64 8, i1 false)
   ret void
 }
 ; CHECK: Function: test08{{ *$}}
@@ -164,7 +164,7 @@ define void @test08(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 ; Test to verify remapped dependent data types get their CallInfo objects
 ; updated.
 define void @test09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !11 {
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %in1, ptr %in2, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %in1, ptr %in2, i64 16, i1 false)
   ret void
 }
 ; CHECK: Function: test09{{ *$}}
@@ -179,9 +179,9 @@ define void @test09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_fu
 
 declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 declare !intel.dtrans.func.type !14 void @free(ptr "intel_dtrans_func_index"="1") #1
-declare !intel.dtrans.func.type !15 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
-declare !intel.dtrans.func.type !16 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
-declare !intel.dtrans.func.type !17 void @llvm.memmove.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1" , ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !15 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !16 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !17 void @llvm.memmove.p0.p0.i64(ptr "intel_dtrans_func_index"="1" , ptr "intel_dtrans_func_index"="2", i64, i1)
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #1 = { allockind("free") "alloc-family"="malloc" }

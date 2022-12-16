@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
   %pDst = bitcast ptr %pStructA to ptr
   %pSrc = bitcast ptr %pStructB to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test01
@@ -36,7 +36,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
   %pDst = bitcast ptr %pFieldA to ptr
   %pSrc = bitcast ptr %pFieldB to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test02
@@ -59,7 +59,7 @@ define void @test03(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pFieldB = getelementptr %struct.test03, ptr %pStructB, i64 0, i32 2
   %pDst = bitcast ptr %pFieldA to ptr
   %pSrc = bitcast ptr %pFieldB to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 6, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 6, i1 false)
   ret void
 }
 ; Currently, the analysis conservatively marks all fields as 'incomplete' for
@@ -94,7 +94,7 @@ define void @test04(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pFieldB = getelementptr %struct.test04b, ptr %pStructB, i64 0, i32 0
   %pDst = bitcast ptr %pFieldA to ptr
   %pSrc = bitcast ptr %pFieldB to ptr
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pDst, ptr %pSrc, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.test04a
@@ -117,7 +117,7 @@ define void @test04(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
 ; CHECK:   Safety data: Global instance | Has initializer list | Bad memfunc manipulation{{ *}}
 ; CHECK: End LLVMType: %struct.test04b
 
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

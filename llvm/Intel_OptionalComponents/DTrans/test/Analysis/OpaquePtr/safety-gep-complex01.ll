@@ -39,7 +39,7 @@ define internal i32 @test01(ptr "intel_dtrans_func_index"="1" %pStruct) !intel.d
 define internal void @test02(i32 %x) {
   %local = alloca %struct.test02
   %pad_addr = getelementptr i8, ptr %local, i32 0
-  call void @llvm.memset.p0i8.i64(ptr %pad_addr, i8 0, i64 12, i1 false)
+  call void @llvm.memset.p0.i64(ptr %pad_addr, i8 0, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -55,7 +55,7 @@ define internal void @test02(i32 %x) {
 ; CHECK-NOT: ComplexUse
 ; CHECK: End LLVMType: %struct.test02
 
-declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !6 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

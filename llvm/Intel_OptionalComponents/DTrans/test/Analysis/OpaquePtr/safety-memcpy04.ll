@@ -17,7 +17,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define void @test01(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !5 {
   %pFieldA = getelementptr %struct.test01a, ptr %pStructA, i64 0, i32 1
   %pFieldB = getelementptr %struct.test01a, ptr %pStructB, i64 0, i32 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pFieldA, ptr %pFieldB, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pFieldA, ptr %pFieldB, i64 16, i1 false)
   ret void
 }
 ; Not including the actual types of the pointer fields in check lines, because
@@ -55,7 +55,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
   %pFieldB = getelementptr %struct.test02, ptr %pStructB, i64 0, i32 0
   %pValueA = load ptr, ptr %pFieldA
   %pValueB = load ptr, ptr %pFieldB
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %pValueA, ptr %pValueB, i64 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %pValueA, ptr %pValueB, i64 12, i1 false)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -70,7 +70,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" %pStructA, ptr "intel_dtra
 %struct.test03 = type { i32, i32, i32 }
 define "intel_dtrans_func_index"="1" ptr @test03(ptr "intel_dtrans_func_index"="2" %pOrig) !intel.dtrans.func.type !10 {
   %mem = call ptr @malloc(i64 64)
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %mem, ptr %pOrig, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %mem, ptr %pOrig, i64 8, i1 false)
   ret ptr %mem
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -85,7 +85,7 @@ define "intel_dtrans_func_index"="1" ptr @test03(ptr "intel_dtrans_func_index"="
 ; CHECK: End LLVMType: %struct.test03
 
 
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
 
 attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }

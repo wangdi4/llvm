@@ -46,12 +46,12 @@ DIR.OMP.END.PARALLEL.AFTEROMP:                    ; preds = %codeRepl
 ; but in the future we may just want to mark the types the arguments is used
 ; as with a DTrans safety flag.
 define internal void @main.DIR.OMP.PARALLEL.LOOP.2.split20(ptr %tid, ptr %bid, ptr %colors1, ptr %colors2, i64 %.omp.lb.val.zext, i64 %.omp.ub.val) {
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %colors1, ptr %colors2, i64 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %colors1, ptr %colors2, i64 12, i1 false)
   ret void
 }
 
 declare !intel.dtrans.func.type !11 !callback !0 void @__kmpc_fork_call(ptr "intel_dtrans_func_index"="1", i32, ptr "intel_dtrans_func_index"="2", ...)
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
