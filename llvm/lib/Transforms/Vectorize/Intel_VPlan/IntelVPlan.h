@@ -2144,7 +2144,7 @@ public:
   /// nullptr for indirect calls.
   Function *getCalledFunction() const {
     if (auto *Func = dyn_cast<VPConstant>(getCalledValue()))
-      return cast<Function>(Func->getConstant());
+      return dyn_cast<Function>(Func->getConstant());
 
     // Indirect call.
     return nullptr;
