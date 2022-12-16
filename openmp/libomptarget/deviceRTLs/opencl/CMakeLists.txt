@@ -171,7 +171,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       # pass only recognizes __spirv calls, and does not recognize OpenCL calls.
       add_custom_command(
         OUTPUT ${rtl_bc}
-        COMMAND opt -SPIRITTAnnotations -o ${rtl_bc} ${rtl_reg_bc}
+        COMMAND opt -passes=SPIRITTAnnotations -o ${rtl_bc} ${rtl_reg_bc}
         DEPENDS ${rtl_reg_bc} opt
         VERBATIM
       )
