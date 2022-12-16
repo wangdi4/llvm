@@ -89,6 +89,7 @@
 #define NOOPTIMIZE
 #endif
 
+using namespace Intel::OpenCL::Framework;
 /**
  * The SIMD HALF conversion function DOES NOT WORK properly at the moment. Will
  * fix it in the future.
@@ -123,11 +124,15 @@ static __m128i convert_to_int(const __m128 &val) {
  * @return the value in boundary of the relevant integer.
  */
 void NOOPTIMIZE sat(cl_int4 &trgt, const __m128i &intVal) {
-  trgt = *(const cl_int4 *)&intVal;
+  sat_data sat_val;
+  sat_val.m128 = intVal;
+  trgt = sat_val.cli4;
 }
 
 void NOOPTIMIZE sat(cl_uint4 &trgt, const __m128i &intVal) {
-  trgt = *(const cl_uint4 *)&intVal;
+  sat_data sat_val;
+  sat_val.m128 = intVal;
+  trgt = sat_val.clui4;
 }
 
 // short/ushort 16 bits
@@ -137,14 +142,14 @@ void NOOPTIMIZE sat(cl_short4 &trgt, const __m128i &intVal) {
 }
 
 void NOOPTIMIZE sat(cl_ushort4 &trgt, const __m128i &intVal) {
-  const cl_int4 *cl_intVal = (const cl_int4 *)&intVal;
-
+  sat_data sat_val;
+  sat_val.m128 = intVal;
   //
   // if AVX: __m128i ushortVal = _mm_packus_epi32(intVal, (__m128i)allzero);
   // no single command to convert to unsigned, so value is signed.
   //
   for (int i = 0; i < 4; ++i) {
-    trgt.s[i] = CLAMP(cl_intVal->s[i], 0, USHRT_MAX);
+    trgt.s[i] = CLAMP(sat_val.cli4.s[i], 0, USHRT_MAX);
   }
 }
 

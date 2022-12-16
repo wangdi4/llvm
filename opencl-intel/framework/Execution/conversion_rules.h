@@ -16,6 +16,15 @@
 namespace Intel {
 namespace OpenCL {
 namespace Framework {
+
+/* This union is defined to do type case between __m128i and cl_int4 / cl_uint4.
+ */
+typedef union sat_data {
+  __m128i m128;
+  cl_int4 cli4;
+  cl_uint4 clui4;
+} sat_data;
+
 /**
  * Convert RGBA floating point color to image format requested.
  *
