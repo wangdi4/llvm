@@ -4937,8 +4937,9 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
   }
 
-  if (Timer && Event) {
-    Timer->updateDeviceTime(Event);
+  if (Event) {
+    if (Timer)
+      Timer->updateDeviceTime(Event);
     EventPool.releaseEvent(Event);
   }
 
