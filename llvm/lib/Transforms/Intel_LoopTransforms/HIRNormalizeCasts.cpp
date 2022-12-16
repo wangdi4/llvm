@@ -108,6 +108,10 @@ struct NormalizeCasts::LoopsAnalyzer final : public HLNodeVisitorBase {
   // Find which loop in LoopZextInfoVect matches with the input blob and
   // add it as candidate
   void findAndCollectCandidateLoops(BlobTy SextBlobOP);
+
+  // Find which loop in LoopZextInfoVect matches with the input blob and
+  // remove it from the candidates list
+  void findAndRemoveCandidateLoops(BlobTy ZextBlobOP);
 };
 
 // Check if the upper bound of the input loop has a zext blob, if so then store
@@ -167,6 +171,42 @@ void NormalizeCasts::LoopsAnalyzer::visit(HLLoop *Loop) {
   LoopZextInfoVect.push_back(std::make_pair(Loop, ZextOP));
 }
 
+// Check which candidate loops in LoopZextInfoVect use the input blob and
+// remove them. Any loop that is found in LoopZextInfoVect and will be removed
+// from Pass.LoopCandidates too. This will remove all the candidates from the
+// current loop to the outermost. For example:
+//
+//   + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
+//   |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
+//   |   |   %5 = (%a)[zext.i32.i64(%m) * i1 + sext.i32.i64(%n) * i2];
+//   |   |   %res.024 = %5  +  %res.024;
+//   |   |   %t2 = (%a)[zext.i32.i64(%n) * i2];
+//   |   + END LOOP
+//   |
+//   |   %res.024.out = %res.024;
+//   + END LOOP
+//
+// Assume that loops i1 and i2 are candidates for normalizing. The load in %t2
+// is using %n as zext inside the loop, therefore loops i2 and i1 shouldn't be
+// candidates and will be removed from the lists.
+//
+// This check is done because we currently don't support converting zext into
+// sext for the instructions inside the loop.
+void NormalizeCasts::LoopsAnalyzer::findAndRemoveCandidateLoops(
+    BlobTy ZextBlobOP) {
+
+  auto It = LoopZextInfoVect.begin();
+  while (It != LoopZextInfoVect.end()) {
+    if (ZextBlobOP == It->second) {
+      // If the current loop was inserted as candidate then remove it
+      Pass.LoopCandidates.erase(It->first);
+      It = LoopZextInfoVect.erase(It);
+    } else {
+      ++It;
+    }
+  }
+}
+
 // Traverse through the LoopZextInfoVect vector and find which zext's operand
 // matches with the input blob. The input blob is the sext blob's operand. If
 // the blobs match, then the loop that is mapped with the zext blob will be
@@ -205,7 +245,6 @@ void NormalizeCasts::LoopsAnalyzer::visit(HLDDNode *DDNode) {
     unsigned NumDims = OpRef->getNumDimensions();
     for (unsigned Dim = 1; Dim <= NumDims; Dim++) {
       auto *CE = OpRef->getDimensionIndex(Dim);
-
       SmallVector<unsigned, 4> BlobIndices;
       CE->collectBlobIndices(BlobIndices);
       if (BlobIndices.empty())
@@ -215,7 +254,12 @@ void NormalizeCasts::LoopsAnalyzer::visit(HLDDNode *DDNode) {
       for (auto Index : BlobIndices) {
         auto *CurrBlob = BU.getBlob(Index);
         BlobTy SExtBlobOP;
-        if (BU.isSignExtendBlob(CurrBlob, &SExtBlobOP))
+        BlobTy ZExtBlobOP;
+        // If the blob is a zext then check if it affects any loop candidate
+        // and remove it
+        if (BU.isZeroExtendBlob(CurrBlob, &ZExtBlobOP))
+          findAndRemoveCandidateLoops(ZExtBlobOP);
+        else if (BU.isSignExtendBlob(CurrBlob, &SExtBlobOP))
           findAndCollectCandidateLoops(SExtBlobOP);
       }
     }
