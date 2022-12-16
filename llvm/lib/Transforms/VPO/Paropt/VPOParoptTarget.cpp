@@ -1746,7 +1746,7 @@ static void runSROA(Function *F) {
   FAM.registerPass([&] { return TargetIRAnalysis(); });
 
   FunctionPassManager FPM;
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
   FPM.run(*F, FAM);
 }
 

@@ -673,7 +673,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
@@ -804,7 +804,7 @@ if (!SYCLOptimizationMode) {
 }
   // clang-format on
   // Delete small array after loop unroll.
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
   FPM.addPass(MemCpyOptPass());
@@ -871,7 +871,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
@@ -1058,7 +1058,7 @@ if (!SYCLOptimizationMode) {
   // clang-format on
 
   // Delete small array after loop unroll.
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   // Try vectorization/scalarization transforms that are both improvements
   // themselves and can allow further folds with GVN and InstCombine.
@@ -1201,7 +1201,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
-    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+    FPM.addPass(SROAPass());
     FPM.addPass(EarlyCSEPass()); // Catch trivial redundancies.
     FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
         true)));                    // Merge & remove basic blocks.
@@ -1377,7 +1377,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
     if (Level.getSpeedupLevel() > 2) {
       CGSCCPassManager &PMICgsccPM = PMIWP.getPM();
-      PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
+      PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SROAPass()));
       PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SimplifyCFGPass()));
     }
 #endif // INTEL_CUSTOMIZATION
@@ -1395,7 +1395,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
       // create more noalias attribute propagation opportunities.
       MPM->addPass(createModuleToPostOrderCGSCCPassAdaptor(
                               ArgumentPromotionPass(true)));
-      MPM->addPass(createModuleToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
+      MPM->addPass(createModuleToFunctionPassAdaptor(SROAPass()));
       MPM->addPass(ArgNoAliasPropPass());
     }
 #endif // INTEL_CUSTOMIZATION
@@ -1412,7 +1412,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // allows to get more accurate attributes for the promoted arguments.
   if (Level.getSpeedupLevel() > 1) {
     MainCGPipeline.addPass(ArgumentPromotionPass(true));
-    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROAPass(SROAOptions::ModifyCFG)));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROAPass()));
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1569,7 +1569,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
   EarlyFPM.addPass(LowerExpectIntrinsicPass());
   EarlyFPM.addPass(SimplifyCFGPass());
-  EarlyFPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  EarlyFPM.addPass(SROAPass());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   if (DTransEnabled && PrepareForLTO)
@@ -1800,10 +1800,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // Now that we are done with loop unrolling, be it either by LoopVectorizer,
     // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
     // become constant-offset, thus enabling SROA and alloca promotion. Do so.
-    // NOTE: we are very late in the pipeline, and we don't have any LICM
-    // or SimplifyCFG passes scheduled after us, that would cleanup
-    // the CFG mess this may created if allowed to modify CFG, so forbid that.
-    FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
+    FPM.addPass(SROAPass());
   }
 
   if (!IsFullLTO) {
@@ -1895,7 +1892,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
       FPM.addPass(LoadCoalescingPass());
     if (EnableSROAAfterSLP) {
       // SLP creates opportunities for SROA.
-      FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+      FPM.addPass(SROAPass());
     }
 #endif // INTEL_CUSTOMIZATION
     if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
@@ -1938,7 +1935,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
         PTO.ForgetAllSCEVInLoopUnroll)));
     // Moved from below. Convert registerizable values after unrolling.
     // Do this before NT stores and missed opt warnings.
-    FPM.addPass(SROAPass(SROAOptions::ModifyCFG)); // INTEL
+    FPM.addPass(SROAPass()); // INTEL
   }
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -1960,7 +1957,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // NOTE: we are very late in the pipeline, and we don't have any LICM
   // or SimplifyCFG passes scheduled after us, that would cleanup
   // the CFG mess this may created if allowed to modify CFG, so forbid that.
-  FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
+  FPM.addPass(SROAPass());
 #endif // !INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
@@ -2024,7 +2021,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
 
   if (Simplify) {
     // Optimize unnesessary alloca, loads and stores to simplify IR.
-    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+    FPM.addPass(SROAPass());
 
     // Inlining may introduce BasicBlocks without predecessors into an OpenMP
     // region. This breaks CodeExtractor when outlining the region because it
@@ -2454,14 +2451,14 @@ void PassBuilder::addLoopOptCleanupPasses(FunctionPassManager &FPM,
 
   FPM.addPass(SimplifyCFGPass());
   FPM.addPass(LowerSubscriptIntrinsicPass());
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   if (Level.getSpeedupLevel() > 2)
     FPM.addPass(NaryReassociatePass());
 
   FPM.addPass(GVNPass());
 
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 
@@ -3399,7 +3396,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 
   // Break up allocas
-  FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+  FPM.addPass(SROAPass());
 
 #if INTEL_CUSTOMIZATION
   FPM.addPass(CorrelatedValuePropagationPass());
