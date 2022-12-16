@@ -1,5 +1,10 @@
 // RUN: %check_clang_tidy %s misc-no-recursion %t
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42772
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 // We don't have the definition of this function,
 // so we can't tell anything about it..
 void external();

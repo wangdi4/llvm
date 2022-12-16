@@ -2,6 +2,11 @@
 // RUN: not clang-tidy %s -checks='-*,llvm-namespace-comment' -warnings-as-errors='llvm-namespace-comment' -- 2>&1 | FileCheck %s --check-prefix=CHECK-WERR -implicit-check-not='{{warning|error}}:'
 // RUN: not clang-tidy %s -checks='-*,llvm-namespace-comment' -warnings-as-errors='llvm-namespace-comment' -quiet -- 2>&1 | FileCheck %s --check-prefix=CHECK-WERR-QUIET -implicit-check-not='{{warning|error}}:'
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42770
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 namespace i {
 }
 // CHECK-WARN: warning: namespace 'i' not terminated with a closing comment [llvm-namespace-comment]

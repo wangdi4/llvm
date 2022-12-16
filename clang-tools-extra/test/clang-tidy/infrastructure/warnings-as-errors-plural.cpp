@@ -7,6 +7,11 @@
 // RUN:   -warnings-as-errors='llvm-namespace-comment' -quiet -- 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=CHECK-WERR-QUIET -implicit-check-not='{{warning|error}}:'
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42770
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 namespace j {
 }
 // CHECK-WARN: warning: namespace 'j' not terminated with a closing comment [llvm-namespace-comment]

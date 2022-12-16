@@ -14,6 +14,13 @@
 // RUN: %clangxx_asan -O2 %s -D_FILE_OFFSET_BITS=64 -DTEMP_DIR='"'"%t-dir"'"' -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O3 %s -D_FILE_OFFSET_BITS=64 -DTEMP_DIR='"'"%t-dir"'"' -o %t && %run %t 2>&1 | FileCheck %s
 
+// INTEL_CUSTOMIZATION
+// This test is flaky on i386-linux when run in Alloy environment.
+// Mark it as unsupported for now.
+// CMPLRLLVM-42775
+// UNSUPPORTED: i386-linux
+// end INTEL_CUSTOMIZATION
+
 #include <dirent.h>
 #include <memory.h>
 #include <stdio.h>

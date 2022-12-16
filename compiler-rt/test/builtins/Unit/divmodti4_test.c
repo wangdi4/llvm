@@ -13,6 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42776
+// XFAIL: x86_64-windows
+// end INTEL_CUSTOMIZATION
+
 #include "int_lib.h"
 #include <stdio.h>
 

@@ -1,6 +1,11 @@
 // RUN: %check_clang_tidy %s altera-unroll-loops %t -- -config="{CheckOptions: [{key: "altera-unroll-loops.MaxLoopIterations", value: 50}]}" -header-filter=.*
 // RUN: %check_clang_tidy -check-suffix=MULT %s altera-unroll-loops %t -- -config="{CheckOptions: [{key: "altera-unroll-loops.MaxLoopIterations", value: 5}]}" -header-filter=.* "--" -DMULT
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42771
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 #ifdef MULT
 // For loops with *= and /= increments.
 void for_loop_mult_div_increments(int *A) {

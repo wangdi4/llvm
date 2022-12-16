@@ -11,6 +11,12 @@
 // RUN:   grep cl""ang_rt %t | xargs which | \
 // RUN:   xargs llvm-readobj --coff-imports | not grep dbghelp.dll %t
 
+// INTEL_CUSTOMIZATION
+// This test would fail as-is because the 'which' command on Windows doesn't
+// give us the full path to the .dll.
+// UNSUPPORTED: x86_64
+// end INTEL_CUSTOMIZATION
+
 extern "C" int puts(const char *);
 
 int main() {
