@@ -497,13 +497,10 @@ Instruction *SplitBlockAndInsertIfThen(Value *Cond, Instruction *SplitBefore,
 ///     ElseBlock
 ///   SplitBefore
 ///   Tail
-///
-/// Updates DT if given.
 void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
                                    Instruction **ThenTerm,
                                    Instruction **ElseTerm,
-                                   MDNode *BranchWeights = nullptr,
-                                   DomTreeUpdater *DTU = nullptr);
+                                   MDNode *BranchWeights = nullptr);
 
 #if INTEL_CUSTOMIZATION
 /// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
