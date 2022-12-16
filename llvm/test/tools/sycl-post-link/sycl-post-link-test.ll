@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: sycl-post-link -split-esimd -lower-esimd -O2 -S %s -o %t.table
-=======
 ; RUN: sycl-post-link -split-esimd -lower-esimd -O0 -S %s -o %t.table
->>>>>>> 1666407454391d65a4b0656ecf933a0eda55ac36
 ; RUN: FileCheck %s -input-file=%t_esimd_0.ll
 ; This test checks that IR code below can be successfully processed by
 ; sycl-post-link. In this IR no extractelement instruction and no casting are used
@@ -11,8 +7,6 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 @__spirv_BuiltInGlobalInvocationId = external dso_local local_unnamed_addr addrspace(1) constant <3 x i64>, align 32
-<<<<<<< HEAD
-=======
 @__spirv_BuiltInGlobalSize = external dso_local local_unnamed_addr addrspace(1) constant <3 x i64>, align 32
 @__spirv_BuiltInGlobalOffset = external dso_local local_unnamed_addr addrspace(1) constant <3 x i64>, align 32
 @__spirv_BuiltInNumWorkgroups = external dso_local local_unnamed_addr addrspace(1) constant <3 x i64>, align 32
@@ -22,7 +16,6 @@ target triple = "spir64-unknown-unknown"
 @__spirv_BuiltInSubgroupLocalInvocationId = external dso_local local_unnamed_addr addrspace(1) constant i32, align 4
 @__spirv_BuiltInSubgroupSize = external dso_local local_unnamed_addr addrspace(1) constant i32, align 4
 @__spirv_BuiltInSubgroupMaxSize = external dso_local local_unnamed_addr addrspace(1) constant i32, align 4
->>>>>>> 1666407454391d65a4b0656ecf933a0eda55ac36
 
 ; Function Attrs: convergent norecurse
 define dso_local spir_kernel void @ESIMD_kernel() #0 !sycl_explicit_simd !3 {
@@ -31,8 +24,6 @@ entry:
   %conv = trunc i64 %0 to i32
   ret void
 }
-<<<<<<< HEAD
-=======
 ; CHECK: define dso_local spir_kernel void @ESIMD_kernel()
 ; CHECK: %Res.llvm.genx.local.id.v3i32 = call <3 x i32> @llvm.genx.local.id.v3i32()
 ; CHECK: %Res.llvm.genx.local.id.v3i32.ext.0 = extractelement <3 x i32> %Res.llvm.genx.local.id.v3i32, i32 0
@@ -420,7 +411,6 @@ entry:
 ; CHECK: store i64 %conv.i, i64 addrspace(1)* %0, align 8
 ; CHECK: %add.i = add i32 1, 9
 ; CHECK: store i32 %add.i, i32 addrspace(1)* %1, align 4
->>>>>>> 1666407454391d65a4b0656ecf933a0eda55ac36
 
 attributes #0 = { "sycl-module-id"="a.cpp" }
 
@@ -433,13 +423,4 @@ attributes #0 = { "sycl-module-id"="a.cpp" }
 !2 = !{i32 0, i32 100000}
 !3 = !{}
 
-<<<<<<< HEAD
-; CHECK: define dso_local spir_kernel void @ESIMD_kernel()
-; CHECK:   call <3 x i32> @llvm.genx.local.id.v3i32()
-; CHECK:   call <3 x i32> @llvm.genx.local.size.v3i32()
-; CHECK:   call i32 @llvm.genx.group.id.x()
-; CHECK:   ret void
-; CHECK: }
-=======
 
->>>>>>> 1666407454391d65a4b0656ecf933a0eda55ac36

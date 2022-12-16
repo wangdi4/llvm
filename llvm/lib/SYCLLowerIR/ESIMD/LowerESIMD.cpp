@@ -1310,61 +1310,6 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
   }
 
   // Only loads from _vector_ SPIRV globals reach here now. Their users are
-<<<<<<< HEAD
-  // expected to be ExtractElementInst or TruncInst only, and they are replaced
-  // in this loop. When loads from _scalar_ SPIRV globals are handled here as
-  // well, the users will not be replaced by new instructions, but the GenX call
-  // replacing the original load 'LI' should be inserted before each user.
-  for (User *LU : LI->users()) {
-    assert(
-        (isa<ExtractElementInst>(LU) || isa<TruncInst>(LU)) &&
-        "SPIRV global users should be either ExtractElementInst or TruncInst");
-    Instruction *EEI = cast<Instruction>(LU);
-    NewInst = nullptr;
-
-    uint64_t IndexValue = 0;
-    if (isa<ExtractElementInst>(EEI)) {
-      IndexValue = getIndexFromExtract(cast<ExtractElementInst>(EEI));
-    } else {
-      auto *GEPCE = cast<GetElementPtrConstantExpr>(LI->getPointerOperand());
-
-      IndexValue = cast<Constant>(GEPCE->getOperand(2))
-                       ->getUniqueInteger()
-                       .getZExtValue();
-    }
-
-    if (SpirvGlobalName == "WorkgroupSize") {
-      NewInst = generateGenXCall(EEI, "local.size", true, IndexValue);
-    } else if (SpirvGlobalName == "LocalInvocationId") {
-      NewInst = generateGenXCall(EEI, "local.id", true, IndexValue);
-    } else if (SpirvGlobalName == "WorkgroupId") {
-      NewInst = generateGenXCall(EEI, "group.id", false, IndexValue);
-    } else if (SpirvGlobalName == "GlobalInvocationId") {
-      // GlobalId = LocalId + WorkGroupSize * GroupId
-      Instruction *LocalIdI =
-          generateGenXCall(EEI, "local.id", true, IndexValue);
-      Instruction *WGSizeI =
-          generateGenXCall(EEI, "local.size", true, IndexValue);
-      Instruction *GroupIdI =
-          generateGenXCall(EEI, "group.id", false, IndexValue);
-      Instruction *MulI =
-          BinaryOperator::CreateMul(WGSizeI, GroupIdI, "mul", EEI);
-      NewInst = BinaryOperator::CreateAdd(LocalIdI, MulI, "add", EEI);
-    } else if (SpirvGlobalName == "GlobalSize") {
-      // GlobalSize = WorkGroupSize * NumWorkGroups
-      Instruction *WGSizeI =
-          generateGenXCall(EEI, "local.size", true, IndexValue);
-      Instruction *NumWGI =
-          generateGenXCall(EEI, "group.count", true, IndexValue);
-      NewInst = BinaryOperator::CreateMul(WGSizeI, NumWGI, "mul", EEI);
-    } else if (SpirvGlobalName == "GlobalOffset") {
-      // TODO: Support GlobalOffset SPIRV intrinsics
-      // Currently all users of load of GlobalOffset are replaced with 0.
-      NewInst = llvm::Constant::getNullValue(EEI->getType());
-    } else if (SpirvGlobalName == "NumWorkgroups") {
-      NewInst = generateGenXCall(EEI, "group.count", true, IndexValue);
-    }
-=======
   // expected to be ExtractElementInst only, and they are
   // replaced in this loop. When loads from _scalar_ SPIRV globals are handled
   // here as well, the users will not be replaced by new instructions, but the
@@ -1373,7 +1318,6 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
   for (User *LU : LI->users()) {
     ExtractElementInst *EEI = cast<ExtractElementInst>(LU);
     uint64_t IndexValue = getIndexFromExtract(cast<ExtractElementInst>(EEI));
->>>>>>> 1666407454391d65a4b0656ecf933a0eda55ac36
 
     NewInst = generateSpirvGlobalGenX(EEI, SpirvGlobalName, IndexValue);
     EEI->replaceAllUsesWith(NewInst);
