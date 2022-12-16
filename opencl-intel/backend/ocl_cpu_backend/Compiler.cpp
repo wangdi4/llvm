@@ -338,8 +338,6 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
 
   llvm::Triple ModuleTriple(pModule->getTargetTriple());
 
-  // FP_CONTRACT defined in module
-  // Exclude FMA instructions when FP_CONTRACT is disabled
   llvm::TargetOptions TargetOpts =
       ExternInitTargetOptionsFromCodeGenFlags(ModuleTriple);
 
