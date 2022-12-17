@@ -444,8 +444,7 @@ void InlineReportBuilder::beginFunction(Function *F) {
     return;
   }
 
-  LLVM_DEBUG(dbgs() << "\nMDIR inline: begin function " << F->getName()
-                    << "\n");
+  LLVM_DEBUG(dbgs() << "MDIR inline: begin function " << F->getName() << "\n");
   auto *FMD = F->getMetadata(FunctionTag);
   // Update function linkage char
   auto *FIR = dyn_cast<MDTuple>(FMD);

@@ -1537,8 +1537,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
-  InlinerPass InlPass;
-  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+  MPM.addPass(InlineReportSetupPass());
   MPM.addPass(InlineListsPass());
   if (RunVPOParopt && EnableVPOParoptTargetInline)
     MPM.addPass(VPOParoptTargetInlinePass());
@@ -2995,8 +2994,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 
 #if INTEL_CUSTOMIZATION
-  InlinerPass InlPass;
-  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+  MPM.addPass(InlineReportSetupPass());
 #endif // INTEL_CUSTOMIZATION
   if (PGOOpt && PGOOpt->Action == PGOOptions::SampleUse) {
     // Load sample profile before running the LTO optimization pipeline.

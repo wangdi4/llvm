@@ -1,8 +1,14 @@
+; REQUIRES: asserts
 ; RUN: opt -opaque-pointers -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xea86 < %s -S | opt -passes='function(sroa)' -inline-report=0xea86 -S | opt -passes='inlinereportemitter' -inline-report=0xea86 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -debug-only=inlinereport -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -debug-only=mdinlinereport -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
 
 ; Check that calls to llvm.lifetime.start and llvm.lifetime.end are deleted
 ; as dead code.
+
+; Check also that removeCallBaseReference is called once each time the
+; deletion is performed.
 
 ; CHECK-LABEL: COMPILE FUNC: i_putchar
 ; CHECK-DAG: DELETE: llvm.lifetime.start.p0 {{.*}}Dead code
@@ -15,6 +21,14 @@
 ; CHECK-DAG: DELETE: llvm.lifetime.end.p0 {{.*}}Dead code
 ; CHECK-DAG: EXTERN: fputc
 ; CHECK-DAG: EXTERN: fputc
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0
+; CHECK-DBG-DAG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0
 
 @stdout = external dso_local local_unnamed_addr global ptr, align 8
 

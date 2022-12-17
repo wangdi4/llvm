@@ -24,7 +24,7 @@
 using namespace llvm;
 using namespace InlineReportTypes;
 
-#define DEBUG_TYPE "intel-inlinereport"
+#define DEBUG_TYPE "inlinereport"
 
 //
 // Member functions for class InlineReportCallSite
@@ -643,7 +643,7 @@ printInlineReportCallSiteVector(formatted_raw_ostream &OS,
 
 void InlineReportFunction::print(formatted_raw_ostream &OS,
                                  unsigned Level) const {
-  if (!Level || (Level & InlineReportTypes::BasedOnMetadata))
+  if (!Level || (Level & BasedOnMetadata))
     return;
   printInlineReportCallSiteVector(OS, CallSites, 1, Level);
 }
@@ -967,7 +967,7 @@ void InlineReport::addMultiversionedCallSite(CallBase *CB) {
   if (!isClassicIREnabled())
     return;
   InlineReportCallSite *IRCS = addCallSite(CB);
-  IRCS->setReason(InlineReportTypes::NinlrMultiversionedCallsite);
+  IRCS->setReason(NinlrMultiversionedCallsite);
 }
 
 void InlineReport::initModule(Module *M) {

@@ -26,7 +26,7 @@ class InlineReportSetupPass : public PassInfoMixin<InlineReportSetupPass> {
   InlineReportBuilder *MDIR;
 
 public:
-  InlineReportSetupPass(InlineReportBuilder *IRB = nullptr);
+  InlineReportSetupPass();
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   InlineReportBuilder *getMDReport() { return MDIR; }
 };
