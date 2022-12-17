@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -temporarily-allow-old-pass-syntax < %s -basic-aa -globalopt -instcombine -loop-rotate -licm -instcombine -indvars -loop-deletion -constmerge -S | FileCheck %s
+=======
+; RUN: opt < %s -passes='globalopt,function(instcombine,loop-mssa(loop-rotate,licm),instcombine,loop(indvars,loop-deletion)),constmerge' -S | FileCheck %s
+>>>>>>> edeab4db65b888c558a23498c1bdcf45426321cd
 ; PR11882: ComputeLoadConstantCompareExitLimit crash.
 ;
 ; for.body is deleted leaving a loop-invariant load.
