@@ -117,6 +117,11 @@ CGOPT(bool, IntelLibIRCAllowed)
 CGOPT(int, X87Precision)
 CGOPT(bool, DoFMAOpt)
 CGOPT(bool, IntelSpillParms)
+#if INTEL_FEATURE_MARKERCOUNT
+CGOPT(MarkerCount::Flag, FunctionMarkerCount)
+CGOPT(MarkerCount::Flag, LoopMarkerCount)
+CGOPT(std::string, OverrideMarkerCountFile)
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
@@ -468,6 +473,28 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
   CGBINDOPT(EnableAddrsig);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  static cl::opt<MarkerCount::Flag> FunctionMarkerCount(
+      "function-marker-count",
+      cl::desc("Choose when to emit function marker count"),
+      cl::init(MarkerCount::Function_Never),
+      cl::values(clEnumValN(MarkerCount::Function_Never, "never", "Never emit"),
+                 clEnumValN(MarkerCount::Function_ME, "me", "From middle end"),
+                 clEnumValN(MarkerCount::Function_BE, "be", "From back end")));
+  CGBINDOPT(FunctionMarkerCount);
+  static cl::opt<MarkerCount::Flag> LoopMarkerCount(
+      "loop-marker-count", cl::desc("Choose when to emit loop marker count"),
+      cl::init(MarkerCount::Loop_Never),
+      cl::values(clEnumValN(MarkerCount::Loop_Never, "never", "Never emit"),
+                 clEnumValN(MarkerCount::Loop_ME, "me", "From middle end"),
+                 clEnumValN(MarkerCount::Loop_BE, "be", "From back end")));
+  CGBINDOPT(LoopMarkerCount);
+  static cl::opt<std::string> OverrideMarkerCountFile(
+      "override-marker-count-file",
+      cl::desc("Override the marker count kind for the functions in the file"));
+  CGBINDOPT(OverrideMarkerCountFile);
+#endif // INTEL_FEATURE_MARKERCOUNT
+
   // This option can be used to enable advanced optimizations when running opt.
   // This option must be used with -mtriple and -mattr. For example:
   //   opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
@@ -622,6 +649,10 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.DoFMAOpt = getDoFMAOpt();
   Options.IntelSpillParms = getIntelSpillParms();
   Options.IntelABICompatible = IntelABICompatible;
+#if INTEL_FEATURE_MARKERCOUNT
+  Options.MarkerCountKind = getFunctionMarkerCount() | getLoopMarkerCount();
+  Options.OverrideMarkerCountFile = getOverrideMarkerCountFile();
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();

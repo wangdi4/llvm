@@ -1,5 +1,23 @@
 //===-- llvm/Support/CodeGen.h - CodeGen Concepts ---------------*- C++ -*-===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -27,6 +45,26 @@ namespace llvm {
     // Sync changes with CodeGenCWrappers.h.
     enum Model { Tiny, Small, Kernel, Medium, Large };
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  namespace MarkerCount {
+  enum Flag : unsigned int {
+    Function_Never = 1U,   // Never emit function marker count
+    Function_ME = 1U << 1, // Emit function marker count from middle end
+    Function_BE = 1U << 2, // Emit function marker count from back end
+    Loop_Never = 1U << 3,  // Never emit loop marker count
+    Loop_ME = 1U << 4,     // Emit loop marker count from middle end
+    Loop_BE = 1U << 5,     // Emit loop marker count from back end
+    Unknown = 1U << 6      // Used to check illeagl value
+  };
+  const unsigned int ME = Function_ME | Loop_ME;
+  const unsigned int BE = Function_BE | Loop_BE;
+  const unsigned int Function = Function_Never | Function_ME | Function_BE;
+  const unsigned int Loop = Loop_Never | Loop_ME | Loop_BE;
+  }    // namespace MarkerCount
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   namespace PICLevel {
     // This is used to map -fpic/-fPIC.

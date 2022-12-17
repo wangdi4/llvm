@@ -304,13 +304,6 @@ static cl::opt<bool> DisableSelectOptimize(
     "disable-select-optimize", cl::init(true), cl::Hidden,
     cl::desc("Disable the select-optimization pass from running"));
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-extern cl::opt<bool> MarkPrologEpilog;
-extern cl::opt<bool> MarkLoopHeader;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
 /// i.e. -disable-mypass=false has no effect.
@@ -791,17 +784,6 @@ void TargetPassConfig::addPass(Pass *P) {
   // and shouldn't reference it.
   AnalysisID PassID = P->getPassID();
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Insert pseduo markercount before specified pass
-  if (MarkLoopHeader || MarkPrologEpilog) {
-    InsertPseudoMarkerCount = false;
-    if (PassID == &EarlyTailDuplicateID)
-      InsertPseudoMarkerCount = true;
-  }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   if (StartBefore == PassID && StartBeforeCount++ == StartBeforeInstanceNum)
     Started = true;
   if (StopBefore == PassID && StopBeforeCount++ == StopBeforeInstanceNum)
@@ -892,22 +874,7 @@ void TargetPassConfig::addCheckDebugPass() {
   PM->add(createCheckDebugMachineModulePass());
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-void TargetPassConfig::addInsertPseudoMarkerCountPass() {
-  PM->add(createPseudoMarkerCountInserter());
-}
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
 void TargetPassConfig::addMachinePrePasses(bool AllowDebugify) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  if (InsertPseudoMarkerCount)
-    addInsertPseudoMarkerCountPass();
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   if (AllowDebugify && DebugifyIsSafe &&
       (DebugifyAndStripAll == cl::BOU_TRUE ||
        DebugifyCheckAndStripAll == cl::BOU_TRUE))
@@ -1407,6 +1374,17 @@ void TargetPassConfig::addMachinePasses() {
 
 /// Add passes that optimize machine instructions in SSA form.
 void TargetPassConfig::addMachineSSAOptimization() {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // TailDuplication destroys natural loop form, so insert marker count before
+  // it.
+  if (TM->Options.MarkerCountKind & MarkerCount::BE ||
+      !TM->Options.OverrideMarkerCountFile.empty())
+    addPass(createPseudoMarkerCountInserter(
+        TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   // Pre-ra tail duplication.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

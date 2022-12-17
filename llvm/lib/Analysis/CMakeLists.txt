@@ -180,6 +180,9 @@ add_llvm_component_library(LLVMAnalysis
   Intel_OptReport/OptReportPrintUtils.cpp
   Intel_OptReport/OptReportOptionsPass.cpp
   Intel_OptReport/OptReportSupport.cpp
+# INTEL_FEATURE_MARKERCOUNT
+  Intel_MarkerCountInfo.cpp
+# end INTEL_FEATURE_MARKERCOUNT
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   Directives.cpp

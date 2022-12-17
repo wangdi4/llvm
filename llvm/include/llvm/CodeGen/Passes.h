@@ -243,6 +243,10 @@ namespace llvm {
 
   extern char &ExpandVectorPredicationID;
 
+#if INTEL_FEATURE_MARKERCOUNT
+  /// Inserts pseudo marker count at prolog/epilog of function and loop header.
+  extern char &PseudoMarkerCountInserterID;
+#endif  // INTEL_FEATURE_MARKERCOUNT
 #endif  // INTEL_CUSTOMIZATION
 
   /// PostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -572,8 +576,10 @@ namespace llvm {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
-  /// This pass inserts pseudo markercount.
-  FunctionPass *createPseudoMarkerCountInserter();
+  /// This pass inserts pseudo marker count.
+  FunctionPass *
+  createPseudoMarkerCountInserter(unsigned MarkerCountKind,
+                                  StringRef OverrideMarkerCountFile);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 

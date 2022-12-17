@@ -1841,6 +1841,17 @@ void AsmPrinter::emitFunctionBody() {
         emitNotifyAnnotation(this, MI, MBB, MF, MMI);
         break;
       }
+#if INTEL_FEATURE_MARKERCOUNT
+      case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
+        OutStreamer->emitRawComment("FUNCTION_PROLOG");
+        break;
+      case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
+        OutStreamer->emitRawComment("FUNCTION_EPILOG");
+        break;
+      case TargetOpcode::PSEUDO_LOOP_HEADER:
+        OutStreamer->emitRawComment("LOOP_HEADER");
+        break;
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
       case TargetOpcode::PSEUDO_PROBE:
         emitPseudoProbe(MI);

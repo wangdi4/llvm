@@ -81,13 +81,6 @@ static cl::opt<bool>
                      cl::desc("Enable the tile register allocation pass"),
                      cl::init(true), cl::Hidden);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-extern cl::opt<bool> MarkPrologEpilog;
-extern cl::opt<bool> MarkLoopHeader;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
@@ -134,9 +127,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializePseudoProbeInserterPass(PR);
   initializeX86ReturnThunksPass(PR);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  initializeX86MarkerCountPassPass(PR);
-#endif // INTEL_FEATURE_MARKERCOUNT
   initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
   initializeX86CFMAPass(PR);
@@ -737,14 +727,6 @@ void X86PassConfig::addPreEmitPass2() {
 
   // Insert pseudo probe annotation for callsite profiling
   addPass(createPseudoProbeInserter());
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Convert pseudo markercount to x86 instruction
-  if (MarkLoopHeader || MarkPrologEpilog)
-    addPass(createX86MarkerCountPass());
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
   // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
   // also CALL_RVMARKER.

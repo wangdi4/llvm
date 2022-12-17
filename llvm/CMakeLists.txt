@@ -1152,6 +1152,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_MARKERCOUNT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
+# end INTEL_FEATURE_MARKERCOUNT
 
 # INTEL_FEATURE_XISA_COMMON
       # This is used to guard code that shared by more then one XISA features.
