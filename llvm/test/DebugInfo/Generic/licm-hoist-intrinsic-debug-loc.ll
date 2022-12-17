@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -temporarily-allow-old-pass-syntax -S -licm -licm-update-hoisted-debug-info %s | FileCheck %s ;INTEL
-=======
-; RUN: opt -S -passes=licm %s | FileCheck %s
->>>>>>> b25ad38307fdf162d7030a002b6ef1d2048fda55
+; RUN: opt -S -passes=licm -licm-update-hoisted-debug-info %s | FileCheck %s ;INTEL
 ;
 ; LICM should null out debug locations when it hoists intrinsics that won't lower to function calls out of a loop.
 ; CHECK: define float @foo
