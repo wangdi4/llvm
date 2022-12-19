@@ -8685,6 +8685,7 @@ bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
     return CGM.getLangOpts().OpenMPNewDependIR;
   case Stmt::OMPTileDirectiveClass:
   case Stmt::OMPUnrollDirectiveClass:
+  case Stmt::OMPErrorDirectiveClass:
     return true;
   case Stmt::OMPTargetDirectiveClass:
     return !CGM.getLangOpts().OpenMPLateOutlineTarget;
