@@ -4414,6 +4414,11 @@ void ASTWriter::AddToken(const Token &Tok, RecordDataImpl &Record) {
       Record.push_back(Info->Toks.size());
       for (const auto &T : Info->Toks)
         AddToken(T, Record);
+#if INTEL_CUSTOMIZATION
+      Record.push_back(Info->ArrayToks.size());
+      for (const auto &T : Info->ArrayToks)
+        AddToken(T, Record);
+#endif // INTEL_CUSTOMIZATION
       break;
     }
     // Some annotation tokens do not use the PtrData field.
