@@ -362,10 +362,11 @@ bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 
 /// Tests if a functions is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
-bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
+bool llvm::isReallocLikeFn(const Function *F) {
   return checkFnAllocKind(F, AllocFnKind::Realloc);
 }
 
+<<<<<<< HEAD
 Value *llvm::getReallocatedOperand(const CallBase *CB,
                                    const TargetLibraryInfo *TLI) {
 #ifdef INTEL_CUSTOMIZATION
@@ -374,6 +375,9 @@ Value *llvm::getReallocatedOperand(const CallBase *CB,
     return CB->getArgOperand(0);
   }
 #endif //INTEL_CUSTOMIZATION
+=======
+Value *llvm::getReallocatedOperand(const CallBase *CB) {
+>>>>>>> b3df1ce389c4c3769907283bd6cde751c5e829ba
   if (checkFnAllocKind(CB, AllocFnKind::Realloc))
     return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
   return nullptr;
