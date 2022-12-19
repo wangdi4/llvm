@@ -64,6 +64,13 @@ STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
 STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
+                    cl::desc("propagate constants to callback calls"));
+#endif // INTEL_CUSTOMIZATION
+
+
 static void findReturnsToZap(Function &F,
                              SmallVector<ReturnInst *, 8> &ReturnsToZap,
                              SCCPSolver &Solver) {
@@ -79,6 +86,18 @@ static void findReturnsToZap(Function &F,
            "it\n");
     return;
   }
+#if INTEL_CUSTOMIZATION
+
+  // Cannot do this if function is used as a callback.
+  if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
+        AbstractCallSite ACS(&U);
+        return ACS && ACS.isCallbackCall();
+      })) {
+    LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
+                      << " because it is used as a callback\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   assert(
       all_of(F.users(),
@@ -375,6 +394,12 @@ static bool runIPSCCP(
       SI->eraseFromParent();
       MadeChanges = true;
     }
+#if INTEL_COLLAB
+    if (GV->isTargetDeclare())
+      LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
+                        << "' is target-declare and not removed\n");
+    else
+#endif // INTEL_COLLAB
     M.getGlobalList().erase(GV);
     ++NumGlobalConst;
   }
