@@ -1,5 +1,5 @@
 ; RUN: opt <%s -S -passes='cgscc(inline)' -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-25615: Check that inlining report does not crash when printed
 ; because call to @llvm.fabs.f64 in @bar is optimized away by the inliner.

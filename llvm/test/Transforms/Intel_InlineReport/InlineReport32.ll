@@ -3,7 +3,7 @@
 ; Inline report
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-threshold=10 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; This test checks that the functions _ZN12cMessageHeap12removeFirst*Ev
 ; and _ZN12cMessageHeap7shiftupEi do not inline because they do not pass

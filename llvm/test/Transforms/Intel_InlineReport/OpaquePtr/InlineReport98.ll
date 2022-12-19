@@ -1,6 +1,6 @@
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x19 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0x98 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x98 -S | opt -passes='inlinereportemitter' -inline-report=0x98 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x98 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; This tests the setting for the inline report with -qopt-report=1
 
