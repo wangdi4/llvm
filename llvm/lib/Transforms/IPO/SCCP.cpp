@@ -156,7 +156,7 @@ static bool runIPSCCP(
 
     // Determine if we can track the function's arguments. If so, add the
     // function to the solver's set of argument-tracked functions.
-    if (canTrackArgumentsInterprocedurally(&F)) {
+    if (canTrackArgumentsInterprocedurally(&F, EnableCallbacks)) {
       Solver.addArgumentTrackedFunction(&F);
       continue;
     }
