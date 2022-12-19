@@ -1277,6 +1277,7 @@ private:
   EXPR IfExpr;
   EXPR Priority;
   WRNDefaultKind Default;
+  DetachClause Detach;
   bool Untied;
   bool Mergeable;
   bool IsTargetTask; // Task is the implicit task surrounding a target region.
@@ -1309,6 +1310,7 @@ public:
   DEFINE_GETTER(ReductionClause,    getInRed,    InReduction)
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
+  DEFINE_GETTER(DetachClause,       getDetach,   Detach)
 
   EXPR getDepArray() const override { return DepArray; }
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
