@@ -377,6 +377,14 @@ static bool runIPSCCP(
       // Skip over blockaddr users.
       if (isa<BlockAddress>(U.getUser()))
         continue;
+#if INTEL_CUSTOMIZATION
+      // The function may be used in a dead ConstantExpr which will get
+      // removed later. Since there is no call site possible we can skip it.
+      // These may appear after 0a67e771.
+      if (auto *BCE = dyn_cast<ConstantExpr>(U.getUser()))
+        if (BCE->user_empty())
+          continue;
+#endif // INTEL_CUSTOMIZATION
       CallBase *CB = cast<CallBase>(U.getUser());
       for (Use &Arg : CB->args())
         CB->removeParamAttr(CB->getArgOperandNo(&Arg), Attribute::Returned);
