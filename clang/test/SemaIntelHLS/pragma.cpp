@@ -29,12 +29,12 @@ void foo_unroll()
 void foo_coalesce()
 {
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGALoopCoalesceAttr
+  //CHECK-NEXT: SYCLIntelLoopCoalesceAttr
   #pragma loop_coalesce
   for (int i=0;i<32;++i) {}
 
   // CHECK: AttributedStmt
-  // CHECK-NEXT:  SYCLIntelFPGALoopCoalesceAttr
+  // CHECK-NEXT:  SYCLIntelLoopCoalesceAttr
   // CHECK-NEXT:  ConstantExpr{{.*}}'int'
   // CHECK-NEXT:  value: Int 4
   // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
@@ -77,7 +77,7 @@ void foo_coalesce()
 void foo_ii()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT:  SYCLIntelFPGAInitiationIntervalAttr
+  // CHECK-NEXT:  SYCLIntelInitiationIntervalAttr
   // CHECK-NEXT:  ConstantExpr{{.*}}'int'
   // CHECK-NEXT:  value: Int 4
   // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
@@ -122,7 +122,7 @@ void foo_ii()
 void foo_max_concurrency()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT:  SYCLIntelFPGAMaxConcurrencyAttr
+  // CHECK-NEXT:  SYCLIntelMaxConcurrencyAttr
   // CHECK-NEXT:  ConstantExpr{{.*}}'int'
   // CHECK-NEXT:  value: Int 4
   // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
@@ -166,7 +166,7 @@ void foo_max_concurrency()
 void foo_max_interleaving()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT:  SYCLIntelFPGAMaxInterleavingAttr
+  // CHECK-NEXT:  SYCLIntelMaxInterleavingAttr
   // CHECK-NEXT:  ConstantExpr{{.*}}'int'
   // CHECK-NEXT:  value: Int 1
   // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 1
@@ -214,7 +214,7 @@ struct IV_S {
 void ivdep1(IV_S* sp)
 {
   int i;
-  //CHECK: SYCLIntelFPGAIVDepAttr
+  //CHECK: SYCLIntelIVDepAttr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
   //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
@@ -223,7 +223,7 @@ void ivdep1(IV_S* sp)
 }
 
 //CHECK: FunctionDecl{{.*}}tivdep 'void (T *)'
-//CHECK: SYCLIntelFPGAIVDepAttr
+//CHECK: SYCLIntelIVDepAttr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'tsp' 'T *'
@@ -236,7 +236,7 @@ void tivdep(T* tsp)
 }
 
 //CHECK: FunctionDecl{{.*}}t2ivdep 'void (int)'
-//CHECK: SYCLIntelFPGAIVDepAttr
+//CHECK: SYCLIntelIVDepAttr
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'lsp' 'IV_S *'
@@ -252,35 +252,35 @@ void foo_ivdep()
 {
   int myArray[40];
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}0
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}0
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   #pragma ivdep safelen(4)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep safelen(4) array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelVDepAttr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];
@@ -497,7 +497,7 @@ void foo_ii_at_least()
 void foo_speculated_iterations()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT:  SYCLIntelFPGASpeculatedIterationsAttr
+  // CHECK-NEXT:  SYCLIntelSpeculatedIterationsAttr
   // CHECK-NEXT:  ConstantExpr{{.*}}'int'
   // CHECK-NEXT:  value: Int 4
   // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
@@ -574,7 +574,7 @@ void good();
 void foo_disable_loop_pipelining()
 {
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGADisableLoopPipeliningAttr
+  //CHECK-NEXT: SYCLIntelDisableLoopPipeliningAttr
   #pragma disable_loop_pipelining
   for (int i=0;i<32;++i) {}
 
@@ -654,7 +654,7 @@ void foo_disable_loop_pipelining()
   good();
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGADisableLoopPipeliningAttr
+  //CHECK-NEXT: SYCLIntelDisableLoopPipeliningAttr
   //CHECK: LoopHintAttr{{.*}}UnrollCount
   //CHECK-NEXT: IntegerLiteral{{.*}}2
   //CHECK: ForStmt
@@ -665,7 +665,7 @@ void foo_disable_loop_pipelining()
   //CHECK: AttributedStmt
   //CHECK: LoopHintAttr{{.*}}UnrollCount
   //CHECK-NEXT: IntegerLiteral{{.*}}4
-  //CHECK: SYCLIntelFPGADisableLoopPipeliningAttr
+  //CHECK: SYCLIntelDisableLoopPipeliningAttr
   //CHECK: ForStmt
   #pragma unroll(4)
   #pragma disable_loop_pipelining
@@ -743,7 +743,7 @@ template <int size>
 void nontypeargument1()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGASpeculatedIterationsAttr
+  // CHECK-NEXT: SYCLIntelSpeculatedIterationsAttr
   // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
   // CHECK-NEXT: IntegerLiteral{{.*}}2
@@ -756,7 +756,7 @@ template <int size>
 void nontypeargument2()
 {
    // CHECK: AttributedStmt
-   // CHECK-NEXT: SYCLIntelFPGAMaxConcurrencyAttr
+   // CHECK-NEXT: SYCLIntelMaxConcurrencyAttr
    // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
    // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
    // CHECK-NEXT: IntegerLiteral{{.*}}4
@@ -769,7 +769,7 @@ template <int size>
 void nontypeargument3()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAMaxInterleavingAttr
+  // CHECK-NEXT: SYCLIntelMaxInterleavingAttr
   // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
   // CHECK-NEXT: IntegerLiteral{{.*}} 6
@@ -782,7 +782,7 @@ template <int size>
 void nontypeargument4()
 {
  // CHECK: AttributedStmt
- // CHECK-NEXT: SYCLIntelFPGALoopCoalesceAttr
+ // CHECK-NEXT: SYCLIntelLoopCoalesceAttr
  // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
  // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
  // CHECK-NEXT: IntegerLiteral{{.*}}8
@@ -795,7 +795,7 @@ template <int size>
 void nontypeargument5()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAInitiationIntervalAttr{{.*}}
+  // CHECK-NEXT: SYCLIntelInitiationIntervalAttr{{.*}}
   // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
   // CHECK-NEXT: IntegerLiteral{{.*}}10
@@ -818,13 +818,13 @@ template<int LEN>
 int do_stuff(int N) {
   int temp = 0;
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  // CHECK-NEXT: SYCLIntelIVDepAttr
   // CHECK-NEXT: NULL
   // CHECK-NEXT: DeclRefExpr{{.*}}NonTypeTemplateParm{{.*}} 'LEN' 'int'
   // CHECK: FunctionDecl{{.*}} do_stuff
   // CHECK-NEXT: TemplateArgument integral 5
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}} 5
+  // CHECK-NEXT: SYCLIntelIVDepAttr{{.*}} 5
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 LEN
   // CHECK-NEXT: IntegerLiteral{{.*}}5
@@ -843,7 +843,7 @@ int dut() {
 void test(long* buffer1)
 {
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}'buffer1' 'long *'
   //CHECK-NEXT: WhileStmt

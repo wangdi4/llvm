@@ -8,7 +8,7 @@ struct IV_S {
 void ivdep1(IV_S* sp)
 {
   int i;
-  //CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
   //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
@@ -17,7 +17,7 @@ void ivdep1(IV_S* sp)
 }
 
 //CHECK: FunctionDecl{{.*}}tivdep 'void (T *)'
-//CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
+//CHECK: SYCLIntelIVDepAttr{{.*}}
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'tsp' 'T *'
@@ -30,7 +30,7 @@ void tivdep(T* tsp)
 }
 
 //CHECK: FunctionDecl{{.*}}t2ivdep 'void (int)'
-//CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
+//CHECK: SYCLIntelIVDepAttr{{.*}}
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'lsp' 'IV_S *'
@@ -46,35 +46,35 @@ void foo_ivdep()
 {
   int myArray[40];
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}0
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}0
   [[intel::ivdep()]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   [[intel::ivdep(4)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   [[intel::ivdep(myArray)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   [[intel::ivdep(myArray,4)]]
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];
@@ -215,13 +215,13 @@ template<int LEN>
 int do_stuff(int N) {
   int temp = 0;
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr {{.*}}
+  // CHECK-NEXT: SYCLIntelIVDepAttr {{.*}}
   // CHECK-NEXT: NULL
   // CHECK-NEXT: DeclRefExpr{{.*}}NonTypeTemplateParm{{.*}} 'LEN' 'int'
   // CHECK: FunctionDecl{{.*}} do_stuff
   // CHECK-NEXT: TemplateArgument integral 5
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}} 5
+  // CHECK-NEXT: SYCLIntelIVDepAttr{{.*}} 5
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 LEN
   // CHECK-NEXT: IntegerLiteral{{.*}}5
@@ -240,7 +240,7 @@ int dut() {
 void test(long* buffer1)
 {
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: SYCLIntelIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}'buffer1' 'long *'
   //CHECK-NEXT: WhileStmt

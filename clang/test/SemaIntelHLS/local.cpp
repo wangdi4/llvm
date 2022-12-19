@@ -63,7 +63,7 @@ __attribute__((__bank_bits__(2, 3, 4, 5))) const int global_const17 = 1;
 
 //CHECK: VarDecl {{.*}}global_const18
 //CHECK: IntegerLiteral{{.*}}1{{$}}
-//CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
 //CHECK: ForcePow2DepthAttr
 //CHECK: IntegerLiteral{{.*}}0{{$}}
 
@@ -71,7 +71,7 @@ __attribute__((__force_pow2_depth__(0))) const int global_const18 = 1;
 
 //CHECK: VarDecl{{.*}}global_const19
 //CHECK: IntegerLiteral{{.*}}1{{$}}
-//CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
 //CHECK: ForcePow2DepthAttr
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 
@@ -82,47 +82,47 @@ __attribute__((ihc_component))
 void foo1()
 {
   //CHECK: VarDecl{{.*}}v_one
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGADoublePumpAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelDoublePumpAttr
   __attribute__((__doublepump__))
   unsigned int v_one[64];
 
   //CHECK: VarDecl{{.*}}v_two
-  //CHECK: IntelFPGAMemoryAttr
+  //CHECK: SYCLIntelMemoryAttr
   __attribute__((__memory__))
   unsigned int v_two[64];
 
   //CHECK: VarDecl{{.*}}v_two_A
-  //CHECK: IntelFPGAMemoryAttr{{.*}}MLAB{{$}}
+  //CHECK: SYCLIntelMemoryAttr{{.*}}MLAB{{$}}
   __attribute__((__memory__("MLAB")))
   unsigned int v_two_A[64];
 
   //CHECK: VarDecl{{.*}}v_two_B
-  //CHECK: IntelFPGAMemoryAttr{{.*}}BlockRAM{{$}}
+  //CHECK: SYCLIntelMemoryAttr{{.*}}BlockRAM{{$}}
   __attribute__((__memory__("BLOCK_RAM")))
   unsigned int v_two_B[64];
 
   //CHECK: VarDecl{{.*}}v_two_C
-  //CHECK: IntelFPGAMemoryAttr{{.*}}BlockRAM{{$}}
-  //CHECK: IntelFPGADoublePumpAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}BlockRAM{{$}}
+  //CHECK: SYCLIntelDoublePumpAttr
   __attribute__((__memory__("BLOCK_RAM")))
   __attribute__((doublepump))
   unsigned int v_two_C[64];
 
   //CHECK: VarDecl{{.*}}v_three
-  //CHECK: IntelFPGARegisterAttr
+  //CHECK: SYCLIntelRegisterAttr
   __attribute__((__register__))
   unsigned int v_three[64];
 
   //CHECK: VarDecl{{.*}}v_four
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGASinglePumpAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelSinglePumpAttr
   __attribute__((__singlepump__))
   unsigned int v_four[64];
 
   //CHECK: VarDecl{{.*}}v_five
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGABankWidthAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelBankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
@@ -130,7 +130,7 @@ void foo1()
   unsigned int v_five[64];
 
   //CHECK: VarDecl{{.*}}v_five_two
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 4
@@ -141,8 +141,8 @@ void foo1()
   unsigned int v_five_two[64];
 
   //CHECK: VarDecl{{.*}}v_five_three
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGAPrivateCopiesAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 4
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
@@ -150,8 +150,8 @@ void foo1()
   unsigned int v_five_three[64];
 
   //CHECK: VarDecl{{.*}}v_six
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGANumBanksAttr
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelNumBanksAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -159,21 +159,21 @@ void foo1()
   unsigned int v_six[64];
 
   //CHECK: VarDecl{{.*}}v_ten
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg1" "depth"{{$}}
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMergeAttr{{.*}}"mrg1" "depth"{{$}}
   __attribute__((__merge__("mrg1","depth")))
   unsigned int v_ten[64];
 
   //CHECK: VarDecl{{.*}}v_eleven
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg2" "width"{{$}}
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMergeAttr{{.*}}"mrg2" "width"{{$}}
   __attribute__((__merge__("mrg2","width")))
   unsigned int v_eleven[64];
 
   //CHECK: VarDecl{{.*}}v_twelve
-  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: SYCLIntelNumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 2
@@ -191,9 +191,9 @@ void foo1()
   unsigned int v_twelve[64];
 
   //CHECK: VarDecl{{.*}}v_twelve_A
-  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: SYCLIntelNumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 5
@@ -211,9 +211,9 @@ void foo1()
   unsigned int v_twelve_A[64];
 
   //CHECK: VarDecl{{.*}}v_thirteen
-  //CHECK: IntelFPGANumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK: SYCLIntelNumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 2
@@ -221,7 +221,7 @@ void foo1()
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK: IntelFPGABankWidthAttr
+  //CHECK: SYCLIntelBankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
@@ -248,14 +248,14 @@ void foo1()
   int __attribute__((__bank_bits__(2,3), __bankwidth__(16))) F;
 
   //CHECK: VarDecl{{.*}}v_sixteen
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
   //CHECK: IntegerLiteral{{.*}}1{{$}}
   __attribute__((__force_pow2_depth__(1)))
   static unsigned int v_sixteen[64];
 
   //CHECK: VarDecl{{.*}}v_seventeen
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
   //CHECK: IntegerLiteral{{.*}}0{{$}}
   __attribute__((__force_pow2_depth__(0)))
@@ -396,7 +396,7 @@ void foo1()
   unsigned int bw_one[64];
 
   //CHECK: VarDecl{{.*}}bw_two
-  //CHECK: IntelFPGABankWidthAttr
+  //CHECK: SYCLIntelBankWidthAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
@@ -439,7 +439,7 @@ void foo1()
   unsigned int mc_one[64];
 
   //CHECK: VarDecl{{.*}}mc_two
-  //CHECK: IntelFPGAMemoryAttr
+  //CHECK: SYCLIntelMemoryAttr
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 8
@@ -484,8 +484,8 @@ void foo1()
   unsigned int pc_one[64];
 
   //CHECK: VarDecl{{.*}}pc_three
-  //CHECK: IntelFPGAMemoryAttr
-  //CHECK: IntelFPGAPrivateCopiesAttr
+  //CHECK: SYCLIntelMemoryAttr
+  //CHECK: SYCLIntelPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -518,7 +518,7 @@ void foo1()
   unsigned int nb_one[64];
 
   //CHECK: VarDecl{{.*}}nb_two
-  //CHECK: IntelFPGANumBanksAttr
+  //CHECK: SYCLIntelNumBanksAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
@@ -602,8 +602,8 @@ void foo1()
 
   //Last one is applied and others ignored.
   //CHECK: VarDecl{{.*}}mrg_six
-  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg4" "depth"{{$}}
-  //CHECK: IntelFPGAMergeAttr{{.*}}"mrg5" "width"{{$}}
+  //CHECK: SYCLIntelMergeAttr{{.*}}"mrg4" "depth"{{$}}
+  //CHECK: SYCLIntelMergeAttr{{.*}}"mrg5" "width"{{$}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__merge__("mrg4","depth")))
   __attribute__((__merge__("mrg5","width")))
@@ -951,14 +951,14 @@ struct foo {
   __attribute__((__static_array_reset__(1))) unsigned int v_fifteen[64];
 
   //CHECK: FieldDecl{{.*}}v_sixteen
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
   //CHECK: IntegerLiteral{{.*}}1{{$}}
   __attribute__((__force_pow2_depth__(1))) unsigned int v_sixteen[64];
 
 
   //CHECK: FieldDecl{{.*}}v_seventeen
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
   //CHECK: IntegerLiteral{{.*}}0{{$}}
   __attribute__((__force_pow2_depth__(0))) unsigned int v_seventeen[64];
