@@ -105,7 +105,7 @@ static AllocKind getAllocFnKind(const CallBase *Call,
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
   if (IntelMemoryBuiltins::isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (getReallocatedOperand(Call, &TLI))
+  if (getReallocatedOperand(Call))
     return AK_Realloc;
   return AK_NotAlloc;
 }
@@ -206,7 +206,7 @@ bool AllocFreeAnalyzer::collect(void) {
       HasRelevantCall = IntelMemoryBuiltins::isMallocLikeFn(&F, &TLI) ||
           IntelMemoryBuiltins::isCallocLikeFn(&F, &TLI) ||
           IntelMemoryBuiltins::isNewLikeFn(&F, &TLI) ||
-          isReallocLikeFn(&F, &TLI);
+          isReallocLikeFn(&F);
     else
       //check free-like call: free, delete, etc.
       HasRelevantCall = IntelMemoryBuiltins::isFreeFn(&F, &TLI) || 

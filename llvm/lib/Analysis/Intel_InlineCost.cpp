@@ -1282,7 +1282,7 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
     return true;
   for (auto &I : instructions(F))
     if (const auto *const CB = dyn_cast<CallBase>(&I))
-      if (getReallocatedOperand(CB, TLI))
+      if (getReallocatedOperand(CB))
         return true;
   return false;
 }
