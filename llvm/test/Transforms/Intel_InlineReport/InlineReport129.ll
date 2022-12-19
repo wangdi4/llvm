@@ -3,7 +3,7 @@
 ; Inline report
 ; RUN: opt -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that @perdida_m_mp_generalized_hookes_law_ is inlined due to the inline
 ; budget heuristic and @perdida_m_mp_perdida_ is inlined due to the single

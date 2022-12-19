@@ -11,7 +11,7 @@
 ; manager lines, because they can be used to drive the new pass manager.
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-deferral -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s
 
 ; Test for inlining heuristic for stack computations.  All calls to @mypushptr
 ; should be inlined and the inlining report should report "Inlining for stack

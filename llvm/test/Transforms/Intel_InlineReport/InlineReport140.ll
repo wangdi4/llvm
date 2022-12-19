@@ -1,5 +1,5 @@
 ; RUN: opt -passes='function(gvn),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xea86 < %s -S | opt -passes='function(gvn)' -inline-report=0xea86 -S | opt -passes='inlinereportemitter' -inline-report=0xea86 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,function(gvn),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
 
 ; Check that a call to __ctype_b_loc is deleted as dead code.
 

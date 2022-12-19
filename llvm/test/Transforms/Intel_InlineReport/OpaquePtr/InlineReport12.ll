@@ -3,7 +3,7 @@
 ; Inline report
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -new-double-callsite-inlining-heuristics=true < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S -new-double-callsite-inlining-heuristics=true | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -new-double-callsite-inlining-heuristics=true -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: Callee has double callsite and local linkage
 ; This LIT test checks the following worthy double internal callsite heuristic
