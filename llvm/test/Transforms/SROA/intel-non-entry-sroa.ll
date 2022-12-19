@@ -1,4 +1,4 @@
-; RUN: opt -sroa -S < %s | FileCheck %s
+; RUN: opt -passes=sroa -S < %s | FileCheck %s
 
 ; SROA is modified to handle blocks preceding a SIMD directive (SIMD loop
 ; preheader)
