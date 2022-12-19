@@ -6,17 +6,11 @@ target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:1
 define i8 @foo(ptr %ptr) {
   %Q = getelementptr i8, ptr %ptr, i32 1
 ; CHECK: getelementptr
-<<<<<<< HEAD
 ; INTEL
 ; CHECK-SUBS: llvm.intel.subscript
-  %X = load i8, i8* %P
-  %Y = atomicrmw add i8* %Q, i8 1 monotonic
-  %Z = load i8, i8* %P
-=======
   %X = load i8, ptr %ptr
   %Y = atomicrmw add ptr %Q, i8 1 monotonic
   %Z = load i8, ptr %ptr
->>>>>>> 05ff7606c9d47135ecf5b69e25b1327634f6fa27
 ; CHECK-NOT: = load
 ; INTEL
 ; CHECK-SUBS-NOT: = load

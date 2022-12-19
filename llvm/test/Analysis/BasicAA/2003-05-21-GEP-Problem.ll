@@ -1,11 +1,7 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
-<<<<<<< HEAD
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -disable-output
-	%struct..apr_array_header_t = type { i32*, i32, i32, i32, i8* }
-=======
 	%struct..apr_array_header_t = type { ptr, i32, i32, i32, ptr }
->>>>>>> 05ff7606c9d47135ecf5b69e25b1327634f6fa27
 	%struct..apr_table_t = type { %struct..apr_array_header_t, i32, [32 x i32], [32 x i32] }
 
 define void @table_reindex(ptr %t.1) {		; No predecessors!
