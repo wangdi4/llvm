@@ -373,14 +373,12 @@ bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
 
 Value *llvm::getReallocatedOperand(const CallBase *CB,
                                    const TargetLibraryInfo *TLI) {
-<<<<<<< HEAD
-  if (getAllocationData(CB, ReallocLike, TLI).has_value() ||      // INTEL
-      checkFnAllocKind(CB, AllocFnKind::Realloc)) {               // INTEL
+#ifdef INTEL_CUSTOMIZATION
+  if (checkFnAllocKind(CB, AllocFnKind::Realloc)) {
     // All currently supported realloc functions reallocate the first argument.
     return CB->getArgOperand(0);
   }
-=======
->>>>>>> 195af8e034f08de9b620fb434a4e816c74575e86
+#endif //INTEL_CUSTOMIZATION
   if (checkFnAllocKind(CB, AllocFnKind::Realloc))
     return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
   return nullptr;
