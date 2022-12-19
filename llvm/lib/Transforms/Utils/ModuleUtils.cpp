@@ -35,7 +35,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
-<<<<<<< HEAD
+#include "llvm/Support/xxhash.h"
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -44,9 +44,6 @@
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #endif // INTEL_CUSTOMIZATION
 
-=======
-#include "llvm/Support/xxhash.h"
->>>>>>> 3b14862f0a968dc079530acbce4f2ca4aa7c1492
 using namespace llvm;
 
 #define DEBUG_TYPE "moduleutils"
