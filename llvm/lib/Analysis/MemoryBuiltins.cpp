@@ -71,11 +71,11 @@ using namespace llvm;
 enum AllocType : uint8_t {
   OpNewLike          = 1<<0, // allocates; never returns null
   MallocLike         = 1<<1, // allocates; may return null
-  CallocLike         = 1<<2, // allocates + bzero
+  CallocLike         = 1<<2, // allocates + bzero // INTEL
   StrDupLike         = 1<<3,
   MallocOrOpNewLike  = MallocLike | OpNewLike,
-  MallocOrCallocLike = MallocLike | OpNewLike | CallocLike,
-  AllocLike          = MallocOrCallocLike | StrDupLike,
+  MallocOrCallocLike = MallocLike | OpNewLike | CallocLike, // INTEL
+  AllocLike          = MallocOrCallocLike | StrDupLike, // INTEL
   AnyAlloc           = AllocLike
 };
 
@@ -333,6 +333,7 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
@@ -344,11 +345,12 @@ static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
 bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, MallocOrCallocLike, TLI).has_value();
+  return getAllocationData(V, MallocOrCallocLike, TLI).has_value(); // INTEL
 }
 
 /// Tests if a value is a call or invoke to a library function that
@@ -483,12 +485,14 @@ Constant *llvm::getInitialValueOfAllocation(const Value *V,
     return nullptr;
 
   // malloc are uninitialized (undef)
-  if (isMallocLikeFn(Alloc, TLI))
+  if (isMallocLikeFn(Alloc, TLI)) // INTEL
     return UndefValue::get(Ty);
 
+#ifdef INTEL_CUSTOMIZATION
   // calloc zero initializes
   if (isCallocLikeFn(Alloc, TLI))
     return Constant::getNullValue(Ty);
+#endif // INTEL_CUSTOMIZATION
 
   AllocFnKind AK = getAllocFnKind(Alloc);
   if ((AK & AllocFnKind::Uninitialized) != AllocFnKind::Unknown)
