@@ -72,36 +72,6 @@ use_rtti(FALSE)
 
 include_directories(BEFORE ${BACKEND_ROOT_DIR}/utils ${OCL_SOURCE_DIR}/cl_api)
 
-if(OPENCL_INTREE_BUILD)
-  llvm_map_components_to_libnames(
-    LLVM_MODULE_LIBS
-    AllTargetsAsmParsers
-    AllTargetsCodeGens
-    AllTargetsDescs
-    AllTargetsDisassemblers
-    AllTargetsInfos
-    Analysis
-    BitWriter
-    CodeGen
-    Core
-    ExecutionEngine
-    MCJIT
-    IPO
-    IRReader
-    InstCombine
-    Linker
-    Option
-    OrcJIT
-    Passes
-    ScalarOpts
-    Support
-    Target
-    TransformUtils
-    Vectorize
-    Intel_DPCPPKernelTransforms
-    Intel_OpenCLTransforms)
-endif()
-
 if(LLVM_BUILD_OCL_CPU_BACKEND)
   add_subdirectory(dynamic_lib "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
   add_subdirectory(libraries "${CMAKE_CURRENT_BINARY_DIR}/libraries")

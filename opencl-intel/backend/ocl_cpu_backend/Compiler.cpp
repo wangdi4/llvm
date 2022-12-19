@@ -130,8 +130,6 @@ LogHasFPGAChannelsWithDepthIgnored(llvm::raw_ostream &logs,
 
   logs << "\n";
 }
-
-bool TerminationBlocker::s_released = false;
 } // namespace Utils
 
 ProgramBuildResult::ProgramBuildResult()
@@ -286,13 +284,6 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 }
 
-/*
- * This is a static method which must be called from the
- * single threaded environment after all instanced of the
- * Compiler class are deleted
- */
-void Compiler::Terminate() { llvm::llvm_shutdown(); }
-
 Compiler::Compiler(const ICompilerConfig &config)
     : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
       m_transposeSize(config.GetTransposeSize()),
@@ -302,16 +293,9 @@ Compiler::Compiler(const ICompilerConfig &config)
       m_streamingAlways(config.GetStreamingAlways()),
       m_expensiveMemOpts(config.GetExpensiveMemOpts()),
       m_passManagerType(config.GetPassManagerType()),
-      m_subGroupConstructionMode(config.GetSubGroupConstructionMode()) {
-  // WORKAROUND!!! See the notes in TerminationBlocker description
-  static Utils::TerminationBlocker blocker;
-}
+      m_subGroupConstructionMode(config.GetSubGroupConstructionMode()) {}
 
-Compiler::~Compiler() {
-  // WORKAROUND!!! See the notes in TerminationBlocker description
-  if (Utils::TerminationBlocker::IsReleased())
-    return;
-}
+Compiler::~Compiler() {}
 
 void Compiler::materializeSpirTriple(llvm::Module *M) {
   assert(Triple(M->getTargetTriple()).isSPIR() && "Triple is not spir!");

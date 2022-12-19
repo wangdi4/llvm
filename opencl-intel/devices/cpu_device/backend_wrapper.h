@@ -50,22 +50,6 @@ public:
   ICLDevBackendServiceFactory *GetBackendFactory();
 
 private:
-  /**
-   * Explicitly loads the OCLCpuBackend dll
-   */
-  cl_dev_err_code LoadDll();
-
-  /**
-   * Explicityly unloads the OCLCpuBackend dll
-   */
-  void UnloadDll();
-
-private:
-  Intel::OpenCL::Utils::OclDynamicLib m_dll;
-
-  BACKEND_INIT_FUNCPTR m_funcInit;
-  BACKEND_TERMINATE_FUNCPTR m_funcTerminate;
-  BACKEND_GETFACTORY_FUNCPTR m_funcGetFactory;
   DeviceMode m_targetDev;
 };
 } // namespace CPUDevice

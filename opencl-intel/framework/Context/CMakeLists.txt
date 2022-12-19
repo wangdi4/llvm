@@ -24,8 +24,6 @@ set(TARGET_NAME Context)
 find_sources()
 calculate_target_sources()
 
-include(itt)
-
 include_directories(${OCL_SOURCE_DIR}/utils/CLElfLib)
 
 # add a target named ${TARGET_NAME}

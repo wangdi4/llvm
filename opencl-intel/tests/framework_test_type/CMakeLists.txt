@@ -105,5 +105,5 @@ add_ocl_unittest_artifacts(
   data/spirv-friendly-llvm-ir.bc)
 
 add_dependencies(
-  ${TARGET} clang_compiler${BUILD_PLATFORM} OclCpuBackEnd${BUILD_PLATFORM}
-  cpu_device ${OCL_RT_TEST_DEPS} ${TEST_SPV_FILES})
+  ${TARGET} clang_compiler${BUILD_PLATFORM} OclCpuBackEnd cpu_device
+  ${OCL_RT_TEST_DEPS} ${TEST_SPV_FILES})

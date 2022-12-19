@@ -21,6 +21,37 @@ include_directories(
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/plugin_manager)
 
+set(BACKEND_TEST_TYPE_LINK_LIBS
+  ${LLVM_MODULE_LIBS}
+  BuiltinLibInfo
+  CLElfLib
+  CacheBinaryHandler
+  LLVMCore
+  LLVMIntelJITEvents
+  LLVMSPIRVLib
+  LLVMSymbolize
+  LLVMVectorizer
+  LoopUtils
+  ObjDump
+  OclBackendUtils
+  OclBackendUtils
+  OclCpuBackEnd
+  OclOptimizer
+  OclPluginManager
+  OclPluginManager
+  cl_sys_utils
+  cl_sys_utils
+  dynamic_load
+  dynamic_load
+  emutls
+  reflection_module
+  soft_math
+  test_utils)
+
+if(WIN32)
+  list(APPEND BACKEND_TEST_TYPE_LINK_LIBS lldCOFF lldCommon)
+endif(WIN32)
+
 set(CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 # compile cl files to bc
@@ -51,16 +82,12 @@ add_ocl_unittest(
   KernelSubGroupInfoTest.cpp
   CompilationUtilsTest.cpp
   LINK_LIBRARIES
-  OclBackendUtils
-  OclPluginManager
-  dynamic_load
-  cl_sys_utils
-  test_utils
-  LLVMCore)
+  ${BACKEND_TEST_TYPE_LINK_LIBS}
+)
 
 add_ocl_unittest_artifacts(
   FILES Bitcode/bitcodeNoise.bc Bitcode/reqd_num_sub_groups_32.bc
   Bitcode/reqd_num_sub_groups_64.bc)
 
-add_dependencies(${TARGET_NAME} OclCpuBackEnd${BUILD_PLATFORM} OCLSamplePlugin
+add_dependencies(${TARGET_NAME} OCLSamplePlugin
                  ${OCL_RT_TEST_DEPS} ${TEST_BC_FILES})

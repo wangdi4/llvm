@@ -33,7 +33,10 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Execution
   ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
   ${CMAKE_CURRENT_SOURCE_DIR}/Tracing
-  ${OCL_BINARY_DIR})
+  ${OCL_BINARY_DIR}
+  ${OCL_SOURCE_DIR}/externals/itt/include)
+
+add_definitions(-DUSE_ITT)
 
 # For debug only
 if(USE_ITT_INTERNAL)
@@ -59,7 +62,7 @@ if(WIN32)
   source_group("API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp
                            framework_proxy.h)
 
-  list(APPEND LINK_LIBS PowrProf.lib delayimp.lib)
+  list(APPEND LINK_LIBS PowrProf.lib delayimp.lib lldCOFF lldCommon)
 else()
   list(APPEND LINK_LIBS cl_hw_utils)
 endif(WIN32)
@@ -76,18 +79,34 @@ endif(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED
 
 link_directories(${TBB_LIB_DIR})
 
-include(itt)
-
 set(FRAMEWORK_LINK_LIBS
+    ${LLVM_MODULE_LIBS}
+    BuiltinLibInfo
+    CLElfLib
+    CLElfLib
+    CacheBinaryHandler
     Context
     Execution
-    Platform
+    LLVMBitReader
+    LLVMIntelJITEvents
+    LLVMSPIRVLib
+    LLVMSupport
+    LLVMSymbolize
+    LLVMVectorizer
+    LoopUtils
     MemoryAllocator
+    ObjDump
+    OclBackendUtils
+    OclOptimizer
+    OclPluginManager
+    Platform
     Tracing
     cl_sys_utils
-    CLElfLib
-    LLVMBitReader
-    LLVMSupport)
+    cl_sys_utils
+    dynamic_load
+    emutls
+    reflection_module
+    soft_math)
 
 # add a target named ${TARGET_NAME}
 add_opencl_library(
@@ -95,6 +114,7 @@ add_opencl_library(
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
+  OclCpuBackEnd
   builtin_kernels
   cl_logger
   cl_sys_utils
@@ -114,6 +134,7 @@ add_opencl_library(
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
+  OclCpuBackEnd
   builtin_kernels
   cl_logger_${OUTPUT_EMU_SUFF}
   cl_sys_utils

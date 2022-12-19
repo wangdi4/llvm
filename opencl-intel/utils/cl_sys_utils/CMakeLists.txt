@@ -23,8 +23,6 @@ set(TARGET_NAME cl_sys_utils)
 find_sources()
 calculate_target_sources()
 
-include(itt)
-
 set_unicode_off()
 
 # Include the ASM sources
@@ -55,8 +53,9 @@ add_opencl_library(
   ${CCLANG_DEV_INCLUDE_DIRS}
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
-  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   ${OCL_SOURCE_DIR}/FrontendDriver
+  ${OCL_SOURCE_DIR}/externals/itt/include
+  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   LINK_LIBS
   ${LINK_LIBS}
   INSTALL_PATH

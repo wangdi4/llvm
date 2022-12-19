@@ -25,10 +25,7 @@ add_definitions(-DUSE_ITT)
 # platforms. Signalling this setting might achieve effects such as the compiler
 # skipping warnings, or these fixed-install system files not being considered in
 # dependency calculations - see compiler docs.
-set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/externals)
-if(OPENCL_INTREE_BUILD)
-  set(EXTERNALS_DIR ${PROJECT_SOURCE_DIR}/externals)
-endif()
+set(EXTERNALS_DIR ${OCL_SOURCE_DIR}/externals)
 
 # disable "implicit-fallthrough", "self-assign" and "static-in-inline"(windows
 # only) warnings in itt/ittnotify/ittnotify_static.c

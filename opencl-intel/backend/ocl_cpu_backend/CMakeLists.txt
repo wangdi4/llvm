@@ -13,10 +13,8 @@
 # implied warranties, other than those that are expressly stated in the License.
 #
 
-set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
-set(TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF})
+set(TARGET_NAME OclCpuBackEnd)
 
-project(${TARGET_NAME})
 add_subdirectory(emutls)
 
 if(BUILD_X64)
@@ -43,14 +41,7 @@ if(NOT WIN32)
   # Compiler switches that CAN be modified during makefile generation and
   # configuration-independent
 
-  # Linker switches
-  set(ADD_LINKER_FLAGS_DEBUG)
-  set(ADD_LINKER_FLAGS_RELEASE)
-
   find_package(Threads)
-  set(INIT_LINKER_FLAGS
-      "${INIT_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT} -l${CMAKE_DL_LIBS} ${RT_LIB}"
-  )
 
   # C switches
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}         ${ADD_C_FLAGS}")
@@ -62,22 +53,6 @@ if(NOT WIN32)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-
-  # Linker switches - EXE
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${INIT_LINKER_FLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS_DEBUG
-      "${CMAKE_EXE_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-  set(CMAKE_EXE_LINKER_FLAGS_RELEASE
-      "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
-  # Linker switches - Shared Lib
-  set(CMAKE_SHARED_LINKER_FLAGS
-      "${CMAKE_SHARED_LINKER_FLAGS} ${INIT_LINKER_FLAGS}")
-  set(CMAKE_SHARED_LINKER_FLAGS_DEBUG
-      "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
-  set(CMAKE_SHARED_LINKER_FLAGS_RELEASE
-      "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
-
 endif(NOT WIN32)
 
 use_rtti(FALSE)
@@ -198,90 +173,23 @@ set(INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/utils/objdump
-    ${CMAKE_BINARY_DIR}/include/)
-
-# Add additional link directories
-if(LLVM_USE_INTEL_JITEVENTS)
-  link_directories(${LLVM_INTEL_JITEVENTS_LIBDIR})
-endif(LLVM_USE_INTEL_JITEVENTS)
-
-if(LLVM_USE_OPROFILE)
-  link_directories(${LLVM_OPROFILE_INCDIR})
-endif(LLVM_USE_OPROFILE)
-
-if(WIN32 AND NOT OPENCL_INTREE_BUILD)
-  # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
-  link_directories(${LLVM_LIBRARY_DIRS})
-endif(WIN32 AND NOT OPENCL_INTREE_BUILD)
-
-set(BACKEND_PASSES
-    LLVMVectorizer
-    BuiltinLibInfo)
-
-set(UTILS_LIBS # Utils lib
-    OclPluginManager OclOptimizer)
-
-set(LINK_LIBS
-    LoopUtils
-    OclBackendUtils
-    reflection_module
-    dynamic_load
-    cl_sys_utils
-    CacheBinaryHandler
-    CLElfLib
-    emutls
-    soft_math
-    ObjDump
-    ${LLVM_MODULE_LIBS}
-    LLVMIntelJITEvents
-    LLVMSPIRVLib
-    LLVMSymbolize)
+    ${CMAKE_BINARY_DIR}/include)
 
 if(WIN32)
-  set(LLD_LIBS lldCOFF lldCommon)
+  list(APPEND INCLUDE_DIRS ${LLVM_MAIN_SRC_DIR}/../lld/include)
 endif(WIN32)
 
-# Create DLL
+# Create ocl backend lib
 add_opencl_library(
   ${TARGET_NAME}
-  SHARED
+  STATIC
   ${OCL_CPU_BACKEND_INCLUDE_FILES}
   ${OCL_CPU_BACKEND_SOURCE_FILES}
   ${ASM_ADD_TO_SOURCES_LIST}
   INCLUDE_DIRS
-  ${INCLUDE_DIRS}
-  LINK_LIBS
-  ${UTILS_LIBS}
-  # internal passes
-  ${BACKEND_PASSES}
-  ${LINK_LIBS}
-  ${LLD_LIBS}
-  RC_TEMPLATE
-  DEFAULT
-  INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${INCLUDE_DIRS})
 
-add_opencl_library(
-  ${TARGET_NAME_EMU}
-  SHARED
-  ${OCL_CPU_BACKEND_INCLUDE_FILES}
-  ${OCL_CPU_BACKEND_SOURCE_FILES}
-  ${ASM_ADD_TO_SOURCES_LIST}
-  INCLUDE_DIRS
-  ${INCLUDE_DIRS}
-  LINK_LIBS
-  ${UTILS_LIBS}
-  # internal passes
-  ${BACKEND_PASSES}
-  ${LINK_LIBS}
-  ${LLD_LIBS}
-  RC_TEMPLATE
-  DEFAULT
-  INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
-
-set_linux_exports_file(${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt)
-set_linux_exports_file(${TARGET_NAME_EMU} ${TARGET_NAME}_linux_exports.txt)
+add_dependencies(${TARGET_NAME} intrinsics_gen)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

@@ -28,6 +28,8 @@
 #include "ocl_event.h"
 #include "queue_event.h"
 
+#include "llvm/Support/ManagedStatic.h"
+
 __attribute__((constructor)) static void dll_init(void);
 // As far as possible let dll_fini be called last
 __attribute__((destructor(100))) static void dll_fini(void);
@@ -65,6 +67,7 @@ void dll_fini(void) {
   Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
   // release the framework proxy object
   Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+  llvm::llvm_shutdown();
 #ifdef _DEBUG
   FiniSharedPts();
 #endif

@@ -68,6 +68,8 @@ add_opencl_library(
   ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
+  LINK_LIBS
+  LLVMIntelJITEvents
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
@@ -82,6 +84,8 @@ add_opencl_library(
   ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
+  LINK_LIBS
+  LLVMIntelJITEvents
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH

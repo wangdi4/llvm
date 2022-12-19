@@ -616,11 +616,20 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     char ModuleName[MAX_PATH];
     Intel::OpenCL::Utils::GetModuleDirectory(ModuleName, MAX_PATH);
-    std::string BaseName = std::string(ModuleName) + OCL_LIBRARY_TARGET_NAME;
+    std::string ModuleDir(ModuleName);
+#ifndef INTEL_PRODUCT_RELEASE
+    // Make sure that unit test binary can correctly find the ocl builtin libs.
+    std::string Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_FORCE_OCL_LIBRARY_PATH"))
+      ModuleDir = Env;
+#endif // INTEL_PRODUCT_RELEASE
+    llvm::SmallString<128> BaseName(ModuleDir);
+    llvm::sys::path::append(BaseName, OCL_LIBRARY_TARGET_NAME);
     std::string CPUPrefix = Cmplr->GetCpuId()->GetCPUPrefix();
-    std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;
+    std::string RtlFilePath = std::string(BaseName) + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =
-        BaseName + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;
+        std::string(BaseName) + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;
     assert(llvm::sys::fs::exists(RtlFilePath) &&
            "Library rtl file is not found");
     assert(llvm::sys::fs::exists(ObjectFilePath) &&

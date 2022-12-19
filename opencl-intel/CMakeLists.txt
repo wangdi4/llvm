@@ -19,6 +19,11 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR NOT
+   OPENCL_INTREE_BUILD)
+  project(OCL C CXX ASM)
+endif()
+
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
 option(BUILD_QTGUI "Build the QT related projects" OFF)
@@ -44,6 +49,9 @@ option(OPENCL_RT_INCLUDE_TESTS "Generate build targets for OpenCL RT unittest.
 option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
   Targets for building each unittest are generated in any case." OFF)
 
+set(OCL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
@@ -52,14 +60,6 @@ if(NOT OPENCL_ASM_COMPILER)
   # If it is not defined, then use the default.
   set(OPENCL_ASM_COMPILER ${CMAKE_ASM_COMPILER})
 endif()
-
-# Due to some reason, CMAKE_SIZEOF_VOID_P is empty until enable_language is
-# called
-enable_language(C)
-enable_language(CXX)
-if(NOT WIN32)
-  enable_language(ASM)
-endif(NOT WIN32)
 
 include(CheckCXXCompilerFlag)
 
@@ -196,11 +196,6 @@ if(NOT WIN32)
     COMMENT "Separating debug symbols from binaries...")
 endif(NOT WIN32)
 
-#
-# Project defs
-#
-project(OCL C CXX)
-
 if(BUILD_X64)
   set(ADDR 64)
 else()
@@ -230,6 +225,34 @@ if(OPENCL_INTREE_BUILD)
   set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})
   set(LLVM_PATH_BE ${LLVM_BINARY_DIR})
   set(LLVM_PATH_FE ${LLVM_BINARY_DIR})
+
+  llvm_map_components_to_libnames(
+    LLVM_MODULE_LIBS
+    AllTargetsAsmParsers
+    AllTargetsCodeGens
+    AllTargetsDescs
+    AllTargetsDisassemblers
+    AllTargetsInfos
+    Analysis
+    BitWriter
+    CodeGen
+    Core
+    ExecutionEngine
+    MCJIT
+    IPO
+    IRReader
+    InstCombine
+    Linker
+    Option
+    OrcJIT
+    Passes
+    ScalarOpts
+    Support
+    Target
+    TransformUtils
+    Vectorize
+    Intel_DPCPPKernelTransforms
+    Intel_OpenCLTransforms)
 endif()
 
 find_package(Threads REQUIRED)
@@ -529,7 +552,6 @@ endif()
 if(NOT OPENCL_INTREE_BUILD)
   set(INTEL_DEPLOY_COMPONENTS
       ocl-clang_compiler${BUILD_PLATFORM}
-      ocl-OclCpuBackEnd${BUILD_PLATFORM}
       ocl-builtins
       ocl-svml
       OpenCL-ICD

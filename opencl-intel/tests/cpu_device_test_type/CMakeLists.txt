@@ -7,13 +7,38 @@ calculate_target_sources()
 
 link_directories(${TBB_LIB_DIR})
 
-set(TARGET_LIBS builtin_kernels cl_sys_utils cpu_device device_commands
-                task_executor${BUILD_PLATFORM} test_utils)
+set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
+  ${LLVM_MODULE_LIBS}
+  BuiltinLibInfo
+  CLElfLib
+  CacheBinaryHandler
+  LLVMIntelJITEvents
+  LLVMSPIRVLib
+  LLVMSymbolize
+  LLVMVectorizer
+  LoopUtils
+  ObjDump
+  OclBackendUtils
+  OclCpuBackEnd
+  OclOptimizer
+  OclPluginManager
+  builtin_kernels
+  cl_sys_utils
+  cl_sys_utils
+  cpu_device
+  device_commands
+  dynamic_load
+  emutls
+  reflection_module
+  soft_math
+  task_executor${BUILD_PLATFORM}
+  test_utils
+)
 
 if(WIN32)
-  list(APPEND TARGET_LIBS delayimp.lib)
+  list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS delayimp.lib lldCOFF lldCommon)
 else()
-  list(APPEND TARGET_LIBS cl_hw_utils)
+  list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS cl_hw_utils)
 endif()
 
 set(INPUT_FILE test.cl)
@@ -24,7 +49,7 @@ set(TEST_BC_FILES ${TARGET_NAME}_test_files)
 add_custom_target(${TEST_BC_FILES} DEPENDS ${OUTPUT_FILE})
 
 add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
-                 ${TARGET_LIBS})
+                 ${CPU_DEVICE_TEST_TYPE_LINK_LIBS})
 
 add_dependencies(${TARGET} clang_compiler${BUILD_PLATFORM} ${OCL_RT_TEST_DEPS}
                  ${TEST_BC_FILES})
