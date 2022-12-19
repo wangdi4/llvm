@@ -22,6 +22,7 @@ add_llvm_unittest(VectorizeTests
   IntelVPlanCheckNodeParent.cpp
   IntelVPlanClonePlanTest.cpp
   IntelVPlanDATest.cpp
+  IntelVPlanTest.cpp
   IntelVPlanTTIMemrefCostTest.cpp
   IntelVPlanValueTrackingTest.cpp
 # INTEL_FEATURE_SW_ADVANCED
