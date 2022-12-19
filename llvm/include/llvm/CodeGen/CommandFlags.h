@@ -158,6 +158,12 @@ bool getDoFMAOpt();
 bool getIntelSpillParms();
 
 bool getIntelABICompatible();
+
+#if INTEL_FEATURE_MARKERCOUNT
+MarkerCount::Flag getFunctionMarkerCount();
+MarkerCount::Flag getLoopMarkerCount();
+std::string getOverrideMarkerCountFile();
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
 bool getEmitCallSiteInfo();

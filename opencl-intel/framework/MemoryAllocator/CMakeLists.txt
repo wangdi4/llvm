@@ -24,8 +24,6 @@ set(TARGET_NAME MemoryAllocator)
 find_sources(${IGNORE_FILES})
 calculate_target_sources()
 
-include(itt)
-
 # add a target named ${TARGET_NAME}
 add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCES})
 

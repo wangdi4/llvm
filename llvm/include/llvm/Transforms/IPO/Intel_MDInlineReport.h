@@ -30,6 +30,8 @@
 
 #include <vector>
 
+#define DEBUG_TYPE "mdinlinereport"
+
 namespace llvm {
 
 using namespace InlineReportTypes;
@@ -152,8 +154,13 @@ public:
 
   // Indicate that 'CB' has been eliminated as dead code with the
   // indicated reason.
-  void removeCallBaseReference(
-      CallBase &CB, InlineReason Reason = InlineReportTypes::NinlrDeleted) {
+  void removeCallBaseReference(CallBase &CB, InlineReason Reason = NinlrDeleted,
+                               bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeCallBaseReference: " << &CB << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << CB.getCaller()->getName() << " TO "
+                        << CB.getCalledFunction()->getName());
+    LLVM_DEBUG(dbgs() << "\n");
     MDNode *MDIR = CB.getMetadata(MDInliningReport::CallSiteTag);
     if (MDIR && CurrentCallInstr != &CB)
       if (auto *CSIR = dyn_cast<MDTuple>(MDIR)) {
@@ -169,10 +176,16 @@ public:
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
+    if (!FromCallback)
+      removeCallback(&CB);
   }
 
   // Indicate that 'F' has been eliminated as a dead static function.
-  void removeFunctionReference(Function &F) {
+  void removeFunctionReference(Function &F, bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeFunctionReference: " << &F << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << F.getName());
+    LLVM_DEBUG(dbgs() << "\n");
     MDNode *MDIR = F.getMetadata(MDInliningReport::FunctionTag);
     if (!MDIR)
       return;
@@ -183,6 +196,8 @@ public:
       auto IsDeadMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsDeadStr));
       FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead, IsDeadMD);
     }
+    if (!FromCallback)
+      removeCallback(&F);
   }
 
   // Setup initial values for the single inlining step
@@ -259,13 +274,14 @@ private:
       if (auto CB = dyn_cast<CallBase>(getValPtr())) {
         /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        IRB->removeCallBaseReference(*CB);
+        InlineReason Reason = NinlrDeleted;
+        IRB->removeCallBaseReference(*CB, Reason, true);
       } else if (auto F = dyn_cast<Function>(getValPtr())) {
         /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
-        IRB->removeFunctionReference(*F);
+        IRB->removeFunctionReference(*F, true);
       }
-      setValPtr(nullptr);
+      CallbackVH::deleted();
     }
 
   public:
@@ -284,6 +300,7 @@ public:
   void addCallback(Value *V) {
     if (!V || IRCallbackMap.count(V))
       return;
+    LLVM_DEBUG(dbgs() << "addCallback: " << V << "\n");
     InliningReportCallback *IRCB = new InliningReportCallback(V, this);
     IRCallbackMap.insert({V, IRCB});
   }
@@ -292,6 +309,7 @@ public:
   void removeCallback(Value *V) {
     if (!V || !IRCallbackMap.count(V))
       return;
+    LLVM_DEBUG(dbgs() << "removeCallback: " << V << "\n");
     InliningReportCallback *IRCB = IRCallbackMap[V];
     IRCallbackMap.erase(V);
     delete IRCB;
@@ -444,4 +462,6 @@ void setMDReasonIsInlined(CallBase *Call, const InlineCost &IC);
 InlineReportBuilder *getMDInlineReport();
 
 } // namespace llvm
+
+#undef DEBUG_TYPE
 #endif // LLVM_TRANSFORMS_IPO_INTEL_MDINLINEREPORT_H

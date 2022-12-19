@@ -436,13 +436,6 @@ void MachineBasicBlock::print(raw_ostream &OS, ModuleSlotTracker &MST,
     HasLineAttributes = true;
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  if (auto K = getMarkerCount())
-    OS << " ; " << static_cast<std::string>(K) << "\n";
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   if (!livein_empty() && MRI.tracksLiveness()) {
     if (Indexes) OS << '\t';
     OS.indent(2) << "liveins: ";

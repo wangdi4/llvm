@@ -14,10 +14,12 @@
 
 #include "CPUBuiltinLibrary.h"
 #include "SystemInfo.h"
+#include "cl_env.h"
 #include "cl_sys_info.h"
 #include "exceptions.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -35,16 +37,25 @@ using namespace llvm;
 void CPUBuiltinLibrary::Load() {
   char Path[MAX_PATH];
   Intel::OpenCL::Utils::GetModuleDirectory(Path, MAX_PATH);
+  std::string PathStr(Path);
+#ifndef INTEL_PRODUCT_RELEASE
+  // After we change backend to a static lib. It will be directly link into unit
+  // test binary. However, the test and builtin libs are not in the same folder.
+  // This is to make sure that unit test binary can correctly find the ocl
+  // builtin libs.
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_FORCE_OCL_LIBRARY_PATH"))
+    PathStr = Env;
+#endif // INTEL_PRODUCT_RELEASE
 
   // Klocwork warning - false alarm the Id is always in correct bounds
   const char *CPUPrefix = m_cpuId->GetCPUPrefix();
 
-  std::string PathStr(Path);
-
   if (m_useDynamicSvmlLibrary) {
     // Load SVML functions
     assert(CPUPrefix && "CPUPrefix is null");
-    std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
+    SmallString<128> SVMLPath(PathStr);
+    llvm::sys::path::append(SVMLPath, std::string("__ocl_svml_") + CPUPrefix);
 #if defined(_WIN32)
     SVMLPath += ".dll";
 #else
@@ -60,7 +71,8 @@ void CPUBuiltinLibrary::Load() {
 
   // Load LLVM built-ins module(s)
   // Load target-specific built-in library
-  std::string RTLPath = PathStr + "clbltfn" + CPUPrefix + ".rtl";
+  SmallString<128> RTLPath(PathStr);
+  llvm::sys::path::append(RTLPath, std::string("clbltfn") + CPUPrefix + ".rtl");
   ErrorOr<std::unique_ptr<MemoryBuffer>> RTLBufferOrErr =
       MemoryBuffer::getFile(RTLPath);
   if (!RTLBufferOrErr)
@@ -75,11 +87,8 @@ void CPUBuiltinLibrary::Load() {
   //    clbltfnshared.rtl
   //    x64/ or x86/
   //        other libraries
-#if defined(_WIN32)
-  std::string RTLSharedPath = PathStr + "..\\clbltfnshared.rtl";
-#else
-  std::string RTLSharedPath = PathStr + "../clbltfnshared.rtl";
-#endif
+  SmallString<128> RTLSharedPath(PathStr);
+  llvm::sys::path::append(RTLSharedPath, "..", "clbltfnshared.rtl");
   // Trying to load it
   ErrorOr<std::unique_ptr<MemoryBuffer>> RTLBufferSharedOrErr =
       MemoryBuffer::getFile(RTLSharedPath);
@@ -87,7 +96,8 @@ void CPUBuiltinLibrary::Load() {
     // TODO: Fix build layout to not support this case
     // Development install case:
     // shared library is in the same directory as other ones
-    RTLSharedPath = PathStr + "clbltfnshared.rtl";
+    SmallString<128> RTLSharedPath(PathStr);
+    llvm::sys::path::append(RTLSharedPath, "clbltfnshared.rtl");
 
     // Trying to load it
     RTLBufferSharedOrErr = MemoryBuffer::getFile(RTLSharedPath);

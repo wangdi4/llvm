@@ -1,9 +1,15 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s 
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),simplifycfg' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=inlinereport -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck --check-prefixes=CHECK-DBG,CHECK-DBG-CL %s
+; RUN: opt < %s -disable-output -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=mdinlinereport -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
 
 ; Check that when an invoke is converted to a call (as is the case for
 ; _ZN3ArrIPiEC2EiP3Mem and _ZN3ArrIPvEC2EiP3Mem below, the call appears
 ; in the inline report and is not marked as DELETE.
+
+; Check also for two removeCallBaseReference in both inlining reports and four
+; extra removeCallBaseReference in the classic inlining report during module deletion.
 
 ; CHECK: COMPILE FUNC: _ZN1FC2Ev
 ; CHECK: EXTERN: _Znwm
@@ -14,6 +20,12 @@
 ; CHECK-NOT: DELETE: _ZN3ArrIPvEC2EiP3Mem
 ; CHECK: DELETE: _ZdlPv
 ; CHECK: DELETE: _ZdlPv
+; CHECK-DBG: removeCallBaseReference: {{.*}} _ZN1FC2Ev TO _ZdlPv
+; CHECK-DBG: removeCallBaseReference: {{.*}} _ZN1FC2Ev TO _ZdlPv
+; CHECK-DBG-CL: removeCallBaseReference
+; CHECK-DBG-CL: removeCallBaseReference
+; CHECK-DBG-CL: removeCallBaseReference
+; CHECK-DBG-CL: removeCallBaseReference
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

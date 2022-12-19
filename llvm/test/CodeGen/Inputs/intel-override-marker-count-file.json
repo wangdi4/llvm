@@ -1,0 +1,5 @@
+[{"name":"f1","function":"never","loop":"never","comment":"indeterministic times of function call"},
+ {"name":"f2","loop":"never","comment":"hash-related loop"},
+ {"name":"f3","loop":"me","comment":"different loop unroll due to new ISA"},
+ {"name":"f4","function":"me","comment":"different inline decision due to new ISA"},
+ {"name":"f5","function":"never"}]

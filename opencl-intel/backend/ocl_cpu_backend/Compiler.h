@@ -47,38 +47,6 @@ class BuiltinModules;
 class ProgramBuildResult;
 class ObjectCodeCache;
 
-namespace Utils {
-/**
- * Class used to block the destruction of Compiler internal data
- * after backend dll unload
- *
- * Problem:
- * OCL SDK permit declaration of static OCL object (like Context)
- * that may hold the pointer to backend object (CompilerService for example)
- * The problem with such approach is that upon application termination the
- * backend dll could be unloaded prior to the above static object destruction.
- *
- * Solution:
- * We define the special static object ( that would be initilized after
- * any other static object in OCL SDK ). Upon backend dll unload this static
- * object's destructor will be called first and will set the special flag. Using
- * this flag, other backend objects (Compiler, CompilerService) may decide to
- * abort their desctuction in order to avoid crashes.
- *
- */
-class TerminationBlocker {
-public:
-  ~TerminationBlocker() {
-    s_released = true;
-    s_ignore_termination = true;
-  }
-  static bool IsReleased() { return s_released; }
-
-private:
-  static bool s_released;
-};
-} // namespace Utils
-
 //******************************************************************************
 // Represent the build specific options passed to the compiler upon BuildProgram
 // call
@@ -164,13 +132,6 @@ public:
    * Initialize the global options
    */
   static void InitGlobalState(const IGlobalCompilerConfig &config);
-
-  /**
-   * Terminate the LLVM environment.
-   * Must be called from a single threaded environment, after all
-   * the Compiler class instanced are destroyed
-   */
-  static void Terminate();
 
   /**
    * Build the given program using the supplied build options

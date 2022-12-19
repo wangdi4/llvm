@@ -13,23 +13,10 @@
 // License.
 
 #include "backend_wrapper.h"
-#include "cl_env.h"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Support/Path.h"
 #include <assert.h>
 #include <memory>
-
-#if defined(_WIN32)
-#if defined(_M_X64)
-const char *szOclCpuBackendDllName = "OclCpuBackEnd64";
-#else
-const char *szOclCpuBackendDllName = "OclCpuBackEnd32";
-#endif
-#else
-const char *szOclCpuBackendDllName = "OclCpuBackEnd";
-#endif
 
 using Intel::OpenCL::Utils::g_pUserLogger;
 
@@ -40,94 +27,19 @@ namespace CPUDevice {
 OpenCLBackendWrapper::OpenCLBackendWrapper(void)
     : // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in
       // parallel with shutdown
-      m_dll(false), m_funcInit(nullptr), m_funcTerminate(nullptr),
-      m_funcGetFactory(nullptr), m_targetDev(CPU_DEVICE) {}
-
-cl_dev_err_code OpenCLBackendWrapper::LoadDll() {
-  std::string dllName = std::string(szOclCpuBackendDllName) +
-                        (m_targetDev == FPGA_EMU_DEVICE ? OUTPUT_EMU_SUFF : "");
-  std::string dllFullPath(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
-      OS_DLL_POST(dllName).c_str()));
-
-#ifndef INTEL_PRODUCT_RELEASE
-  // This is a workaround to let unit test binary can correctly find the
-  // ocl backend lib. It will be removed after we change backend lib to a static
-  // library.
-  std::string Env;
-  if (Intel::OpenCL::Utils::getEnvVar(Env,
-                                      "CL_CONFIG_FORCE_OCL_LIBRARY_PATH")) {
-    llvm::SmallString<128> PathStr(Env);
-    llvm::sys::path::append(PathStr, OS_DLL_POST(dllName));
-    dllFullPath = PathStr.str();
-  }
-#endif // INTEL_PRODUCT_RELEASE
-
-  if (m_dll.Load(dllFullPath.c_str()) != 0) {
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-      g_pUserLogger->PrintError("Failed to load " +
-                                std::string(OS_DLL_POST(dllName)) +
-                                " with error message: " + m_dll.GetError());
-    return CL_DEV_ERROR_FAIL;
-  }
-
-  m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName(
-      "InitDeviceBackend");
-  if (nullptr == m_funcInit) {
-    return CL_DEV_ERROR_FAIL;
-  }
-
-  m_funcTerminate =
-      (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName(
-          "TerminateDeviceBackend");
-  if (nullptr == m_funcTerminate) {
-    return CL_DEV_ERROR_FAIL;
-  }
-
-  m_funcGetFactory =
-      (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName(
-          "GetDeviceBackendFactory");
-  if (nullptr == m_funcGetFactory) {
-    return CL_DEV_ERROR_FAIL;
-  }
-
-  return CL_DEV_SUCCESS;
-}
-
-void OpenCLBackendWrapper::UnloadDll() {
-  m_funcInit = nullptr;
-  m_funcTerminate = nullptr;
-  m_funcGetFactory = nullptr;
-  // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in
-  // parallel with shutdown
-  // m_dll.Close();
-}
+      m_targetDev(CPU_DEVICE) {}
 
 cl_dev_err_code
 OpenCLBackendWrapper::Init(const ICLDevBackendOptions *pBackendOptions,
                            DeviceMode dev) {
-  assert(
-      !m_funcInit &&
-      "You must not call Init more then once, without calling Terminate first");
   m_targetDev = dev;
-  cl_dev_err_code ret = LoadDll();
-  if (CL_DEV_FAILED(ret)) {
-    return ret;
-  }
-
-  return m_funcInit(pBackendOptions);
+  return InitDeviceBackend(pBackendOptions);
 }
 
-void OpenCLBackendWrapper::Terminate() {
-  assert(m_funcTerminate &&
-         "The Init method failed and you didn't noticed, did you?");
-  m_funcTerminate();
-  UnloadDll();
-}
+void OpenCLBackendWrapper::Terminate() { TerminateDeviceBackend(); }
 
 ICLDevBackendServiceFactory *OpenCLBackendWrapper::GetBackendFactory() {
-  assert(m_funcGetFactory &&
-         "The Init method failed and you didn't noticed, did you?");
-  return m_funcGetFactory();
+  return GetDeviceBackendFactory();
 }
 
 } // namespace CPUDevice

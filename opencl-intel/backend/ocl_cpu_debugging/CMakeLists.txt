@@ -23,8 +23,6 @@ if(WIN32)
 
   set(TARGET_NAME "${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION}")
 
-  project(${TARGET_NAME})
-
   if(BUILD_X64)
     set(PLATFORM 64)
   else()
@@ -68,6 +66,7 @@ if(WIN32)
     cl_sys_utils
     protobuf
     LLVMCore
+    LLVMIntelJITEvents
     RC_TEMPLATE
     ${CMAKE_CURRENT_SOURCE_DIR}/OclCpuDebugging.rc.in)
 

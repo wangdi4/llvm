@@ -16,7 +16,7 @@
 # set that name of the main output file as a target name
 set(TARGET_NAME device_commands)
 
-include(itt)
+include_directories(${OCL_SOURCE_DIR}/externals/itt/include)
 
 find_sources()
 calculate_target_sources()

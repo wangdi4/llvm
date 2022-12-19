@@ -16,7 +16,7 @@ list(
   ocl-tblgen
   llvm-as
   FileCheck
-  OclCpuBackEnd${BUILD_PLATFORM}
+  OclCpuBackEnd
   clang_compiler${BUILD_PLATFORM}
   ${OCL_BUILTIN_LIBS})
 

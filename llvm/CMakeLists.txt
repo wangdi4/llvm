@@ -1160,6 +1160,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_MARKERCOUNT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
+# end INTEL_FEATURE_MARKERCOUNT
 
 # INTEL_FEATURE_XISA_COMMON
       # This is used to guard code that shared by more then one XISA features.
@@ -2171,7 +2175,6 @@ if (INTEL_CUSTOMIZATION)
       ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
       ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
-      ocl-OclCpuBackEnd ocl-OclCpuBackEnd_emu ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd32_emu ocl-OclCpuBackEnd64_emu ocl-OclCpuBackEnd64
       )
 
     if (WIN32)

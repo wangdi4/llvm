@@ -119,7 +119,6 @@ public:
 } // namespace OpenCL
 } // namespace Intel
 
-// Defines the exported functions for the DLL application.
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -136,18 +135,17 @@ using namespace Intel::OpenCL::DeviceBackend;
  */
 // extern "C" cl_dev_err_code InitBackend(
 //  const ICLDevBackendOptions* pBackendOptions);
-LLVM_BACKEND_API cl_dev_err_code
-InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions);
+cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions);
 /**
  * @returns the backend manager factory instance in success, NULL otherwise
  *  NOTICE: that the factory is singelton
  */
-LLVM_BACKEND_API ICLDevBackendServiceFactory *GetDeviceBackendFactory();
+ICLDevBackendServiceFactory *GetDeviceBackendFactory();
 
 /**
  * Terminates the backend. Frees internal structures
  */
-LLVM_BACKEND_API void TerminateDeviceBackend();
+void TerminateDeviceBackend();
 
 /*
  * Function pointer types

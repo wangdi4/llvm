@@ -142,11 +142,7 @@ CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
   llvm::InitializeAllAsmParsers();
 }
 
-CPUCompiler::~CPUCompiler() {
-  // WORKAROUND!!! See the notes in TerminationBlocker description
-  if (Utils::TerminationBlocker::IsReleased())
-    return;
-}
+CPUCompiler::~CPUCompiler() {}
 
 void CPUCompiler::SelectCpu(const std::string &cpuName,
                             const std::string &cpuFeatures) {

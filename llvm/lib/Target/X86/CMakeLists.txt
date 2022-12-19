@@ -61,9 +61,6 @@ set(sources
   Intel_X86PreISelIntrinsicLowering.cpp
   Intel_X86StackRealign.cpp
   Intel_X86HeteroArchOpt.cpp
-# INTEL_FEATURE_MARKERCOUNT
-  Intel_X86MarkerCount.cpp
-# end INTEL_FEATURE_MARKERCOUNT
 # end INTEL_CUSTOMIZATION
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp

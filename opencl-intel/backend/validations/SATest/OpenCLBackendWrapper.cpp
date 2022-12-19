@@ -18,16 +18,6 @@
 #include "cl_dynamic_lib.h"
 #include <assert.h>
 
-#if defined(_WIN32)
-#if defined(_M_X64)
-const char *szOclCpuBackendDllName = "OclCpuBackEnd64.dll";
-#else
-const char *szOclCpuBackendDllName = "OclCpuBackEnd32.dll";
-#endif
-#else
-const char *szOclCpuBackendDllName = "libOclCpuBackEnd.so";
-#endif
-
 namespace Validation {
 OpenCLBackendWrapper *OpenCLBackendWrapper::s_instance = NULL;
 
@@ -37,7 +27,6 @@ void OpenCLBackendWrapper::Init(const BERunOptions &runConfig) {
 
   assert(!s_instance);
   s_instance = new OpenCLBackendWrapper();
-  s_instance->LoadDll();
   s_instance->InitBackend(&config); // we could probably pass the logger routine
                                     // here, but currently it's not supported
 }
@@ -47,32 +36,13 @@ OpenCLBackendWrapper &OpenCLBackendWrapper::GetInstance() {
   return *s_instance;
 }
 
-OpenCLBackendWrapper::OpenCLBackendWrapper(void)
-    : m_funcInit(NULL), m_funcTerminate(NULL), m_funcGetFactory(NULL) {}
+OpenCLBackendWrapper::OpenCLBackendWrapper(void) {}
 
 OpenCLBackendWrapper::~OpenCLBackendWrapper(void) {}
 
-void OpenCLBackendWrapper::LoadDll() {
-  try {
-    m_dll.Load(szOclCpuBackendDllName);
-
-    m_funcInit =
-        (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("InitDeviceBackend");
-
-    m_funcTerminate = (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr(
-        "TerminateDeviceBackend");
-
-    m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFuncPtr(
-        "GetDeviceBackendFactory");
-  } catch (Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException &ex) {
-    throw Exception::GeneralException(ex.what());
-  }
-}
-
 cl_dev_err_code
 OpenCLBackendWrapper::InitBackend(const ICLDevBackendOptions *pBackendOptions) {
-  assert(m_funcInit);
-  return m_funcInit(pBackendOptions);
+  return InitDeviceBackend(pBackendOptions);
 }
 
 void OpenCLBackendWrapper::Terminate() {
@@ -82,14 +52,10 @@ void OpenCLBackendWrapper::Terminate() {
   s_instance = NULL;
 }
 
-void OpenCLBackendWrapper::Release() {
-  assert(m_funcTerminate);
-  m_funcTerminate();
-}
+void OpenCLBackendWrapper::Release() { TerminateDeviceBackend(); }
 
 ICLDevBackendServiceFactory *OpenCLBackendWrapper::GetBackendServiceFactory() {
-  assert(m_funcGetFactory);
-  return m_funcGetFactory();
+  return GetDeviceBackendFactory();
 }
 
 } // namespace Validation

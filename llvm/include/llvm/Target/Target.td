@@ -1230,8 +1230,8 @@ def COPY_TO_REGCLASS : StandardPseudoInstruction {
   let hasSideEffects = false;
   let isAsCheapAsAMove = true;
 }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_MARKERCOUNT
 def PSEUDO_LOOP_HEADER : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins);
@@ -1250,8 +1250,8 @@ def PSEUDO_FUNCTION_EPILOG : StandardPseudoInstruction {
   let AsmString = "PSEUDO_FUNCTION_EPILOG";
   let hasSideEffects = true;
 }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
+// end INTEL_FEATURE_MARKERCOUNT
+// end INTEL_CUSTOMIZATION
 def DBG_VALUE : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);

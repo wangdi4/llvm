@@ -21,10 +21,7 @@ File Name:  BackendWrapper.cpp
 #include <assert.h>
 #include <iterator>
 
-BackendWrapper::BackendWrapper(void)
-    : m_funcInit(NULL), m_funcTerminate(NULL), m_funcGetFactory(NULL) {
-  backendInitiated = false;
-}
+BackendWrapper::BackendWrapper(void) { backendInitiated = false; }
 
 BackendWrapper::~BackendWrapper(void) {}
 
@@ -52,15 +49,11 @@ bool BackendWrapper::Initiate(bool callBackendInit) {
 
   s_instance = new BackendWrapper();
   // should we init the device backend here?
-  if (callBackendInit) {
-    if (s_instance->LoadDll() && CL_DEV_SUCCESS == (s_instance->Init(NULL))) {
-      return true;
-    }
-  } else {
-    // dont call the Backend exported function InitDeviceBackend
-    if (s_instance->LoadDll()) {
-      return true;
-    }
+  if (!callBackendInit)
+    return true;
+
+  if (CL_DEV_SUCCESS == (s_instance->Init(NULL))) {
+    return true;
   }
   // Initiating failed, return to safe state
   delete s_instance;
@@ -71,25 +64,6 @@ bool BackendWrapper::Initiate(bool callBackendInit) {
 BackendWrapper &BackendWrapper::GetInstance() {
   assert(s_instance);
   return *s_instance;
-}
-
-bool BackendWrapper::LoadDll() {
-  // load the dll and get the exported functions
-  try {
-    m_dll.Load(CPUBACKEND_DLL_NAME);
-
-  } catch (Exceptions::DynamicLibException &err) {
-    std::cerr << "Cannot load the backend DLL. " << err.what() << "\n";
-    return false;
-  }
-
-  m_funcInit =
-      (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("InitDeviceBackend");
-  m_funcTerminate = (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr(
-      "TerminateDeviceBackend");
-  m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFuncPtr(
-      "GetDeviceBackendFactory");
-  return true;
 }
 
 bool BackendWrapper::Terminate() {
@@ -104,26 +78,23 @@ bool BackendWrapper::Terminate() {
 
 cl_dev_err_code
 BackendWrapper::Init(const ICLDevBackendOptions *pBackendOptions) {
-  assert(m_funcInit);
-  // call the backend dll exported function Init
-  cl_dev_err_code ret = m_funcInit(pBackendOptions);
+  // call the backend function Init
+  cl_dev_err_code ret = InitDeviceBackend(pBackendOptions);
   backendInitiated = true;
   return ret;
 }
 
 void BackendWrapper::Release() {
-  assert(m_funcTerminate);
-  // call the backend dll exported function Terminate
+  // call the backend Terminate
   if (backendInitiated) {
-    m_funcTerminate();
+    TerminateDeviceBackend();
     backendInitiated = false;
   }
 }
 
 ICLDevBackendServiceFactory *BackendWrapper::GetBackendServiceFactory() {
-  assert(m_funcGetFactory);
-  // call the backend dll exported function GetFactory
-  return m_funcGetFactory();
+  // call the backend function GetFactory
+  return GetDeviceBackendFactory();
 }
 
 void BackendWrapper::CreateProgramContainer(const std::string &programFile,

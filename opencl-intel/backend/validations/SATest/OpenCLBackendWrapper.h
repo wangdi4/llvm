@@ -32,8 +32,6 @@ public:
   static OpenCLBackendWrapper &GetInstance();
   static void Terminate();
 
-  void LoadDll();
-
   cl_dev_err_code InitBackend(const ICLDevBackendOptions *config);
 
   ICLDevBackendServiceFactory *GetBackendServiceFactory();
@@ -45,11 +43,6 @@ private:
   ~OpenCLBackendWrapper();
 
 private:
-  Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
-  BACKEND_INIT_FUNCPTR m_funcInit;
-  BACKEND_TERMINATE_FUNCPTR m_funcTerminate;
-  BACKEND_GETFACTORY_FUNCPTR m_funcGetFactory;
-
   static OpenCLBackendWrapper *s_instance;
 };
 } // namespace Validation

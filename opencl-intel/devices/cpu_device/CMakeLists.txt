@@ -29,9 +29,10 @@ endif(NOT WIN32)
 
 include_directories(
   BEFORE
-  ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
   ${OCL_SOURCE_DIR}/FrontendDriver
+  ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
   ${OCL_SOURCE_DIR}/cl_api
+  ${OCL_SOURCE_DIR}/externals/itt/include
   ${HW_UTILS_HEADERS}
   ${OCL_BINARY_DIR}
   ${CL_API_HEADERS}
@@ -83,9 +84,6 @@ endif(INCLUDE_MKL)
 
 find_sources()
 calculate_target_sources()
-
-# include ITT notify sources
-include(itt)
 
 # add a target named ${TARGET_NAME}
 add_opencl_library(

@@ -26,7 +26,11 @@
 
 #include <climits>
 
+#define DEBUG_TYPE "inlinereport"
+
 namespace llvm {
+
+using namespace InlineReportTypes;
 
 class InlineReportCallSite;
 
@@ -42,8 +46,8 @@ public:
   // Constructor for InlineReportCallSite
   // The source file is given by 'M'.  The line and column info by 'Dloc'
   explicit InlineReportCallSite(InlineReportFunction *IRCallee, bool IsInlined,
-                                InlineReportTypes::InlineReason Reason,
-                                Module *Module, DebugLoc *DLoc, CallBase *CB,
+                                InlineReason Reason, Module *Module,
+                                DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
         IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
@@ -75,10 +79,8 @@ public:
   InlineReportCallSite *getIRParent() const { return IRParent; }
   void setIRParent(InlineReportCallSite *IRCS) { IRParent = IRCS; }
 
-  InlineReportTypes::InlineReason getReason() const { return Reason; }
-  void setReason(InlineReportTypes::InlineReason MyReason) {
-    Reason = MyReason;
-  }
+  InlineReason getReason() const { return Reason; }
+  void setReason(InlineReason MyReason) { Reason = MyReason; }
   bool getIsInlined() const { return IsInlined; }
   void setIsInlined(bool Inlined) { IsInlined = Inlined; }
 
@@ -161,7 +163,7 @@ private:
   InlineReportFunction *IRCaller;
   InlineReportCallSite *IRParent;
   bool IsInlined;
-  InlineReportTypes::InlineReason Reason;
+  InlineReason Reason;
   int InlineCost;
   int OuterInlineCost;
   int InlineThreshold;
@@ -268,8 +270,7 @@ public:
   void setName(std::string FunctionName) { Name = FunctionName; }
 
   void printName(formatted_raw_ostream &OS, unsigned Level) {
-    if ((Level & InlineReportTypes::InlineReportOptions::Demangle) &&
-        getLanguageChar() == 'C')
+    if ((Level & InlineReportOptions::Demangle) && getLanguageChar() == 'C')
       OS << demangle(getName());
     else
       OS << getName();
@@ -381,17 +382,15 @@ public:
 
   // Check if classic inline report should be created
   bool isClassicIREnabled() const {
-    return (Level && !(Level & InlineReportTypes::BasedOnMetadata));
+    return (Level && !(Level & BasedOnMetadata));
   }
 
   /// Record the reason a call site is or is not inlined.
-  void setReasonNotInlined(CallBase *Call,
-                           InlineReportTypes::InlineReason Reason);
+  void setReasonNotInlined(CallBase *Call, InlineReason Reason);
   void setReasonNotInlined(CallBase *Call, const InlineCost &IC);
   void setReasonNotInlined(CallBase *Call, const InlineCost &IC,
                            int TotalSecondaryCost);
-  void setReasonIsInlined(CallBase *Call,
-                          InlineReportTypes::InlineReason Reason);
+  void setReasonIsInlined(CallBase *Call, InlineReason Reason);
   void setReasonIsInlined(CallBase *Call, const InlineCost &IC);
 
   /// Replace 'OldFunction' with 'NewFunction' in the inlining report,
@@ -456,9 +455,13 @@ public:
 
   // Indicate that 'CB' has been eliminated as dead code with the
   // indicated reason.
-  void removeCallBaseReference(CallBase &CB,
-                               InlineReportTypes::InlineReason Reason =
-                                   InlineReportTypes::NinlrDeleted) {
+  void removeCallBaseReference(CallBase &CB, InlineReason Reason = NinlrDeleted,
+                               bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeCallBaseReference: " << &CB << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << CB.getCaller()->getName() << " TO "
+                        << CB.getCalledFunction()->getName());
+    LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
     if (ActiveInlineCallBase != &CB) {
@@ -474,11 +477,16 @@ public:
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
-    removeCallback(&CB);
+    if (!FromCallback)
+      removeCallback(&CB);
   }
 
   // Indicate that 'F' has been eliminated as a dead static function.
-  void removeFunctionReference(Function &F) {
+  void removeFunctionReference(Function &F, bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeFunctionReference: " << &F << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << F.getName());
+    LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
     auto MapIt = IRFunctionMap.find(&F);
@@ -489,7 +497,8 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionSet.insert(IRF);
     }
-    removeCallback(&F);
+    if (!FromCallback)
+      removeCallback(&F);
   }
 
   // Create or update the exiting representation of 'F'.
@@ -573,12 +582,14 @@ private:
       if (auto CB = dyn_cast<CallBase>(getValPtr())) {
         /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        IR->removeCallBaseReference(*CB);
+        InlineReason Reason = NinlrDeleted;
+        IR->removeCallBaseReference(*CB, Reason, true);
       } else if (auto F = dyn_cast<Function>(getValPtr())) {
         /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
-        IR->removeFunctionReference(*F);
+        IR->removeFunctionReference(*F, true);
       }
+      CallbackVH::deleted();
     }
 
   public:
@@ -622,17 +633,19 @@ private:
   void makeAllNotCurrent(void);
 
   void addCallback(Value *V) {
-    if (CallbackMap.count(V))
+    if (!V || CallbackMap.count(V))
       return;
+    LLVM_DEBUG(dbgs() << "addCallback: " << V << "\n");
     CallbackMap[V] = new InlineReportCallback(V, this);
   }
 
   void removeCallback(Value *V) {
-    if (!CallbackMap.count(V))
+    if (!V || !CallbackMap.count(V))
       return;
-    InlineReportCallback *CB = CallbackMap[V];
+    LLVM_DEBUG(dbgs() << "removeCallback: " << V << "\n");
+    InlineReportCallback *IRCB = CallbackMap[V];
     CallbackMap.erase(V);
-    delete CB;
+    delete IRCB;
   }
 
   InlineReportCallSite *getCallSite(CallBase *Call);
@@ -661,5 +674,7 @@ public:
 };
 
 } // end namespace llvm
+
+#undef DEBUG_TYPE
 
 #endif

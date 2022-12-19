@@ -661,10 +661,8 @@ ModulePass *llvm::createInlineReportSetupPass(InlineReportBuilder *MDIR) {
   return new InlineReportSetup(MDIR);
 }
 
-InlineReportSetupPass::InlineReportSetupPass(InlineReportBuilder *IRB)
-    : MDIR(IRB) {
-  if (!IRB)
-    MDIR = new InlineReportBuilder(IntelInlineReportLevel);
+InlineReportSetupPass::InlineReportSetupPass() {
+  MDIR = getMDInlineReport();
   MDIR->setLevel(IntelInlineReportLevel);
 }
 

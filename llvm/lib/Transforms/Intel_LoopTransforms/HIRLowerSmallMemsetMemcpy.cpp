@@ -117,6 +117,17 @@ static Type *findElementType(const RegDDRef *AddressOfRef) {
   }
 
   if (!DimElemTy->isStructTy()) {
+    // If access is strided, check that stride is constant and match dimention
+    // element type size.
+    auto *DimStride = AddressOfRef->getDimensionStride(1);
+    int64_t DimStrideConst;
+    if (!DimStride->isIntConstant(&DimStrideConst) ||
+        (DimStrideConst <= 0 ||
+         ((uint64_t)DimStrideConst !=
+          AddressOfRef->getDDRefUtils().getCanonExprUtils().getTypeSizeInBytes(
+              DimElemTy)))) {
+      return nullptr;
+    }
     return DimElemTy;
   }
 

@@ -22,6 +22,8 @@
 #include "cl_sys_info.h"
 #include <string>
 
+#include "llvm/Support/ManagedStatic.h"
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -86,6 +88,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
     Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
     // release the framework proxy object
     Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+    llvm::llvm_shutdown();
 #ifdef _DEBUG
     FiniSharedPts();
 #endif

@@ -39,17 +39,9 @@ File Name:  BackendWrapper.h
 using namespace Intel::OpenCL::DeviceBackend;
 
 #if defined(_WIN32)
-/// @brief the backend dll file name
-#if defined(_M_X64)
-#define CPUBACKEND_DLL_NAME "OclCpuBackEnd64.dll"
-#else
-#define CPUBACKEND_DLL_NAME "OclCpuBackEnd32.dll"
-#endif
 /// @brief the plugin dll file name, in our case its the SamplePlugin
 #define PLUGIN_DLL_NAME "OCLSamplePlugin.dll"
 #else
-/// @brief the backend dll file name
-#define CPUBACKEND_DLL_NAME "libOclCpuBackEnd.so"
 /// @brief the plugin dll file name, in our case its the SamplePlugin
 #define PLUGIN_DLL_NAME "libOCLSamplePlugin.so"
 #endif
@@ -112,11 +104,6 @@ public:
   /// @brief Terminate(): terminating the BackendWrapper instance
   static bool Terminate();
 
-  /// @brief LoadDll(): loading the backend dll and getting the exported
-  /// functions
-  ///        + Will be called by the Init() method
-  bool LoadDll();
-
   /// @brief the exported functions from the backend dll
   cl_dev_err_code Init(const ICLDevBackendOptions *pBackendOptions);
   ICLDevBackendServiceFactory *GetBackendServiceFactory();
@@ -134,12 +121,6 @@ protected:
    */
   virtual void SetUp();
   virtual void TearDown();
-
-  /// @brief the backend dll and the exported functions
-  Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
-  BACKEND_INIT_FUNCPTR m_funcInit;
-  BACKEND_TERMINATE_FUNCPTR m_funcTerminate;
-  BACKEND_GETFACTORY_FUNCPTR m_funcGetFactory;
 
   static BackendWrapper *s_instance;
 

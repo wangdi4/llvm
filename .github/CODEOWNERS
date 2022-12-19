@@ -132,6 +132,11 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /clang/test/CodeGen/Intel_traceback.c @KanRobert
 /clang/test/Driver/Intel_traceback.c @KanRobert
 /llvm/docs/Intel/TraceBack.rst @KanRobert
+/llvm/include/llvm/Analysis/Intel_MarkerCountInfo.h @KanRobert
+/llvm/lib/Analysis/Intel_MarkerCountInfo.cpp @KanRobert
+/llvm/lib/CodeGen/Intel_PseudoMarkerCountInserter.cpp @KanRobert
+/llvm/unittests/Analysis/Intel_MarkerCountInfoTest.cpp @KanRobert
+/llvm/test/CodeGen/X86/intel_markercount/ @KanRobert
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders

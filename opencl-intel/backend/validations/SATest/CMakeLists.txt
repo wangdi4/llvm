@@ -77,50 +77,70 @@ endif()
 add_opencl_executable(
   ${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD
-  mem_utils.cpp
-  dbg_utils.cpp
-  main.cpp
-  RunResult.cpp
-  Performance.cpp
-  PerformancePrinter.cpp
-  RunnerFactoryGenerator.cpp
-  SATest.cpp
+  ${VALIDATIONS_ROOT}/Common/md5.cpp
+  OpenCLArgsBuffer.cpp
+  OpenCLBackendRunner.cpp
+  OpenCLBackendWrapper.cpp
+  OpenCLCPUBackendRunner.cpp
+  OpenCLComparator.cpp
+  OpenCLFactory.cpp
   OpenCLProgram.cpp
   OpenCLReferenceRunner.cpp
   OpenCLRunConfiguration.cpp
-  OpenCLBackendWrapper.cpp
-  OpenCLComparator.cpp
-  OpenCLArgsBuffer.cpp
-  OpenCLCPUBackendRunner.cpp
-  OpenCLFactory.cpp
-  OpenCLBackendRunner.cpp
-  ${VALIDATIONS_ROOT}/Common/md5.cpp
-  OpenCLStamp.cpp)
+  OpenCLStamp.cpp
+  Performance.cpp
+  PerformancePrinter.cpp
+  RunResult.cpp
+  RunnerFactoryGenerator.cpp
+  SATest.cpp
+  dbg_utils.cpp
+  dllmain.cpp
+  main.cpp
+  mem_utils.cpp)
 
 target_link_libraries(
   ${TARGET_NAME}
-  OpenCLKernelArgumentsParser
-  OCLKernelDataGenerator
-  OCLBuilder
-  PlugInNEAT
+  ${LLVM_MODULE_LIBS}
+  BuiltinLibInfo
+  CLElfLib
+  CacheBinaryHandler
+  Comparator
   DataManager
   DataVersion
-  Comparator
-  OclBackendUtils
-  OCLBuiltinsRef
-  NEAT
-  REFALU
-  ProgramConfiguration
-  dynamic_load
-  tinyxml_STL
   ImathLibd
-  cl_sys_utils
-  ${LLVM_MODULE_LIBS}
   LLVMAsmParser
   LLVMBitReader
+  LLVMIntelJITEvents
   LLVMInterpreter
   LLVMInterpreterPluggable
-  LLVMTransformUtils)
+  LLVMSPIRVLib
+  LLVMSymbolize
+  LLVMTransformUtils
+  LLVMVectorizer
+  LoopUtils
+  NEAT
+  OCLBuilder
+  OCLBuiltinsRef
+  OCLKernelDataGenerator
+  ObjDump
+  OclBackendUtils
+  OclCpuBackEnd
+  OclOptimizer
+  OclPluginManager
+  OpenCLKernelArgumentsParser
+  PlugInNEAT
+  ProgramConfiguration
+  REFALU
+  cl_sys_utils
+  dynamic_load
+  emutls
+  reflection_module
+  soft_math
+  tinyxml_STL)
+
+if(WIN32)
+  target_link_libraries(${TARGET_NAME} lldCOFF lldCommon)
+endif(WIN32)
 
 if(NOT WIN32)
   add_dependencies(${TARGET_NAME} ImathLibd)

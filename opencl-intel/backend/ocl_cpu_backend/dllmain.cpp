@@ -48,71 +48,12 @@ static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 // flag used to disable the termination sequence
 bool s_ignore_termination = false;
 
-// include shutdown protocol support for runtime
-USE_SHUTDOWN_HANDLER(nullptr);
-
-#if defined(_WIN32)
-
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
-                      LPVOID lpReserved) {
-  switch (ul_reason_for_call) {
-  case DLL_PROCESS_ATTACH:
-    // FIXME: Calling this from dll_init on Linux can cause problems
-    //        because the constructors of static objects in other files
-    //        haven't necessarily been called before we get there.  By
-    //        extension, it seems like a bad idea to call it from here
-    //        on Windows.  While it may work, the behavior would be
-    //        inconsistent.
-    // Compiler::Init();
-#if !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
-    Intel::OpenCL::Utils::DisableSystemDialogsOnCrash();
-#endif
-    break;
-  case DLL_THREAD_ATTACH:
-  case DLL_THREAD_DETACH:
-    break;
-  case DLL_PROCESS_DETACH:
-    if (s_init_count > 0) {
-      // Dll is unloaded prior to Terminate call - in this case the
-      // TerminateDeviceBackend method should not attempts to free the
-      // resources, since the system could be in non-stable state
-      s_ignore_termination = true;
-    }
-
-    if (!s_ignore_termination) {
-      Compiler::Terminate();
-    }
-    break;
-  }
-  return TRUE;
-}
-#else
-void __attribute__((constructor)) dll_init(void) {
-  // FIXME: Calling this from here can cause problems because the constructors
-  //        of static objects in other files haven't necessarily been called
-  //        before we get here.
-  // Compiler::Init();
-}
-
-void __attribute__((destructor)) dll_fini(void) {
-  if (s_init_count > 0) {
-    s_ignore_termination = true;
-  }
-
-  if (!s_ignore_termination) {
-    Compiler::Terminate();
-  }
-}
-#endif
-
-// Defines the exported functions for the DLL application.
 #ifdef __cplusplus
 extern "C" {
 #endif
 ///@brief
 ///
-LLVM_BACKEND_API cl_dev_err_code
-InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions) {
+cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions) {
   OclAutoMutex lock(&s_init_lock);
 
   // The compiler can only be initialized once, even if the backend is
@@ -158,7 +99,7 @@ InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions) {
   return s_init_result;
 }
 
-LLVM_BACKEND_API void TerminateDeviceBackend() {
+void TerminateDeviceBackend() {
   if (s_ignore_termination) {
     return;
   }
@@ -182,7 +123,7 @@ LLVM_BACKEND_API void TerminateDeviceBackend() {
   BackendConfiguration::Terminate();
 }
 
-LLVM_BACKEND_API ICLDevBackendServiceFactory *GetDeviceBackendFactory() {
+ICLDevBackendServiceFactory *GetDeviceBackendFactory() {
   return ServiceFactory::GetInstance();
 }
 #ifdef __cplusplus

@@ -14,8 +14,6 @@
 
 set(TARGET_NAME Platform)
 
-include(itt)
-
 set(TARGET_INCLUDE_FILES Device.h fe_compiler.h iplatform.h observer.h
                          platform_module.h)
 

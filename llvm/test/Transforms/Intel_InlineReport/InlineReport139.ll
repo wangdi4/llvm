@@ -1,8 +1,14 @@
+; REQUIRES: asserts
 ; RUN: opt -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xea86 < %s -S | opt -passes='function(sroa)' -inline-report=0xea86 -S | opt -passes='inlinereportemitter' -inline-report=0xea86 -S 2>&1 | FileCheck %s
+; RUN: opt -debug-only=inlinereport -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
+; RUN: opt -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -debug-only=mdinlinereport -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
 
 ; Check that calls to llvm.lifetime.start and llvm.lifetime.end are deleted
 ; as dead code.
+
+; Check also that removeCallBaseReference is called once each time the
+; deletion is performed.
 
 ; CHECK-LABEL: COMPILE FUNC: i_putchar
 ; CHECK-DAG: DELETE: llvm.lifetime.start.p0i8 {{.*}}Dead code
@@ -15,6 +21,15 @@
 ; CHECK-DAG: DELETE: llvm.lifetime.end.p0i8 {{.*}}Dead code
 ; CHECK-DAG: EXTERN: fputc
 ; CHECK-DAG: EXTERN: fputc
+
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.end.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0i8
+; CHECK-DBG: removeCallBaseReference: {{.*}} i_putchar TO llvm.lifetime.start.p0i8
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type opaque
