@@ -73,12 +73,11 @@ enum AllocType : uint8_t {
   MallocLike         = 1<<1, // allocates; may return null
   AlignedAllocLike   = 1<<2, // allocates with alignment; may return null
   CallocLike         = 1<<3, // allocates + bzero
-  ReallocLike        = 1<<4, // reallocates
-  StrDupLike         = 1<<5,
+  StrDupLike         = 1<<4,
   MallocOrOpNewLike  = MallocLike | OpNewLike,
   MallocOrCallocLike = MallocLike | OpNewLike | CallocLike | AlignedAllocLike,
   AllocLike          = MallocOrCallocLike | StrDupLike,
-  AnyAlloc           = AllocLike | ReallocLike
+  AnyAlloc           = AllocLike
 };
 
 enum class MallocFamily {
@@ -369,17 +368,19 @@ bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 /// Tests if a functions is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, ReallocLike, TLI).has_value() ||
-         checkFnAllocKind(F, AllocFnKind::Realloc);
+  return checkFnAllocKind(F, AllocFnKind::Realloc);
 }
 
 Value *llvm::getReallocatedOperand(const CallBase *CB,
                                    const TargetLibraryInfo *TLI) {
+<<<<<<< HEAD
   if (getAllocationData(CB, ReallocLike, TLI).has_value() ||      // INTEL
       checkFnAllocKind(CB, AllocFnKind::Realloc)) {               // INTEL
     // All currently supported realloc functions reallocate the first argument.
     return CB->getArgOperand(0);
   }
+=======
+>>>>>>> 195af8e034f08de9b620fb434a4e816c74575e86
   if (checkFnAllocKind(CB, AllocFnKind::Realloc))
     return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
   return nullptr;
