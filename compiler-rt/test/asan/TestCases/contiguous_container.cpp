@@ -2,6 +2,14 @@
 //
 // Test __sanitizer_annotate_contiguous_container.
 
+// INTEL_CUSTOMIZATION
+// This test fails to build on Linux zsc2, but builds fine on lab servers.
+// Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
+// for now pending further investigation.
+// CMPLRLLVM-42831
+// UNSUPPORTED: i386-linux, x86_64-linux
+// end INTEL_CUSTOMIZATION
+
 #include <algorithm>
 #include <numeric>
 #include <vector>
