@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced, asserts
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CLASSIC %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-META %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -pre-lto-inline-cost -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-META %s
 
 ; Check that core_state_transition gets inlined into core_bench_state, by
 ; the early test loop fusion inlining heuristic.
