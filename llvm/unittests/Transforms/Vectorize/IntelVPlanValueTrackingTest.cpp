@@ -22,12 +22,17 @@ namespace {
 
 class VPlanValueTrackingTest : public vpo::VPlanTestBase {
 protected:
-  KnownBits getKnownBitsForStoreAddressBase(const char *ModuleString) {
+  std::unique_ptr<VPlanVector> Plan;
+
+  void buildVPlanFromString(const char *ModuleString) {
     Module &M = parseModule(ModuleString);
     Function *F = M.getFunction("foo");
     BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-    std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
+    Plan = buildHCFG(LoopHeader);
+  }
 
+  KnownBits getKnownBitsForStoreAddressBase(const char *ModuleString) {
+    buildVPlanFromString(ModuleString);
     VPLoadStoreInst *Store = nullptr;
     for (auto &BB : *Plan)
       for (auto &VPInst : BB) {
@@ -130,6 +135,86 @@ TEST_F(VPlanValueTrackingTest, SimpleAssumeAlignedLegacy) {
   KnownBits KB = getKnownBitsForStoreAddressBase(ModuleString);
   EXPECT_EQ(KB.Zero, 0b100111);
   EXPECT_EQ(KB.One,  0b011000);
+}
+
+struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
+  VPInstruction *findInstructionByName(StringRef Name) const {
+    for (VPInstruction &I : vpinstructions(Plan.get()))
+      if (I.getOrigName() == Name)
+        return &I;
+    return nullptr;
+  }
+
+  template <typename InstTy> InstTy *findFirstInstruction() const {
+    for (VPInstruction &I : vpinstructions(Plan.get()))
+      if (auto *VPCall = dyn_cast<InstTy>(&I))
+        return VPCall;
+    return nullptr;
+  }
+
+  void expectKnownBits(StringRef Name, uint64_t Zero, uint64_t One) {
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
+    KnownBits KB = Plan->getVPVT()->getKnownBits(I, I);
+    EXPECT_EQ(KB.Zero.getZExtValue(), Zero) << "KB('%" << Name << "')";
+    EXPECT_EQ(KB.One.getZExtValue(), One) << "KB('%" << Name << "')";
+  }
+};
+
+TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_Arithmetic) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %a, i32 %b) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %a.mul = mul i64 %a, 4
+      %a.add = add i64 %a.mul, 7
+      %a.and = and i64 %a.add, 127
+      %b.shl = shl i32 %b, 3
+      %b.or  = or  i32 %b.shl, 63
+      %b.sub = sub i32 %b.or, 1
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+  // clang-format off
+  expectKnownBits("a.mul", /*Zero:*/ 0b00000011, /*One:*/ 0b00000000);
+  expectKnownBits("a.add", /*Zero:*/ 0b00000000, /*One:*/ 0b00000011);
+  expectKnownBits("a.and", /*Zero:*/ ~0b1111111, /*One:*/ 0b00000011);
+  expectKnownBits("b.shl", /*Zero:*/ 0b00000111, /*One:*/ 0b00000000);
+  expectKnownBits("b.or",  /*Zero:*/ 0b00000000, /*One:*/ 0b00111111);
+  expectKnownBits("b.sub", /*Zero:*/ 0b00000001, /*One:*/ 0b00111110);
+  // clang-format on
+}
+
+TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_ExternalDef) {
+  buildVPlanFromString(R"(
+    declare void @llvm.assume(i1)
+    define void @foo(i64* %p) {
+    entry:
+      call void @llvm.assume(i1 true) [ "align"(i64* %p, i32 64) ]
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      store i64 0, i64* %p, align 8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+  const auto *Store = findFirstInstruction<VPLoadStoreInst>();
+  ASSERT_TRUE(Store);
+
+  KnownBits ArgKB =
+      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+  EXPECT_EQ(ArgKB.Zero, 63);
+  EXPECT_EQ(ArgKB.One, 0);
 }
 
 } // namespace
