@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; Inline report
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe807 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe807 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe886 -forced-inline-opt-level=2 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
