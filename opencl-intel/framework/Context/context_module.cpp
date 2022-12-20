@@ -78,8 +78,12 @@ cl_err_code ContextModule::Release(bool bTerminate) {
   m_bIsTerminating = bTerminate;
   // FIXME: This is a workaround to manually release kernels/programs. We
   // need to remove them once the shutdown process is re-enabled.
-  RemoveAllKernels(true);
-  RemoveAllPrograms(true);
+  try {
+    RemoveAllKernels(true);
+    RemoveAllPrograms(true);
+  } catch (std::bad_array_new_length &e) {
+    return CL_OUT_OF_HOST_MEMORY;
+  }
   return CL_SUCCESS;
 }
 

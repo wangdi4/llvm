@@ -23,6 +23,8 @@
 #include "llvm/TableGen/Main.h"
 #include "llvm/TableGen/Record.h"
 
+#include <iostream>
+
 using namespace llvm;
 
 enum ActionType {
@@ -86,5 +88,10 @@ int main(int argc, char **argv) {
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 
-  return TableGenMain(argv[0], &OCLTableGenMain);
+  try {
+    TableGenMain(argv[0], &OCLTableGenMain);
+  } catch (std::bad_array_new_length &e) {
+    std::cerr << e.what() << std::endl;
+    return -1;
+  }
 }

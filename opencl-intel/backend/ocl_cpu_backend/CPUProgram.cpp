@@ -54,10 +54,9 @@ CPUProgram::~CPUProgram() {
   ReleaseExecutionEngine();
 }
 
-void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
-  assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
-  uintptr_t Addr;
-  if (m_LLJIT) {
+uintptr_t CPUProgram::LLJITLookUp(llvm::StringRef Name) const {
+  uintptr_t Addr = 0;
+  try {
     auto Sym = m_LLJIT->lookup(Name);
     if (llvm::Error Err = Sym.takeError()) {
       llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
@@ -65,6 +64,18 @@ void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
                                           Name.str() + '\n' + getLLJITLog());
     }
     Addr = static_cast<uintptr_t>(Sym->getValue());
+  } catch (std::bad_array_new_length &e) {
+    throw Exceptions::CompilerException(
+        "Failed to lookup symbol " + Name.str() + " because of out of memory");
+  }
+  return Addr;
+}
+
+void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
+  assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
+  uintptr_t Addr;
+  if (m_LLJIT) {
+    Addr = LLJITLookUp(Name);
   } else
     Addr = static_cast<uintptr_t>(
         m_pExecutionEngine->getGlobalValueAddress(Name.str()));
@@ -75,13 +86,7 @@ void *CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
   assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
   uintptr_t Addr;
   if (m_LLJIT) {
-    auto Sym = m_LLJIT->lookup(Name);
-    if (llvm::Error Err = Sym.takeError()) {
-      llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
-      throw Exceptions::CompilerException("Failed to lookup symbol " +
-                                          Name.str() + '\n' + getLLJITLog());
-    }
-    Addr = static_cast<uintptr_t>(Sym->getValue());
+    Addr = LLJITLookUp(Name);
   } else
     Addr = static_cast<uintptr_t>(
         m_pExecutionEngine->getFunctionAddress(Name.str()));

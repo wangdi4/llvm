@@ -100,6 +100,8 @@ private:
   // Store log from LLJIT
   mutable llvm::raw_string_ostream LLJITLogStream;
   mutable std::string LLJITLog;
+
+  uintptr_t LLJITLookUp(llvm::StringRef Name) const;
 };
 
 } // namespace DeviceBackend
