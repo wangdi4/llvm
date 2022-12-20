@@ -267,9 +267,7 @@ void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
 }
 #endif // NDEBUG || LLVM_ENABLE_DUMP
 
-VPLoopEntity::~VPLoopEntity() {}
-
-VPPrivate::~VPPrivate() {
+VPLoopEntity::~VPLoopEntity() {
   for (auto &AliasMapIt : aliases())
     // Drop references to alias instruction if it is not attached to VPlan CFG.
     if (!AliasMapIt.second.first->getParent()) {
@@ -400,12 +398,15 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
 VPReduction *VPLoopEntityList::addReduction(
     VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
     RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
-    Optional<InscanReductionKind> InscanRedKind,
+    VPEntityAliasesTy &MemAliases, Optional<InscanReductionKind> InscanRedKind,
     VPValue *AI, bool ValidMemOnly) {
-  VPReduction *Red = InscanRedKind.has_value() ?
-      new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
-                            FMF, RedTy, Signed, ValidMemOnly) :
-      new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
+  VPReduction *Red =
+      InscanRedKind.has_value()
+          ? new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
+                                  FMF, RedTy, Signed, std::move(MemAliases),
+                                  ValidMemOnly)
+          : new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed,
+                            std::move(MemAliases), ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -415,12 +416,14 @@ VPReduction *VPLoopEntityList::addReduction(
 
 VPIndexReduction *VPLoopEntityList::addIndexReduction(
     VPInstruction *Instr, const VPReduction *Parent, VPValue *Incoming,
-    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast,
-    bool IsLinIndex, VPValue *AI, bool ValidMemOnly) {
+    VPInstruction *Exit, Type *RedTy, bool Signed,
+    VPEntityAliasesTy &MemAliases, bool ForLast, bool IsLinIndex, VPValue *AI,
+    bool ValidMemOnly) {
 
   assert(Parent && "null parent in index-reduction");
   VPIndexReduction *Red = new VPIndexReduction(
-      Parent, Incoming, Exit, RedTy, Signed, ForLast, IsLinIndex, ValidMemOnly);
+      Parent, Incoming, Exit, RedTy, Signed, std::move(MemAliases), ForLast,
+      IsLinIndex, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -435,17 +438,18 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 
 VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
     Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
-    VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed, VPValue *AI,
-    bool ValidMemOnly, Optional<InscanReductionKind> InscanRedKind) {
+    VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
+    VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
+    Optional<InscanReductionKind> InscanRedKind) {
   // Create a new VPEntity to represent UDR.
   VPUserDefinedReduction *Red =
       !InscanRedKind.has_value()
           ? new VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor,
                                        Incoming, FMF, RedTy, Signed,
-                                       ValidMemOnly)
-          : new VPUserDefinedScanReduction(Combiner, Initializer, Ctor, Dtor,
-                                           Incoming, FMF, RedTy, Signed,
-                                           *InscanRedKind, ValidMemOnly);
+                                       std::move(MemAliases), ValidMemOnly)
+          : new VPUserDefinedScanReduction(
+                Combiner, Initializer, Ctor, Dtor, Incoming, FMF, RedTy, Signed,
+                std::move(MemAliases), *InscanRedKind, ValidMemOnly);
   ReductionList.emplace_back(Red);
   createMemDescFor(Red, AI);
   return Red;
@@ -1309,6 +1313,54 @@ void VPLoopEntityList::insertUDRVPInstructions(
   ProcessedReductions.insert(UDR);
 }
 
+// Helper utility to insert an entity's memory alias instructions (identified to
+// be present outside the loop) in corresponding VPLoop's preheader. The
+// inserted aliases are tracked in AddedAliasInstrs set. This is part of Phase 1
+// of representing memory aliases in VPlan.
+static void
+insertEntityMemoryAliases(VPLoopEntity *Entity, VPBasicBlock *Preheader,
+                          SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs,
+                          VPBuilder &Builder) {
+  // Insert the aliases into the preheader in the regular order first.
+  for (auto const &ValInstPair : Entity->aliases()) {
+    const Instruction *Inst = ValInstPair.second.second;
+    VPInstruction *VPInst = ValInstPair.second.first;
+    if (AddedAliasInstrs.insert(Inst).second) {
+      VPBuilder::InsertPointGuard Guard(Builder);
+      for (auto &PhInst : *Preheader) {
+        // The aliases for one entity may contain uses of aliases of another.
+        // Try to find a first use of the non-emitted alias - it may come from
+        // another entity. See priv_alias_select2.ll.
+        if (PhInst.getOperandIndex(ValInstPair.first) != -1) {
+          Builder.setInsertPoint(Preheader, PhInst.getIterator());
+          break;
+        }
+      }
+      Builder.insert(VPInst);
+    }
+  }
+}
+
+// Helper utility to replace uses of external defs that represent a memory alias
+// with corresponding VPInstruction that was generated/inserted for it. This is
+// part of Phase 2 of representing memory aliases in VPlan.
+static void replaceUsesOfExtDefWithMemoryAliases(
+    VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
+    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs) {
+  // Now do the replacement of sliases. We first replace all instances of
+  // VPOperand with VPInst within the preheader, where all aliases have been
+  // inserted. Then replace all instances of VPOperand with VPInst in the loop.
+  for (auto const &ValInstPair : Entity->aliases()) {
+    auto *VPOperand = ValInstPair.first;
+    const Instruction *Inst = ValInstPair.second.second;
+    VPInstruction *VPInst = ValInstPair.second.first;
+    if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
+      VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
+      VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
+    }
+  }
+}
+
 // Transform VPlan to explicitly perform initialization/finalization of array
 // reductions. Pseudo VPlan-IR for example -
 //
@@ -1336,7 +1388,13 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
   VPValue *AI = nullptr;
   VPValue *PrivateMem = createPrivateMemory(*ArrRed, Builder, AI, Preheader);
   assert(PrivateMem && "Private memory is expected for array reduction.");
+
+  // Add memory aliases (if any) collected for this array reduction.
+  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  insertEntityMemoryAliases(ArrRed, Preheader, AddedAliasInstrs, Builder);
+
   // Replace all uses of original array reduction variable with private memory.
+  AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
   AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
 
   // Initialize array reduction using reduction-init-arr.
@@ -1359,6 +1417,10 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
   FastMathFlags FMF = ArrRed->getFastMathFlags();
   if (FMF.any())
     ArrFinal->setFastMathFlags(FMF);
+
+  // Replace uses of external defs associated with memory aliases.
+  replaceUsesOfExtDefWithMemoryAliases(ArrRed, Preheader, Loop,
+                                       AddedAliasInstrs);
 
   ProcessedReductions.insert(ArrRed);
 }
@@ -1533,11 +1595,13 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
   const auto *LatchCmp = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
   assert(LatchCmp->getOpcode() == Instruction::ICmp &&
          "Expected ICmp in latch cond");
-  // Next, create LoopEntity.
+  // Next, create LoopEntity. Index reductions are not expected to have any
+  // memory aliases.
+  VPEntityAliasesTy EmptyMemAliases;
   VPIndexReduction *Ret = addIndexReduction(
       StartPhi, NonLinNdx->getParentReduction(), IncomingVal, NewExit,
       LoopIVPhi->getType(), ICmpInst::isSigned(LatchCmp->getPredicate()),
-      NonLinNdx->isForLast(), true /*IsLinNdx*/);
+      EmptyMemAliases, NonLinNdx->isForLast(), true /*IsLinNdx*/);
   MinMaxIndexes[NonLinNdx->getParentReduction()] = Ret;
   return Ret;
 }
@@ -1901,7 +1965,6 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
-
   Builder.setInsertPoint(Preheader, Preheader->begin());
 
   // Keep track of already added aliases. We can have two
@@ -1918,24 +1981,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                         << *PrivateMem << "\n");
 
     // Handle aliases in two passes.
-    // Insert the aliases into the Loop preheader in the regular order first.
-    for (auto const &ValInstPair : Private->aliases()) {
-      const Instruction *Inst = ValInstPair.second.second;
-      VPInstruction *VPInst = ValInstPair.second.first;
-      if (AddedAliasInstrs.insert(Inst).second) {
-        VPBuilder::InsertPointGuard Guard(Builder);
-        for (auto &PhInst: *Preheader) {
-          // The aliases for one private may contain uses of aliases of another
-          // private. Try to find a first use of the non-emitted alias - it may
-          // come from another private. See priv_alias_select2.ll.
-          if (PhInst.getOperandIndex(ValInstPair.first) != -1) {
-            Builder.setInsertPoint(Preheader, PhInst.getIterator());
-            break;
-          }
-        }
-        Builder.insert(VPInst);
-      }
-    }
+    insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
 
     if (PrivateMem) {
       // The uses of this allocate-private could also be instruction outside
@@ -2022,10 +2068,11 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                "Unsupported aggregate type");
 
         if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
-            assert(PrivateMem && "PrivateMem suppose to be initialized");
+          assert(PrivateMem && "PrivateMem suppose to be initialized");
           // No last value for unused in-memory privates. This is an explicit
           // private which was completely registerized.
-          if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
+          if (!VPEntityImportDescr::hasRealUserInLoop(
+                  PrivateMem, &Loop, Private->getMemoryAliases()))
             continue;
         }
 
@@ -2074,20 +2121,11 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                            Intrinsic::lifetime_end);
     }
   }
-  // Now do the replacement of Aliases. We first replace all instances of
-  // VPOperand with VPInst within the preheader, where all aliases have been
-  // inserted. Then replace all instances of VPOperand with VPInst in the loop.
-  for (VPPrivate *Private : vpprivates()) {
-    for (auto const &ValInstPair : Private->aliases()) {
-      auto *VPOperand = ValInstPair.first;
-      const Instruction *Inst = ValInstPair.second.second;
-      VPInstruction *VPInst = ValInstPair.second.first;
-      if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
-        VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
-        VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
-      }
-    }
-  }
+  // Now do the replacement of Aliases (second phase of handling memory
+  // aliases).
+  for (VPPrivate *Private : vpprivates())
+    replaceUsesOfExtDefWithMemoryAliases(Private, Preheader, Loop,
+                                         AddedAliasInstrs);
 
   LLVM_DEBUG(
       dbgs()
@@ -2806,7 +2844,7 @@ void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
       return;
     }
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
-    Importing = hasRealUserInLoop(Start, Loop);
+    Importing = hasRealUserInLoop(Start, Loop, MemAliases);
     ValidMemOnly = true;
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, *Loop);
@@ -2818,7 +2856,8 @@ void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   }
   // Don't generate alloca for reduction variable if memory is registerized and
   // has no users in loop. The extra allocas + stores affects CM accuracy.
-  if (AllocaInst && Importing && !hasRealUserInLoop(AllocaInst, Loop)) {
+  if (AllocaInst && Importing &&
+      !hasRealUserInLoop(AllocaInst, Loop, MemAliases)) {
     AllocaInst = nullptr;
     ValidMemOnly = false;
   }
@@ -2900,19 +2939,20 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   if (isUDR()) {
     assert(Exit == nullptr && "UDR not expected to have an Exit instruction.");
-    VPRed = LE->addUserDefinedReduction(Combiner, Initializer, Ctor, Dtor,
-                                        Start, RedFMF, RT, Signed, AllocaInst,
-                                        ValidMemOnly, InscanRedKind);
+    VPRed = LE->addUserDefinedReduction(
+        Combiner, Initializer, Ctor, Dtor, Start, RedFMF, RT, Signed,
+        MemAliases, AllocaInst, ValidMemOnly, InscanRedKind);
   } else if (LinkPhi == nullptr) {
-    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                             InscanRedKind, AllocaInst, ValidMemOnly);
+    VPRed =
+        LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
+                         MemAliases, InscanRedKind, AllocaInst, ValidMemOnly);
   } else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
     bool ForLast = LE->isMinMaxLastItem(*Parent);
-    VPRed =
-        LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
-                              ForLast, IsLinearIndex, AllocaInst, ValidMemOnly);
+    VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
+                                  MemAliases, ForLast, IsLinearIndex,
+                                  AllocaInst, ValidMemOnly);
   }
 
   // Add all linked VPValues collected during Phase 2 analysis
@@ -3126,7 +3166,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   // to insertPrivateVPInstructions.
   Type *AllocatedTy = getAllocatedType();
   if (Ctor || Dtor)
-    LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
+    LE->addNonPODPrivate(MemAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
                          IsF90, AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
@@ -3140,12 +3180,12 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
                  AllocaInst->printAsOperand(dbgs()););
       return;
     }
-    auto Priv = LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocatedTy,
+    auto Priv = LE->addPrivate(ExitInst, MemAliases, K, IsExplicit, AllocatedTy,
                                AllocaInst, isMemOnly());
     for (VPInstruction *I : UpdateVPInsts)
       LE->linkValue(Priv, I);
   } else
-    LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+    LE->addPrivate(PTag, MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
                    isMemOnly());
 }
 
@@ -3207,15 +3247,34 @@ bool VPEntityImportDescr::isDuplicate(const VPlanVector *Plan,
   return LE && AllocaInst && LE->getMemoryDescriptor(AllocaInst);
 }
 
-bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
+bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
+                                            VPEntityAliasesTy &MemAliases) {
   SmallVector<VPValue *, 4> WorkList(Val->users());
   while (!WorkList.empty()) {
     VPValue *Cur = WorkList.pop_back_val();
     if (isa<VPExternalUse>(Cur))
       continue;
     auto I = cast<VPInstruction>(Cur);
-    if (!Loop->contains(I) && I->getParent() != Loop->getLoopPreheader())
-      continue;
+
+    // Check if this instruction is a memory alias identified outside the loop.
+    VPValue *AliasVPOperand = nullptr;
+    for (auto &MapKeyVal : MemAliases)
+      if (MapKeyVal.second.first == I) {
+        AliasVPOperand = MapKeyVal.first;
+        break;
+      }
+
+    if (!Loop->contains(I)) {
+      if (I->getParent() == nullptr && AliasVPOperand != nullptr) {
+        // If this is a memory alias instruction, then add all uses of the
+        // VPOperand that corresponds to the alias to the worklist.
+        WorkList.append(AliasVPOperand->user_begin(),
+                        AliasVPOperand->user_end());
+        continue;
+      } else if (I->getParent() != Loop->getLoopPreheader()) {
+        continue;
+      }
+    }
     if (I->getOpcode() == Instruction::BitCast ||
         I->getOpcode() == Instruction::AddrSpaceCast ||
         isSelfAddressOfInst(I)) {
@@ -3247,7 +3306,7 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
 // generate a load.
 VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
                                              const VPLoop *Loop) {
-  Importing = hasRealUserInLoop(Start, Loop);
+  Importing = hasRealUserInLoop(Start, Loop, MemAliases);
   ValidMemOnly = true;
 
   if (Importing) {
