@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; Check that we successfully transpose the array for non-unit stride access
 ; (%4)[i2 + sext.i32.i64(%1) * i3]
@@ -28,23 +28,25 @@
 
 ; CHECK:   BEGIN REGION { modified }
 ; CHECK:         %TranspTmpArr = alloca 4 * (sext.i32.i64(%1) * sext.i32.i64(%2));
-; CHECK:         + DO i1 = 0, sext.i32.i64(%1) + -1, 1
-; CHECK:         |   + DO i2 = 0, sext.i32.i64(%2) + -1, 1
+; CHECK:         + DO i64 i1 = 0, sext.i32.i64(%1) + -1, 1
+; CHECK:         |   + DO i64 i2 = 0, sext.i32.i64(%2) + -1, 1
 ; CHECK:         |   |   (%TranspTmpArr)[i1][i2] = (%4)[i2][i1];
+; CHECK:         |   |      <LVAL-REG> (LINEAR i32* %TranspTmpArr)[LINEAR i64 i1][LINEAR i64 i2] inbounds  {sb:[[SB:.*]]}
 ; CHECK:         |   + END LOOP
 ; CHECK:         + END LOOP
-; CHECK:         + DO i1 = 0, sext.i32.i64(%0) + -1, 1
+; CHECK:         + DO i64 i1 = 0, sext.i32.i64(%0) + -1, 1
 ; CHECK:         |   %98 = (%54)[i1];
 ; CHECK:         |
-; CHECK:         |   + DO i2 = 0, sext.i32.i64(%1) + -1, 1
+; CHECK:         |   + DO i64 i2 = 0, sext.i32.i64(%1) + -1, 1
 ; CHECK:         |   |   %102 = (%6)[0].0[i2];
 ; CHECK:         |   |   %105 = (%5)[sext.i32.i64(%1) * i1 + i2];
 ; CHECK:         |   |   %110 = %105;
 ; CHECK:         |   |
 ; CHECK:         |   |      %123 = %105;
-; CHECK:         |   |   + DO i3 = 0, sext.i32.i64(%2) + -1, 1
+; CHECK:         |   |   + DO i64 i3 = 0, sext.i32.i64(%2) + -1, 1
 ; CHECK:         |   |   |   %126 = (%3)[sext.i32.i64(%2) * i1 + i3];
 ; CHECK:         |   |   |   %130 = (%TranspTmpArr)[i2][i3];
+; CHECK:         |   |   |      <RVAL-REG> (LINEAR i32* %TranspTmpArr)[LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[SB]]}
 ; CHECK:         |   |   |   %123 = (%126 * %130)  +  %123;
 ; CHECK:         |   |   + END LOOP
 ; CHECK:         |   |      %110 = %123;

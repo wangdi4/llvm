@@ -58,8 +58,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -112,16 +112,21 @@ private:
   unsigned InnerDimSize;
   unsigned OuterDimSize;
   SmallVector<UseCand, 4> Uses;
-public:
 
-  ArrayTransposeAnalyzer() :
-  InnerDimSize(0), OuterDimSize(0) {}
+public:
+  ArrayTransposeAnalyzer() : InnerDimSize(0), OuterDimSize(0) {}
 
   // TS Nums are set after we finalize all candidates. We could have pruned
   // original candidates due to DDEdges.
   std::pair<unsigned, unsigned> getOuterLoopTSNumbers() {
-    unsigned MinTopSortNum = Uses.front().UseRef->getHLDDNode()->getOutermostParentLoop()->getTopSortNum();
-    unsigned MaxTopSortNum = Uses.back().UseRef->getHLDDNode()->getOutermostParentLoop()->getTopSortNum();
+    unsigned MinTopSortNum = Uses.front()
+                                 .UseRef->getHLDDNode()
+                                 ->getOutermostParentLoop()
+                                 ->getTopSortNum();
+    unsigned MaxTopSortNum = Uses.back()
+                                 .UseRef->getHLDDNode()
+                                 ->getOutermostParentLoop()
+                                 ->getTopSortNum();
     return std::make_pair(MinTopSortNum, MaxTopSortNum);
   }
 
@@ -153,23 +158,25 @@ public:
                            const HLLoop *InnerLoop, bool IVOnly);
 
   RegDDRef *createTempArrayCopy(UseCand &UseCandidate, HLInst *Alloca,
-                                HLLoop *Loop);
+                                HLLoop *Loop, unsigned AllocaMemrefSB);
 
-  void replaceUsesWithTempArray(HLInst *Alloca);
+  void replaceUsesWithTempArray(HLInst *Alloca, unsigned AllocaMemrefSB);
 
-  unsigned getBasePtrSymbase() { return Uses.front().UseRef->getBasePtrSymbase(); }
+  unsigned getBasePtrSymbase() {
+    return Uses.front().UseRef->getBasePtrSymbase();
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    LLVM_DUMP_METHOD void dump() {
-      dbgs() << "TRANSPOSE CAND (SB:" << getBasePtrSymbase();
-      dbgs() << ")\nUses:\n";
-      for (auto Use : Uses) {
-        Use.UseRef->dump();
-        dbgs() << "\nDelinearized: ";
-        Use.DelinearRef->dump();
-        dbgs() << "\n";
-      }
+  LLVM_DUMP_METHOD void dump() {
+    dbgs() << "TRANSPOSE CAND (SB:" << getBasePtrSymbase();
+    dbgs() << ")\nUses:\n";
+    for (auto Use : Uses) {
+      Use.UseRef->dump();
+      dbgs() << "\nDelinearized: ";
+      Use.DelinearRef->dump();
+      dbgs() << "\n";
     }
+  }
 #endif
 };
 
@@ -229,14 +236,14 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
   if (Ref->isSingleDimension()) {
     const auto *RefCE = Ref->getSingleCanonExpr();
     if (RefCE->numIVs() != 2) {
-        return false;
+      return false;
     }
 
     unsigned Index = InvalidBlobIndex;
     int64_t Coeff = 0;
     RefCE->getIVCoeff(LoopLevel, &Index, &Coeff);
     if (Coeff != 1 && Index == InvalidBlobIndex) {
-        return false;
+      return false;
     }
   } else {
     // Inner dimension has a single IV that is not the innerloop IV.
@@ -319,7 +326,8 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
 
       // Check that indices are valid for transposing. The most basic candidate
       // looks like A[i1][i2]. We can handle non-linear blobs like A[i1+%t][i2]
-      // if the dimensions of A are known from calling getNumDimensionElements().
+      // if the dimensions of A are known from calling
+      // getNumDimensionElements().
       HLLoop *OrigOuterLoop = nullptr;
       HLLoop *OrigInnerLoop = nullptr;
       for (unsigned Dim = 1; Dim <= NumDims; ++Dim) {
@@ -422,12 +430,14 @@ bool ArrayTransposeAnalyzer::isProfitable() {
     // pattern turned out to be unprofitable:
     // (%0))[i4][i1 + (%tmp) + -1];
     // Where the size of the dims was constant (150,150)
-    if (NumProfitableUses <= 1 &&
-      Use.OrigInnerLoop->getNestingLevel() - Use.OrigOuterLoop->getNestingLevel() > 2) {
+    if (NumProfitableUses <= 1 && Use.OrigInnerLoop->getNestingLevel() -
+                                          Use.OrigOuterLoop->getNestingLevel() >
+                                      2) {
       return false;
     }
 
-    // Deem profitable if loopnest is deep and TC is large enough (general case).
+    // Deem profitable if loopnest is deep and TC is large enough (general
+    // case).
     if (MeetsTCThreshold && Level > 2) {
       return true;
     }
@@ -585,7 +595,8 @@ struct UnsafeCallsVisitor : HLNodeVisitorBase {
   bool Done;
 
   UnsafeCallsVisitor(HIRLoopStatistics &HLS, unsigned MinNum, unsigned MaxNum)
-      : HLS(HLS), MinTSNum(MinNum), MaxTSNum(MaxNum), SkipNode(nullptr), HasUnsafeCall(false), Done(false) {}
+      : HLS(HLS), MinTSNum(MinNum), MaxTSNum(MaxNum), SkipNode(nullptr),
+        HasUnsafeCall(false), Done(false) {}
 
   void visit(const HLNode *) {}
   void postVisit(const HLNode *) {}
@@ -632,14 +643,15 @@ struct UnsafeCallsVisitor : HLNodeVisitorBase {
 };
 
 bool ArrayTransposeAnalyzer::hasUnsafeCalls(HIRLoopStatistics &HLS,
-                                                 HLRegion &Reg) {
+                                            HLRegion &Reg) {
   auto MinMaxTSNums = getOuterLoopTSNumbers();
 
   // We check any insts/loops between the saved MaxTS and MinTS for
   // any unsafe calls. We can allow calls that occur outside the range of
   // the first and last reference to our candidate ref.
   UnsafeCallsVisitor USV(HLS, MinMaxTSNums.first, MinMaxTSNums.second);
-  HLNodeUtils::visit<true /*Recursive*/, false /*RecurseInsideLoops*/>(USV, &Reg);
+  HLNodeUtils::visit<true /*Recursive*/, false /*RecurseInsideLoops*/>(USV,
+                                                                       &Reg);
   return USV.HasUnsafeCall;
 }
 
@@ -818,13 +830,14 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
 bool ArrayTransposeAnalyzer::checkDDEdges(DDGraph &DDG) {
   // If we see an outgoing DDEdge from use, we prune it from our candidates.
   Uses.erase(std::remove_if(Uses.begin(), Uses.end(),
-    [&](UseCand &Use) {
-      if (DDG.hasIncomingOrOutgoingEdges(Use.UseRef)) {
-        LLVM_DEBUG(dbgs() << "Pruning Edge.\n";);
-        return true;
-      }
-      return false;
-    }), Uses.end());
+                            [&](UseCand &Use) {
+                              if (DDG.hasIncomingOrOutgoingEdges(Use.UseRef)) {
+                                LLVM_DEBUG(dbgs() << "Pruning Edge.\n";);
+                                return true;
+                              }
+                              return false;
+                            }),
+             Uses.end());
 
   if (Uses.empty()) {
     LLVM_DEBUG(dbgs() << "[DDEdges] No Legal Uses.\n";);
@@ -852,16 +865,18 @@ HLLoop *ArrayTransposeAnalyzer::createArrayCopyLoop(HLNode *InsertionNode) {
 
   if (OuterDimSize) {
     Ty = Uses.front().OrigInnerLoop->getIVType();
-    InnerLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0), DDRU.createConstDDRef(Ty, OuterDimSize - 1),
-                               DDRU.createConstDDRef(Ty, 1));
+    InnerLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0),
+                                 DDRU.createConstDDRef(Ty, OuterDimSize - 1),
+                                 DDRU.createConstDDRef(Ty, 1));
   } else {
     InnerLoop = Uses.front().OrigInnerLoop->cloneEmpty();
   }
 
   if (InnerDimSize) {
     Ty = Uses.front().OrigOuterLoop->getIVType();
-    OuterLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0), DDRU.createConstDDRef(Ty, InnerDimSize - 1),
-                               DDRU.createConstDDRef(Ty, 1));
+    OuterLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0),
+                                 DDRU.createConstDDRef(Ty, InnerDimSize - 1),
+                                 DDRU.createConstDDRef(Ty, 1));
   } else {
     OuterLoop = Uses.front().OrigOuterLoop->cloneEmpty();
   }
@@ -928,8 +943,7 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
     InnerTCCE->getCanonExprUtils().destroy(InnerTCCE);
   }
 
-  Alloca = HNU.createAlloca(UseRef->getDestType(), ArraySize,
-                            "TranspTmpArr");
+  Alloca = HNU.createAlloca(UseRef->getDestType(), ArraySize, "TranspTmpArr");
 
   HLNodeUtils::insertBefore(InsertionPoint, Alloca);
 
@@ -1016,7 +1030,8 @@ void ArrayTransposeAnalyzer::createTempArrayDims(RegDDRef *ArrayRef,
 //          NewRef: (%5)[0:i1:4 * %2(i32*:0)][0:i2:4(i32*:0)]
 RegDDRef *ArrayTransposeAnalyzer::createTempArrayCopy(UseCand &UseCandidate,
                                                       HLInst *Alloca,
-                                                      HLLoop *InnerLoop) {
+                                                      HLLoop *InnerLoop,
+                                                      unsigned AllocaMemrefSB) {
   RegDDRef *UseRef = UseCandidate.DelinearRef;
   auto &HNU = InnerLoop->getHLNodeUtils();
   unsigned InnerLevel = InnerLoop->getNestingLevel();
@@ -1046,13 +1061,12 @@ RegDDRef *ArrayTransposeAnalyzer::createTempArrayCopy(UseCand &UseCandidate,
   RegDDRef *ArrayRef = HNU.getDDRefUtils().createMemRef(
       cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
       Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-      0);
+      0, AllocaMemrefSB);
 
   // Add each dimension for the TempArrayCopy MemRef
   createTempArrayDims(ArrayRef, UseRef, InnerLoop, true);
 
-  HLInst *StoreInst =
-      HNU.createStore(UseClone, ".transpst", ArrayRef);
+  HLInst *StoreInst = HNU.createStore(UseClone, ".transpst", ArrayRef);
   HLNodeUtils::insertAsLastChild(InnerLoop, StoreInst);
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
@@ -1090,7 +1104,8 @@ static void updateLiveInTemp(HLLoop *InnerLoop, unsigned OldSB,
 
 // Replace all uses of the old non-unit stride ref with our new unit-
 // stride alloca \p TempRef.
-void ArrayTransposeAnalyzer::replaceUsesWithTempArray(HLInst *Alloca) {
+void ArrayTransposeAnalyzer::replaceUsesWithTempArray(HLInst *Alloca,
+                                                      unsigned AllocaMemrefSB) {
   LLVM_DEBUG(dbgs() << "[Transformation] Replacing " << Uses.size()
                     << " Uses with TempArray\n";);
   for (auto &Use : Uses) {
@@ -1101,7 +1116,7 @@ void ArrayTransposeAnalyzer::replaceUsesWithTempArray(HLInst *Alloca) {
     RegDDRef *ArrayRef = OrigUse->getDDRefUtils().createMemRef(
         cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
         Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-        Alloca->getNodeLevel());
+        Alloca->getNodeLevel(), AllocaMemrefSB);
     createTempArrayDims(ArrayRef, Use.DelinearRef, Use.OrigInnerLoop);
 
     HIRTransformUtils::replaceOperand(OrigUse, ArrayRef);
@@ -1119,11 +1134,13 @@ void ArrayTransposeAnalyzer::replaceUsesWithTempArray(HLInst *Alloca) {
 }
 
 void ArrayTransposeAnalyzer::doTransformation() {
-  // Insert our alloca and transpose loop at the Region level before the first use.
+  // Insert our alloca and transpose loop at the Region level before the first
+  // use.
   UseCand *Candidate = &Uses.front();
   HLRegion *Region = Candidate->OrigInnerLoop->getParentRegion();
   assert(Region && "Region must be defined!");
-  HLNode *InsertNode = HLNodeUtils::getImmediateChildContainingNode(Region, Candidate->UseRef->getHLDDNode());
+  HLNode *InsertNode = HLNodeUtils::getImmediateChildContainingNode(
+      Region, Candidate->UseRef->getHLDDNode());
 
   assert(InsertNode && "Insertion Node is null!\n");
   LLVM_DEBUG(
@@ -1131,6 +1148,7 @@ void ArrayTransposeAnalyzer::doTransformation() {
              << InsertNode->getNumber() << "\n";);
 
   auto &HNU = InsertNode->getHLNodeUtils();
+
   HLInst *StacksaveCall = HNU.createStacksave(InsertNode->getDebugLoc());
   HLNodeUtils::insertBefore(InsertNode, StacksaveCall);
 
@@ -1141,17 +1159,21 @@ void ArrayTransposeAnalyzer::doTransformation() {
   // allocated temp array. Then populate the loop with the load/store insts.
   // We insert the loop after the \p AllocaInst.
   HLLoop *InnerLoop = createArrayCopyLoop(AllocaInst);
-  createTempArrayCopy(*Candidate, AllocaInst, InnerLoop);
+  auto &DDRU = HNU.getDDRefUtils();
+
+  unsigned AllocaMemrefSB = DDRU.getNewSymbase();
+
+  createTempArrayCopy(*Candidate, AllocaInst, InnerLoop, AllocaMemrefSB);
 
   // Get last use before we do replacement
   UseCand *LastCand = &Uses.back();
-  HLNode *LastNode = HLNodeUtils::getImmediateChildContainingNode(Region, LastCand->UseRef->getHLDDNode());
+  HLNode *LastNode = HLNodeUtils::getImmediateChildContainingNode(
+      Region, LastCand->UseRef->getHLDDNode());
 
   // Replace the uses of the bad array with our unit stride temp array
-  replaceUsesWithTempArray(AllocaInst);
+  replaceUsesWithTempArray(AllocaInst, AllocaMemrefSB);
 
   auto &CEU = InnerLoop->getCanonExprUtils();
-  auto &DDRU = InnerLoop->getDDRefUtils();
   auto Int8Ty = Type::getInt8Ty(CEU.getContext());
 
   RegDDRef *StackSaveOp = StacksaveCall->getOperandDDRef(0);
@@ -1183,8 +1205,9 @@ bool HIRTempArrayTranspose::runOnRegion(HLRegion &Reg) {
       continue;
     }
 
-    DDRefGathererLambda<RegDDRef>::gather(Loop, TransposeCandidates,
-                                          std::bind(isTransposeCandidate, std::placeholders::_1, LoopLevel));
+    DDRefGathererLambda<RegDDRef>::gather(
+        Loop, TransposeCandidates,
+        std::bind(isTransposeCandidate, std::placeholders::_1, LoopLevel));
 
     for (auto *Ref : TransposeCandidates) {
       assert(Ref->hasGEPInfo() && "Candidate missing GEPInfo.\n");
