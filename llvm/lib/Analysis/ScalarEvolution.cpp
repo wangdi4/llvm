@@ -9502,7 +9502,8 @@ void ScalarEvolution::forgetAllLoops() {
   HasRecMap.clear();
   MinTrailingZerosCache.clear();
   PredicatedSCEVRewrites.clear();
-<<<<<<< HEAD
+  FoldCache.clear();
+  FoldCacheUser.clear();
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -9510,10 +9511,6 @@ void ScalarEvolution::forgetAllLoops() {
     ScopedSE->getOrigSE().forgetAllLoops();
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  FoldCache.clear();
-  FoldCacheUser.clear();
->>>>>>> afe3558a0b963f7401b044ed64187b5319288112
 }
 
 void ScalarEvolution::forgetLoop(const Loop *L) {

@@ -2495,7 +2495,6 @@ private:
   const SCEV *BackedgeCount = nullptr;
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// This is a modified version of scalar evolution generalized based on HIR
 /// specific requirements. It provides these 3 extra features-
@@ -2664,8 +2663,8 @@ public:
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const ScalarEvolution *SE) { return SE->isScoped(); }
 };
+
 #endif // INTEL_CUSTOMIZATION
-=======
 template <> struct DenseMapInfo<ScalarEvolution::FoldID> {
   static inline ScalarEvolution::FoldID getEmptyKey() {
     ScalarEvolution::FoldID ID;
@@ -2688,7 +2687,6 @@ template <> struct DenseMapInfo<ScalarEvolution::FoldID> {
   }
 };
 
->>>>>>> afe3558a0b963f7401b044ed64187b5319288112
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_SCALAREVOLUTION_H
