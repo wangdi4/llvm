@@ -210,6 +210,11 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
                                         VPOperands.end() - 1);
       VPValue *CalledValue = getOrCreateVPOperand(Call->getCalledOperand());
       NewVPInst = VPIRBuilder.createCall(CalledValue, ArgList, Call);
+
+      if (Call->getIntrinsicID() == Intrinsic::assume) {
+        Plan->getVPAC()->registerAssumption(
+            *cast<VPCallInstruction>(NewVPInst));
+      }
     } else if (auto *Load = dyn_cast<LoadInst>(Inst)) {
       NewVPInst = VPIRBuilder.createLoad(Load->getType(), VPOperands[0], Load,
                                          Load->getName());

@@ -931,6 +931,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
+
+      if (Call->getIntrinsicID() == Intrinsic::assume)
+        Plan->getVPAC()->registerAssumption(
+            *cast<VPCallInstruction>(NewVPInst));
+
     } else if (isa<GetElementPtrInst>(LLVMInst)) {
       // Don't create an additional single operand no-op GEP here. Re-use the
       // subscript instruction that was already created during decomposition of
