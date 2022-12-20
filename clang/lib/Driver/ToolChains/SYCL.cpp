@@ -1247,31 +1247,6 @@ StringRef SYCL::gen::resolveGenDevice(StringRef DeviceName) {
 
 SmallString<64> SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
   SmallString<64> Macro;
-<<<<<<< HEAD
-  SmallString<12> Ext = llvm::StringSwitch<StringRef>(DeviceName)
-                      .Case("bdw", "BDW")
-                      .Case("skl", "SKL")
-                      .Case("kbl", "KBL")
-                      .Case("cfl", "CFL")
-                      .Case("apl", "APL")
-                      .Case("glk", "GLK")
-                      .Case("whl", "WHL")
-                      .Case("aml", "AML")
-                      .Case("cml", "CML")
-                      .Case("icllp", "ICLLP")
-                      .Case("ehl", "EHL")
-                      .Case("tgllp", "TGLLP")
-                      .Case("rkl", "RKL")
-                      .Case("adl_s", "ADL_S")
-                      .Case("rpl_s", "RPL_S")
-                      .Case("adl_p", "ADL_P")
-                      .Case("adl_n", "ADL_N")
-                      .Case("dg1", "DG1")
-                      .Case("acm_g10", "ACM_G10")
-                      .Case("acm_g11", "ACM_G11")
-                      .Case("acm_g12", "ACM_G12")
-                      .Case("pvc", "PVC")
-=======
   StringRef Ext = llvm::StringSwitch<StringRef>(DeviceName)
                       .Case("bdw", "INTEL_GPU_BDW")
                       .Case("skl", "INTEL_GPU_SKL")
@@ -1330,7 +1305,6 @@ SmallString<64> SYCL::gen::getGenDeviceMacro(StringRef DeviceName) {
                       .Case("gfx1030", "AMD_GPU_GFX1030")
                       .Case("gfx1031", "AMD_GPU_GFX1031")
                       .Case("gfx1032", "AMD_GPU_GFX1032")
->>>>>>> 565329f00cb5f883363d2938110fea5e28b7291a
                       .Default("");
   if (!Ext.empty()) {
     Macro = "__SYCL_TARGET_";
@@ -1690,7 +1664,6 @@ void SYCLToolChain::TranslateBackendTargetArgs(
   if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
       getDriver().isSYCLDefaultTripleImplied())
     return;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-backend.
@@ -1701,12 +1674,7 @@ void SYCLToolChain::TranslateBackendTargetArgs(
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
         options::OPT_Xsycl_backend, options::OPT_Xsycl_backend_EQ, Device);
 #endif // INTEL_CUSTOMIZATION
-=======
-  // Handle -Xsycl-target-backend.
-  TranslateTargetOpt(Args, CmdArgs, options::OPT_Xsycl_backend,
-                     options::OPT_Xsycl_backend_EQ, Device);
   TranslateGPUTargetOpt(Args, CmdArgs, options::OPT_fsycl_targets_EQ);
->>>>>>> 565329f00cb5f883363d2938110fea5e28b7291a
 }
 
 #if INTEL_CUSTOMIZATION
