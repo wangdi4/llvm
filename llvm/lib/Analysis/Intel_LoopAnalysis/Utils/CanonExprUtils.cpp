@@ -126,7 +126,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
 
 CanonExpr *CanonExprUtils::createConstStandAloneBlobCanonExpr(Value *Val) {
   assert((isa<MetadataAsValue>(Val) || isa<ConstantData>(Val) ||
-          isa<ConstantVector>(Val)) &&
+          isa<ConstantAggregate>(Val)) &&
          "Unexpected constant type!");
   unsigned Index;
 

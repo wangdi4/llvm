@@ -28,6 +28,7 @@ class Type;
 class SCEV;
 class Constant;
 class ConstantData;
+class ConstantAggregate;
 class ConstantFP;
 class ConstantInt;
 class Function;
@@ -169,6 +170,11 @@ public:
   /// Returns true if \p Blob represents a vector of constants.
   /// If yes, returns the underlying LLVM Value in Val.
   static bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
+
+  /// Returns true if \p Blob represents a constant aggregate.
+  /// If yes, returns the underlying LLVM Value in Val.
+  static bool isConstantAggregateBlob(BlobTy Blob,
+                                      ConstantAggregate **Val = nullptr);
 
   /// Returns true if \p Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.

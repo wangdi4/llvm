@@ -2400,8 +2400,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRLoopRematerializePass());
     FPM.addPass(HIRMultiExitLoopRerollPass());
     FPM.addPass(HIRLoopCollapsePass());
-    FPM.addPass(HIRIdiomRecognitionPass());
     FPM.addPass(HIRLoopFusionPass());
+    FPM.addPass(HIRDeadStoreEliminationPass());
+    FPM.addPass(HIRIdiomRecognitionPass());
     FPM.addPass(HIRIfReversalPass());
 
     if (Level.getSizeLevel() == 0) {
