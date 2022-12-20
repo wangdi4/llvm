@@ -105,11 +105,8 @@ void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
-=======
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
->>>>>>> 1d1de7467c32d52926ca56b9167a2c65c451ecfa
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
 void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
