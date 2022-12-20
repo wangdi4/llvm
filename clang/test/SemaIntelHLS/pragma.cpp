@@ -280,7 +280,7 @@ void foo_ivdep()
   //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  //CHECK-NEXT: SYCLIntelVDepAttr
+  //CHECK-NEXT: SYCLIntelIVDepAttr
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];

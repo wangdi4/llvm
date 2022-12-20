@@ -1624,7 +1624,7 @@ static void writeGetSpellingFunction(const Record &R, raw_ostream &OS) {
   // FIXME: this is a complete hack that needs to be removed. It only "works"
   // because 5 happens to be the spelling list index of the ivdep pragma listed
   // in the LoopHint definition in Attr.td.
-  if (R.getName() == "SYCLIntelFPGAIVDep")
+  if (R.getName() == "SYCLIntelIVDep")
     OS << "  case 5:\n"// << Spellings.size() << ":\n"
        << "    return \"ivdep\";\n";
 #endif
