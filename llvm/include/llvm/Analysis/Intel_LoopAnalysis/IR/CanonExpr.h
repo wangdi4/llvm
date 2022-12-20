@@ -35,6 +35,7 @@ namespace llvm {
 class Type;
 class SCEV;
 class MetadataAsValue;
+class ConstantAggregate;
 
 namespace loopopt {
 
@@ -376,7 +377,7 @@ public:
   /// Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
     return (isIntConstant() || isConstantData() || isNull() || isMetadata() ||
-            isConstantVector() || isNullVector());
+            isConstantVector() || isNullVector() || isConstantAggregate());
   }
 
   /// Returns true if canon expr represents a constant that can be constant
@@ -408,6 +409,10 @@ public:
   /// Returns true if canon expr represents constant data.
   /// If yes, returns the underlying LLVM Value in \pVal.
   bool isConstantData(ConstantData **Val = nullptr) const;
+
+  /// Returns true if canon expr represents constant aggregate.
+  /// If yes, returns the underlying LLVM Value in \pVal.
+  bool isConstantAggregate(ConstantAggregate **Val = nullptr) const;
 
   /// Returns true if canon expr is a vector of constants.
   /// If yes, returns the underlying LLVM Value in \pVal.

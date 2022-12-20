@@ -180,7 +180,7 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
 
 bool HIRScalarSymbaseAssignment::isConstant(const Value *Val) {
   // TODO: add other types
-  if (isa<ConstantData>(Val) || isa<ConstantVector>(Val)) {
+  if (isa<ConstantData>(Val) || isa<ConstantAggregate>(Val)) {
     return true;
   }
 

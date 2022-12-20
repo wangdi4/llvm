@@ -250,6 +250,23 @@ bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
   return false;
 }
 
+bool BlobUtils::isConstantAggregateBlob(BlobTy Blob, ConstantAggregate **Val) {
+  auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  if (auto Const = dyn_cast<ConstantAggregate>(UnknownSCEV->getValue())) {
+    if (Val) {
+      *Val = Const;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
 
   auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);

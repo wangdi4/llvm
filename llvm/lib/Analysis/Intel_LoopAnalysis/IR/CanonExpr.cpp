@@ -312,6 +312,15 @@ bool CanonExpr::isConstantData(ConstantData **Val) const {
       getBlobUtils().getBlob(getSingleBlobIndex()), Val);
 }
 
+bool CanonExpr::isConstantAggregate(ConstantAggregate **Val) const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return BlobUtils::isConstantAggregateBlob(
+      getBlobUtils().getBlob(getSingleBlobIndex()), Val);
+}
+
 bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
   if (!isStandAloneBlob()) {
     return false;
