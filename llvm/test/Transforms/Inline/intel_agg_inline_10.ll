@@ -9,7 +9,6 @@
 
 ; Make sure bar1, bar2 and bar3 are not inlined without "aggressive inline
 ; analysis" by using "-inline-threshold=-50".
-; RUN: opt < %s -inline -inline-threshold=-50 -whole-program-assume -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
 ; RUN: opt < %s -passes='cgscc(inline)' -inline-threshold=-50 -whole-program-assume -S | FileCheck  --check-prefix=CHECK-NO-AGG-INL %s
 
 ; Make sure bar1, bar2 and bar3 are inlined with "aggressive inliner"

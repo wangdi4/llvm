@@ -292,6 +292,7 @@ public:
   bool canHaveInterop() const;
   bool canHaveInteropAction() const;
   bool canHaveDepend() const;
+  bool canHaveDetach() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
   bool canHaveNontemporal() const;
@@ -373,6 +374,7 @@ public:
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
   virtual DataClause &getData()              {WRNERROR(QUAL_OMP_DATA);        }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
+  virtual DetachClause &getDetach()          {WRNERROR("DETACH");             }
   virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
   virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
@@ -421,6 +423,8 @@ public:
   virtual const DataClause &getData() const {WRNERROR(QUAL_OMP_DATA);       }
   virtual const DependClause &getDepend() const
                                            {WRNERROR("DEPEND");             }
+  virtual const DetachClause &getDetach() const
+                                           {WRNERROR("DETACH");             }
   virtual const DepSinkClause &getDepSink() const
                                            {WRNERROR("DEPEND(SINK:..)");    }
   virtual const DepSourceClause &getDepSource() const

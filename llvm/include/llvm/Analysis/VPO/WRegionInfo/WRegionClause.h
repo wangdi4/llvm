@@ -101,8 +101,8 @@ extern DenseMap<int, StringRef> WRNLoopOrderName;
 //   UseDevicePtrItem: derived class for an item in the USE_DEVICE_PTR clause
 //   InclusiveItem:    derived class for an item in the INCLUSIVE    clause
 //   ExclusiveItem:    derived class for an item in the EXCLUSIVE    clause
+//   DetachItem:       derived class for an item in the DETACH       clause
 //
-
 
 //
 //   Item: abstract base class NOT intended to be instantiated directly.
@@ -129,6 +129,7 @@ class Item
       IK_UseDevicePtr,
       IK_Inclusive,
       IK_Exclusive,
+      IK_Detach,
     };
 
   private :
@@ -1747,6 +1748,19 @@ class DependItem
     }
 };
 
+class DetachItem : public Item {
+  public:
+    DetachItem(VAR Orig) : Item(Orig, IK_Private) {}
+
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      Item::print(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
+
+    static bool classof(const Item *I) { return I->getKind() == IK_Detach; }
+};
+
 class DepSrcSinkItem {
 private:
   SmallVector<Value *, 3> DepExprs;
@@ -2258,6 +2272,7 @@ typedef Clause<ExclusiveItem>       ExclusiveClause;
 typedef Clause<SubdeviceItem>       SubdeviceClause;
 typedef Clause<InteropActionItem>   InteropActionClause;
 typedef Clause<DependItem>          DependClause;
+typedef Clause<DetachItem>          DetachClause;
 typedef Clause<DepSinkItem>         DepSinkClause;
 typedef Clause<DepSourceItem>       DepSourceClause;
 typedef Clause<AlignedItem>         AlignedClause;
@@ -2286,6 +2301,7 @@ typedef std::vector<ExclusiveItem>::iterator       ExclusiveIter;
 typedef std::vector<SubdeviceItem>::iterator       SubdeviceIter;
 typedef std::vector<InteropActionItem>::iterator   InteropActionIter;
 typedef std::vector<DependItem>::iterator          DependIter;
+typedef std::vector<DetachItem>::iterator          DetachIter;
 typedef std::vector<DepSinkItem>::iterator         DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator       DepSourceIter;
 typedef std::vector<AlignedItem>::iterator         AlignedIter;

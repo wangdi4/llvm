@@ -155,6 +155,7 @@ template<>Clause<InclusiveItem>   ::Clause():ClauseID(QUAL_OMP_INCLUSIVE){}
 template<>Clause<ExclusiveItem>   ::Clause():ClauseID(QUAL_OMP_EXCLUSIVE){}
 template<>Clause<SubdeviceItem>   ::Clause():ClauseID(QUAL_OMP_SUBDEVICE){}
 template<>Clause<InteropActionItem>::Clause():ClauseID(QUAL_OMP_INIT){}
+template<>Clause<DetachItem>      ::Clause():ClauseID(QUAL_OMP_DETACH){}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
 template<>Clause<DepSinkItem>     ::Clause():ClauseID(QUAL_OMP_DEPEND_SINK){}
 template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}

@@ -11,8 +11,9 @@
 
 #include "IntelVPlanValueTrackingHIR.h"
 
-#include "IntelVPlanScalarEvolutionHIR.h"
 #include "../IntelVPlan.h"
+#include "../IntelVPlanDominatorTree.h"
+#include "IntelVPlanScalarEvolutionHIR.h"
 
 #include <llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h>
 #include <llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h>
@@ -38,16 +39,6 @@ KnownBits VPlanValueTrackingHIR::getKnownBits(VPlanSCEV *Expr,
   LLVM_DEBUG(dbgs() << "getKnownBits(" << *AddRec << ")\n");
   LLVM_DEBUG(dbgs() << "  -> "; KB.print(dbgs()); dbgs() << '\n');
   return KB;
-}
-
-KnownBits VPlanValueTrackingHIR::getKnownBits(const VPValue *Val,
-                                              const VPInstruction *CtxI) {
-  unsigned BitWidth = DL->getTypeSizeInBits(Val->getType());
-
-  // Return unknown for all values, for now, until we can get some form of
-  // ValueTracking working in HIR.
-  // TODO: implement HIR ValueTracking?
-  return KnownBits{BitWidth};
 }
 
 // Compute KnownBits for VPlanSCEV expression. Since we are using LLVM tools for

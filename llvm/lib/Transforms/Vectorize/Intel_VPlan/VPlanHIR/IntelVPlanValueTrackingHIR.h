@@ -19,20 +19,26 @@ namespace llvm {
 namespace loopopt {
 class HLLoop;
 class BlobUtils;
-}
+} // namespace loopopt
 
 namespace vpo {
 
 struct VPlanAddRecHIR;
 
 class VPlanValueTrackingHIR final : public VPlanValueTracking {
+  friend class VPlanValueTrackingImpl;
+
 public:
   VPlanValueTrackingHIR(loopopt::HLLoop *MainLoop, const DataLayout &DL,
-                        const VPAssumptionCache *VPAC, const DominatorTree *DT)
-      : MainLoop(MainLoop), DL(&DL), VPAC(VPAC), DT(DT) {}
+                        VPAssumptionCache *VPAC, const DominatorTree *DT)
+      : VPlanValueTracking(VPlanValueTracking::HIR), MainLoop(MainLoop),
+        DL(&DL), VPAC(VPAC), DT(DT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
-  KnownBits getKnownBits(const VPValue *Val, const VPInstruction *CtxI) override;
+
+  static bool classof(const VPlanValueTracking *VPVT) {
+    return VPVT->getKind() == VPlanValueTracking::HIR;
+  }
 
 private:
   KnownBits getKnownBitsImpl(VPlanAddRecHIR *Expr);
@@ -42,7 +48,7 @@ private:
 private:
   loopopt::HLLoop *MainLoop = nullptr;
   const DataLayout *DL = nullptr;
-  const VPAssumptionCache *VPAC = nullptr;
+  VPAssumptionCache *VPAC = nullptr;
   const DominatorTree *DT = nullptr;
 };
 

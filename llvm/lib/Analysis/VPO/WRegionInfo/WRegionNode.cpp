@@ -364,6 +364,10 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
           !getDepend().empty() || getDepArray()) &&
          "taskwait construct cannot have a nowait clause without a depend "
          "clause.");
+
+  // Assert if a construct has multiple Detach clauses.
+  if (canHaveDetach())
+    assert(getDetach().size() < 2 && "There should be only 1 Detach clause.");
 }
 
 // Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -549,6 +553,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveDetach())
+    PrintedSomething |= getDetach().print(OS, Depth, Verbosity);
 
   if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
@@ -1002,7 +1009,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
               ClauseID == QUAL_OMP_SHARED ||
               ClauseID == QUAL_OMP_USE_DEVICE_PTR ||
-              ClauseID == QUAL_OMP_USE_DEVICE_ADDR) &&
+              ClauseID == QUAL_OMP_USE_DEVICE_ADDR ||
+              ClauseID == QUAL_OMP_DETACH) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");
@@ -1812,6 +1820,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(), IsIn);
     break;
   }
+  case QUAL_OMP_DETACH: {
+    assert(ClauseInfo.getIsTyped() &&
+           "Expected TYPED arguments with the Detach clause.");
+    extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo, getShared());
+    break;
+  }
   case QUAL_OMP_DEPARRAY:
     assert(NumArgs == 2 && "Expected 2 operands in DEPARRAY qual");
     setDepArrayNumDeps(Args[0]);
@@ -2561,6 +2575,15 @@ bool WRegionNode::canHaveDepend() const {
   case WRNTargetUpdate:
   case WRNInterop:
     // exclude WRNDispatch; its depend clause is moved to the implicit task
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveDetach() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
     return true;
   }
   return false;

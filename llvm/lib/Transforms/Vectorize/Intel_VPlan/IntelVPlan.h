@@ -64,6 +64,7 @@
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
@@ -5799,7 +5800,34 @@ inline decltype(auto) vplan_da_shapes(const VPlan *P,
   });
 }
 
+using vp_gep_type_iterator =
+    llvm::generic_gep_type_iterator<VPUser::const_operand_iterator>;
+
+inline vp_gep_type_iterator gep_type_begin(const VPUser *U) {
+  return llvm::generic_gep_type_begin<VPUser, vp_gep_type_iterator,
+                                      VPGEPInstruction>(U);
+}
+inline vp_gep_type_iterator gep_type_end(const VPUser *U) {
+  return llvm::generic_gep_type_end<VPUser, vp_gep_type_iterator>(U);
+}
+inline vp_gep_type_iterator gep_type_begin(const VPUser &U) {
+  return llvm::generic_gep_type_begin<VPUser, vp_gep_type_iterator,
+                                      VPGEPInstruction>(&U);
+}
+inline vp_gep_type_iterator gep_type_end(const VPUser &U) {
+  return llvm::generic_gep_type_end<VPUser, vp_gep_type_iterator>(&U);
+}
+
 } // namespace vpo
+
+// This template specialization to support generic_gep_type_iterator for
+// VPGEPInstruction.
+template <>
+inline Constant *GEPTypeIterTraits<vpo::VPValue>::getConstant(vpo::VPValue *V) {
+  if (auto *C = dyn_cast<vpo::VPConstant>(V))
+    return C->getConstant();
+  return nullptr;
+}
 
 // The following template specializations are implemented to support GraphTraits
 // for VPlan.

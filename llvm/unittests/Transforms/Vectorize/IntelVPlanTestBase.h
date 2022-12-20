@@ -128,6 +128,15 @@ protected:
     return VPOCG;
   }
 };
+
+// Helper to drop all references before instruction is deleted.
+struct DropAllReferencesDeleter {
+  void operator()(VPInstruction *I) {
+    I->dropAllReferences();
+    delete I;
+  }
+};
+
 } // namespace vpo
 } // namespace llvm
 

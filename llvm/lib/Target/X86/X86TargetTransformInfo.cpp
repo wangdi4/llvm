@@ -5209,16 +5209,23 @@ X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
   // to 128 bits, after which larger vectors are combined more efficiently
   // from the smaller ones.  Therefore long chains will only occur with
   // byte and word elements.  [CMPLRLLVM-38655]
-  constexpr int SerializeWidthThreshold = 8;
-  constexpr int SerializeCostThreshold = 6;
+  constexpr int SerializeWidthThreshold = 4;
+  constexpr int SerializeCostThreshold = 3;
+  if (!EltTy->isIntegerTy() || NumElts < SerializeWidthThreshold ||
+      BuildVecCost < SerializeCostThreshold)
+    return 0;
+  int EltSize = DL.getTypeSizeInBits(EltTy);
   constexpr int SerializeTypeWidthMax = 16;
-  constexpr int SerializePenalty = 1;
-  if (NumElts >= SerializeWidthThreshold
-      && BuildVecCost >= SerializeCostThreshold
-      && DL.getTypeSizeInBits(EltTy) <= SerializeTypeWidthMax)
-    return SerializePenalty;
+  if (EltSize > SerializeTypeWidthMax)
+    return 0;
 
-  return 0;
+  // Use higher penalty for a i8 type and lower for i16
+  constexpr int SerializePenaltyLow = 2;
+  constexpr int SerializePenaltyHigh = 3;
+  if (EltSize <= 8)
+    return SerializePenaltyHigh;
+
+  return SerializePenaltyLow;
 }
 #endif // INTEL_CUSTOMIZATION
 

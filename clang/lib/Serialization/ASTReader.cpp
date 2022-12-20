@@ -1702,6 +1702,15 @@ Token ASTReader::ReadToken(ModuleFile &F, const RecordDataImpl &Record,
       for (unsigned I = 0; I < NumTokens; ++I)
         Toks.push_back(ReadToken(F, Record, Idx));
       Info->Toks = llvm::makeArrayRef(Toks).copy(PP.getPreprocessorAllocator());
+#if INTEL_CUSTOMIZATION
+      unsigned NumArrayTokens = Record[Idx++];
+      SmallVector<Token, 4> ArrayToks;
+      ArrayToks.reserve(NumArrayTokens);
+      for (unsigned I = 0; I < NumArrayTokens; ++I)
+        ArrayToks.push_back(ReadToken(F, Record, Idx));
+      Info->ArrayToks =
+          llvm::makeArrayRef(ArrayToks).copy(PP.getPreprocessorAllocator());
+#endif // INTEL_CUSTOMIZATION
       Tok.setAnnotationValue(static_cast<void *>(Info));
       break;
     }
