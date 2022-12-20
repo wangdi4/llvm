@@ -4174,10 +4174,20 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       auto *LocalId0 = VPOParoptUtils::genOCLGenericCall(
           "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
           OuterLatchBB->getTerminator());
-      auto *Cmp = Builder.CreateICmpEQ(LocalId0, Builder.getInt64(0));
+      auto *Cmp = Builder.CreateICmpNE(LocalId0, Builder.getInt64(0));
       auto *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
-      auto *PredTmpRes = Builder.CreateSelect(
-          Cmp, TmpRes, Constant::getNullValue(RedElemType));
+      auto *PostLoadBB = SplitBlock(OuterLatchBB, OuterLatchBB->getTerminator(), DT, LI);
+      // NOTE: we can't generate both load and phi consequently and split
+      // in between because SplitBlock actually picks SplitPt->getFirstNonPhi()
+      // instead of just SplitPt
+      Builder.SetInsertPoint(PostLoadBB->getTerminator());
+      auto *PredTmpRes = Builder.CreatePHI(RedElemType, 2);
+      SplitBlockAndInsertIfThen(Cmp, TmpRes, false, nullptr, DT, LI, PostLoadBB);
+      // Using UndefValue here since this non-master thread values don't matter
+      // as the final result is only written by master thread.
+      // NOTE: Using zeroinitializer makes VPlan crash.
+      PredTmpRes->addIncoming(UndefValue::get(RedElemType), OuterLatchBB);
+      PredTmpRes->addIncoming(TmpRes, OuterLatchBB->getTerminator()->getSuccessor(1));
       auto *PredRes = genReductionScalarOp(RedI, Builder, RedElemType,
                                            PredTmpRes, RedSumPhi);
       RedSumPhi->setIncomingValue(1, PredRes);

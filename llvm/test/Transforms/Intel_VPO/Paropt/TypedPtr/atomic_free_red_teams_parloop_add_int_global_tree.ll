@@ -31,8 +31,8 @@
 ; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label %atomic.free.red.global.pretree.header
 
 ; CHECK-LABEL: atomic.free.red.global.pretree.header:
-; CHECK: %[[TEAMS_IDX_PHI:[^,]+]] = phi i64 [ 0, %master.thread.fallthru{{[0-9]+}} ], [ %[[TEAMS_IDX_INC:[^,]+]], %atomic.free.red.global.update.pretree.latch ]
-; CHECK: %[[RES_PHI:[^,]+]] = phi i32 [ %[[INIT]], %master.thread.fallthru{{[0-9]+}} ], [ %[[RES_INC:[^,]+]], %atomic.free.red.global.update.pretree.latch ]
+; CHECK: %[[TEAMS_IDX_PHI:[^,]+]] = phi i64 [ 0, %master.thread.fallthru{{[0-9]+}} ], [ %[[TEAMS_IDX_INC:[^,]+]], %atomic.free.red.global.update.pretree.latch
+; CHECK: %[[RES_PHI:[^,]+]] = phi i32 [ %[[INIT]], %master.thread.fallthru{{[0-9]+}} ], [ %[[RES_INC:[^,]+]], %atomic.free.red.global.update.pretree.latch
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %[[NUM_GROUPS0:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; CHECK: %[[OUTER_COND:[^,]+]] = icmp uge i64 %[[TEAMS_IDX_PHI]], %[[NUM_GROUPS0]]
@@ -78,10 +78,14 @@
 ; CHECK: atomic.free.red.global.update.pretree.latch:      ; preds = %atomic.free.red.global.update.header
 ; CHECK: %[[TEAMS_IDX_INC]] = add i64 %[[TEAMS_IDX_PHI]], %[[LOCAL_SIZE]]
 ; CHECK: %[[THR_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
-; CHECK: %[[MTT:[^,]+]] = icmp eq i64 %[[THR_ID]], 0
+; CHECK: %[[MTT:[^,]+]] = icmp ne i64 %[[THR_ID]], 0
+; CHECK: br i1 %[[MTT]], label %[[JOIN_BB:[^,]+]], label %[[LOAD_BB:[^,]+]]
+
 ; CHECK: %[[PREV:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]], align 4
-; CHECK: %[[NEW_VAL1:[^,]+]] = select i1 %[[MTT]], i32 %[[PREV]], i32 0
-; CHECK: %[[RES_INC]] = add i32 %[[NEW_VAL1]], %[[RES_PHI]]
+; CHECK-NEXT: br label %[[JOIN_BB]]
+
+; CHECK: %[[TMP_RES:[^,]+]] = phi i32 [ undef, %atomic.free.red.global.update.pretree.latch ], [ %[[PREV]], %[[LOAD_BB]] ]
+; CHECK: %[[RES_INC]] = add i32 %[[TMP_RES]], %[[RES_PHI]]
 ; CHECK: br label %atomic.free.red.global.pretree.header
 
 ; CHECK-LABEL: atomic.free.red.global.update.store:
