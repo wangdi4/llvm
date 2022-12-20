@@ -3202,24 +3202,6 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         return replaceInstUsesWith(SI, NewSel);
       }
     }
-  }
-
-  if (isa<FPMathOperator>(SI)) {
-    // TODO: Try to forward-propagate FMF from select arms to the select.
-
-    // Canonicalize select of FP values where NaN and -0.0 are not valid as
-    // minnum/maxnum intrinsics.
-    if (SI.hasNoNaNs() && SI.hasNoSignedZeros()) {
-      Value *X, *Y;
-      if (match(&SI, m_OrdFMax(m_Value(X), m_Value(Y))))
-        return replaceInstUsesWith(
-            SI, Builder.CreateBinaryIntrinsic(Intrinsic::maxnum, X, Y, &SI));
-
-      if (match(&SI, m_OrdFMin(m_Value(X), m_Value(Y))))
-        return replaceInstUsesWith(
-            SI, Builder.CreateBinaryIntrinsic(Intrinsic::minnum, X, Y, &SI));
-    }
-
 #if INTEL_CUSTOMIZATION
 //  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp + int) for invariants.
 //  If the parent function has "unsafe-fp-math" set, then we can
@@ -3256,6 +3238,23 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
       }
     }
 #endif  // INTEL_CUSTOMIZATION
+  }
+
+  if (isa<FPMathOperator>(SI)) {
+    // TODO: Try to forward-propagate FMF from select arms to the select.
+
+    // Canonicalize select of FP values where NaN and -0.0 are not valid as
+    // minnum/maxnum intrinsics.
+    if (SI.hasNoNaNs() && SI.hasNoSignedZeros()) {
+      Value *X, *Y;
+      if (match(&SI, m_OrdFMax(m_Value(X), m_Value(Y))))
+        return replaceInstUsesWith(
+            SI, Builder.CreateBinaryIntrinsic(Intrinsic::maxnum, X, Y, &SI));
+
+      if (match(&SI, m_OrdFMin(m_Value(X), m_Value(Y))))
+        return replaceInstUsesWith(
+            SI, Builder.CreateBinaryIntrinsic(Intrinsic::minnum, X, Y, &SI));
+    }
   }
 
   // Fold selecting to fabs.
