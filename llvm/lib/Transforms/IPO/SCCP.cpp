@@ -66,21 +66,18 @@ STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
 STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
-                    cl::desc("propagate constants to callback calls"));
-#endif // INTEL_CUSTOMIZATION
-
-=======
 static cl::opt<bool> SpecializeFunctions("specialize-functions",
     cl::init(false), cl::Hidden, cl::desc("Enable function specialization"));
 
 static cl::opt<unsigned> FuncSpecializationMaxIters(
     "func-specialization-max-iters", cl::init(1), cl::Hidden, cl::desc(
     "The maximum number of iterations function specialization is run"));
->>>>>>> 8136a0172b3ce04975650732cc3cc9da89908211
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
+                    cl::desc("propagate constants to callback calls"));
+#endif // INTEL_CUSTOMIZATION
 
 static void findReturnsToZap(Function &F,
                              SmallVector<ReturnInst *, 8> &ReturnsToZap,
@@ -506,13 +503,10 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();        // INTEL
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
-=======
->>>>>>> 8136a0172b3ce04975650732cc3cc9da89908211
-    AU.addRequired<TargetTransformInfoWrapperPass>();
   }
 };
 

@@ -264,11 +264,7 @@ MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
-<<<<<<< HEAD
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
-MODULE_PASS("function-specialization", FunctionSpecializationPass())
-=======
->>>>>>> 8136a0172b3ce04975650732cc3cc9da89908211
 MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
