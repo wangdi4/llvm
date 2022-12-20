@@ -213,8 +213,11 @@ void initializeFloat2IntLegacyPassPass(PassRegistry&);
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeFuncletLayoutPass(PassRegistry&);
+<<<<<<< HEAD
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
 void initializeFunctionSpecializationLegacyPassPass(PassRegistry &);
+=======
+>>>>>>> 8136a0172b3ce04975650732cc3cc9da89908211
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNHoistLegacyPassPass(PassRegistry&);
