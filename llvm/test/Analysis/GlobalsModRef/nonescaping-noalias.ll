@@ -1,5 +1,5 @@
 ; INTEL
-; RUN: opt < %s -convert-to-subscript -globals-aa -gvn -S | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa,globals-aa -passes='require<globals-aa>,convert-to-subscript,gvn' -S | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa,globals-aa -passes='require<globals-aa>,gvn' -S | FileCheck %s
 ;
 ; This tests the safe no-alias conclusions of GMR -- when there is
