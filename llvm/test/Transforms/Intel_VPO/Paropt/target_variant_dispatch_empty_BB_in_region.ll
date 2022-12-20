@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-interop=false %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S -vpo-paropt-use-interop=false %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-interop=false %s | FileCheck %s
 ; Test for TARGET VARIANT DISPATCH construct without a DEVICE clause
 ; and the associated function returns an INT that is used downstream.

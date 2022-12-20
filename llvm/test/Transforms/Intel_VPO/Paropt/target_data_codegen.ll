@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s
 ; RUN: opt -passes='vpo-paropt' -S %s
 
 ; Before the fix for CMPLRLLVM-8213, compiling the test below with

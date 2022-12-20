@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; For device compilation, the compiler ignores non-TARGET OMP constructs that

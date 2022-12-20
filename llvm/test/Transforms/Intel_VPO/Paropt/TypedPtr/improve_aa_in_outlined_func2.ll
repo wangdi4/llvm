@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -tbaa %s | opt -disable-output -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -aa-pipeline=tbaa %s | opt -disable-output -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -tbaa %s | opt -enable-new-pm=0 -disable-output -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -aa-pipeline=tbaa %s | opt -disable-output -aa-pipeline="scoped-noalias-aa" -passes="aa-eval" -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
 
 ; TODO: TBAA only appears to be available during vpo-paropt with the new pass
 ; manager. As a result, the old pass manager RUN line is disabled.

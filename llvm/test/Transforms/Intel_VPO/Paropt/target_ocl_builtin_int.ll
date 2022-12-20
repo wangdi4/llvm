@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -switch-to-offload -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Check that integer math functions "abs" and "labs" are being replaced with

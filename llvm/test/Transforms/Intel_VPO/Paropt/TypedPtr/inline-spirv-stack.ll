@@ -2,7 +2,8 @@
 ; the inliner normally inserts a stacksave/stackrestore to simulate the
 ; original callee function's stack allocation behavior. This is incorrect
 ; on Intel GPU targets because there is no traditional stack.
-; RUN: opt -inline -S -o - %s | FileCheck %s
+; RUN: opt -passes="inline" -S -o - %s | FileCheck %s
+
 ; CHECK-NOT: stacksave
 ; CHECK-NOT: stackrestore
 

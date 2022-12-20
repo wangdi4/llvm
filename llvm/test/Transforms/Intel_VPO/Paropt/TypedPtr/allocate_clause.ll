@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; C test for the allocate clause

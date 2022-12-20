@@ -1,4 +1,5 @@
-; RUN: opt -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
+; RUN: opt -passes="function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
 
 ; -- vecadd.cpp ---------------------------------------------------------------
 ; #include <stdio.h>

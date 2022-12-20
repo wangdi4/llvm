@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S 
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S 
 ; RUN: opt -passes='vpo-paropt' -S 
 
 ; Clang-emitted IR for a loop with unsigned UB changed after the

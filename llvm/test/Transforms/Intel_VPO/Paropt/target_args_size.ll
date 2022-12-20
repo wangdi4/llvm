@@ -1,4 +1,4 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S
 ; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S
 
 ; The test checks that there is no compfail:

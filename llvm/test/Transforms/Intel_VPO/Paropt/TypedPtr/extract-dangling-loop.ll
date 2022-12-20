@@ -1,4 +1,5 @@
-; RUN: opt -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vpo-paropt" -S %s 2>&1 | FileCheck %s
 
 ; CHECK: define{{.*}}TASK
 ; ...

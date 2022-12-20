@@ -26,8 +26,8 @@
 ;   !$OMP END parallel
 ; END PROGRAM parallel__do__simd
 
-; RUN: opt -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
-; RUN: opt -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates %s | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates %s | FileCheck %s --check-prefixes=CHECK,TYPED
 ; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
 ; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates %s | FileCheck %s --check-prefixes=CHECK,TYPED
 
