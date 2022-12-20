@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPAlignAssumeCleanup.cpp
+  Intel_VPlan/IntelVPAssumptionCache.cpp
   Intel_VPlan/IntelVPBasicBlock.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp
