@@ -2443,7 +2443,15 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
   FPM.addPass(HIRCodeGenPass());
 
+  // addLoopOptCleanupPasses below may registerize UDR/inscan memory that we
+  // want to keep.
+  if (RunVPOOpt && EnableVPlanDriver)
+    FPM.addPass(VPORenameOperandsPass());
+
   addLoopOptCleanupPasses(FPM, Level);
+
+  if (RunVPOOpt && EnableVPlanDriver)
+    FPM.addPass(VPORestoreOperandsPass());
 
   // if (EnableVPlanDriverHIR) {
   //  PM.add(createAlwaysInlinerLegacyPass());
@@ -2503,7 +2511,7 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     FPM.addPass(AlignmentFromAssumptionsPass());
   }
 
-  // Restore potentially renamed UDR operands before LoopOpt and VPlan
+  // Restore potentially renamed UDR/inscan operands before LoopOpt and VPlan
   // vectorizers. The renaming was done after Paropt to avoid memory motion.
   if (RunVPOOpt && (EnableVPlanDriver || EnableVPlanDriverHIR || RunVPOParopt))
     FPM.addPass(VPORestoreOperandsPass());

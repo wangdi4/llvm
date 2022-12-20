@@ -1,4 +1,4 @@
-; RUN: opt -passes="default<O2>" -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --match-full-lines
+; RUN: opt -passes="default<O2>" -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s --match-full-lines --check-prefixes=CHECK,NOHIR
 ; RUN: opt -passes="default<O2>" -debug-pass-manager -loopopt < %s -o /dev/null 2>&1 | FileCheck %s --match-full-lines --check-prefixes=CHECK,HIR
 
 ; #pragma omp ordered simd is processed by running the following passes for
@@ -33,12 +33,14 @@ define void @var_tripcount() local_unnamed_addr {
 ; HIR:  Running analysis: HIRLoopResourceAnalysis on var_tripcount
 ; HIR:  Running pass: HIRScalarReplArrayPass on var_tripcount (1 instruction)
 ; HIR:  Running pass: HIRCodeGenPass on var_tripcount (1 instruction)
+; HIR:  Running analysis: WRegionInfoAnalysis on var_tripcount
+; HIR:  Running analysis: WRegionCollectionAnalysis on var_tripcount
 ; CHECK:  Running pass: LoopSimplifyPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: LCSSAPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: VPOCFGRestructuringPass on var_tripcount (1 instruction)
 ; CHECK:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass on [module]
-; CHECK:  Running analysis: WRegionInfoAnalysis on var_tripcount
-; CHECK:  Running analysis: WRegionCollectionAnalysis on var_tripcount
+; NOHIR:  Running analysis: WRegionInfoAnalysis on var_tripcount
+; NOHIR:  Running analysis: WRegionCollectionAnalysis on var_tripcount
 ; CHECK:  Running pass: VPOCFGRestructuringPass on var_tripcount (1 instruction)
 ; CHECK:  Running analysis: DominatorTreeAnalysis on var_tripcount
 ; CHECK:  Running analysis: LoopAnalysis on var_tripcount
