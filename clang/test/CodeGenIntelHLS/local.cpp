@@ -65,41 +65,41 @@ const int __attribute__((doublepump, __force_pow2_depth__(1))) global_const20 = 
 
 __attribute__((ihc_component))
 void foo_two() {
-  //CHECK: llvm.var.annotation{{.*}}var_two{{.*}}[[ANN2]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_two{{.*}}[[ANN2]]
   int __attribute__((bank_bits(4,5))) var_two;
-  //CHECK: llvm.var.annotation{{.*}}var_three{{.*}}[[ANN2]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_three{{.*}}[[ANN2]]
   int __attribute__((numbanks(4),bank_bits(4,5))) var_three;
-  //CHECK: llvm.var.annotation{{.*}}var_four{{.*}}[[ANN2]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_four{{.*}}[[ANN2]]
   int __attribute__((bank_bits(4,5),numbanks(4))) var_four;
-  //CHECK: llvm.var.annotation{{.*}}var_four_A{{.*}}[[ANN2A]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_four_A{{.*}}[[ANN2A]]
   int __attribute__((bank_bits(5,4),numbanks(4))) var_four_A;
-  //CHECK: llvm.var.annotation{{.*}}var_seven{{.*}}[[ANN4]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_seven{{.*}}[[ANN4]]
   int __attribute__((register)) var_seven;
-  //CHECK: llvm.var.annotation{{.*}}var_eight{{.*}}[[ANN5]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_eight{{.*}}[[ANN5]]
   int __attribute__((__memory__)) var_eight;
-  //CHECK: llvm.var.annotation{{.*}}var_eightA{{.*}}[[ANN5A]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_eightA{{.*}}[[ANN5A]]
   int __attribute__((__memory__("MLAB"))) var_eightA;
-  //CHECK: llvm.var.annotation{{.*}}var_eightB{{.*}}[[ANN5B]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_eightB{{.*}}[[ANN5B]]
   int __attribute__((__memory__("BLOCK_RAM"))) var_eightB;
-  //CHECK: llvm.var.annotation{{.*}}var_nine{{.*}}[[ANN6]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_nine{{.*}}[[ANN6]]
   int __attribute__((__bankwidth__(4))) var_nine;
-  //CHECK: llvm.var.annotation{{.*}}var_nine_two{{.*}}[[ANN6A]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_nine_two{{.*}}[[ANN6A]]
   int __attribute__((__max_concurrency__(4))) var_nine_two;
-  //CHECK: llvm.var.annotation{{.*}}var_nine_three{{.*}}[[ANN6B]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_nine_three{{.*}}[[ANN6B]]
   int __attribute__((__private_copies__(4))) var_nine_three;
-  //CHECK: llvm.var.annotation{{.*}}var_ten{{.*}}[[ANN7]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_ten{{.*}}[[ANN7]]
   int __attribute__((singlepump)) var_ten;
-  //CHECK: llvm.var.annotation{{.*}}var_eleven{{.*}}[[ANN8]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_eleven{{.*}}[[ANN8]]
   int __attribute__((doublepump)) var_eleven;
-  //CHECK: llvm.var.annotation{{.*}}var_twelve{{.*}}[[ANN9]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_twelve{{.*}}[[ANN9]]
   int __attribute__((merge("foo","depth"))) var_twelve;
-  //CHECK: llvm.var.annotation{{.*}}var_thirteen{{.*}}[[ANN10]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_thirteen{{.*}}[[ANN10]]
   int __attribute__((merge("bar","width"))) var_thirteen;
-  //CHECK: llvm.var.annotation{{.*}}var_sixteen{{.*}}[[ANN15]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_sixteen{{.*}}[[ANN15]]
   int __attribute__((doublepump, memory("MLAB"))) var_sixteen = 0;
-  //CHECK: llvm.var.annotation{{.*}}var_seventeen{{.*}}[[ANN16]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_seventeen{{.*}}[[ANN16]]
   int __attribute__((__force_pow2_depth__(0))) var_seventeen = 0;
-  //CHECK: llvm.var.annotation{{.*}}var_eighteen{{.*}}[[ANN17]]
+  //CHECK: llvm.var.annotation.p0.p0{{.*}}var_eighteen{{.*}}[[ANN17]]
   int __attribute__((__force_pow2_depth__(1))) var_eighteen = 0;
 }
 
@@ -116,7 +116,7 @@ void foo_one()
 }
 
 //CHECK: define{{.*}}foo_one{{.*}}!ihc_component
-//CHECK: llvm.var.annotation{{.*}}var_one{{.*}}[[ANN1]]
+//CHECK: llvm.var.annotation.p0.p0{{.*}}var_one{{.*}}[[ANN1]]
 
 template <int numbanks, int bit, int private_copies>
 __attribute__((ihc_component))
@@ -128,7 +128,7 @@ void foo_two()
 }
 
 //CHECK: define{{.*}}foo_two{{.*}}!ihc_component
-//CHECK: llvm.var.annotation{{.*}}var_two{{.*}}[[ANN1A]]
+//CHECK: llvm.var.annotation.p0.p0{{.*}}var_two{{.*}}[[ANN1A]]
 
 void call()
 {
@@ -156,33 +156,33 @@ struct foo_three {
 static foo_three s1;
 
 void bar1() {
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr @[[Struct1]], ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr @[[Struct1]], ptr [[ANN4]]
   s1.f1 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 1), ptr [[ANN7]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 1), ptr [[ANN7]]
   s1.f2 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 2), ptr [[ANN8]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 2), ptr [[ANN8]]
   s1.f3 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 3), ptr [[ANN5]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 3), ptr [[ANN5]]
   s1.f4 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 4), ptr [[ANN5A]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 4), ptr [[ANN5A]]
   s1.f5 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 5), ptr [[ANN5B]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 5), ptr [[ANN5B]]
   s1.f6 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 6), ptr [[ANN2]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 6), ptr [[ANN2]]
   s1.f7 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 7), ptr [[ANN2]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 7), ptr [[ANN2]]
   s1.f8 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 8), ptr [[ANN6]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 8), ptr [[ANN6]]
   s1.f12 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 9), ptr [[ANN9]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 9), ptr [[ANN9]]
   s1.f13 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 10), ptr [[ANN14]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 10), ptr [[ANN14]]
   s1.f16 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 11), ptr [[ANN15]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 11), ptr [[ANN15]]
   s1.f17 = 0;
-//CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 12), ptr [[ANN16]]
+//CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 12), ptr [[ANN16]]
   s1.f18 = 0;
-//CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 13), ptr [[ANN17]]
+//CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct1]], i32 0, i32 13), ptr [[ANN17]]
   s1.f19 = 0;
 }
 
@@ -202,13 +202,13 @@ static foo_five s2;
 
 void bar2() {
   s2.f1 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr @[[Struct2]], ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr @[[Struct2]], ptr [[ANN4]]
   s2.f2[0] = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 1), ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 1), ptr [[ANN4]]
   s2.f3.f1[0] = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 2), ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 2), ptr [[ANN4]]
   s2.f4[0].f1[0] = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 3), ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct2]], i32 0, i32 3), ptr [[ANN4]]
 }
 
 struct pack {
@@ -221,14 +221,14 @@ struct pack {
 int foo() {
   struct pack p1;
   struct pack p2[10] __attribute__((memory));
-  //CHECK: call void @llvm.var.annotation(ptr %p2, ptr [[ANN40]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %p2, ptr [[ANN40]]
   p1.mem[4] = 10;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr %mem, ptr [[ANN41]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr %mem, ptr [[ANN41]]
   struct pack p3;
   struct pack p4[10] __attribute__((__force_pow2_depth__(0)));
-  //CHECK: call void @llvm.var.annotation(ptr %p4, ptr [[ANN50]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %p4, ptr [[ANN50]]
   struct pack p5[10] __attribute__((__force_pow2_depth__(1)));
-  //CHECK: call void @llvm.var.annotation(ptr %p5, ptr [[ANN51]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %p5, ptr [[ANN51]]
 
   return 0;
 }
@@ -236,17 +236,17 @@ int foo() {
 int main ()
 {
   int a[16][8] __attribute__((bank_bits(4)));
-  //CHECK: call void @llvm.var.annotation(ptr %a, ptr [[ANN42]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %a, ptr [[ANN42]]
   int b __attribute__((bank_bits(4)));
-  //CHECK: call void @llvm.var.annotation(ptr %b, ptr [[ANN43]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %b, ptr [[ANN43]]
   short c[10] __attribute__((bank_bits(4)));
-  //CHECK: call void @llvm.var.annotation(ptr %c, ptr [[ANN44]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %c, ptr [[ANN44]]
 
   int d[16][8] __attribute__((__force_pow2_depth__(0)));
-  //CHECK: call void @llvm.var.annotation(ptr %d, ptr [[ANN45]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %d, ptr [[ANN45]]
 
   int e __attribute__((__force_pow2_depth__(1)));
-  //CHECK: call void @llvm.var.annotation(ptr %e, ptr [[ANN17]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %e, ptr [[ANN17]]
 
   return 0;
 }

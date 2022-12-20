@@ -3085,7 +3085,7 @@ llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Function *AnnotationFn,
     const llvm::Intrinsic::ID ID = AnnotationFn->getIntrinsicID();
     if (ID == llvm::Intrinsic::ptr_annotation ||
         ID == llvm::Intrinsic::var_annotation)
-      Args.push_back(llvm::ConstantPointerNull::get(Int8PtrTy));
+      Args.push_back(llvm::ConstantPointerNull::get(ConstGlobalsPtrTy));
   }
   return Builder.CreateCall(AnnotationFn, Args);
 }
@@ -3141,8 +3141,8 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
                                                  StringRef AnnotStr) {
   llvm::Value *V = Addr.getPointer();
   llvm::Type *VTy = V->getType();
-  llvm::Function *F =
-      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
+  llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
+                                       {VTy, CGM.ConstGlobalsPtrTy});
   V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
   V = Builder.CreateBitCast(V, VTy);
   return Address(V, Addr.getElementType(), Addr.getAlignment());

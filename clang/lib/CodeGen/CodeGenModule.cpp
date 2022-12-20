@@ -5927,8 +5927,8 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
 
     // Create the ConstantStruct for the global annotation.
     llvm::Constant *Fields[4] = {
-        C, llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
-        llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst};
+        C, llvm::ConstantExpr::getBitCast(AnnoGV, ConstGlobalsPtrTy),
+        llvm::ConstantExpr::getBitCast(UnitGV, ConstGlobalsPtrTy), LineNoCst};
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }
 }

@@ -1737,9 +1737,11 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     CGM.generateHLSAnnotation(&D, AnnotStr);
     if (!AnnotStr.empty()) {
       llvm::Value *V = address.getPointer();
-      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
-                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
-                         AnnotStr, D.getLocation());
+      EmitAnnotationCall(
+          CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
+                           {CGM.Int8PtrTy, CGM.ConstGlobalsPtrTy}),
+          Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()), AnnotStr,
+          D.getLocation());
     }
   }
 
