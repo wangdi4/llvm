@@ -68,7 +68,9 @@ struct MangledNameEmmiter {
   typedef std::list<TypedBi> TypedBiList;
   typedef TypedBiList::const_iterator TypedBiIter;
 
-  virtual ~MangledNameEmmiter() {
+  virtual ~MangledNameEmmiter() = default;
+
+  void doWork() {
     const char *fileName = "builtins.ll";
     llvm::SMDiagnostic errDiagnostic;
     llvm::LLVMContext context;
@@ -103,6 +105,7 @@ struct MangledNameEmmiter {
       ++typeit;
     }
     build(code, fileName);
+    // May throw std::bad_array_new_length
     std::unique_ptr<llvm::Module> pModule =
         llvm::parseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");
@@ -226,6 +229,7 @@ void OclBuiltinsHeaderGen::run(raw_ostream &stream) {
       mangleEmmiter(*i);
       ++i;
     }
+    mangleEmmiter.doWork();
   }
   formatter.endl();
   formatter << "#endif//__MANGLED_NAMES_INC__";
