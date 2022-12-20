@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; This file tests the implementation to support omp target exit data.

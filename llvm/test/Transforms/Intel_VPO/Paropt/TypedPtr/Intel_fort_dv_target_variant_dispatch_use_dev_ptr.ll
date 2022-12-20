@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; Test src:

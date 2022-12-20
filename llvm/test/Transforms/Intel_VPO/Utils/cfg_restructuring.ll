@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -S < %s | FileCheck %s
-; RUN: opt -passes=vpo-cfg-restructuring -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -S < %s | FileCheck %s
+; RUN: opt -passes="function(vpo-cfg-restructuring)" -S < %s | FileCheck %s
 
 ; ModuleID = 'cfg_restruct_test.c'
 source_filename = "cfg_restruct_test.c"

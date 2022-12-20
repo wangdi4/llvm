@@ -1,4 +1,4 @@
-; RUN: opt -switch-to-offload -vpo-paropt-optimize-data-sharing -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt-optimize-data-sharing -S %s | FileCheck %s
 ; RUN: opt -switch-to-offload -passes='vpo-paropt-optimize-data-sharing' -S %s | FileCheck %s
 ;
 ; Original code:
