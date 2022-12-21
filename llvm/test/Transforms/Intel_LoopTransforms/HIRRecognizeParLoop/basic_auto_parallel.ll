@@ -1,5 +1,4 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,require<hir-parvec-analysis>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 ;
 ; REQUIRES: csa-registered-target

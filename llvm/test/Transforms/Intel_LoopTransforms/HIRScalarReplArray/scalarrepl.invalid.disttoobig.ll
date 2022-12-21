@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -hir-scalarrepl-array-depdist-threshold=5 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-scalarrepl-array-depdist-threshold=5 < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: skip doing scalar replacement because the dep-distance is too big.

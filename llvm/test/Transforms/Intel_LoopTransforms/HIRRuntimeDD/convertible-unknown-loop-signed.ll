@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-runtime-dd -hir-cost-model-throttling=0 -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0  -S < %s 2>&1 | FileCheck %s
 
 ; RuntimeDD Multiversion an unknown-loop if it is convertible and has only one

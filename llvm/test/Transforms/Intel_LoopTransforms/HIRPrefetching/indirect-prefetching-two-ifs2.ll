@@ -2,7 +2,6 @@
 ; and (@M)[0][i1 + sext.i32.i64(%K)] does not have constant distance with other two index load refs.
 ; We will generate two HLIfs in this case.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code

@@ -1,4 +1,3 @@
-; RUN: opt -hir-idiom-small-trip-count=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-scalarrepl-array -hir-cg -print-before=hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-idiom-small-trip-count=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-idiom,print<hir>,hir-scalarrepl-array,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we successfully pass through scalar replacement for this test case.

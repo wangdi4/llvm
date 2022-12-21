@@ -1,7 +1,6 @@
 ; Test that this lit test does not fail when -opaque-pointers is enabled.
 ; We skip comparing memrefs (double*)(%patch164.sroa.0.02736)[0].0[1] and (%patch164.sroa.0.02736)[0].0[1]
 ; if they have different base pointer element types [2 x double] and [4 x %"class.dealii::Point.56"].
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR Scalar Replacement of Array  (hir-scalarrepl-array) ***

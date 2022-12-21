@@ -1,9 +1,7 @@
 ; Check for dd multiversioning for matmul loopnest
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; float matmul(e_fp *px, e_fp *vy, e_fp *cx, int n, int loop) {
@@ -31,7 +29,6 @@
 
 ; Check that proper optreport is emitted for multiversioned loop.
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -disable-output -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -disable-output -intel-opt-report=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN

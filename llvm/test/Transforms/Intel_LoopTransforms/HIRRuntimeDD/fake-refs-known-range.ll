@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -S -disable-output -disable-hir-runtime-dd-cost-model -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -S -disable-output -disable-hir-runtime-dd-cost-model -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that loop will be MV'ed because the %a access has a known address range.

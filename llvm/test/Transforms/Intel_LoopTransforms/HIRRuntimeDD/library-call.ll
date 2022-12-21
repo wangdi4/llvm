@@ -1,9 +1,7 @@
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; RUN: opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
+; $ opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; No disable-simplify-libcalls support in new pass manager.
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed=false -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; RUN: opt -enable-intel-advanced-opts  -intel-libirc-allowed=false -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 
 

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -aa-pipeline="basic-aa" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 
 ; This test checks that HIRLMM-specific assumptions don't lead to equal stores

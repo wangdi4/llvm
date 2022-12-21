@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -hir-cg -force-hir-cg < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>,hir-cg" -aa-pipeline="basic-aa" -force-hir-cg < %s 2>&1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -hir-details-dims < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
 
 ; Check that loop can be multiversioned after reference delinearization.

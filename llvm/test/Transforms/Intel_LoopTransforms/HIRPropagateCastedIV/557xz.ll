@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-propagate-casted-iv -print-after=hir-propagate-casted-iv < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-propagate-casted-iv,print<hir>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-propagate-casted-iv -print-after=hir-propagate-casted-iv < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-propagate-casted-iv,print<hir>" 2>&1 < %s | FileCheck %s
 ;*** IR Dump Before HIR Propagate Casted IV ***
 ;

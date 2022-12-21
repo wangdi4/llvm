@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; This is a bug triggerd when enhancing HIR Scalar Replacement Support for vector types. The bug starts from HIRLoopLocality

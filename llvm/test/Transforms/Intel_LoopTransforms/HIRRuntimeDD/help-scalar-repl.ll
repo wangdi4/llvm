@@ -1,7 +1,6 @@
 ; Although live-in temp %q.029 is not in the safe-reduction chain, the loop can help scalar replacement.
 ; In this case, B[i1] and B[i1+1] are scalar replacement candidates. We can still make RTDD get triggered.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

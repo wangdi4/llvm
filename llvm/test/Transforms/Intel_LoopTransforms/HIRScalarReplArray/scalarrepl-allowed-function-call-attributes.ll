@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that scalar replacement triggers in the presence of calls with inaccessiblememonly or inaccessiblemem_or_argmemonly attribute.
