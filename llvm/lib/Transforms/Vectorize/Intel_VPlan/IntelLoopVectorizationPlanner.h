@@ -556,7 +556,7 @@ protected:
 
   /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
   /// if it was set on the loop or false if forced by disableVecRemainder call.
-  /// Otherwise, it is None.
+  /// Otherwise, it is std::nullopt.
   Optional<bool> IsVecRemainder;
 
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
@@ -565,7 +565,7 @@ protected:
 
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
-  ///  no such metadata, returns None.
+  ///  no such metadata, returns std::nullopt.
   Optional<bool> readVecRemainderEnabled();
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/

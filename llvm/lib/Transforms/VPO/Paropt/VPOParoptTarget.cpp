@@ -66,6 +66,8 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 
+#include <optional>
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -1441,7 +1443,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     //
     Value *TeamLocalVal = nullptr;
     auto &DL = StartI->getModule()->getDataLayout();
-    MaybeAlign Alignment = llvm::None;
+    MaybeAlign Alignment = std::nullopt;
     if (StartI->getType()->isPointerTy()) {
       Align MinAlign = StartI->getPointerAlignment(DL);
       if (MinAlign > 1)
@@ -1554,7 +1556,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   // inferring. We cannot remove the directive call yet, because
   // the removal in paroptTransforms() will complain.
   OperandBundleDef B(
-      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
+      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), std::nullopt);
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
   auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
@@ -1710,7 +1712,7 @@ bool VPOParoptTransform::removeClausesFromNestedRegionsExceptSIMD(
 
     if (CallInst *OldEntry = cast_or_null<CallInst>(W->getEntryDirective())) {
       OperandBundleDef Bundles(
-          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), None);
+          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), std::nullopt);
       CallInst *NewEntry = CallInst::Create(OldEntry, Bundles, OldEntry);
       NewEntry->copyMetadata(*OldEntry);
       OldEntry->replaceAllUsesWith(NewEntry);
@@ -5341,7 +5343,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
   llvm::Optional<uint64_t> InteropPosition =
-      llvm::None;            // position of interop arg in variant call
+      std::nullopt;          // position of interop arg in variant call
 
   CallInst *BaseCall = nullptr;
 
@@ -5700,7 +5702,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
   llvm::Optional<uint64_t> InteropPosition =
-      llvm::None;            // position of interop arg in variant call
+      std::nullopt;          // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
   StringRef VariantName =

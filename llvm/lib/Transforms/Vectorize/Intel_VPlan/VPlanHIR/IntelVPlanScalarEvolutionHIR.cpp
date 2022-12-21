@@ -13,6 +13,7 @@
 
 #include "Intel_VPlan/IntelVPlan.h"
 #include "Intel_VPlan/IntelVPlanValue.h"
+#include <optional>
 
 #define DEBUG_TYPE "vplan-scalar-evolution"
 
@@ -80,7 +81,7 @@ VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *OpaqueExpr) const {
   VPlanAddRecHIR *Expr = toVPlanAddRecHIR(OpaqueExpr);
 
   if (!Expr)
-    return None;
+    return std::nullopt;
 
   return VPConstStepInduction{
       toVPlanSCEV(makeVPlanAddRecHIR(Expr->Base, 0, Expr->Ref)), Expr->Stride};

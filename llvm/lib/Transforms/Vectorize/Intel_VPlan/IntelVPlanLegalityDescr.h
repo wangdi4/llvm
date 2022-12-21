@@ -370,12 +370,12 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
-  Optional<InscanReductionKind> InscanRedKind = None;
+  Optional<InscanReductionKind> InscanRedKind = std::nullopt;
 
 public:
   RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
-              Optional<InscanReductionKind> InscanRedKind = None)
+              Optional<InscanReductionKind> InscanRedKind = std::nullopt)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}

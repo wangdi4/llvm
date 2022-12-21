@@ -2291,7 +2291,7 @@ static bool checkLastPrivPhiUsers(const VPPHINode *VPhi,
 // pair.first is the VPHINode from the loop header and PrivateKind is
 // VPPrivate::PrivateKind::Conditional. For unconditional last privates the pair
 // is <nullptr, PrivateKind::Last>, and for non-vectorizable cases the return
-// value is None.
+// value is std::nullopt.
 
 using PrivKindPair = Optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
 
@@ -2310,7 +2310,7 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
     }
     // TODO: create a check for operands of the header phi, there should be no
     // cross iteration dependencies.
-    return None;
+    return std::nullopt;
   }
 
   auto Iter = llvm::find_if(Inst->users(), IsHeaderPhi);
@@ -2328,7 +2328,7 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
     // TODO: implement support matching similar increments/updates.
     //
     if (!isa<VPPHINode>(Inst) && Inst->getOpcode() != Instruction::Select)
-      return None;
+      return std::nullopt;
 
     // For conditional last privates we allow the uses only in the header and
     // outside of the loop, i.e. only two uses. Preventing, e.g., case like
@@ -2363,7 +2363,7 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
       return PrivKindPair(
           std::make_pair(*Iter, VPPrivate::PrivateKind::Conditional));
 
-    return None;
+    return std::nullopt;
   }
 
   // A value which is assigned uconditionally. We consider it as a safe
@@ -2373,7 +2373,7 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
           [&](VPPHINode *Phi) { return LE->getInduction(Phi); }))
     return PrivKindPair(std::make_pair(nullptr, VPPrivate::PrivateKind::Last));
 
-  return None;
+  return std::nullopt;
 }
 
 void VPLoopEntityList::analyzeImplicitLastPrivates() {

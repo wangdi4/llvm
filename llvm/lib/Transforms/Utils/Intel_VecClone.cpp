@@ -1306,7 +1306,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
   SmallVector<llvm::OperandBundleDef, 4> OpndBundles;
   OpndBundles.emplace_back(
-      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)), None);
+      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)),
+      std::nullopt);
 
   auto Clause = [](OMP_CLAUSES ClauseId, auto &&... Mods) -> std::string {
     std::initializer_list<StringRef> Modifiers = {Mods...};
@@ -1372,8 +1373,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   // Create simd.begin.region block which indicates the begining of the WRN
   // region.
   CallInst *SIMDBeginCall = CallInst::Create(
-      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry), None,
-      OpndBundles, "entry.region");
+      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry),
+      std::nullopt, OpndBundles, "entry.region");
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;

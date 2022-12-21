@@ -1252,13 +1252,13 @@ static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
   auto LHS = Shuf->getOperand(0);
   auto RHS = Shuf->getOperand(1);
   auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
-  if (!Ty) return None;
+  if (!Ty) return std::nullopt;
 
   unsigned NumElems = Ty->getNumElements();
   unsigned NumMasks = Mask.size();
 
   if (!isa<UndefValue>(RHS))
-    return None;
+    return std::nullopt;
 
   unsigned SizeInGroup = 0;
   // Find the next >= 0 index, and assume it is the group size.
@@ -1271,11 +1271,11 @@ static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
 
   // Mask sure all the elements of %in are used.
   if (NumMasks != SizeInGroup * NumElems)
-    return None;
+    return std::nullopt;
 
   // Invalid type.
   if (!Ty->getElementType()->isSized())
-    return None;
+    return std::nullopt;
 
   // When I%SizeInGroup is equal to Offset, the mask value should be
   // ElementSize(LHS)
@@ -1285,11 +1285,11 @@ static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
     // Assume the first vls-insert's offset is 0.
     if (OffsetInGroup == 0) {
       if (Mask[I] != (int)GroupNo)
-        return None;
+        return std::nullopt;
       ++GroupNo;
     } else {
       if (Mask[I] >= 0)
-        return None;
+        return std::nullopt;
     }
   }
 
@@ -1304,7 +1304,7 @@ static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
 static Optional<VLSInsert> getVectorWidthExtend(const Value *V) {
   auto ExtVec = dyn_cast<ShuffleVectorInst>(V);
   if (!ExtVec)
-    return None;
+    return std::nullopt;
 
   const ArrayRef<int> &Mask = ExtVec->getShuffleMask();
   auto LHS = ExtVec->getOperand(0);
@@ -1312,23 +1312,23 @@ static Optional<VLSInsert> getVectorWidthExtend(const Value *V) {
   auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
 
   if (!Ty || !isa<UndefValue>(RHS))
-    return None;
+    return std::nullopt;
 
   unsigned NumElems = Ty->getNumElements();
 
   // LHS is bigger than mask's size?
   if (NumElems > Mask.size())
-    return None;
+    return std::nullopt;
 
   // Just copy LHS?
   for (unsigned I = 0; I < NumElems; ++I)
     if (Mask[I] != (int)I)
-      return None;
+      return std::nullopt;
 
   // Other indices must be undef.
   for (unsigned I = NumElems, E = Mask.size(); I < E; ++I)
     if (Mask[I] >= 0)
-      return None;
+      return std::nullopt;
 
   VLSInsert VLS(LHS, 0, NumElems, Ty->getElementType());;
   return VLS;
@@ -1349,15 +1349,15 @@ static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
   auto LHS = Shuf->getOperand(0);
   auto RHS = Shuf->getOperand(1);
   auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
-  if (!Ty) return None;
+  if (!Ty) return std::nullopt;
 
   unsigned NumElems = Ty->getNumElements();
   if (NumElems != Mask.size())
-    return None;
+    return std::nullopt;
 
   auto VLSOpt = getVectorWidthExtend(RHS);
   if (!VLSOpt)
-    return None;
+    return std::nullopt;
 
   auto VLS = VLSOpt.value();
 
@@ -1365,7 +1365,7 @@ static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
   // the first vls-insert one.
   if (FirstVLSInsert->ElemTy != VLS.ElemTy ||
     FirstVLSInsert->NumElems != VLS.NumElems)
-    return None;
+    return std::nullopt;
 
   // When I%SizeInGroup is less than Offset, the mask value should be 'I'.
   // When I%SizeInGroup is bigger than Offset, the mask value should be Undef.
@@ -1378,15 +1378,15 @@ static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
       // The extend vector is on the right, need to add the length of LHS.
       int RHSIndex = (int)(GroupNo + NumElems);
       if (Mask[I] != RHSIndex)
-        return None;
+        return std::nullopt;
       ++GroupNo;
     } else if (OffsetInGroup < Offset) {
       if ((int)I != Mask[I])
-        return None;
+        return std::nullopt;
     } else {
       // Must be undef.
       if (Mask[I] >= 0)
-        return None;
+        return std::nullopt;
     }
   }
 

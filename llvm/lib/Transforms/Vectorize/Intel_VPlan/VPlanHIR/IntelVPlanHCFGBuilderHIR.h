@@ -196,9 +196,10 @@ private:
   }
 
   /// Add an explicit user-defined reduction variable.
-  void addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr,
-                    Optional<InscanReductionKind> InscanRedKind = None) {
+  void
+  addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
+               Function *Constr, Function *Destr,
+               Optional<InscanReductionKind> InscanRedKind = std::nullopt) {
     UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
                          InscanRedKind);
   }

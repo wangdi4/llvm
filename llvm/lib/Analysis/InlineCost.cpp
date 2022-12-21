@@ -2186,9 +2186,9 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     auto HotCallSiteThreshold = getHotCallSiteThreshold(Call, CallerBFI);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-    if (HotCallSiteThreshold != None &&
+    if (HotCallSiteThreshold != std::nullopt &&
         intelNotHotCallee(Callee, Params.PrepareForLTO.value_or(false)))
-      HotCallSiteThreshold = None;
+      HotCallSiteThreshold = std::nullopt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     if (!Caller->hasOptSize() && HotCallSiteThreshold) {

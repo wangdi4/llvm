@@ -101,6 +101,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -6109,7 +6110,7 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
 
   FastRedInst = VPOParoptUtils::genPrivatizationAlloca(
       FastRedStructTy, nullptr, StructAlignment, InsertPt, isTargetSPIRV(),
-      "fast_red_struct", llvm::None, llvm::None);
+      "fast_red_struct", std::nullopt, std::nullopt);
 
   unsigned Index = 0;
   for (ReductionItem *RedI : RedClause.items()) {
@@ -7442,7 +7443,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   assert(Orig && "Null original Value in clause item.");
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
   Align MinAlign = Orig->getPointerAlignment(DL);
-  MaybeAlign OrigAlignment = MinAlign > 1 ? MinAlign : (MaybeAlign)llvm::None;
+  MaybeAlign OrigAlignment = MinAlign > 1 ? MinAlign : (MaybeAlign)std::nullopt;
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -7460,7 +7461,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt, isTargetSPIRV(),
       Orig->getName() + NameSuffix, AllocaAddrSpace,
-      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace),
+      !PreserveAddressSpace ? std::nullopt : llvm::Optional<unsigned>(AddrSpace),
       AllocItem);
   assert(NewVal && "Failed to create local copy.");
 
@@ -8975,7 +8976,7 @@ Value *VPOParoptTransform::genRegionPrivateValue(
   //        to promote the new AllocaInst. This should be fixed
   //        in PromoteMemToReg.
   auto *NewAlloca =
-      genPrivatizationAlloca(&FprivI, InsertPt, ".local", llvm::None, false);
+      genPrivatizationAlloca(&FprivI, InsertPt, ".local", std::nullopt, false);
   FprivI.setNew(NewAlloca);
 
   // Replace all uses of the original alloca's result with the new alloca
@@ -9692,7 +9693,7 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
 llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
     const WRegionNode *W, const Item *I) const {
   if (!isTargetSPIRV())
-    return llvm::None;
+    return std::nullopt;
 
   // Use private address space for target firstprivates if wilocal is the
   // default allocation mode.
@@ -14879,7 +14880,7 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
   auto GetConstantValue = [](Value *V) -> Optional<APInt> {
     if (auto *CI = dyn_cast_or_null<ConstantInt>(V))
       return CI->getValue();
-    return None;
+    return std::nullopt;
   };
 
   auto GetParentValue = [](WRegionNode *W,
@@ -14887,7 +14888,7 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
       -> Optional<APInt> {
     if (WRegionNode *PW = W->getParent())
       return Map[PW];
-    return None;
+    return std::nullopt;
   };
 
   // Propagate number of teams and threads from outer regions to inner.
@@ -14914,8 +14915,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
       continue;
     }
     if (W->getIsTarget()) {
-      W2NumTeams[W] = None;
-      W2NumThreads[W] = None;
+      W2NumTeams[W] = std::nullopt;
+      W2NumThreads[W] = std::nullopt;
       continue;
     }
     W2NumTeams[W] = GetParentValue(W, W2NumTeams);
@@ -14956,7 +14957,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
 
       switch (TheLibFunc) {
       case LibFunc_omp_get_num_teams:
-        AddRangeMD(Call, 1, NumTeams ? *NumTeams + 1u : Optional<APInt>{None});
+        AddRangeMD(Call, 1,
+                   NumTeams ? *NumTeams + 1u : Optional<APInt>{std::nullopt});
         Changed = true;
         break;
       case LibFunc_omp_get_team_num:
@@ -14965,7 +14967,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
         break;
       case LibFunc_omp_get_num_threads:
         AddRangeMD(Call, 1,
-                   NumThreads ? *NumThreads + 1u : Optional<APInt>{None});
+                   NumThreads ? *NumThreads + 1u
+                              : Optional<APInt>{std::nullopt});
         Changed = true;
         break;
       case LibFunc_omp_get_thread_num:
@@ -14990,7 +14993,7 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
 
   // And finally annotate calls in function's blocks outside of any work region.
   for (BasicBlock *BB : OrphanBlocks)
-    Changed |= AnnotateCalls(BB, None, None);
+    Changed |= AnnotateCalls(BB, std::nullopt, std::nullopt);
 
   return Changed;
 }

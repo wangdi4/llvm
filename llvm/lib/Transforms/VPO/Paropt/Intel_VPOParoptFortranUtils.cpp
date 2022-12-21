@@ -118,7 +118,7 @@ void VPOParoptUtils::genF90DVInitCode(
 
   auto &DL = InsertPt->getModule()->getDataLayout();
   Align MinAlign = SrcV->getPointerAlignment(DL);
-  MaybeAlign OrigAlignment = MinAlign > 1 ? MinAlign : (MaybeAlign)llvm::None;
+  MaybeAlign OrigAlignment = MinAlign > 1 ? MinAlign : (MaybeAlign)std::nullopt;
   CallInst *DataSize = genF90DVInitCall(SrcV, DstV, InsertPt, IsTargetSPIRV);
   setFuncCallingConv(DataSize, DataSize->getModule());
 

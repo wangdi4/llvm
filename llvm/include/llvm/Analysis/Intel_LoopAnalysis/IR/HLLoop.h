@@ -1514,7 +1514,7 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
   }
 
   static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
-    return None;
+    return std::nullopt;
   }
 
   static OptReport getOrCreatePrevOptReport(loopopt::HLLoop &Loop,

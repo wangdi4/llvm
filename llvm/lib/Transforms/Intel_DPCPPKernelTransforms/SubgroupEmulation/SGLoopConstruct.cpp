@@ -323,7 +323,7 @@ void SGLoopConstructPass::hoistSGLIdCalls(Module &M) {
   for (auto *F : FuncsToBePatched) {
     LLVM_DEBUG(dbgs() << "Patching function: " << F->getName() << "\n");
     Function *PatchedFunc =
-        AddMoreArgsToFunc(F, SGLIdType, "sg.lid", None, "SGLoopConstruct");
+        AddMoreArgsToFunc(F, SGLIdType, "sg.lid", std::nullopt, "SGLoopConstruct");
     FuncToPatchedFunc[F] = PatchedFunc;
     PatchedFuncs.insert(PatchedFunc);
   }

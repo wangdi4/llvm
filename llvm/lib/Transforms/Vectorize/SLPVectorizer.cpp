@@ -1680,7 +1680,8 @@ public:
     int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
                         int CurrLevel) {
       // Get the shallow score of V1 and V2.
-      int ShallowScoreAtThisLevel = getShallowScore(V1, V2, U1, U2, None);
+      int ShallowScoreAtThisLevel =
+          getShallowScore(V1, V2, U1, U2, std::nullopt);
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -2488,7 +2489,7 @@ public:
   }
 
   /// \returns actual users of instruction \p I if it was affected by
-  /// current Multi-Node operands reordering, or None otherwise.
+  /// current Multi-Node operands reordering, or std::nullopt otherwise.
   ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
     return CurrMultiNode.getDefUseOverride(I);
   }
@@ -2895,7 +2896,7 @@ private:
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
                 LookAhead.getShallowScore(Left, Right, /*U1=*/nullptr,
-                                          /*U2=*/nullptr, None) ==
+                                          /*U2=*/nullptr, std::nullopt) ==
                     LookAheadHeuristics::ScoreFail) {
               AreConsecutive = false;
               break;
@@ -3282,14 +3283,14 @@ private:
       }
 
       /// \returns actual users of instruction \p I if it was affected by
-      /// operands reordering, or None otherwise.
+      /// operands reordering, or std::nullopt otherwise.
       ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
         auto It = DefUseOverride.find(I);
         if (It != DefUseOverride.end()) {
           assert(!It->second.empty() && "Override with no users?");
           return makeArrayRef(It->second);
         }
-        return None;
+        return std::nullopt;
       }
     };
 
@@ -3343,7 +3344,7 @@ private:
       case Instruction::Sub:
         return Instruction::Add;
       default:
-        return None;
+        return std::nullopt;
       }
     }
     static bool hasCompatibleOpcodes(ArrayRef<Value *> VL) {
@@ -3556,7 +3557,7 @@ private:
     /// this Multi-Node operands reordering.
     ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
       if (!doneCodeGen())
-        return None;
+        return std::nullopt;
       return Operands.getDefUseOverride(I);
     }
 
@@ -7002,7 +7003,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
 #if INTEL_CUSTOMIZATION
   if (hasLateLoweringPattern(VL)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to late lowering pattern.\n");
-    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+    newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx);
     return;
   }
 #endif // INTEL_CUSTOMIZATION
