@@ -45,7 +45,6 @@
 ;   }
 ; }
 
-;RUN: opt -vector-library=SVML -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring  -vplan-vec -vplan-force-vf=8 -S %s | FileCheck %s
 ;RUN: opt -vector-library=SVML -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" -vplan-force-vf=8 -S %s | FileCheck %s
 
 ;CHECK: call afn <8 x float> @_Z3expDv8_f(<8 x float> {{.*}})

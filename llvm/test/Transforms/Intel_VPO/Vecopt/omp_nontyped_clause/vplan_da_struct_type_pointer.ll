@@ -2,7 +2,6 @@
 ; Test to check that DA marks StructType pointer GEPs with appropriate shape.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -vplan-vec -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

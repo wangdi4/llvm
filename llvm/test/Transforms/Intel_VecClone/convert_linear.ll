@@ -1,7 +1,6 @@
 ; Check handling of upconverting a linear (variable %i) to ensure stride calculation
 ; is inserted correctly.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo

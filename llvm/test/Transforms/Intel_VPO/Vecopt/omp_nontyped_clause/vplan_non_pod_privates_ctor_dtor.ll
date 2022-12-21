@@ -4,7 +4,7 @@
 ; constructor and destructor to initialize/deallocate wide-memory that
 ; is created to represent the private.
 
-; RUN: opt -vplan-vec -S -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-print-after-call-vec-decisions < %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -S -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-print-after-call-vec-decisions < %s | FileCheck %s
 
 ; Check VPlan-IR after VPEntities instruction lowering
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:

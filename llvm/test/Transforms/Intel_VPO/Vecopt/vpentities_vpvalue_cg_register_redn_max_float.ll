@@ -1,6 +1,6 @@
 ; Test to check VPlan's VPValue-based vector codegen for simple in-register float max reduction.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR: Function: foo_float
 ; CHECK-HIR: [[RED_INIT:%red.init*]] = [[INIT:%.*]];
@@ -14,7 +14,7 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -passes=vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_float
 ; CHECK-LLVMIR-LABEL: vector.body:

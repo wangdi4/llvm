@@ -1,7 +1,6 @@
-; RUN: opt -S -vec-clone < %s | FileCheck %s
 ; RUN: opt -S -passes="vec-clone" < %s | FileCheck %s
 ;
-; Validate parameter debug information following the -vec-clone pass.
+; Validate parameter debug information following the -passes=vec-clone pass.
 ; Specifically,
 ;   * Currently, leave the llvm.dbg.declare intrinsics the way they are.
 ;   * Add llvm.dbg.value intrinsics for parameters into the entry block.

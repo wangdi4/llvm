@@ -1,6 +1,4 @@
 ;
-; RUN: opt %s -enable-new-pm=0 -disable-output -vplan-vec -debug-only=vpo-ir-loop-vectorize-legality 2>&1 | FileCheck %s
-; RUN: opt %s -enable-new-pm=0 -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=HIRLegality 2>&1 | FileCheck %s
 ; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality 2>&1 | FileCheck %s
 ; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=HIRLegality 2>&1 | FileCheck %s
 

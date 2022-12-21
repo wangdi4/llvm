@@ -1,6 +1,5 @@
 ; This test checks that the operands of the 'select' instructions are correctly widened.
 
-;RUN: opt -vplan-vec -vplan-force-vf=2 -S %s | FileCheck %s
 ;RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S %s | FileCheck %s
 
 ;CHECK-LABEL: @getElement

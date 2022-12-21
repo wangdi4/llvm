@@ -1,6 +1,5 @@
 ; Check if we create correct bundles for the linear values.
 
-; RUN: opt -opaque-pointers -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4l8l20l4u_foo

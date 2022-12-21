@@ -5,7 +5,6 @@
 ; Note: the LLVM IR used as input to this test has already had Mem2Reg applied to it, so no need to
 ; do that here.
 
-; RUN: opt -opaque-pointers=0 -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
