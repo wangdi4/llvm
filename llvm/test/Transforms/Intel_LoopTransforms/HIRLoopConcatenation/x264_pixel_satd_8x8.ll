@@ -1,4 +1,3 @@
-; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
 ; Look for 4 loops with trip count of 4 before the transformation.

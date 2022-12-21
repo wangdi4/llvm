@@ -2,7 +2,6 @@
 ; A[i1][i2][i4][i3] = 1;   only  i3 and i4 will be interchanged
 ; Testing Loop Bounds to make sure the values are updated correctly
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange  -print-after=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function

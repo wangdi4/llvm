@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-pre-vec-complete-unroll -hir-loop-reroll -print-after=hir-loop-reroll < %s 2>& 1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-pre-vec-complete-unroll,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>& 1 | FileCheck %s
 
 ; Verifiy that compiler doesn't die. Previously, it was crashing at HIRVerifier

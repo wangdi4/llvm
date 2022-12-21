@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup   -hir-loop-distribute-memrec    -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"   < %s 2>&1 | FileCheck %s
 ;  Loop Distribution is expected to happen when there are too many
 ;   memory references in the loop

@@ -1,7 +1,4 @@
 
-
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -print-after=hir-loop-blocking -disable-output %s 2>&1 | FileCheck %s
-
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -disable-output -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 
 ; Check that blocking can happen for non-linear refs inside non lval-memrefs.

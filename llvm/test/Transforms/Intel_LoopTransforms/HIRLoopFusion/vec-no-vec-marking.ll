@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-fusion -hir-create-function-level-region -debug-only=hir-loop-fusion -print-after=hir-temp-cleanup  -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region -debug-only=hir-loop-fusion -print-after=hir-temp-cleanup < %s 2>&1 | FileCheck %s
 
 ; Test checks that inner and outer loops are marked vectorizable and non-vectorizable respectively during fusion.

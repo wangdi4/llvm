@@ -1,6 +1,5 @@
 ; REQUIRES: 0
 
-; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-create-function-level-region -intel-libirc-allowed -hir-ssa-deconstruction -hir-loop-interchange -hir-loop-blocking -hir-cost-model-throttling=0 -print-after=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-create-function-level-region -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; This lit is created from Bwaves shell function using:

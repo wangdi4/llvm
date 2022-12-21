@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange -debug-only=hir-loop-interchange -print-before=hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; : opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 
 ; Make sure the inputs get interchanged without any issue. Notice that the loop level starts from 2 not 1.
 

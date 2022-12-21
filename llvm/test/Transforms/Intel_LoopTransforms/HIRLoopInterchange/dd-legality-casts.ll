@@ -1,4 +1,3 @@
-; RUN: opt -basic-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -print-before=hir-loop-interchange -print-after=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to interchange i2-i3 loopnest by resolving all DD

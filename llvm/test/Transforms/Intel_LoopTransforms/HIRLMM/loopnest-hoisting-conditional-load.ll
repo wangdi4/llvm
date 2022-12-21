@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-lmm-loopnest-hoisting=true -print-before=hir-lmm -print-after=hir-lmm -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-lmm-loopnest-hoisting=true -hir-details < %s 2>&1 | FileCheck %s
 
 ; Verify that we hoist the conditional load (%B)[2] in loopnest hoisting mode

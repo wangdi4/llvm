@@ -1,5 +1,4 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-sinking-for-perfect-loopnest -hir-loop-interchange -print-after=hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -disable-output  < %s 2>&1 | FileCheck %s
 
 ; Verify that compiler successfully interchanges this loopnest

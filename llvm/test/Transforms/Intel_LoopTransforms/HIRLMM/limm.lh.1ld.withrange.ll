@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-details -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ;[Notes]

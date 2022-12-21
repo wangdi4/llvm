@@ -1,5 +1,4 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ; We cannot reason about calls without mod-ref/sideeffects analysis
 

@@ -1,4 +1,3 @@
-;RUN: opt -enable-new-pm=0 -mattr=+avx512f -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
 ;RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ;*** IR Dump Before HIR Loop Distribution MemRec ***

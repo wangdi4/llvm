@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-lmm -hir-cg -print-after=hir-lmm -print-before=hir-cg < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-lmm,print<hir>,print,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Check that by providing precise location info to basic-aa for region invariant

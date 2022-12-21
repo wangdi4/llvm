@@ -1,4 +1,3 @@
-; RUN: opt < %s  -hir-ssa-deconstruction -hir-temp-cleanup -hir-multi-exit-loop-reroll -print-after=hir-multi-exit-loop-reroll 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-multi-exit-loop-reroll,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that test case successfully compiled.

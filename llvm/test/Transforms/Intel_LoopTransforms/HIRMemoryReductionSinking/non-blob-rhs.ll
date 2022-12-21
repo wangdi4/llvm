@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-memory-reduction-sinking -print-before=hir-memory-reduction-sinking -print-after=hir-memory-reduction-sinking < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-memory-reduction-sinking,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Check that we are not recognizing a reduction here because RHS of the second store is not self-blob.

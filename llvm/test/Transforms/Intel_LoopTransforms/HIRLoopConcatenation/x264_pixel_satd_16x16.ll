@@ -1,7 +1,5 @@
-; RUN: opt -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
-; RUN: opt -opaque-pointers -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -opaque-pointers -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
 ; Look for 16 loops with trip count of 4 before the transformation.
@@ -67,7 +65,6 @@
 ; CHECK: getelementptr inbounds [16 x [8 x i32]], {{.*}}
 
 ; Verify that the reduction loop is not unrolled by pre-vec complete unroller.
-; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s -check-prefix=PREVEC_UNROLL
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-concatenation,hir-pre-vec-complete-unroll,print<hir-framework>" 2>&1 < %s | FileCheck %s -check-prefix=PREVEC_UNROLL
 
 ; PREVEC_UNROLL: DO i1 = 0, 3, 1

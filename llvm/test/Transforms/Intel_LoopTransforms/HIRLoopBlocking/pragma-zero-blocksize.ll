@@ -1,5 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-pragma-loop-blocking -hir-loop-blocking -print-after=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s
-
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-pragma-loop-blocking,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Check that blocking factor of 0 compiles successfully but does not result in any blocking

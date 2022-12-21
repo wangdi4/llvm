@@ -4,7 +4,6 @@
   ;       for(j=0; j<N; j++) {
    ;    c[i][j] = c[i][j] + a[i][k] * b[k][j];
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -debug-only=hir-loop-interchange -hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;  Already in memory ref order.  no interchange needed.
