@@ -2,7 +2,7 @@
 ; Test to check correctness of VPlan CG for an induction whose
 ; live-out last value is computed before increment.
 
-; RUN: opt -S -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
 
 define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:

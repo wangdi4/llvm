@@ -3,7 +3,7 @@
 ; via SVML library and the vector function mapping is explicitly added
 ; to the lookup table.
 
-; RUN: opt -vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL:   Cost Model for VPlan foo:for.body.#{{[0-9]+}} with VF = 4:
 ; CHECK:         Cost Unknown for float {{%vp.*}} = call float {{%vp.*}} float {{%vp.*}} i32 {{%vp.*}} _Z6selectDv4_fS_Dv4_i [x 1]

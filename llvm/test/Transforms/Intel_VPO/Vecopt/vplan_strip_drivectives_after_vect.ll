@@ -7,9 +7,7 @@
 ; TODO: We can remove the VPODirectiveCleanup once we add support for operand bundle
 ; representation in HIR.
 
-; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=8 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vplan-vec' -vplan-force-vf=8 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg  -vplan-force-vf=8 -VPODirectiveCleanup -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -vplan-force-vf=8 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,vpo-directive-cleanup' -S < %s 2>&1 | FileCheck %s
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

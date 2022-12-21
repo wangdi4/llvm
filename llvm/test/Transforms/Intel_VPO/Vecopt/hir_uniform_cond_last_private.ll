@@ -2,7 +2,6 @@
 ; Test to check stability of VPlan HIR vectorizer in handling uniform
 ; conditional last privates.
 
-; RUN: opt -enable-new-pm=0  -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-force-vf=4 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

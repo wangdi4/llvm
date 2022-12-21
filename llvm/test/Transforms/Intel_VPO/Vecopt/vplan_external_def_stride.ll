@@ -1,6 +1,4 @@
-; RUN: opt -S -vplan-print-after-vpentity-instrs -vplan-vec < %s | FileCheck %s
 ; RUN: opt -S -vplan-print-after-vpentity-instrs -passes="vplan-vec" < %s | FileCheck %s
-; RUN: opt -S -vplan-print-after-vpentity-instrs -hir-vplan-vec < %s | FileCheck %s
 ; RUN: opt -S -vplan-print-after-vpentity-instrs -passes="hir-vplan-vec" < %s | FileCheck %s
 
 ; This test checks to see that external def value %c, representing the stride

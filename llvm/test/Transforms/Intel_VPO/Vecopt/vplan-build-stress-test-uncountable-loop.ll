@@ -1,5 +1,4 @@
 ; Test that we can build VPlan in stress test mode for an uncountable loop.
-; RUN: opt -S -vplan-vec -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes="vplan-vec" -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; CHECK: Vectorization Plan{{.*}} Plain CFG

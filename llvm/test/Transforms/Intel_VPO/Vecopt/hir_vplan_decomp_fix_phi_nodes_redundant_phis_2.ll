@@ -34,7 +34,6 @@
 ; in node <24>. However it should be only one value which is defined in i2 loop's header.
 ; A redundant PHI that blends its own value is emitted and it can be removed and replaced.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

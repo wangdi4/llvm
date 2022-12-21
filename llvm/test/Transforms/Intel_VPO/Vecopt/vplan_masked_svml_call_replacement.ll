@@ -1,4 +1,3 @@
-; RUN: opt -vplan-vec -vplan-force-vf=4 -vector-library=SVML -S < %s | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=4 -vector-library=SVML -S < %s | FileCheck %s
 
 ;CHECK-LABEL: vector.body

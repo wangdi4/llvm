@@ -1,6 +1,6 @@
 ; Test for array in private clause with typed modifier 
 
-; RUN: opt -vplan-enable-soa=false -S -vplan-vec -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S -passes=vplan-vec -vplan-force-vf=2 %s | FileCheck %s
 
 ; CHECK:  [[VEC1:%.*]] = alloca [2 x [624 x i32]], align 4
 

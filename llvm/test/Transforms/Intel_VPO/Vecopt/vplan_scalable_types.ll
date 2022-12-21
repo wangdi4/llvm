@@ -1,7 +1,7 @@
 ; This test checks that in case of recursive-types, we do not enter an infinite
 ; loop and pass the ScalableTypes check in Legality.
 
-; RUN: opt -vplan-vec -S %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -S %s | FileCheck %s
 ; CHECK: vector.body
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,6 +1,5 @@
 ; Test to check that we vectorize a loop using loop vectorization legality with
 ; vplan-build-vect-candidates.
-; RUN: opt < %s -vplan-vec -vplan-build-vect-candidates=1000000 -S -vplan-force-vf=4
 ; RUN: opt < %s -passes="vplan-vec" -vplan-build-vect-candidates=1000000 -S -vplan-force-vf=4
 ; CHECK: vector_body:
 ; CHECK: store <4 x float>

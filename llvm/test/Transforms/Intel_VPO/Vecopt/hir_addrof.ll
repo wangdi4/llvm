@@ -11,7 +11,6 @@
 ;   }
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 -disable-output | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 < %s 2>&1 -disable-output | FileCheck %s
 
 ; CHECK:      DO i1 = 0, 1023, 4   <DO_LOOP>  <auto-vectorized> <novectorize>

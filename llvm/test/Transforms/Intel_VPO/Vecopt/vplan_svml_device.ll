@@ -1,7 +1,7 @@
 ; This test checks that SPIR compilation uses device versions
 ; of SVML functions properly.
 
-; RUN: opt -vplan-vec -vplan-target-vf=16 -vector-library=SVML -S < %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-target-vf=16 -vector-library=SVML -S < %s | FileCheck %s
 
 ; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_sinf(<16 x float>
 ; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_cosf(<16 x float>

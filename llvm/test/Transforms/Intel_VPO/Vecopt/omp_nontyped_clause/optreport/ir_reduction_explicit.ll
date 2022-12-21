@@ -1,4 +1,4 @@
-;RUN: opt -vplan-vec -S -disable-output -intel-opt-report=high -intel-ir-optreport-emitter %s 2>&1 | FileCheck %s
+;RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -S -disable-output -intel-opt-report=high %s 2>&1 | FileCheck %s
 
 ; CHECK:    remark #25588: Loop has SIMD reduction
 

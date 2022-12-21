@@ -1,5 +1,4 @@
 ; Test for successful vectorization - test should not crash.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 2>&1 | FileCheck %s
 
 ; CHECK: DO i2 = {{.*}}, {{.*}}, 4

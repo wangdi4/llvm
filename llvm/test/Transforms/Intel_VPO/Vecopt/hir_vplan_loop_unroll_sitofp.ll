@@ -1,5 +1,4 @@
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -disable-output 2>&1 | FileCheck %s
 
 

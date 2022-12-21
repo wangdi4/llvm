@@ -1,7 +1,6 @@
 ; test to check that tripcount value affects masked mode loop creation 
 
 ; RUN: opt %s -disable-output -passes="vplan-vec" -vplan-print-after-create-masked-vplan
-; RUN: opt %s -disable-output -vplan-vec -vplan-print-after-create-masked-vplan
 ; REQUIRES: asserts
 
 ; Function Attrs: mustprogress nounwind uwtable

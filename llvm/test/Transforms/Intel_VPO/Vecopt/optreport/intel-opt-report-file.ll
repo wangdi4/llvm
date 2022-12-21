@@ -1,15 +1,15 @@
 ; Test to check that OptReportEmitter output is emitted to the proper output
 ; stream/file when the -intel-opt-report-file option is used.
 
-; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-opt-report=high -intel-ir-optreport-emitter -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --strict-whitespace -check-prefixes=LLVM
-; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-opt-report=high -intel-ir-optreport-emitter -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --strict-whitespace -check-prefixes=LLVM
-; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-opt-report=high -intel-ir-optreport-emitter -intel-opt-report-file=%t < %s -disable-output
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=4 -intel-opt-report=high -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=4 -intel-opt-report=high -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=4 -intel-opt-report=high -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s --strict-whitespace -check-prefixes=LLVM < %t
 
 ; Test that output is written to stderr if the file given is invalid. "%S",
 ; which expands to the directory containing this test, is used here as an
 ; invalid output file path.
-; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-opt-report=high -intel-ir-optreport-emitter -intel-opt-report-file=%S < %s -disable-output 2>%terr | FileCheck %s --strict-whitespace -check-prefixes=LLVM
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=4 -intel-opt-report=high -intel-opt-report-file=%S < %s -disable-output 2>%terr | FileCheck %s --strict-whitespace -check-prefixes=LLVM
 ; RUN: FileCheck %s -check-prefixes=FILE-ERROR < %terr
 ; FILE-ERROR: warning #13022: could not open file '{{.*}}' for optimization report output, reverting to stdout
 

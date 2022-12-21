@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -vplan-vec -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=vplan-vec -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
 ;
 ; Check correctness of the following peehole transformations
 ;    %c1 = trunc i32 %t2 to i8

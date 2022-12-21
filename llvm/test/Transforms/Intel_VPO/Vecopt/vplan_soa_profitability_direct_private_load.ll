@@ -1,6 +1,6 @@
 ; This test verifies that a direct load from private alloca is considered profitable.
 
-; RUN: opt -opaque-pointers -vplan-vec -vplan-enable-soa -vplan-dump-soa-info \
+; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info \
 ; RUN: -disable-output -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; CHECK: SOA profitability:

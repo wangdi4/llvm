@@ -19,7 +19,7 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -S -vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -S -passes=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 ; RUN: opt -S -passes="vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-LLVM: LVP: Safelen: [[Safelen:[0-9]+]]

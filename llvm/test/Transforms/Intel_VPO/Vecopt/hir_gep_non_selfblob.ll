@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s
 
 ;
@@ -32,7 +31,6 @@
 ;
 %struct.site = type { i16, i16, i16, i16 }
 ;
-; RUN: opt -opaque-pointers -enable-new-pm=0 -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=OPAQUE
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-enable-peeling -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=OPAQUE
 ;
 ; OPAQUE:     BEGIN REGION { modified }

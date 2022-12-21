@@ -1,5 +1,4 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg --S -vplan-force-vf=4 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" --S -vplan-force-vf=4 < %s | FileCheck %s
 
 

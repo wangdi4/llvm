@@ -16,7 +16,6 @@
 ;     return arr[0];
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefix=HCFG
 
 
@@ -27,7 +26,6 @@
 ; HCFG: br i1 [[And]], {{BB[0-9]+}}, {{BB[0-9]+}}
 
 ; NOTE: We force VF=4 here to test correctness of code generation
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
 

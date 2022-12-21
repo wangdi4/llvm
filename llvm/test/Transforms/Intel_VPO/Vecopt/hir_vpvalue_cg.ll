@@ -1,5 +1,4 @@
 ; Test VPValue based code generation
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4  -disable-output -print-after=hir-vplan-vec %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -disable-output %s 2>&1 | FileCheck %s
 
 ; CHECK:        DO i1 = 0, 99, 4

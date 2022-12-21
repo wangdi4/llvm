@@ -2,7 +2,6 @@
 ; Test to check if VPlan HIR vectorizer can handle SCEVPtrToIntExpr in both
 ; HIR decomposer and vector CG.
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 

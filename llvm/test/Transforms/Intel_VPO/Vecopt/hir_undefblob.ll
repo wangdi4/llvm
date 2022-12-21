@@ -1,6 +1,5 @@
 ; LIT test to check that vectorizer does not choke on memory refs like undef[0]
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Incoming HIR looks like the following:

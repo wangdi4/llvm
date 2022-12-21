@@ -1,7 +1,5 @@
 ; Test to check estimated TC.
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vplan-vec -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 
 ; CHECK: Scalar Cost = 303 x

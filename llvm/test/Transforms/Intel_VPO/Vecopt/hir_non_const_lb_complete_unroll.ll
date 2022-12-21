@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=2 -vplan-enable-general-peeling-hir -march=core-avx2 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=2 -vplan-enable-general-peeling-hir -march=core-avx2 < %s 2>&1 | FileCheck %s
 
 ; This issue was discovered during extensive alloy testing of peeling and alignment analysis

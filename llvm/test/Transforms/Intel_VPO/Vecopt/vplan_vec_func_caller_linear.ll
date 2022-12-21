@@ -1,4 +1,4 @@
-; RUN: opt -vplan-vec -disable-vplan-predicator -S < %s  | FileCheck %s
+; RUN: opt -passes=vplan-vec -disable-vplan-predicator -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK: call <2 x i64> @_ZGVbN2l_foo

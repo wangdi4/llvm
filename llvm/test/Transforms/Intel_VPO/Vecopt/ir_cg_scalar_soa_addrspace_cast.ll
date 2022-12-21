@@ -2,7 +2,7 @@
 ; Test to check that VPlan LLVM-IR CG generates correct addrspacecast
 ; instructions when they operate on privates optimized for SOA layout.
 
-; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s
+; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s
 
 ; Test case to simulate simple scenario where we have a SOA unit-strided
 ; addrspacecast that is kept scalar for SOA layout in outgoing code.
