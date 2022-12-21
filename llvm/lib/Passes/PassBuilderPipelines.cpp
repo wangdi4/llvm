@@ -2432,8 +2432,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
   // addLoopOptCleanupPasses below may registerize UDR/inscan memory that we
   // want to keep.
-  if (RunVPOOpt && EnableVPlanDriver)
+  if (RunVPOOpt && EnableVPlanDriver) {
+    FPM.addPass(VPOCFGRestructuringPass());
     FPM.addPass(VPORenameOperandsPass());
+  }
 
   addLoopOptCleanupPasses(FPM, Level);
 
