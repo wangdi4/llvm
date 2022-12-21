@@ -72,13 +72,13 @@ void HIRCleanup::eliminateRedundantLabels() {
   }
 }
 
-Optional<bool> HIRCleanup::isImpliedUsingSCEVAnalysis(Value *Cond) {
+std::optional<bool> HIRCleanup::isImpliedUsingSCEVAnalysis(Value *Cond) {
 
   auto *ICmp = dyn_cast<ICmpInst>(Cond);
 
   // Restrict to EQ predicates for compile time savings.
   if (!ICmp || (ICmp->getPredicate() != CmpInst::ICMP_EQ)) {
-    return None;
+    return std::nullopt;
   }
 
   auto &SE = HIRC.RI.getScopedSE();
@@ -86,8 +86,7 @@ Optional<bool> HIRCleanup::isImpliedUsingSCEVAnalysis(Value *Cond) {
   auto *LHS = SE.getSCEV(ICmp->getOperand(0));
   auto *RHS = SE.getSCEV(ICmp->getOperand(1));
 
-  return Optional<bool>(
-      *SE.evaluatePredicateAt(CmpInst::ICMP_EQ, LHS, RHS, ICmp));
+  return SE.evaluatePredicateAt(CmpInst::ICMP_EQ, LHS, RHS, ICmp);
 }
 
 // Replaces HLIfs which can be proven to be true/false using ValueTracking's
@@ -123,6 +122,7 @@ void HIRCleanup::eliminateRedundantIfs() {
 
     auto *If = IfBlockPair.first;
     Optional<bool> Res = isImpliedByDomCondition(Cond, BI, DL, DT);
+    bool ImpliedCond = false;
 
     if (!Res) {
 
@@ -132,14 +132,16 @@ void HIRCleanup::eliminateRedundantIfs() {
         continue;
       }
 
-      Res = isImpliedUsingSCEVAnalysis(Cond);
-
-      if (!Res) {
+      if (std::optional<bool> SubRes = isImpliedUsingSCEVAnalysis(Cond)) {
+        ImpliedCond = *SubRes;
+      } else {
         continue;
       }
+    } else {
+      ImpliedCond = *Res;
     }
 
-    bool ReplaceWithThenCase = *Res;
+    bool ReplaceWithThenCase = ImpliedCond;
 
     const HLNode *LastChild =
         ReplaceWithThenCase ? If->getLastThenChild() : If->getLastElseChild();

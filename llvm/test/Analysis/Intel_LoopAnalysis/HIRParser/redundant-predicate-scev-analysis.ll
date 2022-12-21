@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-create-function-level-region -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework | FileCheck %s
 ; RUN: opt < %s -hir-create-function-level-region -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that %cmp1 is deduced as 'false' using ScalarEvolution's isImplied() logic.
