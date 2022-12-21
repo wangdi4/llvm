@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:

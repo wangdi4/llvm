@@ -1,5 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -disable-output -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
-
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Check that constant assignments are not removed for Loop live-ins.

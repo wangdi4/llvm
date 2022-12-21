@@ -1,4 +1,3 @@
-; RUN: opt -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S < %s | FileCheck %s
 
 ; Verify that CG is able to code generate the implicit call correctly. There is no explicit declaration of bar() in the test case-

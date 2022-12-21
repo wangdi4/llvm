@@ -1,7 +1,6 @@
 ; Make sure CG does nothing when nothing changes
 ; No bblock for region
 
-; RUN: opt -hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 ; CHECK-NOT: region

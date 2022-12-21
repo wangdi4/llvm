@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S %s | FileCheck %s
 
 ; CHECK: {{loop.*:}}

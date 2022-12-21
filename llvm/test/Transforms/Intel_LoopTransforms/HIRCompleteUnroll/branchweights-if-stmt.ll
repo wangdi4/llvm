@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-cg -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-cg" -S 2>&1 < %s | FileCheck %s
 
 ; Verify that i1 loop is completely unrolled by 2 and branch_weights of if-stmt, and select insts are

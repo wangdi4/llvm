@@ -1,5 +1,4 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-post-vec-complete-unroll -disable-output -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the loop is not completely unrolled. Previously, the loop was unrolled because long addition terms passed to llvm.fsh* intrinsics did not

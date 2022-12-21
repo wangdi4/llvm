@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 ; Verify CG for RHS of <2> which is an HInst with an underlying GetElementPtrInst
 ;          BEGIN REGION { }

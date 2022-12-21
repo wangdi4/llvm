@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -disable-hir-pragma-bailout -hir-create-function-level-region -hir-ssa-deconstruction  -hir-loop-distribute-loopnest -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-before=hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -disable-hir-pragma-bailout -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-loop-distribute-loopnest,print<hir>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to contract %A even in the presence of redefinition of

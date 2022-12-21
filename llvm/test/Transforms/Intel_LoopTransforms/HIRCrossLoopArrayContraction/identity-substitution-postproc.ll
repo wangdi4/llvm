@@ -1,5 +1,4 @@
 
-; RUN: opt -intel-libirc-allowed -hir-create-function-level-region  -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -hir-create-function-level-region  -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; This lit test primarily checks for the proper substitution of the identity matrix after array

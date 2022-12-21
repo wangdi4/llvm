@@ -1,5 +1,4 @@
 ; ModuleID = '<stdin>'
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 
 ; original bblocks will precede new ones from ir, so liveout replacement checks

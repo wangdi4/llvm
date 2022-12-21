@@ -1,6 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cg -S %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S %s | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ; Verify that CG removes "pre_loopopt" on the function irrespective of whether

@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -hir-cost-model-throttling=0 -S | FileCheck %s
 
 ; Verify that the function call returning void is CG'd correctly.

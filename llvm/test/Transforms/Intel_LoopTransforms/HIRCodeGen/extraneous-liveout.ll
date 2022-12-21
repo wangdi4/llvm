@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 
 ; Verify that we patch the the single operand phi %.lcssa322 which uses extraneous liveout value %liveout not defined inside the region.

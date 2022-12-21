@@ -1,4 +1,3 @@
-;RUN:  opt -hir-ssa-deconstruction -hir-cg -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
 ;RUN:  opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
 
 ; Make sure HIR loopopt preserves input profile-related metadata (i.e. "branch_weights")

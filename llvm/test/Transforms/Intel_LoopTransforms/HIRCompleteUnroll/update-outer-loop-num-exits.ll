@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -hir-details -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -hir-details -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that complete unroller updates the number of exits of outer loop after

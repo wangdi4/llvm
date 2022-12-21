@@ -1,7 +1,5 @@
 ;REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -disable-output -print-after=hir-pre-vec-complete-unroll -debug-only=hir-transform-utils 2>&1 < %s | FileCheck %s
-
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output -debug-only=hir-transform-utils 2>&1 < %s | FileCheck %s
 
 ; Check that loop is deleted after constant propagation removes self assignment of

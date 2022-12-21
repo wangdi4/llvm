@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-cg -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-cg" -S < %s 2>&1 | FileCheck %s
 
 ; Verify that after i1 and i3 are unrolled, branch_weights are adjusted accordingly. Backedge's weights of i2 are divided by 2, and those of i4 ared dividied by 3.

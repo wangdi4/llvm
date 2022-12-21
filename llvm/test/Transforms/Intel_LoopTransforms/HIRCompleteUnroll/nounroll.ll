@@ -1,7 +1,6 @@
 ; Test for Complete Unrolling when trip count is large.
 ; There should not be any complete unrolling for this test case.
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=50 -hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -hir-complete-unroll-loop-trip-threshold=50 -S < %s | FileCheck %s
 ; CHECK: entry
 ; CHECK-NOT: region

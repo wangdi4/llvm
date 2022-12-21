@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -hir-details 2>&1 < %s | FileCheck %s
 
 ; Verify that we update the definition level of %0 from 2 to 1 in the loop upper and ztt after unrolling i2 loop.

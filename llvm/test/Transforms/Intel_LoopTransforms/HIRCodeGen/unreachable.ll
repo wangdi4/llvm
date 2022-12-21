@@ -1,4 +1,3 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-cg -force-hir-cg -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -hir-create-function-level-region -force-hir-cg -S 2>&1 < %s | FileCheck %s
 
 ; Check that CG adds an unreachable instruction in the merge bblock of the top 'if' of the function level region to maintain sanity of CFG.

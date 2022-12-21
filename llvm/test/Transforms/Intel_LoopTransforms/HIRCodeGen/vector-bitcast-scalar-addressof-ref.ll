@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" -force-hir-cg -S %s 2>&1 | FileCheck %s
 
 ; Verify that we generate code for this addressOf ref successfully:

@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -S -hir-cg -force-hir-cg %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 
 ; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src

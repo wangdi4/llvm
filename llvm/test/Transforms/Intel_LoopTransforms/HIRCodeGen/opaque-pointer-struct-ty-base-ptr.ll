@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-cost-model-throttling=0 -hir-cg -force-hir-cg -print-after=hir-temp-cleanup,hir-cg -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -print-after=hir-temp-cleanup,hir-cg -disable-output 2>&1 | FileCheck %s
 
 ; Verify that the code is generated with a crash. Notice that the input is by default using opaque pointers (i.e. "ptr").

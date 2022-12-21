@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-complete-unroll-force-constprop -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -hir-complete-unroll-force-constprop 2>&1 < %s | FileCheck %s
 
 

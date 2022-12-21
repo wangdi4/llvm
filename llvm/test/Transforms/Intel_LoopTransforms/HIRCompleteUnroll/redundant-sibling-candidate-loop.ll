@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-dead-store-elimination,hir-post-vec-complete-unroll,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 
 ; The first store to (@c)[0][i3 + 1] is eliminated by dead store elimination

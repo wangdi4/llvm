@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that we have GEPSavings of 80, (2 * 10 = 20) each for (%A)[i2] load and
