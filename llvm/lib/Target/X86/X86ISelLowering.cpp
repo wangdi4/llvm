@@ -22274,7 +22274,13 @@ static SDValue LowerI64IntToFP16(SDValue Op, SelectionDAG &DAG,
 
   // Pack the i64 into a vector, do the operation and extract.
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert(Subtarget.hasFP16() || Subtarget.hasAVX256P() && "Expected FP16 or AVX256P");
+#else  // INTEL_FEATURE_ISA_AVX256P
   assert(Subtarget.hasFP16() && "Expected FP16");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   SDLoc dl(Op);
   SDValue InVec = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v2i64, Src);

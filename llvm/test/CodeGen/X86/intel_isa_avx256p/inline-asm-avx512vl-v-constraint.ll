@@ -3,120 +3,249 @@
 ; RUN: llc < %s -mtriple x86_64-unknown-linux-gnu -mattr +avx256p --show-mc-encoding | FileCheck %s
 
 define <4 x float> @testxmm_1(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_1:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %xmm0, %xmm16 # encoding: [0x62,0xe1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    vmovq %rdi, %xmm17 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xcf]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovhlps %xmm17, %xmm16, %xmm16 # encoding: [0x62,0xa1,0x7c,0x00,0x12,0xc1]
+; CHECK-NEXT:    # xmm16 = xmm17[1],xmm16[1]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovhlps  %xmm17, %xmm16, %xmm16
   %0 = tail call <4 x float> asm "vmovhlps $1, $2, $0", "=v,v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(i64 %_l, <4 x float> %_xmm0)
   ret <4 x float> %0
 }
 
 define <4 x float> @testxmm_2(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_2:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovq %rdi, %xmm16 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xc7]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovapd %xmm16, %xmm16 # encoding: [0x62,0xa1,0xfd,0x08,0x28,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovapd %xmm16, %xmm16
   %0 = tail call <4 x float> asm "vmovapd $1, $0", "=v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(i64 %_l)
   ret <4 x float> %0
 }
 
 define <4 x float> @testxmm_3(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_3:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovq %rdi, %xmm16 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xc7]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vminpd %xmm16, %xmm16, %xmm16 # encoding: [0x62,0xa1,0xfd,0x00,0x5d,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vminpd  %xmm16, %xmm16, %xmm16
   %0 = tail call <4 x float> asm "vminpd $1, $2, $0", "=v,v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(i64 %_l, i64 %_l)
   ret <4 x float> %0
 }
 
 define i64 @testxmm_4(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_4:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %xmm0, %xmm16 # encoding: [0x62,0xe1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    vmovq %rdi, %xmm17 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xcf]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmulsd %xmm17, %xmm16, %xmm16 # encoding: [0x62,0xa1,0xff,0x00,0x59,0xc1]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovq %xmm16, %rax # encoding: [0x62,0xe1,0xfd,0x08,0x7e,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmulsd  %xmm17, %xmm16, %xmm16
   %0 = tail call i64 asm "vmulsd $1, $2, $0", "=v,v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(i64 %_l, <4 x float> %_xmm0)
   ret i64 %0
 }
 
 define <4 x float> @testxmm_5(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_5:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovq %rdi, %xmm16 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xc7]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpabsq %xmm16, %xmm16 # encoding: [0x62,0xa2,0xfd,0x08,0x1f,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpabsq  %xmm16, %xmm16
   %0 = tail call <4 x float> asm "vpabsq $1, $0", "=v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(i64 %_l)
   ret <4 x float> %0
 }
 
 define <4 x float> @testxmm_6(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_6:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %xmm0, %xmm16 # encoding: [0x62,0xe1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    vmovq %rdi, %xmm17 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xcf]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpandd %xmm16, %xmm17, %xmm16 # encoding: [0x62,0xa1,0x75,0x00,0xdb,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpandd  %xmm16, %xmm17, %xmm16
   %0 = tail call <4 x float> asm "vpandd $1, $2, $0", "=v,v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(<4 x float> %_xmm0, i64 %_l)
   ret <4 x float> %0
 }
 
 define <4 x float> @testxmm_7(<4 x float> %_xmm0, i64 %_l) {
+; CHECK-LABEL: testxmm_7:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %xmm0, %xmm16 # encoding: [0x62,0xe1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    vmovq %rdi, %xmm17 # encoding: [0x62,0xe1,0xfd,0x08,0x6e,0xcf]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpandnd %xmm16, %xmm17, %xmm16 # encoding: [0x62,0xa1,0x75,0x00,0xdf,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %xmm16, %xmm0 # encoding: [0x62,0xb1,0x7c,0x08,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpandnd %xmm16, %xmm17, %xmm16
   %0 = tail call <4 x float> asm "vpandnd $1, $2, $0", "=v,v,v,~{xmm0},~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{dirflag},~{fpsr},~{flags}"(<4 x float> %_xmm0, i64 %_l)
   ret <4 x float> %0
 }
 
 define <8 x float> @testymm_1(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_1:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovsldup %ymm16, %ymm16 # encoding: [0x62,0xa1,0x7e,0x28,0x12,0xc0]
+; CHECK-NEXT:    # ymm16 = ymm16[0,0,2,2,4,4,6,6]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovsldup %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vmovsldup $1, $0", "=v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_2(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_2:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovapd %ymm16, %ymm16 # encoding: [0x62,0xa1,0xfd,0x28,0x28,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovapd %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vmovapd $1, $0", "=v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_3(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_3:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vminpd %ymm16, %ymm16, %ymm16 # encoding: [0x62,0xa1,0xfd,0x20,0x5d,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vminpd  %ymm16, %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vminpd $1, $2, $0", "=v,v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1, <8 x float> %_ymm1)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_4(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_4:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpabsq %ymm16, %ymm16 # encoding: [0x62,0xa2,0xfd,0x28,0x1f,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpabsq  %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vpabsq $1, $0", "=v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_5(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_5:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    vmovaps %ymm0, %ymm17 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc8]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpandd %ymm16, %ymm17, %ymm16 # encoding: [0x62,0xa1,0x75,0x20,0xdb,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpandd  %ymm16, %ymm17, %ymm16
   %0 = tail call <8 x float> asm "vpandd $1, $2, $0", "=v,v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1, <8 x float> %_ymm0)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_6(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_6:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    vmovaps %ymm0, %ymm17 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc8]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpandnd %ymm16, %ymm17, %ymm16 # encoding: [0x62,0xa1,0x75,0x20,0xdf,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpandnd %ymm16, %ymm17, %ymm16
   %0 = tail call <8 x float> asm "vpandnd $1, $2, $0", "=v,v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1, <8 x float> %_ymm0)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_7(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_7:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    vmovaps %ymm0, %ymm17 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc8]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpminud %ymm16, %ymm17, %ymm16 # encoding: [0x62,0xa2,0x75,0x20,0x3b,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpminud %ymm16, %ymm17, %ymm16
   %0 = tail call <8 x float> asm "vpminud $1, $2, $0", "=v,v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1, <8 x float> %_ymm0)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_8(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_8:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    vmovaps %ymm0, %ymm17 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc8]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vpmaxsd %ymm16, %ymm17, %ymm16 # encoding: [0x62,0xa2,0x75,0x20,0x3d,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vpmaxsd %ymm16, %ymm17, %ymm16
   %0 = tail call <8 x float> asm "vpmaxsd $1, $2, $0", "=v,v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1, <8 x float> %_ymm0)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_9(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_9:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovups %ymm16, %ymm16 # encoding: [0x62,0xa1,0x7c,0x28,0x10,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovups %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vmovups $1, $0", "=v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1)
   ret <8 x float> %0
 }
 
 define <8 x float> @testymm_10(<8 x float> %_ymm0, <8 x float> %_ymm1) {
+; CHECK-LABEL: testymm_10:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps %ymm1, %ymm16 # encoding: [0x62,0xe1,0x7c,0x28,0x28,0xc1]
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    vmovupd %ymm16, %ymm16 # encoding: [0x62,0xa1,0xfd,0x28,0x10,0xc0]
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vmovaps %ymm16, %ymm0 # encoding: [0x62,0xb1,0x7c,0x28,0x28,0xc0]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
-; CHECK: vmovupd %ymm16, %ymm16
   %0 = tail call <8 x float> asm "vmovupd $1, $0", "=v,v,~{ymm0},~{ymm1},~{ymm2},~{ymm3},~{ymm4},~{ymm5},~{ymm6},~{ymm7},~{ymm8},~{ymm9},~{ymm10},~{ymm11},~{ymm12},~{ymm13},~{ymm14},~{ymm15},~{dirflag},~{fpsr},~{flags}"(<8 x float> %_ymm1)
   ret <8 x float> %0
 }

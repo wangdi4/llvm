@@ -5,12 +5,12 @@
 define void @test_compress_undef_float_passthrough() {
 ; CHECK-LABEL: test_compress_undef_float_passthrough:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movb $5, %al
-; CHECK-NEXT:    kmovd %eax, %k1
-; CHECK-NEXT:    vcompresspd %ymm0, %ymm0 {%k1} {z}
-; CHECK-NEXT:    vscatterqpd %ymm0, (,%ymm0) {%k1}
-; CHECK-NEXT:    vzeroupper
-; CHECK-NEXT:    retq
+; CHECK-NEXT:    movb $5, %al # encoding: [0xb0,0x05]
+; CHECK-NEXT:    kmovd %eax, %k1 # encoding: [0xc5,0xfb,0x92,0xc8]
+; CHECK-NEXT:    vcompresspd %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xfd,0xa9,0x8a,0xc0]
+; CHECK-NEXT:    vscatterqpd %ymm0, (,%ymm0) {%k1} # encoding: [0x62,0xf2,0xfd,0x29,0xa3,0x04,0x05,0x00,0x00,0x00,0x00]
+; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:                                          ; preds = %loop.50
   %0 = bitcast i4 undef to <4 x i1>
   %1 = call <4 x double> @llvm.x86.avx512.mask.compress.v4f64(<4 x double> undef, <4 x double> undef, <4 x i1> <i1 1, i1 0, i1 1, i1 0>)
