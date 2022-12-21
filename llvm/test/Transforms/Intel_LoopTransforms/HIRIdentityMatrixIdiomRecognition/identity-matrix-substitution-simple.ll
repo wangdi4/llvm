@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-pre-vec-complete-unroll -hir-identity-matrix-substitution -enable-identity-matrix-substitution -print-before=hir-identity-matrix-substitution -print-after=hir-identity-matrix-substitution -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>,hir-identity-matrix-substitution,print<hir>" -hir-create-function-level-region -enable-identity-matrix-substitution -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
 
 ; Verify that we can find the identity matrix definition in first loop, and

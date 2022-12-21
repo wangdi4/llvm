@@ -1,4 +1,3 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-after=hir-general-unroll 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; A simplified test case extracted from one of the hot loops in 523.xalan.

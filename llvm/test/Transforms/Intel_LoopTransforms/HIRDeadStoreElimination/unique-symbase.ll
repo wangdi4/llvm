@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir-framework>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Test checks that the store on the else branch of the 'if' statment is removed,

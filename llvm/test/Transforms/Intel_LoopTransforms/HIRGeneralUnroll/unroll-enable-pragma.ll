@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -simplifycfg -print-after=hir-general-unroll -print-after=simplifycfg -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg,simplifycfg,print" -S < %s 2>&1 | FileCheck %s
 
 ; Verify that unroll triggers on the small trip count loop due to presence of "llvm.loop.unroll.enable" pragma.

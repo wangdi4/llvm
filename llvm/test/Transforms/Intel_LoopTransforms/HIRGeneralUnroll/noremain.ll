@@ -2,7 +2,6 @@
 ; with statement , a[i] = a[n*i].
 ; This test should not produce any remainder loop.
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,print<hir>" -S < %s 2>&1 | FileCheck %s
 ; HIR Check.
 ; CHECK: REGION { modified }
@@ -15,7 +14,6 @@
 ; CHECK-NEXT: END REGION
 
 ; Check the proper optreport is emitted for Partially Unrolled loop (without remainder).
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN

@@ -3,7 +3,6 @@
 ; This test should not perform unrolling since the trip count
 ; doesn't meet the threshold.
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,print<hir>" -S < %s 2>&1 | FileCheck %s
 ; HIR Test.
 ; Region should not be modified.

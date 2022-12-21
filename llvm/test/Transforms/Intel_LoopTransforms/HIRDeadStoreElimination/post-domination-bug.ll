@@ -1,4 +1,3 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
 
 ; Verify that the store (@A)[0][i1] = 0 is not incorrectly eliminated due to a bug in post-domination logic.

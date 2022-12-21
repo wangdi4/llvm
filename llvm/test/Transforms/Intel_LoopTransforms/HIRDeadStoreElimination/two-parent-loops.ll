@@ -3,7 +3,6 @@
 ; top sort number is larger than load ref (%t12)[0][i3]. If not, the store ref cannot
 ; be the elimination candidate.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Dead Store Elimination (hir-dead-store-elimination) ***

@@ -1,6 +1,5 @@
 ; Check that the preheader of the loop is extracted before the trip count check
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -print-after=hir-idiom -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR Loop Idiom Recognition (hir-idiom) ***

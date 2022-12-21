@@ -1,7 +1,5 @@
 ; Check there is no compfail when the size of ref is 0
 ;
-; RUN: opt -hir-ssa-deconstruction -tbaa -hir-create-function-level-region -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-;
 ; RUN: opt -aa-pipeline="tbaa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Dead Store Elimination ***

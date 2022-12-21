@@ -1,4 +1,3 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that (%ptr)[1] is not eliminated because the intermediate bitcast load (i16*)(%ptr)[0] overlaps.

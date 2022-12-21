@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -hir-general-unroll-disable-replace-by-first-iteration -S %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -hir-general-unroll-disable-replace-by-first-iteration -S %s | FileCheck %s
 
 ; Make sure HIR loopopt generall unroll preserves input profile-related metadata (i.e. "branch_weights")

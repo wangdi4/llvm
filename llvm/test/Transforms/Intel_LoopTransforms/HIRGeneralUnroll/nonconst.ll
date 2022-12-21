@@ -16,7 +16,6 @@
 ; |   (@A)[0][i1] = %1;
 ; + END LOOP
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -hir-details -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,print<hir>" -hir-details -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: REGION { modified }

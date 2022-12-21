@@ -1,4 +1,3 @@
-; RUN: opt -scoped-noalias-aa -hir-create-function-level-region -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="scoped-noalias-aa" -hir-create-function-level-region -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that first store (%ptr1)[0] is eliminated using noalias metadata even

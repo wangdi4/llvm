@@ -1,6 +1,5 @@
 ; The origin test case is regC/tr81778
 
-; RUN: opt -hir-ssa-deconstruction -print-after=hir-general-unroll -disable-output -hir-general-unroll-disable-switch-generation -hir-general-unroll -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-output -hir-general-unroll-disable-switch-generation -hir-details < %s 2>&1 | FileCheck %s
 
 ; CHECK:  BEGIN REGION { modified }
