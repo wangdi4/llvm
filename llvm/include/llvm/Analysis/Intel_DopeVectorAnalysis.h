@@ -20,6 +20,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -125,12 +126,12 @@ extern bool isUplevelVarType(Type *Ty);
 // value. If the LowerBound and Stride parameters are supplied, also
 // check those.
 //
-extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
-                                      const Value &Base,
-                                      uint32_t ArrayRank, uint32_t Rank,
-                                      bool CheckForTranspose,
-                                      Optional<uint64_t> LowerBound = None,
-                                      Optional<uint64_t> Stride = None);
+extern bool
+isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
+                          uint32_t ArrayRank, uint32_t Rank,
+                          bool CheckForTranspose,
+                          Optional<uint64_t> LowerBound = std::nullopt,
+                          Optional<uint64_t> Stride = std::nullopt);
 
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
@@ -171,7 +172,7 @@ public:
     return (*Stores.begin())->getValueOperand();
   }
   bool getIsSingleNonNullValue() const {
-    Optional<uint64_t> SIV = None;
+    Optional<uint64_t> SIV = std::nullopt;
     for (StoreInst *SI : stores()) {
       auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
       if (!CI)
@@ -1168,7 +1169,7 @@ CallBase *castingUsedForDataAllocation(Value *Val,
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,
-// otherwise, return 'None'.
+// otherwise, return std::nullopt.
 //
 extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                                   const Value *Val);

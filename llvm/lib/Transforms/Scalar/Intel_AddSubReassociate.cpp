@@ -806,7 +806,7 @@ Optional<int64_t> AddSubReassociate::findLoadDistance(Value *V1, Value *V2,
     for (int I = I1->getNumOperands() - 1; I >= 0; --I)
       Stack.emplace_back(I1->getOperand(I), I2->getOperand(I), Depth);
   }
-  return None;
+  return std::nullopt;
 }
 
 // Returns the sum of the absolute distances of SortedLeaves and G2.
@@ -1144,7 +1144,7 @@ void AddSubReassociate::buildMaxReuseGroups(
       // be fine since current cluster size is limited to 16).
       for (size_t I = 0; I < CandidateTreesNum - GroupWidth + 1; ++I) {
         size_t FoundTreeNum = 0;
-        Optional<OpcodeData> GroupOpcode = None;
+        Optional<OpcodeData> GroupOpcode = std::nullopt;
         for (size_t J = I; J < CandidateTreesNum && FoundTreeNum < GroupWidth;
              ++J) {
           Tree *CandidateTree = CandidateTrees[J].first;

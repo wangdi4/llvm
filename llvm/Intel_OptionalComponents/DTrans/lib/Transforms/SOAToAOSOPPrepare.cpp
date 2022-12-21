@@ -464,9 +464,9 @@ void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
                   { dbgs() << "  Before CB: " << *CB << "\n"; });
   if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
     NewCB = InvokeInst::Create(NewF, II->getNormalDest(), II->getUnwindDest(),
-                               NewArgs, None, "", CB->getParent());
+                               NewArgs, std::nullopt, "", CB->getParent());
   } else {
-    NewCB = CallInst::Create(NFTy, NewF, NewArgs, None, "", CB);
+    NewCB = CallInst::Create(NFTy, NewF, NewArgs, std::nullopt, "", CB);
     cast<CallInst>(NewCB)->setTailCallKind(
         cast<CallInst>(CB)->getTailCallKind());
   }
@@ -1476,9 +1476,9 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
 
       if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
         NewCB = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
-                                   Args, None, "", CB->getParent());
+                                   Args, std::nullopt, "", CB->getParent());
       } else {
-        NewCB = CallInst::Create(NFTy, NF, Args, None, "", CB);
+        NewCB = CallInst::Create(NFTy, NF, Args, std::nullopt, "", CB);
         cast<CallInst>(NewCB)->setTailCallKind(
             cast<CallInst>(CB)->getTailCallKind());
       }

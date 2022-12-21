@@ -178,8 +178,8 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     LLVM_DEBUG(dbgs() << "Patching function: " << OrigFunc->getName() << "\n");
     Type *IntTy = IntegerType::get(M.getContext(),
                                    M.getDataLayout().getPointerSizeInBits(0));
-    Function *PatchedFunc =
-        AddMoreArgsToFunc(OrigFunc, IntTy, "vf", None, "ResolveSubGroupWICall");
+    Function *PatchedFunc = AddMoreArgsToFunc(
+        OrigFunc, IntTy, "vf", std::nullopt, "ResolveSubGroupWICall");
     OrigToPatchedFuncMap[OrigFunc] = PatchedFunc;
   }
 

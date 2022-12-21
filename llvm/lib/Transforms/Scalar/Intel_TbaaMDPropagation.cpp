@@ -320,27 +320,27 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
   // This can be either a struct field {!0, !at, ...}
   // or a scalar type {!at, !at, ...}.
   // If the access type has a name "pointer@XXX", returns the name string
-  // as an Optional<StringRef> (llvm::None if no match).
+  // as an Optional<StringRef> (std::nullopt if no match).
   auto getTBAAPtrTypeAccess = [=](Instruction *I) -> Optional<StringRef> {
     MDNode *TBAA = I->getMetadata(LLVMContext::MD_intel_tbaa);
     if (!TBAA)
       TBAA = I->getMetadata(LLVMContext::MD_tbaa);
     if (!TBAA)
-      return llvm::None;
+      return std::nullopt;
     if (TBAA->getNumOperands() != 3)
-      return llvm::None;
+      return std::nullopt;
     // Get the access type node which is the 2nd operand (operand 1).
     MDNode *FieldMD = dyn_cast<MDNode>(TBAA->getOperand(1));
     if (!FieldMD || FieldMD->getNumOperands() != 3)
-      return llvm::None;
+      return std::nullopt;
 
     // Check the access type name string (operand 0) for "pointer@".
     MDString *Tag = dyn_cast<MDString>(FieldMD->getOperand(0));
     if (!Tag)
-      return llvm::None;
+      return std::nullopt;
     if (Tag->getString().contains("pointer@"))
       return Optional<StringRef>(Tag->getString());
-    return llvm::None;
+    return std::nullopt;
   };
 
   // We are only interested in the 2nd arg of the callee.

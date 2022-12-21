@@ -3346,7 +3346,7 @@ static bool FoldCondBranchOnValueKnownInPredecessor(BranchInst *BI,
   Optional<bool> Result;
   bool EverChanged = false;
   do {
-    // Note that None means "we changed things, but recurse further."
+    // Note that std::nullopt means "we changed things, but recurse further."
     Result = FoldCondBranchOnValueKnownInPredecessorImpl(BI, DTU, DL, AC);
     EverChanged |= Result == std::nullopt || *Result;
   } while (Result == std::nullopt);
@@ -4817,7 +4817,7 @@ shouldFoldCondBranchesToCommonDestination(BranchInst *BI, BranchInst *PBI,
   // the loop non-countable.
   if (BI->getParent()->getParent()->isPreLoopOpt() &&
       isLikelyCountableLoopExitCond(BI->getCondition())) {
-    return None;
+    return std::nullopt;
   }
 #endif // INTEL_CUSTOMIZATION
   if (PBI->getSuccessor(0) == BI->getSuccessor(0)) {

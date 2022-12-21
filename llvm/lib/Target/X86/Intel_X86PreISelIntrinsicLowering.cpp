@@ -78,7 +78,8 @@ static bool lowerFastCpuIdCoreType(Function &F) {
 
       UpperBB->getTerminator()->eraseFromParent();
       IRB.SetInsertPoint(UpperBB);
-      CallInst *RawPid = IRB.CreateIntrinsic(Intrinsic::x86_rdpid, None, None);
+      CallInst *RawPid =
+          IRB.CreateIntrinsic(Intrinsic::x86_rdpid, std::nullopt, std::nullopt);
 
       // Mask must be same with CPU_MASK in libirc/fast_cpu_core_type.c.
       Value *Pid = IRB.CreateAnd(RawPid, 0xff);
@@ -103,8 +104,9 @@ static bool lowerFastCpuIdCoreType(Function &F) {
       CoreType = PHI;
     } else {
       IRB.SetInsertPoint(Intrin);
-      CallInst *CpuId = IRB.CreateIntrinsic(
-          Intrinsic::x86_cpuid, None, {IRB.getInt32(0x1a), IRB.getInt32(0)});
+      CallInst *CpuId =
+          IRB.CreateIntrinsic(Intrinsic::x86_cpuid, std::nullopt,
+                              {IRB.getInt32(0x1a), IRB.getInt32(0)});
       Value *EAX = IRB.CreateExtractValue(CpuId, 0, "eax");
       CoreType = IRB.CreateLShr(EAX, IRB.getInt32(24));
       CoreType = IRB.CreateTrunc(CoreType, Int8Ty);

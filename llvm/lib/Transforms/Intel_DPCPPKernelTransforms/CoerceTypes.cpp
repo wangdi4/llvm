@@ -515,13 +515,14 @@ void CoerceTypesPass::copyAttributesAndArgNames(
     StringRef OldName = OldArgI->getName();
     if (!OldName.empty())
       NewArgI->setName(OldName + ".coerce.high");
-    ArgAttrs.push_back(AttributeSet::get(PModule->getContext(), None));
+    ArgAttrs.push_back(AttributeSet::get(PModule->getContext(), std::nullopt));
     ++NewArgI;
 
     if (NewArgTypePair.second) {
       if (!OldName.empty())
         NewArgI->setName(OldName + ".coerce.low");
-      ArgAttrs.push_back(AttributeSet::get(PModule->getContext(), None));
+      ArgAttrs.push_back(
+          AttributeSet::get(PModule->getContext(), std::nullopt));
       ++NewArgI;
     }
     ++OldArgI;

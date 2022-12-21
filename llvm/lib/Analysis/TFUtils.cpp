@@ -261,7 +261,7 @@ bool TFModelEvaluatorImpl::checkReportAndInvalidate(
 
 Optional<TFModelEvaluator::EvaluationResult> TFModelEvaluator::evaluate() {
   if (!isValid())
-    return None;
+    return std::nullopt;
   std::unique_ptr<EvaluationResultImpl> Ret =
       std::make_unique<EvaluationResultImpl>(Impl->OutputSize());
   auto Status = createTFStatus();
@@ -269,7 +269,7 @@ Optional<TFModelEvaluator::EvaluationResult> TFModelEvaluator::evaluate() {
   if (TF_GetCode(Status.get()) != TF_Code::TF_OK) {
     errs() << TF_Message(Status.get());
     Impl.reset();
-    return None;
+    return std::nullopt;
   }
   return EvaluationResult(std::move(Ret));
 }

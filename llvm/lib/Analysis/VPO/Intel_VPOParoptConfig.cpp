@@ -126,7 +126,7 @@ Optional<const vpo::KernelConfig>
     if (Name.str().find(KC.Name) != std::string::npos)
       return KC;
 
-  return None;
+  return std::nullopt;
 }
 
 uint8_t VPOParoptConfig::getKernelSPMDSIMDWidth(StringRef Name) const {

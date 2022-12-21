@@ -507,7 +507,7 @@ static std::optional<sys::fs::UniqueID> getUniqueID(StringRef path) {
 }
 
 // Resolves a file path. This never returns the same path
-// (in that case, it returns None).
+// (in that case, it returns std::nullopt).
 std::optional<StringRef> LinkerDriver::findFile(StringRef filename) {
   StringRef path = doFindFile(filename);
 
@@ -550,7 +550,7 @@ StringRef LinkerDriver::doFindLib(StringRef filename) {
 
 // Resolves a library path. /nodefaultlib options are taken into
 // consideration. This never returns the same path (in that case,
-// it returns None).
+// it returns std::nullopt).
 std::optional<StringRef> LinkerDriver::findLib(StringRef filename) {
   if (config->noDefaultLibAll)
     return std::nullopt;
@@ -1098,7 +1098,7 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
   file_magic magic = identify_magic(mbref.getBuffer());
 
   if (magic == file_magic::bitcode)
-    return None;
+    return std::nullopt;
   if (magic != file_magic::archive)
     return path.str();
   if (!needsRebuilding(mbref))
@@ -1114,7 +1114,7 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
       New.emplace_back(member);
 
   if (New.empty())
-    return None;
+    return std::nullopt;
 
   log("Creating a temporary archive for " + path + " to remove bitcode files");
 

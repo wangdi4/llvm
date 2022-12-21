@@ -604,7 +604,7 @@ struct BasicAAResult::DecomposedGEP {
   // Scaled variable (non-constant) indices.
   SmallVector<VariableGEPIndex, 4> VarIndices;
   // Are all operations inbounds GEPs or non-indexing operations?
-  // (None iff expression doesn't involve any geps)
+  // (std::nullopt iff expression doesn't involve any geps)
   std::optional<bool> InBounds;
 
   void dump() const {
@@ -764,7 +764,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       // We are not a GEP, but GEPOrSubsOperators may still be in bounds.
       // Note that upstream does this for GEPs below.
       if (auto *GOS = dyn_cast<GEPOrSubsOperator>(V)) {
-        if (Decomposed.InBounds == None)
+        if (Decomposed.InBounds == std::nullopt)
           Decomposed.InBounds = GOS->isInBounds();
         else if (!GOS->isInBounds())
           Decomposed.InBounds = false;

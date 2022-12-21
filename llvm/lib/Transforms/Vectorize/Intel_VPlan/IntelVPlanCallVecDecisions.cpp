@@ -16,6 +16,7 @@
 #include "llvm/Support/CommandLine.h"
 #include <algorithm>
 #include <iterator>
+#include <optional>
 
 #define DEBUG_TYPE "VPlanCallVecDecisions"
 
@@ -121,7 +122,7 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
     auto ParamPos = I - SkippedArgs;
     const VPValue* LinearPrivMem = nullptr;
     std::vector<VFParameter> ParamEncodings;
-    MaybeAlign ArgAlign = None;
+    MaybeAlign ArgAlign = std::nullopt;
     bool IsPointerArg = CallArg->getType()->isPointerTy();
     if (IsPointerArg)
       ArgAlign = VPAA.tryGetKnownAlignment(CallArg, VPCall);

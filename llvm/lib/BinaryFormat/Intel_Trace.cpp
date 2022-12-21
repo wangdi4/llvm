@@ -107,7 +107,7 @@ traceback::Tag traceback::getOptimalPCTag(uint32_t DeltaPC) {
 Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int32_t DeltaLine,
                                                              uint32_t DeltaPC) {
   if (DeltaPC > 0b11'1111)
-    return None;
+    return std::nullopt;
 
   // CO1 (1 byte short form correlation)
   //   - Tag (high 2 bits): always 10 (binary)
@@ -122,5 +122,5 @@ Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int32_t DeltaLine,
   else if (isInt<8>(DeltaLine))
     return traceback::TB_TAG_CO2;
   else
-    return None;
+    return std::nullopt;
 }

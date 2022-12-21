@@ -80,6 +80,7 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -980,7 +981,7 @@ void CodeExtractor::constructDebugSubprogram(
   // Artificial subprograms are created with a generic subroutine type.
   // Create the artificial subprogram and attach it to the function.
   DISubroutineType *Type =
-      DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
+      DIB.createSubroutineType(DIB.getOrCreateTypeArray(std::nullopt));
   DISubprogram *NewSP = DIB.createFunction(
       File, SourceName, LinkageName, File, LineNo, Type, ScopeLine, Flags,
       SPFlags, TParams.get(), Decl);

@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: Victor Mustya <victor.mustya@intel.com>
-    # Date:   Wed Dec 7 23:06:41 2022 +0000
-    # Add support for new PM in SPIRV reader adaptor and CM simd CF lowering pass
-    set(LLVMGenXIntrinsics_GIT_TAG 12953f1fadee62ee453018d6eb15fede68a42334)
+    # Author: Gorban, Igor <igor.gorban@intel.com>
+    # Date:   Sun Dec 11 20:40:12 2022 +0000
+    # Fix llvm_tot: legacy pass manager
+    set(LLVMGenXIntrinsics_GIT_TAG 7596a83751934c538d809f336ee18bea6e8d1b44)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      # Author: Victor Mustya <victor.mustya@intel.com>
-      # Date:   Wed Dec 7 23:06:41 2022 +0000
-      # Add support for new PM in SPIRV reader adaptor and CM simd CF lowering pass
-      set(LLVMGenXIntrinsics_GIT_TAG 12953f1fadee62ee453018d6eb15fede68a42334)
+      # Author: Gorban, Igor <igor.gorban@intel.com>
+      # Date:   Tue Dec 13 18:21:41 2022 +0000
+      # VCWrappers does not installing, we can't use them in headers
+      set(LLVMGenXIntrinsics_GIT_TAG 88083f819d2391f0a15ecdb6f7efeefaf02364e8)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Victor Mustya <victor.mustya@intel.com>
-        # Date:   Wed Dec 7 15:31:03 2022 -0800
-        # Open Source repo sync
-        set(LLVMGenXIntrinsics_GIT_TAG a4f36dae1fde1cde5ec5a0b9e2e00703e27a6bbd)
+        # Author: Igor Gorban <igor.gorban@intel.com>
+        # Date:   Tue Dec 13 23:10:52 2022 +0100
+        # [BugFix] VCWrappers does not installing, we can't use them in headers (#241)
+        set(LLVMGenXIntrinsics_GIT_TAG 73019eb10802e9dcf1715fd5c210f9d7ab7cc864)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is

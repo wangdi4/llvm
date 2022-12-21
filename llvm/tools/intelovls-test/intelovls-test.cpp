@@ -111,7 +111,7 @@ ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) const {
        (this->getAccessKind().isStrided() && haveSameVectorStride(*CLMrf)))) {
     return Dist - (CLMrf->getDistance());
   }
-  return None;
+  return std::nullopt;
 }
 
 namespace OVLSTest {
@@ -226,8 +226,8 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(T->createTargetMachine(
-      TargetTriple.getTriple(), "core-avx-i", "", Options, None,
-      None, CodeGenOpt::Aggressive));
+      TargetTriple.getTriple(), "core-avx-i", "", Options, std::nullopt,
+      std::nullopt, CodeGenOpt::Aggressive));
 }
 
 Function *createFunctionDecl(FunctionType *FTy, StringRef Name, Module *M) {

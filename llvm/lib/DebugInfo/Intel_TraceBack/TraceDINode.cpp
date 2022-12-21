@@ -161,7 +161,7 @@ const TraceLine *TraceModule::getLastLine() const {
 Optional<unsigned> TraceModule::getLastLineNo() const {
   if (getLastLine())
     return getLastLine()->getLine();
-  return None;
+  return std::nullopt;
 }
 
 bool TraceModule::isLastRoutineEmpty() const {

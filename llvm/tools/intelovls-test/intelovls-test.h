@@ -103,7 +103,7 @@ public:
   Optional<int64_t> getConstStride() const override {
     if (ConstVStride)
       return VecStride;
-    return None;
+    return std::nullopt;
   }
 
   bool dominates(const OVLSMemref &Mrf) const override { return true; }

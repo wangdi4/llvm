@@ -1121,11 +1121,11 @@ public:
   /// before \p InsertPt.
   /// \p AllocaAddrSpace specifies address space in which the memory
   /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
+  /// std::nullopt, then the address space matches the default alloca's
   /// address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
-  /// If \p ValueAddrSpace does not match llvm::None,
+  /// If \p ValueAddrSpace does not match std::nullopt,
   /// then the generated Value will be immediately addrspacecast'ed
   /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
   /// expression will be returned as a result.
@@ -1135,8 +1135,8 @@ public:
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
                          bool IsTargetSPIRV, const Twine &VarName = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None,
+                         llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         llvm::Optional<unsigned> ValueAddrSpace = std::nullopt,
                          AllocateItem *AllocItem = nullptr);
 
   /// Return true if address spaces \p AS1 and \p AS2 are compatible
@@ -2100,7 +2100,7 @@ public:
   /// full body of \p W.
   static Function *genOutlineFunction(
       const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = llvm::None,
+      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
       std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given

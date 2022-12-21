@@ -18,6 +18,7 @@
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include <optional>
 
 using namespace llvm::vpo;
 
@@ -36,7 +37,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
   // sense trying to compute distance between pointers. Pointers to the same
   // allocation always have the same type.
   if (LHS->getType() !=RHS->getType())
-    return None;
+    return std::nullopt;
 
   VPlanSCEV *VPMinus =
       VPSE.getMinusExpr(VPSE.toVPlanSCEV(LHS), VPSE.toVPlanSCEV(RHS));
@@ -44,7 +45,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
 
   auto *Const = dyn_cast<SCEVConstant>(Minus);
   if (!Const)
-    return None;
+    return std::nullopt;
 
   return Const->getAPInt().getSExtValue();
 }
@@ -57,7 +58,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) const {
   // Don't waste time if memrefs are in different basic blocks. This case is not
   // supported yet.
   if (Inst->getParent() != FromInst->getParent())
-    return None;
+    return std::nullopt;
 
   return getConstDistanceFromImpl(getAddressSCEV(Inst), FromScev, getVPSE());
 }

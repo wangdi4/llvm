@@ -164,7 +164,7 @@ MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
       return std::make_pair(VariantFuncName, TargetVL);
   }
 
-  return None;
+  return std::nullopt;
 }
 
 void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,

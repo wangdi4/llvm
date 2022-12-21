@@ -81,7 +81,6 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Sequence.h"
@@ -9832,7 +9831,7 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
 /// Determines the maximum trip count for \p L according to the metadata
 /// corresponding to \p Name.
 ///
-/// If it isn't present, this returns None.
+/// If it isn't present, this returns std::nullopt.
 static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
                                                             StringRef Name) {
   if (const MDOperand *const Opnd =
@@ -9841,13 +9840,13 @@ static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
             mdconst::dyn_extract_or_null<ConstantInt>(Opnd->get()))
       return Constant->getZExtValue();
 
-  return None;
+  return std::nullopt;
 }
 
 /// Determines the maximum trip count for \p L as specified by trip count
 /// metadata.
 ///
-/// If there isn't any maximum trip count metadata, returns None.
+/// If there isn't any maximum trip count metadata, returns std::nullopt.
 static Optional<uint64_t> getMaxTripCountFromMetadata(const Loop *L) {
   // Our compiler is fancy enough to have two different metadata for this, so
   // check both.
@@ -13298,7 +13297,7 @@ static Optional<bool> isImpliedCondOperandsViaConstantDifference(
         !isValidForComputingDiff(RHS, IsSigned) ||
         !isValidForComputingDiff(FoundLHS, IsSigned) ||
         !isValidForComputingDiff(FoundRHS, IsSigned))
-      return None;
+      return std::nullopt;
   } else {
     // For NE/EQ, we can handle cases like the following by stripping out casts-
     // FoundPred: zext(%t) == 0
@@ -13324,13 +13323,13 @@ static Optional<bool> isImpliedCondOperandsViaConstantDifference(
       FoundLHS, LHS, IgnoreWraparound ? nullptr : &SignedOverflow);
 
   if (!LHSDiff || SignedOverflow)
-    return None;
+    return std::nullopt;
 
   std::optional<APInt> RHSDiff = SE.computeConstantDifference(
       FoundRHS, RHS, IgnoreWraparound ? nullptr : &SignedOverflow);
 
   if (!RHSDiff || SignedOverflow)
-    return None;
+    return std::nullopt;
 
   switch (Pred) {
   default:
@@ -13413,7 +13412,7 @@ static Optional<bool> isImpliedCondOperandsViaConstantDifference(
       return true;
   }
 
-  return None;
+  return std::nullopt;
 }
 #endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,

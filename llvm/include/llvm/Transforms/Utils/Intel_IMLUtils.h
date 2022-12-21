@@ -35,8 +35,8 @@ bool isSVMLCallingConv(CallingConv::ID CC);
 VectorType *getVectorTypeForCSVMLFunction(FunctionType *FT);
 
 /// Determine which variant of SVML calling convention a function should use
-/// according to its name and type. Returns None if a variant can't be chosen
-/// with the given input.
+/// according to its name and type. Returns std::nullopt if a variant can't
+/// be chosen with the given input.
 Optional<CallingConv::ID> getSVMLCallingConvByNameAndType(StringRef FnName,
                                                           FunctionType *FT);
 

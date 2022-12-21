@@ -175,7 +175,7 @@ static Optional<uint64_t> getKnownMaxTripCount(const HLLoop *Loop) {
     return ConstTripCount;
   if (const uint64_t LegalMaxTripCount = Loop->getLegalMaxTripCount())
     return LegalMaxTripCount;
-  return None;
+  return std::nullopt;
 }
 
 bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
