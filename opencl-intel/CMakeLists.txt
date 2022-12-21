@@ -29,7 +29,6 @@ option(GIT_REVISIONS "Make package version from git revision" ON)
 option(BUILD_QTGUI "Build the QT related projects" OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device" ON)
-option(INCLUDE_CMRT "Include Common Runtime into Build" OFF)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
                                using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
@@ -535,10 +534,6 @@ add_subdirectory(framework)
 add_subdirectory(devices)
 add_subdirectory(cl_api)
 add_subdirectory(utils)
-
-if(INCLUDE_CMRT)
-  add_subdirectory(common_runtime)
-endif(INCLUDE_CMRT)
 
 if(OPENCL_RT_INCLUDE_TESTS)
   add_subdirectory(tests)

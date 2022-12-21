@@ -128,14 +128,6 @@ if(USE_VALGRIND)
   add_subdirectory(valgrind)
 endif(USE_VALGRIND)
 
-if(INCLUDE_CMRT)
-  message(STATUS "Adding Common runtime tests ...")
-  if(NOT BUILD_X64)
-    add_subdirectory(common_runtime_test_type) # until compilation errors are
-                                               # resolved
-  endif(NOT BUILD_X64)
-endif(INCLUDE_CMRT)
-
 umbrella_lit_testsuite_end(check-ocl-runtime)
 
 set_target_properties(check-ocl-runtime PROPERTIES FOLDER "Tests")
