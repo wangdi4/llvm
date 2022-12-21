@@ -2644,7 +2644,7 @@ private:
         BlobUtils &BU = AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
         BlobTy ShiftBlob = BU.createBlob(ShiftVal, Type::getInt64Ty(Context));
 
-        unsigned BlobIndex;
+        unsigned BlobIndex = InvalidBlobIndex;
         ShiftBlob = BU.createAddBlob(MaxBlob.first, ShiftBlob,
                                      true /* insert ? */, &BlobIndex);
         MaxBlob = {ShiftBlob, BlobIndex};
@@ -3302,7 +3302,7 @@ private:
         isa<SCEVConstant>(Blob1.first) && isa<SCEVConstant>(Blob2.first);
 
     BlobUtils &BU = Bounds[0]->getBlobUtils();
-    unsigned BlobIndex;
+    unsigned BlobIndex = InvalidBlobIndex;
     BlobTy LowerBlob = IsMin ? BU.createSMinBlob(Blob1.first, Blob2.first,
                                                  !BlobsAreConstant, &BlobIndex)
                              : BU.createSMaxBlob(Blob1.first, Blob2.first,
