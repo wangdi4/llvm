@@ -20,6 +20,7 @@
 #include "llvm/IR/Instructions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include <optional>
 
 namespace llvm {
 
@@ -258,13 +259,13 @@ public:
   /// Returns an array of indices of ExtractValueInst.
   ArrayRef<unsigned> getExtractValueIndices() const {
     auto *EVI = dyn_cast<ExtractValueInst>(Inst);
-    return EVI ? EVI->getIndices() : None;
+    return EVI ? EVI->getIndices() : std::nullopt;
   }
 
   /// Returns an array of indices of InsertValueInst.
   ArrayRef<unsigned> getInsertValueIndices() const {
     auto *IVI = dyn_cast<InsertValueInst>(Inst);
-    return IVI ? IVI->getIndices() : None;
+    return IVI ? IVI->getIndices() : std::nullopt;
   }
 
   /// Returns true if \p Call only accesses inaccessible or arg memory.

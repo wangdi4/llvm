@@ -566,7 +566,7 @@ private:
   /// before \p InsertPt.
   /// \p AllocaAddrSpace specifies address space in which the memory
   /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
+  /// std::nullopt, then the address space matches the default alloca's
   /// address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
@@ -579,12 +579,12 @@ private:
   Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
       bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
-  /// If the return value is llvm::None, then the address space
+  /// If the return value is std::nullopt, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
   llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(

@@ -25,6 +25,7 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include <bitset>
+#include <optional>
 
 namespace llvm {
 
@@ -275,44 +276,46 @@ private:
   }
 
   /// Utility to get current SVA bits set for a VPInstruction in the tracking
-  /// table. Returns None if instruction does not have an entry in the table or
-  /// is not processed i.e. no bits set.
+  /// table. Returns std::nullopt if instruction does not have an entry in the
+  /// table or is not processed i.e. no bits set.
   Optional<SVABits> findSVABitsForInst(const VPInstruction *Inst) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt != VPlanSVAResults.end()) {
       if (InstIt->second.InstBits.none())
-        return None;
+        return std::nullopt;
 
       return InstIt->second.InstBits;
     }
 
-    return None;
+    return std::nullopt;
   }
 
   /// Utility to get current SVA bits set for given operand of VPInstruction in
-  /// the tracking table. Returns None if instruction or the requested operand
-  /// does not have an entry in the table or is not processed i.e. no bits set.
+  /// the tracking table. Returns std::nullopt if instruction or the requested
+  /// operand does not have an entry in the table or is not processed i.e. no
+  /// bits set.
   Optional<SVABits> findSVABitsForOperand(const VPInstruction *Inst,
                                           unsigned OpIdx) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt == VPlanSVAResults.end())
-      return None;
+      return std::nullopt;
 
     auto OperandBits = InstIt->second.OperandBits[OpIdx];
     // Results not computed/recorded for operand.
     if (OperandBits.none())
-      return None;
+      return std::nullopt;
 
     return OperandBits;
   }
 
   /// Utility to get current SVA bits set for return value of given
-  /// VPInstruction in the tracking table. Returns None if instruction does not
-  /// have an entry in the table or is not processed i.e. no bits set.
+  /// VPInstruction in the tracking table. Returns std::nullopt if
+  /// instruction does not have an entry in the table or is not
+  /// processed i.e. no bits set.
   Optional<SVABits> findSVABitsForReturnValue(const VPInstruction *Inst) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt == VPlanSVAResults.end())
-      return None;
+      return std::nullopt;
 
     SVABits InstRetValBits = InstIt->second.RetValBits;
     // Generic case where return value bits is empty, meaning it has same nature

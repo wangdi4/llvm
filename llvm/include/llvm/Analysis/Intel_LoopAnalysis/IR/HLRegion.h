@@ -20,6 +20,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 #include "llvm/IR/BasicBlock.h"
 #include <iterator>
+#include <optional>
 #include <set>
 
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
@@ -266,8 +267,9 @@ template <> struct OptReportTraits<loopopt::HLRegion> {
     return R.getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
-    return None;
+  static std::optional<std::string>
+  getOptReportTitle(const loopopt::HLRegion &R) {
+    return std::nullopt;
   }
 };
 

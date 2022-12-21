@@ -19,6 +19,7 @@
 #include <llvm/Analysis/VectorUtils.h>
 
 #include <numeric>
+#include <optional>
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
@@ -275,7 +276,7 @@ Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
     int VF, VPlanPeelingCostModel &CM) {
   if (CandidateMemrefs.empty())
-    return None;
+    return std::nullopt;
 
   // Map every collected memref to {Peeling, Profit} pair.
   auto Map = map_range(
@@ -461,7 +462,7 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
   }
 
   // Otherwise, assume no known alignment
-  return None;
+  return std::nullopt;
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(

@@ -1409,7 +1409,7 @@ public:
   /// Return Optional index for a given basic block \p Block.
   Optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
     int Idx = getBlockIndex(BB);
-    return Idx != -1 ? Optional<unsigned>(Idx) : None;
+    return Idx != -1 ? Optional<unsigned>(Idx) : std::nullopt;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1994,7 +1994,7 @@ private:
     unsigned VF = 0;
     std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
-    Optional<StringRef> VectorLibraryFn = None;
+    Optional<StringRef> VectorLibraryFn = std::nullopt;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
     // Specifies if masked version of a vector variant should be used to
@@ -2237,7 +2237,7 @@ public:
 
     VecProperties.MatchedVecVariant.reset();
     VecProperties.MatchedVecVariantIndex = 0;
-    VecProperties.VectorLibraryFn = None;
+    VecProperties.VectorLibraryFn = std::nullopt;
     VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
     VecProperties.PumpFactor = 1;
     VecProperties.UseMaskedForUnmasked = 0;
@@ -2464,7 +2464,7 @@ public:
           return B;
       }
     }
-    return None;
+    return std::nullopt;
   }
 
   /// Call argument list size.

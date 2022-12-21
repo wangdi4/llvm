@@ -20,6 +20,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -46,7 +47,7 @@ VectorType *llvm::getVectorTypeForCSVMLFunction(FunctionType *FT) {
 static Optional<CallingConv::ID>
 getCSVMLCallingConvByVectorSize(unsigned Size) {
   if (!isPowerOf2_32(Size))
-    return None;
+    return std::nullopt;
 
   if (Size <= 128)
     return CallingConv::SVML_Unified;
@@ -55,7 +56,7 @@ getCSVMLCallingConvByVectorSize(unsigned Size) {
   else if (Size == 512)
     return CallingConv::SVML_Unified_512;
 
-  return None;
+  return std::nullopt;
 }
 
 // Function names in SVML for OCLRT follows a pattern like: __ocl_svml_l9_powr2
@@ -72,7 +73,8 @@ constexpr const size_t OCL_TARGET_ID_END_POS =
 /// indicated by the function name, and the list of callee-saved registers is
 /// determined by the maximum vector length supported by that target, not the
 /// type of argument and return values.
-static Optional<CallingConv::ID> getOCLSVMLCallingConvByName(StringRef FnName) {
+static Optional<CallingConv::ID>
+getOCLSVMLCallingConvByName(StringRef FnName) {
   // Mapping between target IDs and corresponding calling conventions
   static const llvm::StringMap<CallingConv::ID> TargetIDToCallConvMap({
       // IA32
@@ -101,13 +103,13 @@ static Optional<CallingConv::ID> getOCLSVMLCallingConvByName(StringRef FnName) {
   if (!FnName.startswith("__ocl_svml_") ||
       FnName.size() <= OCL_TARGET_ID_END_POS ||
       FnName[OCL_TARGET_ID_END_POS] != '_')
-    return None;
+    return std::nullopt;
 
   StringRef TargetID =
       FnName.substr(OCL_TARGET_ID_START_POS, OCL_TARGET_ID_LENGTH);
   auto I = TargetIDToCallConvMap.find(TargetID);
   if (I == TargetIDToCallConvMap.end())
-    return None;
+    return std::nullopt;
   return I->second;
 }
 
@@ -122,7 +124,7 @@ llvm::getSVMLCallingConvByNameAndType(StringRef FnName, FunctionType *FT) {
       FnName[OCL_TARGET_ID_END_POS] == '_')
     return getOCLSVMLCallingConvByName(FnName);
 
-  return None;
+  return std::nullopt;
 }
 
 CallingConv::ID llvm::getLegacyCSVMLCallingConvFromUnified(CallingConv::ID CC) {

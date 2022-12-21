@@ -865,7 +865,7 @@ Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
                                 "novecremainder\n");
     return false;
   }
-  return None;
+  return std::nullopt;
 }
 
 bool LoopVectorizationPlanner::readDynAlignEnabled() {

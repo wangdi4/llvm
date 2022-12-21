@@ -81,6 +81,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -483,7 +484,7 @@ void CandidateInfo::fixQsortCallsites() {
                            Attrs.getRetAttrs(), NewArgAttrs);
 
     CallInst *NewCB;
-    NewCB = CallInst::Create(NFTy, NewSortFn, NewArgs, None, "", CB);
+    NewCB = CallInst::Create(NFTy, NewSortFn, NewArgs, std::nullopt, "", CB);
     NewCB->setTailCallKind(CB->getTailCallKind());
     NewCB->setCallingConv(CB->getCallingConv());
     NewCB->setDebugLoc(CB->getDebugLoc());

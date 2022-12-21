@@ -161,7 +161,7 @@ findKernelPairTofix(const FuncSet &KernelSet,
     SkipKernels.insert(K1);
   }
 
-  return None;
+  return std::nullopt;
 }
 
 static FuncPtrSet
@@ -188,7 +188,7 @@ findFunctionToClone(const CallGraph &CG, const FuncSet &KernelSet,
                     FuncPtrSet &SkipKernels) {
   auto KernelsToFix = findKernelPairTofix(KernelSet, LocalUseMap, SkipKernels);
   if (!KernelsToFix)
-    return None;
+    return std::nullopt;
 
   const CallGraphNode *N1 = CG[std::get<0>(*KernelsToFix)];
   const CallGraphNode *N2 = CG[std::get<1>(*KernelsToFix)];
@@ -200,7 +200,7 @@ findFunctionToClone(const CallGraph &CG, const FuncSet &KernelSet,
   auto FuncsShared = getFunctionsInCGNodeIf(N2, HasLocals);
   set_intersect(FuncsShared, Funcs1);
   if (FuncsShared.empty())
-    return None;
+    return std::nullopt;
 
   // Walk through N1 in reverse post-order to find the first function to clone.
   // Uses of the function in other kernels will be replaced later with cloned
@@ -215,7 +215,7 @@ findFunctionToClone(const CallGraph &CG, const FuncSet &KernelSet,
     }
   }
 
-  return None;
+  return std::nullopt;
 }
 
 /// When cloing a root function, we need to clone local variables used in the
@@ -395,8 +395,8 @@ bool DuplicateCalledKernelsPass::runImpl(Module &M, CallGraph &CG,
   }
   // Clone kernels.
   for (Function *F : KernelWorkList) {
-    std::ignore =
-        cloneFunctionAndLocalVariable(M, CG, DirectLocalUseMap, F, true, None);
+    std::ignore = cloneFunctionAndLocalVariable(M, CG, DirectLocalUseMap, F,
+                                                true, std::nullopt);
     Changed = true;
   }
 
