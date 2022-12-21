@@ -99,7 +99,7 @@ public:
                      uint64_t ElementSize, llvm::Type *ElementType,
                      dtrans::TransposeTLIType GetTLI,
                      DopeVectorInfo *DVI = nullptr,
-                     Optional<uint64_t> NestedFieldNum = None)
+                     Optional<uint64_t> NestedFieldNum = std::nullopt)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),

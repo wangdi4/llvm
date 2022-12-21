@@ -227,18 +227,18 @@ private:
   lookupDTransTypeAnnotationImpl(Annotatable &A, StringRef Name) {
     auto *MD = A.getMetadata(Name);
     if (!MD)
-      return None;
+      return std::nullopt;
 
     assert(MD->getNumOperands() == 2 && "Unexpected metadata operand count");
     auto &MDOpp0 = MD->getOperand(0);
     auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp0);
     if (!TyMD)
-      return None;
+      return std::nullopt;
 
     auto &MDOpp1 = MD->getOperand(1);
     auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
     if (!PtrLevelMD)
-      return None;
+      return std::nullopt;
 
     llvm::Type *BaseTy = TyMD->getType();
     unsigned PtrLevel =

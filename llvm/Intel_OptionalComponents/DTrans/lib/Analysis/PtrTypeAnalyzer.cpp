@@ -4875,7 +4875,7 @@ PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
   if (Entry != FlattenedGEPInfoMap.end())
     return Entry->second;
 
-  return None;
+  return std::nullopt;
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
@@ -5312,7 +5312,7 @@ bool PtrTypeAnalyzerImpl::isPointeeElementZeroAccess(
 Optional<PtrTypeAnalyzerImpl::AggregateElementPair>
 PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
   if (!Ty->isAggregateType())
-    return None;
+    return std::nullopt;
 
   DTransType *LastAggregateType = Ty;
   DTransType *NestedType = Ty;
@@ -5321,7 +5321,7 @@ PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
     if (auto *StTy = dyn_cast<DTransStructType>(NestedType)) {
       NestedType = StTy->getFieldType(0);
       if (!NestedType)
-        return None;
+        return std::nullopt;
 
       continue;
     }

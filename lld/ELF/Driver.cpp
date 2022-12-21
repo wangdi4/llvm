@@ -1976,12 +1976,12 @@ void LinkerDriver::doGNULTOLinking(
 
     // Only write stderr
     std::optional<StringRef> redirects[3];
-    redirects[0] = None;
-    redirects[1] = None;
+    redirects[0] = std::nullopt;
+    redirects[1] = std::nullopt;
     redirects[2] = gccOutMessage.str();
 
     // Execute gcc -flinker-output=nolto-rel
-    sys::ExecuteAndWait(newArgs[0], newArgs, None, redirects, 0, 0,
+    sys::ExecuteAndWait(newArgs[0], newArgs, std::nullopt, redirects, 0, 0,
       nullptr, nullptr);
 
     // Collect the buffer. We don't need to close it, MemoryBuffer reads
