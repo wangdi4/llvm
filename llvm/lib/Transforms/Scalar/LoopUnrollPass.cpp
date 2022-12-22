@@ -1141,26 +1141,12 @@ bool llvm::computeUnrollCount(
   return ExplicitUnroll;
 }
 
-<<<<<<< HEAD
-static LoopUnrollResult tryToUnrollLoop(
-    Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
-    const TargetTransformInfo &TTI, AssumptionCache &AC,
-    OptimizationRemarkEmitter &ORE,
-    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-    bool PreserveLCSSA, int OptLevel,
-    const OptReportBuilder &ORBuilder, // INTEL
-    bool OnlyWhenForced, bool ForgetAllSCEV, Optional<unsigned> ProvidedCount,
-    Optional<unsigned> ProvidedThreshold, Optional<bool> ProvidedAllowPartial,
-    Optional<bool> ProvidedRuntime, Optional<bool> ProvidedUpperBound,
-    Optional<bool> ProvidedAllowPeeling,
-    Optional<bool> ProvidedAllowProfileBasedPeeling,
-    Optional<unsigned> ProvidedFullUnrollMaxCount) {
-=======
 static LoopUnrollResult
 tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
                 const TargetTransformInfo &TTI, AssumptionCache &AC,
                 OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                 ProfileSummaryInfo *PSI, bool PreserveLCSSA, int OptLevel,
+                const OptReportBuilder &ORBuilder, // INTEL
                 bool OnlyWhenForced, bool ForgetAllSCEV,
                 std::optional<unsigned> ProvidedCount,
                 std::optional<unsigned> ProvidedThreshold,
@@ -1170,7 +1156,6 @@ tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
                 std::optional<bool> ProvidedAllowPeeling,
                 std::optional<bool> ProvidedAllowProfileBasedPeeling,
                 std::optional<unsigned> ProvidedFullUnrollMaxCount) {
->>>>>>> c178ed33bd82151f21abc3c0015c671b33556999
   LLVM_DEBUG(dbgs() << "Loop Unroll: F["
                     << L->getHeader()->getParent()->getName() << "] Loop %"
                     << L->getHeader()->getName() << "\n");

@@ -59,22 +59,13 @@ public:
 /// additional setters and then pass it to LoopUnrollPass.
 ///
 struct LoopUnrollOptions {
-<<<<<<< HEAD
-  Optional<bool> AllowPartial;
-  Optional<bool> AllowPeeling;
-  Optional<bool> AllowRuntime;
-  Optional<bool> AllowUpperBound;
-  Optional<bool> AllowProfileBasedPeeling;
-  Optional<unsigned> Threshold; // INTEL_COLLAB
-  Optional<unsigned> FullUnrollMaxCount;
-=======
   std::optional<bool> AllowPartial;
   std::optional<bool> AllowPeeling;
   std::optional<bool> AllowRuntime;
   std::optional<bool> AllowUpperBound;
   std::optional<bool> AllowProfileBasedPeeling;
+  std::optional<unsigned> Threshold; // INTEL_COLLAB
   std::optional<unsigned> FullUnrollMaxCount;
->>>>>>> c178ed33bd82151f21abc3c0015c671b33556999
   int OptLevel;
 
   /// If false, use a cost model to determine whether unrolling of a loop is
