@@ -147,6 +147,11 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   C.addCommand(std::move(Cmd));
 }
 
+bool SYCL::shouldDoPerObjectFileLinking(const Compilation &C) {
+  return !C.getArgs().hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
+                              /*default=*/true);
+}
+
 // The list should match pre-built SYCL device library files located in
 // compiler package. Once we add or remove any SYCL device library files,
 // the list should be updated accordingly.
@@ -215,14 +220,32 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
+<<<<<<< HEAD
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
       JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
     auto isSYCLDeviceLib = [&C, this](const InputInfo &II) {
+=======
+  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
+    bool IsRDC = !shouldDoPerObjectFileLinking(C);
+    auto isNoRDCDeviceCodeLink = [&](const InputInfo &II) {
+      if (IsRDC)
+        return false;
+      if (II.getType() != clang::driver::types::TY_LLVM_BC)
+        return false;
+      if (InputFiles.size() != 2)
+        return false;
+      return &II == &InputFiles[1];
+    };
+    auto isSYCLDeviceLib = [&](const InputInfo &II) {
+>>>>>>> f884993dc48dc4b9e8d348d72412c1f2d73c2978
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
       if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
           C.getDriver().IsCLMode())
         LibPostfix = ".obj";
+      else if (isNoRDCDeviceCodeLink(II))
+        LibPostfix = ".bc";
+
       std::string FileName = this->getToolChain().getInputFilename(II);
       StringRef InputFilename = llvm::sys::path::filename(FileName);
       if (this->getToolChain().getTriple().isNVPTX()) {
@@ -237,9 +260,21 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
           !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
         return false;
       // Skip the prefix "libsycl-"
-      StringRef PureLibName = InputFilename.substr(LibSyclPrefix.size());
+      std::string PureLibName =
+          InputFilename.substr(LibSyclPrefix.size()).str();
+      if (isNoRDCDeviceCodeLink(II)) {
+        // Skip the final - until the . because we linked all device libs into a
+        // single BC in a previous action so we have a temp file name.
+        auto FinalDashPos = PureLibName.find_last_of('-');
+        auto DotPos = PureLibName.find_last_of('.');
+        assert((FinalDashPos != std::string::npos &&
+                DotPos != std::string::npos) &&
+               "Unexpected filename");
+        PureLibName =
+            PureLibName.substr(0, FinalDashPos) + PureLibName.substr(DotPos);
+      }
       for (const auto &L : SYCLDeviceLibList) {
-        if (PureLibName.startswith(L))
+        if (StringRef(PureLibName).startswith(L))
           return true;
       }
       return false;
@@ -280,6 +315,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
       std::string FileName = getToolChain().getInputFilename(II);
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
@@ -293,6 +329,20 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       } else if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
 #endif // INTEL_CUSTOMIZATION
+=======
+      if (II.getType() == types::TY_Tempfilelist) {
+        if (IsRDC) {
+          // Pass the unbundled list with '@' to be processed.
+          Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
+        } else {
+          assert(InputFiles.size() == 2 &&
+                 "Unexpected inputs for no-RDC with temp file list");
+          // If we're in no-RDC mode and the input is a temp file list,
+          // we want to link multiple object files each against device libs,
+          // so we should consider this input as an object and not pass '@'.
+          Objs.push_back(C.getArgs().MakeArgString(FileName));
+        }
+>>>>>>> f884993dc48dc4b9e8d348d72412c1f2d73c2978
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(C.getArgs().MakeArgString(FileName));
       } else
