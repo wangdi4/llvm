@@ -1086,9 +1086,13 @@ pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
     for (auto it = EventList.begin(); it != EventList.end();) {
       std::scoped_lock<pi_shared_mutex> EventLock((*it)->Mutex);
       ze_result_t ZeResult =
+<<<<<<< HEAD
           (*it)->Completed
               ? ZE_RESULT_SUCCESS
               : ZE_CALL_NOCHECK(zeEventQueryStatus, ((*it)->ZeEvent));
+=======
+          (*it)->Completed ? ZE_RESULT_SUCCESS : ZE_CALL_NOCHECK(zeEventQueryStatus, ((*it)->ZeEvent));
+>>>>>>> 179ffa16a929350c86a233ebfcaadc4be2e7be5f
       // Break early as soon as we found first incomplete event because next
       // events are submitted even later. We are not trying to find all
       // completed events here because it may be costly. I.e. we are checking
