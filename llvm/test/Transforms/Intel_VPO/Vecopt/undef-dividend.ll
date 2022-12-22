@@ -1,4 +1,4 @@
-; RUN: opt -S -replace-with-math-library-functions %s | FileCheck %s
+; RUN: opt -S -passes=replace-with-math-library-functions %s | FileCheck %s
 ; CHECK: srem i32 %C, undef
 ; CHECK: srem i32 %C, poison
 

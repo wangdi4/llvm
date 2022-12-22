@@ -30,7 +30,7 @@
 ;        ret ;
 ;  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-hir-decomposer < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -disable-output -vplan-print-after-hir-decomposer < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after VPlanHIRDecomposer:
 ; CHECK:      External Defs Start:

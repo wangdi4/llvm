@@ -5,9 +5,9 @@
 ; peel/remainder loops, even if it is possible (i.e. SVML is enabled).
 
 ; With VF = 2, a variant will be matched, so we won't use SVML
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vplan-vec \
+; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' \
 ; RUN:   -vplan-enable-peeling -vplan-vec-scenario='s1;v2;v2s1' --vector-library=SVML \
-; RUN:   -disable-output -print-after=hir-vplan-vec -vplan-enable-peel-rem-strip=0 2>&1 | FileCheck %s --check-prefix=NOLIB
+; RUN:   -disable-output -vplan-enable-peel-rem-strip=0 2>&1 | FileCheck %s --check-prefix=NOLIB
 
 ; NOLIB-LABEL: + DO i1 = {{.*}} <vector-peel>
 ; NOLIB-NEXT:  |   @sincos({{.*}}, &((@sin.arr)[0][i1 + %n]), &((@cos.arr)[0][i1 + %n]))
@@ -26,9 +26,9 @@
 ; NOLIB-NEXT:  + END LOOP
 
 ; With VF = 4, no variant will match (due to ISA), so we will vectorize with SVML
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vplan-vec \
+; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' \
 ; RUN:   -vplan-enable-peeling -vplan-vec-scenario='s1;v4;v4s1' --vector-library=SVML \
-; RUN:   -disable-output -print-after=hir-vplan-vec -vplan-enable-peel-rem-strip=0 2>&1 | FileCheck %s --check-prefix=LIB
+; RUN:   -disable-output -vplan-enable-peel-rem-strip=0 2>&1 | FileCheck %s --check-prefix=LIB
 
 ; LIB-LABEL: + DO i1 = {{.*}} <vector-peel>
 ; LIB:       |   [[RES:%.*]] = @__svml_sincos1({{.*}});

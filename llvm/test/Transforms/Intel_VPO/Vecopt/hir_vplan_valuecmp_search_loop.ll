@@ -3,10 +3,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup \
-; RUN:     -hir-last-value-computation -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -print-after=hir-vplan-vec -hir-details-no-verbose-indent \
-; RUN:     -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -disable-output < %s 2>&1 | FileCheck %s
 
 ; The idiom being recognized looks like:
 
@@ -27,8 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = global [8192 x i32] zeroinitializer, align 16
 
 define i32 @_Z6searchi(i32 %v) #0 {
-; CHECK-LABEL:  *** IR Dump After vpo::VPlanDriverHIRPass ***
-; CHECK-NEXT:  Function: _Z6searchi
+; CHECK:       Function: _Z6searchi
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        %arr.base.cast = ptrtoint.i32*.i64(&((@b)[0][0]));
@@ -110,8 +106,7 @@ attributes #0 = { mustprogress nofree norecurse nosync nounwind readonly willret
 ; at least for now.
 
 define i32 @_Z6searchii(i32 %v, i32 %n) #0 {
-; CHECK-LABEL:  *** IR Dump After vpo::VPlanDriverHIRPass ***
-; CHECK-NEXT:  Function: _Z6searchii
+; CHECK:      Function: _Z6searchii
 ; CHECK-NOT:  BEGIN REGION { modified }
 entry:
   br label %land.rhs
@@ -144,8 +139,7 @@ for.end:
 ; of a pointer to the array elements.  Vectorization succeeds.
 
 define i32 @_Z6searchil(i32 %v, i64 %n) #0 {
-; CHECK-LABEL:  *** IR Dump After vpo::VPlanDriverHIRPass ***
-; CHECK-NEXT:  Function: _Z6searchil
+; CHECK:       Function: _Z6searchil
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK-NEXT:      %arr.base.cast = ptrtoint.i32*.i64(&((@b)[0][0]));
 ; CHECK-NEXT:      %alignment = %arr.base.cast  &  127;

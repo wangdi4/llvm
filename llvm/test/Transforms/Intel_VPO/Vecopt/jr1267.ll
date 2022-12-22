@@ -1,6 +1,6 @@
 ; Check that the testcase in JR1267 compiles cleanly with LV and VPlan LLVM IR vectorizer
-; RUN: opt -S -loop-vectorize %s | FileCheck %s
-; RUN: opt -S -vplan-build-vect-candidates=4 -vplan-vec -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -S -passes=loop-vectorize %s | FileCheck %s
+; RUN: opt -S -vplan-build-vect-candidates=4 -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
 ; CHECK-LABEL: vector.body
 ; ModuleID = 'jr1267.c'
 source_filename = "jr1267.c"
