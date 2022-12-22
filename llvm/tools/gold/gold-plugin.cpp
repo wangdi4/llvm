@@ -143,11 +143,7 @@ static ld_plugin_set_extra_library_path set_extra_library_path = nullptr;
 static ld_plugin_get_view get_view = nullptr;
 static bool IsExecutable = false;
 static bool SplitSections = true;
-<<<<<<< HEAD
-static std::optional<Reloc::Model> RelocationModel = std::nullopt;
-=======
 static std::optional<Reloc::Model> RelocationModel;
->>>>>>> f5deb6bf3901ff34be845e44c9ae678cbc2e3cdf
 static std::string output_name = "";
 static std::list<claimed_file> Modules;
 static DenseMap<int, void *> FDToLeaderHandle;
