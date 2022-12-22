@@ -426,10 +426,7 @@ Scheduler::~Scheduler() {
 }
 
 void Scheduler::releaseResources() {
-<<<<<<< HEAD
-=======
 #ifndef _WIN32
->>>>>>> 606f55bdc1cf3d1bf582c165a130f68790fa5c06
   if (DefaultHostQueue) {
     DefaultHostQueue->wait();
   }
@@ -449,10 +446,7 @@ void Scheduler::releaseResources() {
   // added to deferred mem obj storage. So we may end up with leak.
   while (!isDeferredMemObjectsEmpty())
     cleanupDeferredMemObjects(BlockingT::BLOCKING);
-<<<<<<< HEAD
-=======
 #endif
->>>>>>> 606f55bdc1cf3d1bf582c165a130f68790fa5c06
 }
 
 MemObjRecord *Scheduler::getMemObjRecord(const Requirement *const Req) {

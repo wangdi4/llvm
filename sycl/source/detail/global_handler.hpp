@@ -75,10 +75,7 @@ public:
   static void registerDefaultContextReleaseHandler();
 
   void unloadPlugins();
-<<<<<<< HEAD
   void releaseDefaultContexts();
-=======
->>>>>>> 606f55bdc1cf3d1bf582c165a130f68790fa5c06
   void drainThreadPool();
 
   // For testing purposes only
