@@ -41,7 +41,6 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
@@ -118,8 +117,7 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
   // may be created without handles to some analyses and in that case don't
   // depend on them.
   if (Inv.invalidate<AssumptionAnalysis>(Fn, PA) ||
-      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)) ||
-      (PV && Inv.invalidate<PhiValuesAnalysis>(Fn, PA)))
+      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)))
     return true;
 
   // Otherwise this analysis result remains valid.
@@ -1667,6 +1665,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   };
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
   if (PV) {
     // If we have PhiValues then use it to get the underlying phi values.
     const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
@@ -1718,18 +1717,25 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       // Skip the phi itself being the incoming value.
       if (PV1 == PN)
         continue;
+=======
+  SmallPtrSet<Value *, 4> UniqueSrc;
+  Value *OnePhi = nullptr;
+  for (Value *PV1 : PN->incoming_values()) {
+    // Skip the phi itself being the incoming value.
+    if (PV1 == PN)
+      continue;
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 
-      if (isa<PHINode>(PV1)) {
-        if (OnePhi && OnePhi != PV1) {
-          // To control potential compile time explosion, we choose to be
-          // conserviate when we have more than one Phi input.  It is important
-          // that we handle the single phi case as that lets us handle LCSSA
-          // phi nodes and (combined with the recursive phi handling) simple
-          // pointer induction variable patterns.
-          return AliasResult::MayAlias;
-        }
-        OnePhi = PV1;
+    if (isa<PHINode>(PV1)) {
+      if (OnePhi && OnePhi != PV1) {
+        // To control potential compile time explosion, we choose to be
+        // conserviate when we have more than one Phi input.  It is important
+        // that we handle the single phi case as that lets us handle LCSSA
+        // phi nodes and (combined with the recursive phi handling) simple
+        // pointer induction variable patterns.
+        return AliasResult::MayAlias;
       }
+<<<<<<< HEAD
 
       if (CheckForRecPhi(PV1))
         continue;
@@ -1759,13 +1765,22 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 #endif // INTEL_CUSTOMIZATION
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
+=======
+      OnePhi = PV1;
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
     }
 
-    if (OnePhi && UniqueSrc.size() > 1)
-      // Out of an abundance of caution, allow only the trivial lcssa and
-      // recursive phi cases.
-      return AliasResult::MayAlias;
+    if (CheckForRecPhi(PV1))
+      continue;
+
+    if (UniqueSrc.insert(PV1).second)
+      V1Srcs.push_back(PV1);
   }
+
+  if (OnePhi && UniqueSrc.size() > 1)
+    // Out of an abundance of caution, allow only the trivial lcssa and
+    // recursive phi cases.
+    return AliasResult::MayAlias;
 
   // If V1Srcs is empty then that means that the phi has no underlying non-phi
   // value. This should only be possible in blocks unreachable from the entry
@@ -2377,9 +2392,13 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+<<<<<<< HEAD
   auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
   return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT, PV,
                        XOL.getOptLevel()); // INTEL
+=======
+  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT);
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2395,8 +2414,11 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
+=======
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
@@ -2408,6 +2430,7 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &ACT = getAnalysis<AssumptionCacheTracker>();
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
+<<<<<<< HEAD
   auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>();
   auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
@@ -2416,6 +2439,12 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
                                  &DTWP.getDomTree(),
                                  PVWP ? &PVWP->getResult() : nullptr, // INTEL
                                  XOL.getOptLevel()));                 // INTEL
+=======
+
+  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
+                                 TLIWP.getTLI(F), ACT.getAssumptionCache(F),
+                                 &DTWP.getDomTree()));
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 
   return false;
 }
@@ -2425,8 +2454,11 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+<<<<<<< HEAD
   AU.addUsedIfAvailable<PhiValuesWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
+=======
+>>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 }
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
