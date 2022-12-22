@@ -8,8 +8,7 @@
 ; _ZN1FC2Ev: Verifies that reverse argument promotion is done for
 ;  AppendElem (_ZN7BaseArrIPsE3addEPS0_).
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
+; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" fields in "F" will be considered as candidate vector
@@ -173,738 +172,655 @@
 ;
 
 ; Make sure types are created correctly.
-; CHECK: %_DPRE_class.F = type { %struct.Mem*, %struct.Arr*, %struct.Arr.0*, %_DPRE__REP_struct.RefArr* }
-; CHECK: %_DPRE__REP_struct.RefArr = type { i8, i32, i32, i16***, %struct.Mem* }
+; CHECK: %_DPRE_class.F = type { ptr, ptr, ptr, ptr }
+; CHECK: %_DPRE__REP_struct.RefArr = type { i8, i32, i32, ptr, ptr }
 
 ; Cloned struct method is called from main.
 ; CHECK: define i32 @main()
-; CHECK: tail call void @_ZN1FC2Ev{{.*}}
-; CHECK: tail call void @_ZN1FC2ERKS_{{.*}}
+; CHECK: tail call void @_ZN1FC2Ev
+; CHECK: tail call void @_ZN1FC2ERKS_
 
 ; Make sure Ctor/AppendElem calls are replaced with CCtor/SimpleSetElem calls
-; CHECK: define internal fastcc void @_ZN1FC2ERKS_{{.*}}(%_DPRE_class.F* "intel_dtrans_func_index"="1" %0, %_DPRE_class.F* "intel_dtrans_func_index"="2" %1)
-; CHECK: tail call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}{{.*}}{{.*}}
-; CHECK: tail call fastcc void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}{{.*}}
+; CHECK: define internal fastcc void @_ZN1FC2ERKS_(ptr "intel_dtrans_func_index"="1" %arg, ptr "intel_dtrans_func_index"="2" %arg1)
+; CHECK: tail call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}
+; CHECK: tail call fastcc void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}
 ; CHECK: ret void
 
 ; Make sure argument of AppendElem is demoted.
-; CHECK: define internal void @_ZN1FC2Ev{{.*}}(
-; CHECK: %0 = alloca i16**
-; CHECK:   store i16** null, i16*** %0
-; CHECK: tail call void @_ZN7BaseArrIPsE3addEPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* %12, i16*** %0)
+; CHECK: define linkonce_odr dso_local void @_ZN1FC2Ev(
+; CHECK: %0 = alloca ptr
+; CHECK: tail call void @_ZN3ArrIPfE3addEPS0_
+; CHECK: [[LD0:%i[0-9]*]] = load ptr, ptr %f3
+; CHECK:   store ptr null, ptr %0
+; CHECK: tail call void @_ZN7BaseArrIPsE3addEPS0_{{.*}}(ptr [[LD0]], ptr %0)
 
 ; Make sure new simple SetElem function is created
-; CHECK: define internal void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}{{.*}}
-; CHECK:   %3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 3
-; CHECK:  %4 = load i16***, i16**** %3, align 8
+; CHECK: define linkonce_odr dso_local void @_ZN7BaseArrIPsE3setEjPS0_.{{[0-9]+}}.{{[0-9]+}}(ptr nocapture "intel_dtrans_func_index"="1" %0, ptr "intel_dtrans_func_index"="2" %1, i32 %2) #{{[0-9]+}} !intel.dtrans.func.type ![[FMD1:[0-9]+]]
+; CHECK:   %3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 3
+; CHECK:  %4 = load ptr, ptr %3, align 8
 ; CHECK:  %5 = zext i32 %2 to i64
-; CHECK:  %6 = getelementptr inbounds i16**, i16*** %4, i64 %5
-; CHECK:  store i16** %1, i16*** %6, align 8
-; CHECK:   ret void
-
-; Make sure new simple CCtor function is created
-; CHECK: define internal void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture "intel_dtrans_func_index"="1" %0, %_DPRE__REP_struct.RefArr* nocapture readonly "intel_dtrans_func_index"="2" %1)
-; CHECK:  %2 = getelementptr %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %1, i64 0, i32 0
-; CHECK:  %3 = load i8, i8* %2
-; CHECK:  %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 0
-; CHECK:  store i8 %3, i8* %flag
-; CHECK:  %4 = getelementptr %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %1, i64 0, i32 1
-; CHECK:  %5 = load i32, i32* %4
-; CHECK:  %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 1
-; CHECK:  store i32 %5, i32* %capacity
-; CHECK:  %6 = getelementptr %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %1, i64 0, i32 2
-; CHECK:  %7 = load i32, i32* %6
-; CHECK:  %size = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 2
-; CHECK:  store i32 %7, i32* %size
-; CHECK:  %base = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 3
-; CHECK:  %8 = getelementptr %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %1, i64 0, i32 4
-; CHECK:  %9 = load %struct.Mem*, %struct.Mem** %8
-; CHECK:  %mem3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 4
-; CHECK:  store %struct.Mem* %9, %struct.Mem** %mem3
-; CHECK:  %conv = zext i32 %5 to i64
-; CHECK:  %mul = shl nuw nsw i64 %conv, 3
-; CHECK:  %call = tail call noalias i8* @malloc(i64 %mul)
-; CHECK:  %10 = bitcast i8* %call to i16***
-; CHECK:  store i16*** %10, i16**** %base
-; CHECK:  tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+; CHECK:  %6 = getelementptr inbounds ptr, ptr %4, i64 %5
+; CHECK:  store ptr %1, ptr %6, align 8
 ; CHECK:  ret void
 
-;
-; Check IR for OP:
-;
-; Make sure types are created correctly.
-; CHECK-OP: %_DPRE_class.F = type { ptr, ptr, ptr, ptr }
-; CHECK-OP: %_DPRE__REP_struct.RefArr = type { i8, i32, i32, ptr, ptr }
-
-; Cloned struct method is called from main.
-; CHECK-OP: define i32 @main()
-; CHECK-OP: tail call void @_ZN1FC2Ev
-; CHECK-OP: tail call void @_ZN1FC2ERKS_
-
-; Make sure Ctor/AppendElem calls are replaced with CCtor/SimpleSetElem calls
-; CHECK-OP: define internal fastcc void @_ZN1FC2ERKS_(ptr "intel_dtrans_func_index"="1" %0, ptr "intel_dtrans_func_index"="2" %1)
-; CHECK-OP: tail call void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}
-; CHECK-OP: tail call fastcc void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}
-; CHECK-OP: ret void
-
-; Make sure argument of AppendElem is demoted.
-; CHECK-OP: define linkonce_odr dso_local void @_ZN1FC2Ev(
-; CHECK-OP: %0 = alloca ptr
-; CHECK-OP: tail call void @_ZN3ArrIPfE3addEPS0_
-; CHECK-OP: [[LD0:%[0-9]*]] = load ptr, ptr %f3
-; CHECK-OP:   store ptr null, ptr %0
-; CHECK-OP: tail call void @_ZN7BaseArrIPsE3addEPS0_{{.*}}(ptr [[LD0]], ptr %0)
-
-; Make sure new simple SetElem function is created
-; CHECK-OP: define linkonce_odr dso_local void @_ZN7BaseArrIPsE3setEjPS0_.{{[0-9]+}}.{{[0-9]+}}(ptr nocapture "intel_dtrans_func_index"="1" %0, ptr "intel_dtrans_func_index"="2" %1, i32 %2) #{{[0-9]+}} !intel.dtrans.func.type ![[FMD1:[0-9]+]]
-; CHECK-OP:   %3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 3
-; CHECK-OP:  %4 = load ptr, ptr %3, align 8
-; CHECK-OP:  %5 = zext i32 %2 to i64
-; CHECK-OP:  %6 = getelementptr inbounds ptr, ptr %4, i64 %5
-; CHECK-OP:  store ptr %1, ptr %6, align 8
-; CHECK-OP:  ret void
-
 ; Make sure new simple CCtor function is created
-; CHECK-OP: define linkonce_odr dso_local void @_ZN7BaseArrIPsEC2EjbP3Mem.{{[0-9]+}}.{{[0-9]+}}.{{[0-9]+}}(ptr nocapture "intel_dtrans_func_index"="1" %0, ptr nocapture readonly "intel_dtrans_func_index"="2" %1) #{{[0-9]+}} !intel.dtrans.func.type ![[FMD2:[0-9]+]]
-; CHECK-OP:  %2 = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 0
-; CHECK-OP:  %3 = load i8, ptr %2
-; CHECK-OP:  %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 0
-; CHECK-OP:  store i8 %3, ptr %flag
-; CHECK-OP:  %4 = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 1
-; CHECK-OP:  [[LD3:%[0-9]*]] = load i32, ptr %4
-; CHECK-OP:  %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 1
-; CHECK-OP:  store i32 %5, ptr %capacity
-; CHECK-OP:  [[G0:%[0-9]*]] = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 2
-; CHECK-OP:  [[LD1:%[0-9]*]] = load i32, ptr [[G0]]
-; CHECK-OP:  %size = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 2
-; CHECK-OP:  store i32 [[LD1]], ptr %size
-; CHECK-OP:  %base = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 3
-; CHECK-OP:  [[G1:%[0-9]*]] = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 4
-; CHECK-OP:  [[LD2:%[0-9]*]] = load ptr, ptr [[G1]]
-; CHECK-OP:  %mem3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 4
-; CHECK-OP:  store ptr [[LD2]], ptr %mem3
-; CHECK-OP:  %conv = zext i32 [[LD3]] to i64
-; CHECK-OP:  %mul = shl nuw nsw i64 %conv, 3
-; CHECK-OP:  %call = tail call noalias ptr @malloc(i64 %mul)
-; CHECK-OP:  store ptr %call, ptr %base
-; CHECK-OP:  tail call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
-; CHECK-OP:  ret void
+; CHECK: define linkonce_odr dso_local void @_ZN7BaseArrIPsEC2EjbP3Mem.{{[0-9]+}}.{{[0-9]+}}.{{[0-9]+}}(ptr nocapture "intel_dtrans_func_index"="1" %0, ptr nocapture readonly "intel_dtrans_func_index"="2" %1) #{{[0-9]+}} !intel.dtrans.func.type ![[FMD2:[0-9]+]]
+; CHECK:  %2 = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 0
+; CHECK:  %3 = load i8, ptr %2
+; CHECK:  %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 0
+; CHECK:  store i8 %3, ptr %flag
+; CHECK:  %4 = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 1
+; CHECK:  [[LD3:%[0-9]*]] = load i32, ptr %4
+; CHECK:  %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 1
+; CHECK:  store i32 %5, ptr %capacity
+; CHECK:  [[G0:%[0-9]*]] = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 2
+; CHECK:  [[LD1:%[0-9]*]] = load i32, ptr [[G0]]
+; CHECK:  %size = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 2
+; CHECK:  store i32 [[LD1]], ptr %size
+; CHECK:  %base = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 3
+; CHECK:  [[G1:%[0-9]*]] = getelementptr %_DPRE__REP_struct.RefArr, ptr %1, i64 0, i32 4
+; CHECK:  [[LD2:%[0-9]*]] = load ptr, ptr [[G1]]
+; CHECK:  %mem3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, ptr %0, i64 0, i32 4
+; CHECK:  store ptr [[LD2]], ptr %mem3
+; CHECK:  %conv = zext i32 [[LD3]] to i64
+; CHECK:  %mul = shl nuw nsw i64 %conv, 3
+; CHECK:  %call = tail call noalias ptr @malloc(i64 %mul)
+; CHECK:  store ptr %call, ptr %base
+; CHECK:  tail call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
+; CHECK:  ret void
 
-; CHECK-OP: ![[S1:[0-9]+]] = !{%struct.Mem zeroinitializer, i32 1}
-; CHECK-OP: ![[S2:[0-9]+]] = !{%_DPRE__REP_struct.RefArr zeroinitializer, i32 1}
-; CHECK-OP: ![[M1:[0-9]+]] = !{i32 0, i32 0}
-; CHECK-OP: ![[M2:[0-9]+]] = !{i8 0, i32 0}
-; CHECK-OP: ![[M3:[0-9]+]] = !{i16 0, i32 3}
-; CHECK-OP: !{!"S", %_DPRE__REP_struct.RefArr zeroinitializer, i32 5, ![[M2]], ![[M1]], ![[M1]], ![[M3]], ![[S1]]}
-; CHECK-OP: ![[M4:[0-9]+]] = !{i16 0, i32 2}
-; CHECK-OP: ![[FMD1]] = distinct !{![[S2]], ![[M4]]}
-; CHECK-OP: ![[FMD2]] = distinct !{![[S2]], ![[S2]]}
+; CHECK: ![[S1:[0-9]+]] = !{%struct.Mem zeroinitializer, i32 1}
+; CHECK: ![[S2:[0-9]+]] = !{%_DPRE__REP_struct.RefArr zeroinitializer, i32 1}
+; CHECK: ![[M1:[0-9]+]] = !{i32 0, i32 0}
+; CHECK: ![[M2:[0-9]+]] = !{i8 0, i32 0}
+; CHECK: ![[M3:[0-9]+]] = !{i16 0, i32 3}
+; CHECK: !{!"S", %_DPRE__REP_struct.RefArr zeroinitializer, i32 5, ![[M2]], ![[M1]], ![[M1]], ![[M3]], ![[S1]]}
+; CHECK: ![[M4:[0-9]+]] = !{i16 0, i32 2}
+; CHECK: ![[FMD1]] = distinct !{![[S2]], ![[M4]]}
+; CHECK: ![[FMD2]] = distinct !{![[S2]], ![[S2]]}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%class.F = type { %struct.Mem*, %struct.Arr*, %struct.Arr.0*, %struct.RefArr* }
-%struct.Mem = type { i32 (...)** }
-%struct.Arr = type { i8, i32, i32, i32***, %struct.Mem* }
-%struct.Arr.0 = type { i8, i32, i32, float***, %struct.Mem* }
+%class.F = type { ptr, ptr, ptr, ptr }
+%struct.Arr = type { i8, i32, i32, ptr, ptr }
+%struct.Arr.0 = type { i8, i32, i32, ptr, ptr }
 %struct.RefArr = type { %struct.BaseArr }
-%struct.BaseArr = type { i32 (...)**, i8, i32, i32, i16***, %struct.Mem* }
+%struct.BaseArr = type { ptr, i8, i32, i32, ptr, ptr }
+%struct.Mem = type { ptr }
+
+$_ZTV6RefArrIPsE = comdat any
+
+$_ZTS6RefArrIPsE = comdat any
 
 $_ZTS7BaseArrIPsE = comdat any
-$_ZTS6RefArrIPsE = comdat any
-$_ZTV6RefArrIPsE = comdat any
+
 $_ZTI6RefArrIPsE = comdat any
-$_ZTV7BaseArrIPsE = comdat any
+
 $_ZTI7BaseArrIPsE = comdat any
 
-@_ZTV6RefArrIPsE = linkonce_odr dso_local unnamed_addr constant { [5 x i8*] } { [5 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI6RefArrIPsE to i8*), i8* bitcast (void (%struct.RefArr*)* @_ZN6RefArrIPsED2Ev to i8*), i8* bitcast (void (%struct.RefArr*)* @_ZN6RefArrIPsED0Ev to i8*), i8* bitcast (void (%struct.BaseArr*, i16**, i32)* @_ZN7BaseArrIPsE3setEjPS0_ to i8*)] }, comdat, align 8, !intel_dtrans_type !0
+$_ZTV7BaseArrIPsE = comdat any
+
+@_ZTV6RefArrIPsE = linkonce_odr dso_local unnamed_addr constant { [5 x ptr] } { [5 x ptr] [ptr null, ptr @_ZTI6RefArrIPsE, ptr @_ZN6RefArrIPsED2Ev, ptr @_ZN6RefArrIPsED0Ev, ptr @_ZN7BaseArrIPsE3setEjPS0_] }, comdat, align 8, !intel_dtrans_type !0
 @_ZTS6RefArrIPsE = linkonce_odr dso_local constant [12 x i8] c"6RefArrIPsE\00", comdat, align 1
 @_ZTS7BaseArrIPsE = linkonce_odr dso_local constant [13 x i8] c"7BaseArrIPsE\00", comdat, align 1
-@_ZTI6RefArrIPsE = linkonce_odr dso_local constant { i8*, i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** null, i64 2) to i8*), i8* getelementptr inbounds ([12 x i8], [12 x i8]* @_ZTS6RefArrIPsE, i32 0, i32 0), i8* bitcast ({ i8*, i8* }* @_ZTI7BaseArrIPsE to i8*) }, comdat, align 8, !intel_dtrans_type !4
-@_ZTI7BaseArrIPsE = linkonce_odr dso_local constant { i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** null, i64 2) to i8*), i8* getelementptr inbounds ([13 x i8], [13 x i8]* @_ZTS7BaseArrIPsE, i32 0, i32 0) }, comdat, align 8, !intel_dtrans_type !3
-@_ZTV7BaseArrIPsE = linkonce_odr dso_local unnamed_addr constant { [5 x i8*] } { [5 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @_ZTI7BaseArrIPsE to i8*), i8* bitcast (void (%struct.BaseArr*)* @_ZN7BaseArrIPsED2Ev to i8*), i8* bitcast (void (%struct.BaseArr*)* @_ZN7BaseArrIPsED0Ev to i8*), i8* bitcast (void (%struct.BaseArr*, i16**, i32)* @_ZN7BaseArrIPsE3setEjPS0_ to i8*)] }, comdat, align 8, !intel_dtrans_type !0
+@_ZTI6RefArrIPsE = linkonce_odr dso_local constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr null, i64 2), ptr @_ZTS6RefArrIPsE, ptr @_ZTI7BaseArrIPsE }, comdat, align 8, !intel_dtrans_type !3
+@_ZTI7BaseArrIPsE = linkonce_odr dso_local constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr null, i64 2), ptr @_ZTS7BaseArrIPsE }, comdat, align 8, !intel_dtrans_type !4
+@_ZTV7BaseArrIPsE = linkonce_odr dso_local unnamed_addr constant { [5 x ptr] } { [5 x ptr] [ptr null, ptr @_ZTI7BaseArrIPsE, ptr @_ZN7BaseArrIPsED2Ev, ptr @_ZN7BaseArrIPsED0Ev, ptr @_ZN7BaseArrIPsE3setEjPS0_] }, comdat, align 8, !intel_dtrans_type !0
 
 define i32 @main() {
 entry:
-  %call = call i8* @_Znwm(i64 32)
-  %0 = bitcast i8* %call to %class.F*
-  tail call void @_ZN1FC2Ev(%class.F* %0)
-  %call1 = call i8* @_Znwm(i64 32)
-  %1 = bitcast i8* %call1 to %class.F*
-  tail call void @_ZN1FC2ERKS_(%class.F* %1, %class.F* %0)
+  %call = call ptr @_Znwm(i64 32)
+  tail call void @_ZN1FC2Ev(ptr %call)
+  %call1 = call ptr @_Znwm(i64 32)
+  tail call void @_ZN1FC2ERKS_(ptr %call1, ptr %call)
   ret i32 0
 }
 
-define internal fastcc void @_ZN1FC2ERKS_(%class.F* "intel_dtrans_func_index"="1" %0, %class.F* "intel_dtrans_func_index"="2" %1) !intel.dtrans.func.type !75 {
-  %3 = getelementptr inbounds %class.F, %class.F* %1, i64 0, i32 3
-  %4 = bitcast %struct.RefArr** %3 to %struct.BaseArr**
-  %5 = load %struct.BaseArr*, %struct.BaseArr** %4
-  %6 = bitcast %struct.RefArr** %3 to %struct.BaseArr**
-  %7 = bitcast %struct.RefArr** %3 to %struct.BaseArr**
-  %8 = tail call fastcc i32 @_ZN7BaseArrIPsE7getSizeEv(%struct.BaseArr* %5)
-  %9 = tail call i8* @_Znwm(i64 32)
-  %10 = bitcast i8* %9 to %struct.Arr*
-  %11 = getelementptr inbounds %class.F, %class.F* %0, i64 0, i32 1
-  %12 = load %struct.Arr*, %struct.Arr** %11
-  tail call fastcc void @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %10, %struct.Arr* %12)
-  %13 = bitcast i8* %9 to %struct.Arr*
-  store %struct.Arr* %10, %struct.Arr** %11
-  %14 = tail call i8* @_Znwm(i64 32)
-  %15 = bitcast i8* %14 to %struct.Arr.0*
-  %16 = getelementptr inbounds %class.F, %class.F* %0, i64 0, i32 2
-  %17 = load %struct.Arr.0*, %struct.Arr.0** %16
-  tail call fastcc void @_ZN3ArrIPfEC2ERKS1_(%struct.Arr.0* %15, %struct.Arr.0* %17)
-  %18 = bitcast %struct.Arr.0** %16 to i8**
-  store %struct.Arr.0* %15, %struct.Arr.0** %16
-  %19 = tail call i8* @_Znwm(i64 40)
-  %20 = bitcast i8* %19 to %struct.RefArr*
-  %21 = getelementptr inbounds %class.F, %class.F* %1, i64 0, i32 0
-  %22 = load %struct.Mem*, %struct.Mem** %21
-  tail call fastcc void @_ZN6RefArrIPsEC2EjbP3Mem(%struct.RefArr* %20, i32 %8, i1 zeroext true, %struct.Mem* %22)
-  %23 = getelementptr inbounds %class.F, %class.F* %0, i64 0, i32 3
-  %24 = bitcast %struct.RefArr** %23 to %struct.BaseArr**
-   br label %ztt
+define internal fastcc void @_ZN1FC2ERKS_(ptr "intel_dtrans_func_index"="1" %arg, ptr "intel_dtrans_func_index"="2" %arg1) !intel.dtrans.func.type !23 {
+bb:
+  %i = getelementptr inbounds %class.F, ptr %arg1, i64 0, i32 3
+  %i3 = load ptr, ptr %i, align 8
+  %i6 = tail call fastcc i32 @_ZN7BaseArrIPsE7getSizeEv(ptr %i3)
+  %i7 = tail call ptr @_Znwm(i64 32)
+  %i9 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 1
+  %i10 = load ptr, ptr %i9, align 8
+  tail call fastcc void @_ZN3ArrIPiEC2ERKS1_(ptr %i7, ptr %i10)
+  store ptr %i7, ptr %i9, align 8
+  %i12 = tail call ptr @_Znwm(i64 32)
+  %i14 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 2
+  %i15 = load ptr, ptr %i14, align 8
+  tail call fastcc void @_ZN3ArrIPfEC2ERKS1_(ptr %i12, ptr %i15)
+  store ptr %i12, ptr %i14, align 8
+  %i17 = tail call ptr @_Znwm(i64 40)
+  %i19 = getelementptr inbounds %class.F, ptr %arg1, i64 0, i32 0
+  %i20 = load ptr, ptr %i19, align 8
+  tail call fastcc void @_ZN6RefArrIPsEC2EjbP3Mem(ptr %i17, i32 %i6, i1 zeroext true, ptr %i20)
+  %i21 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 3
+  br label %ztt
 
-ztt:                                              ; preds = %2
-  store %struct.RefArr* %20, %struct.RefArr** %23
-  %25 = icmp eq i32 %8, 0
-  br i1 %25, label %33, label %pre
+ztt:                                              ; preds = %bb
+  store ptr %i17, ptr %i21, align 8
+  %i23 = icmp eq i32 %i6, 0
+  br i1 %i23, label %bb31, label %pre
 
-pre:
-  br label %26
+pre:                                              ; preds = %ztt
+  br label %bb24
 
-26:                                               ; preds = %26, %pre
-  %27 = phi i32 [ %31, %26 ], [ 0, %pre]
-  %28 = load %struct.BaseArr*, %struct.BaseArr** %24
-  %29 = load %struct.BaseArr*, %struct.BaseArr** %4
-  %30 = tail call fastcc i16** @_ZN7BaseArrIPsE3getEj(%struct.BaseArr* %29, i32 %27)
-  tail call fastcc void @_ZN7BaseArrIPsE3addEPS0_(%struct.BaseArr* %28, i16** %30)
-  %31 = add nuw i32 %27, 1
-  %32 = icmp eq i32 %31, %8
-  br i1 %32, label %33, label %26
+bb24:                                             ; preds = %bb24, %pre
+  %i25 = phi i32 [ %i29, %bb24 ], [ 0, %pre ]
+  %i26 = load ptr, ptr %i21, align 8
+  %i27 = load ptr, ptr %i, align 8
+  %i28 = tail call fastcc ptr @_ZN7BaseArrIPsE3getEj(ptr %i27, i32 %i25)
+  tail call fastcc void @_ZN7BaseArrIPsE3addEPS0_(ptr %i26, ptr %i28)
+  %i29 = add nuw i32 %i25, 1
+  %i30 = icmp eq i32 %i29, %i6
+  br i1 %i30, label %bb31, label %bb24
 
-33:                                               ; preds = %26, %ztt
+bb31:                                             ; preds = %bb24, %ztt
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN1FC2Ev(%class.F* "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !29 {
+define linkonce_odr dso_local void @_ZN1FC2Ev(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !25 {
 entry:
-  %call = tail call i8* @_Znwm(i64 32)
-  %0 = bitcast i8* %call to %struct.Arr*
-  tail call void @_ZN3ArrIPiEC2EjP3Mem(%struct.Arr* %0, i32 10, %struct.Mem* null)
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %1 = bitcast %struct.Arr** %f1 to i8**
-  store %struct.Arr* %0, %struct.Arr** %f1
-  %call2 = tail call i8* @_Znwm(i64 32)
-  %2 = bitcast i8* %call2 to %struct.Arr.0*
-  tail call void @_ZN3ArrIPfEC2EjP3Mem(%struct.Arr.0* nonnull %2, i32 10, %struct.Mem* null)
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 2
-  %3 = bitcast %struct.Arr.0** %f2 to i8**
-  store %struct.Arr.0* %2, %struct.Arr.0** %f2
-  %call5 = tail call i8* @_Znwm(i64 40)
-  %4 = bitcast i8* %call5 to %struct.RefArr*
-  %g1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %ld1 = load %struct.Mem*, %struct.Mem** %g1
-  tail call void @_ZN6RefArrIPsEC2EjbP3Mem(%struct.RefArr* nonnull %4, i32 10, i1 zeroext true, %struct.Mem* %ld1)
+  %call = tail call ptr @_Znwm(i64 32)
+  tail call void @_ZN3ArrIPiEC2EjP3Mem(ptr %call, i32 10, ptr null)
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  store ptr %call, ptr %f1, align 8
+  %call2 = tail call ptr @_Znwm(i64 32)
+  tail call void @_ZN3ArrIPfEC2EjP3Mem(ptr nonnull %call2, i32 10, ptr null)
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 2
+  store ptr %call2, ptr %f2, align 8
+  %call5 = tail call ptr @_Znwm(i64 40)
+  %g1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  %ld1 = load ptr, ptr %g1, align 8
+  tail call void @_ZN6RefArrIPsEC2EjbP3Mem(ptr nonnull %call5, i32 10, i1 zeroext true, ptr %ld1)
   br label %invoke.cont7
 
 invoke.cont7:                                     ; preds = %entry
-  %f3 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 3
-  %5 = bitcast %struct.RefArr** %f3 to i8**
-  store %struct.RefArr* %4, %struct.RefArr** %f3
-  %6 = load %struct.Arr*, %struct.Arr** %f1
-  %call9 = tail call i32** @_ZN3ArrIPiE3getEj(%struct.Arr* %6, i32 1)
-  %7 = load %struct.Arr.0*, %struct.Arr.0** %f2
-  %call11 = tail call float** @_ZN3ArrIPfE3getEj(%struct.Arr.0* %7, i32 1)
-  %8 = bitcast %struct.RefArr** %f3 to %struct.BaseArr**
-  %9 = load %struct.BaseArr*, %struct.BaseArr** %8
-  %call13 = tail call i16** @_ZN7BaseArrIPsE3getEj(%struct.BaseArr* %9, i32 1)
-  %10 = load %struct.Arr*, %struct.Arr** %f1
-  tail call void @_ZN3ArrIPiE3setEjPS0_(%struct.Arr* %10, i32** %call9, i32 0)
-  %11 = load %struct.Arr.0*, %struct.Arr.0** %f2
-  tail call void @_ZN3ArrIPfE3setEjPS0_(%struct.Arr.0* %11, float** %call11, i32 0)
-  %12 = load %struct.BaseArr*, %struct.BaseArr** %8
-  %13 = bitcast %struct.BaseArr* %12 to void (%struct.BaseArr*, i32, i16**)***
-  %vtable = load void (%struct.BaseArr*, i32, i16**)**, void (%struct.BaseArr*, i32, i16**)*** %13
-  %vfn = getelementptr inbounds void (%struct.BaseArr*, i32, i16**)*, void (%struct.BaseArr*, i32, i16**)** %vtable, i64 2
-  %14 = load void (%struct.BaseArr*, i32, i16**)*, void (%struct.BaseArr*, i32, i16**)** %vfn
-  tail call void @_ZN7BaseArrIPsE3setEjPS0_(%struct.BaseArr* %12, i16** %call13, i32 0)
-  %15 = load %struct.Arr*, %struct.Arr** %f1
-  tail call void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* %15, i32** null)
-  %16 = load %struct.Arr.0*, %struct.Arr.0** %f2
-  tail call void @_ZN3ArrIPfE3addEPS0_(%struct.Arr.0* %16, float** null)
-  %17 = load %struct.BaseArr*, %struct.BaseArr** %8
-  tail call void @_ZN7BaseArrIPsE3addEPS0_(%struct.BaseArr* %17, i16** null)
-  %18 = load %struct.Arr*, %struct.Arr** %f1
-  %call21 = tail call i32 @_ZN3ArrIPiE7getSizeEv(%struct.Arr* %18)
-  %19 = load %struct.Arr.0*, %struct.Arr.0** %f2
-  %call23 = tail call i32 @_ZN3ArrIPfE7getSizeEv(%struct.Arr.0* %19)
-  %20 = load %struct.BaseArr*, %struct.BaseArr** %8
-  %call25 = tail call i32 @_ZN7BaseArrIPsE7getSizeEv(%struct.BaseArr* %20)
-  %21 = load %struct.Arr*, %struct.Arr** %f1
-  %call27 = tail call i32 @_ZN3ArrIPiE11getCapacityEv(%struct.Arr* %21)
-  %22 = load %struct.Arr*, %struct.Arr** %f1
-  tail call void @_ZN3ArrIPiED2Ev(%struct.Arr* nonnull %22)
-  %23 = getelementptr inbounds %struct.Arr, %struct.Arr* %22, i64 0, i32 0
-  tail call void @_ZdlPv(i8* %23)
+  %f3 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 3
+  store ptr %call5, ptr %f3, align 8
+  %i6 = load ptr, ptr %f1, align 8
+  %call9 = tail call ptr @_ZN3ArrIPiE3getEj(ptr %i6, i32 1)
+  %i7 = load ptr, ptr %f2, align 8
+  %call11 = tail call ptr @_ZN3ArrIPfE3getEj(ptr %i7, i32 1)
+  %i9 = load ptr, ptr %f3, align 8
+  %call13 = tail call ptr @_ZN7BaseArrIPsE3getEj(ptr %i9, i32 1)
+  %i10 = load ptr, ptr %f1, align 8
+  tail call void @_ZN3ArrIPiE3setEjPS0_(ptr %i10, ptr %call9, i32 0)
+  %i11 = load ptr, ptr %f2, align 8
+  tail call void @_ZN3ArrIPfE3setEjPS0_(ptr %i11, ptr %call11, i32 0)
+  %i12 = load ptr, ptr %f3, align 8
+  %vtable = load ptr, ptr %i12, align 8
+  %vfn = getelementptr inbounds ptr, ptr %vtable, i64 2
+  %i14 = load ptr, ptr %vfn, align 8
+  tail call void @_ZN7BaseArrIPsE3setEjPS0_(ptr %i12, ptr %call13, i32 0)
+  %i15 = load ptr, ptr %f1, align 8
+  tail call void @_ZN3ArrIPiE3addEPS0_(ptr %i15, ptr null)
+  %i16 = load ptr, ptr %f2, align 8
+  tail call void @_ZN3ArrIPfE3addEPS0_(ptr %i16, ptr null)
+  %i17 = load ptr, ptr %f3, align 8
+  tail call void @_ZN7BaseArrIPsE3addEPS0_(ptr %i17, ptr null)
+  %i18 = load ptr, ptr %f1, align 8
+  %call21 = tail call i32 @_ZN3ArrIPiE7getSizeEv(ptr %i18)
+  %i19 = load ptr, ptr %f2, align 8
+  %call23 = tail call i32 @_ZN3ArrIPfE7getSizeEv(ptr %i19)
+  %i20 = load ptr, ptr %f3, align 8
+  %call25 = tail call i32 @_ZN7BaseArrIPsE7getSizeEv(ptr %i20)
+  %i21 = load ptr, ptr %f1, align 8
+  %call27 = tail call i32 @_ZN3ArrIPiE11getCapacityEv(ptr %i21)
+  %i22 = load ptr, ptr %f1, align 8
+  tail call void @_ZN3ArrIPiED2Ev(ptr nonnull %i22)
+  %i23 = getelementptr inbounds %struct.Arr, ptr %i22, i64 0, i32 0
+  tail call void @_ZdlPv(ptr %i23)
   br label %delete.end
 
-delete.end:                                       ; preds = %delete.notnull, %for.cond.cleanup
-  %24 = load %struct.Arr.0*, %struct.Arr.0** %f2
-  %isnull49 = icmp eq %struct.Arr.0* %24, null
+delete.end:                                       ; preds = %invoke.cont7
+  %i24 = load ptr, ptr %f2, align 8
+  %isnull49 = icmp eq ptr %i24, null
   br i1 %isnull49, label %delete.end51, label %delete.notnull50
 
-
 delete.notnull50:                                 ; preds = %delete.end
-  tail call void @_ZN3ArrIPfED2Ev(%struct.Arr.0* nonnull %24)
-  %25 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %24, i64 0, i32 0
-  tail call void @_ZdlPv(i8* %25)
+  tail call void @_ZN3ArrIPfED2Ev(ptr nonnull %i24)
+  %i25 = getelementptr inbounds %struct.Arr.0, ptr %i24, i64 0, i32 0
+  tail call void @_ZdlPv(ptr %i25)
   br label %delete.end51
 
 delete.end51:                                     ; preds = %delete.notnull50, %delete.end
-  %26 = load %struct.RefArr*, %struct.RefArr** %f3
-  %isnull53 = icmp eq %struct.RefArr* %26, null
+  %i26 = load ptr, ptr %f3, align 8
+  %isnull53 = icmp eq ptr %i26, null
   br i1 %isnull53, label %delete.end57, label %delete.notnull54
 
 delete.notnull54:                                 ; preds = %delete.end51
-  %27 = bitcast %struct.RefArr* %26 to void (%struct.RefArr*)***
-  %vtable55 = load void (%struct.RefArr*)**, void (%struct.RefArr*)*** %27
-  %vfn56 = getelementptr inbounds void (%struct.RefArr*)*, void (%struct.RefArr*)** %vtable55, i64 1
-  %28 = load void (%struct.RefArr*)*, void (%struct.RefArr*)** %vfn56
-  tail call void @_ZN6RefArrIPsED0Ev(%struct.RefArr* nonnull %26)
+  %vtable55 = load ptr, ptr %i26, align 8
+  %vfn56 = getelementptr inbounds ptr, ptr %vtable55, i64 1
+  %i28 = load ptr, ptr %vfn56, align 8
+  tail call void @_ZN6RefArrIPsED0Ev(ptr nonnull %i26)
   br label %delete.end57
 
 delete.end57:                                     ; preds = %delete.notnull54, %delete.end51
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiEC2EjP3Mem(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !40 {
+define linkonce_odr dso_local void @_ZN3ArrIPiEC2EjP3Mem(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !26 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPfEC2EjP3Mem(%struct.Arr.0* "intel_dtrans_func_index"="1" nocapture %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !41 {
+define linkonce_odr dso_local void @_ZN3ArrIPfEC2EjP3Mem(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !27 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN6RefArrIPsEC2EjbP3Mem(%struct.RefArr*  nocapture "intel_dtrans_func_index"="1" %this, i32 %c, i1 %adoptE, %struct.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !42 {
+define linkonce_odr dso_local void @_ZN6RefArrIPsEC2EjbP3Mem(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %c, i1 %adoptE, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !28 {
 entry:
-  %0 = getelementptr inbounds %struct.RefArr, %struct.RefArr* %this, i64 0, i32 0
-  tail call void @_ZN7BaseArrIPsEC2EjbP3Mem(%struct.BaseArr* %0, i32 %c, i1 zeroext %adoptE, %struct.Mem* %mem)
-  %1 = getelementptr inbounds %struct.RefArr, %struct.RefArr* %this, i64 0, i32 0, i32 0
-  store i32 (...)** bitcast (i8** getelementptr inbounds ({ [5 x i8*] }, { [5 x i8*] }* @_ZTV6RefArrIPsE, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** %1
+  %i = getelementptr inbounds %struct.RefArr, ptr %this, i64 0, i32 0
+  tail call void @_ZN7BaseArrIPsEC2EjbP3Mem(ptr %i, i32 %c, i1 zeroext %adoptE, ptr %mem)
+  %i1 = getelementptr inbounds %struct.RefArr, ptr %this, i64 0, i32 0, i32 0
+  store ptr getelementptr inbounds ({ [5 x ptr] }, ptr @_ZTV6RefArrIPsE, i64 0, inrange i32 0, i64 2), ptr %i1, align 8
   ret void
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" i32** @_ZN3ArrIPiE3getEj(%struct.Arr* nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !43 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @_ZN3ArrIPiE3getEj(ptr nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !29 {
 entry:
-  ret i32** null
+  ret ptr null
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" float** @_ZN3ArrIPfE3getEj(%struct.Arr.0* nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !44 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @_ZN3ArrIPfE3getEj(ptr nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !31 {
 entry:
-  ret float** null
+  ret ptr null
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" i16** @_ZN7BaseArrIPsE3getEj(%struct.BaseArr* nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !45 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @_ZN7BaseArrIPsE3getEj(ptr nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !33 {
 entry:
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  %0 = load i32, i32* %size
-  %cmp = icmp ugt i32 %0, %i
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  %i1 = load i32, ptr %size, align 4
+  %cmp = icmp ugt i32 %i1, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow() #12
+  tail call void @__cxa_rethrow()
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %1 = load i16***, i16**** %base
+  %base = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i2 = load ptr, ptr %base, align 8
   %idxprom = zext i32 %i to i64
-  %arrayidx = getelementptr inbounds i16**, i16*** %1, i64 %idxprom
-  %2 = load i16**, i16*** %arrayidx
-  ret i16** %2
+  %arrayidx = getelementptr inbounds ptr, ptr %i2, i64 %idxprom
+  %i3 = load ptr, ptr %arrayidx, align 8
+  ret ptr %i3
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiE3setEjPS0_(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32** "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !46 {
+define linkonce_odr dso_local void @_ZN3ArrIPiE3setEjPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !36 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPfE3setEjPS0_(%struct.Arr.0* nocapture  "intel_dtrans_func_index"="1" %this, float** "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !47 {
+define linkonce_odr dso_local void @_ZN3ArrIPfE3setEjPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !37 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !48 {
+define linkonce_odr dso_local void @_ZN3ArrIPiE3addEPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !38 {
 entry:
-  tail call void @_ZN3ArrIPiE6resizeEi(%struct.Arr* %this, i32 1)
+  tail call void @_ZN3ArrIPiE6resizeEi(ptr %this, i32 1)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPfE3addEPS0_(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, float** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !49 {
+define linkonce_odr dso_local void @_ZN3ArrIPfE3addEPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !39 {
 entry:
-  tail call void @_ZN3ArrIPfE6resizeEi(%struct.Arr.0* %this, i32 1)
+  tail call void @_ZN3ArrIPfE6resizeEi(ptr %this, i32 1)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN7BaseArrIPsE3addEPS0_(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this, i16** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !50 {
+define linkonce_odr dso_local void @_ZN7BaseArrIPsE3addEPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !40 {
 entry:
-  tail call void @_ZN7BaseArrIPsE6resizeEi(%struct.BaseArr* %this, i32 1)
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %0 = load i16***, i16**** %base
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  %1 = load i32, i32* %size
-  %idxprom = zext i32 %1 to i64
-  %arrayidx = getelementptr inbounds i16**, i16*** %0, i64 %idxprom
-  store i16** %val, i16*** %arrayidx
-  %inc = add i32 %1, 1
-  store i32 %inc, i32* %size
+  tail call void @_ZN7BaseArrIPsE6resizeEi(ptr %this, i32 1)
+  %base = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i = load ptr, ptr %base, align 8
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  %i1 = load i32, ptr %size, align 4
+  %idxprom = zext i32 %i1 to i64
+  %arrayidx = getelementptr inbounds ptr, ptr %i, i64 %idxprom
+  store ptr %val, ptr %arrayidx, align 8
+  %inc = add i32 %i1, 1
+  store i32 %inc, ptr %size, align 4
   ret void
 }
 
-define linkonce_odr dso_local i32 @_ZN3ArrIPiE7getSizeEv(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !51 {
+define linkonce_odr dso_local i32 @_ZN3ArrIPiE7getSizeEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !41 {
 entry:
   ret i32 0
 }
 
-define linkonce_odr dso_local i32 @_ZN3ArrIPfE7getSizeEv(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !52 {
+define linkonce_odr dso_local i32 @_ZN3ArrIPfE7getSizeEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !42 {
 entry:
   ret i32 0
 }
 
-define linkonce_odr dso_local i32 @_ZN7BaseArrIPsE7getSizeEv(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !53 {
+define linkonce_odr dso_local i32 @_ZN7BaseArrIPsE7getSizeEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !43 {
 entry:
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  %0 = load i32, i32* %size
-  ret i32 %0
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  %i = load i32, ptr %size, align 4
+  ret i32 %i
 }
 
-define linkonce_odr dso_local i32 @_ZN3ArrIPiE11getCapacityEv(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !54 {
+define linkonce_odr dso_local i32 @_ZN3ArrIPiE11getCapacityEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !44 {
 entry:
   ret i32 0
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, %struct.Arr* nocapture "intel_dtrans_func_index"="2" %A) !intel.dtrans.func.type !55 {
+define linkonce_odr dso_local void @_ZN3ArrIPiEC2ERKS1_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture "intel_dtrans_func_index"="2" %A) !intel.dtrans.func.type !45 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPfEC2ERKS1_(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, %struct.Arr.0* "intel_dtrans_func_index"="2" nocapture %A) !intel.dtrans.func.type !56 {
+define linkonce_odr dso_local void @_ZN3ArrIPfEC2ERKS1_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture "intel_dtrans_func_index"="2" %A) !intel.dtrans.func.type !46 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local i32 @_ZN3ArrIPfE11getCapacityEv(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !57 {
+define linkonce_odr dso_local i32 @_ZN3ArrIPfE11getCapacityEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !47 {
 entry:
   ret i32 0
 }
 
-define linkonce_odr dso_local i32 @_ZN7BaseArrIPsE11getCapacityEv(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !58 {
+define linkonce_odr dso_local i32 @_ZN7BaseArrIPsE11getCapacityEv(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !48 {
 entry:
-  %capacity = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 2
-  %0 = load i32, i32* %capacity
-  ret i32 %0
+  %capacity = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 2
+  %i = load i32, ptr %capacity, align 4
+  ret i32 %i
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiED2Ev(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !59 {
+define linkonce_odr dso_local void @_ZN3ArrIPiED2Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !49 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPfED2Ev(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !60 {
+define linkonce_odr dso_local void @_ZN3ArrIPfED2Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !50 {
 entry:
   ret void
 }
 
-
-define linkonce_odr dso_local void @_ZN7BaseArrIPsEC2EjbP3Mem(%struct.BaseArr*  nocapture "intel_dtrans_func_index"="1" %this, i32 %c, i1 %adopE, %struct.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !61 {
+define linkonce_odr dso_local void @_ZN7BaseArrIPsEC2EjbP3Mem(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %c, i1 %adopE, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !51 {
 entry:
-  %0 = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 0
-  store i32 (...)** bitcast (i8** getelementptr inbounds ({ [5 x i8*] }, { [5 x i8*] }* @_ZTV7BaseArrIPsE, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** %0
-  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 1
-  store i8 1, i8* %flag
-  %capacity = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 2
-  store i32 %c, i32* %capacity
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  store i32 0, i32* %size
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %mem3 = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 5
-  store %struct.Mem* %mem, %struct.Mem** %mem3
+  %i = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 0
+  store ptr getelementptr inbounds ({ [5 x ptr] }, ptr @_ZTV7BaseArrIPsE, i64 0, inrange i32 0, i64 2), ptr %i, align 8
+  %flag = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 1
+  store i8 1, ptr %flag, align 1
+  %capacity = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 2
+  store i32 %c, ptr %capacity, align 4
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  store i32 0, ptr %size, align 4
+  %base = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %mem3 = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 5
+  store ptr %mem, ptr %mem3, align 8
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = tail call noalias i8* @malloc(i64 %mul)
-  %1 = bitcast i8* %call to i16***
-  store i16*** %1, i16**** %base
-  tail call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = tail call noalias ptr @malloc(i64 %mul)
+  store ptr %call, ptr %base, align 8
+  tail call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN6RefArrIPsED2Ev(%struct.RefArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !62 {
+define linkonce_odr dso_local void @_ZN6RefArrIPsED2Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !52 {
 entry:
-  %0 = getelementptr inbounds %struct.RefArr, %struct.RefArr* %this, i64 0, i32 0, i32 0
-  store i32 (...)** bitcast (i8** getelementptr inbounds ({ [5 x i8*] }, { [5 x i8*] }* @_ZTV6RefArrIPsE, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** %0
-  %1 = getelementptr inbounds %struct.RefArr, %struct.RefArr* %this, i64 0, i32 0
-  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 1
-  %2 = load i8, i8* %flag
-  %tobool = icmp eq i8 %2, 0
+  %i = getelementptr inbounds %struct.RefArr, ptr %this, i64 0, i32 0, i32 0
+  store ptr getelementptr inbounds ({ [5 x ptr] }, ptr @_ZTV6RefArrIPsE, i64 0, inrange i32 0, i64 2), ptr %i, align 8
+  %i1 = getelementptr inbounds %struct.RefArr, ptr %this, i64 0, i32 0
+  %flag = getelementptr inbounds %struct.BaseArr, ptr %i1, i64 0, i32 1
+  %i2 = load i8, ptr %flag, align 1
+  %tobool = icmp eq i8 %i2, 0
   br i1 %tobool, label %if.end, label %for.cond.preheader
 
 for.cond.preheader:                               ; preds = %entry
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 3
-  %3 = load i32, i32* %size
-  %cmp6 = icmp eq i32 %3, 0
+  %size = getelementptr inbounds %struct.BaseArr, ptr %i1, i64 0, i32 3
+  %i3 = load i32, ptr %size, align 4
+  %cmp6 = icmp eq i32 %i3, 0
   br i1 %cmp6, label %if.end, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %for.cond.preheader
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 4
+  %base = getelementptr inbounds %struct.BaseArr, ptr %i1, i64 0, i32 4
   br label %for.body
 
-for.body:                                         ; preds = %for.body.lr.ph, %for.body
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %4 = load i16***, i16**** %base
-  %arrayidx = getelementptr inbounds i16**, i16*** %4, i64 %indvars.iv
-  %5 = bitcast i16*** %arrayidx to i8**
-  %6 = load i8*, i8** %5
-  tail call void @free(i8* %6)
+  %i4 = load ptr, ptr %base, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %i4, i64 %indvars.iv
+  %i6 = load ptr, ptr %arrayidx, align 8
+  tail call void @free(ptr %i6)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %7 = load i32, i32* %size
-  %8 = zext i32 %7 to i64
-  %cmp = icmp ult i64 %indvars.iv.next, %8
+  %i7 = load i32, ptr %size, align 4
+  %i8 = zext i32 %i7 to i64
+  %cmp = icmp ult i64 %indvars.iv.next, %i8
   br i1 %cmp, label %for.body, label %if.end
 
 if.end:                                           ; preds = %for.body, %for.cond.preheader, %entry
-  %base2 = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 4
-  %9 = bitcast i16**** %base2 to i8**
-  %10 = load i8*, i8** %9
-  tail call void @free(i8* %10)
+  %base2 = getelementptr inbounds %struct.BaseArr, ptr %i1, i64 0, i32 4
+  %i10 = load ptr, ptr %base2, align 8
+  tail call void @free(ptr %i10)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN6RefArrIPsED0Ev(%struct.RefArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !64 {
+define linkonce_odr dso_local void @_ZN6RefArrIPsED0Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !53 {
 entry:
-  tail call void @_ZN6RefArrIPsED2Ev(%struct.RefArr* %this)
-  %0 = bitcast %struct.RefArr* %this to i8*
-  tail call void @_ZdlPv(i8* %0)
+  tail call void @_ZN6RefArrIPsED2Ev(ptr %this)
+  tail call void @_ZdlPv(ptr %this)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN7BaseArrIPsE3setEjPS0_(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this, i16** "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !65 {
+define linkonce_odr dso_local void @_ZN7BaseArrIPsE3setEjPS0_(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val, i32 %i) !intel.dtrans.func.type !54 {
 entry:
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  %0 = load i32, i32* %size
-  %cmp = icmp ugt i32 %0, %i
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  %i1 = load i32, ptr %size, align 4
+  %cmp = icmp ugt i32 %i1, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  tail call void @__cxa_rethrow() #12
+  tail call void @__cxa_rethrow()
   unreachable
 
 if.end:                                           ; preds = %entry
-  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 1
-  %1 = load i8, i8* %flag, align 8
-  %tobool = icmp eq i8 %1, 0
+  %flag = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 1
+  %i2 = load i8, ptr %flag, align 8
+  %tobool = icmp eq i8 %i2, 0
   br i1 %tobool, label %if.end3, label %if.then2
 
 if.then2:                                         ; preds = %if.end
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %2 = load i16***, i16**** %base
+  %base = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i3 = load ptr, ptr %base, align 8
   %idxprom = zext i32 %i to i64
-  %arrayidx = getelementptr inbounds i16**, i16*** %2, i64 %idxprom
-  %3 = bitcast i16*** %arrayidx to i8**
-  %4 = load i8*, i8** %3
-  tail call void @free(i8* %4)
+  %arrayidx = getelementptr inbounds ptr, ptr %i3, i64 %idxprom
+  %i5 = load ptr, ptr %arrayidx, align 8
+  tail call void @free(ptr %i5)
   br label %if.end3
 
-if.end3:                                          ; preds = %if.end, %if.then2
-  %base4 = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %5 = load i16***, i16**** %base4
+if.end3:                                          ; preds = %if.then2, %if.end
+  %base4 = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i6 = load ptr, ptr %base4, align 8
   %idxprom5 = zext i32 %i to i64
-  %arrayidx6 = getelementptr inbounds i16**, i16*** %5, i64 %idxprom5
-  store i16** %val, i16*** %arrayidx6
+  %arrayidx6 = getelementptr inbounds ptr, ptr %i6, i64 %idxprom5
+  store ptr %val, ptr %arrayidx6, align 8
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN7BaseArrIPsED2Ev(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !67 {
+define linkonce_odr dso_local void @_ZN7BaseArrIPsED2Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !55 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN7BaseArrIPsED0Ev(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !68 {
+define linkonce_odr dso_local void @_ZN7BaseArrIPsED0Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !56 {
 entry:
-  tail call void @_ZN7BaseArrIPsED2Ev(%struct.BaseArr* %this)
-  %0 = bitcast %struct.BaseArr* %this to i8*
-  tail call void @_ZdlPv(i8* %0)
+  tail call void @_ZN7BaseArrIPsED2Ev(ptr %this)
+  tail call void @_ZdlPv(ptr %this)
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN3ArrIPiE6resizeEi(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !70 {
-entry:
-  ret void
-}
-
-define linkonce_odr dso_local void @_ZN3ArrIPfE6resizeEi(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !71 {
+define linkonce_odr dso_local void @_ZN3ArrIPiE6resizeEi(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !57 {
 entry:
   ret void
 }
 
-define linkonce_odr dso_local void @_ZN7BaseArrIPsE6resizeEi(%struct.BaseArr* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !72 {
+define linkonce_odr dso_local void @_ZN3ArrIPfE6resizeEi(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !58 {
 entry:
-  %size = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 3
-  %0 = load i32, i32* %size
-  %add = add i32 %0, 1
-  %capacity = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 2
-  %1 = load i32, i32* %capacity
-  %cmp = icmp ugt i32 %add, %1
+  ret void
+}
+
+define linkonce_odr dso_local void @_ZN7BaseArrIPsE6resizeEi(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !59 {
+entry:
+  %size = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 3
+  %i = load i32, ptr %size, align 4
+  %add = add i32 %i, 1
+  %capacity = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 2
+  %i1 = load i32, ptr %capacity, align 4
+  %cmp = icmp ugt i32 %add, %i1
   br i1 %cmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %entry
-  %div = lshr i32 %1, 1
-  %add4 = add i32 %div, %1
+  %div = lshr i32 %i1, 1
+  %add4 = add i32 %div, %i1
   %cmp5 = icmp ult i32 %add, %add4
   %spec.select = select i1 %cmp5, i32 %add4, i32 %add
   %conv = zext i32 %spec.select to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = tail call noalias i8* @malloc(i64 %mul)
-  %2 = bitcast i8* %call to i16***
-  %cmp1345 = icmp eq i32 %0, 0
+  %call = tail call noalias ptr @malloc(i64 %mul)
+  %cmp1345 = icmp eq i32 %i, 0
   br i1 %cmp1345, label %for.cond17.preheader, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %if.end
-  %base = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %3 = load i16***, i16**** %base
-  %wide.trip.count = zext i32 %0 to i64
+  %base = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i3 = load ptr, ptr %base, align 8
+  %wide.trip.count = zext i32 %i to i64
   br label %for.body
 
 for.cond17.preheader:                             ; preds = %for.body, %if.end
-  %cmp1843 = icmp ult i32 %0, %spec.select
+  %cmp1843 = icmp ult i32 %i, %spec.select
   br i1 %cmp1843, label %for.body19.preheader, label %for.end24
 
 for.body19.preheader:                             ; preds = %for.cond17.preheader
-  %4 = zext i32 %0 to i64
-  %5 = shl nuw nsw i64 %4, 3
-  %scevgep = getelementptr i8, i8* %call, i64 %5
-  %6 = xor i32 %0, -1
-  %7 = add i32 %spec.select, %6
-  %8 = zext i32 %7 to i64
-  %9 = shl nuw nsw i64 %8, 3
-  %10 = add nuw nsw i64 %9, 8
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 8 dereferenceable(1) %scevgep, i8 0, i64 %10, i1 false)
+  %i4 = zext i32 %i to i64
+  %i5 = shl nuw nsw i64 %i4, 3
+  %scevgep = getelementptr i8, ptr %call, i64 %i5
+  %i6 = xor i32 %i, -1
+  %i7 = add i32 %spec.select, %i6
+  %i8 = zext i32 %i7 to i64
+  %i9 = shl nuw nsw i64 %i8, 3
+  %i10 = add nuw nsw i64 %i9, 8
+  call void @llvm.memset.p0.i64(ptr nonnull align 8 dereferenceable(1) %scevgep, i8 0, i64 %i10, i1 false)
   br label %for.end24
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i16**, i16*** %3, i64 %indvars.iv
-  %11 = bitcast i16*** %arrayidx to i64*
-  %12 = load i64, i64* %11
-  %arrayidx15 = getelementptr inbounds i16**, i16*** %2, i64 %indvars.iv
-  %13 = bitcast i16*** %arrayidx15 to i64*
-  store i64 %12, i64* %13
+  %arrayidx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
+  %i12 = load i64, ptr %arrayidx, align 8
+  %arrayidx15 = getelementptr inbounds ptr, ptr %call, i64 %indvars.iv
+  store i64 %i12, ptr %arrayidx15, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond17.preheader, label %for.body
 
 for.end24:                                        ; preds = %for.body19.preheader, %for.cond17.preheader
-  %base25 = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 4
-  %14 = bitcast i16**** %base25 to i8**
-  %15 = load i8*, i8** %14
-  tail call void @free(i8* %15)
-  store i16*** %2, i16**** %base25
-  store i32 %spec.select, i32* %capacity
+  %base25 = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
+  %i15 = load ptr, ptr %base25, align 8
+  tail call void @free(ptr %i15)
+  store ptr %call, ptr %base25, align 8
+  store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
-cleanup:                                          ; preds = %entry, %for.end24
+cleanup:                                          ; preds = %for.end24, %entry
   ret void
 }
 
-declare !intel.dtrans.func.type !28 dso_local nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
-declare !intel.dtrans.func.type !39 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !60 dso_local nonnull "intel_dtrans_func_index"="1" ptr @_Znwm(i64)
+
+declare !intel.dtrans.func.type !61 dso_local void @_ZdlPv(ptr "intel_dtrans_func_index"="1")
+
 declare dso_local void @__cxa_rethrow()
-declare !intel.dtrans.func.type !69 dso_local void @free(i8* "intel_dtrans_func_index"="1") #1
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
-declare !intel.dtrans.func.type !66 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64) #0
-declare !intel.dtrans.func.type !66 i1 @llvm.type.test(i8* "intel_dtrans_func_index"="1", metadata)
-declare void @llvm.assume(i1)
 
-attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
-attributes #1 = { allockind("free") "alloc-family"="malloc" }
+; Function Attrs: allockind("free")
+declare !intel.dtrans.func.type !62 dso_local void @free(ptr "intel_dtrans_func_index"="1") #0
 
-!intel.dtrans.types = !{!8, !13, !17, !20, !22, !24}
+; Function Attrs: allockind("alloc,uninitialized") allocsize(0)
+declare !intel.dtrans.func.type !63 dso_local noalias "intel_dtrans_func_index"="1" ptr @malloc(i64) #1
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare !intel.dtrans.func.type !63 i1 @llvm.type.test(ptr, metadata) #2
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite)
+declare void @llvm.assume(i1 noundef) #3
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #4
+
+attributes #0 = { allockind("free") "alloc-family"="malloc" }
+attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #2 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #3 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: readwrite) }
+attributes #4 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+
+!intel.dtrans.types = !{!5, !10, !14, !17, !19, !21}
 
 !0 = !{!"L", i32 1, !1}
 !1 = !{!"A", i32 5, !2}
 !2 = !{i8 0, i32 1}
-!3 = !{!"L", i32 2, !2, !2}
-!4 = !{!"L", i32 3, !2, !2, !2}
-!5 = !{i32 1, !"wchar_size", i32 4}
-!6 = !{i32 7, !"uwtable", i32 1}
-!7 = !{i32 7, !"frame-pointer", i32 2}
-!8 = !{!"S", %class.F zeroinitializer, i32 4, !9, !10, !11, !12}
-!9 = !{%struct.Mem zeroinitializer, i32 1}
-!10 = !{%struct.Arr zeroinitializer, i32 1}
-!11 = !{%struct.Arr.0 zeroinitializer, i32 1}
-!12 = !{%struct.RefArr zeroinitializer, i32 1}
-!13 = !{!"S", %struct.Mem zeroinitializer, i32 1, !14}
-!14 = !{!15, i32 2}
-!15 = !{!"F", i1 true, i32 0, !16}
-!16 = !{i32 0, i32 0}
-!17 = !{!"S", %struct.Arr zeroinitializer, i32 5, !18, !16, !16, !19, !9}
-!18 = !{i8 0, i32 0}
-!19 = !{i32 0, i32 3}
-!20 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !18, !16, !16, !21, !9}
-!21 = !{float 0.000000e+00, i32 3}
-!22 = !{!"S", %struct.RefArr zeroinitializer, i32 1, !23}
-!23 = !{%struct.BaseArr zeroinitializer, i32 0}
-!24 = !{!"S", %struct.BaseArr zeroinitializer, i32 6, !14, !18, !16, !16, !25, !9}
-!25 = !{i16 0, i32 3}
-!26 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!27 = !{%class.F zeroinitializer, i32 1}
-!28 = distinct !{!2}
-!29 = distinct !{!27}
+!3 = !{!"L", i32 3, !2, !2, !2}
+!4 = !{!"L", i32 2, !2, !2}
+!5 = !{!"S", %class.F zeroinitializer, i32 4, !6, !7, !8, !9}
+!6 = !{%struct.Mem zeroinitializer, i32 1}
+!7 = !{%struct.Arr zeroinitializer, i32 1}
+!8 = !{%struct.Arr.0 zeroinitializer, i32 1}
+!9 = !{%struct.RefArr zeroinitializer, i32 1}
+!10 = !{!"S", %struct.Mem zeroinitializer, i32 1, !11}
+!11 = !{!12, i32 2}
+!12 = !{!"F", i1 true, i32 0, !13}
+!13 = !{i32 0, i32 0}
+!14 = !{!"S", %struct.Arr zeroinitializer, i32 5, !15, !13, !13, !16, !6}
+!15 = !{i8 0, i32 0}
+!16 = !{i32 0, i32 3}
+!17 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !15, !13, !13, !18, !6}
+!18 = !{float 0.000000e+00, i32 3}
+!19 = !{!"S", %struct.RefArr zeroinitializer, i32 1, !20}
+!20 = !{%struct.BaseArr zeroinitializer, i32 0}
+!21 = !{!"S", %struct.BaseArr zeroinitializer, i32 6, !11, !15, !13, !13, !22, !6}
+!22 = !{i16 0, i32 3}
+!23 = distinct !{!24, !24}
+!24 = !{%class.F zeroinitializer, i32 1}
+!25 = distinct !{!24}
+!26 = distinct !{!7, !6}
+!27 = distinct !{!8, !6}
+!28 = distinct !{!9, !6}
+!29 = distinct !{!30, !7}
 !30 = !{i32 0, i32 2}
-!31 = !{float 0.000000e+00, i32 2}
-!32 = !{i16 0, i32 2}
-!33 = !{!"F", i1 false, i32 3, !34, !35, !16, !32}
-!34 = !{!"void", i32 0}
+!31 = distinct !{!32, !8}
+!32 = !{float 0.000000e+00, i32 2}
+!33 = distinct !{!34, !35}
+!34 = !{i16 0, i32 2}
 !35 = !{%struct.BaseArr zeroinitializer, i32 1}
-!36 = distinct !{!36, !37}
-!37 = !{!"llvm.loop.mustprogress"}
-!38 = !{!"F", i1 false, i32 1, !34, !12}
-!39 = distinct !{!2}
-!40 = distinct !{!10, !9}
-!41 = distinct !{!11, !9}
-!42 = distinct !{!12, !9}
-!43 = distinct !{!30, !10}
-!44 = distinct !{!31, !11}
-!45 = distinct !{!32, !35}
-!46 = distinct !{!10, !30}
-!47 = distinct !{!11, !31}
-!48 = distinct !{!10, !30}
-!49 = distinct !{!11, !31}
-!50 = distinct !{!35, !32}
-!51 = distinct !{!10}
-!52 = distinct !{!11}
-!53 = distinct !{!35}
-!54 = distinct !{!10}
-!55 = distinct !{!10, !10}
-!56 = distinct !{!11, !11}
-!57 = distinct !{!11}
-!58 = distinct !{!35}
-!59 = distinct !{!10}
-!60 = distinct !{!11}
-!61 = distinct !{!35, !9}
-!62 = distinct !{!12}
-!63 = distinct !{!63, !37}
-!64 = distinct !{!12}
-!65 = distinct !{!35, !32}
-!66 = distinct !{!2}
-!67 = distinct !{!35}
-!68 = distinct !{!35}
-!69 = distinct !{!2}
-!70 = distinct !{!10}
-!71 = distinct !{!11}
-!72 = distinct !{!35}
-!73 = distinct !{!73, !37}
-!74 = distinct !{!74, !37}
-!75 = distinct !{!27, !27}
+!36 = distinct !{!7, !30}
+!37 = distinct !{!8, !32}
+!38 = distinct !{!7, !30}
+!39 = distinct !{!8, !32}
+!40 = distinct !{!35, !34}
+!41 = distinct !{!7}
+!42 = distinct !{!8}
+!43 = distinct !{!35}
+!44 = distinct !{!7}
+!45 = distinct !{!7, !7}
+!46 = distinct !{!8, !8}
+!47 = distinct !{!8}
+!48 = distinct !{!35}
+!49 = distinct !{!7}
+!50 = distinct !{!8}
+!51 = distinct !{!35, !6}
+!52 = distinct !{!9}
+!53 = distinct !{!9}
+!54 = distinct !{!35, !34}
+!55 = distinct !{!35}
+!56 = distinct !{!35}
+!57 = distinct !{!7}
+!58 = distinct !{!8}
+!59 = distinct !{!35}
+!60 = distinct !{!2}
+!61 = distinct !{!2}
+!62 = distinct !{!2}
+!63 = distinct !{!2}
