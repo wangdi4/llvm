@@ -1061,9 +1061,8 @@ bool VPOParoptTransform::needBarriersAfterParallel(
 
   // Setup AA for the outlined function.
   DominatorTree DT(*KernelF);
-  PhiValues PV(*KernelF);
   BasicAAResult BAR(KernelF->getParent()->getDataLayout(), *KernelF, *TLI, *AC,
-                    &DT, &PV, OptLevel);
+                    &DT, OptLevel);
   AAResults AAR(*TLI);
   AAR.addAAResult(BAR);
 

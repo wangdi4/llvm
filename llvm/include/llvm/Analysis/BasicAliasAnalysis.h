@@ -69,7 +69,6 @@ class BasicAAResult : public AAResultBase {
   const TargetLibraryInfo &TLI;
   AssumptionCache &AC;
   DominatorTree *DT;
-  PhiValues *PV;
 
 #if INTEL_CUSTOMIZATION
   /// The maximum number of uses to explore for PointerMayBeCaptured() calls.
@@ -99,9 +98,8 @@ private:
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
-                DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
-                unsigned OptLevel = 2u) // INTEL
-      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
+                DominatorTree *DT = nullptr, unsigned OptLevel = 2u) // INTEL
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT) // INTEL
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);
@@ -110,11 +108,10 @@ public:
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
-        DT(Arg.DT), PV(Arg.PV), // INTEL
-        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
+        DT(Arg.DT), PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
   BasicAAResult(BasicAAResult &&Arg)
       : AAResultBase(std::move(Arg)), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI),
-        AC(Arg.AC), DT(Arg.DT), PV(Arg.PV), // INTEL
+        AC(Arg.AC), DT(Arg.DT), // INTEL
         PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {}     // INTEL
 
   /// Handle invalidation events in the new pass manager.
