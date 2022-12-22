@@ -33,9 +33,9 @@ createTargetMachine(std::string CPUStr, std::string FeaturesStr) {
   std::string Error;
 
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
-  return std::unique_ptr<TargetMachine>(
-      TheTarget->createTargetMachine(TT, CPUStr, FeaturesStr, TargetOptions(),
-                                     None, None, CodeGenOpt::Default));
+  return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
+      TT, CPUStr, FeaturesStr, TargetOptions(), std::nullopt, std::nullopt,
+      CodeGenOpt::Default));
 }
 
 class VPlanTTIMemrefCostTest : public vpo::VPlanTestBase {
