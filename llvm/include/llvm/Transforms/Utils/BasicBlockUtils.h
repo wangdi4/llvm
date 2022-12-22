@@ -656,7 +656,7 @@ BasicBlock *CreateControlFlowHub(
     DomTreeUpdater *DTU, SmallVectorImpl<BasicBlock *> &GuardBlocks,
     const SetVector<BasicBlock *> &Predecessors,
     const SetVector<BasicBlock *> &Successors, const StringRef Prefix,
-    Optional<unsigned> MaxControlFlowBooleans = std::nullopt);
+    std::optional<unsigned> MaxControlFlowBooleans = std::nullopt);
 
 } // end namespace llvm
 
