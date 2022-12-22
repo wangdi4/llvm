@@ -6451,72 +6451,11 @@ class OffloadingActionBuilder final {
               TC, DeviceLibs, UseAOTLink,
               C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         SYCLDeviceLibLinked |= addPerformanceDeviceLibs(
             TC, FullLinkObjects,
             C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
 #endif // INTEL_CUSTOMIZATION
-        Action *FullDeviceLinkAction = nullptr;
-        if (SYCLDeviceLibLinked)
-          FullDeviceLinkAction =
-              C.MakeAction<LinkJobAction>(FullLinkObjects, types::TY_LLVM_BC);
-        else
-          FullDeviceLinkAction = DeviceLinkAction;
-
-        // reflects whether current target is ahead-of-time and can't support
-        // runtime setting of specialization constants
-        bool isAOT = isNVPTX || isAMDGCN || isSpirvAOT;
-
-        ActionList WrapperInputs;
-        // post link is not optional - even if not splitting, always need to
-        // process specialization constants
-
-        types::ID PostLinkOutType =
-            isSPIR ? types::TY_Tempfiletable : FullDeviceLinkAction->getType();
-        // For SPIR-V targets, force TY_Tempfiletable.
-        auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
-            FullDeviceLinkAction, PostLinkOutType, types::TY_Tempfiletable);
-        PostLinkAction->setRTSetsSpecConstants(!isAOT);
-
-        auto *ExtractIRFilesAction = C.MakeAction<FileTableTformJobAction>(
-            PostLinkAction,
-            isSPIR ? types::TY_Tempfilelist : PostLinkAction->getType(),
-            types::TY_Tempfilelist);
-        // single column w/o title fits TY_Tempfilelist format
-        ExtractIRFilesAction->addExtractColumnTform(
-            FileTableTformJobAction::COL_CODE, false /*drop titles*/);
-
-        if (isNVPTX || isAMDGCN) {
-          JobAction *FinAction =
-              isNVPTX ? finalizeNVPTXDependences(ExtractIRFilesAction,
-                                                 TC->getTriple())
-                      : finalizeAMDGCNDependences(ExtractIRFilesAction,
-                                                  TC->getTriple());
-          auto *ForEachWrapping = C.MakeAction<ForEachWrappingAction>(
-              ExtractIRFilesAction, FinAction);
-
-          ActionList TformInputs{PostLinkAction, ForEachWrapping};
-          auto *ReplaceFilesAction = C.MakeAction<FileTableTformJobAction>(
-              TformInputs, types::TY_Tempfiletable, types::TY_Tempfiletable);
-          ReplaceFilesAction->addReplaceColumnTform(
-              FileTableTformJobAction::COL_CODE,
-              FileTableTformJobAction::COL_CODE);
-
-          WrapperInputs.push_back(ReplaceFilesAction);
-        } else {
-          // For SPIRV-based targets - translate to SPIRV then optionally
-          // compile ahead-of-time to native architecture
-          Action *BuildCodeAction =
-              (Action *)C.MakeAction<SPIRVTranslatorJobAction>(
-                  ExtractIRFilesAction, types::TY_Tempfilelist);
-#if INTEL_CUSTOMIZATION
-          // Skip SPIRV generation for non-spirv CPU device.
-          if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 &&
-              NonSpirvCPU)
-            BuildCodeAction = ExtractIRFilesAction;
-#endif // INTEL_CUSTOMIZATION
-=======
         JobAction *LinkSYCLLibs =
             C.MakeAction<LinkJobAction>(DeviceLibs, types::TY_LLVM_BC);
         for (Action *FullLinkObject : FullLinkObjects) {
@@ -6616,7 +6555,6 @@ class OffloadingActionBuilder final {
           };
 
           Action *ExtractIRFilesAction = createExtractIRFilesAction();
->>>>>>> f884993dc48dc4b9e8d348d72412c1f2d73c2978
 
           if (isNVPTX || isAMDGCN) {
             JobAction *FinAction =
@@ -6653,6 +6591,13 @@ class OffloadingActionBuilder final {
             // compile ahead-of-time to native architecture
             Action *BuildCodeAction = C.MakeAction<SPIRVTranslatorJobAction>(
                 ExtractIRFilesAction, types::TY_Tempfilelist);
+
+#if INTEL_CUSTOMIZATION
+            // Skip SPIRV generation for non-spirv CPU device.
+            if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 &&
+                NonSpirvCPU)
+              BuildCodeAction = ExtractIRFilesAction;
+#endif // INTEL_CUSTOMIZATION
 
             // After the Link, wrap the files before the final host link
             if (isAOT) {

@@ -220,12 +220,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
-<<<<<<< HEAD
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
       JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
-    auto isSYCLDeviceLib = [&C, this](const InputInfo &II) {
-=======
-  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
     bool IsRDC = !shouldDoPerObjectFileLinking(C);
     auto isNoRDCDeviceCodeLink = [&](const InputInfo &II) {
       if (IsRDC)
@@ -237,7 +233,6 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       return &II == &InputFiles[1];
     };
     auto isSYCLDeviceLib = [&](const InputInfo &II) {
->>>>>>> f884993dc48dc4b9e8d348d72412c1f2d73c2978
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
       if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
@@ -315,22 +310,12 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
       std::string FileName = getToolChain().getInputFilename(II);
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
       if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
       } else if (II.getType() == types::TY_Tempfilelist) {
 #endif // INTEL_CUSTOMIZATION
-
-        // Pass the unbundled list with '@' to be processed.
-        Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
-#if INTEL_CUSTOMIZATION
-      } else if (isOMPDeviceLib(II)) {
-        OMPObjs.push_back(II.getFilename());
-#endif // INTEL_CUSTOMIZATION
-=======
-      if (II.getType() == types::TY_Tempfilelist) {
         if (IsRDC) {
           // Pass the unbundled list with '@' to be processed.
           Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
@@ -342,7 +327,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
           // so we should consider this input as an object and not pass '@'.
           Objs.push_back(C.getArgs().MakeArgString(FileName));
         }
->>>>>>> f884993dc48dc4b9e8d348d72412c1f2d73c2978
+#if INTEL_CUSTOMIZATION
+      } else if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(C.getArgs().MakeArgString(FileName));
       } else
