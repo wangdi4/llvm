@@ -29,7 +29,14 @@
 // system macro (e.g. "linux").
 // RUN: %clangxx_memprof  %s -o %t -DPROFILE_NAME_VAR="/INVALID"
 // RUN: not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID --dump-input=always
-//
+
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42851
+// This test may passes on Linux zsc2, but fails on el78
+// Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
+// log_path is not supported running in docker with root(`/INVALID` is valid path with root)
+// UNSUPPORTED: i386-linux, x86_64-linux
+// end INTEL_CUSTOMIZATION
 
 #include <sanitizer/memprof_interface.h>
 

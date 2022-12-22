@@ -1,8 +1,7 @@
 ; This test verifies that SOAToAOSPrepare transformations related
 ; SetElem/AppendElem are done correctly.
 ; This test is almost same as soatoaos_prepare_trans_02.ll except
-; 1. In _ZN1FC2ERKS_, %i18 is used in StoreInst, constructor and free
-;    without bitcast. InvokeInst is used instead of CallInst for the
+; 1. In _ZN1FC2ERKS_, InvokeInst is used instead of CallInst for the
 ;    constructor call (i.e _ZN6RefArrIPsEC2EjbP3Mem). %bbb is the 
 ;    unwinddest of the invoke inst.
 ;
@@ -281,41 +280,31 @@ $_ZTV7BaseArrIPsE = comdat any
 define i32 @main() {
 entry:
   %call = call ptr @_Znwm(i64 32)
-  %i = bitcast ptr %call to ptr
-  tail call void @_ZN1FC2Ev(ptr %i)
+  tail call void @_ZN1FC2Ev(ptr %call)
   %call1 = call ptr @_Znwm(i64 32)
-  %i1 = bitcast ptr %call1 to ptr
-  tail call void @_ZN1FC2ERKS_(ptr %i1, ptr %i)
+  tail call void @_ZN1FC2ERKS_(ptr %call1, ptr %call)
   ret i32 0
 }
 
 define internal fastcc void @_ZN1FC2ERKS_(ptr "intel_dtrans_func_index"="1" %arg, ptr "intel_dtrans_func_index"="2" %arg1) personality ptr null !intel.dtrans.func.type !23 {
 bb:
   %i = getelementptr inbounds %class.F, ptr %arg1, i64 0, i32 3
-  %i2 = bitcast ptr %i to ptr
-  %i3 = load ptr, ptr %i2, align 8
-  %i4 = bitcast ptr %i to ptr
-  %i5 = bitcast ptr %i to ptr
+  %i3 = load ptr, ptr %i, align 8
   %i6 = tail call fastcc i32 @_ZN7BaseArrIPsE7getSizeEv(ptr %i3)
   %i7 = tail call ptr @_Znwm(i64 32)
-  %i9 = bitcast ptr %i7 to ptr
   %i10 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 1
   %i11 = load ptr, ptr %i10, align 8
-  tail call fastcc void @_ZN3ArrIPiEC2ERKS1_(ptr %i9, ptr %i11)
-  %i12 = bitcast ptr %i7 to ptr
-  store ptr %i9, ptr %i10, align 8
+  tail call fastcc void @_ZN3ArrIPiEC2ERKS1_(ptr %i7, ptr %i11)
+  store ptr %i7, ptr %i10, align 8
   %i13 = tail call ptr @_Znwm(i64 32)
-  %i14 = bitcast ptr %i13 to ptr
   %i15 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 2
   %i16 = load ptr, ptr %i15, align 8
-  tail call fastcc void @_ZN3ArrIPfEC2ERKS1_(ptr %i14, ptr %i16)
-  %i17 = bitcast ptr %i15 to ptr
-  store ptr %i14, ptr %i15, align 8
+  tail call fastcc void @_ZN3ArrIPfEC2ERKS1_(ptr %i13, ptr %i16)
+  store ptr %i13, ptr %i15, align 8
   %i18 = tail call ptr @_Znwm(i64 40)
   %i20 = getelementptr inbounds %class.F, ptr %arg1, i64 0, i32 0
   %i21 = load ptr, ptr %i20, align 8
   %i22 = getelementptr inbounds %class.F, ptr %arg, i64 0, i32 3
-  %i23 = bitcast ptr %i22 to ptr
   invoke fastcc void @_ZN6RefArrIPsEC2EjbP3Mem(ptr %i18, i32 %i6, i1 zeroext true, ptr %i21)
           to label %ztt unwind label %bbb
 
@@ -329,8 +318,8 @@ pre:                                              ; preds = %ztt
 
 bb25:                                             ; preds = %bb25, %pre
   %i26 = phi i32 [ %i30, %bb25 ], [ 0, %pre ]
-  %i27 = load ptr, ptr %i23, align 8
-  %i28 = load ptr, ptr %i2, align 8
+  %i27 = load ptr, ptr %i22, align 8
+  %i28 = load ptr, ptr %i, align 8
   %i29 = tail call fastcc ptr @_ZN7BaseArrIPsE3getEj(ptr %i28, i32 %i26)
   tail call fastcc void @_ZN7BaseArrIPsE3addEPS0_(ptr %i27, ptr %i29)
   %i30 = add nuw i32 %i26, 1
@@ -350,42 +339,34 @@ bb32:                                             ; preds = %bb25, %ztt
 define linkonce_odr dso_local void @_ZN1FC2Ev(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !25 {
 entry:
   %call = tail call ptr @_Znwm(i64 32)
-  %i = bitcast ptr %call to ptr
-  tail call void @_ZN3ArrIPiEC2EjP3Mem(ptr %i, i32 10, ptr null)
+  tail call void @_ZN3ArrIPiEC2EjP3Mem(ptr %call, i32 10, ptr null)
   %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
-  %i1 = bitcast ptr %f1 to ptr
-  store ptr %i, ptr %f1, align 8
+  store ptr %call, ptr %f1, align 8
   %call2 = tail call ptr @_Znwm(i64 32)
-  %i2 = bitcast ptr %call2 to ptr
-  tail call void @_ZN3ArrIPfEC2EjP3Mem(ptr nonnull %i2, i32 10, ptr null)
+  tail call void @_ZN3ArrIPfEC2EjP3Mem(ptr nonnull %call2, i32 10, ptr null)
   %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 2
-  %i3 = bitcast ptr %f2 to ptr
-  store ptr %i2, ptr %f2, align 8
+  store ptr %call2, ptr %f2, align 8
   %call5 = tail call ptr @_Znwm(i64 40)
-  %i4 = bitcast ptr %call5 to ptr
   %g1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
   %ld1 = load ptr, ptr %g1, align 8
-  tail call void @_ZN6RefArrIPsEC2EjbP3Mem(ptr nonnull %i4, i32 10, i1 zeroext true, ptr %ld1)
+  tail call void @_ZN6RefArrIPsEC2EjbP3Mem(ptr nonnull %call5, i32 10, i1 zeroext true, ptr %ld1)
   br label %invoke.cont7
 
 invoke.cont7:                                     ; preds = %entry
   %f3 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 3
-  %i5 = bitcast ptr %f3 to ptr
-  store ptr %i4, ptr %f3, align 8
+  store ptr %call5, ptr %f3, align 8
   %i6 = load ptr, ptr %f1, align 8
   %call9 = tail call ptr @_ZN3ArrIPiE3getEj(ptr %i6, i32 1)
   %i7 = load ptr, ptr %f2, align 8
   %call11 = tail call ptr @_ZN3ArrIPfE3getEj(ptr %i7, i32 1)
-  %i8 = bitcast ptr %f3 to ptr
-  %i9 = load ptr, ptr %i8, align 8
+  %i9 = load ptr, ptr %f3, align 8
   %call13 = tail call ptr @_ZN7BaseArrIPsE3getEj(ptr %i9, i32 1)
   %i10 = load ptr, ptr %f1, align 8
   tail call void @_ZN3ArrIPiE3setEjPS0_(ptr %i10, ptr %call9, i32 0)
   %i11 = load ptr, ptr %f2, align 8
   tail call void @_ZN3ArrIPfE3setEjPS0_(ptr %i11, ptr %call11, i32 0)
-  %i12 = load ptr, ptr %i8, align 8
-  %i13 = bitcast ptr %i12 to ptr
-  %vtable = load ptr, ptr %i13, align 8
+  %i12 = load ptr, ptr %f3, align 8
+  %vtable = load ptr, ptr %i12, align 8
   %vfn = getelementptr inbounds ptr, ptr %vtable, i64 2
   %i14 = load ptr, ptr %vfn, align 8
   tail call void @_ZN7BaseArrIPsE3setEjPS0_(ptr %i12, ptr %call13, i32 0)
@@ -393,13 +374,13 @@ invoke.cont7:                                     ; preds = %entry
   tail call void @_ZN3ArrIPiE3addEPS0_(ptr %i15, ptr null)
   %i16 = load ptr, ptr %f2, align 8
   tail call void @_ZN3ArrIPfE3addEPS0_(ptr %i16, ptr null)
-  %i17 = load ptr, ptr %i8, align 8
+  %i17 = load ptr, ptr %f3, align 8
   tail call void @_ZN7BaseArrIPsE3addEPS0_(ptr %i17, ptr null)
   %i18 = load ptr, ptr %f1, align 8
   %call21 = tail call i32 @_ZN3ArrIPiE7getSizeEv(ptr %i18)
   %i19 = load ptr, ptr %f2, align 8
   %call23 = tail call i32 @_ZN3ArrIPfE7getSizeEv(ptr %i19)
-  %i20 = load ptr, ptr %i8, align 8
+  %i20 = load ptr, ptr %f3, align 8
   %call25 = tail call i32 @_ZN7BaseArrIPsE7getSizeEv(ptr %i20)
   %i21 = load ptr, ptr %f1, align 8
   %call27 = tail call i32 @_ZN3ArrIPiE11getCapacityEv(ptr %i21)
@@ -426,8 +407,7 @@ delete.end51:                                     ; preds = %delete.notnull50, %
   br i1 %isnull53, label %delete.end57, label %delete.notnull54
 
 delete.notnull54:                                 ; preds = %delete.end51
-  %i27 = bitcast ptr %i26 to ptr
-  %vtable55 = load ptr, ptr %i27, align 8
+  %vtable55 = load ptr, ptr %i26, align 8
   %vfn56 = getelementptr inbounds ptr, ptr %vtable55, i64 1
   %i28 = load ptr, ptr %vfn56, align 8
   tail call void @_ZN6RefArrIPsED0Ev(ptr nonnull %i26)
@@ -593,8 +573,7 @@ entry:
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
   %call = tail call noalias ptr @malloc(i64 %mul)
-  %i1 = bitcast ptr %call to ptr
-  store ptr %i1, ptr %base, align 8
+  store ptr %call, ptr %base, align 8
   tail call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
@@ -623,8 +602,7 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %i4 = load ptr, ptr %base, align 8
   %arrayidx = getelementptr inbounds ptr, ptr %i4, i64 %indvars.iv
-  %i5 = bitcast ptr %arrayidx to ptr
-  %i6 = load ptr, ptr %i5, align 8
+  %i6 = load ptr, ptr %arrayidx, align 8
   tail call void @free(ptr %i6)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %i7 = load i32, ptr %size, align 4
@@ -634,8 +612,7 @@ for.body:                                         ; preds = %for.body, %for.body
 
 if.end:                                           ; preds = %for.body, %for.cond.preheader, %entry
   %base2 = getelementptr inbounds %struct.BaseArr, ptr %i1, i64 0, i32 4
-  %i9 = bitcast ptr %base2 to ptr
-  %i10 = load ptr, ptr %i9, align 8
+  %i10 = load ptr, ptr %base2, align 8
   tail call void @free(ptr %i10)
   ret void
 }
@@ -643,8 +620,7 @@ if.end:                                           ; preds = %for.body, %for.cond
 define linkonce_odr dso_local void @_ZN6RefArrIPsED0Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !53 {
 entry:
   tail call void @_ZN6RefArrIPsED2Ev(ptr %this)
-  %i = bitcast ptr %this to ptr
-  tail call void @_ZdlPv(ptr %i)
+  tail call void @_ZdlPv(ptr %this)
   ret void
 }
 
@@ -670,8 +646,7 @@ if.then2:                                         ; preds = %if.end
   %i3 = load ptr, ptr %base, align 8
   %idxprom = zext i32 %i to i64
   %arrayidx = getelementptr inbounds ptr, ptr %i3, i64 %idxprom
-  %i4 = bitcast ptr %arrayidx to ptr
-  %i5 = load ptr, ptr %i4, align 8
+  %i5 = load ptr, ptr %arrayidx, align 8
   tail call void @free(ptr %i5)
   br label %if.end3
 
@@ -692,8 +667,7 @@ entry:
 define linkonce_odr dso_local void @_ZN7BaseArrIPsED0Ev(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !56 {
 entry:
   tail call void @_ZN7BaseArrIPsED2Ev(ptr %this)
-  %i = bitcast ptr %this to ptr
-  tail call void @_ZdlPv(ptr %i)
+  tail call void @_ZdlPv(ptr %this)
   ret void
 }
 
@@ -725,7 +699,6 @@ if.end:                                           ; preds = %entry
   %conv = zext i32 %spec.select to i64
   %mul = shl nuw nsw i64 %conv, 3
   %call = tail call noalias ptr @malloc(i64 %mul)
-  %i2 = bitcast ptr %call to ptr
   %cmp1345 = icmp eq i32 %i, 0
   br i1 %cmp1345, label %for.cond17.preheader, label %for.body.lr.ph
 
@@ -754,21 +727,18 @@ for.body19.preheader:                             ; preds = %for.cond17.preheade
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
-  %i11 = bitcast ptr %arrayidx to ptr
-  %i12 = load i64, ptr %i11, align 8
-  %arrayidx15 = getelementptr inbounds ptr, ptr %i2, i64 %indvars.iv
-  %i13 = bitcast ptr %arrayidx15 to ptr
-  store i64 %i12, ptr %i13, align 8
+  %i12 = load i64, ptr %arrayidx, align 8
+  %arrayidx15 = getelementptr inbounds ptr, ptr %call, i64 %indvars.iv
+  store i64 %i12, ptr %arrayidx15, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond17.preheader, label %for.body
 
 for.end24:                                        ; preds = %for.body19.preheader, %for.cond17.preheader
   %base25 = getelementptr inbounds %struct.BaseArr, ptr %this, i64 0, i32 4
-  %i14 = bitcast ptr %base25 to ptr
-  %i15 = load ptr, ptr %i14, align 8
+  %i15 = load ptr, ptr %base25, align 8
   tail call void @free(ptr %i15)
-  store ptr %i2, ptr %base25, align 8
+  store ptr %call, ptr %base25, align 8
   store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
