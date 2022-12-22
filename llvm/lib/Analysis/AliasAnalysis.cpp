@@ -1050,17 +1050,10 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
-<<<<<<< HEAD
-  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
-    AAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
-    AAR->addAAResult(WrapperPass->getResult());
 #if INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
 #endif     // INTEL_CUSTOMIZATION
-=======
->>>>>>> 8005332835246c54a4a6b026eede930ed559deb4
 
   // If available, run an external AA providing callback over the results as
   // well.
@@ -1087,12 +1080,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
-<<<<<<< HEAD
-  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
-=======
->>>>>>> 8005332835246c54a4a6b026eede930ed559deb4
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
 }
 
@@ -1128,17 +1116,10 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
-<<<<<<< HEAD
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
 #if INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
 #endif     // INTEL_CUSTOMIZATION
-=======
->>>>>>> 8005332835246c54a4a6b026eede930ed559deb4
   if (auto *WrapperPass = P.getAnalysisIfAvailable<ExternalAAWrapperPass>())
     if (WrapperPass->CB)
       WrapperPass->CB(P, F, AAR);
@@ -1229,12 +1210,7 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
-<<<<<<< HEAD
-  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
-=======
->>>>>>> 8005332835246c54a4a6b026eede930ed559deb4
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
