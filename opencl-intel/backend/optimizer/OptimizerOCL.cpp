@@ -207,7 +207,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
 
   FunctionPassManager FPM2;
   // Break up aggregate allocas
-  FPM2.addPass(SROAPass());
+  FPM2.addPass(SROAPass(SROAOptions::ModifyCFG));
   FPM2.addPass(EarlyCSEPass()); // Catch trivial redundancies
   FPM2.addPass(InstSimplifyPass());
   FPM2.addPass(InstCombinePass());   // Cleanup for scalarrepl.
@@ -274,7 +274,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
     }
   }
   // Break up aggregate allocas
-  FPM3.addPass(SROAPass());
+  FPM3.addPass(SROAPass(SROAOptions::ModifyCFG));
   // Clean up after the unroller
   FPM3.addPass(InstCombinePass());
   FPM3.addPass(InstSimplifyPass());
@@ -330,7 +330,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
     if (Level == OptimizationLevel::O1)
       FPM.addPass(PromotePass());
     else
-      FPM.addPass(SROAPass());
+      FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(InstCombinePass());
     FPM.addPass(InstSimplifyPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -393,7 +393,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
         InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
     FPM.addPass(SimplifyCFGPass());
-    FPM.addPass(SROAPass());
+    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(EarlyCSEPass());
     FPM.addPass(PromotePass());
     FPM.addPass(InstCombinePass());
