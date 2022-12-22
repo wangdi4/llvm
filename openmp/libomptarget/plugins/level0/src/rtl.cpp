@@ -6928,6 +6928,10 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
+  // Call  sycl wrapper delete if it was a sycl object
+  if (Interop->FrId == 4)
+    L0Interop::SyclWrapper.delete_sycl_interop(Interop);
+
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
     if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
@@ -6941,9 +6945,6 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
       CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
     }
   }
-  // Call  sycl wrapper delete if it was a sycl object
-  if (Interop->FrId == 4)
-    L0Interop::SyclWrapper.delete_sycl_interop(Interop);
 
   delete L0;
   delete Interop;
