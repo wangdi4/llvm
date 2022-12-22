@@ -1,5 +1,4 @@
 ; XFAIL: *
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 
 ;typedef long long a[1];

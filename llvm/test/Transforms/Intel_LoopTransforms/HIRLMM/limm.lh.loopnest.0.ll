@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-lmm -hir-details -print-after=hir-lmm -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-details  < %s 2>&1 | FileCheck %s
 ;
 ; C Source Code:

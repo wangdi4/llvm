@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-create-function-level-region -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
 
 ; Check that the second store to (%i)[0] is eliminated but the first one is not

@@ -1,4 +1,3 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-multi-exit-loop-reroll -print-after=hir-multi-exit-loop-reroll 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>" -xmain-opt-level=3 2>&1 | FileCheck %s
 
 ; Verify that we bailt out of multi-exit loop reroll pass if the rerolled loop's trip count overflows.

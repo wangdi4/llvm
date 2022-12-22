@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -print-after=hir-loop-fusion -hir-create-function-level-region -hir-lmm -hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
 ; Verify that loops with preheader/postexit dependency are fused without assertions.

@@ -1,6 +1,5 @@
 ; Test for generating mkl call for matrix multiplication with double data type
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-generate-mkl-call -print-after=hir-generate-mkl-call -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
 
@@ -57,7 +56,6 @@
 ; CHECK: @matmul_mkl_f64_
 ; CHECK: END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-generate-mkl-call -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ;
 

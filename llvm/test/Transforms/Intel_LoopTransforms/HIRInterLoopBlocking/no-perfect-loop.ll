@@ -1,5 +1,4 @@
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -print-after=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
-; opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 < %s | FileCheck %s
 
 ; Verify that alignments on memrefs not in innermost loops are correctly done
 

@@ -1,4 +1,3 @@
-; RUN: opt -disable-hir-create-fusion-regions=0 -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-create-fusion-regions=0 -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that "i1" loops are fused while "i2" loops are not fused because of the dependency A[i1][i2] --> A[i1][i2+1].

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -simplifycfg -print-before=hir-general-unroll -print-after=hir-general-unroll -print-after=simplifycfg -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>,hir-cg,simplifycfg,print" -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll the small trip count loop by 3 due to presence of "llvm.loop.unroll.count" pragma.

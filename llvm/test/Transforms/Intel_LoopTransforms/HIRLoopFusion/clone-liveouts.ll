@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-before=hir-loop-fusion -print-after=hir-loop-fusion -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 
 ; Check that liveouts in are updated due to peeled loops.

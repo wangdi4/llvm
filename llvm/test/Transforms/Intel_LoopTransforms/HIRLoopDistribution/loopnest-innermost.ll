@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -S -print-after=hir-loop-distribute-loopnest -disable-output -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -S -aa-pipeline="basic-aa" -disable-output -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s
 
 ; Check that loop will distribute into two chunks by hir-loop-distribute-loopnest.

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -disable-output -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Check that the same loopnest will be fused in the first case (foo)

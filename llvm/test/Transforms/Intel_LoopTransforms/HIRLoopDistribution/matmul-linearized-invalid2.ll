@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-sinking-for-perfect-loopnest  -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest -disable-output <%s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa" -disable-output <%s 2>&1 | FileCheck %s
 
 ; Test checks that distribution does not happen. Loop UB does not match IV stride.

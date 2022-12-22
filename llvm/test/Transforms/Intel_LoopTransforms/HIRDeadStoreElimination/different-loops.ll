@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
 ; Test checkes that the first store to @arr[] is not eliminated by HIR DSE pass

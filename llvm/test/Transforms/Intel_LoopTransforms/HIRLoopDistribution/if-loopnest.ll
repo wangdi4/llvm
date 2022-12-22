@@ -1,4 +1,3 @@
-; RUN: opt -hir-temp-cleanup -hir-loop-distribute-loopnest -S -print-after=hir-loop-distribute-loopnest -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-temp-cleanup,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; See description below

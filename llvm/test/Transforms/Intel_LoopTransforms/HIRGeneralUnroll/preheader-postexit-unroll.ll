@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; Check that unrolling of loop with preheader/postexit is handled correctly.

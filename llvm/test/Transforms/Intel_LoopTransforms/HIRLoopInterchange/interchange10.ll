@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ;
 ; Interchange is not legal for this test:

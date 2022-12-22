@@ -1,5 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -print-after=hir-loop-blocking  < %s 2>&1 | FileCheck %s
-
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s
 
 ; Make sure blocking works at boundary condition, generating upto the maximum number of loops after blocking.

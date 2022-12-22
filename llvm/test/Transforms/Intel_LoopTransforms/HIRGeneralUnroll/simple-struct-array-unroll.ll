@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; HIR-

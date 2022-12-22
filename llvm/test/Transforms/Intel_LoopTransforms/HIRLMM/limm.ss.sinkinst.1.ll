@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-lmm -print-after=hir-lmm -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 ;
 ;  We move out all the three stores out of i2 loop and mark %0 as non-linear because it is defined inside i1 loop.

@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ;
 ; CHECK:Function: Vsub

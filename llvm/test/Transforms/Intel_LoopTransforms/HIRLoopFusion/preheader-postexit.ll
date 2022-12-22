@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-loop-fusion -print-before=hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test does loop fusion on loops where preheader and postexit nodes are moved to first and last loops after fusion.

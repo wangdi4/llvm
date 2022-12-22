@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-memory-reduction-sinking -print-before=hir-memory-reduction-sinking -print-after=hir-memory-reduction-sinking < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-memory-reduction-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to sink invariant reduction in the presence of dependencies to non-linear reduction.
@@ -26,7 +25,6 @@
 ; CHECK:   %add7 = (@A)[0][5]  +  %tmp;
 ; CHECK:   (@A)[0][5] = %add7;
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-memory-reduction-sinking -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-memory-reduction-sinking,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; OPTREPORT:  LOOP BEGIN

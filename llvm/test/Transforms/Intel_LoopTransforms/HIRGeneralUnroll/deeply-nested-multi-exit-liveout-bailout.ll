@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-after=hir-general-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we do not unroll deeply nested multi-exit loops with liveouts

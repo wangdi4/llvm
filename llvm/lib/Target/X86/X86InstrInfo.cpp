@@ -3746,7 +3746,13 @@ X86InstrInfo::isCopyInstrImpl(const MachineInstr &MI) const {
 }
 
 static unsigned getLoadStoreOpcodeForFP16(bool Load, const X86Subtarget &STI) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (STI.hasFP16() || STI.hasAVX256P())
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (STI.hasFP16())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return Load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
   if (Load)
     return STI.hasAVX512() ? X86::VMOVSSZrm

@@ -4,14 +4,12 @@
 ; ===-----------------------------------===
 ; *** Run0: Normal General Unrolling ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=UNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -S < %s 2>&1 | FileCheck %s -check-prefix=UNROLL
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: Disabled Normal General Unrolling ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -disable-hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=NOUNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=NOUNROLL
 ;
 ;

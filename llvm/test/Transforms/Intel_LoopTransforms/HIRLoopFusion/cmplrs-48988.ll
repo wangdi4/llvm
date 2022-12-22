@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output  -hir-loop-distribute-loopnest -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | grep "DO i2" | count 2
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output  < %s 2>&1 | grep "DO i2" | count 2
 ; NOTE: The test requires fusion of distributed loops. This should not happen usually and should be forced later.
 ; The test verifies that after the fusion there will be 2 "DO i2" loops.

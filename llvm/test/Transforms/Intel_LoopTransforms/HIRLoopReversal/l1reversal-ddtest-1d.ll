@@ -104,13 +104,11 @@
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;

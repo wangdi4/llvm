@@ -1,4 +1,3 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-multi-exit-loop-reroll -hir-cg -force-hir-cg -print-after=hir-multi-exit-loop-reroll -hir-framework-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>,hir-cg" -force-hir-cg -xmain-opt-level=3 -hir-framework-details 2>&1 | FileCheck %s
 
 ; Verify that we can successfully generate code after multi-exit loop reroll.

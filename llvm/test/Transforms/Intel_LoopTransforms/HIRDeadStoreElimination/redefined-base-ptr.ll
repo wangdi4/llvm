@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the store of (%0)[i2] in the first i2 loop after complete unroll

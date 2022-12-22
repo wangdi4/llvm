@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-before=hir-loop-distribute-memrec  -disable-output < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-distribute-memrec" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we successfully parse and handle distribute point which occurs at the

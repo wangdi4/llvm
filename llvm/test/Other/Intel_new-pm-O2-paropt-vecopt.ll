@@ -166,7 +166,7 @@
 ; CHECK-NEXT: Running analysis: StdContainerAA
 ; CHECK-NEXT: Running pass: OpenMPOptCGSCCPass
 ; CHECK-NEXT: Running pass: TbaaMDPropagationPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::OptReportOptionsAnalysis, {{.*Function.*}}>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<{{.*OptReportOptionsAnalysis.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis
 ; CHECK-NEXT: Running pass: SROAPass
 ; CHECK-NEXT: Running pass: EarlyCSEPass
@@ -185,18 +185,18 @@
 ; CHECK-NEXT: Running pass: TailCallElimPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: ReassociatePass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::OptimizationRemarkEmitterAnalysis, {{.*Function.*}}>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<{{.*OptimizationRemarkEmitterAnalysis.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, {{.*Function.*}}>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running pass: LoopInstSimplifyPass
 ; CHECK-NEXT: Running pass: LoopSimplifyCFGPass
 ; CHECK-NEXT: Running pass: LICMPass
 ; CHECK-NEXT: Running pass: LoopRotatePass
 ; CHECK-NEXT: Running pass: LICMPass
 ; CHECK-NEXT: Running pass: SimpleLoopUnswitchPass
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Loop.*}}>
+; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Loop.*}}>
 ; CHECK-NEXT: Running pass: LoopFlattenPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
@@ -241,13 +241,13 @@
 ; CHECK-NEXT: Invalidating analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Invalidating analysis: LoopAnalysis
 ; CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, {{.*Function.*}}>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Invalidating analysis: PhiValuesAnalysis
 ; CHECK-NEXT: Invalidating analysis: MemoryDependenceAnalysis
 ; CHECK-NEXT: Invalidating analysis: DemandedBitsAnalysis
 ; CHECK-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-NEXT: Running pass: CoroSplitPass
-; CHECK-NEXT: Running pass: InvalidateAnalysisPass<llvm::ShouldNotRunFunctionPassesAnalysis>
+; CHECK-NEXT: Running pass: InvalidateAnalysisPass<{{.*ShouldNotRunFunctionPassesAnalysis.*}}>
 ; CHECK-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-NEXT: Running pass: IPSCCPPass
@@ -277,15 +277,15 @@
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running pass: LCSSAPass
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::LoopAnalysisManager, {{.*Function.*}}>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running pass: LoopRotatePass
 ; CHECK-NEXT: Running pass: LoopDeletionPass
 ; CHECK-NEXT: Running pass: VecClonePass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Module.*}}>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
 ; CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, {{.*Module.*}}>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*CGSCCAnalysisManager.*}}, {{.*Module.*}}>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Module.*}}>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis
@@ -307,13 +307,13 @@
 ; CHECK-NEXT: Running analysis: AAManager
 ; CHECK-NEXT: Running analysis: BasicAA
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, {{.*Function.*}}>
+; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-NEXT: Running analysis: TypeBasedAA
 ; CHECK-NEXT: Running analysis: StdContainerAA
 ; CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Module.*}}>
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Module.*}}>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: LoopAnalysis
@@ -326,7 +326,7 @@
 ; CHECK-NEXT: Running analysis: AAManager
 ; CHECK-NEXT: Running analysis: BasicAA
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, {{.*Function.*}}>
+; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
 ; CHECK-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-NEXT: Running analysis: TypeBasedAA
 ; CHECK-NEXT: Running analysis: StdContainerAA

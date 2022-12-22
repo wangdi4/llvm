@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check DO i3, DO i4 are collapsed.

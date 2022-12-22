@@ -18,6 +18,7 @@
 #include "cl_sys_info.h"
 #include "exceptions.h"
 #include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 
@@ -38,18 +39,24 @@ void CPUBuiltinLibrary::Load() {
   char Path[MAX_PATH];
   Intel::OpenCL::Utils::GetModuleDirectory(Path, MAX_PATH);
   std::string PathStr(Path);
+
+  // Klocwork warning - false alarm the Id is always in correct bounds
+  const char *CPUPrefix = m_cpuId->GetCPUPrefix();
+
+#ifdef INTEL_CUSTOMIZATION
+  // The code below may cause ip leak, so we exclude it in our product release
+  // build.
 #ifndef INTEL_PRODUCT_RELEASE
   // After we change backend to a static lib. It will be directly link into unit
   // test binary. However, the test and builtin libs are not in the same folder.
   // This is to make sure that unit test binary can correctly find the ocl
   // builtin libs.
-  std::string Env;
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_FORCE_OCL_LIBRARY_PATH"))
-    PathStr = Env;
+  SmallString<128> TempPah(PathStr);
+  llvm::sys::path::append(TempPah, std::string("clbltfn") + CPUPrefix + ".rtl");
+  if (!llvm::sys::fs::exists(TempPah))
+    PathStr = DEFAULT_OCL_LIBRARY_DIR;
 #endif // INTEL_PRODUCT_RELEASE
-
-  // Klocwork warning - false alarm the Id is always in correct bounds
-  const char *CPUPrefix = m_cpuId->GetCPUPrefix();
+#endif // INTEL_CUSTOMIZATION
 
   if (m_useDynamicSvmlLibrary) {
     // Load SVML functions

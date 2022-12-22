@@ -1,6 +1,5 @@
 ; Check that DD in load prevents idiom hoisting
 
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:

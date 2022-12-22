@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-lmm,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ; *** IR Dump Before HIR Loop Memory Motion ***

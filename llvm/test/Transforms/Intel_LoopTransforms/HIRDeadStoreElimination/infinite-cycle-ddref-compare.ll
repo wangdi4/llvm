@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that CanonExprUtils::compare(Type*, Type*) does not get into a cycle while comparing two cyclic types like the linked lists list1 and list2 below.

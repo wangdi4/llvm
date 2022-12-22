@@ -1,5 +1,4 @@
 ; Problem: Missing Postexit Stmt after Loop Dist
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 ; CHECK: END LOOP
 ; CHECK-NEXT:  %t132.0114 = %t132.3;

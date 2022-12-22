@@ -1,9 +1,6 @@
 ; REQUIRES: asserts
 ; Check special sinking in loop blocking
 
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-loop-blocking -debug-only=hir-loop-blocking -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -hir-loop-blocking-disable-special-sink=true -intel-libirc-allowed -hir-ssa-deconstruction -hir-loop-blocking -debug-only=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s --check-prefix=DISABLED
-
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-loop-blocking" -debug-only=hir-loop-blocking -disable-output -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-loop-blocking" -hir-loop-blocking-disable-special-sink=true -debug-only=hir-loop-blocking -disable-output -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DISABLED
 

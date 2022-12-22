@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-ssa-deconstruction -hir-loop-blocking -print-after=hir-loop-blocking -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-loop-blocking" -print-after=hir-loop-blocking -disable-output -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 
 ; Verify that the test compiles successfully. Previously, blocking was calling

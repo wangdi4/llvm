@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll the outer unknown loop with unroll metadata.

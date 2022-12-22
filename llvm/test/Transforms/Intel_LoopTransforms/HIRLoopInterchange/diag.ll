@@ -3,13 +3,10 @@
 ; for (j = 0; j < N; j++)
 ; c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-interchange-print-diag=1  < %s 2>&1 | FileCheck %s --check-prefix=DIAGALL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -hir-loop-interchange-print-diag=1 < %s 2>&1 | FileCheck %s --check-prefix=DIAGALL
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-interchange-print-diag=1 -hir-loop-interchange-print-diag-func=sub  < %s 2>&1 | FileCheck %s --check-prefix=DIAGFUNC
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -hir-loop-interchange-print-diag=1 -hir-loop-interchange-print-diag-func=sub < %s 2>&1 | FileCheck %s --check-prefix=DIAGFUNC
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-interchange-print-diag=1 -hir-loop-interchange-print-diag-func=foo  < %s 2>&1 | FileCheck %s --check-prefix=DIAGNOFUNC
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -hir-loop-interchange-print-diag=1 -hir-loop-interchange-print-diag-func=foo < %s 2>&1 | FileCheck %s --check-prefix=DIAGNOFUNC
 ;
 ;

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-minmax-recognition  -print-after=hir-minmax-recognition -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-minmax-recognition" -print-after=hir-minmax-recognition -aa-pipeline="basic-aa" -disable-output 2>&1 < %s  | FileCheck %s
 
 ; Test checks that following code is recognized as maxnum.f64() pattern:

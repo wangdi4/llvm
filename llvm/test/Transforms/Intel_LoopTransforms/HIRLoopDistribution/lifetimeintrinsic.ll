@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -S -print-after=hir-loop-distribute-loopnest -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -S -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that loopnest with lifetime intrinsics is not distributed. This is

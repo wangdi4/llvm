@@ -1,7 +1,6 @@
 ; Expecting PreHdr/PostExit Extracted
 ;      if (-1 * i1 + 63 <u 33)
 ;
-; RUN:  opt  < %s  -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-loop-interchange -print-after=hir-loop-interchange 2>&1 | FileCheck %s
 ; RUN:  opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa"  < %s  2>&1 | FileCheck %s
 ; CHECK: if (-1 * i1 + 63 <u 33)
 ; CHECK:  DO i2 = 0, 52, 1

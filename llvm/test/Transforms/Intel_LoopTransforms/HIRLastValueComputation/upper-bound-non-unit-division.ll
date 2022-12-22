@@ -3,7 +3,6 @@
 ; Without converting upper bound to a stand-alone blob, it shows %add2 = (-1 * %a + 7 * %c + 41)/u7  +  %b
 ; The result would be wrong if the numerator becomes negative.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-last-value-computation -print-after=hir-last-value-computation < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-last-value-computation,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Last Value Computation ***

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-cost-model-throttling=0 -hir-general-unroll -print-after=hir-general-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 
 ; Verify that the unknown loop is not unrolled due to presence of ifs and indirect calls pushing the loop's cost above threashold.

@@ -7,7 +7,6 @@
 ; - The LIT test itself is good and working.
 ; - However, due to its excessive runtime (7min in debug mode, 35s in prod mode), this LIT is currently disabled.
 
-; RUN: opt -debug-only=hir-loop-interchange -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-loop-interchange -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -disable-output -S  < %s 2>&1 | FileCheck %s
 ; RUN: opt -debug-only=hir-loop-interchange -passes="hir-ssa-deconstruction,hir-cross-loop-array-contraction,hir-loop-interchange" -aa-pipeline="basic-aa" -hir-create-function-level-region -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -disable-output -S < %s 2>&1 | FileCheck %s
 
 ; CHECK:        Reached Perfect Loopnest

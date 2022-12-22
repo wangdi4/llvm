@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-sinking-for-perfect-loopnest-minimum-trip-count=15 -hir-loop-interchange -debug-only=hir-loop-interchange -hir-loop-interchange-sinked-perfect-profitability-tc-threshold=4 < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -debug-only=hir-loop-interchange -hir-sinking-for-perfect-loopnest-minimum-trip-count=15 -hir-loop-interchange-sinked-perfect-profitability-tc-threshold=4 < %s 2>&1 | FileCheck %s
 
 ; CHECK: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 )

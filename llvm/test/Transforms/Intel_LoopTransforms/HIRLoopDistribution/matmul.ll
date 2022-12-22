@@ -1,8 +1,6 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 ;
-;RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest  < %s 2>&1 | FileCheck %s
 ;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; matmul required suppressions of LICM and early CSE(did ld/st of c[][] in i3)
@@ -45,7 +43,6 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK: END REGION
 
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -force-hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN

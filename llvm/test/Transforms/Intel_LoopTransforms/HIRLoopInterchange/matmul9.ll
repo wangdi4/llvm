@@ -6,7 +6,6 @@
 ;					px[j*25+i] = px[j*25+i -n +10] + vy[k*n+i] * cx[j*25+k+l];
 ; Cannot be interchanged even with RTDD: has flow dep (* * * *) for px
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ; ModuleID = 'matmul9.c'

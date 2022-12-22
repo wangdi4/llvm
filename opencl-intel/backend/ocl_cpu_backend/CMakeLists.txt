@@ -57,6 +57,10 @@ endif(NOT WIN32)
 
 use_rtti(FALSE)
 
+# This macro is to provide a default path for ocl backend to find shared builtin
+# libraries.
+add_definitions(-DDEFAULT_OCL_LIBRARY_DIR="${OCL_OUTPUT_LIBRARY_DIR}")
+
 # Create target project
 set(OCL_CPU_BACKEND_INCLUDE_FILES
     # Interface

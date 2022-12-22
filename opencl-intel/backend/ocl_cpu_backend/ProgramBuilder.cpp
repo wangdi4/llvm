@@ -617,16 +617,23 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
     char ModuleName[MAX_PATH];
     Intel::OpenCL::Utils::GetModuleDirectory(ModuleName, MAX_PATH);
     std::string ModuleDir(ModuleName);
+    std::string CPUPrefix = Cmplr->GetCpuId()->GetCPUPrefix();
+
+#ifdef INTEL_CUSTOMIZATION
+    // The code below may cause ip leak, so we exclude it in our product release
+    // build.
 #ifndef INTEL_PRODUCT_RELEASE
     // Make sure that unit test binary can correctly find the ocl builtin libs.
-    std::string Env;
-    if (Intel::OpenCL::Utils::getEnvVar(Env,
-                                        "CL_CONFIG_FORCE_OCL_LIBRARY_PATH"))
-      ModuleDir = Env;
+    SmallString<128> TempPah(ModuleDir);
+    llvm::sys::path::append(TempPah,
+                            std::string("clbltfn") + CPUPrefix + ".rtl");
+    if (!llvm::sys::fs::exists(TempPah))
+      ModuleDir = DEFAULT_OCL_LIBRARY_DIR;
 #endif // INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
+
     llvm::SmallString<128> BaseName(ModuleDir);
     llvm::sys::path::append(BaseName, OCL_LIBRARY_TARGET_NAME);
-    std::string CPUPrefix = Cmplr->GetCpuId()->GetCPUPrefix();
     std::string RtlFilePath = std::string(BaseName) + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =
         std::string(BaseName) + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;

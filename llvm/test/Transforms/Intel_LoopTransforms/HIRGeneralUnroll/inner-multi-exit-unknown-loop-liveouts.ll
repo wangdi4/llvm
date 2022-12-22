@@ -1,4 +1,3 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -debug-only=hir-general-unroll 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll" -debug-only=hir-general-unroll < %s 2>&1 | FileCheck %s
 
 ; Verify that penalty is applied to the inner multi-exit loop with liveouts to

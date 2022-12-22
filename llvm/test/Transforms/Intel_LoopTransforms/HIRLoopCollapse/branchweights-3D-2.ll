@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-collapse -hir-cg -S < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-collapse,hir-cg" -S %s | FileCheck %s
 ;
 ; Make sure HIR loop collapse pass correctly modifies profile-related metadata ("branch weights"). The collapsed loop should use the backedge taken weight from the innermost loop and non-taken weight from the outermost loop.
