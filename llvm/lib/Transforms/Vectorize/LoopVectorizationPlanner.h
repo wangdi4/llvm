@@ -315,7 +315,7 @@ public:
   /// Plan how to best vectorize, return the best VF and its cost, or
   /// std::nullopt if vectorization and interleaving should be avoided up front.
 #if INTEL_CUSTOMIZATION
-  Optional<VectorizationFactor> plan(ElementCount UserVF, unsigned UserIC,
+  std::optional<VectorizationFactor> plan(ElementCount UserVF, unsigned UserIC,
                                      ArrayRef<ElementCount> VFs);
 #endif // INTEL_CUSTOMIZATION
 

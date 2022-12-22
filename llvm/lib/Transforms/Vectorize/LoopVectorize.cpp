@@ -430,7 +430,8 @@ static Constant *getSignedIntOrFpConstant(Type *Ty, int64_t C) {
 ///   2) Returns expected trip count according to profile data if any.
 ///   3) Returns upper bound estimate if it is known.
 ///   4) Returns std::nullopt if all of the above failed.
-static Optional<unsigned> getSmallBestKnownTC(ScalarEvolution &SE, Loop *L) {
+static std::optional<unsigned> getSmallBestKnownTC(ScalarEvolution &SE,
+                                                   Loop *L) {
   // Check if exact trip count is known.
   if (unsigned ExpectedTC = SE.getSmallConstantTripCount(L))
     return ExpectedTC;
@@ -1664,7 +1665,7 @@ private:
 
   /// Return the cost of instructions in an inloop reduction pattern, if I is
   /// part of that pattern.
-  Optional<InstructionCost>
+  std::optional<InstructionCost>
   getReductionPatternCost(Instruction *I, ElementCount VF, Type *VectorTy,
                           TTI::TargetCostKind CostKind);
 
@@ -6602,7 +6603,8 @@ LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
   return Cost;
 }
 
-Optional<InstructionCost> LoopVectorizationCostModel::getReductionPatternCost(
+std::optional<InstructionCost>
+LoopVectorizationCostModel::getReductionPatternCost(
     Instruction *I, ElementCount VF, Type *Ty, TTI::TargetCostKind CostKind) {
   using namespace llvm::PatternMatch;
   // Early exit for no inloop reductions
@@ -6771,7 +6773,7 @@ Optional<InstructionCost> LoopVectorizationCostModel::getReductionPatternCost(
     }
   }
 
-  return I == RetI ? Optional<InstructionCost>(BaseCost) : std::nullopt;
+  return I == RetI ? std::optional<InstructionCost>(BaseCost) : std::nullopt;
 }
 
 InstructionCost
@@ -7553,7 +7555,7 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
 }
 
 #if INTEL_CUSTOMIZATION
-Optional<VectorizationFactor>
+std::optional<VectorizationFactor>
 LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
                                ArrayRef<ElementCount> VFs) {
 #endif // INTEL_CUSTOMIZATION
@@ -10412,10 +10414,12 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   ElementCount UserVF = Hints.getWidth();
   unsigned UserIC = Hints.getInterleave();
   ArrayRef<ElementCount> VFs = Hints.getAllowedVFs(); // INTEL
+
   // Plan how to best vectorize, return the best VF and its cost.
 #if INTEL_CUSTOMIZATION
-  Optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
+  std::optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
 #endif // INTEL_CUSTOMIZATION
+
   VectorizationFactor VF = VectorizationFactor::Disabled();
   unsigned IC = 1;
 
