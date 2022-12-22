@@ -29,6 +29,8 @@ import sys
 
 from UpdateTestChecks import common
 
+from UpdateTestChecks import intel_update_markup # INTEL
+
 MIR_FUNC_NAME_RE = re.compile(r' *name: *(?P<func>[A-Za-z0-9_.-]+)')
 MIR_BODY_BEGIN_RE = re.compile(r' *body: *\|')
 MIR_BASIC_BLOCK_RE = re.compile(r' *bb\.[0-9]+.*:$')
@@ -419,6 +421,7 @@ def update_test_file(args, test):
     with open(test, 'wb') as fd:
         fd.writelines(['{}\n'.format(l).encode('utf-8') for l in output_lines])
 
+    intel_update_markup.update(test) # INTEL
 
 def main():
     parser = argparse.ArgumentParser(

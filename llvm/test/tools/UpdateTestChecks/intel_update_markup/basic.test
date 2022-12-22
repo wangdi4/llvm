@@ -1,0 +1,5 @@
+# RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/x86-basic-ref.ll
+# RUN: diff -u %S/Inputs/x86-basic-exp.ll.expected %t.ll
+#
+# RUN: cp -f %S/Inputs/x86-condbr-exp.mir %t.mir && %intel_update_markup %t.mir --ref %S/Inputs/x86-condbr-ref.mir
+# RUN: diff -u %S/Inputs/x86-condbr-exp.mir.expected %t.mir

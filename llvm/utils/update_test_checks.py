@@ -41,6 +41,7 @@ import sys
 
 from UpdateTestChecks import common
 
+from UpdateTestChecks import intel_update_markup # INTEL
 
 def main():
   from argparse import RawTextHelpFormatter
@@ -255,6 +256,7 @@ def main():
     with open(ti.path, 'wb') as f:
       f.writelines(['{}\n'.format(l).encode('utf-8') for l in output_lines])
 
+    intel_update_markup.update(ti.path) # INTEL
 
 if __name__ == '__main__':
   main()
