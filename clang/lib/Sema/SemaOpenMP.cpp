@@ -7670,7 +7670,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       EPI.ExtInfo = Ext;
       QualType RetTy = Context.VoidTy;
       PTy = dyn_cast<FunctionProtoType>(
-          Context.getFunctionType(RetTy, None, EPI));
+          Context.getFunctionType(RetTy, std::nullopt, EPI));
     }
     if (PTy && VPTy && VPTy->getNumParams() == PTy->getNumParams() + 1 &&
         VPTy->getParamType(VPTy->getNumParams() - 1)->isVoidPointerType()) {
@@ -7691,7 +7691,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
              diag::err_omp_declare_variant_incompat_types)
             << VariantRef->getType() << FD->getType() << (NumAppendArgs ? 1 : 0)
             << VariantRef->getSourceRange();
-        return None;
+        return std::nullopt;
       }
     }
   }
