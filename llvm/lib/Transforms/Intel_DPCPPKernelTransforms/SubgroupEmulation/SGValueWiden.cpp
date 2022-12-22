@@ -20,6 +20,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace CompilationUtils;
@@ -557,9 +558,11 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V,
   if (Helper.isBarrier(I) || Helper.isDummyBarrier(I)) {
     auto *SyncBB = I->getParent();
     std::string BBName = SyncBB->getName().str();
-    SyncBB->setName("");
-    SyncBB->splitBasicBlock(I, BBName);
-    DT.splitBlock(SyncBB);
+    SyncBB->setName("pre." + BBName);
+    SplitBlock(SyncBB, I, &DT, /*LoopInfo *LI = */ nullptr,
+               /*MemorySSAUpdater *MSSAU = */ nullptr, BBName);
+    LLVM_DEBUG(dbgs() << "DomTree after splitting on sg barrier: \n";
+               DT.print(dbgs()));
     return SyncBB->getTerminator();
   }
 
