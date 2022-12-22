@@ -1129,6 +1129,10 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
                        PrevDDNode->dump());
 
             ++I;
+            // Collected substitutable loads are only valid for the first
+            // candidate store we find. If that store cannot be eliminated, we
+            // need to invalidate the loads as well.
+            SubstitutableLoads.clear();
             continue;
           }
 
@@ -1137,6 +1141,10 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
                        PrevDDNode->dump(); dbgs() << "and PostDomStoreRef: ");
             LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
             ++I;
+            // Collected substitutable loads are only valid for the first
+            // candidate store we find. If that store cannot be eliminated, we
+            // need to invalidate the loads as well.
+            SubstitutableLoads.clear();
             continue;
           }
         }
