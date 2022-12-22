@@ -6453,7 +6453,7 @@ class OffloadingActionBuilder final {
         }
 #if INTEL_CUSTOMIZATION
         SYCLDeviceLibLinked |= addPerformanceDeviceLibs(
-            TC, FullLinkObjects,
+            TC, DeviceLibs,
             C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
 #endif // INTEL_CUSTOMIZATION
         JobAction *LinkSYCLLibs =
