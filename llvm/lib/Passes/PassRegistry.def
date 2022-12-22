@@ -554,9 +554,12 @@ FUNCTION_ANALYSIS("vpo-wrninfo", WRegionInfoAnalysis())
   FUNCTION_ANALYSIS(NAME, CREATE_PASS)
 #endif
 FUNCTION_ALIAS_ANALYSIS("basic-aa", BasicAA())
+<<<<<<< HEAD
 FUNCTION_ALIAS_ANALYSIS("cfl-anders-aa", CFLAndersAA())
 FUNCTION_ALIAS_ANALYSIS("cfl-steens-aa", CFLSteensAA())
 FUNCTION_ALIAS_ANALYSIS("dpcpp-kernel-aa", DPCPPAliasAnalysis()) // INTEL
+=======
+>>>>>>> 8005332835246c54a4a6b026eede930ed559deb4
 FUNCTION_ALIAS_ANALYSIS("objc-arc-aa", objcarc::ObjCARCAA())
 FUNCTION_ALIAS_ANALYSIS("scev-aa", SCEVAA())
 FUNCTION_ALIAS_ANALYSIS("scoped-noalias-aa", ScopedNoAliasAA())

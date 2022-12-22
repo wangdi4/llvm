@@ -51,8 +51,6 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeCFGPrinterLegacyPassPass(Registry);
   initializeCFGOnlyViewerLegacyPassPass(Registry);
   initializeCFGOnlyPrinterLegacyPassPass(Registry);
-  initializeCFLAndersAAWrapperPassPass(Registry);
-  initializeCFLSteensAAWrapperPassPass(Registry);
   initializeCycleInfoWrapperPassPass(Registry);
   initializeDependenceAnalysisWrapperPassPass(Registry);
   initializeDelinearizationPass(Registry);
