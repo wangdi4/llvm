@@ -122,7 +122,9 @@ static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
     "temporarily-allow-old-pass-syntax",
     cl::desc("Do not use in new tests. To be removed once all tests have "
              "migrated."),
-    cl::init(false));
+#if INTEL_CUSTOMIZATION
+    cl::init(true));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> PrintPasses("print-passes",
                                  cl::desc("Print available passes that can be "
