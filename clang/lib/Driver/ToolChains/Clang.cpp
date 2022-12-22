@@ -5053,13 +5053,22 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
                                     const ToolChain &TC) {
   unsigned RTOptionID = options::OPT__SLASH_MT;
 
-  if (Args.hasArg(options::OPT__SLASH_LDd))
-    // The /LDd option implies /MTd. The dependent lib part can be overridden,
-    // but defining _DEBUG is sticky.
-    RTOptionID = options::OPT__SLASH_MTd;
+  bool isSPIR = TC.getTriple().isSPIR();
+  bool isSYCL = Args.hasArg(options::OPT_fsycl);
+  // For SYCL Windows, /MD is the default.
+  if (isSYCL)
+    RTOptionID = options::OPT__SLASH_MD;
 
-  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group))
+  if (Args.hasArg(options::OPT__SLASH_LDd))
+    // The /LDd option implies /MTd (/MDd for SYCL). The dependent lib part
+    // can be overridden, but defining _DEBUG is sticky.
+    RTOptionID = isSYCL ? options::OPT__SLASH_MDd : options::OPT__SLASH_MTd;
+
+  Arg *SetArg = nullptr;
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group)) {
     RTOptionID = A->getOption().getID();
+    SetArg = A;
+  }
 
   if (Arg *A = Args.getLastArg(options::OPT_fms_runtime_lib_EQ)) {
     RTOptionID = llvm::StringSwitch<unsigned>(A->getValue())
@@ -5068,42 +5077,65 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
                      .Case("dll", options::OPT__SLASH_MD)
                      .Case("dll_dbg", options::OPT__SLASH_MDd)
                      .Default(options::OPT__SLASH_MT);
+    SetArg = A;
   }
+  if (isSYCL && !isSPIR && SetArg &&
+      (RTOptionID == options::OPT__SLASH_MT ||
+       RTOptionID == options::OPT__SLASH_MTd))
+    // Use of /MT or /MTd is not supported for SYCL.
+    TC.getDriver().Diag(diag::err_drv_unsupported_opt_dpcpp)
+        << SetArg->getOption().getName();
 
-  bool isSPIR = TC.getTriple().isSPIR();
+  enum { addDEBUG = 0x1, addMT = 0x2, addDLL = 0x4 };
+  auto addPreDefines = [&](unsigned Defines) {
+    if (Defines & addDEBUG)
+      CmdArgs.push_back("-D_DEBUG");
+    if (Defines & addMT && !isSPIR)
+      CmdArgs.push_back("-D_MT");
+    if (Defines & addDLL && !isSPIR)
+      CmdArgs.push_back("-D_DLL");
+  };
   StringRef FlagForCRT;
+#if INTEL_CUSTOMIZATION
+  StringRef FlagForIntelMathLib;
+  StringRef FlagForIntelSVMLLib;
+#endif // INTEL_CUSTOMIZATION
   switch (RTOptionID) {
   case options::OPT__SLASH_MD:
-    if (Args.hasArg(options::OPT__SLASH_LDd))
-      CmdArgs.push_back("-D_DEBUG");
-    if (!isSPIR) {
-      CmdArgs.push_back("-D_MT");
-      CmdArgs.push_back("-D_DLL");
-    }
+    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
+                  addMT | addDLL);
     FlagForCRT = "--dependent-lib=msvcrt";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmd";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MDd:
-    CmdArgs.push_back("-D_DEBUG");
-    if (!isSPIR) {
-      CmdArgs.push_back("-D_MT");
-      CmdArgs.push_back("-D_DLL");
-    }
+    addPreDefines(addDEBUG | addMT | addDLL);
     FlagForCRT = "--dependent-lib=msvcrtd";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmdd";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MT:
-    if (Args.hasArg(options::OPT__SLASH_LDd))
-      CmdArgs.push_back("-D_DEBUG");
-    if (!isSPIR)
-      CmdArgs.push_back("-D_MT");
+    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
+                  addMT);
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmt";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmt";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
+#endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MTd:
-    CmdArgs.push_back("-D_DEBUG");
-    if (!isSPIR)
-      CmdArgs.push_back("-D_MT");
+    addPreDefines(addDEBUG | addMT);
     CmdArgs.push_back("-flto-visibility-public-std");
     FlagForCRT = "--dependent-lib=libcmtd";
+#if INTEL_CUSTOMIZATION
+    FlagForIntelMathLib = "--dependent-lib=libmmt";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
+#endif // INTEL_CUSTOMIZATION
     break;
   default:
     llvm_unreachable("Unexpected option ID.");
@@ -5113,11 +5145,82 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
     CmdArgs.push_back("-D_VC_NODEFAULTLIB");
   } else {
     CmdArgs.push_back(FlagForCRT.data());
+#if INTEL_CUSTOMIZATION
+    if (TC.getDriver().IsIntelMode()) {
+      if (!Args.hasArg(options::OPT_i_no_use_libirc) &&
+          TC.CheckAddIntelLib("libirc", Args))
+        CmdArgs.push_back("--dependent-lib=libircmt");
+      if (TC.CheckAddIntelLib("libsvml", Args))
+        CmdArgs.push_back(FlagForIntelSVMLLib.data());
+      CmdArgs.push_back("--dependent-lib=libdecimal");
+      if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
+                       false))
+        CmdArgs.push_back("--dependent-lib=libmatmul");
+    }
+    if (TC.CheckAddIntelLib("libm", Args) &&
+        TC.CheckAddIntelLib("libimf", Args))
+      CmdArgs.push_back(FlagForIntelMathLib.data());
+#endif // INTEL_CUSTOMIZATION
 
     // This provides POSIX compatibility (maps 'open' to '_open'), which most
     // users want.  The /Za flag to cl.exe turns this off, but it's not
     // implemented in clang.
     CmdArgs.push_back("--dependent-lib=oldnames");
+    // Add SYCL dependent library
+    if (Args.hasArg(options::OPT_fsycl) &&
+        !Args.hasArg(options::OPT_nolibsycl)) {
+      if (RTOptionID == options::OPT__SLASH_MDd)
+        CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION "d");
+      else
+        CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION);
+      CmdArgs.push_back("--dependent-lib=sycl-devicelib-host");
+    }
+
+#if INTEL_CUSTOMIZATION
+    // Add Intel performance libraries
+    if (Args.hasArg(options::OPT_qipp_EQ))
+      TC.AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
+      TC.AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+        ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
+         TC.getDriver().IsDPCPPMode()))
+      TC.AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qdaal_EQ))
+      TC.AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qactypes))
+      TC.AddACTypesLibArgs(Args, CmdArgs, "--dependent-lib=");
+
+    // Add OpenMP libs
+    bool StubsAdded = false;
+    if (Arg *A =
+            Args.getLastArg(options::OPT_qopenmp_stubs, options::OPT_fopenmp,
+                            options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+      if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+        CmdArgs.push_back("--dependent-lib=libiompstubs5md");
+        StubsAdded = true;
+      }
+    }
+    if (!StubsAdded &&
+        (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+                      options::OPT_fno_openmp, false) ||
+         Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ,
+                     options::OPT_qmkl_ilp64_EQ))) {
+      switch (TC.getDriver().getOpenMPRuntime(Args)) {
+      case Driver::OMPRT_OMP:
+        CmdArgs.push_back("--dependent-lib=libomp");
+        break;
+      case Driver::OMPRT_IOMP5:
+        CmdArgs.push_back("--dependent-lib=libiomp5md");
+        break;
+      case Driver::OMPRT_GOMP:
+        break;
+      case Driver::OMPRT_Unknown:
+        // Already diagnosed.
+        break;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -9189,167 +9292,10 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            ArgStringList &CmdArgs,
                            codegenoptions::DebugInfoKind *DebugInfoKind,
                            bool *EmitCodeView, const JobAction &JA) const {
-#endif // INTEL_CUSTOMIZATION
-  unsigned RTOptionID = options::OPT__SLASH_MT;
-  bool isNVPTX = getToolChain().getTriple().isNVPTX();
   bool isSPIR = getToolChain().getTriple().isSPIR();
-  // FIXME: isSYCL should not be enabled by "isSPIR"
-  bool isSYCL = Args.hasArg(options::OPT_fsycl) || isSPIR;
-  // For SYCL Windows, /MD is the default.
-  if (isSYCL)
-    RTOptionID = options::OPT__SLASH_MD;
-
-  if (Args.hasArg(options::OPT__SLASH_LDd))
-    // The /LDd option implies /MTd (/MDd for SYCL). The dependent lib part
-    // can be overridden but defining _DEBUG is sticky.
-    RTOptionID = isSYCL ? options::OPT__SLASH_MDd : options::OPT__SLASH_MTd;
-
-  if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group)) {
-    RTOptionID = A->getOption().getID();
-    if (isSYCL && !isSPIR &&
-        (RTOptionID == options::OPT__SLASH_MT ||
-         RTOptionID == options::OPT__SLASH_MTd))
-      // Use of /MT or /MTd is not supported for SYCL.
-      getToolChain().getDriver().Diag(diag::err_drv_unsupported_opt_dpcpp)
-          << A->getOption().getName();
-  }
-
-  enum { addDEBUG = 0x1, addMT = 0x2, addDLL = 0x4 };
-  auto addPreDefines = [&](unsigned Defines) {
-    if (Defines & addDEBUG)
-      CmdArgs.push_back("-D_DEBUG");
-    if (Defines & addMT && !isSPIR)
-      CmdArgs.push_back("-D_MT");
-    if (Defines & addDLL && !isSPIR)
-      CmdArgs.push_back("-D_DLL");
-  };
-  StringRef FlagForCRT;
-#if INTEL_CUSTOMIZATION
-  StringRef FlagForIntelMathLib;
-  StringRef FlagForIntelSVMLLib;
 #endif // INTEL_CUSTOMIZATION
-  switch (RTOptionID) {
-  case options::OPT__SLASH_MD:
-    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
-                  addMT | addDLL);
-    FlagForCRT = "--dependent-lib=msvcrt";
-#if INTEL_CUSTOMIZATION
-    FlagForIntelMathLib = "--dependent-lib=libmmd";
-    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case options::OPT__SLASH_MDd:
-    addPreDefines(addDEBUG | addMT | addDLL);
-    FlagForCRT = "--dependent-lib=msvcrtd";
-#if INTEL_CUSTOMIZATION
-    FlagForIntelMathLib = "--dependent-lib=libmmdd";
-    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case options::OPT__SLASH_MT:
-    addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
-                  addMT);
-    CmdArgs.push_back("-flto-visibility-public-std");
-    FlagForCRT = "--dependent-lib=libcmt";
-#if INTEL_CUSTOMIZATION
-    FlagForIntelMathLib = "--dependent-lib=libmmt";
-    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case options::OPT__SLASH_MTd:
-    addPreDefines(addDEBUG | addMT);
-    CmdArgs.push_back("-flto-visibility-public-std");
-    FlagForCRT = "--dependent-lib=libcmtd";
-#if INTEL_CUSTOMIZATION
-    FlagForIntelMathLib = "--dependent-lib=libmmt";
-    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
-#endif // INTEL_CUSTOMIZATION
-    break;
-  default:
-    llvm_unreachable("Unexpected option ID.");
-  }
+  bool isNVPTX = getToolChain().getTriple().isNVPTX();
 
-  if (Args.hasArg(options::OPT_fms_omit_default_lib)) {
-    CmdArgs.push_back("-D_VC_NODEFAULTLIB");
-  } else {
-    CmdArgs.push_back(FlagForCRT.data());
-#if INTEL_CUSTOMIZATION
-    if (getToolChain().getDriver().IsIntelMode()) {
-      if (!Args.hasArg(options::OPT_i_no_use_libirc) &&
-          getToolChain().CheckAddIntelLib("libirc", Args))
-        CmdArgs.push_back("--dependent-lib=libircmt");
-      if (getToolChain().CheckAddIntelLib("libsvml", Args))
-        CmdArgs.push_back(FlagForIntelSVMLLib.data());
-      CmdArgs.push_back("--dependent-lib=libdecimal");
-      if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
-                       false))
-        CmdArgs.push_back("--dependent-lib=libmatmul");
-    }
-    if (getToolChain().CheckAddIntelLib("libm", Args) &&
-        getToolChain().CheckAddIntelLib("libimf", Args))
-      CmdArgs.push_back(FlagForIntelMathLib.data());
-#endif // INTEL_CUSTOMIZATION
-
-    // This provides POSIX compatibility (maps 'open' to '_open'), which most
-    // users want.  The /Za flag to cl.exe turns this off, but it's not
-    // implemented in clang.
-    CmdArgs.push_back("--dependent-lib=oldnames");
-
-    // Add SYCL dependent library
-    if (Args.hasArg(options::OPT_fsycl) &&
-        !Args.hasArg(options::OPT_nolibsycl)) {
-      if (RTOptionID == options::OPT__SLASH_MDd)
-        CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION "d");
-      else
-        CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION);
-      CmdArgs.push_back("--dependent-lib=sycl-devicelib-host");
-    }
-
-#if INTEL_CUSTOMIZATION
-    // Add Intel performance libraries
-    if (Args.hasArg(options::OPT_qipp_EQ))
-      getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
-    if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ))
-      getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
-    if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-        ((Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ)) &&
-         getToolChain().getDriver().IsDPCPPMode()))
-      getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
-    if (Args.hasArg(options::OPT_qdaal_EQ))
-      getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
-    if (Args.hasArg(options::OPT_qactypes))
-      getToolChain().AddACTypesLibArgs(Args, CmdArgs, "--dependent-lib=");
-
-    // Add OpenMP libs
-    bool StubsAdded = false;
-    if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
-        options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
-      if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
-        CmdArgs.push_back("--dependent-lib=libiompstubs5md");
-        StubsAdded = true;
-      }
-    }
-    if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
-                                     options::OPT_fopenmp_EQ,
-                                     options::OPT_fno_openmp, false) ||
-        Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ,
-                    options::OPT_qmkl_ilp64_EQ))) {
-      switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
-      case Driver::OMPRT_OMP:
-        CmdArgs.push_back("--dependent-lib=libomp");
-        break;
-      case Driver::OMPRT_IOMP5:
-        CmdArgs.push_back("--dependent-lib=libiomp5md");
-        break;
-      case Driver::OMPRT_GOMP:
-        break;
-      case Driver::OMPRT_Unknown:
-        // Already diagnosed.
-        break;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-  }
   ProcessVSRuntimeLibrary(Args, CmdArgs, getToolChain());
 
   if (Arg *ShowIncludes =
