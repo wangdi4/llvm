@@ -3681,7 +3681,8 @@ public:
   bool EmitSimpleStmt(const Stmt *S, ArrayRef<const Attr *> Attrs);
 
 #if INTEL_CUSTOMIZATION
-  void EmitInlineCallStmt(const Stmt *S, ArrayRef<const Attr *> Attrs = None);
+  void EmitInlineCallStmt(const Stmt *S,
+                          ArrayRef<const Attr *> Attrs = std::nullopt);
 #endif // INTEL_CUSTOMIZATION
   Address EmitCompoundStmt(const CompoundStmt &S, bool GetLast = false,
                            AggValueSlot AVS = AggValueSlot::ignored());

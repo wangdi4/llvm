@@ -4862,7 +4862,7 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
   llvm::sys::path::append(ClangTidyPath, "clang-tidy");
   const char *ClangTidy = TCArgs.MakeArgString(ClangTidyPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
-                                       ClangTidy, ClangTidyArgs, None);
+                                       ClangTidy, ClangTidyArgs, std::nullopt);
   C.addCommand(std::move(Cmd));
 }
 #endif // INTEL_CUSTOMIZATION

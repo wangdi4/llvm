@@ -737,7 +737,7 @@ void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
 
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
-                                       Exec, CmdArgs, None);
+                                       Exec, CmdArgs, std::nullopt);
   if (!ForeachInputs.empty()) {
     Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
     StringRef ParallelJobs =
@@ -999,7 +999,7 @@ void SYCL::gen::BackendCompiler::constructOclocCommand(Compilation &C,
 
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
-                                       Exec, CmdArgs, None);
+                                       Exec, CmdArgs, std::nullopt);
   if (!ForeachInputs.empty()) {
     Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
     StringRef ParallelJobs =
