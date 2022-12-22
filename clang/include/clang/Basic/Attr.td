@@ -1546,17 +1546,17 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
     Optional<llvm::APSInt> getXDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getXDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getYDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getYDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getZDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getZDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
   }];
   let Documentation = [SYCLIntelMaxWorkGroupSizeAttrDocs];
@@ -1625,14 +1625,14 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
 
     const auto *NameCE = dyn_cast<ConstantExpr>(NameE);
     if (!NameCE)
-      return None;
+      return std::nullopt;
 
     APValue NameLValue;
     if (!NameCE->isCXX11ConstantExpr(Context, &NameLValue))
       NameLValue = NameCE->getAPValueResult();
 
     if (!NameLValue.isLValue())
-      return None;
+      return std::nullopt;
 
     if (const auto *NameValExpr =
             NameLValue.getLValueBase().dyn_cast<const Expr *>())
@@ -1644,7 +1644,7 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
         return getValidAttributeNameAsString(NameVarDecl->getInit(), Context);
       }
     }
-    return None;
+    return std::nullopt;
   }
 
   static Optional<std::string>
@@ -1675,7 +1675,7 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
       }
       return std::string(StrBuffer);
     }
-    return None;
+    return std::nullopt;
   }
 
   static Optional<std::string>
@@ -1717,7 +1717,7 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
               dyn_cast<IntegerLiteral>(InitNoImpCastE))
           C = static_cast<char>(IntegerVal->getValue().getSExtValue());
         else
-          return None;
+          return std::nullopt;
 
         // Null terminator will end the string reading.
         if (C == 0)
@@ -1730,7 +1730,7 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
 
     const auto *ValueCE = dyn_cast<ConstantExpr>(ValueE);
     if (!ValueCE)
-      return None;
+      return std::nullopt;
 
     APValue ValueAPV;
     if (!ValueCE->isCXX11ConstantExpr(Context, &ValueAPV))
@@ -1753,17 +1753,17 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
         return getValidAttributeValueAsString(ValueVarDecl->getInit(), Context);
       }
     }
-    return None;
+    return std::nullopt;
   }
 
   static Optional<llvm::SmallSet<StringRef, 4>> getAttributeFilterFromExprs(
       Expr **AttributeExprs, size_t AttributeExprsSize) {
     if (!AttributeExprsSize)
-      return None;
+      return std::nullopt;
 
     const auto *FilterListE = dyn_cast<InitListExpr>(AttributeExprs[0]);
     if (!FilterListE)
-      return None;
+      return std::nullopt;
 
     llvm::SmallSet<StringRef, 4> Filter;
     for (const Expr *FilterE : FilterListE->inits()) {
@@ -1824,7 +1824,7 @@ def SYCLAddIRAttrCommonMembers : SYCLAddIRAttrMemberCodeHolder<[{
 
   SmallVector<std::pair<std::string, std::string>, 4>
   getAttributeNameValuePairs(const ASTContext &Context) const {
-    return getFilteredAttributeNameValuePairs(None, Context);
+    return getFilteredAttributeNameValuePairs(std::nullopt, Context);
   }
 }]>;
 
@@ -3556,17 +3556,17 @@ def ReqdWorkGroupSize : InheritableAttr {
     Optional<llvm::APSInt> getXDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getXDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getYDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getYDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getZDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getZDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
   }];
   let Documentation = [ReqdWorkGroupSizeAttrDocs];
@@ -3587,17 +3587,17 @@ def WorkGroupSizeHint :  InheritableAttr {
     Optional<llvm::APSInt> getXDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getXDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getYDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getYDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
     Optional<llvm::APSInt> getZDimVal() const {
       if (const auto *CE = dyn_cast<ConstantExpr>(getZDim()))
         return CE->getResultAsAPSInt();
-      return None;
+      return std::nullopt;
     }
   }];
   let Documentation = [WorkGroupSizeHintAttrDocs];
