@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction" -S | FileCheck %s
 
 ; There are two omp loops with header omp.inner.for.body6 and

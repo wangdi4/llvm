@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-rowwise-mv-skip-dtrans -hir-sum-window-reuse -print-before=hir-sum-window-reuse -print-after=hir-sum-window-reuse -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv,print<hir>,hir-sum-window-reuse,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that HIRSumWindowReuse is able to optimize a multidimensional

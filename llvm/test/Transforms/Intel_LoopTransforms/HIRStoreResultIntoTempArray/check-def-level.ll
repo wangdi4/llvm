@@ -1,6 +1,5 @@
 ; This test case checks def level for %TempArray and its blobs when the innermost loop's loop level is larger than 3
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -hir-details -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump After HIR Store Result Into Temp Array ***

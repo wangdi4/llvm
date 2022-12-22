@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction" -S | FileCheck %s
 
 ; Check that we split edges (%for.cond.1.preheader -> %cleanup) and (%for.cond.16 -> %cleanup) when deconstructing the SCC consisting of %ok.092, %0 and %ok.1.
