@@ -215,7 +215,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // SPV_INTEL_matrix
     case spv::internal::CapabilityJointMatrixINTEL:
       // SPV_INTEL_runtime_aligned
-    case spv::internal::CapabilityRuntimeAlignedAttributeINTEL:
+    case spv::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
       // SPV_INTEL_bf16_conversion
     case spv::internal::CapabilityBfloat16ConversionINTEL:
@@ -246,8 +246,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGABufferLocationINTEL:
     case spv::CapabilityFPGAClusterAttributesINTEL:
     case spv::CapabilityLoopFuseINTEL:
-    case spv::internal::CapabilityFPGADSPControlINTEL:
-    case spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL:
+    case spv::CapabilityFPGADSPControlINTEL:
+    case spv::CapabilityFPGAInvocationPipeliningAttributesINTEL:
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {
