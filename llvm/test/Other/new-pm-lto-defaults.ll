@@ -273,11 +273,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
-<<<<<<< HEAD
-; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL
-=======
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
 ; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ; INTEL

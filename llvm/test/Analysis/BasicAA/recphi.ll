@@ -245,19 +245,13 @@ exit:
 ; FIXME: %a and %p.inner do not alias.
 ; CHECK-LABEL: Function: nested_loop
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Compile time speed fixes for 25048/24303 treat loop GEPs more conservatively
 ; in some cases, but avoids a cache flush which improves compile time greatly
 ; for deep nested cases.
 ; CHECK: {{May|No}}Alias:{{.*}}i8* %a, i8* %p.outer
 ; end INTEL_CUSTOMIZATION
-; NO-PHI-VALUES: MayAlias: i8* %a, i8* %p.inner
-; PHI-VALUES: NoAlias: i8* %a, i8* %p.inner
-=======
-; CHECK: NoAlias:  i8* %a, i8* %p.outer
 ; CHECK: MayAlias: i8* %a, i8* %p.inner
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
 define void @nested_loop(i1 %c, i1 %c2, ptr noalias %p.base) {

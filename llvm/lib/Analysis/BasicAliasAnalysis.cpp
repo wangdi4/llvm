@@ -1649,11 +1649,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // if we don't alias the underlying objects of the other phi operands, as we
   // know that the recursive phi needs to be based on them in some way.
   bool isRecursive = false;
-#if INTEL_CUSTOMIZATION
-  // Factor some duplicated community code into this lambda.
-  // This function returns true if the incoming phi value is a basic loop IV.
-  // We skip analysis of this value and look at the other incoming value
-  // instead.
   auto CheckForRecPhi = [&](Value *PV) {
     if (!EnableRecPhiAnalysis)
       return false;
@@ -1663,68 +1658,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
     return false;
   };
-#endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-  if (PV) {
-    // If we have PhiValues then use it to get the underlying phi values.
-    const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
-    // If we have more phi values than the search depth then return MayAlias
-    // conservatively to avoid compile time explosion. The worst possible case
-    // is if both sides are PHI nodes. In which case, this is O(m x n) time
-    // where 'm' and 'n' are the number of PHI sources.
-    if (PhiValueSet.size() > MaxLookupSearchDepth)
-      return AliasResult::MayAlias;
-    // Add the values to V1Srcs
-    for (Value *PV1 : PhiValueSet) {
-      if (CheckForRecPhi(PV1))
-        continue;
-#if INTEL_CUSTOMIZATION
-        // FIXME: limited support of recursive updates. phi-loop.ll
-        if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
-          if (PV1Subs->getPointerOperand() == PN &&
-              isa<ConstantInt>(PV1Subs->getIndex())) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
-          if (PV1F->getPointerOperand() == PN) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        // 24303: If the phi is a loop header, and it is not a simple
-        // basic IV as CheckForRecPhi, we have to analyze it in a
-        // conservative way because V2 and PV1 are from different iterations.
-        // Set isRecursive, and push PV1 on the analysis list below.
-        // This flag will stop tests that assume same-iteration, like
-        // (GEP[%a,i], GEP[%a,i+1]) => NoAlias).
-        if (auto *I = dyn_cast<Instruction>(PV1)) {
-          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
-            isRecursive = true;
-          }
-        }
-#endif // INTEL_CUSTOMIZATION
-      V1Srcs.push_back(PV1);
-    }
-  } else {
-    // If we don't have PhiInfo then just look at the operands of the phi itself
-    // FIXME: Remove this once we can guarantee that we have PhiInfo always
-    SmallPtrSet<Value *, 4> UniqueSrc;
-    Value *OnePhi = nullptr;
-    for (Value *PV1 : PN->incoming_values()) {
-      // Skip the phi itself being the incoming value.
-      if (PV1 == PN)
-        continue;
-=======
   SmallPtrSet<Value *, 4> UniqueSrc;
   Value *OnePhi = nullptr;
   for (Value *PV1 : PN->incoming_values()) {
     // Skip the phi itself being the incoming value.
     if (PV1 == PN)
       continue;
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 
     if (isa<PHINode>(PV1)) {
       if (OnePhi && OnePhi != PV1) {
@@ -1735,44 +1675,36 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         // pointer induction variable patterns.
         return AliasResult::MayAlias;
       }
-<<<<<<< HEAD
-
-      if (CheckForRecPhi(PV1))
-        continue;
-#if INTEL_CUSTOMIZATION
-      if (EnableRecPhiAnalysis) {
-        // FIXME: limited support of recursive updates. phi-loop.ll
-        if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
-          if (PV1Subs->getPointerOperand() == PN &&
-              isa<ConstantInt>(PV1Subs->getIndex())) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
-          if (PV1F->getPointerOperand() == PN) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        // 24303: see comment above.
-        if (auto *I = dyn_cast<Instruction>(PV1)) {
-          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
-            isRecursive = true;
-          }
-        }
-      }
-#endif // INTEL_CUSTOMIZATION
-      if (UniqueSrc.insert(PV1).second)
-        V1Srcs.push_back(PV1);
-=======
       OnePhi = PV1;
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
     }
 
     if (CheckForRecPhi(PV1))
       continue;
+#if INTEL_CUSTOMIZATION
 
+    if (EnableRecPhiAnalysis) {
+      // FIXME: limited support of recursive updates. phi-loop.ll
+      if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
+        if (PV1Subs->getPointerOperand() == PN &&
+            isa<ConstantInt>(PV1Subs->getIndex())) {
+          isRecursive = true;
+          continue;
+        }
+      }
+      if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
+        if (PV1F->getPointerOperand() == PN) {
+          isRecursive = true;
+          continue;
+        }
+      }
+      // 24303: see comment above.
+      if (auto *I = dyn_cast<Instruction>(PV1)) {
+        if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
+          isRecursive = true;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     if (UniqueSrc.insert(PV1).second)
       V1Srcs.push_back(PV1);
   }
@@ -2392,13 +2324,8 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
-<<<<<<< HEAD
-  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
-  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT, PV,
+  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT,
                        XOL.getOptLevel()); // INTEL
-=======
-  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT);
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2414,11 +2341,7 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-<<<<<<< HEAD
-INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
-=======
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
@@ -2430,21 +2353,12 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &ACT = getAnalysis<AssumptionCacheTracker>();
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
-<<<<<<< HEAD
-  auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>();
   auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
-                                 PVWP ? &PVWP->getResult() : nullptr, // INTEL
                                  XOL.getOptLevel()));                 // INTEL
-=======
-
-  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
-                                 TLIWP.getTLI(F), ACT.getAssumptionCache(F),
-                                 &DTWP.getDomTree()));
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 
   return false;
 }
@@ -2454,11 +2368,7 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
-  AU.addUsedIfAvailable<PhiValuesWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
-=======
->>>>>>> 243acd5dcbc637e477062877185ad76d8ff63d9d
 }
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
@@ -2466,6 +2376,6 @@ BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
       F.getParent()->getDataLayout(), F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
-      nullptr, nullptr,                                              // INTEL
+      nullptr,                                                       // INTEL
       P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());      // INTEL
 }

@@ -291,7 +291,7 @@ struct ArgNoAliasProp : public ModulePass {
             F.getParent()->getDataLayout(), F,
             getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
             getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
-            &DTGetter(F), P.first->second.PV.get(),
+            &DTGetter(F),
             getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());
         P.first->second.AAR = std::make_unique<AAResults>(
             createLegacyPMAAResults(*this, F, *P.first->second.BAR));
