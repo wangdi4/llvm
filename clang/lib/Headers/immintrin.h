@@ -372,12 +372,13 @@ typedef struct __tile1024i_str {
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512FP16__)
+    defined(__AVX512FP16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512fp16intrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512FP16__))
+    (defined(__AVX512VL__) && defined(__AVX512FP16__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlfp16intrin.h>
 #endif
 
