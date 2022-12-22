@@ -88,6 +88,14 @@ static cl::opt<bool> SPIRVTargetHasEUFusion(
     "vpo-paropt-spirv-target-has-eu-fusion", cl::Hidden, cl::init(true),
     cl::desc("Generate code for SPIR-V target with EU fusion."));
 
+// Disable shrink-wrapping of allocas into the region.
+static cl::opt<bool> UseEmptyCodeExtractorAnalysisCache(
+    "vpo-paropt-use-empty-code-extractor-analysis-cache", cl::Hidden,
+    cl::init(true),
+    cl::desc("Use empty CodeExtractorAnalysisCache for creating outlined "
+             "regions with CodeExtractor, to skip shrink-wrapping of allocas "
+             "into the region, thus reducing compile time."));
+
 // Undocumented option to control execution scheme for SPIR targets.
 // This option has to have the same value for the host and the target
 // compilations to work properly.
@@ -6786,9 +6794,11 @@ Function *VPOParoptUtils::genOutlineFunction(
     W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
         Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
-  CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
-  auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
-  assert(NewFunction && "Code extraction failed for the region.");
+  auto *NewFunction = CE.extractCodeRegion(
+      UseEmptyCodeExtractorAnalysisCache
+          ? CodeExtractorAnalysisCache()
+          : CodeExtractorAnalysisCache(*W.getEntryBBlock()->getParent()),
+      /* hoistAlloca */ true);
 
   auto *CallSite = getSingleCallSite(NewFunction);
 

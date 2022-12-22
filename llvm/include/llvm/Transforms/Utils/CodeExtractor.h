@@ -82,6 +82,10 @@ class CodeExtractorAnalysisCache {
   void findSideEffectInfoForBlock(BasicBlock &BB);
 
 public:
+#if INTEL_COLLAB
+  // Calling this constructor disables alloca shrink-wrapping into the region.
+  CodeExtractorAnalysisCache() {}
+#endif // INTEL_COLLAB
   CodeExtractorAnalysisCache(Function &F);
 
   /// Get the allocas in the function at the time the analysis was created.
