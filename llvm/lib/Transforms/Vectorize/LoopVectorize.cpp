@@ -7554,16 +7554,11 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
   return VectorizationFactor::Disabled();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-Optional<VectorizationFactor>
+std::optional<VectorizationFactor>
 LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
                                ArrayRef<ElementCount> VFs) {
 #endif // INTEL_CUSTOMIZATION
-=======
-std::optional<VectorizationFactor>
-LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
->>>>>>> 1ec11d2d48dea8eb669880e9242adab87f134c52
   assert(OrigLoop->isInnermost() && "Inner loop expected.");
   FixedScalableVFPair MaxFactors = CM.computeMaxVF(UserVF, UserIC);
   if (!MaxFactors) // Cases that should not to be vectorized nor interleaved.
@@ -10419,15 +10414,12 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   ElementCount UserVF = Hints.getWidth();
   unsigned UserIC = Hints.getInterleave();
   ArrayRef<ElementCount> VFs = Hints.getAllowedVFs(); // INTEL
-  // Plan how to best vectorize, return the best VF and its cost.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  Optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
-#endif // INTEL_CUSTOMIZATION
-=======
-  std::optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC);
 
->>>>>>> 1ec11d2d48dea8eb669880e9242adab87f134c52
+  // Plan how to best vectorize, return the best VF and its cost.
+#if INTEL_CUSTOMIZATION
+  std::optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
+#endif // INTEL_CUSTOMIZATION
+
   VectorizationFactor VF = VectorizationFactor::Disabled();
   unsigned IC = 1;
 
