@@ -1,7 +1,7 @@
 ; Test to check SVML call pumping feature for sincos masked and unmasked calls in LLVM-IR and HIR vector CG.
 
-; RUN: opt -vector-library=SVML -vplan-vec -S %s | FileCheck --check-prefixes=IR %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -vector-library=SVML -passes=vplan-vec -S %s | FileCheck --check-prefixes=IR %s
+; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vector-library=SVML < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; IR-LABEL: @foo(
 ; IR:       vector.body:

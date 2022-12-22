@@ -2,7 +2,7 @@
 ; In this test we have index used in a one more statement (store), causing
 ; a cross iteration dependency.
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=0 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert' -enable-mmindex=1 -disable-nonlinear-mmindex=0 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
 ;
 ;CHECK: [MinMax+Index] Looking at candidate
 ;CHECK-NEXT: [MinMax+Index] Depends on

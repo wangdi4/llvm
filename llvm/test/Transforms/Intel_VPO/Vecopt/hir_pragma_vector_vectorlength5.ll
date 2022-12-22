@@ -1,4 +1,4 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma vector vectorlength(0) (!{!"llvm.loop.vector.vectorlength", i64 0} metadata)

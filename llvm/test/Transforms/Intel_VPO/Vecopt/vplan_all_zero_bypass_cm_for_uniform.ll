@@ -1,4 +1,4 @@
-; RUN: opt -S -vplan-vec -disable-output -vplan-print-after-all-zero-bypass -vplan-force-vf=16  -enable-intel-advanced-opts < %s | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -disable-output -vplan-print-after-all-zero-bypass -vplan-force-vf=16  -enable-intel-advanced-opts < %s | FileCheck %s
 
 ; XFAIL: *
 ; TODO: the test needs to be enabled back once cost modelling for uniform icmp is fixed. Please see CMPLRLLVM-32328 for details.

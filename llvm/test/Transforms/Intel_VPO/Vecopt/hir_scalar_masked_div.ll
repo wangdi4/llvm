@@ -2,7 +2,7 @@
 ;
 ; Test to check that HIR CG does not crash on masked scalar div with scalar operand.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -disable-output -print-after=hir-vplan-vec %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s
 ;
 ; The incoming HIR contains uniform division, which is scalarized, and we
 ; crash on the that there is no DDRef generated for its operand. The current logic

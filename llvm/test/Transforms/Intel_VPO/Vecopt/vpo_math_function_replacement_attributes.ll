@@ -2,7 +2,7 @@
 ; MathLibraryFunctionsReplacement. Subsequent effects of these attributes in VPlan
 ; vectorizer are also checked.
 
-; RUN: opt -S -replace-with-math-library-functions -vector-library=SVML %s | FileCheck %s --check-prefix=MFREPLACE
+; RUN: opt -S -passes=replace-with-math-library-functions -vector-library=SVML %s | FileCheck %s --check-prefix=MFREPLACE
 
 ; MFREPLACE-LABEL: @foo
 ; MFREPLACE:        %_Z4uremjj = call i32 @_Z4uremjj(i32 %dividend, i32 %divisor)
@@ -13,7 +13,7 @@
 
 ; MFREPLACE: attributes #2 = { nounwind willreturn memory(none) }
 
-; RUN: opt -replace-with-math-library-functions -vplan-vec -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
+; RUN: opt -passes=replace-with-math-library-functions,vplan-vec -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 
 ; VPLAN-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; VPLAN:        [DA: Uni] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]

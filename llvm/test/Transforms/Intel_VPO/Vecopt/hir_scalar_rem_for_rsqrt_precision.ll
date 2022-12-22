@@ -1,5 +1,5 @@
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
+; RUN: opt -disable-output -mattr=+avx512vl -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -mattr=+avx512vl -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
 ;
 ; LIT test to check that we do not vectorize remainder loops with call to sqrt
 ; intrinsic when the only use(s) of the call result occur in a FDIV instruction

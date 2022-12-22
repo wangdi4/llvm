@@ -10,7 +10,7 @@
 ;       + END LOOP
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>' -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: BEGIN REGION { }
 ; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%NOFREQ) + -1, 1   <DO_LOOP>

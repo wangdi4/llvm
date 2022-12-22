@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -hir-allow-large-integers -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -hir-allow-large-integers -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we do not crash in HIR vectorizer when trying to
 ; blend masked divide with safe values for integer type larger than 64 bits.

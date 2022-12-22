@@ -4,10 +4,7 @@
 ; explicit SIMD region which in turn requires hir-cg/VPODirectiveCleanup for the
 ; HIR-path to re-use the exact same checks.
 
-; RUN: opt -S < %s -vplan-vec -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -passes="vplan-vec" -vplan-force-vf=1 | FileCheck %s
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:        -hir-cg  -vplan-force-vf=1 | FileCheck %s
 ; RUN: opt -S < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
 ; RUN:        -vplan-force-vf=1 | FileCheck %s
 
