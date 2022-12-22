@@ -16,7 +16,7 @@
 
 ; TODO: There is still a small issue where the merged CFG-based HIR causes
 ; the opt report layout to mismatch slightly with the loop layout.
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-OPTREPORT --strict-whitespace
 
 ; MERGED-CFG-OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; MERGED-CFG-OPTREPORT-NEXT:     LOOP BEGIN
@@ -33,7 +33,7 @@
 
 ; TODO: There is still a small issue where the merged CFG-based HIR causes
 ; the opt report layout to mismatch slightly with the loop layout.
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
 ; MERGED-CFG: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}

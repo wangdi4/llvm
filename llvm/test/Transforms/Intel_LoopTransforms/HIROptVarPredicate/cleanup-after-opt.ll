@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-var-predicate -print-after=hir-opt-var-predicate -xmain-opt-level=3 -disable-output <%s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output <%s 2>&1 | FileCheck %s
 
 ; Test checks that HIR Opt Var Predicate cleans up %i1154 def and use after hoisting out 'if (i1 + -4 >= 1)'.

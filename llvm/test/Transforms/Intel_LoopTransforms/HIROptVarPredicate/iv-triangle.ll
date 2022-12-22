@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-var-predicate -disable-output -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate" -disable-output -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate %s 2>&1 | FileCheck %s
 ;
 ; Make sure triangular conditions are handled.

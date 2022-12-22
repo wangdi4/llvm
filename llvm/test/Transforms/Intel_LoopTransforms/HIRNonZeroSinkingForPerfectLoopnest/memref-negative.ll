@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-non-zero-sinking-for-perfect-loopnest -print-after=hir-non-zero-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-zero-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;If the memref in mul inst has the same symbase as the memref in add inst, the transform cannot be triggered

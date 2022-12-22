@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt <%s -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-var-predicate  -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate -hir-details -debug-only=hir-opt-var-predicate -disable-output 2>&1 | FileCheck %s
 ; RUN: opt <%s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate"  -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate -hir-details -print-after=hir-opt-var-predicate -debug-only=hir-opt-var-predicate -disable-output 2>&1 | FileCheck %s
 
 ; Verify that LEGAL_MAX_TC can be used for mayIVOverflowCE

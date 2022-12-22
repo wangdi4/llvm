@@ -1,6 +1,5 @@
 ; This is an example of hoisting 3 HLIfs where 1st and 3rd statements are proper linear and 2nd contains i1.
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; Input HIR:

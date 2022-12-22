@@ -1,4 +1,3 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-opt-var-predicate -print-after=hir-opt-var-predicate -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ;           BEGIN REGION { }

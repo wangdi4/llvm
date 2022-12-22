@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-before=hir-opt-predicate -print-after=hir-opt-predicate -hir-opt-predicate-use-reduced-switch-cost=true %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-opt-predicate-use-reduced-switch-cost=true %s 2>&1 | FileCheck %s
 
 ; Verify that predicate in switch's default case is optimized successfully.

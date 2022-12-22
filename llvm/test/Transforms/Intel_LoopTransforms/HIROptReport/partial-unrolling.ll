@@ -8,7 +8,7 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25439: Loop unrolled with remainder by {{[0-9]+}}
@@ -17,7 +17,7 @@
 ; OPTREPORT-NEXT:     <Remainder loop>
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-opt-report=low < %s -S | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], {{!.*}}, [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}

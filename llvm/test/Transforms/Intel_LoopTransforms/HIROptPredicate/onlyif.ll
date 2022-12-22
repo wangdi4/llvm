@@ -11,10 +11,8 @@
 ;        C[i][2] = i;
 ;    }
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
 ; Check the then loop.
@@ -30,7 +28,6 @@
 ; CHECK-NOT: (@B)[0][i1 + 2][i2 + 2] =
 ; CHECK: END LOOP
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; Incorrect line number ("at line 0" in the remark) only occurs during some

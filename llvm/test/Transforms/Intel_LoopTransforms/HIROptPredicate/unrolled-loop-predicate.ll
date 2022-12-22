@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-opt-predicate -print-after=hir-opt-predicate -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we do not perform illegal partial unswitch for (%t74 == 0) after unrolling i2 loop

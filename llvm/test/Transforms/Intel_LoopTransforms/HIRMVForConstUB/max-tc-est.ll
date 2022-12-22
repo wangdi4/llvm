@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-mv-const-ub,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that we do loopnest multiversioning if innermost loop has small MAX_TC_EST.

@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ; 
 ; Check MV does not happen when a variable stride is an undef.

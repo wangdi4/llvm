@@ -16,8 +16,8 @@
 
 ; TODO: Currently we are forcing a VF=4 for vectorization, hence the check statements are hard-coded with this VF
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=4 -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter,hir-cg" -vplan-force-vf=4 -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -32,7 +32,7 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-opt-report=low < %s -S | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
