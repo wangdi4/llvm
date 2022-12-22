@@ -217,4 +217,62 @@ TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_ExternalDef) {
   EXPECT_EQ(ArgKB.One, 0);
 }
 
+TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_GEP) {
+  buildVPlanFromString(R"(
+    %base.ty = type { [4 x i32], [4 x i32] } ; sizeof(%base.ty) == 32
+
+    declare void @llvm.assume(i1)
+    define void @foo([256 x %base.ty]* %p, [256 x %base.ty]* %q) {
+    entry:
+      call void @llvm.assume(i1 true) [ "align"([256 x %base.ty]* %p, i32 64) ]
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+
+      ; Test constant (and known-stride) offsets from aligned base
+      %gep1 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 0
+      %gep2 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 0, i64 %iv
+      %gep3 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 0, i64 %iv, i32 0
+      %gep4 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 0, i64 %iv, i32 0, i64 4
+      %gep5 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 2
+      %gep6 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 2, i64 %iv
+      %gep7 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 2, i64 %iv, i32 1
+      %gep8 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 2, i64 %iv, i32 1, i64 2
+
+      ; Test that we recurse on instruction operands
+      %mul.iv = mul i64 %iv, 4
+      %gep9 = getelementptr [256 x %base.ty], [256 x %base.ty]* %p, i64 0, i64 %iv, i32 0, i64 %mul.iv
+
+      ; Test that offsets from unknown base always result in unknown
+      %gep10 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q
+      %gep11 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 0
+      %gep12 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 %mul.iv, i64 %iv
+      %gep13 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 2, i64 %iv, i32 1
+
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+  // clang-format off
+  expectKnownBits("gep1", /*Zero:*/ 63, /*One:*/  0);
+  expectKnownBits("gep2", /*Zero:*/ 31, /*One:*/  0);
+  expectKnownBits("gep3", /*Zero:*/ 31, /*One:*/  0);
+  expectKnownBits("gep4", /*Zero:*/ 15, /*One:*/ 16);
+  expectKnownBits("gep5", /*Zero:*/ 63, /*One:*/  0);
+  expectKnownBits("gep6", /*Zero:*/ 31, /*One:*/  0);
+  expectKnownBits("gep7", /*Zero:*/ 15, /*One:*/ 16);
+  expectKnownBits("gep8", /*Zero:*/  7, /*One:*/ 24);
+
+  expectKnownBits("gep9", /*Zero:*/ 15, /*One:*/  0);
+
+  expectKnownBits("gep10", /*Zero:*/ 0, /*One:*/ 0);
+  expectKnownBits("gep11", /*Zero:*/ 0, /*One:*/ 0);
+  expectKnownBits("gep12", /*Zero:*/ 0, /*One:*/ 0);
+  expectKnownBits("gep13", /*Zero:*/ 0, /*One:*/ 0);
+  // clang-format on
+}
+
 } // namespace
