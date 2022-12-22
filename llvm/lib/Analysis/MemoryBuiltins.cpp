@@ -543,18 +543,13 @@ static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
 };
 // clang-format on
 
-<<<<<<< HEAD
-Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
-                                                   const LibFunc TLIFn) {
+std::optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
+                                                        const LibFunc TLIFn) {
 // INTEL_CUSTOMIZATION
 // This looks up TLIFn in the table above, but does not do any
 // additional parameter type checking.
 // end INTEL_CUSTOMIZATION
   (void)Callee; // INTEL
-=======
-std::optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
-                                                        const LibFunc TLIFn) {
->>>>>>> e5ef6aced2e4e84069a9de45daed6ff8b2598e6f
   const auto *Iter =
       find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
         return P.first == TLIFn;
@@ -645,7 +640,7 @@ Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
 /// isLibDeleteFunction - Returns true if the function is a builtin delete().
 bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   // First check that the TLI matches and is in the delete "family".
-  Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
+  std::optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
 
   if (!FnData.has_value())
     return false;
@@ -703,7 +698,7 @@ const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
 std::pair<unsigned, unsigned>
 llvm::IntelMemoryBuiltins::getAllocSizeArgumentIndices(const Value *I,
                                   const TargetLibraryInfo *TLI) {
-  Optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
+  std::optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
   if (!Res)
     return std::make_pair(-1U, -1U);
 
