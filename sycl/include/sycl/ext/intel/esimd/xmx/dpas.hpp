@@ -286,7 +286,6 @@ __ESIMD_NS::simd<T, N> dpas(__ESIMD_NS::simd<CT, N> C,
       SystolicDepth, RepeatCount, T, CT, BT, AT, BPrecision, APrecision, BN,
       AN>();
 
-<<<<<<< HEAD
   using MsgT =
       /* INTEL_CUSTOMIZATION */
       /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -300,9 +299,6 @@ __ESIMD_NS::simd<T, N> dpas(__ESIMD_NS::simd<CT, N> C,
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
       ;
-=======
-  using MsgT = int;
->>>>>>> da7ca42e13337b7f5fd3d57dda1bc90928e13e2e
   constexpr int ANCasted = AN * sizeof(AT) / sizeof(MsgT);
   constexpr int BNCasted = BN * sizeof(BT) / sizeof(MsgT);
   __ESIMD_NS::simd<MsgT, ANCasted> ACasted = A.template bit_cast_view<MsgT>();
@@ -338,7 +334,6 @@ auto dpas(__ESIMD_NS::simd<BT, BN> B, __ESIMD_NS::simd<AT, AN> A) {
   //   _N = ExecutionSize (unknown, but deducible), must be 8 or 16.
   constexpr int ResultN = RepeatCount * ExecutionSize;
 
-<<<<<<< HEAD
   using MsgT =
       /* INTEL_CUSTOMIZATION */
       /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -353,9 +348,6 @@ auto dpas(__ESIMD_NS::simd<BT, BN> B, __ESIMD_NS::simd<AT, AN> A) {
       /* end INTEL_CUSTOMIZATION */
       ;
 
-=======
-  using MsgT = int;
->>>>>>> da7ca42e13337b7f5fd3d57dda1bc90928e13e2e
   constexpr int ANCasted = AN * sizeof(AT) / sizeof(MsgT);
   constexpr int BNCasted = BN * sizeof(BT) / sizeof(MsgT);
   __ESIMD_NS::simd<MsgT, ANCasted> ACasted = A.template bit_cast_view<MsgT>();
