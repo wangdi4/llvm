@@ -17,8 +17,8 @@
 # end INTEL_CUSTOMIZATION
 
 # INTEL_CUSTOMIZATION
-set(imf_fp32_omp_lib_funcs_list imf/intel/cos_s_ha.cpp
-                                imf/intel/sin_s_ha.cpp
+set(imf_fp32_omp_lib_funcs_list imf/intel/cos_s_la.cpp
+                                imf/intel/sin_s_la.cpp
                                 imf/intel/exp_s_la.cpp
                                 imf/intel/exp2_s_la.cpp
                                 imf/intel/exp10_s_la.cpp
@@ -74,7 +74,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/tan_s_la.cpp
                                imf/intel/sinpi_s_ha.cpp
                                imf/intel/sinh_s_la.cpp
-                               imf/intel/sincos_s_ha.cpp
+                               imf/intel/sincos_s_la.cpp
                                imf/intel/sincospi_s_la.cpp
                                imf/intel/round_s_xa.cpp
                                imf/intel/rnorm_s_ep.cpp
