@@ -4,6 +4,7 @@
 ; CHECK: @main()
 ; CHECK-NOT: load{{.*}} %a
 ; CHECK-NOT: store{{.*}} %a.priv
+; CHECK: codeRepl{{.*}}
 ; CHECK: @__omp_offloading
 ; CHECK: store{{.*}} 5, i32* %a
 ; CHECK: @main.DIR.OMP.TASK

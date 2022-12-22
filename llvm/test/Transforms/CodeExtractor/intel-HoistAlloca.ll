@@ -1,14 +1,18 @@
 ; RUN: opt < %s -vpo-paropt -S | FileCheck  %s
+; RUN: opt -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=true -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_TRUE,CHECK
+; RUN: opt -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=false -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_FALSE,CHECK
 ;
-; It checks whether the allca instruction has been hosited to the entry
+; It checks whether the alloca instruction has been hoisted to the entry
 ; of outline OMP function.
 ;
 ; void foo(int *p, int *q, int m) {
 ;   int i, j;
 ;   #pragma omp parallel for private(j)
-;   for (j = 0;j < m; j++)
+;   for (j = 0;j < m; j++) {
+;     hoist = alloca(4)
 ;     p[j] = q[j] + 1;
-;}
+;   }
+; }
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -57,6 +61,7 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %8 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !6
+  %hoist = alloca i32
   store i32 %8, i32* %j, align 4, !tbaa !6
   %9 = load i32*, i32** %q.addr, align 8, !tbaa !2
   %idxprom = sext i32 %8 to i64
@@ -113,6 +118,11 @@ attributes #2 = { nounwind }
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !4, i64 0}
 
-; CHECK-LABEL: define internal void @foo.DIR.OMP.PARALLEL.LOOP.1
-; CHECK: alloca
-; CHECK: %0 = bitcast
+; EMPTY_CEAC_TRUE: define dso_local void @foo{{.*}}
+; EMPTY_CEAC_TRUE: entry
+; EMPTY_CEAC_TRUE: %j = alloca{{.*}}
+; CHECK-LABEL: define internal void @foo.DIR.OMP.PARALLEL.LOOP{{.*}}
+; EMPTY_CEAC_FALSE: %j = alloca{{.*}}
+; CHECK: %j.priv = alloca{{.*}}
+; CHECK: %hoist = alloca
+; CHECK: DIR.OMP.PARALLEL.LOOP{{.*}}:

@@ -1,12 +1,11 @@
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s 2>&1 | FileCheck %s
 ; CHECK: define{{.*}}Z3foov
-; CHECK: codeRepl:
 ; CHECK: %y1 = alloca
+; CHECK: codeRepl:
 ; CHECK: ptrtoint{{.*}}%y1
 ; CHECK: call{{.*}}kmpc_omp_task
 ; CHECK: define{{.*}}foo{{.*}}split
-; CHECK: %y1 = alloca
 ; CHECK: %y1.gep = {{.*}}private
 ; CHECK: store{{.*}}1.000{{.*}}%y1.gep
 
