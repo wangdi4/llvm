@@ -123,6 +123,14 @@ enum class GroupOperation : uint32_t {
   ExclusiveScan = 2
 };
 
+#if (SYCL_EXT_ONEAPI_MATRIX_VERSION > 1)
+enum class MatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  Packed = 2,
+  Dynamic = 3
+};
+#else
 enum class MatrixLayout : uint32_t {
   RowMajor = 0,
   ColumnMajor = 1,
@@ -130,6 +138,7 @@ enum class MatrixLayout : uint32_t {
   PackedB = 3,
   Unused = 4
 };
+#endif
 
 enum class MatrixUse : uint32_t { MatrixA = 0, MatrixB = 1, Accumulator = 2 };
 
