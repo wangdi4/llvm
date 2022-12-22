@@ -3018,17 +3018,6 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     if (ZeSubDeviceCount < 2) {
       return ReturnValue(pi_device_partition_property{0});
     }
-<<<<<<< HEAD
-    // It is debatable if SYCL sub-device and partitioning APIs sufficient to
-    // expose Level Zero sub-devices / tiles?  We start with support of // INTEL
-    // "partition_by_affinity_domain" and "next_partitionable" but if that
-    // doesn't seem to be a good fit we could look at adding a more descriptive
-    // partitioning type.
-    struct {
-      pi_device_partition_property Arr[2];
-    } PartitionProperties = {{PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, 0}};
-    return ReturnValue(PartitionProperties);
-=======
     bool PartitionedByCSlice = Device->SubDevices[0]->isCCS();
 
     auto ReturnHelper = [&](auto... Partitions) {
@@ -3050,7 +3039,6 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
                               ? PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE
                               : PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
     }
->>>>>>> 5995c61840153b26817ea5b45e7bc0f49b6f4c3e
   }
   case PI_DEVICE_INFO_PARTITION_AFFINITY_DOMAIN:
     return ReturnValue(pi_device_affinity_domain{
