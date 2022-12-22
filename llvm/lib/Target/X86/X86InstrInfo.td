@@ -984,8 +984,8 @@ def NoVLX_Or_NoVPOPCNTDQ : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVPO
 def NoVLX_Or_NoBITALG    : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBITALG()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
-def PKU        : Predicate<"Subtarget->hasPKU()">;
-def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+def HasPKU       : Predicate<"Subtarget->hasPKU()">;
+def HasVNNI      : Predicate<"Subtarget->hasVNNI()">;
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
