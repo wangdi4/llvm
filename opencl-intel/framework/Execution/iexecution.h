@@ -1332,14 +1332,14 @@ public:
    *                                            given by local_work_size.
    *               CL_INVALID_WORK_ITEM_SIZE - If the number of work-items
    *                                           specified in any of
-   *                                           local_work_size[0], …
-   *                                           local_work_size[work_dim – 1]
-   *                                           is greater than the corresponding
+   *                                           local_work_size[0], ...,
+   *                                           local_work_size[work_dim - 1] is
+   *                                           greater than the corresponding
    *                                           values specified by
    *                                           CL_DEVICE_MAX_WORK_ITEM_SIZES[0],
-   *                                           ….
+   *                                           ...,
    *                                           CL_DEVICE_MAX_WORK_ITEM_SIZES[
-   *                                           work_dim – 1].
+   *                                           work_dim - 1].
    *               CL_INVALID_GLOBAL_OFFSET - If the kernel does not use
    *                                          global_work_offset but
    *                                          cpszGlobalWorkOffset is not NULL

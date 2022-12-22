@@ -110,12 +110,12 @@ public:
 
     switch (I->getOpcode()) {
     case Instruction::Add:
-      KB = KnownBits::computeForAddSub(/*Add:*/ true, I->hasNoUnsignedWrap(),
-                                       Op(0), Op(1));
+      KB = KnownBits::computeForAddSub(
+          /*Add:*/ true, /*NSW:*/ I->hasNoSignedWrap(), Op(0), Op(1));
       break;
     case Instruction::Sub:
-      KB = KnownBits::computeForAddSub(/*Add:*/ false, I->hasNoUnsignedWrap(),
-                                       Op(0), Op(1));
+      KB = KnownBits::computeForAddSub(
+          /*Add:*/ false, /*NSW:*/ I->hasNoSignedWrap(), Op(0), Op(1));
       return;
     case Instruction::Mul:
       KB = KnownBits::mul(Op(0), Op(1));
@@ -141,6 +141,9 @@ public:
     case Instruction::Shl:
       KB = KnownBits::shl(Op(0), Op(1));
       return;
+    case Instruction::GetElementPtr:
+      computeKnownBitsFromGEP(cast<VPGEPInstruction>(I), KB, Depth, Q);
+      return;
     case Instruction::SRem:
       KB = KnownBits::srem(Op(0), Op(1));
       return;
@@ -159,6 +162,95 @@ public:
     default:
       break;
     }
+  }
+
+  static void computeKnownBitsFromGEP(const VPGEPInstruction *GEP,
+                                      KnownBits &KB, unsigned Depth,
+                                      const Query &Q) {
+    // First, compute known bits of the base expression.
+    KB = computeKnownBits(GEP->getPointerOperand(), Depth, Q);
+
+    // Now, iterate over the indices of the GEP and compute the total offset,
+    // accumulating constant offsets separately so we can efficiently add them
+    // at the end.
+    const unsigned BitWidth = KB.getBitWidth();
+    vp_gep_type_iterator GTI = gep_type_begin(GEP);
+    int64_t AccConstOffset = 0;
+    for (auto I = GEP->idx_begin(), E = GEP->idx_end(); I != E; ++I, ++GTI) {
+      const VPValue *Index = *I;
+
+      // If the computed offset becomes unknown at any point, bail out --
+      // further offsets will only result in more unknown bits.
+      if (KB.isUnknown())
+        return;
+
+      // Skip zero offsets, as these have no effect.
+      const auto *Constant = dyn_cast<VPConstantInt>(Index);
+      if (Constant && Constant->getConstantInt()->isZeroValue())
+        continue;
+
+      // If this is an offset into a struct, compute the resulting element
+      // offset in bytes, and add it to our accumulated constant offsets.
+      if (StructType *STy = GTI.getStructTypeOrNull()) {
+        assert(Constant && "struct offsets must be constant!");
+        const uint64_t ElemOffset = Q.DL.getStructLayout(STy)->getElementOffset(
+            Constant->getZExtValue());
+        AccConstOffset += (int64_t)ElemOffset;
+        continue;
+      }
+
+      // Otherwise, this is an offset into a sequential type (i.e. ptr/array).
+      // Compute the known bits of the index, multiply by the indexed type's
+      // size, sign extend the resulting value, and then add it to our total.
+      auto OffsetKB = computeKnownBits(Index, Depth, Q);
+      const unsigned TypeSizeInBytes =
+          Q.DL.getTypeAllocSize(GTI.getIndexedType()).getKnownMinSize();
+
+      // As an optimization, if the index is constant, compute the final offset
+      // and add it to our accumulated constant offsets instead.
+      if (OffsetKB.isConstant()) {
+        AccConstOffset +=
+            OffsetKB.getConstant().getSExtValue() * TypeSizeInBytes;
+        continue;
+      }
+
+      computeMulConst(OffsetKB, TypeSizeInBytes);
+      KB = KnownBits::computeForAddSub(/*Add: */ true, /*NSW: */ false, KB,
+                                       OffsetKB.sextOrTrunc(BitWidth));
+    }
+
+    // Lastly, add all our accumulated constant offsets.
+    computeAddConst(KB, AccConstOffset);
+  }
+
+  /// Multiply the given KnownBits by a constant (possibly-signed) integer
+  /// factor.
+  template <typename T> static void computeMulConst(KnownBits &KB, T Val) {
+    static_assert(std::is_integral<T>::value,
+                  "can only multiply by an integral value");
+
+    // Fold 1 * %KB => %KB
+    if (Val == 1)
+      return;
+
+    APInt ConstantInt{KB.getBitWidth(), static_cast<uint64_t>(Val),
+                      std::is_signed<T>::value};
+    KB = KnownBits::mul(KnownBits::makeConstant(ConstantInt), std::move(KB));
+  }
+
+  /// Add to the given KnownBits a constant (possibly-signed) integer factor.
+  template <typename T> static void computeAddConst(KnownBits &KB, T Val) {
+    static_assert(std::is_integral<T>::value, "can only add an integral value");
+
+    // Fold 0 + %KB => %KB
+    if (Val == 0)
+      return;
+
+    APInt ConstantInt{KB.getBitWidth(), static_cast<uint64_t>(Val),
+                      std::is_signed<T>::value};
+    KB = KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false,
+                                     KnownBits::makeConstant(ConstantInt),
+                                     std::move(KB));
   }
 
   static const Instruction *

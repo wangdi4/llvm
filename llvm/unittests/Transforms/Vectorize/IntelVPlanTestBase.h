@@ -58,6 +58,8 @@ protected:
   Module &parseModule(const char *ModuleString) {
     SMDiagnostic Err;
     M = parseAssemblyString(ModuleString, Err, *Ctx);
+    if (!M)
+      Err.print("", errs());
     EXPECT_TRUE(M);
     return *M;
   }
