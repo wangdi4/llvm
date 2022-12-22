@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -39,12 +39,32 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
       )
   endif()
   if (INTEL_CUSTOMIZATION)
-    # Pass LLVM_INTEL_FEATURES for building native tools.
-    string(REPLACE ";" "$<SEMICOLON>" intel_features_arg
-           "${LLVM_INTEL_FEATURES}")
-    set(CROSS_TOOLCHAIN_FLAGS_INIT ${CROSS_TOOLCHAIN_FLAGS_INIT}
-      -DLLVM_INTEL_FEATURES="${intel_features_arg}"
+    # When setting up a build we must preserve some Intel-specific variables.
+    # To pass a variable to the sub-build include it in the
+    # INTEL_PASSTHROUGH_VARIABLES list below.
+    set(INTEL_PASSTHROUGH_VARIABLES
+      LLVM_INTEL_FEATURES
+      IL0_PREBUILT_COMPONENTS_PREFIX
+      HOST_LINUX
+      HOST_WINNT
+      HOST_EFI2
+      HOST_ARCH
+      HOST_OS
       )
+
+    # Append the passthrough variables, accounting for nested lists and
+    # TARGET_* xdev variables.
+    foreach(PASSTHROUGH IN LISTS INTEL_PASSTHROUGH_VARIABLES)
+      if(DEFINED ${PASSTHROUGH})
+        string(REPLACE ";" "$<SEMICOLON>" PASSTHROUGH_ARG "${${PASSTHROUGH}}")
+        list(APPEND CROSS_TOOLCHAIN_FLAGS_INIT -D${PASSTHROUGH}="${PASSTHROUGH_ARG}")
+        # Emit xdev TARGET_ variables based on their HOST_ equivalents.
+        if(PASSTHROUGH MATCHES "^HOST_")
+          string(REGEX REPLACE "^HOST_" "TARGET_" NATIVE_PASSTHROUGH "${PASSTHROUGH}")
+          list(APPEND CROSS_TOOLCHAIN_FLAGS_INIT -D${NATIVE_PASSTHROUGH}="${PASSTHROUGH_ARG}")
+        endif()
+      endif()
+    endforeach()
   endif(INTEL_CUSTOMIZATION)
   set(CROSS_TOOLCHAIN_FLAGS_${target_name} ${CROSS_TOOLCHAIN_FLAGS_INIT}
     CACHE STRING "Toolchain configuration for ${target_name}")
