@@ -1,4 +1,3 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }

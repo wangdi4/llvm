@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 ;Instruction on <4> is an HInst with an underlying GetElementPtrInst
 ;Check it is CG'd correctly

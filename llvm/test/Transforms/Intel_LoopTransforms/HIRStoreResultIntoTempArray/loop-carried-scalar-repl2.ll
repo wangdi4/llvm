@@ -4,10 +4,8 @@
 ; In this case, MinRef is (%"jacobian_$Q")[i1 + 1][i2 + 1][i3][0], and MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod27][0].
 ; We set TempArray's dimenion by [i1][i2][i3], the use of it will be shifted accordingly to reduce the array size.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>"  2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -hir-details-dims -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s -check-prefix=CHECK-DETAIL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-details-dims 2>&1 < %s | FileCheck %s -check-prefix=CHECK-DETAIL
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***

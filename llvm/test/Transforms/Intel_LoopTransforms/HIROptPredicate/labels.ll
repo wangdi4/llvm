@@ -1,5 +1,4 @@
 ; Check OptPredicate in presence of forward gotos and labels.
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s
 
 ; HIR:

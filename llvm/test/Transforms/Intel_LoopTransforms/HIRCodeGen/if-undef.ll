@@ -1,4 +1,3 @@
-; RUN: opt < %s -loop-rotate -hir-cg -force-hir-cg -S | FileCheck %s
 ; RUN: opt -passes="loop(loop-rotate),hir-cg" < %s -force-hir-cg -S | FileCheck %s
 ;          BEGIN REGION { }
 ;<18>         + DO i1 = 0, 4, 1   <DO_LOOP>

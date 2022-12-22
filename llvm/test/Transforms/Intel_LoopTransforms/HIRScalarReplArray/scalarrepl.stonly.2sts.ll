@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: stores only (2 continue stores)
@@ -57,7 +55,6 @@
 ; CHECK:           (@B)[0][101] = %scalarepl1;
 ; CHECK:  END REGION
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-scalarrepl-array -disable-output -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-scalarrepl-array,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN

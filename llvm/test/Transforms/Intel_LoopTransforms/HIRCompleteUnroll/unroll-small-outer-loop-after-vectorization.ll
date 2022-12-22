@@ -1,4 +1,3 @@
-; RUN: opt -scoped-noalias-aa -tbaa -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-lmm -hir-vec-dir-insert -hir-vplan-vec -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -aa-pipeline="scoped-noalias-aa,tbaa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-lmm,hir-vec-dir-insert,hir-vplan-vec,hir-post-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that we multiversion the loop, vectorize and unroll the inner loop and then the outer loop is unrolled.

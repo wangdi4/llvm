@@ -1,7 +1,6 @@
 ; Avoid RTDD by checking the temp %q.020 which is a live-in temp and it is not in a safe-reduction chain,
 ; because RTDD will not help vectorization / parallelization in this case and should be avoided.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

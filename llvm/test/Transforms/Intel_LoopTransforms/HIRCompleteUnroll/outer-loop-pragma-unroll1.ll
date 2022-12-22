@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we unroll the i1 and i3 loops with unroll count metadata.

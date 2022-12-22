@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction -S | FileCheck %s
 
 ; Verify that we create a single operand phi copy for the liveout %add in the maerialization candidate region.

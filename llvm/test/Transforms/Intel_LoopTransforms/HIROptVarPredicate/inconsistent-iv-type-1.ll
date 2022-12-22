@@ -1,4 +1,3 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -print-after=hir-opt-var-predicate -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s
 
 ; In the example below DO i2 IV type is i32 and the constant in the condition 4294967293 is i64.

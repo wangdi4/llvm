@@ -41,7 +41,6 @@
 ; <63>         + END LOOP
 ;           END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function

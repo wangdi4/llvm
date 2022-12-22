@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-undo-sinking-for-perfect-loopnest -print-after=hir-undo-sinking-for-perfect-loopnest -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-undo-sinking-for-perfect-loopnest,print<hir>" -hir-details -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ; This test checks updating the blob definition levels after undo sinking for perfect loopnest

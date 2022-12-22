@@ -1,6 +1,5 @@
 ; Check that indirect prefetching is disabled for vector refs
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-cg -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Prefetching (hir-prefetching) ***

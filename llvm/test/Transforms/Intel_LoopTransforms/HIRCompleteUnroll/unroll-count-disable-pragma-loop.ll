@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-general-unroll -print-after=hir-post-vec-complete-unroll -print-after=hir-general-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>,hir-general-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the pragma count of less than trip count disables complete unroll allowing general unroll to happen.

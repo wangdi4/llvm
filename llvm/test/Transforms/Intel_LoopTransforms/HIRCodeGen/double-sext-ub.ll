@@ -1,4 +1,3 @@
-; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; This text verifies that UB is correctly sext and is calculated
 ; only once, before loop

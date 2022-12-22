@@ -1,4 +1,3 @@
-; RUN: opt -S -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -S 2>&1 < %s | FileCheck %s
 
 ; Verify that we successfully handle references with undef base.

@@ -1,7 +1,6 @@
 
 ; Test for not performing completely unrolling for inter-dependent loop pattern.
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=20 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loopnest-trip-threshold=20 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { }

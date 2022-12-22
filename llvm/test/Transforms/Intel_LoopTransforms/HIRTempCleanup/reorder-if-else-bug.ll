@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we don't incorrectly eliminate %t5.out by moving the use in

@@ -1,7 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-complete-unroll-multi-exit-loop-trip-threshold=8 2>&1 < %s | FileCheck %s --check-prefix=OVER-THRESHOLD
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-multi-exit-loop-trip-threshold=8 2>&1 < %s | FileCheck %s --check-prefix=OVER-THRESHOLD
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-complete-unroll-multi-exit-loop-trip-threshold=12 2>&1 < %s | FileCheck %s --check-prefix=UNDER-THRESHOLD
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-multi-exit-loop-trip-threshold=12 2>&1 < %s | FileCheck %s --check-prefix=UNDER-THRESHOLD
 
 ; Input HIR-

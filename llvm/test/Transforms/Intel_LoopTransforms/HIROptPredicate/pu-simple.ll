@@ -1,6 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -disable-output -print-after=hir-opt-predicate < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK1 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK1 %s
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-opt-predicate -disable-output -print-after=hir-opt-predicate < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK2 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK2 %s
 
 ; Please note the test incorporates two cases covered by CHECK1 and CHECK2.

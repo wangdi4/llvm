@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -hir-opt-var-predicate -S -print-after=hir-opt-var-predicate -disable-output  < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
 
 ; Check that (i1 + 1 == 1) split i1 loop and IO statements are "peeled".

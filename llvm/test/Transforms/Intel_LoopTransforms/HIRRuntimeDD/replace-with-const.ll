@@ -30,7 +30,6 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-hir-runtime-dd-cost-model -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output -disable-hir-runtime-dd-cost-model -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: if (%mv.and == 0)

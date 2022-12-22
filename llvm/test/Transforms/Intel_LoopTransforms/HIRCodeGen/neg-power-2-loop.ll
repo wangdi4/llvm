@@ -1,4 +1,3 @@
-;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ; Verify that multiplication with -65536 turns into a shift and subtract.

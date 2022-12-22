@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output -hir-details 2>&1 | FileCheck %s
 
 ; Verify that the loop liveouts of i1 and i3 loop are correctly updated after redundant liveout copies are removed.

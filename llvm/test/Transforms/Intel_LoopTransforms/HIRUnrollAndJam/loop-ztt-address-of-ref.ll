@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-after=hir-unroll-and-jam -hir-details 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 
 ; Verify that unroll & jam does not assume that loop ddrefs only have a single

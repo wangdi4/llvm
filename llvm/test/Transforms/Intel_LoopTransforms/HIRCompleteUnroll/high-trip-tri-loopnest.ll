@@ -9,7 +9,6 @@
 ; + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=9 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck --check-prefix=NO-UNROLL %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loop-trip-threshold=9 2>&1 < %s | FileCheck --check-prefix=NO-UNROLL %s
 
 ; NO-UNROLL: Function
@@ -21,7 +20,6 @@
 ; NO-UNROLL: DO i1
 ; NO-UNROLL: DO i2
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=50 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck --check-prefix=UNROLL %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loop-trip-threshold=50 2>&1 < %s | FileCheck --check-prefix=UNROLL %s
 
 ; UNROLL: Function

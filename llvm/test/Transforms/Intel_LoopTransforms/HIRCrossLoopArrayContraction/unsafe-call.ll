@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-hir-cross-loop-array-contraction-post-processing=true -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>" -disable-hir-cross-loop-array-contraction-post-processing=true -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 

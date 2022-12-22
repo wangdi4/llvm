@@ -1,7 +1,6 @@
 ; Test sorting in ddref gathering where a ref occurs twice but with different def level
 ;
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ; void

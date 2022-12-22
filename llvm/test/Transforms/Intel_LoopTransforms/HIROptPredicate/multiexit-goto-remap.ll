@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate -xmain-opt-level=3 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output -xmain-opt-level=3 < %s 2>&1 | FileCheck %s
 
 ; Verify that loop unswitching correclty remaps loop early exit goto in the else case of the IF candidate.

@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-create-function-level-region -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 ; Verify that return instruction is correctly handled by CG.

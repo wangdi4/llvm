@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-before=hir-mv-variable-stride -print-after=hir-mv-variable-stride -hir-details-dims -hir-print-only=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -hir-details-dims -aa-pipeline="basic-aa" -hir-print-only=0 < %s 2>&1 | FileCheck %s
 
 ; Check if loops with memrefs having variable strides are multiversioned.

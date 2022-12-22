@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-conditional-temp-sinking -print-before=hir-conditional-temp-sinking -print-after=hir-conditional-temp-sinking < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-conditional-temp-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the nested if-else reduction is converted into unconditional reduction.

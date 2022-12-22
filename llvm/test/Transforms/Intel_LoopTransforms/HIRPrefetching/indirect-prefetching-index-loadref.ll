@@ -1,7 +1,6 @@
 ; This test has indirect prefetching for @C. We have pragma prefetch for %M here, we can still
 ; prefetch %1, because %1 is the lval of load %M inst in the preheader.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code

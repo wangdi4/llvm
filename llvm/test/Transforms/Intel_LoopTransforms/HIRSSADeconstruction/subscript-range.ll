@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction -S | FileCheck %s
 
 ; Verify that %ptr and %ptr1 form an SCC and we add the metadata to prevent live range violation.

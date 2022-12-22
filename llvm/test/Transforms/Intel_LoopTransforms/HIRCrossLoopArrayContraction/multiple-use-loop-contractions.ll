@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -hir-cg -force-hir-cg -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that multiple use loops and multiple array contractions are handled for

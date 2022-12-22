@@ -2,7 +2,6 @@
 ; Hoisting of the "if (%x > 10)" outside of the j-loop will generate two j-loops with the same If statement (%m > 100).
 ; (%m > 100) should not be duplicated after all.
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
 ; Source:

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa -hir-aos-to-soa-alloc-converted=false < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -hir-aos-to-soa-alloc-converted=false < %s 2>&1 | FileCheck %s
 
 ; With an option -hir-aos-to-soa-alloc-converted=false, conversion from uitofp does not occur during allocation.

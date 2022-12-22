@@ -3,8 +3,7 @@
 ; while those in array-scalarization0.ll is f64.
 
 ; set of symbases using HIRTransformUtil's public API:
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-arrayscalarization-test-launcher -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=63,73 -print-before=hir-arrayscalarization-test-launcher -print-after=hir-arrayscalarization-test-launcher -S < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=63,73 -S < %s 2>&1  | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=63,73 -S < %s 2>&1  | FileCheck %s
 ;
 
 ; This LIT test is very similar to array-scalarization0.ll, except it has additional coverage.

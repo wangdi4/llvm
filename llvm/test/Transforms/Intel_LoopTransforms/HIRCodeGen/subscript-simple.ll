@@ -1,4 +1,3 @@
-; RUN: opt < %s -force-hir-cg -S -hir-ssa-deconstruction -hir-cg | FileCheck %s
 ; RUN: opt < %s -force-hir-cg -S -passes="hir-ssa-deconstruction,hir-cg" 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -force-hir-cg -S -passes="hir-ssa-deconstruction,hir-cg" 2>&1 | FileCheck %s
 

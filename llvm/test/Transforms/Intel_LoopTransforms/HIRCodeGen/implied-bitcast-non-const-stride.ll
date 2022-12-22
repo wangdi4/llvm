@@ -1,4 +1,3 @@
-;RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-cg -force-hir-cg -print-after=hir-cg 2>&1 %s | FileCheck %s
 ;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg 2>&1 %s | FileCheck %s
 
 ; Verify that we are able to generate code correctly in opaque ptr mode when

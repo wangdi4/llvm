@@ -1,4 +1,4 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam" -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 
 ; Verify that we rename the liveout temp %t101 defined in innermost loop with unroll & jam.
 

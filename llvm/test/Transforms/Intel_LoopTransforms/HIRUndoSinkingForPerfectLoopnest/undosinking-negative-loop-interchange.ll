@@ -14,7 +14,6 @@
 ;  }
 ;}
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-distribute-loopnest -hir-loop-interchange -hir-undo-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest -print-after=hir-loop-distribute-loopnest -print-after=hir-loop-interchange -print-after=hir-undo-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-loop-interchange,hir-undo-sinking-for-perfect-loopnest,print<hir>,print<hir>,print<hir>,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump After HIR Sinking For Perfect Loopnest ***

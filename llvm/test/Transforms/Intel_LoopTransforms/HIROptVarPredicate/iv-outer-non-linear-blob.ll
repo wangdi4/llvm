@@ -1,6 +1,5 @@
 ; Check that def@1 blob prevents the transformation
 
-; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -print-before=hir-opt-var-predicate -disable-output -hir-opt-var-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Source code:

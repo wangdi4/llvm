@@ -1,4 +1,3 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Check that we can completely unroll loops with call statements.

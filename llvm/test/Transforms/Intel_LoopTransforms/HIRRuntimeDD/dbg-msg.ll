@@ -1,4 +1,3 @@
-; RUN: opt -hir-runtime-dd-dbg -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-runtime-dd-dbg -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; UNSUPPORTED: system-windows

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -enable-hir-runtime-dd-delin-sext -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -enable-hir-runtime-dd-delin-sext -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }

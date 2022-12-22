@@ -1,7 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; The test checks if

@@ -1,7 +1,8 @@
 ; This testcase verifies that MemInitTrimDown transformation shouldn't
-; detect class.F as possible candidate because "class.F" type has
-; non-pointer field. This test is exactly same as meminit-candidates_01.ll
-; except "%class.F" has additional "i32" type field.
+; detect class.F as possible candidate because it violates safety condition
+; (Bad Casting). This test exactly same as meminit-candidates_01.ll
+; except "call void @_ZN4Arr1IPfEC2Ev(ptr %call)" in "main"
+; routine.
 
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 
@@ -16,6 +17,17 @@
 ;   virtual void *allocate() = 0;
 ;   virtual void *deallocate() = 0;
 ; };
+;
+; foo, which is an alias to bar, is called in F routine to make sure
+; MemInitTrimDown is able to handle aliases.
+;
+; void bar(void) {
+;   return;
+; }
+;
+; // Note that mangled name _Z3barv is used instead of bar to make
+; // clang to compile this code without syntax error.
+; void foo(void) __attribute__((alias("_Z3barv")));
 ;
 ;template <typename S> struct Arr {
 ;   bool flag;
@@ -43,7 +55,6 @@
 ; public:
 ;   Arr<int*>* f1;
 ;   Arr1<float*>* f2;
-;   int dummy;
 ;   F() {
 ;     f1 = new Arr<int *>(10, nullptr);
 ;     f2 = new Arr1<float *>();
@@ -51,6 +62,7 @@
 ;     f2->set(0, nullptr);
 ;     f2->add(nullptr);
 ;     f1->add(nullptr);
+;     foo();
 ;   }
 ;
 ; };
@@ -59,23 +71,27 @@
 ; }
 ;
 
-;CHECK: MemInitTrimDown transformation:
-;CHECK:  Failed: No candidates found.
-;
+; CHECK: MemInitTrimDown transformation:
+; CHECK:   Considering candidate: %class._ZTS1F.F
+; CHECK:   Failed: safety test for candidate struct.
+; CHECK:   Failed: No candidates found.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%class._ZTS1F.F = type { ptr, ptr, ptr, i32 }
+%class._ZTS1F.F = type { ptr, ptr, ptr }
 %struct._ZTS4Arr1IPfE.Arr1 = type { %struct._ZTS3ArrIPfE.Arr }
 %struct._ZTS3ArrIPfE.Arr = type { i8, i32, i32, ptr, ptr }
 %struct._ZTS3Mem.Mem = type { ptr }
 %struct._ZTS3ArrIPiE.Arr = type { i8, i32, i32, ptr, ptr }
 
+@_Z3foov = internal unnamed_addr alias void (), ptr @_Z3barv
+
 define dso_local i32 @main() {
 entry:
   %call = call ptr @_Znwm(i64 24)
   call void @_ZN1FC2Ev(ptr %call)
+  call void @_ZN4Arr1IPfEC2Ev(ptr %call)
   ret i32 0
 }
 
@@ -97,6 +113,7 @@ entry:
   tail call void @_ZN3ArrIPfE3addEPS0_(ptr %i5, ptr null)
   %i6 = load ptr, ptr %f1, align 8
   tail call void @_ZN3ArrIPiE3addEPS0_(ptr %i6, ptr null)
+  call void @_Z3foov()
   ret void
 }
 
@@ -149,26 +166,31 @@ entry:
   ret void
 }
 
+define void @_Z3barv() {
+entry:
+  ret void
+}
+
 declare !intel.dtrans.func.type !29 dso_local noalias "intel_dtrans_func_index"="1" ptr @_Znwm(i64)
 
 declare !intel.dtrans.func.type !18 void @Unused_declare_ZN4Arr1IPfEC2Ev(ptr "intel_dtrans_func_index"="1")
 
-!intel.dtrans.types = !{!0, !5, !8, !11, !13}
+!intel.dtrans.types = !{!0, !4, !8, !11, !13}
 
-!0 = !{!"S", %class._ZTS1F.F zeroinitializer, i32 4, !1, !2, !3, !4}
+!0 = !{!"S", %class._ZTS1F.F zeroinitializer, i32 3, !1, !2, !3}
 !1 = !{%struct._ZTS3Mem.Mem zeroinitializer, i32 1}
 !2 = !{%struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 1}
 !3 = !{%struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1}
-!4 = !{i32 0, i32 0}
-!5 = !{!"S", %struct._ZTS3Mem.Mem zeroinitializer, i32 1, !6}
-!6 = !{!7, i32 2}
-!7 = !{!"F", i1 true, i32 0, !4}
-!8 = !{!"S", %struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 5, !9, !4, !4, !10, !1}
+!4 = !{!"S", %struct._ZTS3Mem.Mem zeroinitializer, i32 1, !5}
+!5 = !{!6, i32 2}
+!6 = !{!"F", i1 true, i32 0, !7}
+!7 = !{i32 0, i32 0}
+!8 = !{!"S", %struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 5, !9, !7, !7, !10, !1}
 !9 = !{i8 0, i32 0}
 !10 = !{i32 0, i32 3}
 !11 = !{!"S", %struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1, !12}
 !12 = !{%struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 0}
-!13 = !{!"S", %struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 5, !9, !4, !4, !14, !1}
+!13 = !{!"S", %struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 5, !9, !7, !7, !14, !1}
 !14 = !{float 0.000000e+00, i32 3}
 !15 = distinct !{!16}
 !16 = !{%class._ZTS1F.F zeroinitializer, i32 1}

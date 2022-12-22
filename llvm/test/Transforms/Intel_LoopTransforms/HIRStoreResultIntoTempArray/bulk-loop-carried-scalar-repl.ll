@@ -3,7 +3,6 @@
 ; The largest loop upper bounds are used for the extracted loop.
 ; We expand the loop upper bounds by the largest distances for each dimension between minref and maxref.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***

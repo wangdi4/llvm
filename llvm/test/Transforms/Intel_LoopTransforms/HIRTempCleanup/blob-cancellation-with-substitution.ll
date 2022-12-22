@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the use ref in the HLIf is made consistent when these two blobs get
