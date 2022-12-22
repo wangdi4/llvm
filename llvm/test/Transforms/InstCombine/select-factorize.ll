@@ -225,17 +225,12 @@ define i1 @and_logic_and_logic_or_4(i1 %c, i1 %a, i1 %b) {
 
 define <3 x i1> @and_logic_and_logic_or_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @and_logic_and_logic_or_vector(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> [[BC]], <3 x i1> zeroinitializer
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -246,17 +241,12 @@ define <3 x i1> @and_logic_and_logic_or_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1
 
 define <3 x i1> @and_logic_and_logic_or_vector_poison1(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @and_logic_and_logic_or_vector_poison1(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> <i1 false, i1 poison, i1 false>
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> [[BC]], <3 x i1> <i1 false, i1 poison, i1 false>
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -267,17 +257,12 @@ define <3 x i1> @and_logic_and_logic_or_vector_poison1(<3 x i1> %c, <3 x i1> %a,
 
 define <3 x i1> @and_logic_and_logic_or_vector_poison2(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @and_logic_and_logic_or_vector_poison2(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> <i1 poison, i1 true, i1 true>, <3 x i1> [[B:%.*]]
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> [[BC]], <3 x i1> zeroinitializer
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -597,17 +582,12 @@ define i1 @or_logic_or_logic_and_4(i1 %c, i1 %a, i1 %b) {
 
 define <3 x i1> @or_logic_or_logic_and_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @or_logic_or_logic_and_vector(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[BC]]
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
@@ -618,17 +598,12 @@ define <3 x i1> @or_logic_or_logic_and_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1>
 
 define <3 x i1> @or_logic_or_logic_and_vector_poison1(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @or_logic_or_logic_and_vector_poison1(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 poison, i1 true>, <3 x i1> [[B:%.*]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> <i1 true, i1 poison, i1 true>, <3 x i1> [[BC]]
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
@@ -639,17 +614,12 @@ define <3 x i1> @or_logic_or_logic_and_vector_poison1(<3 x i1> %c, <3 x i1> %a, 
 
 define <3 x i1> @or_logic_or_logic_and_vector_poison2(<3 x i1> %c, <3 x i1> %a, <3 x i1> %b) {
 ; CHECK-LABEL: @or_logic_or_logic_and_vector_poison2(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[A:%.*]], <3 x i1> [[B:%.*]], <3 x i1> <i1 false, i1 false, i1 poison>
-; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[C:%.*]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[BC]]
->>>>>>> 9ddff66d0c9c3e18d56e6b20aa26a2a8cdfb6d2b
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
