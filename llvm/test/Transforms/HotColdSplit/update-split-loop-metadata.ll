@@ -11,8 +11,10 @@ target triple = "x86_64-apple-macosx10.14.0"
 
 ; The scope for these debug locations should be @basic.cold.1, not @basic.
 ; CHECK: [[SCOPE:![0-9]+]] = distinct !DISubprogram(name: "basic.cold.1"
-; CHECK: [[LOOP_MD]] = distinct !{[[LOOP_MD]], [[LINE:![0-9]+]], [[LINE]]}
+; CHECK: [[LOOP_MD]] = distinct !{[[LOOP_MD]], [[LINE:![0-9]+]], [[LINE2:![0-9]+]]}
 ; CHECK: [[LINE]] = !DILocation(line: 1, column: 1, scope: [[SCOPE]])
+; CHECK: [[LINE2]] = !DILocation(line: 2, column: 2, scope: [[LEX_SCOPE:![0-9]+]])
+; CHECK: [[LEX_SCOPE]] = !DILexicalBlock(scope: [[SCOPE]], file: !{{[0-9]+}}, line: 3, column: 3)
 
 define void @basic(ptr %p, i32 %k) !dbg !6 {
 entry:
@@ -57,3 +59,4 @@ declare void @sink() cold
 !9 = !DILocation(line: 1, column: 1, scope: !6)
 !10 = distinct !{!10, !9, !9}
 !11 = !DILocation(line: 2, column: 1, scope: !6)                         ;INTEL
+!12 = !DILexicalBlock(scope: !6, file: !1, line: 3, column: 3)
