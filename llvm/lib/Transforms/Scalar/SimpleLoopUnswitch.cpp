@@ -276,7 +276,7 @@ static void buildPartialInvariantUnswitchConditionalBranch(
   for (auto *Val : reverse(ToDuplicate)) {
     Instruction *Inst = cast<Instruction>(Val);
     Instruction *NewInst = Inst->clone();
-    BB.getInstList().insert(BB.end(), NewInst);
+    NewInst->insertAt(&BB, BB.end());
     RemapInstruction(NewInst, VMap,
                      RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
     VMap[Val] = NewInst;
@@ -606,7 +606,7 @@ static bool unswitchTrivialBranch(Loop &L, BranchInst &BI, DominatorTree &DT,
     if (MSSAU) {
       // Temporarily clone the terminator, to make MSSA update cheaper by
       // separating "insert edge" updates from "remove edge" ones.
-      ParentBB->getInstList().push_back(BI.clone());
+      BI.clone()->insertAt(ParentBB, ParentBB->end());
     } else {
       // Create a new unconditional branch that will continue the loop as a new
       // terminator.
@@ -2276,7 +2276,7 @@ static void unswitchNontrivialInvariants(
 
     // Keep a clone of the terminator for MSSA updates.
     Instruction *NewTI = TI.clone();
-    ParentBB->getInstList().push_back(NewTI);
+    NewTI->insertAt(ParentBB, ParentBB->end());
 
     // First wire up the moved terminator to the preheaders.
     if (BI) {
