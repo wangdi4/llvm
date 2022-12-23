@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_ESIMD_EMBARGO
 ; UNSUPPORTED: intel_feature_esimd_embargo
 ; end INTEL_FEATURE_ESIMD_EMBARGO
 ; end INTEL_CUSTOMIZATION
 ;
+=======
+>>>>>>> 965d82367b767f1b9c6126611f27798df2c2e6b2
 ; RUN: opt -passes=LowerESIMD -S < %s | FileCheck %s
 
 ; This test checks that LowerESIMD pass correctly interpretes the
