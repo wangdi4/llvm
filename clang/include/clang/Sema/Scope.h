@@ -140,11 +140,18 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
+<<<<<<< HEAD
 #if INTEL_COLLAB
     /// This is the scope of OpenMP simd directive.
     /// This flag is propagated to children scopes.
     OpenMPSimdOnlyDirectiveScope = 0x4000000,
 #endif  // INTEL_COLLAB
+=======
+
+    /// This is a scope of some OpenMP directive with
+    /// order clause which specifies concurrent
+    OpenMPOrderClauseScope = 0x4000000,
+>>>>>>> 7c34e74c2547da645f0ae542dd95059bc5f8009a
   };
 
 private:
@@ -499,6 +506,12 @@ public:
   bool isOpenMPLoopScope() const {
     const Scope *P = getParent();
     return P && P->isOpenMPLoopDirectiveScope();
+  }
+
+  /// Determine whether this scope is some OpenMP directive with
+  /// order clause which specifies concurrent scope.
+  bool isOpenMPOrderClauseScope() const {
+    return getFlags() & Scope::OpenMPOrderClauseScope;
   }
 
   /// Determine whether this scope is a while/do/for statement, which can have
