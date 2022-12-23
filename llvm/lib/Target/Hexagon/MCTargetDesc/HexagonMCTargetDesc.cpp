@@ -273,8 +273,8 @@ public:
                               unsigned AccessSize) override {
     HexagonMCELFStreamer &HexagonELFStreamer =
         static_cast<HexagonMCELFStreamer &>(getStreamer());
-    HexagonELFStreamer.HexagonMCEmitCommonSymbol(Symbol, Size, ByteAlignment,
-                                                 AccessSize);
+    HexagonELFStreamer.HexagonMCEmitCommonSymbol(
+        Symbol, Size, Align(ByteAlignment), AccessSize);
   }
 
   void emitLocalCommonSymbolSorted(MCSymbol *Symbol, uint64_t Size,
@@ -283,7 +283,7 @@ public:
     HexagonMCELFStreamer &HexagonELFStreamer =
         static_cast<HexagonMCELFStreamer &>(getStreamer());
     HexagonELFStreamer.HexagonMCEmitLocalCommonSymbol(
-        Symbol, Size, ByteAlignment, AccessSize);
+        Symbol, Size, Align(ByteAlignment), AccessSize);
   }
 };
 
