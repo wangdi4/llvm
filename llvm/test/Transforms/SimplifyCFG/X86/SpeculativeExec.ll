@@ -38,23 +38,12 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; may be a branch here
-; CHECK:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
-; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A:%.*]], 1.000000e+00
-; CHECK-NEXT:    [[TMP0:%.*]] = select ninf i1 [[T2]], float [[T3]], float [[A]]
-; may be a branch/phi here
-; CHECK:    [[T5:%.*]] = fsub float [[T4:%.*]], 1.000000e+00
-; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
 ; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], float [[A:%.*]], float [[B]]
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
 ; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A]], 1.000000e+00
 ; CHECK-NEXT:    [[T4:%.*]] = select ninf i1 [[OR_COND]], float [[T3]], float [[T4_SEL]]
 ; CHECK-NEXT:    [[T5:%.*]] = fsub float [[T4]], 1.000000e+00
->>>>>>> 1bd0b82e508d049efdb07f4f8a342f35818df341
 ; CHECK-NEXT:    ret float [[T5]]
 ;
 entry:
@@ -159,18 +148,10 @@ define float @spec_select_fp5(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp5(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
-; CHECK-NEXT:    [[T3:%.*]] = select nsz i1 [[T2]], float %c, float %b
-; CHECK-NEXT:    [[T4:%.*]] = select nsz i1 [[T1]], float [[T3]], float %a
-; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
 ; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], float [[B]], float [[A:%.*]]
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
 ; CHECK-NEXT:    [[T4:%.*]] = select nsz i1 [[OR_COND]], float [[C]], float [[T4_SEL]]
->>>>>>> 1bd0b82e508d049efdb07f4f8a342f35818df341
 ; CHECK-NEXT:    ret float [[T4]]
 ;
 entry:

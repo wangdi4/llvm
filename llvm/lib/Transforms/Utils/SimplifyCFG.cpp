@@ -4926,7 +4926,6 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
   // If we need to invert the condition in the pred block to match, do so now.
   if (InvertPredCond) {
     Value *NewCond = PBI->getCondition();
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If this instruction is a compare with a single use, it is also legal to
@@ -4939,16 +4938,6 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
     NewCond =
         Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
 #endif
-=======
-    if (NewCond->hasOneUse() && isa<CmpInst>(NewCond)) {
-      CmpInst *CI = cast<CmpInst>(NewCond);
-      CI->setPredicate(CI->getInversePredicate());
-      CI->setName(CI->getName() + ".not");
-    } else {
-      NewCond =
-          Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
-    }
->>>>>>> 1bd0b82e508d049efdb07f4f8a342f35818df341
 
     PBI->setCondition(NewCond);
     PBI->swapSuccessors();
