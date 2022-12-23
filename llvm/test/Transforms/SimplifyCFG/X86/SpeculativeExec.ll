@@ -9,9 +9,10 @@ define i32 @test1(i32 %a, i32 %b, i32 %c) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; CHECK-NEXT:    [[T2:%.*]] = icmp sgt i32 [[C:%.*]], 1
-; CHECK-NEXT:    [[T3:%.*]] = add i32 [[A:%.*]], 1
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], i32 [[T3]], i32 [[A]]
-; CHECK-NEXT:    [[T4:%.*]] = select i1 [[T1]], i32 [[SPEC_SELECT]], i32 [[B]]
+; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], i32 [[A:%.*]], i32 [[B]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
+; CHECK-NEXT:    [[T3:%.*]] = add i32 [[A]], 1
+; CHECK-NEXT:    [[T4:%.*]] = select i1 [[OR_COND]], i32 [[T3]], i32 [[T4_SEL]]
 ; CHECK-NEXT:    [[T5:%.*]] = sub i32 [[T4]], 1
 ; CHECK-NEXT:    ret i32 [[T5]]
 ;
@@ -37,6 +38,7 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; may be a branch here
 ; CHECK:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
@@ -45,6 +47,14 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; may be a branch/phi here
 ; CHECK:    [[T5:%.*]] = fsub float [[T4:%.*]], 1.000000e+00
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
+; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], float [[A:%.*]], float [[B]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
+; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A]], 1.000000e+00
+; CHECK-NEXT:    [[T4:%.*]] = select ninf i1 [[OR_COND]], float [[T3]], float [[T4_SEL]]
+; CHECK-NEXT:    [[T5:%.*]] = fsub float [[T4]], 1.000000e+00
+>>>>>>> 1bd0b82e508d049efdb07f4f8a342f35818df341
 ; CHECK-NEXT:    ret float [[T5]]
 ;
 entry:
@@ -122,9 +132,10 @@ define i32* @test5(i32 %a, i32 %b, i32 %c, i32* dereferenceable(10) %ptr1, i32* 
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; CHECK-NEXT:    [[T2:%.*]] = icmp sgt i32 [[C:%.*]], 1
+; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], i32* [[PTR2:%.*]], i32* [[PTR1:%.*]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
 ; CHECK-NEXT:    [[T3:%.*]] = load i32*, i32** [[PTR3:%.*]], align 8
-; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], i32* [[T3]], i32* [[PTR2:%.*]]
-; CHECK-NEXT:    [[T4:%.*]] = select i1 [[T1]], i32* [[SPEC_SELECT]], i32* [[PTR1:%.*]]
+; CHECK-NEXT:    [[T4:%.*]] = select i1 [[OR_COND]], i32* [[T3]], i32* [[T4_SEL]]
 ; CHECK-NEXT:    ret i32* [[T4]]
 ;
 entry:
@@ -148,11 +159,18 @@ define float @spec_select_fp5(float %a, float %b, float %c) {
 ; CHECK-LABEL: @spec_select_fp5(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
 ; CHECK-NEXT:    [[T3:%.*]] = select nsz i1 [[T2]], float %c, float %b
 ; CHECK-NEXT:    [[T4:%.*]] = select nsz i1 [[T1]], float [[T3]], float %a
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
+; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], float [[B]], float [[A:%.*]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
+; CHECK-NEXT:    [[T4:%.*]] = select nsz i1 [[OR_COND]], float [[C]], float [[T4_SEL]]
+>>>>>>> 1bd0b82e508d049efdb07f4f8a342f35818df341
 ; CHECK-NEXT:    ret float [[T4]]
 ;
 entry:
