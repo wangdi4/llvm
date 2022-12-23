@@ -28,7 +28,6 @@
 #include "cl_disable_sys_dialog.h"
 #include "cl_shutdown.h"
 #include "debuggingservicewrapper.h"
-#include "ocl_mutex.h"
 #include "llvm/Support/Mutex.h"
 
 #if defined(_WIN32)
@@ -38,7 +37,7 @@
 using namespace Intel::OpenCL::DeviceBackend;
 
 // lock used to prevent the simultaneous initialization
-static OclMutex s_init_lock;
+static std::mutex s_init_lock;
 // initialization count - used to prevent the multiple initialization
 static int s_init_count = 0;
 static bool s_compiler_initialized = false;
@@ -54,7 +53,7 @@ extern "C" {
 ///@brief
 ///
 cl_dev_err_code InitDeviceBackend(const ICLDevBackendOptions *pBackendOptions) {
-  OclAutoMutex lock(&s_init_lock);
+  std::lock_guard<std::mutex> lock(s_init_lock);
 
   // The compiler can only be initialized once, even if the backend is
   //   terminated.  The s_init_count check is not sufficient.
@@ -104,7 +103,7 @@ void TerminateDeviceBackend() {
     return;
   }
 
-  OclAutoMutex lock(&s_init_lock);
+  std::lock_guard<std::mutex> lock(s_init_lock);
   //
   // Only perform the termination when initialization count drops to zero
   //
