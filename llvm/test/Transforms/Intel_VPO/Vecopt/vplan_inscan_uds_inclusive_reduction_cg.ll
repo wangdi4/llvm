@@ -1,5 +1,4 @@
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-print-after-plain-cfg -vplan-entities-dump -vplan-print-legality -debug-only=LoopVectorizationPlanner -vplan-force-uds-reduction-vectorization=true < %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=2 -vplan-force-uds-reduction-vectorization=true < %s 2>&1 | FileCheck %s
 
 ;; Original source for reference:
 
@@ -21,24 +20,23 @@
 ;;     return red;
 ;; }
 
-; CHECK-LABEL:VPOLegality UDRList:
-; CHECK-NEXT: Ref:   %red.red = alloca float, align 4
-; CHECK-EMPTY:
-; CHECK-NEXT:   UpdateInstructions:
-; CHECK-NEXT:   none
-; CHECK-NEXT:   RedDescr: {Kind: call, IsSigned: 0}
-; CHECK-NEXT:   RedDescrUDR: {Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none, Inscan: inclusive}
-; CHECK-NEXT: VPlan after importing plain CFG:
-; CHECK-NEXT: VPlan IR for: _Z3udsPfS_:DIR.VPO.END.GUARD.MEM.MOTION.426.#1
-; CHECK-NEXT: Loop Entities of the loop with header BB2
-; CHECK-EMPTY:
-; CHECK-NEXT: Reduction list
-; CHECK-NEXT:  (UDR) Start: ptr %red.red udr Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none}
-; CHECK-NEXT:   inscan ReductionKind: inclusive
-; CHECK-NEXT:  Memory: ptr %red.red
+; CHECK-LABEL: DIR.OMP.SIMD.1:
+; CHECK:         [[RED_ORIG:%.*]] = alloca float, align 4
+; CHECK:         [[RED_VEC:%.*]] = alloca <2 x float>, align 8
+; CHECK-NEXT:    [[RED_VEC_BASE_ADDR:%.*]] = getelementptr float, ptr [[RED_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 0
 
-; CHECK:      LVP: UDS lowering and codegen are not supported yet!
-; CHECK-NEXT: LVP: VPlan is not legal to process, bailing out.
+; CHECK-LABEL: vector.body:
+; CHECK:         call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
+
+; CHECK-LABEL: VPlannedBB9:
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
+; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_ORIG]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]])
+; CHECK-NEXT:    br label
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

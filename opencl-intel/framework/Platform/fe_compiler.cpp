@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #include "fe_compiler.h"
 #include "cl_sys_info.h"
+#include "cl_user_logger.h"
 #include "common_clang.h"
 #include "observer.h"
 
@@ -70,8 +71,8 @@ cl_err_code FrontEndCompiler::Initialize(const char *psModuleName,
   INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
   if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0) {
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-      g_pUserLogger->PrintError(
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
+      FrameworkUserLogger::GetInstance()->PrintError(
           "Failed to load " + std::string(psModuleName) +
           " with error message: " + m_dlModule.GetError());
 
@@ -100,8 +101,9 @@ cl_err_code FrontEndCompiler::Initialize(const char *psModuleName,
 
   m_pszModuleName = STRDUP(psModuleName);
 
-  cl_err_code err = m_pfnCreateInstance(pDeviceInfo, stDevInfoSize,
-                                        &m_pFECompiler, g_pUserLogger);
+  cl_err_code err =
+      m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
+
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
   }

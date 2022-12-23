@@ -100,8 +100,9 @@ public:
   virtual void Flush() = 0;
 
 protected:
-  char *m_handle;       // unique string handle representation
-  ELogLevel m_logLevel; // log handler log level (ignore levels < m_logLevel)
+  char *m_handle; // unique string handle representation
+  ELogLevel m_logLevel =
+      LL_OFF; // log handler log level (ignore levels < m_logLevel)
 };
 
 /*******************************************************************************

@@ -510,7 +510,8 @@ private:
     bool m_isParent;
     GenericMemObject *m_pMemObj;
 
-    GenericMemObject::update_parent_stage m_nextStage;
+    GenericMemObject::update_parent_stage m_nextStage =
+        PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE;
     unsigned int m_parentValidGroupId;
 
     vector<SharedPtr<OclEvent>> m_updateParentEventList;

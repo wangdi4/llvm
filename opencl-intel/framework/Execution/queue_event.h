@@ -126,7 +126,7 @@ private:
 
   ocl_gpa_data *m_pGPAData;
 #if defined(USE_ITT)
-  __itt_id m_ittID;
+  __itt_id m_ittID = __itt_null;
 #endif
 };
 

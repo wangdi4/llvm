@@ -343,28 +343,22 @@ public:
 
   template <typename S>
   SharedPtrBase &operator=(const SharedPtrBase<S> &other) {
-    if (other == *this) {
-      return *this;
-    }
-
-    // get hold of the original object address
-    T *ptr = this->m_ptr;
-    // update m_ptr to the new address
-    if (nullptr != other.GetPtr()) {
+    if (other != *this) {
+      // get hold of the original object address
+      T *ptr = this->m_ptr;
+      // update m_ptr to the new address
       this->m_ptr = other.GetPtr();
-    } else {
-      this->m_ptr = nullptr;
+      // increment the reference counter if m_ptr isn't null
+      if (nullptr != this->m_ptr) {
+        IncRefCnt();
+      }
+      /* Only now can we decrement the reference counter of the old address.
+        This is to prevent the case where DecRefCntInt would cause the object
+        containing this SharedPtrBase to be deleted and then accesses to m_ptr
+        would already be invalid, if they had been performed after the call to
+        DecRefCntInt. */
+      DecRefCntInt(ptr);
     }
-    // increment the reference counter if m_ptr isn't null
-    if (nullptr != this->m_ptr) {
-      IncRefCnt();
-    }
-    /* Only now can we decrement the reference counter of the old address. This
-       is to prevent the case where DecRefCntInt would cause the object
-       containing this SharedPtrBase to be deleted and then accesses to m_ptr
-       would already be invalid, if they had been performed after the call to
-       DecRefCntInt. */
-    DecRefCntInt(ptr);
     return *this;
   }
 

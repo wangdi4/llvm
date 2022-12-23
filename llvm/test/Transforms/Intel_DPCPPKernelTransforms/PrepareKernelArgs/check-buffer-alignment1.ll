@@ -40,5 +40,5 @@ entry:
 !0 = !{void (i8, <2 x i8>, double, <8 x float>, <16 x i64>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-47: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}
+; DEBUGIFY-COUNT-43: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}
 ; DEBUGIFY-NOT: WARNING

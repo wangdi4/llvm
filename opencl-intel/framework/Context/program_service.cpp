@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -600,11 +600,11 @@ bool PostBuildTask::Execute() {
   }
 
   if (m_pfn_notify) {
-    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+    if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
       std::stringstream stream;
       stream << "BuildProgram callback(" << m_pProg->GetHandle() << ", "
              << m_user_data << ")" << std::endl;
-      g_pUserLogger->PrintString(stream.str());
+      FrameworkUserLogger::GetInstance()->PrintString(stream.str());
     }
     m_pfn_notify(m_pProg->GetHandle(), m_user_data);
   }

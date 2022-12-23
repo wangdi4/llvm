@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -24,12 +24,12 @@ using namespace Intel::OpenCL::Utils;
 
 cl_err_code SVMFreeCommand::Execute() {
   if (m_freeFunc != nullptr) {
-    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+    if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
       std::stringstream stream;
       stream << "SVMFreeCommand callback(" << GetCommandQueue()->GetHandle()
              << ", " << m_svmPtrs.size() << ", " << &m_svmPtrs[0] << ", "
              << m_pUserData << ")" << std::endl;
-      g_pUserLogger->PrintString(stream.str());
+      FrameworkUserLogger::GetInstance()->PrintString(stream.str());
     }
     m_freeFunc(GetCommandQueue()->GetHandle(), m_svmPtrs.size(), &m_svmPtrs[0],
                m_pUserData);

@@ -50,7 +50,7 @@ public:
   void DeserialVersion(IInputStream &stream);
   int GetRuntimeVersion() const;
   int GetLLVMVersion() const;
-  unsigned int m_binaryVersion;
+  unsigned int m_binaryVersion = 0;
 
 private:
   ICLDevBackendJITAllocator *m_pJITAllocator;

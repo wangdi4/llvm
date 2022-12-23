@@ -303,7 +303,7 @@ namespace {
 
 class Generator {
   // pointer chasing depth
-  unsigned m_pointerDepth;
+  unsigned m_pointerDepth = 0;
   const DIType &m_type;
   VarTypeDescriptor GenerateVarTypeTypedef(const DIDerivedType &di_type,
                                            const DIType &di_derived_from);

@@ -78,11 +78,7 @@ OCLStamp::OCLStamp(const IRunComponentConfiguration *pRunConfiguration,
   if (m_useNEAT) {
     uint64_t neatVersion = NEATVersion::GetVersion();
 
-    uint32_t useFmaNEAT = uint32_t(false);
-    if ((static_cast<const OpenCLProgram *>(pProgram)->ParseToModule())
-            ->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
-      useFmaNEAT = uint32_t(true);
-    }
+    uint32_t useFmaNEAT = uint32_t(true);
 
     buffer.insert(buffer.end(), begin_binary(neatVersion),
                   end_binary(neatVersion));

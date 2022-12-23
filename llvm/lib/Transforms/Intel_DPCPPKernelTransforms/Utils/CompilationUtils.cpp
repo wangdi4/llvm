@@ -366,7 +366,8 @@ bool isGlobalOffset(StringRef S) {
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
-bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
+
+StringRef nameSpecialBuffer() { return NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 

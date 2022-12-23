@@ -66,7 +66,7 @@ protected:
   OpenCLBackendWrapper m_backendWrapper;
 
   // ID of (logical) CPU on which master thread is running
-  unsigned int m_uiMasterHWId;
+  unsigned int m_uiMasterHWId = 0;
   // Whether master thread will be pinned. Currently we only pin master thread
   // if DPCPP_CPU_CU_AFFINITY env is correctly set.
   bool m_pinMaster;

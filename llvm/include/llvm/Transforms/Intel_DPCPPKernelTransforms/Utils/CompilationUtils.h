@@ -283,8 +283,8 @@ bool isPrefetch(StringRef S);
 /// Return "get_base_global_id."
 StringRef nameGetBaseGID();
 
-/// Return true if string is "get_special_buffer."
-bool isGetSpecialBuffer(StringRef S);
+/// Return "get_special_buffer."
+StringRef nameSpecialBuffer();
 
 /// Return true if string is "__opencl_printf".
 bool isOpenCLPrintf(StringRef S);

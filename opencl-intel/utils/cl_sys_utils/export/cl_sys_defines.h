@@ -202,10 +202,10 @@ typedef int errno_t;
 #include <pthread.h>
 // OS native event structure
 typedef struct event_Structure {
-  bool bAutoReset;
+  bool bAutoReset = false;
   pthread_mutex_t mutex;
   pthread_cond_t condition;
-  volatile bool isFired;
+  volatile bool isFired = false;
 } EVENT_STRUCTURE;
 
 typedef pthread_mutex_t MUTEX;

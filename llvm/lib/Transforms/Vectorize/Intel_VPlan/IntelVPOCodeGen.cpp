@@ -2094,6 +2094,93 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     VPScalarMap[VPInst][0] = vectorizeExtractLastVectorLane(VPInst);
     return;
   }
+  case VPInstruction::RunningInclusiveUDS: {
+    // Inclusive user-defined scan with presence of initializer can be
+    // implemented as follows:
+    //
+    // [p0, p1, p2, p3] - private memory for UDS for each lane;
+    // red - original reduction pointer.
+    //
+    // p0 = combiner(p0, red);
+    // p1 = combiner(p1, p0);
+    // p2 = combiner(p2, p1);
+    // p3 = combiner(p3, p2);
+    // red = initializer();
+    // red = combiner(red, p3);
+
+    auto *UDS = cast<VPRunningInclusiveUDS>(VPInst);
+    Function *CombinerFn = UDS->getCombiner();
+    Function *InitializerFn = UDS->getInitializer();
+
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    auto *Priv = VPInst->getOperand(0);
+
+    if (!InitializerFn)
+      llvm_unreachable(
+          "VPRunningInclusiveUDS without Init is not implemented yet!");
+
+    // Compute the running reduction for the remaining vector lanes.
+    auto *PrevPrivPtr = Orig;
+    for (unsigned Lane = 0; Lane < getVF(); Lane++) {
+      auto *LanePrivPtr = getScalarValue(Priv, Lane);
+      Builder.CreateCall(CombinerFn, {LanePrivPtr, PrevPrivPtr});
+      PrevPrivPtr = LanePrivPtr;
+    }
+
+    // Place the last value as the final value.
+    Builder.CreateCall(InitializerFn, {Orig, Orig});
+    Builder.CreateCall(CombinerFn, {Orig, PrevPrivPtr});
+
+    return;
+  }
+  case VPInstruction::RunningExclusiveUDS: {
+    // Exclusive user-defined scan with presence of initializer can be
+    // implemented as follows:
+    //
+    // [p0, p1, p2, p3] - private memory for UDS for each lane;
+    // red - original reduction pointer.
+    // temp - temporary memory.
+    //
+    // tmp = ctor()
+    // foreach pi in [p0, p1, p2, p3]:
+    //   tmp = initializer()
+    //   tmp = combiner(tmp, pi)
+    //   pi = initializer()
+    //   pi = combiner(pi, red)
+    //   red = combiner(red, tmp)
+    // tmp = dtor()
+    auto *UDS = cast<VPRunningExclusiveUDS>(VPInst);
+    Function *CombinerFn = UDS->getCombiner();
+    Function *InitializerFn = UDS->getInitializer();
+    Function *CtorFn = UDS->getCtor();
+    Function *DtorFn = UDS->getDtor();
+
+    if (!InitializerFn)
+      llvm_unreachable(
+          "VPRunningExclusiveUDS without Init is not implemented yet!");
+
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    auto *Priv = VPInst->getOperand(0);
+    auto *Temp = cast<VPAllocatePrivate>(VPInst->getOperand(2));
+    auto *FirstLaneTemp = getScalarValue(Temp, 0);
+
+    if (CtorFn)
+      Builder.CreateCall(CtorFn, {FirstLaneTemp});
+
+    for (unsigned Lane = 0; Lane < getVF(); Lane++) {
+      Builder.CreateCall(InitializerFn, {FirstLaneTemp, Orig});
+      auto *LanePrivPtr = getScalarValue(Priv, Lane);
+      Builder.CreateCall(CombinerFn, {FirstLaneTemp, LanePrivPtr});
+      Builder.CreateCall(InitializerFn, {LanePrivPtr, Orig});
+      Builder.CreateCall(CombinerFn, {LanePrivPtr, Orig});
+      Builder.CreateCall(CombinerFn, {Orig, FirstLaneTemp});
+    }
+
+    if (DtorFn)
+      Builder.CreateCall(DtorFn, {FirstLaneTemp});
+
+    return;
+  }
   case VPInstruction::SOAExtractValue: {
     // We know our first operand is an aggregate in SOA layout. Emit a single
     // ExtractValue to get the widened value.

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -54,16 +54,6 @@ using namespace Intel::OpenCL::Utils;
 
 #define MAX_BATCH_SIZE 128
 #define SPARE_STATIC_DATA 8
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
-FrameworkUserLogger *g_pUserLogger = nullptr;
-
-}
-} // namespace OpenCL
-} // namespace Intel
 
 namespace Intel {
 namespace OpenCL {
@@ -221,8 +211,9 @@ int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data *pGPAData,
   // Explicitly load TBB library
   if (!LoadTBBLibrary()) {
     LOG_ERROR(TEXT("%s"), "Failed to load TBB library");
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-      g_pUserLogger->PrintError("Failed to load TBB library.");
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
+      FrameworkUserLogger::GetInstance()->PrintError(
+          "Failed to load TBB library.");
     return 0;
   }
 
@@ -236,8 +227,8 @@ int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data *pGPAData,
            << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded "
            << TBB_runtime_interface_version() << "." << std::ends;
     LOG_ERROR(TEXT(stream.str().c_str()), "");
-    if (nullptr != g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled()) {
-      g_pUserLogger->PrintError(stream.str().c_str());
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled()) {
+      FrameworkUserLogger::GetInstance()->PrintError(stream.str().c_str());
     }
     return 0;
   }

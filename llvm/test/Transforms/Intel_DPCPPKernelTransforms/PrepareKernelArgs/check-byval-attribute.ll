@@ -72,8 +72,4 @@ entry:
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} alloca
 ; DEBUGIFY-NOT: WARNING

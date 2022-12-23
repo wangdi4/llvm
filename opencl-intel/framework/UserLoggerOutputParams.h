@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "cl_user_logger.h"
 #include "ocl_config.h"
 #include <string>
 
@@ -115,7 +116,8 @@ private:
 };
 
 inline OutputParamsValueProvider::~OutputParamsValueProvider() {
-  if (Intel::OpenCL::Utils::g_pUserLogger->IsApiLoggingEnabled()) {
+  if (Intel::OpenCL::Utils::FrameworkUserLogger::GetInstance()
+          ->IsApiLoggingEnabled()) {
     Print2Logger();
   }
 }

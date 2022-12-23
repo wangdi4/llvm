@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -34,17 +34,18 @@ using namespace Intel::OpenCL::Utils;
 
 #define MAX_STRDUP_SIZE 1024
 
-#if !_WIN32 && !DEVICE_NATIVE
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
-FrameworkUserLogger *g_pUserLogger = nullptr;
+static llvm::ManagedStatic<FrameworkUserLogger> UserLogger;
 
+FrameworkUserLogger *FrameworkUserLogger::GetInstance() {
+  return &*UserLogger;
+}
 }
 } // namespace OpenCL
 } // namespace Intel
-#endif
 
 /**
  * Safe version of strdup.

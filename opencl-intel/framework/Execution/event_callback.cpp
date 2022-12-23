@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,7 +18,7 @@
 #include "ocl_event.h"
 
 using namespace Intel::OpenCL::Framework;
-using Intel::OpenCL::Utils::g_pUserLogger;
+using namespace Intel::OpenCL::Utils;
 
 EventCallback::EventCallback(eventCallbackFn callback, void *pUserData,
                              const cl_int expectedExecState)
@@ -33,11 +33,11 @@ EventCallback::ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
   if (CL_COMPLETE != pEvent->GetEventExecState()) {
     retCode = GetExpectedExecState();
   }
-  if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
     std::stringstream stream;
     stream << "EventCallback(" << pEvent->GetHandle() << ", " << m_pUserData
            << ")" << std::endl;
-    g_pUserLogger->PrintString(stream.str());
+    FrameworkUserLogger::GetInstance()->PrintString(stream.str());
   }
   m_callback(pEvent->GetHandle(), retCode, m_pUserData);
   return CL_SUCCESS;

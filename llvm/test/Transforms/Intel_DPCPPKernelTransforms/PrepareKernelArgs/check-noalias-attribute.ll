@@ -29,5 +29,5 @@ entry:
 !0 = !{void (i8, %struct.struct1*, %struct.struct2*)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-41: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-37: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

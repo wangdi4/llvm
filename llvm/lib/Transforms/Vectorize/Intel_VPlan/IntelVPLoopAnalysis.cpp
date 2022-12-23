@@ -769,9 +769,9 @@ static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
   }
 }
 
-VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
-                                               VPBuilder &Builder, VPValue *&AI,
-                                               VPBasicBlock *Preheader) {
+VPAllocatePrivate *
+VPLoopEntityList::createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
+                                      VPValue *&AI, VPBasicBlock *Preheader) {
   AI = nullptr;
   const VPLoopEntityMemoryDescriptor *MemDescr = getMemoryDescriptor(&E);
   if (!MemDescr || MemDescr->canRegisterize())
@@ -942,133 +942,141 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
       "Expect inscan reductions of the same kind!");
 
   // Process each inscan reduction one by one.
-  // The following needs to happen for in-memory reduction:
-  // 1. Reset the reduction at the loop header with identity value.
-  // 2. Create carry-over phi. One edge is initialized with start value.
-  // 3. Insert running reduction for loaded reduction value and carry-over.
-  // 4. Extract last lane from the running reduction. This will be the second
-  //    edge for carry-over phi.
-  //
-  // pre.header:
-  //   float* %red = allocate-priv float*
-  //   float %red_load = load float* %red
-  //   float %red_init = reduction-init-scalar float 0.0 float %red_load
-  // header:
-  //   float %carry_over =
-  //       phi float [ %red_init, pre.header ]
-  //                 [ %carry_over.next, separating.pragma.block ]
-  //   store float -0.000000e+00 float* %red
-  // separating.pragma.block:
-  //   float %red_load_run = load float* %red
-  //   float %running_red = running-inclusive-reduction float %red_load_run
-  //                                                    float %carry_over
-  //                                                    float -0.000000e+00
-  //   store float %running_red float* %red
-  //   ; For inclusive scan:
-  //   float %carry_over.next = extract-last-vector-lane float %running_red
-  //
-  //   ; For exclusive scan, we need last active lane of calculated reduction,
-  //   ; and also reducing with the last active lane of input:
-  //   ; float %running_red.last = extract-last-vector-lane
-  //                               float %running_red
-  //   ; float %input_last_lane = extract-last-vector-lane
-  //                              float %red_load_run
-  //   ; float %carry_over.next = fadd float %running_red.last,
-  //   ;                               float %input_last_lane
-  // post.exit:
-  //   float %final_red = reduction-final-inscan float %carry_over.next
-
   VPBuilder::InsertPointGuard Guard(Builder);
   for (const VPReduction *Red : InscanReductions) {
-    const VPInscanReduction *InscanRed = dyn_cast<VPInscanReduction>(Red);
-    assert(InscanRed && "UDS are not supported yet!");
+    if (isa<VPInscanReduction>(Red))
+      processRunningInscanReduction(cast<VPInscanReduction>(Red), FenceBlock,
+                                    Builder);
+    else if (isa<VPUserDefinedScanReduction>(Red))
+      processRunningUDS(cast<VPUserDefinedScanReduction>(Red), FenceBlock,
+                        Builder);
+    else
+      llvm_unreachable("Do not expect other kinds of Reductions!");
+  }
+}
 
-    auto *Private = getLinkedInstruction<VPAllocatePrivate>(InscanRed);
+// The following needs to happen for in-memory reduction:
+// 1. Reset the reduction at the loop header with identity value.
+// 2. Create carry-over phi. One edge is initialized with start value.
+// 3. Insert running reduction for loaded reduction value and carry-over.
+// 4. Extract last lane from the running reduction. This will be the second
+//    edge for carry-over phi.
+//
+// pre.header:
+//   float* %red = allocate-priv float*
+//   float %red_load = load float* %red
+//   float %red_init = reduction-init-scalar float 0.0 float %red_load
+// header:
+//   float %carry_over =
+//       phi float [ %red_init, pre.header ]
+//                 [ %carry_over.next, separating.pragma.block ]
+//   store float -0.000000e+00 float* %red
+// separating.pragma.block:
+//   float %red_load_run = load float* %red
+//   float %running_red = running-inclusive-reduction float %red_load_run
+//                                                    float %carry_over
+//                                                    float -0.000000e+00
+//   store float %running_red float* %red
+//   ; For inclusive scan:
+//   float %carry_over.next = extract-last-vector-lane float %running_red
+//
+//   ; For exclusive scan, we need last active lane of calculated reduction,
+//   ; and also reducing with the last active lane of input:
+//   ; float %running_red.last = extract-last-vector-lane
+//                               float %running_red
+//   ; float %input_last_lane = extract-last-vector-lane
+//                              float %red_load_run
+//   ; float %carry_over.next = fadd float %running_red.last,
+//   ;                               float %input_last_lane
+// post.exit:
+//   float %final_red = reduction-final-inscan float %carry_over.next
+void VPLoopEntityList::processRunningInscanReduction(
+    const VPInscanReduction *InscanRed, VPBasicBlock *FenceBlock,
+    VPBuilder &Builder) {
+  auto *Private = getLinkedInstruction<VPAllocatePrivate>(InscanRed);
 
-    // Initalize the reduction with Identity value in the loop header.
-    Type *Ty = InscanRed->getRecurrenceType();
-    VPValue *Identity = getReductionIdentity(InscanRed);
-    // Min/max inscan reduction will have start value in-memory.
-    if (!isa<VPConstant>(Identity)) {
-      assert(isa<PointerType>(Identity->getType()) &&
-             "Expected pointer type here.");
-      VPBasicBlock *Preheader = Loop.getLoopPreheader();
-      Builder.setInsertPointFirstNonPhi(Preheader);
-      Builder.setCurrentDebugLocation(
-          Preheader->getTerminator()->getDebugLocation());
-      VPLoadStoreInst *V = Builder.createLoad(Ty, Identity);
-      Identity = V;
-    }
-    VPBasicBlock *Header = Loop.getHeader();
-    Builder.setInsertPointFirstNonPhi(Header);
+  // Initalize the reduction with Identity value in the loop header.
+  Type *Ty = InscanRed->getRecurrenceType();
+  VPValue *Identity = getReductionIdentity(InscanRed);
+  // Min/max inscan reduction will have start value in-memory.
+  if (!isa<VPConstant>(Identity)) {
+    assert(isa<PointerType>(Identity->getType()) &&
+           "Expected pointer type here.");
+    VPBasicBlock *Preheader = Loop.getLoopPreheader();
+    Builder.setInsertPointFirstNonPhi(Preheader);
     Builder.setCurrentDebugLocation(
-      Header->getTerminator()->getDebugLocation());
-    Builder.createStore(Identity, Private);
+        Preheader->getTerminator()->getDebugLocation());
+    VPLoadStoreInst *V = Builder.createLoad(Ty, Identity);
+    Identity = V;
+  }
+  VPBasicBlock *Header = Loop.getHeader();
+  Builder.setInsertPointFirstNonPhi(Header);
+  Builder.setCurrentDebugLocation(Header->getTerminator()->getDebugLocation());
+  Builder.createStore(Identity, Private);
 
-    VPValue *StartValue =
-      getLinkedInstruction<VPReductionInit>(InscanRed);
-    // Create a phi for the carry-over value.
-    Builder.setInsertPointFirstNonPhi(Header);
-    auto *InscanAccumPhi =
+  VPValue *StartValue = getLinkedInstruction<VPReductionInit>(InscanRed);
+  // Create a phi for the carry-over value.
+  Builder.setInsertPointFirstNonPhi(Header);
+  auto *InscanAccumPhi =
       Builder.createPhiInstruction(Identity->getType(), "inscan.accum");
-    // This phi must be initialized with the reduction start value,
-    // for correct results for each iteration of running reduction.
-    InscanAccumPhi->addIncoming(StartValue, Loop.getLoopPreheader());
+  // This phi must be initialized with the reduction start value,
+  // for correct results for each iteration of running reduction.
+  InscanAccumPhi->addIncoming(StartValue, Loop.getLoopPreheader());
 
-    // Set insertion to fence block, it could as well be either
-    // pragma begin or end block.
-    Builder.setInsertPoint(FenceBlock);
-    Builder.setCurrentDebugLocation(
+  // Set insertion to fence block, it could as well be either
+  // pragma begin or end block.
+  Builder.setInsertPoint(FenceBlock);
+  Builder.setCurrentDebugLocation(
       FenceBlock->getTerminator()->getDebugLocation());
 
-    // Issue the running reduction instruction based on the inscan kind.
-    // Generate load for running reduction instruction.
-    auto *InscanInput = Builder.createLoad(Ty, Private);
-    unsigned BinOpcode = InscanRed->getReductionOpcode();
-    bool IsInclusive =
+  // Issue the running reduction instruction based on the inscan kind.
+  // Generate load for running reduction instruction.
+  auto *InscanInput = Builder.createLoad(Ty, Private);
+  unsigned BinOpcode = InscanRed->getReductionOpcode();
+  bool IsInclusive =
       (InscanRed->getInscanKind() == InscanReductionKind::Inclusive);
-    VPInstruction *RunningReduction = IsInclusive ?
-        Builder.create<VPRunningInclusiveReduction>(
-          "incl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity) :
-        Builder.create<VPRunningExclusiveReduction>(
-          "excl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity);
-    // Attach FastMathFlags to running reduction.
-    FastMathFlags FMF = InscanRed->getFastMathFlags();
+  VPInstruction *RunningReduction =
+      IsInclusive
+          ? Builder.create<VPRunningInclusiveReduction>(
+                "incl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity)
+          : Builder.create<VPRunningExclusiveReduction>(
+                "excl.scan", BinOpcode, InscanInput, InscanAccumPhi, Identity);
+  // Attach FastMathFlags to running reduction.
+  FastMathFlags FMF = InscanRed->getFastMathFlags();
+  if (FMF.any())
+    RunningReduction->setFastMathFlags(FMF);
+  Builder.createStore(RunningReduction, Private);
+  // Extract last lane for the next iteration.
+  auto *CarryOver =
+      Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                           RunningReduction->getType(), {RunningReduction});
+  // If we deal with exclusive scan reduction, reduce carry-over with the
+  // last lane of reduction.
+  if (!IsInclusive) {
+    auto *RedInputLastLane =
+        Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                             InscanInput->getType(), {InscanInput});
+    CarryOver =
+        Builder.createNaryOp(BinOpcode, Ty, {CarryOver, RedInputLastLane});
     if (FMF.any())
-      RunningReduction->setFastMathFlags(FMF);
-    Builder.createStore(RunningReduction, Private);
-    // Extract last lane for the next iteration.
-    auto *CarryOver = Builder.createNaryOp(
-      VPInstruction::ExtractLastVectorLane, RunningReduction->getType(),
-      {RunningReduction});
-    // If we deal with exclusive scan reduction, reduce carry-over with the
-    // last lane of reduction.
-    if (!IsInclusive) {
-      auto *RedInputLastLane = Builder.createNaryOp(
-        VPInstruction::ExtractLastVectorLane, InscanInput->getType(),
-        {InscanInput});
-      CarryOver = Builder.createNaryOp(BinOpcode, Ty,
-                                       {CarryOver, RedInputLastLane});
-      if (FMF.any())
-        CarryOver->setFastMathFlags(FMF);
-    }
-
-    // Now change the operand of VPReductionFinalInscan to the carry-over.
-    // We could have created the correct operand in the first place, but then
-    // the routine for reduction FinalValue generation will have to be
-    // separated into this routine where we prepare the operand.
-    VPReductionFinal *FinalValue =
-        getLinkedInstruction<VPReductionFinal>(InscanRed);
-    auto *OldFinalValueOp = cast<VPInstruction>(FinalValue->getOperand(0));
-    FinalValue->setOperand(0, CarryOver);
-    // If the Load is dead, remove it.
-    if (OldFinalValueOp->getNumUsers() == 0)
-      OldFinalValueOp->getParent()->eraseInstruction(OldFinalValueOp);
-
-    // Initialize the accumulator with the last lane of running
-    // reduction for the next iteration.
-    InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
+      CarryOver->setFastMathFlags(FMF);
   }
+
+  // Now change the operand of VPReductionFinalInscan to the carry-over.
+  // We could have created the correct operand in the first place, but then
+  // the routine for reduction FinalValue generation will have to be
+  // separated into this routine where we prepare the operand.
+  VPReductionFinal *FinalValue =
+      getLinkedInstruction<VPReductionFinal>(InscanRed);
+  auto *OldFinalValueOp = cast<VPInstruction>(FinalValue->getOperand(0));
+  FinalValue->setOperand(0, CarryOver);
+  // If the Load is dead, remove it.
+  if (OldFinalValueOp->getNumUsers() == 0)
+    OldFinalValueOp->getParent()->eraseInstruction(OldFinalValueOp);
+
+  // Initialize the accumulator with the last lane of running
+  // reduction for the next iteration.
+  InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
 }
 
 // Helper method to create custom function VPCalls with given args. Currently
@@ -1470,7 +1478,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       else if (Reduction->getRecurrenceType()->isArrayTy())
         insertArrayRedVPInstructions(Reduction, Builder, PostExit, Preheader,
                                      ProcessedReductions);
-      else
+      else if (!isa<VPUserDefinedScanReduction>(Reduction))
         insertOneReductionVPInstructions(
           Reduction, Builder, PostExit, Preheader, RedExitMap,
           ProcessedReductions);
@@ -1478,6 +1486,101 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
   }
 
   insertRunningInscanReductionInstrs(InscanReductions, Builder);
+}
+
+// The following instructions will be generated for a User Defined Scan:
+// (Assuming we have initializer, Legality bails out without it).
+// TODO: implement without initializer.
+//
+// Preheader:
+//   %uds.temp = allocate-private %UDSType
+//   %uds.vec = allocate-private %UDSType
+//   lifetime.start(%uds.temp)
+//
+// Loop:
+//   call @udr.ctor(%uds.vec)
+//   call @udr.initializer(%uds.vec, %uds.orig)
+//   * updates to %uds.vec *
+//
+// Separating pragma block:
+//   running-[in|ex]clusive-reduction{uds} %uds.vec, %uds.orig, %uds.carry.over,
+//     Combiner: @udr.combiner, Initializer: @udr.initializer
+//
+// Latch:
+//   %cond = icmp...
+//   call @udr.dtor(%uds.vec)
+//   br i1 %cond
+//
+// Postexit:
+//   lifetime.end(%uds.temp)
+void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
+                                         VPBasicBlock *FenceBlock,
+                                         VPBuilder &Builder) {
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
+  Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
+
+  VPValue *AI = nullptr;
+  VPAllocatePrivate *PrivateMem = createPrivateMemory(
+      *const_cast<VPUserDefinedScanReduction *>(UDS), Builder, AI, Preheader);
+  assert(PrivateMem && "Private memory is expected for UDS.");
+  // Replace all uses of original UDS with the created private memory.
+  AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Create temp memory.
+  // TODO: Ideally, we can emit it as scalar, so far rely on further opts to
+  // clean it.
+  auto *Temp = Builder.create<VPAllocatePrivate>(
+      AI->getName() + ".temp", AI->getType(), PrivateMem->getAllocatedType(),
+      PrivateMem->getOrigAlignment());
+  Temp->setDebugLocation({});
+  // Create a lifetime.start marker for the temp.
+  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+  createLifetimeMarker(Builder, Plan, Preheader, Temp, OrigAI,
+                       Intrinsic::lifetime_start);
+
+  VPBasicBlock *Header = Loop.getHeader();
+  Builder.setInsertPointFirstNonPhi(Header);
+  Builder.setCurrentDebugLocation(Header->getTerminator()->getDebugLocation());
+
+  // Initialize private memory by calling constructor (if present) and
+  // initializer (if present).
+  if (auto *CtorFn = UDS->getCtor())
+    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+  if (auto *InitFn = UDS->getInitializer())
+    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+
+  // Create running UDS instructions.
+  Builder.setInsertPoint(FenceBlock);
+  Builder.setCurrentDebugLocation(
+      FenceBlock->getTerminator()->getDebugLocation());
+
+  bool IsInclusive = (UDS->getInscanKind() == InscanReductionKind::Inclusive);
+  if (IsInclusive) {
+    Builder.create<VPRunningInclusiveUDS>(
+        ".running.incl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
+        ArrayRef<VPValue *>{PrivateMem, AI}, UDS->getCombiner(),
+        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
+  } else {
+    Builder.create<VPRunningExclusiveUDS>(
+        ".running.excl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
+        ArrayRef<VPValue *>{PrivateMem, AI, Temp}, UDS->getCombiner(),
+        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
+  }
+
+  // Need to call a destructor for private memory (if present).
+  if (auto *DtorFn = UDS->getDtor()) {
+    VPBasicBlock *Latch = Loop.getLoopLatch();
+    Builder.setInsertPoint(Latch);
+    Builder.setCurrentDebugLocation(Latch->getTerminator()->getDebugLocation());
+    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+  }
+
+  // Create a lifetime.end marker for the temp.
+  VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
+  createLifetimeMarker(Builder, Plan, PostExit, Temp, OrigAI,
+                       Intrinsic::lifetime_end);
 }
 
 void VPLoopEntityList::preprocess() {

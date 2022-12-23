@@ -151,12 +151,12 @@ private:
 
   // prefetched info
   size_t m_CL_KERNEL_WORK_GROUP_SIZE;
-  size_t m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE[MAX_WORK_DIM];
+  size_t m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE[MAX_WORK_DIM] = {0};
   cl_ulong m_CL_KERNEL_LOCAL_MEM_SIZE;
   cl_bool m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT;
-  cl_bool m_bIsTask;
-  cl_bool m_bCanUseGlobalWorkOffset;
-  cl_bool m_NeedSerializeWGs;
+  cl_bool m_bIsTask = false;
+  cl_bool m_bCanUseGlobalWorkOffset = false;
+  cl_bool m_NeedSerializeWGs = false;
 
   // logger client
   DECLARE_LOGGER_CLIENT;

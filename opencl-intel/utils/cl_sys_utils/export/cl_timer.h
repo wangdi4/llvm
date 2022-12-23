@@ -100,9 +100,9 @@ private:
   unsigned long long m_ulTotalUsecs;
   std::string m_name;
 #ifdef _WIN32
-  unsigned long long m_timeStart;
+  unsigned long long m_timeStart = 0;
 #else
-  struct timeval m_TvStart;
+  struct timeval m_TvStart = {0, 0};
 #endif
 };
 

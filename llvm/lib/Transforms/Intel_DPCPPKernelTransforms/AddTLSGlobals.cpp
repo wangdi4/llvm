@@ -27,13 +27,17 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
 
-  bool HasLocalBuffer = llvm::any_of(M.functions(), [&](const Function &F) {
-    return F.isDeclaration() ? false : LBInfo->getDirectLocalsMap().count(&F);
+  bool NoBarrier =
+      M.getFunction(CompilationUtils::nameSpecialBuffer()) == nullptr;
+  bool NoLocalBuffer = llvm::all_of(M.functions(), [&](const Function &F) {
+    return F.isDeclaration() ? true : !LBInfo->getDirectLocalsMap().count(&F);
   });
 
   // Create TLS globals
   for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
-    if (I == ImplicitArgsUtils::IA_SLM_BUFFER && !HasLocalBuffer)
+    if (I == ImplicitArgsUtils::IA_SLM_BUFFER && NoLocalBuffer)
+      continue;
+    if (I == ImplicitArgsUtils::IA_BARRIER_BUFFER && NoBarrier)
       continue;
 
     // TODO handle name conflicts

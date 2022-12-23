@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -77,8 +77,8 @@ enum ELogConfigField {
 #define INIT_LOGGER_CLIENT(NAME, LEVEL)                                        \
   m_pLoggerClient = nullptr;                                                   \
   if ((Logger::GetInstance() && Logger::GetInstance()->IsActive()) ||          \
-      (Intel::OpenCL::Utils::g_pUserLogger != nullptr &&                       \
-       Intel::OpenCL::Utils::g_pUserLogger->IsErrorLoggingEnabled())) {        \
+      (Intel::OpenCL::Utils::FrameworkUserLogger::GetInstance()                \
+           ->IsErrorLoggingEnabled())) {                                       \
     m_pLoggerClient = new Intel::OpenCL::Utils::LoggerClient(NAME, LEVEL);     \
   }
 

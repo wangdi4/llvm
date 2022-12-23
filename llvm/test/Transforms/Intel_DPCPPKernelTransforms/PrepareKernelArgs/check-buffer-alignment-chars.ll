@@ -51,5 +51,5 @@ entry:
 !0 = !{void (i8, <2 x i8>, <2 x i8>, <3 x i8>, <16 x i8>, <4 x i8>, <8 x i8>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-53: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-49: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

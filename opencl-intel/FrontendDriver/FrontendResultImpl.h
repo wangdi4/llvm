@@ -46,7 +46,7 @@ private:
   std::string m_log;
   std::string m_IRName;
   Intel::OpenCL::ClangFE::IR_TYPE m_type;
-  int m_result;
+  int m_result = 0;
 };
 
 } // namespace ClangFE

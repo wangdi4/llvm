@@ -43,15 +43,11 @@ entry:
 ; CHECK-NEXT: [[IV0:%[a-zA-Z0-9]+]] = insertvalue [4 x i32] undef, i32 [[ADD0]], 0
 ; CHECK-NEXT: [[IV1:%[a-zA-Z0-9]+]] = insertvalue [4 x i32] [[IV0]], i32 [[ADD1]], 1
 ; CHECK-NEXT: %BaseGlbId = insertvalue [4 x i32] [[IV1]], i32 [[ADD2]], 2
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i32 %InternalLocalSize_0, %InternalLocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i32 [[MUL01]], %InternalLocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i32 0, %LocalSizeProd
-; CHECK-NEXT: %pSpecialBuf = alloca i8, i32 %BarrierBufferSize, align 128
 ; CHECK-NEXT: ret void
 
 !sycl.kernels = !{!0}
 !0 = !{void (i8)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-35: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-31: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

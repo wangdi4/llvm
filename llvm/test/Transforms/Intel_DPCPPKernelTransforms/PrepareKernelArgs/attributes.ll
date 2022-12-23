@@ -22,5 +22,5 @@ attributes #0 = { noinline }
 !0 = !{void (i32)* @test}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}
 ; DEBUGIFY-NOT: WARNING

@@ -47,15 +47,11 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 ; CHECK: %22 = insertvalue [4 x i64] undef, i64 %17, 0
 ; CHECK: %23 = insertvalue [4 x i64] %22, i64 %19, 1
 ; CHECK: %BaseGlbId = insertvalue [4 x i64] %23, i64 %21, 2
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %InternalLocalSize_0, %InternalLocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %InternalLocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 0, %LocalSizeProd
-; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: ret void
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*)* @A}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function A {{.*}}
+; DEBUGIFY-COUNT-38: WARNING: Instruction with empty DebugLoc in function A {{.*}}
 ; DEBUGIFY-NOT: WARNING

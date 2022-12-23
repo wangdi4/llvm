@@ -79,6 +79,13 @@ static LoadInst *createLoadForTLSGlobal(IRBuilder<> &Builder, Module *M,
   return Builder.CreateLoad(TLSG->getValueType(), TLSG);
 }
 
+static LoadInst *
+createLoadForTLSGlobalIfExists(IRBuilder<> &Builder, Module *M,
+                               ImplicitArgsUtils::IMPLICIT_ARGS Arg) {
+  auto TLSG = CompilationUtils::getTLSGlobal(M, Arg);
+  return TLSG ? Builder.CreateLoad(TLSG->getValueType(), TLSG) : nullptr;
+}
+
 Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
@@ -91,8 +98,8 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
         createLoadForTLSGlobal(Builder, M, ImplicitArgsUtils::IA_WORK_GROUP_ID);
     BaseGlbId = createLoadForTLSGlobal(Builder, M,
                                        ImplicitArgsUtils::IA_GLOBAL_BASE_ID);
-    SpecialBuf = createLoadForTLSGlobal(Builder, M,
-                                        ImplicitArgsUtils::IA_BARRIER_BUFFER);
+    SpecialBuf = createLoadForTLSGlobalIfExists(
+        Builder, M, ImplicitArgsUtils::IA_BARRIER_BUFFER);
     RuntimeHandle = createLoadForTLSGlobal(
         Builder, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
   } else {
@@ -578,7 +585,7 @@ void ResolveWICallPass::addPrefetchDeclaration() {
 TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
   if (FuncName == CompilationUtils::nameGetBaseGID())
     return ICT_GET_BASE_GLOBAL_ID;
-  if (CompilationUtils::isGetSpecialBuffer(FuncName))
+  if (FuncName == CompilationUtils::nameSpecialBuffer())
     return ICT_GET_SPECIAL_BUFFER;
   if (CompilationUtils::isGetWorkDim(FuncName))
     return ICT_GET_WORK_DIM;

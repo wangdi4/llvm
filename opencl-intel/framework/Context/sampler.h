@@ -81,11 +81,11 @@ protected:
 
   SharedPtr<Context> m_pContext; // the context to which the sampler belongs
 
-  cl_addressing_mode m_clAddressingMode;
-  cl_filter_mode m_clFilterMode;
-  cl_bool m_bNormalizedCoords;
+  cl_addressing_mode m_clAddressingMode = 0;
+  cl_filter_mode m_clFilterMode = 0;
+  cl_bool m_bNormalizedCoords = false;
 
-  cl_uint m_clSamlerProps;
+  cl_uint m_clSamlerProps = 0;
   std::vector<cl_sampler_properties> m_clSamplerPropArrays;
 
   DECLARE_LOGGER_CLIENT;

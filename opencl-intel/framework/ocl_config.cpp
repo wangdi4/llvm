@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -48,27 +48,3 @@ vector<string> OCLConfig::GetDevices() const {
   ConfigFile::tokenize(s, vectDevices);
   return vectDevices;
 }
-
-// I declare this function here and not in utils to make sure that the instance
-// returned is truely a singleton in the whole the program
-
-FrameworkUserLogger *FrameworkUserLogger::Instance = nullptr;
-
-FrameworkUserLogger *FrameworkUserLogger::GetInstance() {
-  static FrameworkUserLogger *S = [] {
-    Instance = new FrameworkUserLogger;
-    return Instance;
-  }();
-
-  return S;
-}
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
-FrameworkUserLogger *g_pUserLogger = FrameworkUserLogger::GetInstance();
-
-}
-} // namespace OpenCL
-} // namespace Intel

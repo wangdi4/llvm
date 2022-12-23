@@ -105,7 +105,6 @@ set(OCL_CPU_BACKEND_INCLUDE_FILES
     StaticObjectLoader.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    ocl_mutex.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h)
@@ -147,7 +146,6 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     debuggingservicewrapper.cpp
     dllmain.cpp
     ocl_debug_builtins.cpp
-    ocl_mutex.cpp
     opencl20_ext_execution.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp

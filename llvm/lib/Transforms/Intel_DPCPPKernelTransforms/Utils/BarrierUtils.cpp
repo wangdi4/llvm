@@ -272,15 +272,15 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
     // get_special_buffer() function is not initialized yet
     // There should not BE get_special_buffer function declaration in the
     // module
-    assert(!M->getFunction(GET_SPECIAL_BUFFER) &&
+    assert(!M->getFunction(CompilationUtils::nameSpecialBuffer()) &&
            "get_special_buffer() instruction is origanlity declared by the "
            "module!!!");
 
     // Create one
     Type *Result = PointerType::get(IntegerType::get(M->getContext(), 8),
                                     SPECIAL_BUFFER_ADDR_SPACE);
-    GetSpecialBufferFunc =
-        createFunctionDeclaration(GET_SPECIAL_BUFFER, Result, {});
+    GetSpecialBufferFunc = createFunctionDeclaration(
+        CompilationUtils::nameSpecialBuffer(), Result, {});
     SetFunctionAttributeReadNone(GetSpecialBufferFunc);
   }
   return CallInst::Create(GetSpecialBufferFunc, "pSB", InsertBefore);
@@ -310,7 +310,7 @@ CompilationUtils::InstVec &BarrierUtils::getAllGetGlobalId() {
 
 Instruction *BarrierUtils::createGetBaseGlobalId(Value *Dim,
                                                  Instruction *InsertBefore) {
-  const std::string FuncName = GET_BASE_GID;
+  StringRef FuncName = CompilationUtils::nameGetBaseGID();
   if (!GetBaseGIDFunc) {
     // Get existing get_global_id function
     GetBaseGIDFunc = M->getFunction(FuncName);
@@ -441,8 +441,7 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
       CompilationUtils::AppendWithDimension("LocalSize_", Dim), InsertBefore);
 }
 
-Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
-                                                  Type *Result,
+Function *BarrierUtils::createFunctionDeclaration(StringRef Name, Type *Result,
                                                   ArrayRef<Type *> FuncArgTys) {
   FunctionType *FuncTy = FunctionType::get(
       /*Result=*/Result,

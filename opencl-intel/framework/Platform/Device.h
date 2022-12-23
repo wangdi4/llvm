@@ -200,7 +200,7 @@ private:
   cause bugs that wouldn't be caught by the compiler, but appear in runtime and
   would be very hard to detect. */
   IUnknown *m_pD3DDevice;
-  cl_context_properties m_iD3DDevType;
+  cl_context_properties m_iD3DDevType = 0;
 
   OclMutex m_changeDefaultDeviceMutex;
   AtomicPointer<OclCommandQueue> m_default_command_queue;
@@ -522,7 +522,7 @@ protected:
   cl_dev_subdevice_id m_deviceId; // The ID assigned to me by the device
   size_t m_numComputeUnits; // The amount of compute units represented by this
                             // sub-device
-  cl_int m_fissionMode;     // The fission mode that created this sub-device
+  cl_int m_fissionMode = 0; // The fission mode that created this sub-device
 
   cl_device_partition_property
       *m_cachedFissionMode; // A copy of the property list used to create this

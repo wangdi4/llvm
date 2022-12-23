@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -277,11 +277,11 @@ void MemoryObject::NotifyDestruction() {
   // list
   while (!m_pfnNotifiers.empty()) {
     MemDtorNotifyData *notifyData = m_pfnNotifiers.top();
-    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+    if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
       std::stringstream stream;
       stream << "MemObjectDestructorCallback(" << static_cast<void *>(myHandle)
              << ", " << notifyData->second << ")" << std::endl;
-      g_pUserLogger->PrintString(stream.str());
+      FrameworkUserLogger::GetInstance()->PrintString(stream.str());
     }
     notifyData->first(myHandle, notifyData->second);
     m_pfnNotifiers.pop();

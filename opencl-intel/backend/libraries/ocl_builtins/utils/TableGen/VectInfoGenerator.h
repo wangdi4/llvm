@@ -98,7 +98,7 @@ private:
   std::map<FuncProto, size_t> m_funcProtoToIndex;
 
   // The counter of generated functions.
-  size_t m_funcCounter;
+  size_t m_funcCounter = 0;
 
   // Map from the index of a duplicate function with a broken name to
   // it's real function's index.

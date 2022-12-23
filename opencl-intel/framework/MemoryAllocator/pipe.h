@@ -144,8 +144,8 @@ private:
   void FlushRead();
   void FlushWrite();
 
-  cl_uint m_uiPacketSize;
-  cl_uint m_uiMaxPackets;
+  cl_uint m_uiPacketSize = 0;
+  cl_uint m_uiMaxPackets = 0;
 
   std::vector<char> m_mapBuffer;
   std::deque<MapSegment> m_mapSegments;

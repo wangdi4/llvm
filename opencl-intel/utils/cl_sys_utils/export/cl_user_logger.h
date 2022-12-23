@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,6 +16,7 @@
 
 #include "cl_synch_objects.h"
 #include "cl_timer.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
 #include <sstream>
@@ -32,14 +33,15 @@ namespace Utils {
  */
 class FrameworkUserLogger {
 public:
+  static FrameworkUserLogger *GetInstance();
+  static void Destroy(void) {
+    llvm::llvm_shutdown();
+  }
+
   /**
    * Constructor
    */
-  static FrameworkUserLogger *GetInstance();
-  static void Destroy() {
-    if (Instance)
-      delete Instance;
-  }
+  FrameworkUserLogger();
 
   /**
    * Destructor
@@ -90,7 +92,6 @@ public:
                       const size_t *workgroupCount);
 
 private:
-  FrameworkUserLogger();
 
   void Setup(const std::string &filename, bool bLogErrors, bool bLogApis);
 
@@ -99,21 +100,15 @@ private:
   std::string FormatLocalWorkSize(size_t ndim, const size_t *localWorkSize);
 
   // do not implement
-  FrameworkUserLogger(const FrameworkUserLogger &);
-  FrameworkUserLogger &operator=(const FrameworkUserLogger &);
+  FrameworkUserLogger(const FrameworkUserLogger &) = delete;
+  FrameworkUserLogger &operator=(const FrameworkUserLogger &) = delete;
 
   bool m_bLogErrors;
   bool m_bLogApis;
   std::ofstream m_logFile;
   std::ostream *m_pOutput;
   mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
-
-  static FrameworkUserLogger *Instance;
 };
-
-extern FrameworkUserLogger
-    *g_pUserLogger; // a global pointer to the logger, which be defined in each
-                    // shared library (so LOG_ERROR can use the user logger)
 
 /**
  * This class is responsible for collecting logging data from a signle API call
@@ -127,7 +122,7 @@ public:
    */
   ApiLogger(const std::string &apiCallName)
       : m_iLastRetValue(CL_SUCCESS),
-        m_bLogApis(g_pUserLogger->IsApiLoggingEnabled()),
+        m_bLogApis(FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()),
         m_bFirstApiFuncArg(false), m_iCmdId(-1), m_isNumEvents(false),
         m_numEvents(0) {
     if (!m_bLogApis) {
@@ -141,7 +136,7 @@ public:
    */
   ~ApiLogger() {
     m_stream << endl;
-    g_pUserLogger->PrintString(m_stream.str());
+    FrameworkUserLogger::GetInstance()->PrintString(m_stream.str());
   }
 
   /**

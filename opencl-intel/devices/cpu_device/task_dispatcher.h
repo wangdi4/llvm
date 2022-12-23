@@ -286,7 +286,7 @@ public:
 
 protected:
   unsigned int m_numThreads;
-  cl_ulong m_startTime; // start time in nanoseconds
+  cl_ulong m_startTime = 0; // start time in nanoseconds
   cl_ulong m_timeOut;   // time out in nanoseconds
   std::atomic<unsigned> m_barrier;
   std::atomic<bool> m_failed;

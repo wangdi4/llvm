@@ -1776,7 +1776,8 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
   // into the same block.
   VPInstruction *RunningRedInst = nullptr;
   for (auto &I : vpinstructions(Plan)) {
-    if (isa<VPRunningExclusiveReduction>(&I)) {
+    if (isa<VPRunningExclusiveReduction>(&I) ||
+        isa<VPRunningExclusiveUDS>(&I)) {
       RunningRedInst = &I;
       break;
     }
@@ -2119,9 +2120,10 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
         return false;
       }
 
-      if (isa<VPUserDefinedScanReduction>(Red)) {
+      auto *UDS = dyn_cast<VPUserDefinedScanReduction>(Red);
+      if (UDS && !UDS->getInitializer()) {
         LLVM_DEBUG(
-            dbgs() << "LVP: UDS lowering and codegen are not supported yet!\n");
+            dbgs() << "LVP: UDS without Initializer is not supported yet!\n");
         return false;
       }
     }
