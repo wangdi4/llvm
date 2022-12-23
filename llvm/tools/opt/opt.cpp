@@ -118,11 +118,11 @@ static cl::opt<std::string> PassPipeline(
 static cl::alias PassPipeline2("p", cl::aliasopt(PassPipeline),
                                    cl::desc("Alias for -passes"));
 
+#if INTEL_CUSTOMIZATION
 static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
     "temporarily-allow-old-pass-syntax",
     cl::desc("Do not use in new tests. To be removed once all tests have "
              "migrated."),
-#if INTEL_CUSTOMIZATION
     cl::init(true));
 #endif // INTEL_CUSTOMIZATION
 
@@ -818,6 +818,7 @@ int main(int argc, char **argv) {
                 "-passes='default<O#>,other-pass'\n";
       return 1;
     }
+#ifdef INTEL_CUSTOMIZATION
     if (!PassList.empty()) {
       errs() << "The `opt -passname` syntax for the new pass manager is "
                 "deprecated, please use `opt -passes=<pipeline>` (or the `-p` "
@@ -827,6 +828,7 @@ int main(int argc, char **argv) {
       if (!TemporarilyAllowOldPassesSyntax)
         return 1;
     }
+#endif // INTEL_CUSTOMIZATION
     std::string Pipeline = PassPipeline;
 
     SmallVector<StringRef, 4> Passes;
