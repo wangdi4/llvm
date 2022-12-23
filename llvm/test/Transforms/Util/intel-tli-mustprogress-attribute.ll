@@ -1,4 +1,3 @@
-; RUN: opt --O2 %s -S 2>&1 | FileCheck %s
 ; RUN: opt --passes='default<O2>' %s -S 2>&1 | FileCheck %s
 
 ; This test case checks if the attribute "mustprogress" was added when

@@ -1,6 +1,5 @@
 ; Test checks that the critical edge to cleanuppad instruction is split appropriately.
 
-; RUN: opt < %s -loop-simplify -S | FileCheck %s
 ; RUN: opt < %s -passes=loop-simplify -S | FileCheck %s
 
 target datalayout = "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:32-n8:16:32-a:0:32-S32"

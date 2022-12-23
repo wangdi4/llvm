@@ -4,7 +4,6 @@
 ; %3 = fsub fast float %2, %t46.0
 ; %t44.0 and %t46.0 are two Phi nodes
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %t46.0 = phi float

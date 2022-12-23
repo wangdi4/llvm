@@ -29,7 +29,6 @@
 ;   return Sum;
 ; }
 ;
-; RUN: opt < %s -transform-sin-cos-calls -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="transform-sin-cos-calls" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK-LABEL: @_Z11ComputeQCPUiPfS_(

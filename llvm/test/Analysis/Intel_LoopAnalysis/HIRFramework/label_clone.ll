@@ -1,7 +1,6 @@
 ; Check goto cloning
 ; TODO: this test is being throttled due to too many nested ifs but not due to presence of goto. Make detection of gotos stronger.
 ; REQUIRES: asserts
-; RUN: opt -hir-post-vec-complete-unroll -hir-cost-model-throttling=0 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: main

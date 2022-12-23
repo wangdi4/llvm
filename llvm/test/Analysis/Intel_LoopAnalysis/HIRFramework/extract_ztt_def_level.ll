@@ -1,6 +1,5 @@
 ; Check that after ztt extraction the CE definition levels are fine. The HIR verifier would assert on this.
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -hir-details -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -hir-details -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }

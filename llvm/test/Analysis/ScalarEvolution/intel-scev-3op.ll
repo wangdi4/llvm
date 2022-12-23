@@ -3,7 +3,6 @@
 ; SCEV isImpliedViaOperations is assuming 2-operand SCEVs and leaving out the
 ; very important 3rd term, resulting in "always-positive".
 
-; RUN: opt -indvars -S < %s | FileCheck %s
 ; RUN: opt -passes=indvars -S < %s | FileCheck %s
 ; CHECK-NOT: br{{.*}}true
 ; CHECK-NOT: br{{.*}}false

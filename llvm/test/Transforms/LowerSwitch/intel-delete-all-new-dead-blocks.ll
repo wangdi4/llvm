@@ -1,4 +1,3 @@
-; RUN: opt %s -lowerswitch -S | FileCheck %s
 ; RUN: opt %s -passes=lowerswitch -S | FileCheck %s
 
 ; Check that the new dead blocks introduced by LowerSwitch pass (they were alive before the pass), are deleted.

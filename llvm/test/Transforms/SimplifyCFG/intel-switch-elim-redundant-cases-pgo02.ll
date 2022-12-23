@@ -5,7 +5,6 @@
 ; to the default case would result in integer overflow of a 32-bit value,
 ; so this case verifies the weights are normalized to 32-bits.
 
-; RUN: opt -S -simplifycfg %s | FileCheck %s
 ; RUN: opt -S -passes=simplifycfg %s | FileCheck %s
 
 declare void @func2()

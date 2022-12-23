@@ -1,4 +1,3 @@
-; RUN: opt < %s -reassociate -S | FileCheck %s
 ; RUN: opt < %s -passes='reassociate' -S | FileCheck %s
 
 ;; Check that we reassociate this sum which is later multiplied by a constant.

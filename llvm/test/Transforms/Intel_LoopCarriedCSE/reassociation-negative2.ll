@@ -1,7 +1,6 @@
 ; Check reassociation not happen when the matched latch binary operator (%t246) is in the
 ; instruction chain.
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %t593.0 = phi i16 [ %gepload1753, %afterloop.930 ], [ %gepload1756, %loop.664 ]

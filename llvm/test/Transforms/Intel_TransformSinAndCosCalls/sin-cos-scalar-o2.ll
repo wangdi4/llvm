@@ -3,10 +3,8 @@
 ; Also check that it's disabled with -O0.
 
 ; RUN: opt -passes="default<O2>" -enable-transform-sin-cos-double -S %s | FileCheck %s
-; RUN: opt -O2 -enable-transform-sin-cos-double -S %s | FileCheck %s
 
 ; RUN: opt -passes="default<O0>" -enable-transform-sin-cos-double -S %s | FileCheck %s --check-prefix=NOOPT
-; RUN: opt -O0 -enable-transform-sin-cos-double -S %s | FileCheck %s --check-prefix=NOOPT
 
 ; NOOPT-NOT: sinpi
 ; NOOPT-NOT: cospi
