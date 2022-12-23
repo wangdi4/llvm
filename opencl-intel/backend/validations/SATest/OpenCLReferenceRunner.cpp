@@ -58,7 +58,6 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "OpenCLReferenceRunner"
@@ -109,7 +108,7 @@ extern "C" void initOCLBuiltinsExplMemFenceOps();
 
 OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT)
     : m_pModule(NULL), m_pKernel(NULL), m_bUseNEAT(bUseNEAT),
-      m_bUseFmaNEAT(false) {
+      m_bUseFmaNEAT(true) {
   initOCLBuiltinsAsync();
   initOCLBuiltinsAtomic();
   initOCLBuiltinsCommon();
@@ -175,13 +174,9 @@ void OpenCLReferenceRunner::Run(IRunResult *runResult, const IProgram *program,
 
   m_pModule = static_cast<const OpenCLProgram *>(program)->ParseToModule();
 
-  // if FP_CONTRACT is on, use fma in NEAT
-  m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
-
   // As interpreter cannot lower "llvm.fmuladd.*" intrinsics, split to
   // "fmul + fadd"
-  if (m_bUseFmaNEAT)
-    SplitFmuladdIntrinsic(*m_pModule);
+  SplitFmuladdIntrinsic(*m_pModule);
 
   for (OpenCLProgramConfiguration::KernelConfigList::const_iterator it =
            pProgramConfig->beginKernels();
