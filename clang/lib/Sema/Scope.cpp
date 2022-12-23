@@ -48,6 +48,9 @@ void Scope::setFlags(Scope *parent, unsigned flags) {
 #else // INTEL_COLLAB
       Flags |= parent->getFlags() & OpenMPSimdDirectiveScope;
 #endif  // INTEL_COLLAB
+    // transmit the parent's 'order' flag, if exists
+    if (parent->getFlags() & OpenMPOrderClauseScope)
+      Flags |= OpenMPOrderClauseScope;
   } else {
     Depth = 0;
     PrototypeDepth = 0;

@@ -10611,6 +10611,10 @@ def err_omp_unexpected_clause_value : Error<
 def err_omp_unexpected_lastprivate_conditional : Error<
   "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
 // endif INTEL_CUSTOMIZATION
+def err_omp_unexpected_call_to_omp_runtime_api
+    : Error<"calls to OpenMP runtime API are not allowed within a region that "
+            "corresponds to a construct with an order clause that specifies "
+            "concurrent">;
 def err_omp_expected_var_name_member_expr : Error<
   "expected variable name%select{| or data member of current class}0">;
 def err_omp_expected_var_name_member_expr_with_type : Error<
@@ -10809,6 +10813,9 @@ def err_omp_prohibited_region_simd : Error<
   "OpenMP constructs may not be nested inside a simd region%select{| except for ordered simd, simd, scan, or atomic directive}0">;
 def err_omp_prohibited_region_atomic : Error<
   "OpenMP constructs may not be nested inside an atomic region">;
+def err_omp_prohibited_region_order
+    : Error<"construct '%0' not allowed in a region associated with a "
+            "directive with 'order' clause">;
 def err_omp_prohibited_region_critical_same_name : Error<
   "cannot nest 'critical' regions having the same name %0">;
 def note_omp_previous_critical_region : Note<
