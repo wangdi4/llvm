@@ -1334,17 +1334,10 @@ WRegionUtils::getInclusiveExclusiveItemForReductionItem(
   if (!I->getIsInscan())
     return nullptr;
 
-  const WRegionNode *WScanParent = W;
-  auto MemGuardNodeIt = llvm::find_if(W->getChildren(), [](WRegionNode *Cur) {
-    return isa<WRNGuardMemMotionNode>(Cur);
-  });
-  if (MemGuardNodeIt != W->getChildren().end())
-    WScanParent = *MemGuardNodeIt;
-  auto ScanNodeIt =
-      llvm::find_if(WScanParent->getChildren(),
-                    [](WRegionNode *Cur) { return isa<WRNScanNode>(Cur); });
+  auto ScanNodeIt = llvm::find_if(
+      W->getChildren(), [](WRegionNode *Cur) { return isa<WRNScanNode>(Cur); });
 
-  assert(ScanNodeIt != WScanParent->getChildren().end() &&
+  assert(ScanNodeIt != W->getChildren().end() &&
          "No scan directive in a region with a reduction(inscan) item.");
 
   Item *Res =
@@ -1364,10 +1357,8 @@ ReductionItem *WRegionUtils::getReductionItemForInclusiveExclusiveItem(
     const WRNScanNode *W, const InclusiveExclusiveItemBase *I) {
 
   auto *Parent = W->getParent();
-  if (isa<WRNGuardMemMotionNode>(Parent))
-    Parent = Parent->getParent();
-  assert(Parent && Parent->canHaveReductionInscan() &&
-         "scan directive should be nested in a region that supports "
+  assert(Parent->canHaveReductionInscan() &&
+         "scan directive should be perfectly nested in a region that supports "
          "reduction(inscan).");
 
   Item *Res =

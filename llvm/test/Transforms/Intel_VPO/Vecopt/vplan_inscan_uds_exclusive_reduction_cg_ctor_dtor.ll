@@ -49,7 +49,7 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB17:
+; CHECK-LABEL: VPlannedBB18:
 ; CHECK-NEXT:    call ptr @_ZTS5Dummy.omp.def_constr(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
@@ -111,9 +111,13 @@ DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %3 = load float, ptr %x6, align 4
   %arrayidx7 = getelementptr inbounds float, ptr %m_out_vec, i64 %indvars.iv
   store float %3, ptr %arrayidx7, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+  call void @llvm.directive.region.exit(token %phase1.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.7
 
-DIR.OMP.SCAN.7:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+DIR.OMP.SCAN.7:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr %red.red, i64 1) ]
   br label %DIR.OMP.SCAN.3
 
@@ -123,9 +127,13 @@ DIR.OMP.SCAN.3:                                   ; preds = %DIR.OMP.SCAN.7
 
 DIR.OMP.END.SCAN.9:                               ; preds = %DIR.OMP.SCAN.3
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.9  
+  %phase2.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.END.SCAN.4
 
-DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.END.SCAN.9
+DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.END.SCAN.9.split
   br label %DIR.VPO.GUARD.MEM.MOTION.11.split
 
 DIR.VPO.GUARD.MEM.MOTION.11.split:                ; preds = %DIR.OMP.END.SCAN.4
@@ -145,7 +153,7 @@ DIR.VPO.GUARD.MEM.MOTION.5:                       ; preds = %DIR.VPO.GUARD.MEM.M
   br label %DIR.VPO.END.GUARD.MEM.MOTION.13
 
 DIR.VPO.END.GUARD.MEM.MOTION.13:                  ; preds = %DIR.VPO.GUARD.MEM.MOTION.5
-  call void @llvm.directive.region.exit(token %phase1.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %phase2.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.6
 
 DIR.VPO.END.GUARD.MEM.MOTION.6:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.13

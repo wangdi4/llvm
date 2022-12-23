@@ -47,6 +47,9 @@
 ;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: LowerExpectIntrinsicPass on foo

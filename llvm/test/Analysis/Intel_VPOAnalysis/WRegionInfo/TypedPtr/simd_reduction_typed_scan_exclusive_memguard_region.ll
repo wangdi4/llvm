@@ -27,15 +27,19 @@
 ; ...
 ; CHECK:   BEGIN GUARD.MEM.MOTION ID=2 {
 ; ...
-; CHECK:     BEGIN SCAN ID=3 {
+; CHECK:   } END GUARD.MEM.MOTION ID=2
 ; ...
-; CHECK:      INSCAN-REDUCTION maps: (1: ADD)
-; CHECK:      INCLUSIVE clause: UNSPECIFIED
-; CHECK:      EXCLUSIVE clause (size=1): (i32* @x INSCAN<1>)
+; CHECK:   BEGIN SCAN ID=3 {
 ; ...
-; CHECK:     } END SCAN ID=3
+; CHECK:    INSCAN-REDUCTION maps: (1: ADD)
+; CHECK:    INCLUSIVE clause: UNSPECIFIED
+; CHECK:    EXCLUSIVE clause (size=1): (i32* @x INSCAN<1>)
+; ...
+; CHECK:   } END SCAN ID=3
 ;
-; CHECK:  } END GUARD.MEM.MOTION ID=2
+; CHECK:   BEGIN GUARD.MEM.MOTION ID=4 {
+;
+; CHECK:   } END GUARD.MEM.MOTION ID=4
 ;
 ; CHECK: } END SIMD ID=1
 
@@ -74,7 +78,7 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
   "QUAL.OMP.LIVEIN"(i32* @x) ]
 
   %5 = bitcast i32* %i to i8*
@@ -89,9 +93,12 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @p, i64 0, i64 %idxprom
   store i32 %7, i32* %arrayidx, align 4
 
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   %scan = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(i32* @x, i64 1) ]
   fence acq_rel
   call void @llvm.directive.region.exit(token %scan) [ "DIR.OMP.END.SCAN"() ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
+  "QUAL.OMP.LIVEIN"(i32* @x) ]
 
   %9 = load i32, i32* %i, align 4
   %idxprom1 = sext i32 %9 to i64
@@ -110,7 +117,7 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
 omp.inner.for.inc:                                ; preds = %omp.body.continue
   %13 = load i32, i32* %.omp.iv, align 4
 
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
 
   %add4 = add nsw i32 %13, 1
   store i32 %add4, i32* %.omp.iv, align 4

@@ -30,7 +30,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:         [[X_RED_VEC:%.*]] = alloca <4 x float>, align 16
 ; CHECK:         [[DOTVEC29:%.*]] = alloca <2 x float>, align 8
 ; CHECK:         br label [[DIR_OMP_SIMD_126:%.*]]
-; CHECK:       VPlannedBB28:
+; CHECK:       VPlannedBB30:
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[DOTVEC_BASE_ADDR_EXTRACT_0_:%.*]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[DOTVEC29_BASE_ADDR_EXTRACT_0_:%.*]])
 ; CHECK-NEXT:    [[TMP25:%.*]] = load float, ptr [[X_RED]], align 1
@@ -46,8 +46,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[IND_START_BCAST_SPLAT31:%.*]] = shufflevector <2 x i32> [[IND_START_BCAST_SPLATINSERT30]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP30:%.*]] = add <2 x i32> [[IND_START_BCAST_SPLAT31]], <i32 0, i32 1>
 ; CHECK-NEXT:    store <2 x i32> [[TMP30]], ptr [[DOTVEC:%.*]], align 1
-; CHECK-NEXT:    br label [[VPLANNEDBB32:%.*]]
-; CHECK:       VPlannedBB32:
+; CHECK-NEXT:    br label [[VPLANNEDBB34:%.*]]
+; CHECK:       VPlannedBB34:
 ; CHECK-NEXT:    [[UNI_PHI33:%.*]] = phi i64 [ [[UNI_PHI26]], [[VPLANNEDBB28:%.*]] ], [ [[TMP48:%.*]], [[NEW_LATCH59:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI34:%.*]] = phi <2 x i64> [ [[TMP27]], [[VPLANNEDBB28]] ], [ [[TMP47:%.*]], [[NEW_LATCH59]] ]
 ; CHECK-NEXT:    [[VEC_PHI35:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT76]], [[VPLANNEDBB28]] ], [ [[PREDBLEND65:%.*]], [[NEW_LATCH59]] ]
@@ -56,17 +56,19 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, ptr [[DOTVEC29]], align 1
 ; CHECK-NEXT:    [[TMP31:%.*]] = icmp ult i64 [[UNI_PHI33]], 1024
 ; CHECK-NEXT:    [[TMP32:%.*]] = icmp ult <2 x i64> [[VEC_PHI34]], <i64 1024, i64 1024>
-; CHECK-NEXT:    br label [[VPLANNEDBB38:%.*]]
-; CHECK:       VPlannedBB38:
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[VEC_PHI37]], ptr [[DOTVEC]], i32 1, <2 x i1> [[TMP32]])
-; CHECK-NEXT:    br label [[VPLANNEDBB39:%.*]]
-; CHECK:       VPlannedBB39:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK:       VPlannedBB40:
-; CHECK-NEXT:    [[TMP33:%.*]] = trunc <2 x i64> [[VEC_PHI34]] to <2 x i32>
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP33]], ptr [[DOTVEC]], i32 4, <2 x i1> [[TMP32]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[VEC_PHI37]], ptr [[DOTVEC]], i32 1, <2 x i1> [[TMP32]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB41:%.*]]
 ; CHECK:       VPlannedBB41:
+; CHECK-NEXT:    br label [[VPLANNEDBB42:%.*]]
+; CHECK:       VPlannedBB42:
+; CHECK-NEXT:    [[TMP33:%.*]] = trunc <2 x i64> [[VEC_PHI34]] to <2 x i32>
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP33]], ptr [[DOTVEC]], i32 4, <2 x i1> [[TMP32]])
+; CHECK-NEXT:    br label [[VPLANNEDBB43:%.*]]
+; CHECK:       VPlannedBB43:
+; CHECK-NEXT:    br label [[VPLANNEDBB44:%.*]]
+; CHECK:       VPlannedBB44:
 ; CHECK-NEXT:    [[WIDE_LOAD42:%.*]] = load <2 x i32>, ptr [[DOTVEC]], align 4
 ; CHECK-NEXT:    [[TMP34:%.*]] = sext <2 x i32> [[WIDE_LOAD42]] to <2 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP45:%.*]] = getelementptr inbounds float, <2 x ptr> [[BROADCAST_SPLAT44:%.*]], <2 x i64> [[TMP34]]
@@ -74,16 +76,16 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[WIDE_LOAD47:%.*]] = load <2 x float>, ptr [[DOTVEC29]], align 4
 ; CHECK-NEXT:    [[TMP35:%.*]] = fadd fast <2 x float> [[WIDE_LOAD47]], [[WIDE_MASKED_GATHER46]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[TMP35]], ptr [[DOTVEC29]], i32 4, <2 x i1> [[TMP32]])
-; CHECK-NEXT:    br label [[VPLANNEDBB48:%.*]]
-; CHECK:       VPlannedBB48:
-; CHECK-NEXT:    br label [[VPLANNEDBB49:%.*]]
-; CHECK:       VPlannedBB49:
-; CHECK-NEXT:    [[TMP36:%.*]] = add <2 x i32> [[VEC_PHI37]], <i32 2, i32 2>
-; CHECK-NEXT:    [[TMP37:%.*]] = add i32 [[UNI_PHI36]], 2
-; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
-; CHECK:       VPlannedBB50:
 ; CHECK-NEXT:    br label [[VPLANNEDBB51:%.*]]
 ; CHECK:       VPlannedBB51:
+; CHECK-NEXT:    br label [[VPLANNEDBB52:%.*]]
+; CHECK:       VPlannedBB52:
+; CHECK-NEXT:    [[TMP36:%.*]] = add <2 x i32> [[VEC_PHI37]], <i32 2, i32 2>
+; CHECK-NEXT:    [[TMP37:%.*]] = add i32 [[UNI_PHI36]], 2
+; CHECK-NEXT:    br label [[VPLANNEDBB53:%.*]]
+; CHECK:       VPlannedBB53:
+; CHECK-NEXT:    br label [[VPLANNEDBB54:%.*]]
+; CHECK:       VPlannedBB54:
 ; CHECK-NEXT:    [[WIDE_LOAD52:%.*]] = load <2 x float>, ptr [[DOTVEC29]], align 1
 ; CHECK-NEXT:    [[TMP38:%.*]] = shufflevector <2 x float> [[WIDE_LOAD52]], <2 x float> zeroinitializer, <2 x i32> <i32 2, i32 0>
 ; CHECK-NEXT:    [[TMP39:%.*]] = fadd fast <2 x float> [[WIDE_LOAD52]], [[TMP38]]
@@ -101,17 +103,18 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP46:%.*]] = fadd float [[LAST_ACTIVE_LANE]], [[LAST_ACTIVE_LANE54]]
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT63:%.*]] = insertelement <2 x float> poison, float [[TMP46]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT64:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT63]], <2 x float> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    br label [[VPLANNEDBB55:%.*]]
-; CHECK:       VPlannedBB55:
-; CHECK-NEXT:    br label [[VPLANNEDBB56:%.*]]
-; CHECK:       VPlannedBB56:
+; CHECK-NEXT:    br label [[VPLANNEDBB58:%.*]]
+; CHECK:       VPlannedBB58:
+; CHECK-NEXT:    br label [[VPLANNEDBB59:%.*]]
+; CHECK:       VPlannedBB59:
 ; CHECK-NEXT:    [[WIDE_LOAD57:%.*]] = load <2 x float>, ptr [[DOTVEC29]], align 4
 ; CHECK-NEXT:    [[SCALAR_GEP58:%.*]] = getelementptr inbounds float, ptr [[B:%.*]], i64 [[UNI_PHI33]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[WIDE_LOAD57]], ptr [[SCALAR_GEP58]], i32 4, <2 x i1> [[TMP32]])
-; CHECK-NEXT:    br label [[NEW_LATCH28:%.*]]
-; CHECK:       new_latch28:
-; CHECK-NEXT:    br label [[NEW_LATCH59]]
-; CHECK:       new_latch59:
+; CHECK:       VPlannedBB62:
+; CHECK-NEXT:    br label [[NEW_LATCH32:%.*]]
+; CHECK:       new_latch32:
+; CHECK-NEXT:    br label [[NEW_LATCH63:%.*]]
+; CHECK:       new_latch63:
 ; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <2 x i1> [[TMP32]], <2 x float> [[TMP35]], <2 x float> [[BROADCAST_SPLAT61:%.*]]
 ; CHECK-NEXT:    [[PREDBLEND62]] = select <2 x i1> [[TMP32]], <2 x i32> [[TMP36]], <2 x i32> [[VEC_PHI37]]
 ; CHECK-NEXT:    [[PREDBLEND62_EXTRACT_0_]] = extractelement <2 x i32> [[PREDBLEND62]], i32 0
@@ -122,8 +125,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP49:%.*]] = icmp ult <2 x i64> [[TMP47]], <i64 1024, i64 1024>
 ; CHECK-NEXT:    [[TMP50:%.*]] = bitcast <2 x i1> [[TMP49]] to i2
 ; CHECK-NEXT:    [[TMP51:%.*]] = icmp eq i2 [[TMP50]], 0
-; CHECK-NEXT:    br i1 [[TMP51]], label [[VPLANNEDBB66:%.*]], label [[VPLANNEDBB32]]
-; CHECK:       VPlannedBB66:
+; CHECK-NEXT:    br i1 [[TMP51]], label [[VPLANNEDBB70:%.*]], label [[VPLANNEDBB34]]
+; CHECK:       VPlannedBB70:
 ; CHECK-NEXT:    store float [[PREDBLEND65_EXTRACT_0_]], ptr [[X_RED]], align 1
 ;
 DIR.OMP.SIMD.1:
@@ -141,7 +144,7 @@ DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.126, %
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = DIR.OMP.END.SCAN.2
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.SIMD.139
 
 DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -151,9 +154,13 @@ DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.M
   %2 = load float, ptr %x.red, align 4
   %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
   store float %2, ptr %arrayidx, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.6
+
+DIR.VPO.END.GUARD.MEM.MOTION.6:                   ; preds = %DIR.OMP.SIMD.139
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.2
 
-DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.END.SCAN.2
+DIR.OMP.SCAN.2:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.6
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE:TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1) ]
   br label %DIR.OMP.SCAN.1
 
@@ -163,9 +170,13 @@ DIR.OMP.SCAN.1:                                   ; preds = %DIR.OMP.SCAN.2
 
 DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.SCAN.1
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.4
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.228
 
-DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
+DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.9.split
   %4 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %4 to i64
   %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
@@ -178,7 +189,7 @@ DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = DIR.OMP.END.SCAN.228
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
