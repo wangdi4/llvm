@@ -2190,6 +2190,7 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
   //     point to a variable in the wrong scope.
   SmallDenseMap<DINode *, DINode *> RemappedMetadata;
   SmallVector<Instruction *, 4> DebugIntrinsicsToDelete;
+  DenseMap<const MDNode *, MDNode *> Cache;
   for (Instruction &I : instructions(NewFunc)) {
     auto *DII = dyn_cast<DbgInfoIntrinsic>(&I);
     if (!DII)
@@ -2227,11 +2228,14 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
     if (!DVI->getDebugLoc().getInlinedAt()) {
       DILocalVariable *OldVar = DVI->getVariable();
       DINode *&NewVar = RemappedMetadata[OldVar];
-      if (!NewVar)
+      if (!NewVar) {
+        DILocalScope *NewScope = DILocalScope::cloneScopeForSubprogram(
+            *OldVar->getScope(), *NewSP, Ctx, Cache);
         NewVar = DIB.createAutoVariable(
-            NewSP, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
+            NewScope, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
             OldVar->getType(), /*AlwaysPreserve=*/false, DINode::FlagZero,
             OldVar->getAlignInBits());
+      }
       DVI->setVariable(cast<DILocalVariable>(NewVar));
     }
   }
@@ -2242,7 +2246,6 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
 
   // Fix up the scope information attached to the line locations in the new
   // function.
-  DenseMap<const MDNode *, MDNode *> Cache;
   for (Instruction &I : instructions(NewFunc)) {
     if (const DebugLoc &DL = I.getDebugLoc())
       I.setDebugLoc(
