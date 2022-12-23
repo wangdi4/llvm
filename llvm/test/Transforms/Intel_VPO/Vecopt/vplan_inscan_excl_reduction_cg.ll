@@ -77,6 +77,9 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
+; CHECK-NEXT:    br label [[VPLANNEDBB800:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, ptr [[I_LINEAR_IV_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = sext <4 x i32> [[WIDE_LOAD0]] to <4 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds float, <4 x ptr> [[BROADCAST_SPLAT0]], <4 x i64> [[TMP10]]
@@ -86,18 +89,18 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    store <4 x float> [[TMP11]], ptr [[X_RED_VEC0]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB10:
+; CHECK-NEXT:  VPlannedBB11:
 ; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:  VPlannedBB12:
 ; CHECK-NEXT:    [[TMP12]] = add <4 x i32> [[VEC_PHI50]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP13]] = add i32 [[UNI_PHI40]], 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB120:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB12:
+; CHECK-NEXT:  VPlannedBB13:
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:  VPlannedBB14:
 ; CHECK-NEXT:    [[WIDE_LOAD140:%.*]] = load <4 x float>, ptr [[X_RED_VEC0]], align 1
 ; CHECK-NEXT:    [[WIDE_LOAD14_EXTRACT_3_0:%.*]] = extractelement <4 x float> [[WIDE_LOAD140]], i32 3
 ; CHECK-NEXT:    [[TMP14:%.*]] = shufflevector <4 x float> [[WIDE_LOAD140]], <4 x float> zeroinitializer, <4 x i32> <i32 4, i32 0, i32 1, i32 2>
@@ -111,22 +114,25 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP20]] = fadd float [[DOTEXTRACT_3_0]], [[WIDE_LOAD14_EXTRACT_3_0]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB170:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB17:
-; CHECK-NEXT:    br label [[VPLANNEDBB180:%.*]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB18:
+; CHECK-NEXT:    br label [[VPLANNEDBB190:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB19:
 ; CHECK-NEXT:    [[WIDE_LOAD190:%.*]] = load <4 x float>, ptr [[X_RED_VEC0]], align 4
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, ptr [[B0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    store <4 x float> [[WIDE_LOAD190]], ptr [[SCALAR_GEP0]], align 4
+; CHECK-NEXT:    br label [[VPLANNEDBB210:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB21:
 ; CHECK-NEXT:    br label [[NEW_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  new_latch:
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp uge i64 [[TMP22]], 1024
-; CHECK-NEXT:    br i1 [[TMP23]], label [[VPLANNEDBB200:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[TMP23]], label [[VPLANNEDBB220:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB20:
+; CHECK-NEXT:  VPlannedBB22:
 ; CHECK-NEXT:    store float [[TMP20]], ptr [[X_RED0]], align 1
 ;
 DIR.OMP.SIMD.1:
@@ -144,7 +150,7 @@ DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.126, %
   br label %DIR.VPO.GUARD.MEM.MOTION.3
 
 DIR.VPO.GUARD.MEM.MOTION.3:                       ; preds = %DIR.OMP.END.SCAN.2
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.3
@@ -154,9 +160,13 @@ DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %2 = load float, ptr %x.red, align 4
   %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
   store float %2, ptr %arrayidx, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.2
 
-DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.END.SCAN.2
+DIR.OMP.SCAN.2:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE:TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1) ]
   br label %DIR.OMP.SCAN.1
 
@@ -166,9 +176,13 @@ DIR.OMP.SCAN.1:                                   ; preds = %DIR.OMP.SCAN.2
 
 DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.SCAN.1
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.4
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
   br label %DIR.OMP.END.SCAN.228
 
-DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
+DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.9.split
   %4 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %4 to i64
   %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
@@ -181,7 +195,7 @@ DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.9
 
 DIR.VPO.END.GUARD.MEM.MOTION.9:                   ; preds = %DIR.OMP.END.SCAN.228
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.533
 
 DIR.VPO.END.GUARD.MEM.MOTION.533:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.9

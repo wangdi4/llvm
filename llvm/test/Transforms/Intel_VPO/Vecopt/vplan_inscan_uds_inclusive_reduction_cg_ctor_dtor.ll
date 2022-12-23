@@ -106,6 +106,7 @@ DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.M
   br label %DIR.VPO.END.GUARD.MEM.MOTION.5
 
 DIR.VPO.END.GUARD.MEM.MOTION.5:                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
+  call void @llvm.directive.region.exit(token %phase1.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.7
 
 DIR.OMP.SCAN.7:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.5
@@ -121,6 +122,7 @@ DIR.OMP.END.SCAN.9:                               ; preds = %DIR.OMP.SCAN.3
   br label %DIR.OMP.END.SCAN.4
 
 DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.END.SCAN.9
+  %phase2.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.GUARD.MEM.MOTION.11.split
 
 DIR.VPO.GUARD.MEM.MOTION.11.split:                ; preds = %DIR.OMP.END.SCAN.4
@@ -136,7 +138,7 @@ DIR.VPO.GUARD.MEM.MOTION.5:                       ; preds = %DIR.VPO.GUARD.MEM.M
   br label %DIR.VPO.END.GUARD.MEM.MOTION.13
 
 DIR.VPO.END.GUARD.MEM.MOTION.13:                  ; preds = %DIR.VPO.GUARD.MEM.MOTION.5
-  call void @llvm.directive.region.exit(token %phase1.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %phase2.guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.6
 
 DIR.VPO.END.GUARD.MEM.MOTION.6:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.13

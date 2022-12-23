@@ -2004,6 +2004,14 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
   //       the restructured CFG.
   FPM.addPass(VPOCFGRestructuringPass());
   FPM.addPass(LoopSimplifyUnskippablePass());
+  // Insert guards for memory motion of scan pointers.
+  // Renaming of SIMD inscan operands captured on VPO.GUARD.MEM.MOTION
+  // directives is done to prevent the motion of any GEPs on them,
+  // across the directives.
+  // TODO: It is safer to have the regions formed by FE.
+  FPM.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(VPOParoptGuardMemoryMotionPass(/*RunForScans*/true));
+  FPM.addPass(VPOCFGRestructuringPass());
   unsigned Mode = RunVPOParopt & (vpo::ParPrepare | vpo::OmpOffload);
   FPM.addPass(VPOParoptPreparePass(Mode));
 }
@@ -2101,10 +2109,10 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
   // Paropt transform is complete and SIMD regions are identified. Insert guards
-  // for memory motion of pointers (if needed). Renaming is also done to avoid
+  // for memory motion of UDR pointers (if needed). Renaming is also done to avoid
   // motion of GEPs operating on these pointers.
   FPM.addPass(VPOCFGRestructuringPass());
-  FPM.addPass(VPOParoptGuardMemoryMotionPass());
+  FPM.addPass(VPOParoptGuardMemoryMotionPass(/*RunForScans*/false));
   FPM.addPass(VPOCFGRestructuringPass());
   FPM.addPass(VPORenameOperandsPass());
   if (RunVPOOpt == InvokeParoptAfterInliner) {

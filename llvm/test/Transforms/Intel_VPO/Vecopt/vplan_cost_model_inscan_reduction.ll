@@ -63,7 +63,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.138, %
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.335
 
 DIR.OMP.END.SCAN.335:                             ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -74,9 +74,13 @@ DIR.OMP.END.SCAN.335:                             ; preds = %DIR.VPO.GUARD.MEM.M
   %3 = load float, ptr %x.red, align 4
   %add5 = fadd fast float %3, %2
   store float %add5, ptr %x.red, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.3
 
-DIR.OMP.SCAN.3:                                   ; preds = %DIR.OMP.END.SCAN.335
+DIR.OMP.SCAN.3:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
@@ -86,9 +90,13 @@ DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.3
 
 DIR.OMP.END.SCAN.5:                               ; preds = %DIR.OMP.SCAN.2
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.8
+
+DIR.OMP.END.SCAN.8:                               ; preds = %DIR.OMP.END.SCAN.5
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
-DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.5
+DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.9
   %5 = load float, ptr %x.red, align 4
   %6 = load i32, ptr %i.linear.iv, align 4
   %idxprom6 = sext i32 %6 to i64
@@ -98,7 +106,7 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.5
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.3
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
@@ -165,7 +173,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.126, %
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.2
 
 DIR.OMP.END.SCAN.2:                               ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -175,9 +183,13 @@ DIR.OMP.END.SCAN.2:                               ; preds = %DIR.VPO.GUARD.MEM.M
   %2 = load float, ptr %x.red, align 4
   %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
   store float %2, ptr %arrayidx, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.OMP.END.SCAN.2
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.2
 
-DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.END.SCAN.2
+DIR.OMP.SCAN.2:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE:TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1) ]
   br label %DIR.OMP.SCAN.1
 
@@ -187,9 +199,13 @@ DIR.OMP.SCAN.1:                                   ; preds = %DIR.OMP.SCAN.2
 
 DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.SCAN.1
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.4
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.228
 
-DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
+DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.9.split
   %4 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %4 to i64
   %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
@@ -202,7 +218,7 @@ DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.228
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
@@ -257,7 +273,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.VPO.GUARD.MEM.MOTION.2.split
 
 DIR.VPO.GUARD.MEM.MOTION.2.split:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.1
 
 DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.2.split
@@ -269,9 +285,13 @@ DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %cmp.i = fcmp fast olt float %2, %3
   %4 = select i1 %cmp.i, float %3, float %2
   store float %4, ptr %x.red, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.4
 
-DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
@@ -281,9 +301,13 @@ DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.4
 
 DIR.OMP.END.SCAN.6:                               ; preds = %DIR.OMP.SCAN.2
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.6
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
-DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
+DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.9.split
   %6 = load float, ptr %x.red, align 4
   %7 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %7 to i64
@@ -293,7 +317,7 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.3
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
@@ -350,7 +374,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.VPO.GUARD.MEM.MOTION.2.split
 
 DIR.VPO.GUARD.MEM.MOTION.2.split:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.1
 
 DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.2.split
@@ -359,9 +383,13 @@ DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %2 = load float, ptr %x.red, align 4
   %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
   store float %2, ptr %arrayidx, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.4
 
-DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
@@ -371,9 +399,13 @@ DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.4
 
 DIR.OMP.END.SCAN.6:                               ; preds = %DIR.OMP.SCAN.2
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.SCAN.2
+  %guard.start2 =  call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
-DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
+DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.9.split
   %4 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %4 to i64
   %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
@@ -386,7 +418,7 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.3
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8

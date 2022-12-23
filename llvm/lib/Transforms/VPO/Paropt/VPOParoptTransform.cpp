@@ -2356,6 +2356,13 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
 
+      case WRegionNode::WRNGuardMemMotion:
+        if (Mode & ParPrepare)
+          Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
+        if ((Mode & OmpVec) && (Mode & ParTrans))
+          RemoveDirectives = false;
+        break;
+
       case WRegionNode::WRNVecLoop:
         if (Mode & ParPrepare) {
           Changed |= regularizeOMPLoop(W);

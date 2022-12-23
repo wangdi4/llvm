@@ -46,6 +46,9 @@
 ; CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
+; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass
+; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running pass: VPOParoptPreparePass
 ; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis
 ; CHECK-NEXT: Running pass: LowerExpectIntrinsicPass

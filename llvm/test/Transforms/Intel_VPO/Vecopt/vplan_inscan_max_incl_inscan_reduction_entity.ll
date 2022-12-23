@@ -57,9 +57,12 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     br [[BB77:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB77]]: # preds: [[BB6]]
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB77]]
 ; CHECK-NEXT:     float [[VP_LOAD_4:%.*]] = load ptr [[VP_X_RED]]
 ; CHECK-NEXT:     float [[VP_INCL_SCAN:%.*]] = running-inclusive-reduction{fmax} float [[VP_LOAD_4]] float [[VP_INSCAN_ACCUM]] float [[VP_LOAD]]
 ; CHECK-NEXT:     store float [[VP_INCL_SCAN]] ptr [[VP_X_RED]]
@@ -67,9 +70,12 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:     br [[BB88:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB88]]: # preds: [[BB8]]
 ; CHECK-NEXT:     br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB88]]
 ; CHECK-NEXT:     float [[VP7:%.*]] = load ptr [[VP_X_RED]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = load ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     i64 [[VP_IDXPROM1:%.*]] = sext i32 [[VP8]] to i64
@@ -105,7 +111,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.VPO.GUARD.MEM.MOTION.2.split
 
 DIR.VPO.GUARD.MEM.MOTION.2.split:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.1
 
 DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.2.split
@@ -117,9 +123,13 @@ DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %cmp.i = fcmp fast olt float %2, %3
   %4 = select i1 %cmp.i, float %3, float %2
   store float %4, ptr %x.red, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.6
+
+DIR.VPO.END.GUARD.MEM.MOTION.6:                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.4
 
-DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.6
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
@@ -129,9 +139,13 @@ DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.4
 
 DIR.OMP.END.SCAN.6:                               ; preds = %DIR.OMP.SCAN.2
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.8
+
+DIR.OMP.END.SCAN.8:                               ; preds = %DIR.OMP.END.SCAN.6
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
-DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
+DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.3
   %6 = load float, ptr %x.red, align 4
   %7 = load i32, ptr %i.linear.iv, align 4
   %idxprom1 = sext i32 %7 to i64
@@ -141,7 +155,7 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.3
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8

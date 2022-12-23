@@ -42,15 +42,19 @@
 ; ...
 ; CHECK:   BEGIN GUARD.MEM.MOTION ID=2 {
 ; ...
-; CHECK:     BEGIN SCAN ID=3 {
-; ...
-; CHECK:      INSCAN-REDUCTION maps: (1: UDR) (2: ADD)
-; CHECK:      INCLUSIVE clause (size=2): (ptr %x.addr INSCAN<1>) (ptr @y INSCAN<2>)
-; CHECK:      EXCLUSIVE clause: UNSPECIFIED
-; ...
-; CHECK:     } END SCAN ID=3
-;
 ; CHECK:   } END GUARD.MEM.MOTION ID=2
+; ...
+; CHECK:   BEGIN SCAN ID=3 {
+; ...
+; CHECK:    INSCAN-REDUCTION maps: (1: UDR) (2: ADD)
+; CHECK:    INCLUSIVE clause (size=2): (ptr %x.addr INSCAN<1>) (ptr @y INSCAN<2>)
+; CHECK:    EXCLUSIVE clause: UNSPECIFIED
+; ...
+; CHECK:   } END SCAN ID=3
+;
+; CHECK:   BEGIN GUARD.MEM.MOTION ID=4 {
+; ...
+; CHECK:   } END GUARD.MEM.MOTION ID=4
 ;
 ; CHECK: } END SIMD ID=1
 
@@ -110,7 +114,7 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
     "QUAL.OMP.LIVEIN"(ptr @y),
     "QUAL.OMP.LIVEIN"(ptr %x.addr) ]
 
@@ -133,12 +137,16 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %add6 = add nsw i32 %15, %14
   store i32 %add6, ptr @y, align 4
   %16 = load ptr, ptr %x.addr, align 8
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   %17 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(),
     "QUAL.OMP.INCLUSIVE"(ptr %x.addr, i64 1),
     "QUAL.OMP.INCLUSIVE"(ptr @y, i64 2) ]
 
   fence acq_rel
   call void @llvm.directive.region.exit(token %17) [ "DIR.OMP.END.SCAN"() ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(),
+    "QUAL.OMP.LIVEIN"(ptr @y),
+    "QUAL.OMP.LIVEIN"(ptr %x.addr) ]
 
   %18 = load i32, ptr %i, align 4
   %idxprom7 = sext i32 %18 to i64
@@ -160,7 +168,7 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
 omp.inner.for.inc:                                ; preds = %omp.body.continue
   %22 = load i32, ptr %.omp.iv, align 4
 
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
 
   %add13 = add nsw i32 %22, 1
   store i32 %add13, ptr %.omp.iv, align 4

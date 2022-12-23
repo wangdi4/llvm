@@ -191,6 +191,12 @@ public:
   /// exist, then add corresponding directives to the loop.
   static CallInst *getOrCreateLoopGuardForMemMotion(Loop *L);
 
+  /// Return the starting guard directives (DIR.VPO.GUARD.MEM.MOTION) created
+  /// for the loop \p L to prohibit memory motion. Input and scan phase are
+  /// enclosed in the guard directives.
+  static std::pair<CallInst *, CallInst *>
+  createInscanLoopGuardForMemMotion(Loop *L);
+
   /// Generate a memcpy call with the destination argument \p D, the source
   /// argument \p S and size computed by multiplying \p Size and \p NumElements.
   /// \p Align specifies maximum guaranteed alignment of \p D and \p S.

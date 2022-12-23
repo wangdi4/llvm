@@ -87,6 +87,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK:       VPlannedBB10:
+; CHECK-NEXT:    br label [[VPLANNEDBB11:%.*]]
+; CHECK:       VPlannedBB11:
 ; CHECK-NEXT:    [[WIDE_LOAD11:%.*]] = load <4 x float>, ptr [[X_RED_VEC]], align 1
 ; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x float> [[WIDE_LOAD11]], <4 x float> [[BROADCAST_SPLAT]], <4 x i32> <i32 4, i32 0, i32 1, i32 2>
 ; CHECK-NEXT:    [[TMP22:%.*]] = call <4 x float> @llvm.maxnum.v4f32(<4 x float> [[WIDE_LOAD11]], <4 x float> [[TMP20]])
@@ -95,10 +97,12 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP27:%.*]] = call <4 x float> @llvm.maxnum.v4f32(<4 x float> [[TMP25]], <4 x float> [[BROADCAST_SPLAT13]])
 ; CHECK-NEXT:    [[DOTEXTRACT_3_]] = extractelement <4 x float> [[TMP27]], i32 3
 ; CHECK-NEXT:    store <4 x float> [[TMP27]], ptr [[X_RED_VEC]], align 1
-; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
-; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    br label [[VPLANNEDBB15:%.*]]
 ; CHECK:       VPlannedBB15:
+; CHECK-NEXT:    br label [[VPLANNEDBB16:%.*]]
+; CHECK:       VPlannedBB16:
+; CHECK-NEXT:    br label [[VPLANNEDBB17:%.*]]
+; CHECK:       VPlannedBB17:
 ; CHECK-NEXT:    [[WIDE_LOAD16:%.*]] = load <4 x float>, ptr [[X_RED_VEC]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD17:%.*]] = load <4 x i32>, ptr [[I_LINEAR_IV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP28:%.*]] = sext <4 x i32> [[WIDE_LOAD17]] to <4 x i64>
@@ -106,15 +110,15 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4f32.v4p0(<4 x float> [[WIDE_LOAD16]], <4 x ptr> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP29]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP30]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
-; CHECK:       VPlannedBB20:
-; CHECK-NEXT:    br label [[VPLANNEDBB21]]
-; CHECK:       VPlannedBB21:
+; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
+; CHECK:       VPlannedBB22:
+; CHECK-NEXT:    br label [[VPLANNEDBB23:%.*]]
+; CHECK:       VPlannedBB23:
 ; CHECK-NEXT:    [[TMP31]] = add <4 x i32> [[VEC_PHI5]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP32]] = add i32 [[UNI_PHI4]], 4
 ; CHECK-NEXT:    [[TMP33:%.*]] = icmp uge i64 [[TMP30]], 1024
-; CHECK-NEXT:    br i1 [[TMP33]], label [[VPLANNEDBB22:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
-; CHECK:       VPlannedBB22:
+; CHECK-NEXT:    br i1 [[TMP33]], label [[VPLANNEDBB24:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK:       VPlannedBB24:
 ; CHECK-NEXT:    store float [[DOTEXTRACT_3_]], ptr [[X_RED]], align 1
 ;
 DIR.OMP.SIMD.1:
@@ -132,7 +136,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.VPO.GUARD.MEM.MOTION.2.split
 
 DIR.VPO.GUARD.MEM.MOTION.2.split:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.1
 
 DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.2.split
@@ -144,9 +148,13 @@ DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.M
   %cmp.i = fcmp fast olt float %2, %3
   %4 = select i1 %cmp.i, float %3, float %2
   store float %4, ptr %x.red, align 4
+  br label %DIR.VPO.END.GUARD.MEM.MOTION.552
+
+DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+  call void @llvm.directive.region.exit(token %guard.start1) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.OMP.SCAN.4
 
-DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.1
+DIR.OMP.SCAN.4:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.552
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
@@ -156,6 +164,10 @@ DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.4
 
 DIR.OMP.END.SCAN.6:                               ; preds = %DIR.OMP.SCAN.2
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.SCAN"() ]
+  br label %DIR.OMP.END.SCAN.9.split
+
+DIR.OMP.END.SCAN.9.split:
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
 DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
@@ -168,7 +180,7 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 
 DIR.VPO.END.GUARD.MEM.MOTION.8:                   ; preds = %DIR.OMP.END.SCAN.3
-  call void @llvm.directive.region.exit(token %guard.start) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
+  call void @llvm.directive.region.exit(token %guard.start2) [ "DIR.VPO.END.GUARD.MEM.MOTION"() ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.8
