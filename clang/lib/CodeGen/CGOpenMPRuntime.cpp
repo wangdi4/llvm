@@ -1086,7 +1086,8 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
     : CGM(CGM), OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager() {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
   llvm::OpenMPIRBuilderConfig Config(CGM.getLangOpts().OpenMPIsDevice, false,
-                                     hasRequiresUnifiedSharedMemory());
+                                     hasRequiresUnifiedSharedMemory(),
+                                     CGM.getLangOpts().OpenMPOffloadMandatory);
   // Initialize Types used in OpenMPIRBuilder from OMPKinds.def
   OMPBuilder.initialize();
   OMPBuilder.setConfig(Config);
@@ -6301,30 +6302,16 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
     const OMPExecutableDirective &D, StringRef ParentName,
     llvm::Function *&OutlinedFn, llvm::Constant *&OutlinedFnID,
     bool IsOffloadEntry, const RegionCodeGenTy &CodeGen) {
-  // Create a unique name for the entry function using the source location
-  // information of the current target region. The name will be something like:
-  //
-  // __omp_offloading_DD_FFFF_PP_lBB[_CC]
-  //
-  // where DD_FFFF is an ID unique to the file (device and file IDs), PP is the
-  // mangled name of the function that encloses the target region and BB is the
-  // line number of the target region. CC is a count added when more than one
-  // region is located at the same location.
 
-  const bool BuildOutlinedFn = CGM.getLangOpts().OpenMPIsDevice ||
-                               !CGM.getLangOpts().OpenMPOffloadMandatory;
   auto EntryInfo =
       getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), ParentName);
 
-  SmallString<64> EntryFnName;
-  OffloadEntriesInfoManager.getTargetRegionEntryFnName(EntryFnName, EntryInfo);
-
-  const CapturedStmt &CS = *D.getCapturedStmt(OMPD_target);
-
   CodeGenFunction CGF(CGM, true);
-  CGOpenMPTargetRegionInfo CGInfo(CS, CodeGen, EntryFnName);
-  CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
+  llvm::OpenMPIRBuilder::FunctionGenCallback &&GenerateOutlinedFunction =
+      [this, &CGF, &D, &CodeGen](StringRef EntryFnName) {
+        const CapturedStmt &CS = *D.getCapturedStmt(OMPD_target);
 
+<<<<<<< HEAD
   OutlinedFn = BuildOutlinedFn
                    ? CGF.GenerateOpenMPCapturedStmtFunction(CS, D.getBeginLoc())
                    : nullptr;
@@ -6351,6 +6338,12 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   // the offloading entry and launched by the runtime library. We also mark the
   // outlined function to have external linkage in case we are emitting code for
   // the device, because these functions will be entry points to the device.
+=======
+        CGOpenMPTargetRegionInfo CGInfo(CS, CodeGen, EntryFnName);
+        CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
+        return CGF.GenerateOpenMPCapturedStmtFunction(CS, D.getBeginLoc());
+      };
+>>>>>>> 1f8fecf26b35cef2713252fb020ff66cee248d99
 
   // Get NumTeams and ThreadLimit attributes
   int32_t DefaultValTeams = -1;
@@ -6358,15 +6351,12 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   getNumTeamsExprForTargetDirective(CGF, D, DefaultValTeams);
   getNumThreadsExprForTargetDirective(CGF, D, DefaultValThreads);
 
-  std::string EntryFnIDName = CGM.getLangOpts().OpenMPIsDevice
-                                  ? std::string(EntryFnName)
-                                  : getName({EntryFnName, "region_id"});
+  OMPBuilder.emitTargetRegionFunction(OffloadEntriesInfoManager, EntryInfo,
+                                      GenerateOutlinedFunction, DefaultValTeams,
+                                      DefaultValThreads, IsOffloadEntry,
+                                      OutlinedFn, OutlinedFnID);
 
-  OutlinedFnID = OMPBuilder.registerTargetRegionFunction(
-      OffloadEntriesInfoManager, EntryInfo, OutlinedFn, EntryFnName,
-      EntryFnIDName, DefaultValTeams, DefaultValThreads);
-
-  if (BuildOutlinedFn)
+  if (OutlinedFn != nullptr)
     CGM.getTargetCodeGenInfo().setTargetAttributes(nullptr, OutlinedFn, CGM);
 }
 
