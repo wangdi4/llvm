@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,6 +13,7 @@
 // License.
 
 #include "Logger.h"
+#include "cl_user_logger.h"
 
 #include <assert.h>
 #include <sstream> // required by: owstringstream
@@ -177,9 +178,10 @@ void Logger::Log(ELogLevel level, ELogConfigField config,
                  const char *message, va_list va) {
   LogMessage logMessage(level, config, psClientName, sourceFile, functionName,
                         sourceLine, message, va);
-  if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled() &&
+  if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled() &&
       (LL_ERROR == level || LL_CRITICAL == level)) {
-    g_pUserLogger->PrintError(logMessage.GetFormattedMessage());
+    FrameworkUserLogger::GetInstance()->PrintError(
+        logMessage.GetFormattedMessage());
   }
 
   for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++) {

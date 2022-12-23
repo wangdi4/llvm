@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,8 +17,6 @@
 #include "cl_user_logger.h"
 #include <assert.h>
 #include <memory>
-
-using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace Intel {
 namespace OpenCL {

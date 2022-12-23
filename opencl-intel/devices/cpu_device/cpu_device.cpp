@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2021 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -45,17 +45,6 @@
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
-using Intel::OpenCL::Utils::FrameworkUserLogger;
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
-extern FrameworkUserLogger *g_pUserLogger;
-
-}
-} // namespace OpenCL
-} // namespace Intel
 
 #if defined(_M_X64) || defined(__x86_64__)
 #define MEMORY_LIMIT (TotalPhysicalSize())

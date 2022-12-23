@@ -14,16 +14,6 @@
 #include "common_utils.h"
 #include "options.hpp"
 
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
-FrameworkUserLogger *g_pUserLogger = NULL;
-
-}
-} // namespace OpenCL
-} // namespace Intel
-
 // The following tests replace the old "main" function of framework_test_type.
 //
 

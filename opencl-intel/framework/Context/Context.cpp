@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1311,11 +1311,11 @@ Context::GetMaxImageDimensions(size_t &psz2dWidth, size_t &psz2dHeight,
 void Context::NotifyError(const char *pcErrInfo, const void *pPrivateInfo,
                           size_t szCb) {
   if (nullptr != m_pfnNotify) {
-    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled()) {
+    if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
       std::stringstream stream;
       stream << "clCreateContext callback(" << pcErrInfo << ", " << pPrivateInfo
              << ", " << szCb << ")" << std::endl;
-      g_pUserLogger->PrintString(stream.str());
+      FrameworkUserLogger::GetInstance()->PrintString(stream.str());
     }
     m_pfnNotify(pcErrInfo, pPrivateInfo, szCb, m_pUserData);
   }

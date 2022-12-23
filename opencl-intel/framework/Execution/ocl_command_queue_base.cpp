@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -288,14 +288,14 @@ void IOclCommandQueueBase::NotifyCommandFailed(
       handle = command->GetEvent()->GetHandle();
     }
 
-    if (g_pUserLogger->IsErrorLoggingEnabled()) {
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled()) {
       stream << "Command failed. "
              << "command type: " << command->GetCommandName();
       stream << ", command id: " << command->GetEvent()->GetId();
       stream << ", result value: " << err;
       stream << ", The cl_event value associated with the command: 0x"
              << handle;
-      g_pUserLogger->PrintError(stream.str());
+      FrameworkUserLogger::GetInstance()->PrintError(stream.str());
       stream.str(std::string());
     }
 

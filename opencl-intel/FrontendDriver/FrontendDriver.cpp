@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2018 Intel Corporation.
+// Copyright 2009-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -182,14 +182,6 @@ void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
   ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
       .getSpecConstInfo(pSpecConstInfo);
 }
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-FrameworkUserLogger *g_pUserLogger = nullptr;
-}
-} // namespace OpenCL
-} // namespace Intel
 
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void *pDeviceInfo,
                                                  size_t devInfoSize,

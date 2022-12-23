@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -49,16 +49,6 @@ extern HostProgramFunc host_fpga_autorun;
 extern HostProgramFunc host_fpga_fp16;
 extern HostProgramFunc host_compile_link;
 extern HostProgramFunc host_jit_reload;
-
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-
-FrameworkUserLogger *g_pUserLogger = NULL;
-
-}
-} // namespace OpenCL
-} // namespace Intel
 
 // List of tests which should be launched only on FPGA Emulator
 vector<string> FPGATests = {"fpga_host_side_pipes", "fpga_channels",

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,6 +17,7 @@
 #include "cl_dynamic_lib.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+#include "cl_user_logger.h"
 #include "fe_driver_main.h"
 #include <Windows.h>
 #include <string>
@@ -24,7 +25,6 @@
 #pragma comment(lib, "cl_sys_utils.lib")
 
 using namespace Intel::OpenCL::Utils;
-using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace {
 OclDynamicLib *m_dlClangLib;
@@ -65,8 +65,8 @@ bool LoadCommonClang() {
 
     if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
       LogErrorA("Failed to load common clang from %s", clangPath.c_str());
-      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-        g_pUserLogger->PrintError(
+      if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
+        FrameworkUserLogger::GetInstance()->PrintError(
             "Failed to load " + std::string(CCLANG_LIB_NAME) +
             " with error info: " + m_dlClangLib->GetError());
 

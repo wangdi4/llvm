@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2019 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,6 +20,7 @@
 // clang-format on
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
+#include "cl_user_logger.h"
 #include <string>
 
 #include "llvm/Support/ManagedStatic.h"
@@ -56,8 +57,8 @@ BOOL LoadTaskExecutor() {
   tePath += teName;
 
   if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
-      g_pUserLogger->PrintError(
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
+      FrameworkUserLogger::GetInstance()->PrintError(
           "Failed to load " + teName +
           " with error message: " + m_dlTaskExecutor->GetError());
 

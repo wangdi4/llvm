@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -73,7 +73,6 @@ unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
 AtomicCounter NDRange::RGBTableCounter;
 
 using namespace Intel::OpenCL::BuiltInKernels;
-using Intel::OpenCL::Utils::g_pUserLogger;
 
 /**
  * Debug prints flag. Required for (weird) platforms like Linux, where our
@@ -910,8 +909,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   }
 
   // if logger is enabled, always print local work size from BE
-  if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
-    g_pUserLogger->SetWGSizeCount(
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled())
+    FrameworkUserLogger::GetInstance()->SetWGSizeCount(
         m_pCmd->id, (size_t)cmdParams->work_dim,
         m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
         m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],

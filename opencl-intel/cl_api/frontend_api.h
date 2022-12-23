@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2018 Intel Corporation.
+// Copyright 2009-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -217,8 +217,7 @@ public:
 // Create an instance of the FE compiler tagged to specific device
 // Input: pDeviceInfo - device Specific information
 typedef int fnCreateFECompilerInstance(
-    const void *pDeviceInfo, size_t devInfoSize, IOCLFECompiler **pFECompiler,
-    Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger);
+    const void *pDeviceInfo, size_t devInfoSize, IOCLFECompiler **pFECompiler);
 } // namespace FECompilerAPI
 } // namespace OpenCL
 } // namespace Intel
