@@ -1070,8 +1070,8 @@ private:
   // AI and nullptr is returned.
   // If the VPAlloca is created it is placed at the beginning of the
   // \p Preheader.
-  VPValue *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
-                               VPValue *&AI, VPBasicBlock* Preheader);
+  VPAllocatePrivate *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
+                                         VPValue *&AI, VPBasicBlock *Preheader);
 
   // Process initial value \p Init of entity \p E.
   // If the private memory \p PrivateMem is not null then an instruction
@@ -1198,6 +1198,15 @@ private:
   void insertRunningInscanReductionInstrs(
       const SmallVectorImpl<const VPReduction *> &InscanReductions,
       VPBuilder &Builder);
+
+  // Insert reduction instructions for specific VPInscanReduction.
+  void processRunningInscanReduction(const VPInscanReduction *InscanReduction,
+                                     VPBasicBlock *FenceBlock,
+                                     VPBuilder &Builder);
+
+  // Insert reduction instructions for specific VPUserDefinedScanReduction.
+  void processRunningUDS(const VPUserDefinedScanReduction *UserDefinedScan,
+                         VPBasicBlock *FenceBlock, VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().

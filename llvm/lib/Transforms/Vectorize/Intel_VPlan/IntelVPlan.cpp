@@ -396,6 +396,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "running-inclusive-reduction";
   case VPInstruction::RunningExclusiveReduction:
     return "running-exclusive-reduction";
+  case VPInstruction::RunningInclusiveUDS:
+    return "running-inclusive-uds";
+  case VPInstruction::RunningExclusiveUDS:
+    return "running-exclusive-uds";
   case VPInstruction::ExtractLastVectorLane:
     return "extract-last-vector-lane";
   case VPInstruction::TransformLibraryCall:

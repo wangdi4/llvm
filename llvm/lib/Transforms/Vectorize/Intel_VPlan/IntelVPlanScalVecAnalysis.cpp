@@ -747,6 +747,23 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::RunningInclusiveUDS: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::RunningExclusiveUDS: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2 /*SecondArg*/, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::CompressStore: {
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
@@ -1141,6 +1158,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ExtractLastVectorLane:
   case VPInstruction::RunningInclusiveReduction:
   case VPInstruction::RunningExclusiveReduction:
+  case VPInstruction::RunningInclusiveUDS:
+  case VPInstruction::RunningExclusiveUDS:
   case VPInstruction::CompressStore:
   case VPInstruction::CompressStoreNonu:
   case VPInstruction::ExpandLoad:

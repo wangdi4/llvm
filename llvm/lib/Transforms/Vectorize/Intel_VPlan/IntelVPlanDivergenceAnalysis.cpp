@@ -1682,6 +1682,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::RunningExclusiveReduction)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningInclusiveUDS)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::RunningExclusiveUDS)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressStore)

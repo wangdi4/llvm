@@ -698,7 +698,11 @@ public:
                                //           vx0 + x,
                                //           x];
                                // }
-    ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
+    RunningInclusiveUDS,       // Represents running inclusive reduction for
+                               // user defined scan.
+    RunningExclusiveUDS,       // Represents running exclusive reduction for
+                               // user defined scan.
+    ExtractLastVectorLane,     // Extract a scalar from the last active lane.
     TransformLibraryCall,      // Transformed library call whose scalar
                                // signature does not match its vectorized
                                // signature. (e.g. sincos)
@@ -3090,6 +3094,83 @@ protected:
 
 private:
   unsigned BinOpcode;
+};
+
+class VPRunningUDSBase : public VPInstruction {
+protected:
+  VPRunningUDSBase(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                   Function *Combiner, Function *Initializer, Function *Ctor,
+                   Function *Dtor, unsigned OpCode)
+      : VPInstruction(OpCode, BaseTy, Operands), Combiner(Combiner),
+        Initializer(Initializer), Ctor(Ctor), Dtor(Ctor) {}
+
+public:
+  Function *getCombiner() const { return Combiner; }
+  Function *getInitializer() const { return Initializer; }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+
+protected:
+  Function *Combiner;
+  Function *Initializer;
+  Function *Ctor;
+  Function *Dtor;
+};
+
+/// Calculates the value of running inclusive user defined scan.
+/// Operands are:
+/// * private memory pointer;
+/// * original uds memory for accumulating the value.
+class VPRunningInclusiveUDS : public VPRunningUDSBase {
+public:
+  VPRunningInclusiveUDS(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        Function *Combiner, Function *Initializer,
+                        Function *Ctor, Function *Dtor)
+      : VPRunningUDSBase(BaseTy, Operands, Combiner, Initializer, Ctor, Dtor,
+                         VPInstruction::RunningInclusiveUDS) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast.
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::RunningInclusiveUDS;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const override {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new VPRunningInclusiveUDS(getType(), Ops, getCombiner(),
+                                     getInitializer(), getCtor(), getDtor());
+  }
+};
+
+/// Calculates the value of running exclusive user defined scan.
+/// Operands are:
+/// * private memory pointer;
+/// * original uds memory for accumulating the value;
+/// * temporary memory for calculation.
+class VPRunningExclusiveUDS : public VPRunningUDSBase {
+public:
+  VPRunningExclusiveUDS(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        Function *Combiner, Function *Initializer,
+                        Function *Ctor, Function *Dtor)
+      : VPRunningUDSBase(BaseTy, Operands, Combiner, Initializer, Ctor, Dtor,
+                         VPInstruction::RunningExclusiveUDS) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast.
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::RunningExclusiveUDS;
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const override {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPRunningExclusiveUDS(getType(), Ops, getCombiner(),
+                                     getInitializer(), getCtor(), getDtor());
+  }
 };
 
 /// Calculates the value of running inclusive reduction using the binary
