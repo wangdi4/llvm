@@ -118,6 +118,7 @@ static cl::opt<std::string> PassPipeline(
 static cl::alias PassPipeline2("p", cl::aliasopt(PassPipeline),
                                    cl::desc("Alias for -passes"));
 
+<<<<<<< HEAD
 static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
     "temporarily-allow-old-pass-syntax",
     cl::desc("Do not use in new tests. To be removed once all tests have "
@@ -126,6 +127,8 @@ static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
     cl::init(true));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 73472b6ee76aba9d487eddc5d51a71de3d7cddb8
 static cl::opt<bool> PrintPasses("print-passes",
                                  cl::desc("Print available passes that can be "
                                           "specified in -passes=foo and exit"));
@@ -614,6 +617,15 @@ int main(int argc, char **argv) {
   const bool UseNPM = (EnableNewPassManager && !shouldForceLegacyPM()) ||
                       PassPipeline.getNumOccurrences() > 0;
 
+  if (UseNPM && !PassList.empty()) {
+    errs() << "The `opt -passname` syntax for the new pass manager is "
+              "not supported, please use `opt -passes=<pipeline>` (or the `-p` "
+              "alias for a more concise version).\n";
+    errs() << "See https://llvm.org/docs/NewPassManager.html#invoking-opt "
+              "for more details on the pass pipeline syntax.\n\n";
+    return 1;
+  }
+
   if (!UseNPM && PluginList.size()) {
     errs() << argv[0] << ": " << PassPlugins.ArgStr
            << " specified with legacy PM.\n";
@@ -817,15 +829,6 @@ int main(int argc, char **argv) {
       errs() << "Cannot specify -O# and --passes=/--foo-pass, use "
                 "-passes='default<O#>,other-pass'\n";
       return 1;
-    }
-    if (!PassList.empty()) {
-      errs() << "The `opt -passname` syntax for the new pass manager is "
-                "deprecated, please use `opt -passes=<pipeline>` (or the `-p` "
-                "alias for a more concise version).\n";
-      errs() << "See https://llvm.org/docs/NewPassManager.html#invoking-opt "
-                "for more details on the pass pipeline syntax.\n\n";
-      if (!TemporarilyAllowOldPassesSyntax)
-        return 1;
     }
     std::string Pipeline = PassPipeline;
 
