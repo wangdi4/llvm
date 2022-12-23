@@ -57,11 +57,6 @@ declare void @sink() cold
 !7 = !DISubroutineType(types: !2)
 !8 = !{}
 !9 = !DILocation(line: 1, column: 1, scope: !6)
-<<<<<<< HEAD
 !10 = distinct !{!10, !9, !9}
 !11 = !DILocation(line: 2, column: 1, scope: !6)                         ;INTEL
-=======
-!10 = distinct !{!10, !9, !11}
-!11 = !DILocation(line: 2, column: 2, scope: !12)
 !12 = !DILexicalBlock(scope: !6, file: !1, line: 3, column: 3)
->>>>>>> cde2cc9a8f46acfa1f92b127de28748943dc2de8
