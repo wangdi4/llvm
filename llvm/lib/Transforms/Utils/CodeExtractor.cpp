@@ -2196,13 +2196,19 @@ static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
     if (!DII)
       continue;
 
-    // Point the intrinsic to a fresh label within the new function.
+    // Point the intrinsic to a fresh label within the new function if the
+    // intrinsic was not inlined from some other function.
     if (auto *DLI = dyn_cast<DbgLabelInst>(&I)) {
+      if (DLI->getDebugLoc().getInlinedAt())
+        continue;
       DILabel *OldLabel = DLI->getLabel();
       DINode *&NewLabel = RemappedMetadata[OldLabel];
-      if (!NewLabel)
-        NewLabel = DILabel::get(Ctx, NewSP, OldLabel->getName(),
+      if (!NewLabel) {
+        DILocalScope *NewScope = DILocalScope::cloneScopeForSubprogram(
+            *OldLabel->getScope(), *NewSP, Ctx, Cache);
+        NewLabel = DILabel::get(Ctx, NewScope, OldLabel->getName(),
                                 OldLabel->getFile(), OldLabel->getLine());
+      }
       DLI->setArgOperand(0, MetadataAsValue::get(Ctx, NewLabel));
       continue;
     }
