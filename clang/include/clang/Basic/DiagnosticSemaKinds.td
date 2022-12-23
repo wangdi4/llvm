@@ -10607,17 +10607,14 @@ def err_omp_reduction_incomplete_type : Error<
   "a reduction list item with incomplete type %0">;
 def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 def err_omp_unexpected_lastprivate_conditional : Error<
   "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
 // endif INTEL_CUSTOMIZATION
-=======
 def err_omp_unexpected_call_to_omp_runtime_api
     : Error<"calls to OpenMP runtime API are not allowed within a region that "
             "corresponds to a construct with an order clause that specifies "
             "concurrent">;
->>>>>>> 7c34e74c2547da645f0ae542dd95059bc5f8009a
 def err_omp_expected_var_name_member_expr : Error<
   "expected variable name%select{| or data member of current class}0">;
 def err_omp_expected_var_name_member_expr_with_type : Error<

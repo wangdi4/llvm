@@ -5102,13 +5102,6 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       ShouldBeInTeamsRegion,
       ShouldBeInLoopSimdRegion,
     } Recommend = NoRecommend;
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    if (isOpenMPSimdDirective(ParentRegion) && CurrentRegion == OMPD_prefetch) {
-      // 'ompx prefetch' is okay inside a 'simd' region.
-    } else
-#endif // INTEL_COLLAB
-=======
     if (SemaRef.LangOpts.OpenMP >= 51 && Stack->isParentOrderConcurrent() &&
         CurrentRegion != OMPD_simd && CurrentRegion != OMPD_loop &&
         CurrentRegion != OMPD_parallel &&
@@ -5117,7 +5110,11 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
           << getOpenMPDirectiveName(CurrentRegion);
       return true;
     }
->>>>>>> 7c34e74c2547da645f0ae542dd95059bc5f8009a
+#if INTEL_COLLAB
+    if (isOpenMPSimdDirective(ParentRegion) && CurrentRegion == OMPD_prefetch) {
+      // 'ompx prefetch' is okay inside a 'simd' region.
+    } else
+#endif // INTEL_COLLAB
     if (isOpenMPSimdDirective(ParentRegion) &&
         ((SemaRef.LangOpts.OpenMP <= 45 && CurrentRegion != OMPD_ordered) ||
          (SemaRef.LangOpts.OpenMP >= 50 && CurrentRegion != OMPD_ordered &&
