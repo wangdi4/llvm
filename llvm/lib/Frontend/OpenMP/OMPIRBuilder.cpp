@@ -4021,6 +4021,14 @@ void OpenMPIRBuilder::emitTargetRegionFunction(
   if (!IsOffloadEntry)
     return;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Add "target.entry" attribute to the outlined function.
+  OutlinedFn->addFnAttr("omp.target.entry");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
+
   std::string EntryFnIDName =
       Config.isEmbedded()
           ? std::string(EntryFnName)

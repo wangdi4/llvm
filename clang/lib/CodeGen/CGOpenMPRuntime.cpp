@@ -6311,39 +6311,10 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
       [this, &CGF, &D, &CodeGen](StringRef EntryFnName) {
         const CapturedStmt &CS = *D.getCapturedStmt(OMPD_target);
 
-<<<<<<< HEAD
-  OutlinedFn = BuildOutlinedFn
-                   ? CGF.GenerateOpenMPCapturedStmtFunction(CS, D.getBeginLoc())
-                   : nullptr;
-
-  // If this target outline function is not an offload entry, we don't need to
-  // register it.
-  if (!IsOffloadEntry)
-    return;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  // Add "target.entry" attribute to the outlined function.
-  OutlinedFn->addFnAttr("omp.target.entry");
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
-  // The target region ID is used by the runtime library to identify the current
-  // target region, so it only has to be unique and not necessarily point to
-  // anything. It could be the pointer to the outlined function that implements
-  // the target region, but we aren't using that so that the compiler doesn't
-  // need to keep that, and could therefore inline the host function if proven
-  // worthwhile during optimization. In the other hand, if emitting code for the
-  // device, the ID has to be the function address so that it can retrieved from
-  // the offloading entry and launched by the runtime library. We also mark the
-  // outlined function to have external linkage in case we are emitting code for
-  // the device, because these functions will be entry points to the device.
-=======
         CGOpenMPTargetRegionInfo CGInfo(CS, CodeGen, EntryFnName);
         CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
         return CGF.GenerateOpenMPCapturedStmtFunction(CS, D.getBeginLoc());
       };
->>>>>>> 1f8fecf26b35cef2713252fb020ff66cee248d99
 
   // Get NumTeams and ThreadLimit attributes
   int32_t DefaultValTeams = -1;
