@@ -1766,20 +1766,6 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
       ++NumLoadsSpeculated;
     auto &CondMemOp = cast<T>(*I.clone());
     CondMemOp.insertBefore(NewMemOpBB->getTerminator());
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    // Fix for typed pointers
-    auto *PtrType = CondMemOp.getPointerOperandType();
-    auto *Ptr = SI.getOperand(1 + SuccIdx);
-    if (PtrType != Ptr->getType()) {
-      auto *BC = new BitCastInst(Ptr, PtrType);
-      BC->insertBefore(&CondMemOp);
-      Ptr = BC;
-    }
-    CondMemOp.setOperand(I.getPointerOperandIndex(), Ptr);
-#endif // INTEL_CUSTOMIZATION
-
-=======
     Value *Ptr = SI.getOperand(1 + SuccIdx);
     if (auto *PtrTy = Ptr->getType();
         !PtrTy->isOpaquePointerTy() &&
@@ -1787,7 +1773,6 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
       Ptr = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
           Ptr, CondMemOp.getPointerOperandType(), "", &CondMemOp);
     CondMemOp.setOperand(I.getPointerOperandIndex(), Ptr);
->>>>>>> fd21361a794207e01b26e1db57217b0ddad47be5
     if (isa<LoadInst>(I)) {
       CondMemOp.setName(I.getName() + (IsThen ? ".then" : ".else") + ".val");
       PN->addIncoming(&CondMemOp, NewMemOpBB);
