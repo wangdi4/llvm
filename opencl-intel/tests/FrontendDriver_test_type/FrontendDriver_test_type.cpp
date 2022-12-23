@@ -546,8 +546,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+      spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
       SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
@@ -655,7 +655,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
       spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
       spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityRuntimeAlignedAttributeINTEL, SPIRVOpCapability,
+      spv::CapabilityRuntimeAlignedAttributeINTEL, SPIRVOpCapability,
       spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
       spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
@@ -715,8 +715,8 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+      spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
       SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
       SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       // Memory model
