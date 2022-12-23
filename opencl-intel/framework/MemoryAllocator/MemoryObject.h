@@ -409,7 +409,7 @@ protected:
   SharedPtr<Context> m_pContext; // context to which the memory object belongs
 
   cl_mem_object_type m_clMemObjectType;
-  cl_image_format m_clImageFormat;
+  cl_image_format m_clImageFormat = {0, 0};
   cl_mem_flags m_clFlags; // memory object's flags
   void *m_pHostPtr;
   Intel::OpenCL::Utils::AtomicPointer<IOCLDevBackingStore>

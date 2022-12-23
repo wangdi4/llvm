@@ -263,7 +263,7 @@ protected:
                        // resides
   cl_int m_returnCode; // The result of the completed command. Can be CL_SUCCESS
                        // or one of the errors defined by the spec.
-  cl_command_type m_commandType; // Command type
+  cl_command_type m_commandType = 0; // Command type
 
   ocl_gpa_command *m_pGpaCommand;
   bool m_bIsBeingDeleted; // Command destructor is active - to be check during
@@ -1440,7 +1440,7 @@ private:
   RuntimeCommandTask() : m_owner(nullptr){};
 
   CommandSharedPtr<PrePostFixRuntimeCommand> m_owner;
-  bool m_bIsCompleted;
+  bool m_bIsCompleted = false;
 };
 
 class PrePostFixRuntimeCommand : public RuntimeCommand {

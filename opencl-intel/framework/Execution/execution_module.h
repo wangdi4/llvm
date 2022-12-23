@@ -427,10 +427,10 @@ private:
 
   ocl_gpa_data *m_pGPAData;
 
-  OPENCL_VERSION m_opencl_ver;
+  OPENCL_VERSION m_opencl_ver = OPENCL_VERSION_UNKNOWN;
 
   // Whether parallel copy is enabled.
-  bool m_enableParallelCopy;
+  bool m_enableParallelCopy = false;
 
   DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 

@@ -171,8 +171,8 @@ private:
   unsigned long long m_ulStartExecTime;
   unsigned long long
       m_ulExecTime; // CL_PROFILING_COMMAND_END CL_PROFLING_COMMAND_START
-  unsigned long long m_ulCompleteTime; // CL_PROFILING_COMMAND_COMPLETE
-                                       // CL_PROFILING_COMAMND_START
+  unsigned long long m_ulCompleteTime = 0; // CL_PROFILING_COMMAND_COMPLETE
+                                           // CL_PROFILING_COMAMND_START
   volatile void *
       m_pExecTimeUserPtr; // a pointer to two 64-bit values: the first will hold
                           // m_ulExecTime and the second to m_ulCompleteTime

@@ -280,7 +280,7 @@ public:
     return m_codeProfilingStatus;
   }
 
-  unsigned int m_binaryVersion;
+  unsigned int m_binaryVersion = 0;
 
 protected:
   ObjectCodeContainer *m_pObjectCodeContainer;
@@ -291,7 +291,7 @@ protected:
   /// Runtime service. Reference counted
   RuntimeServiceSharedPtr m_RuntimeService;
   // Total size, in bytes, of program variables in the global address space
-  size_t m_globalVariableTotalSize;
+  size_t m_globalVariableTotalSize = 0;
   // Global variables (with non-internal linkage).
   std::vector<cl_prog_gv> m_globalVariables;
   // Names of global ctors sorted by priority

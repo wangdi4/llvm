@@ -65,9 +65,9 @@ enum KernelArgumentType {
  *  \brief Defines possible values for kernel argument types.
  */
 struct KernelArgument {
-  KernelArgumentType Ty;      //!< Type of the argument.
-  unsigned int SizeInBytes;   //!< Size of the argument in bytes
-  unsigned int OffsetInBytes; //!< Offset of the argument in argument buffer
+  KernelArgumentType Ty = KRNL_ARG_INT; //!< Type of the argument.
+  unsigned int SizeInBytes = 0;         //!< Size of the argument in bytes
+  unsigned int OffsetInBytes = 0; //!< Offset of the argument in argument buffer
 };
 
 /**
@@ -84,8 +84,8 @@ struct PACKED UniformKernelArgs {
   // gentype argN;
   // Kernel implicit arguments continue here
   // Start of WG size info
-  size_t WorkDim;                    // Filled by the runtime
-  size_t GlobalOffset[MAX_WORK_DIM]; // Filled by the runtime
+  size_t WorkDim;                      // Filled by the runtime
+  size_t GlobalOffset[MAX_WORK_DIM];   // Filled by the runtime
   size_t UserGlobalSize[MAX_WORK_DIM]; // Filled by the runtime
   size_t
       UserLocalSize[WG_SIZE_NUM]
@@ -105,7 +105,7 @@ struct PACKED UniformKernelArgs {
   size_t LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
   size_t WGCount[MAX_WORK_DIM];
   // End of WG size info
-  size_t MinWorkGroupNum;   // Filled by the runtime, Required by the heuristic
+  size_t MinWorkGroupNum; // Filled by the runtime, Required by the heuristic
   // Internal for Running the kernel
   const void *UniformJITEntryPoint;    // Filled by the BE
   const void *NonUniformJITEntryPoint; // Filled by the BE

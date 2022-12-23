@@ -324,7 +324,7 @@ protected:
   size_t m_reqdNumSG;
   size_t m_kernelExecutionLength;
   size_t m_vectorizationWidth;
-  size_t m_reqdSubGroupSize;
+  size_t m_reqdSubGroupSize = 0;
   std::string m_kernelAttributes;
   unsigned int m_minGroupSizeFactorial;
   bool m_isVectorizedWithTail;
@@ -338,8 +338,8 @@ protected:
   bool m_canUniteWG;
   unsigned int m_verctorizeOnDimention;
   bool m_debugInfo;
-  DeviceMode m_targetDevice;
-  size_t m_cpuMaxWGSize;
+  DeviceMode m_targetDevice = CPU_DEVICE;
+  size_t m_cpuMaxWGSize = 0;
   int m_subGroupConstructionMode;
 
 private:

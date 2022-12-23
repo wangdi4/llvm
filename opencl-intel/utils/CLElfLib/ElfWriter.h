@@ -87,7 +87,7 @@ protected:
   unsigned int m_dataSize;
   unsigned int m_numSections;
   unsigned int m_stringTableSize;
-  unsigned int m_totalBinarySize;
+  unsigned int m_totalBinarySize = 0;
 };
 
 } // namespace CLElfLib

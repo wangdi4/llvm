@@ -339,12 +339,12 @@ protected:
   void ReleaseStack(void *, size_t) const;
 
   std::string m_name;
-  unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
-  unsigned int m_CSRFlags; // Flags to be set during execution
+  unsigned int m_CSRMask = 0;  // Mask to be applied to set the execution flags
+  unsigned int m_CSRFlags = 0; // Flags to be set during execution
   std::vector<KernelArgument> m_explicitArgs;
   std::vector<cl_kernel_argument_info> m_explicitArgsInfo;
-  unsigned int m_explicitArgsSizeInBytes;
-  unsigned int m_RequiredUniformKernelArgsAlignment;
+  unsigned int m_explicitArgsSizeInBytes = 0;
+  unsigned int m_RequiredUniformKernelArgsAlignment = 0;
   std::vector<unsigned int> m_memArgs;
   KernelProperties *m_pProps;
   std::vector<IKernelJITContainer *> m_JITs;
@@ -355,7 +355,7 @@ protected:
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
-  mutable size_t m_stackActualSize;
+  mutable size_t m_stackActualSize = 0;
   bool m_useAutoMemory;
 
 private:
