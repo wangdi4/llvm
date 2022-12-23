@@ -347,7 +347,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            TargetLibraryInfoImpl *TLII, ToolOutputFile *Out,
                            ToolOutputFile *ThinLTOLinkOut,
                            ToolOutputFile *OptRemarkFile,
-                           StringRef PassPipeline, ArrayRef<StringRef> Passes,
+                           StringRef PassPipeline, ArrayRef<StringRef> Passes, // INTEL
                            ArrayRef<PassPlugin> PassPlugins,
                            OutputKind OK, VerifierKind VK,
                            bool ShouldPreserveAssemblyUseListOrder,
@@ -474,13 +474,16 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
 
   // Add passes according to the -passes options.
   if (!PassPipeline.empty()) {
+#ifdef INTEL_CUSTOMIZATION
     assert(Passes.empty() &&
            "PassPipeline and Passes should not both contain passes");
+#endif // INTEL_CUSTOMIZATION
     if (auto Err = PB.parsePassPipeline(MPM, PassPipeline)) {
       errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
       return false;
     }
   }
+#ifdef INTEL_CUSTOMIZATION
   // Add passes specified using the legacy PM syntax (i.e. not using
   // -passes). This should be removed later when such support has been
   // deprecated, i.e. when all lit tests running opt (and not using
@@ -494,6 +497,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
       return false;
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (VK > VK_NoVerifier)
     MPM.addPass(VerifierPass());

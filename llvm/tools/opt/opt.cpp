@@ -801,11 +801,13 @@ int main(int argc, char **argv) {
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
+#ifdef INTEL_CUSTOMIZATION
     if (PassPipeline.getNumOccurrences() > 0 && PassList.size() > 0) {
       errs()
           << "Cannot specify passes via both -foo-pass and --passes=foo-pass\n";
       return 1;
     }
+#endif //INTEL_CUSTOMIZATION
     auto NumOLevel = OptLevelO0 + OptLevelO1 + OptLevelO2 + OptLevelO3 +
                      OptLevelOs + OptLevelOz;
     if (NumOLevel > 1) {
@@ -813,7 +815,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     if (NumOLevel > 0 &&
-        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) {
+        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) { // INTEL
       errs() << "Cannot specify -O# and --passes=/--foo-pass, use "
                 "-passes='default<O#>,other-pass'\n";
       return 1;
@@ -831,7 +833,7 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
     std::string Pipeline = PassPipeline;
 
-    SmallVector<StringRef, 4> Passes;
+    SmallVector<StringRef, 4> Passes; // INTEL
     if (OptLevelO0)
       Pipeline = "default<O0>";
     if (OptLevelO1)
@@ -844,8 +846,10 @@ int main(int argc, char **argv) {
       Pipeline = "default<Os>";
     if (OptLevelOz)
       Pipeline = "default<Oz>";
+#ifdef INTEL_CUSTOMIZATION
     for (const auto &P : PassList)
       Passes.push_back(P->getPassArgument());
+#endif // INTEL_CUSTOMIZATION
     OutputKind OK = OK_NoOutput;
     if (!NoOutput)
       OK = OutputAssembly
@@ -863,7 +867,7 @@ int main(int argc, char **argv) {
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), &TLII, Out.get(),
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
-                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
+                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder, // INTEL
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify,
                            VerifyDebugInfoPreserve)
