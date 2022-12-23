@@ -323,8 +323,10 @@ public:
    * Assignment operator
    */
   CommandSharedPtr &operator=(const CommandSharedPtr &command) {
-    this->m_ptr = command.GetPtr();
-    m_pQueueEvent = (command ? command->GetEvent().GetPtr() : nullptr);
+    if (command != *this) {
+      this->m_ptr = command.GetPtr();
+      m_pQueueEvent = (command ? command->GetEvent().GetPtr() : nullptr);
+    }
     return *this;
   }
 
