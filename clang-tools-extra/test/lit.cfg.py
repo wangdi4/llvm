@@ -23,6 +23,16 @@ config.suffixes = ['.c', '.cpp', '.hpp', '.m', '.mm', '.cu', '.ll', '.cl', '.s',
 # from test suites; there won't be any lit tests within them.
 config.excludes = ['Inputs']
 
+# INTEL_CUSTOMIZATION
+if os.name == 'nt':
+    # On Windows, clang-tidy LIT tests are experiencing spurious failures
+    # that appear to be caused by an issue in python configuration.
+    # Please see CMPLRLLVM-42978 for more information.
+    # Before that issue is fixed, we suppress the tests in clang-tidy
+    # to reduce noises in alloy runs.
+    config.excludes.append('clang-tidy')
+# end INTEL_CUSTOMIZATION
+
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
 
