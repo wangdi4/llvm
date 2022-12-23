@@ -2625,6 +2625,7 @@ void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
           Operand, Plan.getVPConstant(ConstantInt::get(Operand->getType(), V)));
       AndI->setDebugLocation(Inst.getDebugLocation());
       Inst.replaceAllUsesWith(AndI);
+      Plan.getVPlanDA()->updateDivergence(*AndI);
       InstToRemove.push_back(&Inst); // Need first to remove the use
       InstToRemove.push_back(TruncI);
       return true;
