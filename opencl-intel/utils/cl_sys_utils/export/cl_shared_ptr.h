@@ -338,7 +338,8 @@ public:
    * @return a reference to this
    */
   SharedPtrBase &operator=(const SharedPtrBase &other) {
-    return operator=<T>(other);
+    this->operator=<T>(other);
+    return *this;
   }
 
   template <typename S>
