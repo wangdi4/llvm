@@ -21,5 +21,5 @@ entry:
 !0 = !{void (<8 x i8>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

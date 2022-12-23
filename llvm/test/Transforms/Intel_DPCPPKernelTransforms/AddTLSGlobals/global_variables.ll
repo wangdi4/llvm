@@ -11,13 +11,13 @@
 ; CHECK-NONOPAQUE: @pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* undef
 ; CHECK-NONOPAQUE: @pWGId = linkonce_odr thread_local global i64* undef
 ; CHECK-NONOPAQUE: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef
-; CHECK-NONOPAQUE: @pSpecialBuf = linkonce_odr thread_local global i8* undef
+; CHECK-NONOPAQUE-NOT: @pSpecialBuf
 ; CHECK-NONOPAQUE: @RuntimeHandle = linkonce_odr thread_local global {}* undef
 ;; Check OpaquePtr
 ; CHECK-OPAQUE: @pWorkDim = linkonce_odr thread_local global ptr undef
 ; CHECK-OPAQUE: @pWGId = linkonce_odr thread_local global ptr undef
 ; CHECK-OPAQUE: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef
-; CHECK-OPAQUE: @pSpecialBuf = linkonce_odr thread_local global ptr undef
+; CHECK-OPAQUE-NOT: @pSpecialBuf
 ; CHECK-OPAQUE: @RuntimeHandle = linkonce_odr thread_local global ptr undef
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -52,5 +52,5 @@ entry:
 !0 = !{void (i32, <2 x i32>, <2 x i32>, <3 x i32>, <16 x i32>, <4 x i32>, <8 x i32>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-54: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

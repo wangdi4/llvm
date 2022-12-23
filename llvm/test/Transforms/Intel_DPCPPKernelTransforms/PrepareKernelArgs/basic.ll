@@ -65,19 +65,15 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK-ARG: %BaseGlbId = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
 ; CHECK-TLS: [[IV2:%[a-zA-Z0-9]+]] = insertvalue [4 x i64] [[IV1]], i64 [[ADD2]], 2
 ; CHECK-TLS: store [4 x i64] [[IV2]], [4 x i64]* @BaseGlbId
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %InternalLocalSize_0, %InternalLocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %InternalLocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 0, %LocalSizeProd
-; CHECK-ARG: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK:     ret void
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @A}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function A
+; DEBUGIFY-COUNT-38: WARNING: Instruction with empty DebugLoc in function A
 ; DEBUGIFY-NOT: WARNING
 
 ; DEBUGIFY-TLS-NOT: WARNING
-; DEBUGIFY-TLS-COUNT-47: WARNING: Instruction with empty DebugLoc in function A
+; DEBUGIFY-TLS-COUNT-42: WARNING: Instruction with empty DebugLoc in function A
 ; DEBUGIFY-TLS-NOT: WARNING

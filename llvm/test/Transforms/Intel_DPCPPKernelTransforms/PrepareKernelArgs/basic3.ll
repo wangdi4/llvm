@@ -62,15 +62,11 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %32 = insertvalue [4 x i64] undef, i64 %27, 0
 ; CHECK: %33 = insertvalue [4 x i64] %32, i64 %29, 1
 ; CHECK: %BaseGlbId = insertvalue [4 x i64] %33, i64 %31, 2
-; CHECK-NEXT: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %InternalLocalSize_0, %InternalLocalSize_1
-; CHECK-NEXT: %LocalSizeProd = mul nuw nsw i64 [[MUL01]], %InternalLocalSize_2
-; CHECK-NEXT: %BarrierBufferSize = mul nuw nsw i64 0, %LocalSizeProd
-; CHECK-NEXT: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK-NEXT: ret void
 
 !sycl.kernels = !{!0}
 !0 = !{void (<4 x i8>, <4 x i8>, <4 x i16>, <4 x i16>, <4 x i32>, <4 x i32>, <4 x float>, <4 x float> addrspace(1)*)* @A}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-57: WARNING: Instruction with empty DebugLoc in function A {{.*}}
+; DEBUGIFY-COUNT-53: WARNING: Instruction with empty DebugLoc in function A {{.*}}
 ; DEBUGIFY-NOT: WARNING

@@ -35,8 +35,6 @@ class Twine;
 
 // Pseudo functions for barrier passes
 #define DUMMY_BARRIER_FUNC_NAME "dummy_barrier."
-#define GET_SPECIAL_BUFFER "get_special_buffer."
-#define GET_BASE_GID "get_base_global_id."
 
 #define CLK_LOCAL_MEM_FENCE 0x01
 #define CLK_GLOBAL_MEM_FENCE 0x02
@@ -211,7 +209,7 @@ private:
   /// \param pResult type of return value of the function
   /// \param funcTyArgs types vector of all arguments values of the function
   /// \returns Function new declared function
-  Function *createFunctionDeclaration(const Twine &name, Type *pResult,
+  Function *createFunctionDeclaration(StringRef name, Type *pResult,
                                       ArrayRef<Type *> funcTyArgs);
 
   /// \brief Add ReadNone attribute to given function.

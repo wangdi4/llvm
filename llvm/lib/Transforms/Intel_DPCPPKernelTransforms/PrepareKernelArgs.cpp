@@ -226,8 +226,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   SmallVector<Value *, 4> LocalSize;
   unsigned PtrSizeInBytes = M->getDataLayout().getPointerSize();
   ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes);
-  uint64_t SLMSizeInBytes =
-      KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
   for (unsigned int I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     Value *Arg = nullptr;
     if (!UseTLSGlobals)
@@ -242,13 +240,15 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
            "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
+      uint64_t SizeInBytes =
+          KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
+      if (SizeInBytes == 0) { // no need to create of pad this buffer.
         Arg = Constant::getNullValue(PointerType::get(I8Ty, 3));
       } else {
         // add stack padding before and after this alloca, to allow unmasked
         // wide loads inside the vectorizer.
         Type *SLMType =
-            ArrayType::get(I8Ty, SLMSizeInBytes + STACK_PADDING_BUFFER * 2);
+            ArrayType::get(I8Ty, SizeInBytes + STACK_PADDING_BUFFER * 2);
         const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
         // Set alignment of implicit local buffer to max alignment.
         // TODO: we should choose the min required alignment size
@@ -311,10 +311,15 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       Arg = U;
     } break;
     case ImplicitArgsUtils::IA_BARRIER_BUFFER: {
+      const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
       // We obtain the number of bytes needed per item from the Metadata
       // which is set by the Barrier pass
       uint64_t SizeInBytes =
           KIMD.BarrierBufferSize.hasValue() ? KIMD.BarrierBufferSize.get() : 0;
+      if (SizeInBytes == 0) {
+        Arg = Constant::getNullValue(PointerType::get(I8Ty, AllocaAddrSpace));
+        break;
+      }
       // BarrierBufferSize := BytesNeededPerWI
       //                      * ((LocalSize(0) + VF - 1) / VF) * VF
       //                      * LocalSize(1) * LocalSize(2)
@@ -350,7 +355,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                                             /*HasNUW*/ true, /*HasNSW*/ true);
 
       // alloca i8, %BarrierBufferSize
-      const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
       // TODO: we should choose the min required alignment size
       AllocaInst *BarrierBuffer =
           new AllocaInst(I8Ty, AllocaAddrSpace, BarrierBufferSize,
@@ -379,7 +383,10 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
     if (UseTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
-      if (!(I == ImplicitArgsUtils::IA_SLM_BUFFER && SLMSizeInBytes == 0)) {
+      auto *C = dyn_cast<Constant>(Arg);
+      if (!(C && C->isNullValue() &&
+            (I == ImplicitArgsUtils::IA_SLM_BUFFER ||
+             I == ImplicitArgsUtils::IA_BARRIER_BUFFER))) {
         GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
         Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
       }

@@ -52,5 +52,5 @@ entry:
 !0 = !{void (double, <2 x double>, <2 x double>, <3 x double>, <16 x double>, <4 x double>, <8 x double>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-54: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

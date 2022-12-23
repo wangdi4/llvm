@@ -23,5 +23,5 @@ define void @test(i32 %a) #0 {
 attributes #0 = { noinline nounwind optnone "failed-to-vectorize" "min-legal-vector-width"="0" }
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function {{.*}}test{{.*}}
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function {{.*}}test{{.*}}
 ; DEBUGIFY-NOT: WARNING

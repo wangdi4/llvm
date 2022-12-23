@@ -50,6 +50,6 @@ attributes #0 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 !14 = !{i32 16}
 !15 = !{i32 6}
 
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}
 ; DEBUGIFY-COUNT-38: WARNING: Instruction with empty DebugLoc in function __Vectorized_.test {{.*}}
 ; DEBUGIFY-NOT: WARNING
