@@ -12,11 +12,11 @@
 ;             Running analysis: TargetLibraryAnalysis
 ; CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, {{.*Module.*}}> ;INTEL
 ; CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis                                        ;INTEL
-; CHECK-NEXT: Running pass: InlineReportSetupPass
-; CHECK-NEXT: Running pass: InlineListsPass
-; CHECK-NEXT: Running pass: CoroEarlyPass
-; CHECK-NEXT: Running pass: LowerSubscriptIntrinsicPass
-; CHECK-NEXT: Running pass: DopeVectorConstPropPass
+;             Running pass: InlineReportSetupPass  ;INTEL
+;             Running pass: InlineListsPass        ;INTEL
+;             Running pass: CoroEarlyPass
+;             Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK:      Running pass: DopeVectorConstPropPass     ;INTEL
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: LoopAnalysis
@@ -50,39 +50,39 @@
 ; CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running pass: VPOParoptPreparePass
-; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis
-; CHECK-NEXT: Running pass: LowerExpectIntrinsicPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: EarlyCSEPass
-; CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: LoopAnalysis
-; CHECK-NEXT: Invalidating analysis: BasicAA
-; CHECK-NEXT: Invalidating analysis: AAManager
-; CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis
-; CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis
-; CHECK-NEXT: Running pass: IPSCCPPass
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: CalledValuePropagationPass
-; CHECK-NEXT: Running pass: GlobalOptPass
-; CHECK-NEXT: Running pass: PromotePass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running pass: JumpThreadingPass
-; CHECK-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: LoopAnalysis
-; CHECK-NEXT: Invalidating analysis: BasicAA
-; CHECK-NEXT: Invalidating analysis: AAManager
-; CHECK-NEXT: Invalidating analysis: LazyValueAnalysis
-; CHECK-NEXT: Invalidating analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: ModuleInlinerWrapperPass
+; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
+;             Running pass: LowerExpectIntrinsicPass
+;             Running pass: SimplifyCFGPass
+;             Running pass: SROAPass
+;             Running pass: EarlyCSEPass
+;             Invalidating analysis: DominatorTreeAnalysis
+;             Invalidating analysis: LoopAnalysis
+;             Invalidating analysis: BasicAA
+;             Invalidating analysis: AAManager
+;             Invalidating analysis: ScalarEvolutionAnalysis
+;             Invalidating analysis: WRegionCollectionAnalysis
+;             Invalidating analysis: WRegionInfoAnalysis
+;             Running pass: IPSCCPPass
+;             Running analysis: DominatorTreeAnalysis
+;             Running pass: CalledValuePropagationPass
+;             Running pass: GlobalOptPass
+;             Running pass: PromotePass
+; CHECK:      Running pass: VPOCFGRestructuringPass ;INTEL
+;             Running analysis: LoopAnalysis
+; CHECK:      Running pass: InstCombinePass
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+;             Running pass: JumpThreadingPass
+;             Running analysis: LazyValueAnalysis
+;             Running analysis: PostDominatorTreeAnalysis
+;             Running pass: SimplifyCFGPass
+;             Invalidating analysis: DominatorTreeAnalysis
+;             Invalidating analysis: LoopAnalysis
+;             Invalidating analysis: BasicAA
+;             Invalidating analysis: AAManager
+;             Invalidating analysis: LazyValueAnalysis
+;             Invalidating analysis: PostDominatorTreeAnalysis
+; CHECK:      Running pass: ModuleInlinerWrapperPass
 ; CHECK-NEXT: Running analysis: InlineAdvisorAnalysi
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::GlobalsAA{{.*}}>
 ; CHECK-NEXT: Running analysis: GlobalsAA
@@ -103,6 +103,7 @@
 ; CHECK-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Running pass: VPOParoptSharedPrivatizationPass
 ; CHECK-NEXT: Running analysis: WRegionInfoAnalysis
 ; CHECK-NEXT: Running analysis: WRegionCollectionAnalysis
@@ -117,6 +118,7 @@
 ; CHECK-NEXT: Invalidating analysis: AAManager
 ; CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis
 ; CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
@@ -139,247 +141,244 @@
 ; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running pass: ModuleInlinerWrapperPass
-; CHECK-NEXT: Running analysis: InlineAdvisorAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>
-; CHECK-NEXT: Running pass: InvalidateAnalysisPass<llvm::AAManager>
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ProfileSummaryAnalysis{{.*}}>
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*SCC.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running analysis: LazyCallGraphAnalysis
-; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}>
-; CHECK-NEXT: Running pass: DevirtSCCRepeatedPass
-; CHECK-NEXT: Running pass: InlinerPass
-; CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-NEXT: Running pass: InlinerPass
-; CHECK-NEXT: Running pass: ArgumentPromotionPass
-; CHECK-NEXT: Running pass: SROAPass
-; CHECK-DAG:  Running analysis: DominatorTreeAnalysis
-; CHECK-DAG:  Running analysis: AssumptionAnalysis
-; CHECK-DAG:  Running analysis: TargetIRAnalysis
-; CHECK-NEXT: Running pass: PostOrderFunctionAttrsPass
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running analysis: ScopedNoAliasAA
-; CHECK-NEXT: Running analysis: TypeBasedAA
-; CHECK-NEXT: Running analysis: StdContainerAA
-; CHECK-NEXT: Running pass: OpenMPOptCGSCCPass
-; CHECK-NEXT: Running pass: TbaaMDPropagationPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<{{.*OptReportOptionsAnalysis.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis
-; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: EarlyCSEPass
-; CHECK-NEXT: Running analysis: MemorySSAAnalysis
-; CHECK-NEXT: Running pass: SpeculativeExecutionPass
-; CHECK-NEXT: Running pass: JumpThreadingPass
-; CHECK-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: CorrelatedValuePropagationPass
-; CHECK-NEXT: Invalidating analysis: LazyValueAnalysis
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: LibCallsShrinkWrapPass
-; CHECK-NEXT: Running pass: TailCallElimPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: ReassociatePass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<{{.*OptimizationRemarkEmitterAnalysis.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running pass: LoopInstSimplifyPass
-; CHECK-NEXT: Running pass: LoopSimplifyCFGPass
-; CHECK-NEXT: Running pass: LICMPass
-; CHECK-NEXT: Running pass: LoopRotatePass
-; CHECK-NEXT: Running pass: LICMPass
-; CHECK-NEXT: Running pass: SimpleLoopUnswitchPass
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Loop.*}}>
-; CHECK-NEXT: Running pass: LoopFlattenPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK-NEXT: Running pass: LoopIdiomRecognizePass
-; CHECK-NEXT: Running pass: IndVarSimplifyPass
-; CHECK-NEXT: Running pass: LoopDeletionPass
-; CHECK-NEXT: Running pass: LoopFullUnrollPass
-; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: VectorCombinePass
-; CHECK-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-NEXT: Running pass: GVNPass
-; CHECK-NEXT: Running analysis: MemoryDependenceAnalysis
-; CHECK-NEXT: Running analysis: PhiValuesAnalysis
-; CHECK-NEXT: Running pass: SCCPPass
-; CHECK-NEXT: Running pass: BDCEPass
-; CHECK-NEXT: Running analysis: DemandedBitsAnalysis
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: JumpThreadingPass
-; CHECK-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-NEXT: Running pass: CorrelatedValuePropagationPass
-; CHECK-NEXT: Invalidating analysis: LazyValueAnalysis
-; CHECK-NEXT: Running pass: ADCEPass
-; CHECK-NEXT: Running pass: MemCpyOptPass
-; CHECK-NEXT: Running pass: DSEPass
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK-NEXT: Running pass: LICMPass
-; CHECK-NEXT: Running pass: CoroElidePass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: TransformSinAndCosCallsPass
-; CHECK-NEXT: Clearing all analysis results for: <possibly invalidated loop>
-; CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: BasicAA
-; CHECK-NEXT: Invalidating analysis: AAManager
-; CHECK-NEXT: Invalidating analysis: MemorySSAAnalysis
-; CHECK-NEXT: Invalidating analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: LoopAnalysis
-; CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Invalidating analysis: PhiValuesAnalysis
-; CHECK-NEXT: Invalidating analysis: MemoryDependenceAnalysis
-; CHECK-NEXT: Invalidating analysis: DemandedBitsAnalysis
-; CHECK-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
-; CHECK-NEXT: Running pass: CoroSplitPass
-; CHECK-NEXT: Running pass: InvalidateAnalysisPass<{{.*ShouldNotRunFunctionPassesAnalysis.*}}>
-; CHECK-NEXT: Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
-; CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis
-; CHECK-NEXT: Running pass: IPSCCPPass
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
-; CHECK-NEXT: Running pass: CoroCleanupPass
-; CHECK-NEXT: Running pass: GlobalOptPass
-; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running pass: GlobalDCEPass
-; CHECK-NEXT: Running pass: StdContainerOptPass
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running pass: CleanupFakeLoadsPass
-; CHECK-NEXT: Running pass: EliminateAvailableExternallyPass
-; CHECK-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::AndersensAA, {{.*Module.*}}>
-; CHECK-NEXT: Running analysis: AndersensAA
-; CHECK-NEXT: Running pass: NonLTOGlobalOptPass
-; CHECK-NEXT: Running pass: PromotePass
-; CHECK-NEXT: Running pass: ADCEPass
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: RecomputeGlobalsAAPass
-; CHECK-NEXT: Running pass: Float2IntPass
-; CHECK-NEXT: Running pass: LowerConstantIntrinsicsPass
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running pass: LoopRotatePass
-; CHECK-NEXT: Running pass: LoopDeletionPass
-; CHECK-NEXT: Running pass: VecClonePass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*CGSCCAnalysisManager.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running pass: EarlyCSEPass
-; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running pass: AlignmentFromAssumptionsPass
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running pass: VPORestoreOperandsPass
-; CHECK-NEXT: Running pass: VPlanPragmaOmpSimdIfPass
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LowerSwitchPass
-; CHECK-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
-; CHECK-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running analysis: ScopedNoAliasAA
-; CHECK-NEXT: Running analysis: TypeBasedAA
-; CHECK-NEXT: Running analysis: StdContainerAA
-; CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-NEXT: Running pass: vpo::VPlanDriverPass
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-DAG: Running analysis: TargetLibraryAnalysis
-; CHECK-DAG: Running analysis: AssumptionAnalysis
-; CHECK-DAG: Running analysis: TargetIRAnalysis
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
-; CHECK-NEXT: Running analysis: ScopedNoAliasAA
-; CHECK-NEXT: Running analysis: TypeBasedAA
-; CHECK-NEXT: Running analysis: StdContainerAA
-; CHECK-NEXT: Running analysis: DemandedBitsAnalysis
-; CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
-; CHECK-NEXT: Running analysis: OptReportOptionsAnalysis
-; CHECK-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-NEXT: Running analysis: BranchProbabilityAnalysis
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: LoopAccessAnalysis
-; CHECK-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-NEXT: Running pass: AlwaysInlinerPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPODirectiveCleanupPass
-; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: VPORestoreOperandsPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPOParoptSharedPrivatizationPass
-; CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass
-; CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: LoopAnalysis
-; CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Invalidating analysis: BasicAA
-; CHECK-NEXT: Invalidating analysis: AAManager
-; CHECK-NEXT: Invalidating analysis: DemandedBitsAnalysis
-; CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis
-; CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis
-; CHECK-NEXT: Invalidating analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Invalidating analysis: BranchProbabilityAnalysis
-; CHECK-NEXT: Invalidating analysis: BlockFrequencyAnalysis
-; CHECK-NEXT: Invalidating analysis: LoopAccessAnalysis
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: VPOParoptPass
-; CHECK-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-NEXT: Running analysis: WRegionCollectionAnalysis
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: AAManager
-; CHECK-NEXT: Running analysis: BasicAA
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPODirectiveCleanupPass
-; CHECK-NEXT: Running pass: VPOCFGSimplifyPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass
-; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: VPORenameOperandsPass
+;             Running pass: ModuleInlinerWrapperPass
+;             Running analysis: InlineAdvisorAnalysis
+;             Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, {{.*Module.*}}>
+;             Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>
+;             Running pass: InvalidateAnalysisPass<llvm::AAManager>
+;             Running pass: RequireAnalysisPass<llvm::ProfileSummaryAnalysis{{.*}}>
+;             Running analysis: InnerAnalysisManagerProxy<{{.*SCC.*}}, {{.*Module.*}}>
+;             Running analysis: LazyCallGraphAnalysis
+;             Running analysis: TargetLibraryAnalysis
+;             Running analysis: FunctionAnalysisManagerCGSCCProxy
+;             Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}>
+;             Running pass: DevirtSCCRepeatedPass
+;             Running pass: InlinerPass
+;             Running analysis: OptimizationRemarkEmitterAnalysis
+;             Running pass: InlinerPass
+;             Running pass: ArgumentPromotionPass
+;             Running pass: SROAPass
+;             Running analysis: DominatorTreeAnalysis
+;             Running analysis: AssumptionAnalysis
+;             Running analysis: TargetIRAnalysis
+;             Running pass: PostOrderFunctionAttrsPass
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+;             Running analysis: XmainOptLevelAnalysis
+;             Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*Function.*}}>
+;             Running analysis: ScopedNoAliasAA
+;             Running analysis: TypeBasedAA
+;             Running analysis: StdContainerAA
+;             Running pass: OpenMPOptCGSCCPass
+;             Running pass: TbaaMDPropagationPass
+;             Running pass: RequireAnalysisPass<{{.*OptReportOptionsAnalysis.*}}, {{.*Function.*}}>
+;             Running analysis: OptReportOptionsAnalysis
+;             Running pass: SROAPass
+;             Running pass: EarlyCSEPass
+;             Running analysis: MemorySSAAnalysis
+;             Running pass: SpeculativeExecutionPass
+;             Running pass: JumpThreadingPass
+;             Running analysis: LazyValueAnalysis
+;             Running analysis: PostDominatorTreeAnalysis
+;             Running pass: CorrelatedValuePropagationPass
+;             Invalidating analysis: LazyValueAnalysis
+;             Running pass: SimplifyCFGPass
+; CHECK:      Running pass: VPOCFGRestructuringPass ;INTEL
+;             Running analysis: LoopAnalysis
+; CHECK:      Running pass: InstCombinePass
+;             Running pass: LibCallsShrinkWrapPass
+;             Running pass: TailCallElimPass
+;             Running pass: SimplifyCFGPass
+;             Running pass: ReassociatePass
+;             Running pass: RequireAnalysisPass<{{.*OptimizationRemarkEmitterAnalysis.*}}, {{.*Function.*}}>
+;             Running pass: LoopSimplifyPass
+;             Running pass: LCSSAPass
+;             Running analysis: ScalarEvolutionAnalysis
+;             Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
+;             Running pass: LoopInstSimplifyPass
+;             Running pass: LoopSimplifyCFGPass
+;             Running pass: LICMPass
+;             Running pass: LoopRotatePass
+;             Running pass: LICMPass
+;             Running pass: SimpleLoopUnswitchPass
+;             Running analysis: OuterAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Loop.*}}>
+;             Running pass: SimplifyCFGPass
+; CHECK:      Running pass: VPOCFGRestructuringPass ;INTEL
+; CHECK:      Running pass: InstCombinePass
+;             Running pass: LoopSimplifyPass
+;             Running pass: LCSSAPass
+;             Running pass: LoopIdiomRecognizePass
+;             Running pass: IndVarSimplifyPass
+;             Running pass: LoopDeletionPass
+;             Running pass: LoopFullUnrollPass
+;             Running pass: SROAPass
+;             Running pass: VectorCombinePass
+;             Running pass: MergedLoadStoreMotionPass
+;             Running pass: GVNPass
+;             Running analysis: MemoryDependenceAnalysis
+;             Running pass: SCCPPass
+;             Running pass: BDCEPass
+;             Running analysis: DemandedBitsAnalysis
+; CHECK:      Running pass: VPOCFGRestructuringPass ;INTEL
+; CHECK:      Running pass: InstCombinePass
+;             Running pass: JumpThreadingPass
+;             Running analysis: LazyValueAnalysis
+;             Running pass: CorrelatedValuePropagationPass
+;             Invalidating analysis: LazyValueAnalysis
+;             Running pass: ADCEPass
+;             Running pass: MemCpyOptPass
+;             Running pass: DSEPass
+;             Running pass: LoopSimplifyPass
+;             Running pass: LCSSAPass
+;             Running pass: LICMPass
+;             Running pass: CoroElidePass
+;             Running pass: SimplifyCFGPass
+; CHECK:      Running pass: VPOCFGRestructuringPass ;INTEL
+; CHECK:      Running pass: InstCombinePass
+; CHECK:      Running pass: TransformSinAndCosCallsPass ;INTEL
+;             Clearing all analysis results for: <possibly invalidated loop>
+;             Invalidating analysis: DominatorTreeAnalysis
+;             Invalidating analysis: BasicAA
+;             Invalidating analysis: AAManager
+;             Invalidating analysis: MemorySSAAnalysis
+;             Invalidating analysis: PostDominatorTreeAnalysis
+;             Invalidating analysis: LoopAnalysis
+;             Invalidating analysis: ScalarEvolutionAnalysis
+;             Invalidating analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
+;             Invalidating analysis: MemoryDependenceAnalysis
+;             Invalidating analysis: DemandedBitsAnalysis
+;             Running analysis: ShouldNotRunFunctionPassesAnalysis
+;             Running pass: CoroSplitPass
+;             Running pass: InvalidateAnalysisPass<{{.*ShouldNotRunFunctionPassesAnalysis.*}}>
+;             Invalidating analysis: ShouldNotRunFunctionPassesAnalysis
+;             Invalidating analysis: InlineAdvisorAnalysis
+;             Running pass: IPSCCPPass
+;             Running analysis: DominatorTreeAnalysis
+;             Running pass: DeadArgumentEliminationPass
+;             Running pass: CoroCleanupPass
+;             Running pass: GlobalOptPass
+;             Running analysis: TargetLibraryAnalysis
+;             Running pass: GlobalDCEPass
+;             Running pass: StdContainerOptPass
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+;             Running pass: CleanupFakeLoadsPass
+;             Running pass: EliminateAvailableExternallyPass
+;             Running pass: ReversePostOrderFunctionAttrsPass
+;             Running analysis: CallGraphAnalysis
+;             Running pass: RequireAnalysisPass<llvm::AndersensAA, {{.*Module.*}}>
+;             Running analysis: AndersensAA
+;             Running pass: NonLTOGlobalOptPass
+;             Running pass: PromotePass
+;             Running pass: ADCEPass
+;             Running analysis: PostDominatorTreeAnalysis
+;             Running pass: RecomputeGlobalsAAPass
+;             Running pass: Float2IntPass
+;             Running pass: LowerConstantIntrinsicsPass
+;             Running pass: LoopSimplifyPass
+;             Running analysis: LoopAnalysis
+;             Running pass: LCSSAPass
+;             Running analysis: ScalarEvolutionAnalysis
+;             Running analysis: InnerAnalysisManagerProxy<{{.*LoopAnalysisManager.*}}, {{.*Function.*}}>
+;             Running pass: LoopRotatePass
+;             Running pass: LoopDeletionPass
+; CHECK:      Running pass: VecClonePass
+;             Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
+;             Invalidating analysis: LazyCallGraphAnalysis
+;             Invalidating analysis: InnerAnalysisManagerProxy<{{.*CGSCCAnalysisManager.*}}, {{.*Module.*}}>
+;             Invalidating analysis: CallGraphAnalysis
+;             Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
+; CHECK:      Running pass: EarlyCSEPass
+;             Running analysis: TargetLibraryAnalysis
+;             Running analysis: TargetIRAnalysis
+;             Running analysis: DominatorTreeAnalysis
+; CHECK:      Running analysis: AssumptionAnalysis
+; CHECK:      Running pass: AlignmentFromAssumptionsPass
+;             Running analysis: ScalarEvolutionAnalysis
+;             Running analysis: LoopAnalysis
+; CHECK:      Running pass: VPORestoreOperandsPass   ;INTEL
+; CHECK:      Running pass: VPlanPragmaOmpSimdIfPass ;INTEL
+;             Running pass: LoopSimplifyPass
+;             Running pass: LowerSwitchPass
+;             Running analysis: LazyValueAnalysis
+;             Running pass: LCSSAPass
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+;             Running analysis: WRegionInfoAnalysis
+;             Running analysis: WRegionCollectionAnalysis
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+;             Running analysis: XmainOptLevelAnalysis
+;             Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
+;             Running analysis: ScopedNoAliasAA
+;             Running analysis: TypeBasedAA
+;             Running analysis: StdContainerAA
+;             Running analysis: OptimizationRemarkEmitterAnalysis
+;             Invalidating analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
+;             Running analysis: InnerAnalysisManagerProxy<{{.*FunctionAnalysisManager.*}}, {{.*Module.*}}>
+; CHECK:      Running pass: VPOCFGRestructuringPass
+;             Running analysis: DominatorTreeAnalysis
+;             Running analysis: LoopAnalysis
+; CHECK:      Running pass: MathLibraryFunctionsReplacementPass ;INTEL
+; CHECK:      Running pass: vpo::VPlanDriverPass
+;             Running analysis: ScalarEvolutionAnalysis
+;             Running analysis: TargetLibraryAnalysis
+;             Running analysis: AssumptionAnalysis
+;             Running analysis: TargetIRAnalysis
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+;             Running analysis: XmainOptLevelAnalysis
+;             Running analysis: OuterAnalysisManagerProxy<{{.*ModuleAnalysisManager.*}}, {{.*Function.*}}>
+;             Running analysis: ScopedNoAliasAA
+;             Running analysis: TypeBasedAA
+;             Running analysis: StdContainerAA
+;             Running analysis: DemandedBitsAnalysis
+;             Running analysis: OptimizationRemarkEmitterAnalysis
+;             Running analysis: OptReportOptionsAnalysis
+;             Running analysis: WRegionInfoAnalysis
+;             Running analysis: WRegionCollectionAnalysis
+;             Running analysis: BlockFrequencyAnalysis
+;             Running analysis: BranchProbabilityAnalysis
+;             Running analysis: PostDominatorTreeAnalysis
+;             Running analysis: LoopAccessAnalysis
+; CHECK:      Running pass: MathLibraryFunctionsReplacementPass
+;             Running pass: AlwaysInlinerPass
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPODirectiveCleanupPass
+;             Running pass: SROAPass
+;             Running pass: SimplifyCFGPass
+; CHECK:      Running pass: VPORestoreOperandsPass
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPOParoptSharedPrivatizationPass
+; CHECK:      Running pass: VPOParoptOptimizeDataSharingPass
+;             Invalidating analysis: DominatorTreeAnalysis
+;             Invalidating analysis: LoopAnalysis
+;             Invalidating analysis: ScalarEvolutionAnalysis
+;             Invalidating analysis: BasicAA
+;             Invalidating analysis: AAManager
+;             Invalidating analysis: DemandedBitsAnalysis
+;             Invalidating analysis: WRegionCollectionAnalysis
+;             Invalidating analysis: WRegionInfoAnalysis
+;             Invalidating analysis: PostDominatorTreeAnalysis
+;             Invalidating analysis: BranchProbabilityAnalysis
+;             Invalidating analysis: BlockFrequencyAnalysis
+;             Invalidating analysis: LoopAccessAnalysis
+;             Running pass: LoopSimplifyPass
+;             Running analysis: LoopAnalysis
+;             Running analysis: DominatorTreeAnalysis
+; CHECK:      Running pass: VPOParoptPass
+;             Running analysis: WRegionInfoAnalysis
+;             Running analysis: WRegionCollectionAnalysis
+;             Running analysis: ScalarEvolutionAnalysis
+;             Running analysis: AAManager
+;             Running analysis: BasicAA
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPODirectiveCleanupPass
+; CHECK:      Running pass: VPOCFGSimplifyPass
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPOParoptGuardMemoryMotionPass
+; CHECK:      Running pass: VPOCFGRestructuringPass
+; CHECK:      Running pass: VPORenameOperandsPass
 ;             Running pass: AlwaysInlinerPass
 ;             Running pass: GlobalDCEPass
 ;             Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, {{.*Module.*}}>
