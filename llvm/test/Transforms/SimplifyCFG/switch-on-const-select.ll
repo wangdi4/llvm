@@ -3,9 +3,14 @@
 
 ; Test basic folding to a conditional branch.
 define i32 @foo(i64 %x, i64 %y) nounwind {
-; CHECK-LABEL: @foo(
+; CHECK-LABEL: define {{[^@]+}}@foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[EQ_NOT:%.*]] = icmp ne i64 [[X:%.*]], [[Y:%.*]]
+; INTEL_CUSTOMIZATION
+; llorg is adding an instsimplify somewhere inside simplifycfg.
+; instcombine will take care of this.
+; CHECK-NEXT:    [[EQ:%.*]] = icmp eq i64 [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[EQ_NOT:%.*]] = xor i1 [[EQ]], true
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[LT:%.*]] = icmp slt i64 [[X]], [[Y]]
 ; CHECK-NEXT:    [[RETVAL_SEL:%.*]] = select i1 [[EQ_NOT]], i32 0, i32 2
 ; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[EQ_NOT]], [[LT]]
@@ -45,7 +50,7 @@ bees:
 
 ; Test basic folding to an unconditional branch.
 define i32 @bar(i64 %x, i64 %y) nounwind {
-; CHECK-LABEL: @bar(
+; CHECK-LABEL: define {{[^@]+}}@bar(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    tail call void @bees.a() #[[ATTR0]]
 ; CHECK-NEXT:    ret i32 0
@@ -72,7 +77,7 @@ bees:
 
 ; Test the edge case where both values from the select are the default case.
 define void @bazz(i64 %x, i64 %y) nounwind {
-; CHECK-LABEL: @bazz(
+; CHECK-LABEL: define {{[^@]+}}@bazz(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    tail call void @bees.b() #[[ATTR0]]
 ; CHECK-NEXT:    ret void
@@ -98,7 +103,7 @@ bees:
 
 ; Test the edge case where both values from the select are equal.
 define void @quux(i64 %x, i64 %y) nounwind {
-; CHECK-LABEL: @quux(
+; CHECK-LABEL: define {{[^@]+}}@quux(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    tail call void @bees.a() #[[ATTR0]]
 ; CHECK-NEXT:    ret void
@@ -124,14 +129,17 @@ bees:
 
 ; A final test, for phi node munging.
 define i32 @xyzzy(i64 %x, i64 %y) {
-; CHECK-LABEL: @xyzzy(
+; CHECK-LABEL: define {{[^@]+}}@xyzzy(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[EQ_NOT:%.*]] = icmp ne i64 [[X:%.*]], [[Y:%.*]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[EQ:%.*]] = icmp eq i64 [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[EQ_NOT:%.*]] = xor i1 [[EQ]], true
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[LT:%.*]] = icmp slt i64 [[X]], [[Y]]
 ; CHECK-NEXT:    [[VAL_SEL:%.*]] = select i1 [[EQ_NOT]], i32 1, i32 0
 ; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[EQ_NOT]], [[LT]]
-; CHECK-NEXT:    [[COMMON_RET_OP:%.*]] = select i1 [[OR_COND]], i32 -1, i32 [[VAL_SEL]]
-; CHECK-NEXT:    ret i32 [[COMMON_RET_OP]]
+; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[OR_COND]], i32 -1, i32 [[VAL_SEL]]
+; CHECK-NEXT:    ret i32 [[TMP0]]
 ;
 entry:
   %eq = icmp eq i64 %x, %y

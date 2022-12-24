@@ -4,7 +4,7 @@
 ; Loop with multiple exiting blocks, where the header exits but not the latch,
 ; e.g. because it has not been rotated.
 define i16 @full_unroll_multiple_exiting_blocks(i16* %A, i16 %x, i16 %y) {
-; CHECK-LABEL: @full_unroll_multiple_exiting_blocks(
+; CHECK-LABEL: define {{[^@]+}}@full_unroll_multiple_exiting_blocks(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[HEADER:%.*]]
 ; CHECK:       header:
@@ -13,7 +13,13 @@ define i16 @full_unroll_multiple_exiting_blocks(i16* %A, i16 %x, i16 %y) {
 ; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i16, i16* [[A:%.*]], i64 [[I_0]]
 ; CHECK-NEXT:    [[LV:%.*]] = load i16, i16* [[PTR]], align 2
 ; CHECK-NEXT:    [[RES_NEXT]] = add i16 [[RES]], [[LV]]
-; CHECK-NEXT:    [[CMP_NOT:%.*]] = icmp uge i64 [[I_0]], 3
+; INTEL_CUSTOMIZATION
+; xmain does not simplify the cmp+xor until instcombine.
+; this code is the result of some hidden call to SimplifyCFG:foldBranch...
+; inside the unroller.
+; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[I_0]], 3
+; CHECK-NEXT:    [[CMP_NOT:%.*]] = xor i1 [[CMP]], true
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[EC_1:%.*]] = icmp eq i16 [[LV]], [[X:%.*]]
 ; CHECK-NEXT:    [[RES_LCSSA_SEL:%.*]] = select i1 [[CMP_NOT]], i16 [[RES_NEXT]], i16 0
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[CMP_NOT]], i1 true, i1 [[EC_1]]
@@ -56,3 +62,4 @@ exit:
   %res.lcssa = phi i16 [ %res.next, %header ], [ 0, %exiting.1 ], [ 1, %exiting.2 ]
   ret i16 %res.lcssa
 }
+; end INTEL_CUSTOMIZATION

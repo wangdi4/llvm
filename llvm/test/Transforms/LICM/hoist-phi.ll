@@ -628,9 +628,13 @@ define void @triangle_phi_loopexit(i32 %x, ptr %p) {
 ; CHECK-LABEL: @triangle_phi_loopexit(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[X:%.*]], 1
-; CHECK-NEXT:    [[CMP1_NOT:%.*]] = icmp sle i32 [[X]], 0
-; CHECK-NEXT:    [[CMP2:%.*]] = icmp sgt i32 10, [[ADD]]
-; CHECK-NEXT:    [[PHI_SEL:%.*]] = select i1 [[CMP1_NOT]], i32 [[X]], i32 [[ADD]]
+; INTEL_CUSTOMIZATION
+; xmain does not canonicalize cmp,sgt,0 to "sle"
+; %cmp1 = icmp sgt i32...
+; %cmp1.not = xor i1 %cmp1...
+; CHECK:    [[CMP2:%.*]] = icmp sgt i32 10, [[ADD]]
+; CHECK-NEXT: [[PHI_SEL:%.*]] = select i1 [[CMP1_NOT:%.*]], i32 [[X]], i32 [[ADD]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[OR_COND:%.*]] = or i1 [[CMP1_NOT]], [[CMP2]]
 ; CHECK-NEXT:    [[CMP3:%.*]] = icmp ne i32 [[PHI_SEL]], 0
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
