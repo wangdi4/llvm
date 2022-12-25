@@ -1412,18 +1412,11 @@ private:
       const std::shared_ptr<detail::kernel_bundle_impl> &NewKernelBundleImpPtr);
 
   template <typename FuncT>
-<<<<<<< HEAD
   detail::enable_if_t<
       detail::check_fn_signature<detail::remove_reference_t<FuncT>,
                                  void()>::value ||
       detail::check_fn_signature<detail::remove_reference_t<FuncT>,
                                  void(interop_handle)>::value>
-=======
-  std::enable_if_t<detail::check_fn_signature<detail::remove_reference_t<FuncT>,
-                                              void()>::value ||
-                   detail::check_fn_signature<detail::remove_reference_t<FuncT>,
-                                              void(interop_handle)>::value>
->>>>>>> 6977f1aced3ed6a08573fdbdd4f35a5d719c8d98
   host_task_impl(FuncT &&Func) {
     throwIfActionIsCreated();
 
@@ -1600,18 +1593,11 @@ public:
 
   /// Enqueues a command to the SYCL runtime to invoke \p Func once.
   template <typename FuncT>
-<<<<<<< HEAD
   detail::enable_if_t<
       detail::check_fn_signature<detail::remove_reference_t<FuncT>,
                                  void()>::value ||
       detail::check_fn_signature<detail::remove_reference_t<FuncT>,
                                  void(interop_handle)>::value>
-=======
-  std::enable_if_t<detail::check_fn_signature<detail::remove_reference_t<FuncT>,
-                                              void()>::value ||
-                   detail::check_fn_signature<detail::remove_reference_t<FuncT>,
-                                              void(interop_handle)>::value>
->>>>>>> 6977f1aced3ed6a08573fdbdd4f35a5d719c8d98
   host_task(FuncT &&Func) {
     host_task_impl(Func);
   }

@@ -159,11 +159,7 @@ public:
   // using same requirement for contiguous container as std::span
   template <class Container>
   using EnableIfContiguous =
-<<<<<<< HEAD
       detail::void_t<detail::enable_if_t<std::is_convertible<
-=======
-      detail::void_t<std::enable_if_t<std::is_convertible<
->>>>>>> 6977f1aced3ed6a08573fdbdd4f35a5d719c8d98
                          detail::remove_pointer_t<
                              decltype(std::declval<Container>().data())> (*)[],
                          const T (*)[]>::value>,
