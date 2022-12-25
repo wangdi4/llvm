@@ -1055,19 +1055,12 @@ __ESIMD_API void lsc_slm_block_store(uint32_t offset,
 /// @param offsets is the zero-based offsets in bytes.
 /// @param vals is values to store.
 /// @param pred is predicates.
-<<<<<<< HEAD
-template <
-    typename T, int NElts = 1, lsc_data_size DS = lsc_data_size::default_size,
-    cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none, int N>
-__ESIMD_API void lsc_scatter(T *p, __ESIMD_NS::simd<uint32_t, N> offsets,
-=======
 ///
 template <typename T, int NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none,
           int N, typename Toffset>
 __ESIMD_API void lsc_scatter(T *p, __ESIMD_NS::simd<Toffset, N> offsets,
->>>>>>> 3ea0a9a3289aae43b85b48a21a4c3494a521253a
                              __ESIMD_NS::simd<T, N * NElts> vals,
                              __ESIMD_NS::simd_mask<N> pred = 1) {
   static_assert(std::is_integral_v<Toffset>, "Unsupported offset type");
