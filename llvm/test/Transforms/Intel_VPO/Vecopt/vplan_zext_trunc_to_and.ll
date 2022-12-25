@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -passes=vplan-vec -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=vplan-vec -vplan-dump-da-shapes -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
 ;
 ; Check correctness of the following peehole transformations
 ;    %c1 = trunc i32 %t2 to i8
@@ -15,8 +15,8 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i32:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: [[VP1:%.*]] = and i32 [[VP2:%.*]] i32 255
-; CHECK: [[VP3:%.*]] = and i64 [[VP4:%.*]] i64 34359738367
+; CHECK: [DA: [Shape: Random]] i32 [[VP1:%.*]] = and i32 [[VP2:%.*]] i32 255
+; CHECK: [DA: [Shape: Random]] i64 [[VP3:%.*]] = and i64 [[VP4:%.*]] i64 34359738367
 ; TODO: uncomment lines 45-49 and add a check for 128-bit values after corrections in DA.
 ; CHECK-NOT: trunc
 ; CHECK-NOT: zext
