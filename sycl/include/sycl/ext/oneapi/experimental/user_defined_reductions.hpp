@@ -16,16 +16,11 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace ext::oneapi::experimental {
 namespace detail {
 template <typename GroupHelper, typename T, typename BinaryOperation>
-<<<<<<< HEAD
-T reduce_over_group_impl(GroupHelper group_helper, T x, size_t num_elements,
-                         BinaryOperation binary_op) {
-=======
 sycl::detail::enable_if_t<(is_group_helper_v<GroupHelper>), T>
 reduce_over_group(GroupHelper group_helper, T x, BinaryOperation binary_op) {
   if constexpr (sycl::detail::is_native_op<T, BinaryOperation>::value) {
     return sycl::reduce_over_group(group_helper.get_group(), x, binary_op);
   }
->>>>>>> 84693b65cb645c2d833e54f3cef75c3b2df67f14
 #ifdef __SYCL_DEVICE_ONLY__
   T *Memory = reinterpret_cast<T *>(group_helper.get_memory().data());
   auto g = group_helper.get_group();
