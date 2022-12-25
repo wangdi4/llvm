@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-cg -force-hir-cg | lli
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -force-hir-cg | lli
 
 ; The test checks A[0][11] == 5, it verifies that the strides of dimensions were parsed and generated correctly.

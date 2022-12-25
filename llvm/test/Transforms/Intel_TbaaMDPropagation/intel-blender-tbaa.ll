@@ -1,5 +1,4 @@
 ; RUN: opt -S -passes="tbaa-prop" %s | FileCheck %s
-; RUN: opt -S -tbaa-prop %s | FileCheck %s
 
 ; CHECK-NOT: load{{.*}}paint{{.*}}tbaa
 ; CHECK-NOT: store{{.*}}paint{{.*}}tbaa

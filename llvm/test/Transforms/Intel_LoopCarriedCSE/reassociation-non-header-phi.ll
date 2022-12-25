@@ -23,7 +23,6 @@
 ; }
 ;}
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %0 = fadd float %gepload, %gepload56

@@ -1,4 +1,3 @@
-; RUN: opt -instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes=instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
 
 ; Check that all three original GEPs are retained when

@@ -12,7 +12,6 @@
 ; but it cannot be done easily, as the catch and its child calls such as
 ; foo() must have the same handler.
 
-; RUN: opt -S -loop-simplify %s | FileCheck %s
 ; RUN: opt -S -passes="loop-simplify" %s | FileCheck %s
 ; CHECK: bb13:
 ; CHECK-NEXT: invoke{{.*}}barney.8

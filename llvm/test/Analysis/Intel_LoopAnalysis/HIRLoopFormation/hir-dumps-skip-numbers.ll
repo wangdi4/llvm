@@ -1,5 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-framework -hir-temp-cleanup -disable-output -print-before=hir-temp-cleanup  2>&1 | FileCheck %s --match-full-lines --check-prefix VERBOSE
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-framework -hir-temp-cleanup -disable-output -print-before=hir-temp-cleanup -hir-details-no-verbose-indent 2>&1 | FileCheck %s --match-full-lines --check-prefix NOVERBOSE
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-cost-model-throttling=0 -disable-output 2>&1 | FileCheck %s --match-full-lines --check-prefix VERBOSE
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-cost-model-throttling=0 -disable-output -hir-details-no-verbose-indent 2>&1 | FileCheck %s --match-full-lines --check-prefix NOVERBOSE
 

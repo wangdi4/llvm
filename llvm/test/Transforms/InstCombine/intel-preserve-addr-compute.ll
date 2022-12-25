@@ -1,5 +1,3 @@
-; RUN: opt -instcombine %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,NOPRESERVE
-; RUN: opt -instcombine -instcombine-preserve-addr-compute=true %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,PRESERVE
 
 ; RUN: opt -passes=instcombine %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,NOPRESERVE
 ; RUN: opt -passes=instcombine -instcombine-preserve-addr-compute=true %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,PRESERVE

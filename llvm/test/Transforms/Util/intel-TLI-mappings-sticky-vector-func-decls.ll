@@ -3,7 +3,6 @@
 ; already available in the module.
 
 ; REQUIRES: asserts
-; RUN: opt -vector-library=SVML       -inject-tli-mappings        -S -debug-only=vectorutils < %s 2>&1 | FileCheck %s
 ; RUN: opt -vector-library=SVML       -passes=inject-tli-mappings -S -debug-only=vectorutils < %s 2>&1 | FileCheck %s
 
 ; CHECK: VFABI: adding mapping '_ZGV_LLVM_N8v_llvm.log.f64(__svml_log8)'

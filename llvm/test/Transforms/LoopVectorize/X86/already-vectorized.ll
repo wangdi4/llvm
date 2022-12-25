@@ -2,7 +2,6 @@
 ; Add "-enable-lv":
 ;   - Enable loop vectorizer as it is needed.
 ; RUN: opt < %s -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -passes="default<O3>" -S 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-lv -disable-loop-unrolling -debug-only=loop-vectorize -O3 -S 2>&1 | FileCheck %s
 ; END INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
 

@@ -1,6 +1,5 @@
 ;  There was a compfail to get BlobValue.
 ;  It's sufficient to check if HIR is produced at the end
-; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -hir-runtime-dd -hir-vec-dir-insert -hir-vplan-vec  -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ;

@@ -1,4 +1,3 @@
-; RUN: opt -instcombine -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=instcombine -S < %s 2>&1 | FileCheck %s
 ;
 ; IR for this test was derrived from the target code of the following source

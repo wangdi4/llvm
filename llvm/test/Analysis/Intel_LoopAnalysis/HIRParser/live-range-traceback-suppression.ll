@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll" -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that traceback for the instruction %add which is marked as live range indicator by ssa deconstruction is suppressed when parsing %sub59.

@@ -2186,8 +2186,10 @@ Instruction *ReassociatePass::canonicalizeNegFPConstantsForOp(Instruction *I,
   IRBuilder<> Builder(I);
   Value *NewInst = IsFSub ? Builder.CreateFAddFMF(OtherOp, Op, I)
                           : Builder.CreateFSubFMF(OtherOp, Op, I);
+#if INTEL_CUSTOMIZATION
   if (auto NewInstruction = dyn_cast<Instruction>(NewInst))
     NewInstruction->copyMetadata(*I);
+#endif // INTEL_CUSTOMIZATION
   I->replaceAllUsesWith(NewInst);
   RedoInsts.insert(I);
   return dyn_cast<Instruction>(NewInst);

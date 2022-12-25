@@ -9,7 +9,6 @@
 ; GEP (i.e %vfn) is 5 instead of 4. It can't find the target since effective
 ; offset exceeds the size of initializer.
 
-; RUN: opt -instcombine -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=instcombine -S < %s 2>&1 | FileCheck %s
 
 ; InstCombine can't convert %i5 to @foo by applying constant folding.

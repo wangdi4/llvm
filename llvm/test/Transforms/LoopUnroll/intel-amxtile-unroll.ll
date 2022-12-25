@@ -1,5 +1,4 @@
 ; RUN: opt -passes="default<O2>" -S %s | FileCheck %s
-; RUN: opt -O2 -S %s | FileCheck %s
 
 ; This is sample code from the AMX SDK.
 ; It has C++ code like this:

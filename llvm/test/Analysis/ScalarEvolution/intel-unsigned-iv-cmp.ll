@@ -7,7 +7,6 @@
 ; This logic doesn't work for unsigned compares, as -B may convert a small
 ; unsigned number into a large one, which may be trivially > X.
 
-; RUN: opt -indvars -S %s | FileCheck %s
 ; RUN: opt -passes=indvars -S %s | FileCheck %s
 ; INTEL
 ; CHECK: %cmp10 = icmp ult i64 %indvars.iv1, 4

@@ -1,7 +1,6 @@
 ; This test verifies that first operand values of %p1 and %p2 PHINodes are
 ; propagated to the uses of %p1 and %p2 in "bb_action" BasicBlock.
 
-; RUN: opt < %s -S -jump-threading | FileCheck %s
 ; RUN: opt < %s -S -passes='function(jump-threading)' | FileCheck %s
 
 ; CHECK: %cond1 = icmp eq i8* %p2, null

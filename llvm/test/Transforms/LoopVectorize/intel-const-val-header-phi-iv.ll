@@ -1,4 +1,3 @@
-; RUN: opt < %s -S -loop-vectorize 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='loop-vectorize' -S 2>&1 | FileCheck %s
 
 ; Verify that the test case compiles successfully.

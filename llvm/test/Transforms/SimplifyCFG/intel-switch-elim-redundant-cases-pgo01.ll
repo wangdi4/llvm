@@ -1,7 +1,6 @@
 ; This test is to verify that the PGO metadata is updated when
 ; the simplifycfg pass eliminates redundant entries from switch tables.
 
-; RUN: opt -S -simplifycfg %s | FileCheck %s
 ; RUN: opt -S -passes=simplifycfg %s | FileCheck %s
 
 declare void @func2()
