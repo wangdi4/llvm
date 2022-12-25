@@ -24,8 +24,10 @@
 // END DO
 //
 // TODO:
-// 1) Support loating point type in memset.
+// 1) Support floating point type in memset.
 // 2) Support non-constant memset.
+// 3) Currently we only create single level loop. To avoid out-of-range access
+//    we could consider creating a loop nest.
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLowerSmallMemsetMemcpyPass.h"
 
@@ -102,7 +104,10 @@ private:
   HIRFramework &HIRF;
 };
 
-static Type *findElementType(const RegDDRef *AddressOfRef) {
+// Return element size of the memref in memop.
+static Type *findElementType(const RegDDRef *AddressOfRef,
+                             unsigned &InnermostDimSize,
+                             const CanonExpr *&InnermostDimIndex) {
   Type *DimElemTy = AddressOfRef->getDimensionElementType(1);
   if (!DimElemTy) {
     return nullptr;
@@ -113,6 +118,9 @@ static Type *findElementType(const RegDDRef *AddressOfRef) {
   }
 
   if (DimElemTy->isArrayTy()) {
+    // Set number of elements if it is known.
+    InnermostDimSize = DimElemTy->getArrayNumElements();
+    InnermostDimIndex = nullptr;
     return DimElemTy->getArrayElementType();
   }
 
@@ -128,6 +136,11 @@ static Type *findElementType(const RegDDRef *AddressOfRef) {
               DimElemTy)))) {
       return nullptr;
     }
+
+    // Set number of elements if it is known.
+    InnermostDimSize = AddressOfRef->getNumDimensionElements(1);
+    InnermostDimIndex = AddressOfRef->getDimensionIndex(1);
+
     return DimElemTy;
   }
 
@@ -142,10 +155,35 @@ static Type *findElementType(const RegDDRef *AddressOfRef) {
 
   // Innermost type should be array.
   if (DimElemTy->isArrayTy()) {
+    // Set number of elements if it is known.
+    InnermostDimSize = DimElemTy->getArrayNumElements();
+    InnermostDimIndex = nullptr;
     return DimElemTy->getArrayElementType();
   }
 
   return nullptr;
+}
+
+// Returns true if we can create an out-of-range array access.
+static bool isOutOfRangeAccess(int64_t TC, int64_t MemOpInnermostDimSize,
+                               const CanonExpr *InnermostDimIndex) {
+  // Nullptr InnermostDimIndex means canon expr 0.
+  if (!InnermostDimIndex) {
+    if (TC > MemOpInnermostDimSize) {
+      return true;
+    }
+    return false;
+  }
+
+  int64_t CEConst = 0;
+  // Bail out for non-constant subcripts for now.
+  if (!InnermostDimIndex->isIntConstant(&CEConst)) {
+    return true;
+  }
+  if ((CEConst + TC) > MemOpInnermostDimSize) {
+    return true;
+  }
+  return false;
 }
 
 bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
@@ -154,9 +192,6 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   if (!Inst->isIntrinCall(IntrinID)) {
     return false;
   }
-  LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: analyse ");
-  LLVM_DEBUG(Inst->dump(););
-
   bool IsMemset = false;
 
   if (IntrinID == Intrinsic::memset) {
@@ -164,6 +199,9 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   } else if (IntrinID != Intrinsic::memcpy) {
     return false;
   }
+
+  LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: analyse ");
+  LLVM_DEBUG(Inst->dump(););
 
   auto *DstOp = Inst->getOperandDDRef(0);
   auto *SrcOrValOp = Inst->getOperandDDRef(1);
@@ -174,6 +212,13 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   int64_t AccessSizeInBytes = 0;
   if (!SizeOp->isIntConstant(&AccessSizeInBytes) ||
       (AccessSizeInBytes > SmallMemsetMemcpyThreshold)) {
+    return false;
+  }
+
+  // Skip memop intrinsics with null or undef operands.
+  // TODO: add support for null refs.
+  if (SrcOrValOp->isNull() || SrcOrValOp->containsUndef() || DstOp->isNull() ||
+      DstOp->containsUndef()) {
     return false;
   }
 
@@ -195,7 +240,12 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
       return false;
   }
 
-  Type *DstElemType = findElementType(DstOp);
+  unsigned DstInnermostDimSize = 0;
+  unsigned SrcInnermostDimSize = 0;
+  const CanonExpr *DstInnermostDimIndex = nullptr;
+  const CanonExpr *SrcInnermostDimIndex = nullptr;
+  Type *DstElemType =
+      findElementType(DstOp, DstInnermostDimSize, DstInnermostDimIndex);
   if (!DstElemType) {
     return false;
   }
@@ -206,7 +256,8 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   }
 
   if (!IsMemset) {
-    Type *SrcElemType = findElementType(SrcOrValOp);
+    Type *SrcElemType =
+        findElementType(SrcOrValOp, SrcInnermostDimSize, SrcInnermostDimIndex);
     if (SrcElemType != DstElemType) {
       return false;
     }
@@ -222,6 +273,17 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
 
   // Calculate a trip count of a new loop.
   unsigned TC = AccessSizeInBytes / ElemSize;
+
+  // Bail out if we can create an out-of-range array access.
+  if (DstInnermostDimSize &&
+      isOutOfRangeAccess(TC, DstInnermostDimSize, DstInnermostDimIndex)) {
+    return false;
+  }
+
+  if (SrcInnermostDimSize &&
+      isOutOfRangeAccess(TC, SrcInnermostDimSize, SrcInnermostDimIndex)) {
+    return false;
+  }
 
   LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: "
                     << (IsMemset ? "memset" : "memcpy") << "() is found: \n");
