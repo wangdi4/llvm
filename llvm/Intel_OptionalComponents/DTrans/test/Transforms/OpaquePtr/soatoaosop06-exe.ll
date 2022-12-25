@@ -1,16 +1,7 @@
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | %lli
-;
 ; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
-; RUN:       | FileCheck --check-prefix=CHECK-OP %s
+; RUN:       | FileCheck %s
 ; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaos-size-heuristic=false                   \
@@ -171,545 +162,542 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%class.F = type { %struct.Arr*, %struct.Arr.0*, %struct.Mem* }
-%struct.Mem = type { i32 (...)** }
-%struct.Arr = type { i8, i32, i32**, i32, %struct.Mem* }
-%struct.Arr.0 = type { i8, i32, float**, i32, %struct.Mem* }
-; CHECK-DAG: %__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64,  %struct.Mem* }
-; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, %__SOADT_EL_class.F*, i32, %struct.Mem* }
-; CHECK-DAG: %__SOADT_EL_class.F = type { i32*, float* }
+; CHECK-DAG: %__SOADT_class.F = type { ptr, i64, ptr }
+; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, ptr, i32, ptr }
+; CHECK-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
 
-; CHECK-OP-DAG: %__SOADT_class.F = type { ptr, i64, ptr }
-; CHECK-OP-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, ptr, i32, ptr }
-; CHECK-OP-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
+%class.F = type { ptr, ptr, ptr }
+%struct.Arr = type { i8, i32, ptr, i32, ptr }
+%struct.Arr.0 = type { i8, i32, ptr, i32, ptr }
+%struct.Mem = type { ptr }
 
 @v1 = global i32 20, align 4, !dbg !0
 @v2 = global i32 30, align 4, !dbg !13
 @v3 = global float 3.500000e+00, align 4, !dbg !15
 @v4 = global float 7.500000e+00, align 4, !dbg !17
 
-; Function Attrs: nounwind readonly
-define zeroext i1 @"check1(F*)"(%class.F* "intel_dtrans_func_index"="1" nocapture readonly %f) #0 !intel.dtrans.func.type !719 !dbg !24 {
+; Function Attrs: nounwind memory(read)
+define zeroext i1 @"check1(F*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %f) #0 !dbg !37 !intel.dtrans.func.type !137 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %f, metadata !124, metadata !DIExpression()), !dbg !125
-  %call = call i32 @"F::get1(int)"(%class.F* %f, i32 0), !dbg !126
-  %tmp1 = load i32, i32* @v2, align 4, !dbg !128
-  %cmp = icmp ne i32 %call, %tmp1, !dbg !129
-  br i1 %cmp, label %if.then, label %if.end, !dbg !130
+  call void @llvm.dbg.value(metadata ptr %f, metadata !139, metadata !DIExpression()), !dbg !140
+  %call = call i32 @"F::get1(int)"(ptr %f, i32 0), !dbg !141
+  %tmp1 = load i32, ptr @v2, align 4, !dbg !143
+  %cmp = icmp ne i32 %call, %tmp1, !dbg !144
+  br i1 %cmp, label %if.then, label %if.end, !dbg !145
 
 if.then:                                          ; preds = %entry
-  br label %return, !dbg !131
+  br label %return, !dbg !146
 
 if.end:                                           ; preds = %entry
-  %call1 = call float @"F::get2(int)"(%class.F* %f, i32 0), !dbg !132
-  %tmp3 = load float, float* @v4, align 4, !dbg !134
-  %cmp2 = fcmp une float %call1, %tmp3, !dbg !135
-  br i1 %cmp2, label %if.then3, label %if.end4, !dbg !136
+  %call1 = call float @"F::get2(int)"(ptr %f, i32 0), !dbg !147
+  %tmp3 = load float, ptr @v4, align 4, !dbg !149
+  %cmp2 = fcmp une float %call1, %tmp3, !dbg !150
+  br i1 %cmp2, label %if.then3, label %if.end4, !dbg !151
 
 if.then3:                                         ; preds = %if.end
-  br label %return, !dbg !137
+  br label %return, !dbg !152
 
 if.end4:                                          ; preds = %if.end
-  %call5 = call i32 @"F::get1(int)"(%class.F* %f, i32 1), !dbg !138
-  %tmp5 = load i32, i32* @v2, align 4, !dbg !140
-  %cmp6 = icmp ne i32 %call5, %tmp5, !dbg !141
-  br i1 %cmp6, label %if.then7, label %if.end8, !dbg !142
+  %call5 = call i32 @"F::get1(int)"(ptr %f, i32 1), !dbg !153
+  %tmp5 = load i32, ptr @v2, align 4, !dbg !155
+  %cmp6 = icmp ne i32 %call5, %tmp5, !dbg !156
+  br i1 %cmp6, label %if.then7, label %if.end8, !dbg !157
 
 if.then7:                                         ; preds = %if.end4
-  br label %return, !dbg !143
+  br label %return, !dbg !158
 
 if.end8:                                          ; preds = %if.end4
-  %call9 = call float @"F::get2(int)"(%class.F* %f, i32 1), !dbg !144
-  %tmp7 = load float, float* @v4, align 4, !dbg !146
-  %cmp10 = fcmp une float %call9, %tmp7, !dbg !147
-  br i1 %cmp10, label %if.then11, label %if.end12, !dbg !148
+  %call9 = call float @"F::get2(int)"(ptr %f, i32 1), !dbg !159
+  %tmp7 = load float, ptr @v4, align 4, !dbg !161
+  %cmp10 = fcmp une float %call9, %tmp7, !dbg !162
+  br i1 %cmp10, label %if.then11, label %if.end12, !dbg !163
 
 if.then11:                                        ; preds = %if.end8
-  br label %return, !dbg !149
+  br label %return, !dbg !164
 
 if.end12:                                         ; preds = %if.end8
-  br label %return, !dbg !150
+  br label %return, !dbg !165
 
 return:                                           ; preds = %if.end12, %if.then11, %if.then7, %if.then3, %if.then
-  %retval.0 = phi i1 [ false, %if.then ], [ false, %if.then3 ], [ false, %if.then7 ], [ false, %if.then11 ], [ true, %if.end12 ], !dbg !151
-  ret i1 %retval.0, !dbg !152
+  %retval.0 = phi i1 [ false, %if.then ], [ false, %if.then3 ], [ false, %if.then7 ], [ false, %if.then11 ], [ true, %if.end12 ], !dbg !166
+  ret i1 %retval.0, !dbg !167
 }
 
-; Function Attrs: nounwind readnone speculatable
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-; Function Attrs: nounwind readonly
-define i32 @"F::get1(int)"(%class.F* nocapture readonly  "intel_dtrans_func_index"="1" %this, i32 %i) #0 align 2 !dbg !153 !intel.dtrans.func.type !689 {
+; Function Attrs: nounwind memory(read)
+define i32 @"F::get1(int)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i) #0 align 2 !dbg !168 !intel.dtrans.func.type !169 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !154, metadata !DIExpression()), !dbg !155
-  call void @llvm.dbg.value(metadata i32 %i, metadata !156, metadata !DIExpression()), !dbg !157
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !158
-  %tmp = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !158
-  %call = call dereferenceable(8) i32** @"Arr<int*>::get(int)"(%struct.Arr* %tmp, i32 %i), !dbg !159
-  %tmp2 = load i32*, i32** %call, align 8, !dbg !159
-  %tmp3 = load i32, i32* %tmp2, align 4, !dbg !160
-  ret i32 %tmp3, !dbg !161
+  call void @llvm.dbg.value(metadata ptr %this, metadata !170, metadata !DIExpression()), !dbg !171
+  call void @llvm.dbg.value(metadata i32 %i, metadata !172, metadata !DIExpression()), !dbg !173
+  %f1 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !174
+  %tmp = load ptr, ptr %f1, align 8, !dbg !174
+  %call = call dereferenceable(8) ptr @"Arr<int*>::get(int)"(ptr %tmp, i32 %i), !dbg !175
+  %tmp2 = load ptr, ptr %call, align 8, !dbg !175
+  %tmp3 = load i32, ptr %tmp2, align 4, !dbg !176
+  ret i32 %tmp3, !dbg !177
 }
 
-; Function Attrs: nounwind readonly
-define float @"F::get2(int)"(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i) #0 align 2 !dbg !162 !intel.dtrans.func.type !690 {
+; Function Attrs: nounwind memory(read)
+define float @"F::get2(int)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i) #0 align 2 !dbg !178 !intel.dtrans.func.type !179 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !163, metadata !DIExpression()), !dbg !164
-  call void @llvm.dbg.value(metadata i32 %i, metadata !165, metadata !DIExpression()), !dbg !166
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !167
-  %tmp = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !167
-  %call = call dereferenceable(8) float** @"Arr<float*>::get(int)"(%struct.Arr.0* %tmp, i32 %i), !dbg !168
-  %tmp2 = load float*, float** %call, align 8, !dbg !168
-  %tmp3 = load float, float* %tmp2, align 4, !dbg !169
-  ret float %tmp3, !dbg !170
+  call void @llvm.dbg.value(metadata ptr %this, metadata !180, metadata !DIExpression()), !dbg !181
+  call void @llvm.dbg.value(metadata i32 %i, metadata !182, metadata !DIExpression()), !dbg !183
+  %f2 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !184
+  %tmp = load ptr, ptr %f2, align 8, !dbg !184
+  %call = call dereferenceable(8) ptr @"Arr<float*>::get(int)"(ptr %tmp, i32 %i), !dbg !185
+  %tmp2 = load ptr, ptr %call, align 8, !dbg !185
+  %tmp3 = load float, ptr %tmp2, align 4, !dbg !186
+  ret float %tmp3, !dbg !187
 }
 
-define i32 @main() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !171 {
+define i32 @main() personality ptr @__gxx_personality_v0 !dbg !188 {
 entry:
-  %call = call i8* @_Znwm(i64 24), !dbg !174
-  %tmp = bitcast i8* %call to %class.F*, !dbg !174
-  invoke void @"F::F()"(%class.F* %tmp)
-          to label %invoke.cont unwind label %lpad, !dbg !175
+  %call = call ptr @_Znwm(i64 24), !dbg !191
+  %tmp = bitcast ptr %call to ptr, !dbg !191
+  invoke void @"F::F()"(ptr %tmp)
+          to label %invoke.cont unwind label %lpad, !dbg !192
 
 invoke.cont:                                      ; preds = %entry
-  call void @llvm.dbg.value(metadata %class.F* %tmp, metadata !176, metadata !DIExpression()), !dbg !177
-  call void @"F::put(int*, float*)"(%class.F* %tmp, i32* @v1, float* @v3), !dbg !178
-  %call1 = call i32 @"F::get1(int)"(%class.F* %tmp, i32 0), !dbg !179
-  %tmp3 = load i32, i32* @v1, align 4, !dbg !181
-  %cmp = icmp ne i32 %call1, %tmp3, !dbg !182
-  br i1 %cmp, label %if.then, label %if.end, !dbg !183
+  call void @llvm.dbg.value(metadata ptr %tmp, metadata !193, metadata !DIExpression()), !dbg !194
+  call void @"F::put(int*, float*)"(ptr %tmp, ptr @v1, ptr @v3), !dbg !195
+  %call1 = call i32 @"F::get1(int)"(ptr %tmp, i32 0), !dbg !196
+  %tmp3 = load i32, ptr @v1, align 4, !dbg !198
+  %cmp = icmp ne i32 %call1, %tmp3, !dbg !199
+  br i1 %cmp, label %if.then, label %if.end, !dbg !200
 
 if.then:                                          ; preds = %invoke.cont
-  br label %return, !dbg !184
+  br label %return, !dbg !201
 
 lpad:                                             ; preds = %entry
-  %tmp4 = landingpad { i8*, i32 }
-          cleanup, !dbg !185
-  %tmp5 = extractvalue { i8*, i32 } %tmp4, 0, !dbg !185
-  %tmp6 = extractvalue { i8*, i32 } %tmp4, 1, !dbg !185
-  call void @_ZdlPv(i8* %call), !dbg !174
-  br label %eh.resume, !dbg !174
+  %tmp4 = landingpad { ptr, i32 }
+          cleanup, !dbg !202
+  %tmp5 = extractvalue { ptr, i32 } %tmp4, 0, !dbg !202
+  %tmp6 = extractvalue { ptr, i32 } %tmp4, 1, !dbg !202
+  call void @_ZdlPv(ptr %call), !dbg !191
+  br label %eh.resume, !dbg !191
 
 if.end:                                           ; preds = %invoke.cont
-  %call2 = call float @"F::get2(int)"(%class.F* %tmp, i32 0), !dbg !186
-  %tmp8 = load float, float* @v3, align 4, !dbg !188
-  %cmp3 = fcmp une float %call2, %tmp8, !dbg !189
-  br i1 %cmp3, label %if.then4, label %if.end5, !dbg !190
+  %call2 = call float @"F::get2(int)"(ptr %tmp, i32 0), !dbg !203
+  %tmp8 = load float, ptr @v3, align 4, !dbg !205
+  %cmp3 = fcmp une float %call2, %tmp8, !dbg !206
+  br i1 %cmp3, label %if.then4, label %if.end5, !dbg !207
 
 if.then4:                                         ; preds = %if.end
-  br label %return, !dbg !191
+  br label %return, !dbg !208
 
 if.end5:                                          ; preds = %if.end
-  call void @"F::put(int*, float*)"(%class.F* %tmp, i32* @v2, float* @v4), !dbg !192
-  %call6 = call i32 @"F::get1(int)"(%class.F* %tmp, i32 0), !dbg !193
-  %tmp11 = load i32, i32* @v1, align 4, !dbg !195
-  %cmp7 = icmp ne i32 %call6, %tmp11, !dbg !196
-  br i1 %cmp7, label %if.then8, label %if.end9, !dbg !197
+  call void @"F::put(int*, float*)"(ptr %tmp, ptr @v2, ptr @v4), !dbg !209
+  %call6 = call i32 @"F::get1(int)"(ptr %tmp, i32 0), !dbg !210
+  %tmp11 = load i32, ptr @v1, align 4, !dbg !212
+  %cmp7 = icmp ne i32 %call6, %tmp11, !dbg !213
+  br i1 %cmp7, label %if.then8, label %if.end9, !dbg !214
 
 if.then8:                                         ; preds = %if.end5
-  br label %return, !dbg !198
+  br label %return, !dbg !215
 
 if.end9:                                          ; preds = %if.end5
-  %call10 = call float @"F::get2(int)"(%class.F* %tmp, i32 0), !dbg !199
-  %tmp13 = load float, float* @v3, align 4, !dbg !201
-  %cmp11 = fcmp une float %call10, %tmp13, !dbg !202
-  br i1 %cmp11, label %if.then12, label %if.end13, !dbg !203
+  %call10 = call float @"F::get2(int)"(ptr %tmp, i32 0), !dbg !216
+  %tmp13 = load float, ptr @v3, align 4, !dbg !218
+  %cmp11 = fcmp une float %call10, %tmp13, !dbg !219
+  br i1 %cmp11, label %if.then12, label %if.end13, !dbg !220
 
 if.then12:                                        ; preds = %if.end9
-  br label %return, !dbg !204
+  br label %return, !dbg !221
 
 if.end13:                                         ; preds = %if.end9
-  %call14 = call i32 @"F::get1(int)"(%class.F* %tmp, i32 1), !dbg !205
-  %tmp15 = load i32, i32* @v2, align 4, !dbg !207
-  %cmp15 = icmp ne i32 %call14, %tmp15, !dbg !208
-  br i1 %cmp15, label %if.then16, label %if.end17, !dbg !209
+  %call14 = call i32 @"F::get1(int)"(ptr %tmp, i32 1), !dbg !222
+  %tmp15 = load i32, ptr @v2, align 4, !dbg !224
+  %cmp15 = icmp ne i32 %call14, %tmp15, !dbg !225
+  br i1 %cmp15, label %if.then16, label %if.end17, !dbg !226
 
 if.then16:                                        ; preds = %if.end13
-  br label %return, !dbg !210
+  br label %return, !dbg !227
 
 if.end17:                                         ; preds = %if.end13
-  %call18 = call float @"F::get2(int)"(%class.F* %tmp, i32 1), !dbg !211
-  %tmp17 = load float, float* @v4, align 4, !dbg !213
-  %cmp19 = fcmp une float %call18, %tmp17, !dbg !214
-  br i1 %cmp19, label %if.then20, label %if.end21, !dbg !215
+  %call18 = call float @"F::get2(int)"(ptr %tmp, i32 1), !dbg !228
+  %tmp17 = load float, ptr @v4, align 4, !dbg !230
+  %cmp19 = fcmp une float %call18, %tmp17, !dbg !231
+  br i1 %cmp19, label %if.then20, label %if.end21, !dbg !232
 
 if.then20:                                        ; preds = %if.end17
-  br label %return, !dbg !216
-
-if.end21:                                         ; preds = %if.end17
-  call void @"F::set1(int, int*)"(%class.F* %tmp, i32 0, i32* @v2), !dbg !217
-  call void @"F::set2(int, float*)"(%class.F* %tmp, i32 0, float* @v4), !dbg !218
-  %call22 = call zeroext i1 @"check1(F*)"(%class.F* %tmp), !dbg !219
-  br i1 %call22, label %if.end24, label %if.then23, !dbg !221
-
-if.then23:                                        ; preds = %if.end21
-  br label %return, !dbg !222
-
-if.end24:                                         ; preds = %if.end21
-  %call25 = call i8* @_Znwm(i64 24), !dbg !223
-  %tmp21 = bitcast i8* %call25 to %class.F*, !dbg !223
-  invoke void @"F::F(F const&)"(%class.F* %tmp21, %class.F* dereferenceable(24) %tmp)
-          to label %invoke.cont27 unwind label %lpad26, !dbg !224
-
-invoke.cont27:                                    ; preds = %if.end24
-  call void @llvm.dbg.value(metadata %class.F* %tmp21, metadata !225, metadata !DIExpression()), !dbg !226
-  %call28 = call zeroext i1 @"check1(F*)"(%class.F* %tmp21), !dbg !227
-  br i1 %call28, label %if.end30, label %if.then29, !dbg !229
-
-if.then29:                                        ; preds = %invoke.cont27
-  br label %return, !dbg !230
-
-lpad26:                                           ; preds = %if.end24
-  %tmp24 = landingpad { i8*, i32 }
-          cleanup, !dbg !185
-  %tmp25 = extractvalue { i8*, i32 } %tmp24, 0, !dbg !185
-  %tmp26 = extractvalue { i8*, i32 } %tmp24, 1, !dbg !185
-  call void @_ZdlPv(i8* %call25), !dbg !223
-  br label %eh.resume, !dbg !223
-
-if.end30:                                         ; preds = %invoke.cont27
-  %isnull = icmp eq %class.F* %tmp, null, !dbg !231
-  br i1 %isnull, label %delete.end, label %delete.notnull, !dbg !231
-
-delete.notnull:                                   ; preds = %if.end30
-  call void @"F::~F()"(%class.F* %tmp), !dbg !231
-  %tmp28 = bitcast %class.F* %tmp to i8*, !dbg !231
-  call void @_ZdlPv(i8* %tmp28), !dbg !231
-  br label %delete.end, !dbg !231
-
-delete.end:                                       ; preds = %delete.notnull, %if.end30
-  %isnull31 = icmp eq %class.F* %tmp21, null, !dbg !232
-  br i1 %isnull31, label %delete.end33, label %delete.notnull32, !dbg !232
-
-delete.notnull32:                                 ; preds = %delete.end
-  call void @"F::~F()"(%class.F* %tmp21), !dbg !232
-  %tmp30 = bitcast %class.F* %tmp21 to i8*, !dbg !232
-  call void @_ZdlPv(i8* %tmp30), !dbg !232
-  br label %delete.end33, !dbg !232
-
-delete.end33:                                     ; preds = %delete.notnull32, %delete.end
   br label %return, !dbg !233
 
+if.end21:                                         ; preds = %if.end17
+  call void @"F::set1(int, int*)"(ptr %tmp, i32 0, ptr @v2), !dbg !234
+  call void @"F::set2(int, float*)"(ptr %tmp, i32 0, ptr @v4), !dbg !235
+  %call22 = call zeroext i1 @"check1(F*)"(ptr %tmp), !dbg !236
+  br i1 %call22, label %if.end24, label %if.then23, !dbg !238
+
+if.then23:                                        ; preds = %if.end21
+  br label %return, !dbg !239
+
+if.end24:                                         ; preds = %if.end21
+  %call25 = call ptr @_Znwm(i64 24), !dbg !240
+  %tmp21 = bitcast ptr %call25 to ptr, !dbg !240
+  invoke void @"F::F(F const&)"(ptr %tmp21, ptr dereferenceable(24) %tmp)
+          to label %invoke.cont27 unwind label %lpad26, !dbg !241
+
+invoke.cont27:                                    ; preds = %if.end24
+  call void @llvm.dbg.value(metadata ptr %tmp21, metadata !242, metadata !DIExpression()), !dbg !243
+  %call28 = call zeroext i1 @"check1(F*)"(ptr %tmp21), !dbg !244
+  br i1 %call28, label %if.end30, label %if.then29, !dbg !246
+
+if.then29:                                        ; preds = %invoke.cont27
+  br label %return, !dbg !247
+
+lpad26:                                           ; preds = %if.end24
+  %tmp24 = landingpad { ptr, i32 }
+          cleanup, !dbg !202
+  %tmp25 = extractvalue { ptr, i32 } %tmp24, 0, !dbg !202
+  %tmp26 = extractvalue { ptr, i32 } %tmp24, 1, !dbg !202
+  call void @_ZdlPv(ptr %call25), !dbg !240
+  br label %eh.resume, !dbg !240
+
+if.end30:                                         ; preds = %invoke.cont27
+  %isnull = icmp eq ptr %tmp, null, !dbg !248
+  br i1 %isnull, label %delete.end, label %delete.notnull, !dbg !248
+
+delete.notnull:                                   ; preds = %if.end30
+  call void @"F::~F()"(ptr %tmp), !dbg !248
+  %tmp28 = bitcast ptr %tmp to ptr, !dbg !248
+  call void @_ZdlPv(ptr %tmp28), !dbg !248
+  br label %delete.end, !dbg !248
+
+delete.end:                                       ; preds = %delete.notnull, %if.end30
+  %isnull31 = icmp eq ptr %tmp21, null, !dbg !249
+  br i1 %isnull31, label %delete.end33, label %delete.notnull32, !dbg !249
+
+delete.notnull32:                                 ; preds = %delete.end
+  call void @"F::~F()"(ptr %tmp21), !dbg !249
+  %tmp30 = bitcast ptr %tmp21 to ptr, !dbg !249
+  call void @_ZdlPv(ptr %tmp30), !dbg !249
+  br label %delete.end33, !dbg !249
+
+delete.end33:                                     ; preds = %delete.notnull32, %delete.end
+  br label %return, !dbg !250
+
 return:                                           ; preds = %delete.end33, %if.then29, %if.then23, %if.then20, %if.then16, %if.then12, %if.then8, %if.then4, %if.then
-  %retval.0 = phi i32 [ -1, %if.then ], [ -1, %if.then4 ], [ -1, %if.then8 ], [ -1, %if.then12 ], [ -1, %if.then16 ], [ -1, %if.then20 ], [ 0, %delete.end33 ], [ -1, %if.then29 ], [ -1, %if.then23 ], !dbg !234
-  ret i32 %retval.0, !dbg !185
+  %retval.0 = phi i32 [ -1, %if.then ], [ -1, %if.then4 ], [ -1, %if.then8 ], [ -1, %if.then12 ], [ -1, %if.then16 ], [ -1, %if.then20 ], [ 0, %delete.end33 ], [ -1, %if.then29 ], [ -1, %if.then23 ], !dbg !251
+  ret i32 %retval.0, !dbg !202
 
 eh.resume:                                        ; preds = %lpad26, %lpad
-  %exn.slot.0 = phi i8* [ %tmp25, %lpad26 ], [ %tmp5, %lpad ], !dbg !185
-  %ehselector.slot.0 = phi i32 [ %tmp26, %lpad26 ], [ %tmp6, %lpad ], !dbg !185
-  resume { i8*, i32 } undef, !dbg !174
+  %exn.slot.0 = phi ptr [ %tmp25, %lpad26 ], [ %tmp5, %lpad ], !dbg !202
+  %ehselector.slot.0 = phi i32 [ %tmp26, %lpad26 ], [ %tmp6, %lpad ], !dbg !202
+  resume { ptr, i32 } undef, !dbg !191
 }
 
-declare !intel.dtrans.func.type !691 dso_local nonnull "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
+declare !intel.dtrans.func.type !252 dso_local nonnull "intel_dtrans_func_index"="1" ptr @_Znwm(i64)
 
-define void @"F::F()"(%class.F* nocapture noundef "intel_dtrans_func_index"="1" %this) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !235 !intel.dtrans.func.type !693 {
+define void @"F::F()"(ptr nocapture noundef "intel_dtrans_func_index"="1" %this) align 2 personality ptr @__gxx_personality_v0 !dbg !254 !intel.dtrans.func.type !255 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !236, metadata !DIExpression()), !dbg !237
-  %call = call i8* @_Znwm(i64 32), !dbg !238
-  %tmp = bitcast i8* %call to %struct.Arr*, !dbg !238
-  invoke void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* %tmp, i32 1, %struct.Mem* null)
-          to label %invoke.cont unwind label %lpad, !dbg !240
+  call void @llvm.dbg.value(metadata ptr %this, metadata !256, metadata !DIExpression()), !dbg !257
+  %call = call ptr @_Znwm(i64 32), !dbg !258
+  %tmp = bitcast ptr %call to ptr, !dbg !258
+  invoke void @"Arr<int*>::Arr(int, %struct.Mem*)"(ptr %tmp, i32 1, ptr null)
+          to label %invoke.cont unwind label %lpad, !dbg !260
 
 invoke.cont:                                      ; preds = %entry
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !241
-  store %struct.Arr* %tmp, %struct.Arr** %f1, align 8, !dbg !242
-  %call2 = call i8* @_Znwm(i64 32), !dbg !243
-  %tmp1 = bitcast i8* %call2 to %struct.Arr.0*, !dbg !243
-  invoke void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* %tmp1, i32 1, %struct.Mem* null)
-          to label %invoke.cont4 unwind label %lpad3, !dbg !244
+  %f1 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !261
+  store ptr %tmp, ptr %f1, align 8, !dbg !262
+  %call2 = call ptr @_Znwm(i64 32), !dbg !263
+  %tmp1 = bitcast ptr %call2 to ptr, !dbg !263
+  invoke void @"Arr<float*>::Arr(int, %struct.Mem*)"(ptr %tmp1, i32 1, ptr null)
+          to label %invoke.cont4 unwind label %lpad3, !dbg !264
 
 invoke.cont4:                                     ; preds = %invoke.cont
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !245
-  store %struct.Arr.0* %tmp1, %struct.Arr.0** %f2, align 8, !dbg !246
-  ret void, !dbg !247
+  %f2 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !265
+  store ptr %tmp1, ptr %f2, align 8, !dbg !266
+  ret void, !dbg !267
 
 lpad:                                             ; preds = %entry
-  %tmp2 = landingpad { i8*, i32 }
-          cleanup, !dbg !248
-  %tmp3 = extractvalue { i8*, i32 } %tmp2, 0, !dbg !248
-  %tmp4 = extractvalue { i8*, i32 } %tmp2, 1, !dbg !248
-  call void @_ZdlPv(i8* %call), !dbg !238
-  br label %eh.resume, !dbg !238
+  %tmp2 = landingpad { ptr, i32 }
+          cleanup, !dbg !268
+  %tmp3 = extractvalue { ptr, i32 } %tmp2, 0, !dbg !268
+  %tmp4 = extractvalue { ptr, i32 } %tmp2, 1, !dbg !268
+  call void @_ZdlPv(ptr %call), !dbg !258
+  br label %eh.resume, !dbg !258
 
 lpad3:                                            ; preds = %invoke.cont
-  %tmp5 = landingpad { i8*, i32 }
-          cleanup, !dbg !248
-  %tmp6 = extractvalue { i8*, i32 } %tmp5, 0, !dbg !248
-  %tmp7 = extractvalue { i8*, i32 } %tmp5, 1, !dbg !248
-  call void @_ZdlPv(i8* %call2), !dbg !243
-  br label %eh.resume, !dbg !243
+  %tmp5 = landingpad { ptr, i32 }
+          cleanup, !dbg !268
+  %tmp6 = extractvalue { ptr, i32 } %tmp5, 0, !dbg !268
+  %tmp7 = extractvalue { ptr, i32 } %tmp5, 1, !dbg !268
+  call void @_ZdlPv(ptr %call2), !dbg !263
+  br label %eh.resume, !dbg !263
 
 eh.resume:                                        ; preds = %lpad3, %lpad
-  %exn.slot.0 = phi i8* [ %tmp6, %lpad3 ], [ %tmp3, %lpad ], !dbg !248
-  %ehselector.slot.0 = phi i32 [ %tmp7, %lpad3 ], [ %tmp4, %lpad ], !dbg !248
-  resume { i8*, i32 } undef, !dbg !238
+  %exn.slot.0 = phi ptr [ %tmp6, %lpad3 ], [ %tmp3, %lpad ], !dbg !268
+  %ehselector.slot.0 = phi i32 [ %tmp7, %lpad3 ], [ %tmp4, %lpad ], !dbg !268
+  resume { ptr, i32 } undef, !dbg !258
 }
 
 declare i32 @__gxx_personality_v0(...)
 
-declare !intel.dtrans.func.type !694 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !269 dso_local void @_ZdlPv(ptr "intel_dtrans_func_index"="1")
 
-define void @"F::put(int*, float*)"(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %this, i32*  "intel_dtrans_func_index"="2" %a, float* "intel_dtrans_func_index"="3" %b) align 2 !dbg !249 !intel.dtrans.func.type !695 {
+define void @"F::put(int*, float*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %a, ptr "intel_dtrans_func_index"="3" %b) align 2 !dbg !270 !intel.dtrans.func.type !271 {
 entry:
-  %a.addr = alloca i32*, align 8, !intel_dtrans_type !696
-  %b.addr = alloca float*, align 8, !intel_dtrans_type !697
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !250, metadata !DIExpression()), !dbg !251
-  store i32* %a, i32** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata i32** %a.addr, metadata !252, metadata !DIExpression()), !dbg !253
-  store float* %b, float** %b.addr, align 8
-  call void @llvm.dbg.declare(metadata float** %b.addr, metadata !254, metadata !DIExpression()), !dbg !255
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !256
-  %tmp = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !256
-  call void @"Arr<int*>::add(int* const&)"(%struct.Arr* %tmp, i32** dereferenceable(8) %a.addr), !dbg !257
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !258
-  %tmp1 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !258
-  call void @"Arr<float*>::add(float* const&)"(%struct.Arr.0* %tmp1, float** dereferenceable(8) %b.addr), !dbg !259
-  ret void, !dbg !260
+  %a.addr = alloca ptr, align 8, !intel_dtrans_type !272
+  %b.addr = alloca ptr, align 8, !intel_dtrans_type !273
+  call void @llvm.dbg.value(metadata ptr %this, metadata !274, metadata !DIExpression()), !dbg !275
+  store ptr %a, ptr %a.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !276, metadata !DIExpression()), !dbg !277
+  store ptr %b, ptr %b.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %b.addr, metadata !278, metadata !DIExpression()), !dbg !279
+  %f1 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !280
+  %tmp = load ptr, ptr %f1, align 8, !dbg !280
+  call void @"Arr<int*>::add(int* const&)"(ptr %tmp, ptr dereferenceable(8) %a.addr), !dbg !281
+  %f2 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !282
+  %tmp1 = load ptr, ptr %f2, align 8, !dbg !282
+  call void @"Arr<float*>::add(float* const&)"(ptr %tmp1, ptr dereferenceable(8) %b.addr), !dbg !283
+  ret void, !dbg !284
 }
 
 ; Function Attrs: nounwind
-define void @"F::set1(int, int*)"(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, i32*  "intel_dtrans_func_index"="2" %a) #2 align 2 !dbg !261 !intel.dtrans.func.type !698 {
+define void @"F::set1(int, int*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %a) #2 align 2 !dbg !285 !intel.dtrans.func.type !286 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !262, metadata !DIExpression()), !dbg !263
-  call void @llvm.dbg.value(metadata i32 %i, metadata !264, metadata !DIExpression()), !dbg !265
-  call void @llvm.dbg.value(metadata i32* %a, metadata !266, metadata !DIExpression()), !dbg !267
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !268
-  %tmp = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !268
-  call void @"Arr<int*>::set(int, int*)"(%struct.Arr* %tmp, i32 %i, i32* %a), !dbg !269
-  ret void, !dbg !270
+  call void @llvm.dbg.value(metadata ptr %this, metadata !287, metadata !DIExpression()), !dbg !288
+  call void @llvm.dbg.value(metadata i32 %i, metadata !289, metadata !DIExpression()), !dbg !290
+  call void @llvm.dbg.value(metadata ptr %a, metadata !291, metadata !DIExpression()), !dbg !292
+  %f1 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !293
+  %tmp = load ptr, ptr %f1, align 8, !dbg !293
+  call void @"Arr<int*>::set(int, int*)"(ptr %tmp, i32 %i, ptr %a), !dbg !294
+  ret void, !dbg !295
 }
 
 ; Function Attrs: nounwind
-define void @"F::set2(int, float*)"(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, float* "intel_dtrans_func_index"="2" %b) #2 align 2 !dbg !271 !intel.dtrans.func.type !699 {
+define void @"F::set2(int, float*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %b) #2 align 2 !dbg !296 !intel.dtrans.func.type !297 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !272, metadata !DIExpression()), !dbg !273
-  call void @llvm.dbg.value(metadata i32 %i, metadata !274, metadata !DIExpression()), !dbg !275
-  call void @llvm.dbg.value(metadata float* %b, metadata !276, metadata !DIExpression()), !dbg !277
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !278
-  %tmp = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !278
-  call void @"Arr<float*>::set(int, float*)"(%struct.Arr.0* %tmp, i32 %i, float* %b), !dbg !279
-  ret void, !dbg !280
+  call void @llvm.dbg.value(metadata ptr %this, metadata !298, metadata !DIExpression()), !dbg !299
+  call void @llvm.dbg.value(metadata i32 %i, metadata !300, metadata !DIExpression()), !dbg !301
+  call void @llvm.dbg.value(metadata ptr %b, metadata !302, metadata !DIExpression()), !dbg !303
+  %f2 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !304
+  %tmp = load ptr, ptr %f2, align 8, !dbg !304
+  call void @"Arr<float*>::set(int, float*)"(ptr %tmp, i32 %i, ptr %b), !dbg !305
+  ret void, !dbg !306
 }
 
-define void @"F::F(F const&)"(%class.F* nocapture "intel_dtrans_func_index"="1"  %this, %class.F* nocapture readonly dereferenceable(24) "intel_dtrans_func_index"="2" %f) align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !dbg !281 !intel.dtrans.func.type !700 {
+define void @"F::F(F const&)"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture readonly dereferenceable(24) "intel_dtrans_func_index"="2" %f) align 2 personality ptr @__gxx_personality_v0 !dbg !307 !intel.dtrans.func.type !308 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !282, metadata !DIExpression()), !dbg !283
-  call void @llvm.dbg.value(metadata %class.F* %f, metadata !284, metadata !DIExpression()), !dbg !285
-  %call = call i8* @_Znwm(i64 32), !dbg !286
-  %tmp = bitcast i8* %call to %struct.Arr*, !dbg !286
-  %f1 = getelementptr inbounds %class.F, %class.F* %f, i32 0, i32 0, !dbg !288
-  %tmp2 = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !288
-  invoke void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* %tmp, %struct.Arr* dereferenceable(32) %tmp2)
-          to label %invoke.cont unwind label %lpad, !dbg !289
+  call void @llvm.dbg.value(metadata ptr %this, metadata !309, metadata !DIExpression()), !dbg !310
+  call void @llvm.dbg.value(metadata ptr %f, metadata !311, metadata !DIExpression()), !dbg !312
+  %call = call ptr @_Znwm(i64 32), !dbg !313
+  %tmp = bitcast ptr %call to ptr, !dbg !313
+  %f1 = getelementptr inbounds %class.F, ptr %f, i32 0, i32 0, !dbg !315
+  %tmp2 = load ptr, ptr %f1, align 8, !dbg !315
+  invoke void @"Arr<int*>::Arr(Arr<int*> const&)"(ptr %tmp, ptr dereferenceable(32) %tmp2)
+          to label %invoke.cont unwind label %lpad, !dbg !316
 
 invoke.cont:                                      ; preds = %entry
-  %f12 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !290
-  store %struct.Arr* %tmp, %struct.Arr** %f12, align 8, !dbg !291
-  %call3 = call i8* @_Znwm(i64 32), !dbg !292
-  %tmp3 = bitcast i8* %call3 to %struct.Arr.0*, !dbg !292
-  %f2 = getelementptr inbounds %class.F, %class.F* %f, i32 0, i32 1, !dbg !293
-  %tmp5 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !293
-  invoke void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* %tmp3, %struct.Arr.0* dereferenceable(32) %tmp5)
-          to label %invoke.cont5 unwind label %lpad4, !dbg !294
+  %f12 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !317
+  store ptr %tmp, ptr %f12, align 8, !dbg !318
+  %call3 = call ptr @_Znwm(i64 32), !dbg !319
+  %tmp3 = bitcast ptr %call3 to ptr, !dbg !319
+  %f2 = getelementptr inbounds %class.F, ptr %f, i32 0, i32 1, !dbg !320
+  %tmp5 = load ptr, ptr %f2, align 8, !dbg !320
+  invoke void @"Arr<float*>::Arr(Arr<float*> const&)"(ptr %tmp3, ptr dereferenceable(32) %tmp5)
+          to label %invoke.cont5 unwind label %lpad4, !dbg !321
 
 invoke.cont5:                                     ; preds = %invoke.cont
-  %f26 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !295
-  store %struct.Arr.0* %tmp3, %struct.Arr.0** %f26, align 8, !dbg !296
-  ret void, !dbg !297
+  %f26 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !322
+  store ptr %tmp3, ptr %f26, align 8, !dbg !323
+  ret void, !dbg !324
 
 lpad:                                             ; preds = %entry
-  %tmp6 = landingpad { i8*, i32 }
-          cleanup, !dbg !298
-  %tmp7 = extractvalue { i8*, i32 } %tmp6, 0, !dbg !298
-  %tmp8 = extractvalue { i8*, i32 } %tmp6, 1, !dbg !298
-  call void @_ZdlPv(i8* %call), !dbg !286
-  br label %eh.resume, !dbg !286
+  %tmp6 = landingpad { ptr, i32 }
+          cleanup, !dbg !325
+  %tmp7 = extractvalue { ptr, i32 } %tmp6, 0, !dbg !325
+  %tmp8 = extractvalue { ptr, i32 } %tmp6, 1, !dbg !325
+  call void @_ZdlPv(ptr %call), !dbg !313
+  br label %eh.resume, !dbg !313
 
 lpad4:                                            ; preds = %invoke.cont
-  %tmp9 = landingpad { i8*, i32 }
-          cleanup, !dbg !298
-  %tmp10 = extractvalue { i8*, i32 } %tmp9, 0, !dbg !298
-  %tmp11 = extractvalue { i8*, i32 } %tmp9, 1, !dbg !298
-  call void @_ZdlPv(i8* %call3), !dbg !292
-  br label %eh.resume, !dbg !292
+  %tmp9 = landingpad { ptr, i32 }
+          cleanup, !dbg !325
+  %tmp10 = extractvalue { ptr, i32 } %tmp9, 0, !dbg !325
+  %tmp11 = extractvalue { ptr, i32 } %tmp9, 1, !dbg !325
+  call void @_ZdlPv(ptr %call3), !dbg !319
+  br label %eh.resume, !dbg !319
 
 eh.resume:                                        ; preds = %lpad4, %lpad
-  %exn.slot.0 = phi i8* [ %tmp10, %lpad4 ], [ %tmp7, %lpad ], !dbg !298
-  %ehselector.slot.0 = phi i32 [ %tmp11, %lpad4 ], [ %tmp8, %lpad ], !dbg !298
-  resume { i8*, i32 } undef, !dbg !286
+  %exn.slot.0 = phi ptr [ %tmp10, %lpad4 ], [ %tmp7, %lpad ], !dbg !325
+  %ehselector.slot.0 = phi i32 [ %tmp11, %lpad4 ], [ %tmp8, %lpad ], !dbg !325
+  resume { ptr, i32 } undef, !dbg !313
 }
 
-define void @"F::~F()"(%class.F* nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !299 !intel.dtrans.func.type !701 {
+define void @"F::~F()"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !326 !intel.dtrans.func.type !327 {
 entry:
-  call void @llvm.dbg.value(metadata %class.F* %this, metadata !300, metadata !DIExpression()), !dbg !301
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 0, !dbg !302
-  %tmp = load %struct.Arr*, %struct.Arr** %f1, align 8, !dbg !302
-  %isnull = icmp eq %struct.Arr* %tmp, null, !dbg !304
-  br i1 %isnull, label %delete.end, label %delete.notnull, !dbg !304
+  call void @llvm.dbg.value(metadata ptr %this, metadata !328, metadata !DIExpression()), !dbg !329
+  %f1 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 0, !dbg !330
+  %tmp = load ptr, ptr %f1, align 8, !dbg !330
+  %isnull = icmp eq ptr %tmp, null, !dbg !332
+  br i1 %isnull, label %delete.end, label %delete.notnull, !dbg !332
 
 delete.notnull:                                   ; preds = %entry
-  call void @"Arr<int*>::~Arr()"(%struct.Arr* %tmp), !dbg !304
-  %tmp1 = bitcast %struct.Arr* %tmp to i8*, !dbg !304
-  call void @_ZdlPv(i8* %tmp1), !dbg !304
-  br label %delete.end, !dbg !304
+  call void @"Arr<int*>::~Arr()"(ptr %tmp), !dbg !332
+  %tmp1 = bitcast ptr %tmp to ptr, !dbg !332
+  call void @_ZdlPv(ptr %tmp1), !dbg !332
+  br label %delete.end, !dbg !332
 
 delete.end:                                       ; preds = %delete.notnull, %entry
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i32 0, i32 1, !dbg !305
-  %tmp2 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8, !dbg !305
-  %isnull2 = icmp eq %struct.Arr.0* %tmp2, null, !dbg !306
-  br i1 %isnull2, label %delete.end4, label %delete.notnull3, !dbg !306
+  %f2 = getelementptr inbounds %class.F, ptr %this, i32 0, i32 1, !dbg !333
+  %tmp2 = load ptr, ptr %f2, align 8, !dbg !333
+  %isnull2 = icmp eq ptr %tmp2, null, !dbg !334
+  br i1 %isnull2, label %delete.end4, label %delete.notnull3, !dbg !334
 
 delete.notnull3:                                  ; preds = %delete.end
-  call void @"Arr<float*>::~Arr()"(%struct.Arr.0* %tmp2), !dbg !306
-  %tmp3 = bitcast %struct.Arr.0* %tmp2 to i8*, !dbg !306
-  call void @_ZdlPv(i8* %tmp3), !dbg !306
-  br label %delete.end4, !dbg !306
+  call void @"Arr<float*>::~Arr()"(ptr %tmp2), !dbg !334
+  %tmp3 = bitcast ptr %tmp2 to ptr, !dbg !334
+  call void @_ZdlPv(ptr %tmp3), !dbg !334
+  br label %delete.end4, !dbg !334
 
 delete.end4:                                      ; preds = %delete.notnull3, %delete.end
-  ret void, !dbg !307
+  ret void, !dbg !335
 }
 
-; Function Attrs: nounwind readonly
-define dereferenceable(8) "intel_dtrans_func_index"="1" i32** @"Arr<int*>::get(int)"(%struct.Arr* nocapture readonly "intel_dtrans_func_index"="2" %this, i32 %i) #0 align 2 !dbg !308 !intel.dtrans.func.type !702 {
+; Function Attrs: nounwind memory(read)
+define dereferenceable(8) "intel_dtrans_func_index"="1" ptr @"Arr<int*>::get(int)"(ptr nocapture readonly "intel_dtrans_func_index"="2" %this, i32 %i) #0 align 2 !dbg !336 !intel.dtrans.func.type !337 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !309, metadata !DIExpression()), !dbg !310
-  call void @llvm.dbg.value(metadata i32 %i, metadata !311, metadata !DIExpression()), !dbg !312
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !313
-  %tmp = load i32, i32* %size, align 8, !dbg !313
-  %cmp = icmp ugt i32 %tmp, %i, !dbg !315
-  br i1 %cmp, label %if.end, label %if.then, !dbg !316
+  call void @llvm.dbg.value(metadata ptr %this, metadata !338, metadata !DIExpression()), !dbg !339
+  call void @llvm.dbg.value(metadata i32 %i, metadata !340, metadata !DIExpression()), !dbg !341
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3, !dbg !342
+  %tmp = load i32, ptr %size, align 8, !dbg !342
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !344
+  br i1 %cmp, label %if.end, label %if.then, !dbg !345
 
 if.then:                                          ; preds = %entry
   call void @__cxa_rethrow()
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2
-  %tmp3 = load i32**, i32*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom3
-  ret i32** %arrayidx4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom3
+  ret ptr %arrayidx4
 }
 
-; Function Attrs: nounwind readonly
-define dereferenceable(8)  "intel_dtrans_func_index"="1" float** @"Arr<float*>::get(int)"(%struct.Arr.0* nocapture readonly "intel_dtrans_func_index"="2" %this, i32 %i) #0 align 2 !dbg !323 !intel.dtrans.func.type !703 {
+; Function Attrs: nounwind memory(read)
+define dereferenceable(8) "intel_dtrans_func_index"="1" ptr @"Arr<float*>::get(int)"(ptr nocapture readonly "intel_dtrans_func_index"="2" %this, i32 %i) #0 align 2 !dbg !346 !intel.dtrans.func.type !347 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !324, metadata !DIExpression()), !dbg !325
-  call void @llvm.dbg.value(metadata i32 %i, metadata !326, metadata !DIExpression()), !dbg !327
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !328
-  %tmp = load i32, i32* %size, align 8, !dbg !328
-  %cmp = icmp ugt i32 %tmp, %i, !dbg !330
-  br i1 %cmp, label %if.end, label %if.then, !dbg !331
+  call void @llvm.dbg.value(metadata ptr %this, metadata !348, metadata !DIExpression()), !dbg !349
+  call void @llvm.dbg.value(metadata i32 %i, metadata !350, metadata !DIExpression()), !dbg !351
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3, !dbg !352
+  %tmp = load i32, ptr %size, align 8, !dbg !352
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !354
+  br i1 %cmp, label %if.end, label %if.then, !dbg !355
 
 if.then:                                          ; preds = %entry
   call void @__cxa_rethrow()
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2
-  %tmp3 = load float**, float*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds float*, float** %tmp3, i64 %idxprom3
-  ret float** %arrayidx4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom3
+  ret ptr %arrayidx4
 }
 
-define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !338 !intel.dtrans.func.type !704 {
+define void @"Arr<int*>::Arr(int, %struct.Mem*)"(ptr nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) align 2 !dbg !356 !intel.dtrans.func.type !357 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !339, metadata !DIExpression()), !dbg !340
-  call void @llvm.dbg.value(metadata i32 %c, metadata !341, metadata !DIExpression()), !dbg !342
-  %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0,  !dbg !343
-  store i8 0, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
-  store i32 %c, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  store i32** null, i32*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
-  store i32 0, i32* %size, align 8
-  %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
-  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  call void @llvm.dbg.value(metadata ptr %this, metadata !358, metadata !DIExpression()), !dbg !359
+  call void @llvm.dbg.value(metadata i32 %c, metadata !360, metadata !DIExpression()), !dbg !361
+  %flag = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 0, !dbg !362
+  store i8 0, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 1
+  store i32 %c, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 3
+  store i32 0, ptr %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 4
+  store ptr %mem, ptr %mem2, align 8
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i8* %call to i32**
-  store i32** %i, i32*** %base, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  %i = bitcast ptr %call to ptr
+  store ptr %i, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
 
-define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !354 !intel.dtrans.func.type !705 {
+define void @"Arr<float*>::Arr(int, %struct.Mem*)"(ptr nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) align 2 !dbg !363 !intel.dtrans.func.type !364 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !355, metadata !DIExpression()), !dbg !356
-  call void @llvm.dbg.value(metadata i32 %c, metadata !357, metadata !DIExpression()), !dbg !358
-  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0, !dbg !359
-    store i8 0, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
-  store i32 %c, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  store float** null, float*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
-  store i32 0, i32* %size, align 8
-  %mem2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
-  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  call void @llvm.dbg.value(metadata ptr %this, metadata !365, metadata !DIExpression()), !dbg !366
+  call void @llvm.dbg.value(metadata i32 %c, metadata !367, metadata !DIExpression()), !dbg !368
+  %flag = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 0, !dbg !369
+  store i8 0, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 1
+  store i32 %c, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 3
+  store i32 0, ptr %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 4
+  store ptr %mem, ptr %mem2, align 8
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i8* %call to float**
-  store float** %i, float*** %base, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  %i = bitcast ptr %call to ptr
+  store ptr %i, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !706 dso_local "intel_dtrans_func_index"="1" i8* @malloc(i64) #3
+; Function Attrs: allockind("alloc,uninitialized") allocsize(0)
+declare !intel.dtrans.func.type !370 dso_local "intel_dtrans_func_index"="1" ptr @malloc(i64) #3
+
 declare void @__cxa_rethrow()
 
-declare !intel.dtrans.func.type !707 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="2" align 8, i8, i64, i1)
-
-define void @"Arr<int*>::add(int* const&)"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32** nocapture readonly dereferenceable(8) "intel_dtrans_func_index"="2" %e) align 2 !dbg !370 !intel.dtrans.func.type !708 {
+define void @"Arr<int*>::add(int* const&)"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture readonly dereferenceable(8) "intel_dtrans_func_index"="2" %e) align 2 !dbg !371 !intel.dtrans.func.type !372 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !371, metadata !DIExpression()), !dbg !372
-  call void @llvm.dbg.value(metadata i32** %e, metadata !373, metadata !DIExpression()), !dbg !374
-  call void @"Arr<int*>::realloc(int)"(%struct.Arr* %this, i32 1), !dbg !375
-  %tmp2 = load i32*, i32** %e, align 8, !dbg !376
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !381
-  %tmp3 = load i32**, i32*** %base, align 8, !dbg !381
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !382
-  %tmp4 = load i32, i32* %size, align 8, !dbg !382
-  %idxprom = zext i32 %tmp4 to i64, !dbg !381
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom, !dbg !381
-  store i32* %tmp2, i32** %arrayidx, align 8, !dbg !384
-  %inc = add nsw i32 %tmp4, 1, !dbg !390
-  store i32 %inc, i32* %size, align 8, !dbg !390
-  ret void, !dbg !391
+  call void @llvm.dbg.value(metadata ptr %this, metadata !373, metadata !DIExpression()), !dbg !374
+  call void @llvm.dbg.value(metadata ptr %e, metadata !375, metadata !DIExpression()), !dbg !376
+  call void @"Arr<int*>::realloc(int)"(ptr %this, i32 1), !dbg !377
+  %tmp2 = load ptr, ptr %e, align 8, !dbg !378
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2, !dbg !380
+  %tmp3 = load ptr, ptr %base, align 8, !dbg !380
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3, !dbg !381
+  %tmp4 = load i32, ptr %size, align 8, !dbg !381
+  %idxprom = zext i32 %tmp4 to i64, !dbg !380
+  %arrayidx = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom, !dbg !380
+  store ptr %tmp2, ptr %arrayidx, align 8, !dbg !382
+  %inc = add nsw i32 %tmp4, 1, !dbg !383
+  store i32 %inc, ptr %size, align 8, !dbg !383
+  ret void, !dbg !384
 }
 
-define void @"Arr<float*>::add(float* const&)"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, float** nocapture readonly dereferenceable(8) "intel_dtrans_func_index"="2" %e) align 2 !dbg !392  !intel.dtrans.func.type !709 {
+define void @"Arr<float*>::add(float* const&)"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture readonly dereferenceable(8) "intel_dtrans_func_index"="2" %e) align 2 !dbg !385 !intel.dtrans.func.type !386 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !393, metadata !DIExpression()), !dbg !394
-  call void @llvm.dbg.value(metadata float** %e, metadata !395, metadata !DIExpression()), !dbg !396
-  call void @"Arr<float*>::realloc(int)"(%struct.Arr.0* %this, i32 1), !dbg !397
-  %tmp2 = load float*, float** %e, align 8, !dbg !398
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !403
-  %tmp3 = load float**, float*** %base, align 8, !dbg !403
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !404
-  %tmp4 = load i32, i32* %size, align 8, !dbg !404
-  %idxprom = zext i32 %tmp4 to i64, !dbg !403
-  %arrayidx = getelementptr inbounds float*, float** %tmp3, i64 %idxprom, !dbg !403
-  store float* %tmp2, float** %arrayidx, align 8, !dbg !406
-  %inc = add nsw i32 %tmp4, 1, !dbg !412
-  store i32 %inc, i32* %size, align 8, !dbg !412
-  ret void, !dbg !413
+  call void @llvm.dbg.value(metadata ptr %this, metadata !387, metadata !DIExpression()), !dbg !388
+  call void @llvm.dbg.value(metadata ptr %e, metadata !389, metadata !DIExpression()), !dbg !390
+  call void @"Arr<float*>::realloc(int)"(ptr %this, i32 1), !dbg !391
+  %tmp2 = load ptr, ptr %e, align 8, !dbg !392
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2, !dbg !394
+  %tmp3 = load ptr, ptr %base, align 8, !dbg !394
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3, !dbg !395
+  %tmp4 = load i32, ptr %size, align 8, !dbg !395
+  %idxprom = zext i32 %tmp4 to i64, !dbg !394
+  %arrayidx = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom, !dbg !394
+  store ptr %tmp2, ptr %arrayidx, align 8, !dbg !396
+  %inc = add nsw i32 %tmp4, 1, !dbg !397
+  store i32 %inc, ptr %size, align 8, !dbg !397
+  ret void, !dbg !398
 }
 
-define void @"Arr<int*>::realloc(int)"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) align 2 !dbg !414 !intel.dtrans.func.type !710 {
+define void @"Arr<int*>::realloc(int)"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) align 2 !dbg !399 !intel.dtrans.func.type !400 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !415, metadata !DIExpression()), !dbg !416
-  call void @llvm.dbg.value(metadata i32 %inc, metadata !417, metadata !DIExpression()), !dbg !418
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !419
-  %tmp = load i32, i32* %size, align 8, !dbg !419
-  %add = add nsw i32 %tmp, 1, !dbg !421
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 1, !dbg !422
-  %tmp2 = load i32, i32* %capacity, align 8, !dbg !422
-  %cmp = icmp ugt i32 %add, %tmp2, !dbg !423
+  call void @llvm.dbg.value(metadata ptr %this, metadata !401, metadata !DIExpression()), !dbg !402
+  call void @llvm.dbg.value(metadata i32 %inc, metadata !403, metadata !DIExpression()), !dbg !404
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3, !dbg !405
+  %tmp = load i32, ptr %size, align 8, !dbg !405
+  %add = add nsw i32 %tmp, 1, !dbg !407
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 1, !dbg !408
+  %tmp2 = load i32, ptr %capacity, align 8, !dbg !408
+  %cmp = icmp ugt i32 %add, %tmp2, !dbg !409
   br i1 %cmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %entry
@@ -720,53 +708,54 @@ if.end:                                           ; preds = %entry
   %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
   %conv7 = zext i32 %spec.select to i64
   %mul8 = shl nuw nsw i64 %conv7, 3
-  %call = call noalias i8* @malloc(i64 %mul8)
-  %i2 = bitcast i8* %call to i32**
+  %call = call noalias ptr @malloc(i64 %mul8)
+  %i2 = bitcast ptr %call to ptr
   %cmp1029 = icmp eq i32 %tmp, 0
   br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %if.end
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  %i3 = load i32**, i32*** %base, align 8
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  %i3 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %tmp to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %if.end
-  %base14 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  %i4 = bitcast i32*** %base14 to i8**
-  %i5 = load i8*, i8** %i4, align 8
-  call void @free(i8* %i5)
-  store i8* %call, i8** %i4, align 8
-  store i32 %spec.select, i32* %capacity, align 4
+  %base14 = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  %i4 = bitcast ptr %base14 to ptr
+  %i5 = load ptr, ptr %i4, align 8
+  call void @free(ptr %i5)
+  store ptr %call, ptr %i4, align 8
+  store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32*, i32** %i3, i64 %indvars.iv
-  %i6 = load i32*, i32** %ptridx, align 8
-  %ptridx12 = getelementptr inbounds i32*, i32** %i2, i64 %indvars.iv
-  store i32* %i6, i32** %ptridx12, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
+  %i6 = load ptr, ptr %ptridx, align 8
+  %ptridx12 = getelementptr inbounds ptr, ptr %i2, i64 %indvars.iv
+  store ptr %i6, ptr %ptridx12, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 
 cleanup:                                          ; preds = %for.cond.cleanup, %entry
-  ret void, !dbg !461
+  ret void, !dbg !410
 }
 
-declare !intel.dtrans.func.type !711 dso_local void @free(i8* "intel_dtrans_func_index"="1") #4
+; Function Attrs: allockind("free")
+declare !intel.dtrans.func.type !411 dso_local void @free(ptr "intel_dtrans_func_index"="1") #4
 
-define void @"Arr<float*>::realloc(int)"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) align 2 !dbg !462 !intel.dtrans.func.type !712 {
+define void @"Arr<float*>::realloc(int)"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) align 2 !dbg !412 !intel.dtrans.func.type !413 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !463, metadata !DIExpression()), !dbg !464
-  call void @llvm.dbg.value(metadata i32 %inc, metadata !465, metadata !DIExpression()), !dbg !466
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !467
-  %tmp = load i32, i32* %size, align 8, !dbg !467
-  %add = add nsw i32 %tmp, 1, !dbg !469
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 1, !dbg !470
-  %tmp2 = load i32, i32* %capacity, align 8, !dbg !470
-  %cmp = icmp ugt i32 %add, %tmp2, !dbg !471
-   br i1 %cmp, label %if.end, label %cleanup
+  call void @llvm.dbg.value(metadata ptr %this, metadata !414, metadata !DIExpression()), !dbg !415
+  call void @llvm.dbg.value(metadata i32 %inc, metadata !416, metadata !DIExpression()), !dbg !417
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3, !dbg !418
+  %tmp = load i32, ptr %size, align 8, !dbg !418
+  %add = add nsw i32 %tmp, 1, !dbg !420
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 1, !dbg !421
+  %tmp2 = load i32, ptr %capacity, align 8, !dbg !421
+  %cmp = icmp ugt i32 %add, %tmp2, !dbg !422
+  br i1 %cmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %entry
   %conv = uitofp i32 %tmp to double
@@ -776,227 +765,230 @@ if.end:                                           ; preds = %entry
   %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
   %conv7 = zext i32 %spec.select to i64
   %mul8 = shl nuw nsw i64 %conv7, 3
-  %call = call noalias i8* @malloc(i64 %mul8)
-  %i2 = bitcast i8* %call to float**
+  %call = call noalias ptr @malloc(i64 %mul8)
+  %i2 = bitcast ptr %call to ptr
   %cmp1029 = icmp eq i32 %tmp, 0
   br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %if.end
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  %i3 = load float**, float*** %base, align 8
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  %i3 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %tmp to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %if.end
-  %base14 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  %i4 = bitcast float*** %base14 to i8**
-  %i5 = load i8*, i8** %i4, align 8
-  call void @free(i8* %i5)
-  store i8* %call, i8** %i4, align 8
-  store i32 %spec.select, i32* %capacity, align 4
+  %base14 = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  %i4 = bitcast ptr %base14 to ptr
+  %i5 = load ptr, ptr %i4, align 8
+  call void @free(ptr %i5)
+  store ptr %call, ptr %i4, align 8
+  store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds float*, float** %i3, i64 %indvars.iv
-  %i6 = load float*, float** %ptridx, align 8
-  %ptridx12 = getelementptr inbounds float*, float** %i2, i64 %indvars.iv
-  store float* %i6, float** %ptridx12, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
+  %i6 = load ptr, ptr %ptridx, align 8
+  %ptridx12 = getelementptr inbounds ptr, ptr %i2, i64 %indvars.iv
+  store ptr %i6, ptr %ptridx12, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 
 cleanup:                                          ; preds = %for.cond.cleanup, %entry
-  ret void, !dbg !509
+  ret void, !dbg !423
 }
 
 ; Function Attrs: nounwind
-define void @"Arr<int*>::set(int, int*)"(%struct.Arr* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, i32* "intel_dtrans_func_index"="2" %val) #2 align 2 !dbg !510 !intel.dtrans.func.type !713 {
+define void @"Arr<int*>::set(int, int*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %val) #2 align 2 !dbg !424 !intel.dtrans.func.type !425 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !511, metadata !DIExpression()), !dbg !512
-  call void @llvm.dbg.value(metadata i32 %i, metadata !513, metadata !DIExpression()), !dbg !514
-  call void @llvm.dbg.value(metadata i32* %val, metadata !515, metadata !DIExpression()), !dbg !516
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3, !dbg !517
-  %tmp = load i32, i32* %size, align 8, !dbg !517
-  %cmp = icmp ugt i32 %tmp, %i, !dbg !519
-  br i1 %cmp, label %if.end, label %if.then, !dbg !520
+  call void @llvm.dbg.value(metadata ptr %this, metadata !426, metadata !DIExpression()), !dbg !427
+  call void @llvm.dbg.value(metadata i32 %i, metadata !428, metadata !DIExpression()), !dbg !429
+  call void @llvm.dbg.value(metadata ptr %val, metadata !430, metadata !DIExpression()), !dbg !431
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3, !dbg !432
+  %tmp = load i32, ptr %size, align 8, !dbg !432
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !434
+  br i1 %cmp, label %if.end, label %if.then, !dbg !435
 
 if.then:                                          ; preds = %entry
-  call void @__cxa_rethrow() #12
+  call void @__cxa_rethrow()
   unreachable
 
-if.end:                                          ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !524
-  %tmp5 = load i32**, i32*** %base2, align 8, !dbg !524
-  %idxprom3 = zext i32 %i to i64, !dbg !524
-  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp5, i64 %idxprom3, !dbg !524
-  store i32* %val, i32** %arrayidx4, align 8, !dbg !525
-  ret void, !dbg !526
+if.end:                                           ; preds = %entry
+  %base2 = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2, !dbg !436
+  %tmp5 = load ptr, ptr %base2, align 8, !dbg !436
+  %idxprom3 = zext i32 %i to i64, !dbg !436
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp5, i64 %idxprom3, !dbg !436
+  store ptr %val, ptr %arrayidx4, align 8, !dbg !437
+  ret void, !dbg !438
 }
 
 ; Function Attrs: nounwind
-define void @"Arr<float*>::set(int, float*)"(%struct.Arr.0* nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, float* "intel_dtrans_func_index"="2" %val) #2 align 2 !dbg !527 !intel.dtrans.func.type !714 {
+define void @"Arr<float*>::set(int, float*)"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %val) #2 align 2 !dbg !439 !intel.dtrans.func.type !440 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !528, metadata !DIExpression()), !dbg !529
-  call void @llvm.dbg.value(metadata i32 %i, metadata !530, metadata !DIExpression()), !dbg !531
-  call void @llvm.dbg.value(metadata float* %val, metadata !532, metadata !DIExpression()), !dbg !533
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3, !dbg !534
-  %tmp = load i32, i32* %size, align 8, !dbg !534
-  %cmp = icmp ugt i32 %tmp, %i, !dbg !536
-  br i1 %cmp, label %if.end, label %if.then, !dbg !537
+  call void @llvm.dbg.value(metadata ptr %this, metadata !441, metadata !DIExpression()), !dbg !442
+  call void @llvm.dbg.value(metadata i32 %i, metadata !443, metadata !DIExpression()), !dbg !444
+  call void @llvm.dbg.value(metadata ptr %val, metadata !445, metadata !DIExpression()), !dbg !446
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3, !dbg !447
+  %tmp = load i32, ptr %size, align 8, !dbg !447
+  %cmp = icmp ugt i32 %tmp, %i, !dbg !449
+  br i1 %cmp, label %if.end, label %if.then, !dbg !450
 
 if.then:                                          ; preds = %entry
-  call void @__cxa_rethrow() #12
+  call void @__cxa_rethrow()
   unreachable
 
-if.end:                                          ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !541
-  %tmp5 = load float**, float*** %base2, align 8, !dbg !541
-  %idxprom3 = zext i32 %i to i64, !dbg !541
-  %arrayidx4 = getelementptr inbounds float*, float** %tmp5, i64 %idxprom3, !dbg !541
-  store float* %val, float** %arrayidx4, align 8, !dbg !542
-  ret void, !dbg !543
+if.end:                                           ; preds = %entry
+  %base2 = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2, !dbg !451
+  %tmp5 = load ptr, ptr %base2, align 8, !dbg !451
+  %idxprom3 = zext i32 %i to i64, !dbg !451
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp5, i64 %idxprom3, !dbg !451
+  store ptr %val, ptr %arrayidx4, align 8, !dbg !452
+  ret void, !dbg !453
 }
 
-define void @"Arr<int*>::Arr(Arr<int*> const&)"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, %struct.Arr* nocapture readonly dereferenceable(32) "intel_dtrans_func_index"="2" %A) align 2 !dbg !544 !intel.dtrans.func.type !715 {
+define void @"Arr<int*>::Arr(Arr<int*> const&)"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture readonly dereferenceable(32) "intel_dtrans_func_index"="2" %A) align 2 !dbg !454 !intel.dtrans.func.type !455 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !545, metadata !DIExpression()), !dbg !546
-  call void @llvm.dbg.value(metadata %struct.Arr* %A, metadata !547, metadata !DIExpression()), !dbg !548
-    %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0, !dbg !549
-  %flag2 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 0
-  %i = load i8, i8* %flag2, align 8
-  store i8 %i, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
-  %capacity3 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 1
-  %i1 = load i32, i32* %capacity3, align 4
-  store i32 %i1, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  store i32** null, i32*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
-  %size4 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 3
-  %i2 = load i32, i32* %size4, align 8
-  store i32 %i2, i32* %size, align 8
-  %mem = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
-  %mem5 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 4
-  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
-  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  call void @llvm.dbg.value(metadata ptr %this, metadata !456, metadata !DIExpression()), !dbg !457
+  call void @llvm.dbg.value(metadata ptr %A, metadata !458, metadata !DIExpression()), !dbg !459
+  %flag = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 0, !dbg !460
+  %flag2 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 0
+  %i = load i8, ptr %flag2, align 8
+  store i8 %i, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 1
+  %i1 = load i32, ptr %capacity3, align 4
+  store i32 %i1, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 3
+  %i2 = load i32, ptr %size4, align 8
+  store i32 %i2, ptr %size, align 8
+  %mem = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 4
+  %i3 = load ptr, ptr %mem5, align 8
+  store ptr %i3, ptr %mem, align 8
   %conv = zext i32 %i1 to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i4 = bitcast i32*** %base to i8**
-  store i8* %call, i8** %i4, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  %i4 = bitcast ptr %base to ptr
+  store ptr %call, ptr %i4, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   %cmp25 = icmp eq i32 %i2, 0
   br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %base13 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 2
-  %i5 = load i32**, i32*** %base13, align 8
-  %i6 = load i32**, i32*** %base, align 8
+  %base13 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 2
+  %i5 = load ptr, ptr %base13, align 8
+  %i6 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %i2 to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  ret void, !dbg !602
+  ret void, !dbg !462
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32*, i32** %i5, i64 %indvars.iv
-  %i7 = load i32*, i32** %ptridx, align 8
-  %ptridx16 = getelementptr inbounds i32*, i32** %i6, i64 %indvars.iv
-  store i32* %i7, i32** %ptridx16, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i5, i64 %indvars.iv
+  %i7 = load ptr, ptr %ptridx, align 8
+  %ptridx16 = getelementptr inbounds ptr, ptr %i6, i64 %indvars.iv
+  store ptr %i7, ptr %ptridx16, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
-define void @"Arr<float*>::Arr(Arr<float*> const&)"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, %struct.Arr.0* nocapture readonly dereferenceable(32) "intel_dtrans_func_index"="2" %A) align 2 !dbg !603 !intel.dtrans.func.type !716 {
+define void @"Arr<float*>::Arr(Arr<float*> const&)"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture readonly dereferenceable(32) "intel_dtrans_func_index"="2" %A) align 2 !dbg !463 !intel.dtrans.func.type !464 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !604, metadata !DIExpression()), !dbg !605
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %A, metadata !606, metadata !DIExpression()), !dbg !607
-  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0, !dbg !608
-  %flag2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 0
-  %i = load i8, i8* %flag2, align 8
-  store i8 %i, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
-  %capacity3 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 1
-  %i1 = load i32, i32* %capacity3, align 4
-  store i32 %i1, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  store float** null, float*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
-  %size4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 3
-  %i2 = load i32, i32* %size4, align 8
-  store i32 %i2, i32* %size, align 8
-  %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
-  %mem5 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 4
-  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
-  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  call void @llvm.dbg.value(metadata ptr %this, metadata !465, metadata !DIExpression()), !dbg !466
+  call void @llvm.dbg.value(metadata ptr %A, metadata !467, metadata !DIExpression()), !dbg !468
+  %flag = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 0, !dbg !469
+  %flag2 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 0
+  %i = load i8, ptr %flag2, align 8
+  store i8 %i, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 1
+  %i1 = load i32, ptr %capacity3, align 4
+  store i32 %i1, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 3
+  %i2 = load i32, ptr %size4, align 8
+  store i32 %i2, ptr %size, align 8
+  %mem = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 4
+  %i3 = load ptr, ptr %mem5, align 8
+  store ptr %i3, ptr %mem, align 8
   %conv = zext i32 %i1 to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i4 = bitcast float*** %base to i8**
-  store i8* %call, i8** %i4, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  %i4 = bitcast ptr %base to ptr
+  store ptr %call, ptr %i4, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   %cmp25 = icmp eq i32 %i2, 0
   br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %base13 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 2
-  %i5 = load float**, float*** %base13, align 8
-  %i6 = load float**, float*** %base, align 8
+  %base13 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 2
+  %i5 = load ptr, ptr %base13, align 8
+  %i6 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %i2 to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  ret void, !dbg !661
+  ret void, !dbg !471
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds float*, float** %i5, i64 %indvars.iv
-  %i7 = load float*, float** %ptridx, align 8
-  %ptridx16 = getelementptr inbounds float*, float** %i6, i64 %indvars.iv
-  store float* %i7, float** %ptridx16, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i5, i64 %indvars.iv
+  %i7 = load ptr, ptr %ptridx, align 8
+  %ptridx16 = getelementptr inbounds ptr, ptr %i6, i64 %indvars.iv
+  store ptr %i7, ptr %ptridx16, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
-define void @"Arr<int*>::~Arr()"(%struct.Arr* nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !662 !intel.dtrans.func.type !717 {
+define void @"Arr<int*>::~Arr()"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !472 !intel.dtrans.func.type !473 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !663, metadata !DIExpression()), !dbg !664
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2, !dbg !665
-  %tmp = load i32**, i32*** %base, align 8, !dbg !665
-  %tmp1 = bitcast i32** %tmp to i8*, !dbg !665
-  call void @free(i8* %tmp1), !dbg !667
-  ret void, !dbg !668
+  call void @llvm.dbg.value(metadata ptr %this, metadata !474, metadata !DIExpression()), !dbg !475
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2, !dbg !476
+  %tmp = load ptr, ptr %base, align 8, !dbg !476
+  %tmp1 = bitcast ptr %tmp to ptr, !dbg !476
+  call void @free(ptr %tmp1), !dbg !478
+  ret void, !dbg !479
 }
 
-define void @"Arr<float*>::~Arr()"(%struct.Arr.0* nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !669 !intel.dtrans.func.type !718 {
+define void @"Arr<float*>::~Arr()"(ptr nocapture readonly "intel_dtrans_func_index"="1" %this) align 2 !dbg !480 !intel.dtrans.func.type !481 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !670, metadata !DIExpression()), !dbg !671
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2, !dbg !672
-  %tmp = load float**, float*** %base, align 8, !dbg !672
-  %tmp1 = bitcast float** %tmp to i8*, !dbg !672
-  call void @free(i8* %tmp1), !dbg !674
-  ret void, !dbg !675
+  call void @llvm.dbg.value(metadata ptr %this, metadata !482, metadata !DIExpression()), !dbg !483
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2, !dbg !484
+  %tmp = load ptr, ptr %base, align 8, !dbg !484
+  %tmp1 = bitcast ptr %tmp to ptr, !dbg !484
+  call void @free(ptr %tmp1), !dbg !486
+  ret void, !dbg !487
 }
 
-; Function Attrs: nounwind readnone speculatable
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
-attributes #0 = { nounwind readonly }
-attributes #1 = { nounwind readnone speculatable }
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #5
+
+attributes #0 = { nounwind memory(read) }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 attributes #2 = { nounwind }
 attributes #3 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
 attributes #4 = { allockind("free") "alloc-family"="malloc" }
-
+attributes #5 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !llvm.dbg.cu = !{!2}
 !llvm.module.flags = !{!19, !20, !21}
 !llvm.dbg.intel.emit_class_debug_always = !{!22}
 !llvm.ident = !{!23}
-!intel.dtrans.types = !{!676, !680, !684, !687}
+!intel.dtrans.types = !{!24, !28, !32, !35}
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "v1", scope: !2, file: !3, line: 96, type: !8, isLocal: false, isDefinition: true)
@@ -1022,700 +1014,467 @@ attributes #4 = { allockind("free") "alloc-family"="malloc" }
 !21 = !{i32 1, !"wchar_size", i32 4}
 !22 = !{!"true"}
 !23 = !{!"clang version 8.0.0"}
-!24 = distinct !DISubprogram(name: "check1", linkageName: "check1(F*)", scope: !3, file: !3, line: 101, type: !25, isLocal: false, isDefinition: true, scopeLine: 101, flags: DIFlagPrototyped, isOptimized: false, unit: !2, retainedNodes: !4)
-!25 = !DISubroutineType(types: !26)
-!26 = !{!27, !28}
-!27 = !DIBasicType(name: "bool", size: 8, encoding: DW_ATE_boolean)
-!28 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !29, size: 64)
-!29 = distinct !DICompositeType(tag: DW_TAG_class_type, name: "F", file: !3, line: 62, size: 128, flags: DIFlagTypePassByReference, elements: !30, identifier: "typeinfo name for F")
-!30 = !{!31, !65, !99, !105, !108, !111, !114, !117, !120, !123}
-!31 = !DIDerivedType(tag: DW_TAG_member, name: "f1", scope: !29, file: !3, line: 64, baseType: !32, size: 64, flags: DIFlagPublic)
-!32 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !33, size: 64)
-!33 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<int *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !34, templateParams: !63, identifier: "typeinfo name for Arr<int*>")
-!34 = !{!35, !36, !37, !38, !43, !46, !49, !50, !55, !60}
-!35 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !33, file: !3, line: 7, baseType: !8, size: 32)
-!36 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !33, file: !3, line: 8, baseType: !6, size: 64, offset: 64)
-!37 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !33, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
-!38 = !DISubprogram(name: "get", linkageName: "Arr<int*>::get(int)", scope: !33, file: !3, line: 10, type: !39, isLocal: false, isDefinition: false, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false)
-!39 = !DISubroutineType(types: !40)
-!40 = !{!41, !42, !8}
-!41 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !7, size: 64)
-!42 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !33, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
-!43 = !DISubprogram(name: "set", linkageName: "Arr<int*>::set(int, int*)", scope: !33, file: !3, line: 15, type: !44, isLocal: false, isDefinition: false, scopeLine: 15, flags: DIFlagPrototyped, isOptimized: false)
-!44 = !DISubroutineType(types: !45)
-!45 = !{null, !42, !8, !7}
-!46 = !DISubprogram(name: "Arr", scope: !33, file: !3, line: 21, type: !47, isLocal: false, isDefinition: false, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false)
-!47 = !DISubroutineType(types: !48)
-!48 = !{null, !42, !8}
-!49 = !DISubprogram(name: "realloc", linkageName: "Arr<int*>::realloc(int)", scope: !33, file: !3, line: 24, type: !47, isLocal: false, isDefinition: false, scopeLine: 24, flags: DIFlagPrototyped, isOptimized: false)
-!50 = !DISubprogram(name: "add", linkageName: "Arr<int*>::add(int* const&)", scope: !33, file: !3, line: 36, type: !51, isLocal: false, isDefinition: false, scopeLine: 36, flags: DIFlagPrototyped, isOptimized: false)
-!51 = !DISubroutineType(types: !52)
-!52 = !{null, !42, !53}
-!53 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !54, size: 64)
-!54 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !7)
-!55 = !DISubprogram(name: "Arr", scope: !33, file: !3, line: 46, type: !56, isLocal: false, isDefinition: false, scopeLine: 46, flags: DIFlagPrototyped, isOptimized: false)
-!56 = !DISubroutineType(types: !57)
-!57 = !{null, !42, !58}
-!58 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !59, size: 64)
-!59 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !33)
-!60 = !DISubprogram(name: "~Arr", scope: !33, file: !3, line: 59, type: !61, isLocal: false, isDefinition: false, scopeLine: 59, flags: DIFlagPrototyped, isOptimized: false)
-!61 = !DISubroutineType(types: !62)
-!62 = !{null, !42}
-!63 = !{!64}
-!64 = !DITemplateTypeParameter(name: "S", type: !7)
-!65 = !DIDerivedType(tag: DW_TAG_member, name: "f2", scope: !29, file: !3, line: 65, baseType: !66, size: 64, offset: 64, flags: DIFlagPublic)
-!66 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !67, size: 64)
-!67 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<float *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !68, templateParams: !97, identifier: "typeinfo name for Arr<float*>")
-!68 = !{!69, !70, !71, !72, !77, !80, !83, !84, !89, !94}
-!69 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !67, file: !3, line: 7, baseType: !8, size: 32)
-!70 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !67, file: !3, line: 8, baseType: !9, size: 64, offset: 64)
-!71 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !67, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
-!72 = !DISubprogram(name: "get", linkageName: "Arr<float*>::get(int)", scope: !67, file: !3, line: 10, type: !73, isLocal: false, isDefinition: false, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false)
-!73 = !DISubroutineType(types: !74)
-!74 = !{!75, !76, !8}
-!75 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !10, size: 64)
-!76 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !67, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
-!77 = !DISubprogram(name: "set", linkageName: "Arr<float*>::set(int, float*)", scope: !67, file: !3, line: 15, type: !78, isLocal: false, isDefinition: false, scopeLine: 15, flags: DIFlagPrototyped, isOptimized: false)
-!78 = !DISubroutineType(types: !79)
-!79 = !{null, !76, !8, !10}
-!80 = !DISubprogram(name: "Arr", scope: !67, file: !3, line: 21, type: !81, isLocal: false, isDefinition: false, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false)
-!81 = !DISubroutineType(types: !82)
-!82 = !{null, !76, !8}
-!83 = !DISubprogram(name: "realloc", linkageName: "Arr<float*>::realloc(int)", scope: !67, file: !3, line: 24, type: !81, isLocal: false, isDefinition: false, scopeLine: 24, flags: DIFlagPrototyped, isOptimized: false)
-!84 = !DISubprogram(name: "add", linkageName: "Arr<float*>::add(float* const&)", scope: !67, file: !3, line: 36, type: !85, isLocal: false, isDefinition: false, scopeLine: 36, flags: DIFlagPrototyped, isOptimized: false)
-!85 = !DISubroutineType(types: !86)
-!86 = !{null, !76, !87}
-!87 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !88, size: 64)
-!88 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !10)
-!89 = !DISubprogram(name: "Arr", scope: !67, file: !3, line: 46, type: !90, isLocal: false, isDefinition: false, scopeLine: 46, flags: DIFlagPrototyped, isOptimized: false)
-!90 = !DISubroutineType(types: !91)
-!91 = !{null, !76, !92}
-!92 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !93, size: 64)
-!93 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !67)
-!94 = !DISubprogram(name: "~Arr", scope: !67, file: !3, line: 59, type: !95, isLocal: false, isDefinition: false, scopeLine: 59, flags: DIFlagPrototyped, isOptimized: false)
-!95 = !DISubroutineType(types: !96)
-!96 = !{null, !76}
-!97 = !{!98}
-!98 = !DITemplateTypeParameter(name: "S", type: !10)
-!99 = !DISubprogram(name: "F", scope: !29, file: !3, line: 66, type: !100, isLocal: false, isDefinition: false, scopeLine: 66, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!100 = !DISubroutineType(types: !101)
-!101 = !{null, !102, !103}
-!102 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !29, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
-!103 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !104, size: 64)
-!104 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !29)
-!105 = !DISubprogram(name: "put", linkageName: "F::put(int*, float*)", scope: !29, file: !3, line: 70, type: !106, isLocal: false, isDefinition: false, scopeLine: 70, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!106 = !DISubroutineType(types: !107)
-!107 = !{null, !102, !7, !10}
-!108 = !DISubprogram(name: "set1", linkageName: "F::set1(int, int*)", scope: !29, file: !3, line: 74, type: !109, isLocal: false, isDefinition: false, scopeLine: 74, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!109 = !DISubroutineType(types: !110)
-!110 = !{null, !102, !8, !7}
-!111 = !DISubprogram(name: "set2", linkageName: "F::set2(int, float*)", scope: !29, file: !3, line: 77, type: !112, isLocal: false, isDefinition: false, scopeLine: 77, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!112 = !DISubroutineType(types: !113)
-!113 = !{null, !102, !8, !10}
-!114 = !DISubprogram(name: "get1", linkageName: "F::get1(int)", scope: !29, file: !3, line: 80, type: !115, isLocal: false, isDefinition: false, scopeLine: 80, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!115 = !DISubroutineType(types: !116)
-!116 = !{!8, !102, !8}
-!117 = !DISubprogram(name: "get2", linkageName: "F::get2(int)", scope: !29, file: !3, line: 83, type: !118, isLocal: false, isDefinition: false, scopeLine: 83, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!118 = !DISubroutineType(types: !119)
-!119 = !{!11, !102, !8}
-!120 = !DISubprogram(name: "F", scope: !29, file: !3, line: 86, type: !121, isLocal: false, isDefinition: false, scopeLine: 86, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!121 = !DISubroutineType(types: !122)
-!122 = !{null, !102}
-!123 = !DISubprogram(name: "~F", scope: !29, file: !3, line: 90, type: !121, isLocal: false, isDefinition: false, scopeLine: 90, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-!124 = !DILocalVariable(name: "f", arg: 1, scope: !24, file: !3, line: 101, type: !28)
-!125 = !DILocation(line: 101, column: 16, scope: !24)
-!126 = !DILocation(line: 102, column: 10, scope: !127)
-!127 = distinct !DILexicalBlock(scope: !24, file: !3, line: 102, column: 7)
-!128 = !DILocation(line: 102, column: 21, scope: !127)
-!129 = !DILocation(line: 102, column: 18, scope: !127)
-!130 = !DILocation(line: 102, column: 7, scope: !24)
-!131 = !DILocation(line: 103, column: 5, scope: !127)
-!132 = !DILocation(line: 104, column: 10, scope: !133)
-!133 = distinct !DILexicalBlock(scope: !24, file: !3, line: 104, column: 7)
-!134 = !DILocation(line: 104, column: 21, scope: !133)
-!135 = !DILocation(line: 104, column: 18, scope: !133)
-!136 = !DILocation(line: 104, column: 7, scope: !24)
-!137 = !DILocation(line: 105, column: 5, scope: !133)
-!138 = !DILocation(line: 106, column: 10, scope: !139)
-!139 = distinct !DILexicalBlock(scope: !24, file: !3, line: 106, column: 7)
-!140 = !DILocation(line: 106, column: 21, scope: !139)
-!141 = !DILocation(line: 106, column: 18, scope: !139)
-!142 = !DILocation(line: 106, column: 7, scope: !24)
-!143 = !DILocation(line: 107, column: 5, scope: !139)
-!144 = !DILocation(line: 108, column: 10, scope: !145)
-!145 = distinct !DILexicalBlock(scope: !24, file: !3, line: 108, column: 7)
-!146 = !DILocation(line: 108, column: 21, scope: !145)
-!147 = !DILocation(line: 108, column: 18, scope: !145)
-!148 = !DILocation(line: 108, column: 7, scope: !24)
-!149 = !DILocation(line: 109, column: 5, scope: !145)
-!150 = !DILocation(line: 110, column: 3, scope: !24)
-!151 = !DILocation(line: 0, scope: !24)
-!152 = !DILocation(line: 111, column: 1, scope: !24)
-!153 = distinct !DISubprogram(name: "get1", linkageName: "F::get1(int)", scope: !29, file: !3, line: 80, type: !115, isLocal: false, isDefinition: true, scopeLine: 80, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !114, retainedNodes: !4)
-!154 = !DILocalVariable(name: "this", arg: 1, scope: !153, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!155 = !DILocation(line: 0, scope: !153)
-!156 = !DILocalVariable(name: "i", arg: 2, scope: !153, file: !3, line: 80, type: !8)
-!157 = !DILocation(line: 80, column: 16, scope: !153)
-!158 = !DILocation(line: 81, column: 14, scope: !153)
-!159 = !DILocation(line: 81, column: 18, scope: !153)
-!160 = !DILocation(line: 81, column: 12, scope: !153)
-!161 = !DILocation(line: 81, column: 5, scope: !153)
-!162 = distinct !DISubprogram(name: "get2", linkageName: "F::get2(int)", scope: !29, file: !3, line: 83, type: !118, isLocal: false, isDefinition: true, scopeLine: 83, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !117, retainedNodes: !4)
-!163 = !DILocalVariable(name: "this", arg: 1, scope: !162, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!164 = !DILocation(line: 0, scope: !162)
-!165 = !DILocalVariable(name: "i", arg: 2, scope: !162, file: !3, line: 83, type: !8)
-!166 = !DILocation(line: 83, column: 18, scope: !162)
-!167 = !DILocation(line: 84, column: 14, scope: !162)
-!168 = !DILocation(line: 84, column: 18, scope: !162)
-!169 = !DILocation(line: 84, column: 12, scope: !162)
-!170 = !DILocation(line: 84, column: 5, scope: !162)
-!171 = distinct !DISubprogram(name: "main", scope: !3, file: !3, line: 113, type: !172, isLocal: false, isDefinition: true, scopeLine: 113, flags: DIFlagPrototyped, isOptimized: false, unit: !2, retainedNodes: !4)
-!172 = !DISubroutineType(types: !173)
-!173 = !{!8}
-!174 = !DILocation(line: 114, column: 10, scope: !171)
-!175 = !DILocation(line: 114, column: 14, scope: !171)
-!176 = !DILocalVariable(name: "f", scope: !171, file: !3, line: 114, type: !28)
-!177 = !DILocation(line: 114, column: 6, scope: !171)
-!178 = !DILocation(line: 115, column: 6, scope: !171)
-!179 = !DILocation(line: 116, column: 10, scope: !180)
-!180 = distinct !DILexicalBlock(scope: !171, file: !3, line: 116, column: 7)
-!181 = !DILocation(line: 116, column: 21, scope: !180)
-!182 = !DILocation(line: 116, column: 18, scope: !180)
-!183 = !DILocation(line: 116, column: 7, scope: !171)
-!184 = !DILocation(line: 117, column: 5, scope: !180)
-!185 = !DILocation(line: 143, column: 1, scope: !171)
-!186 = !DILocation(line: 118, column: 10, scope: !187)
-!187 = distinct !DILexicalBlock(scope: !171, file: !3, line: 118, column: 7)
-!188 = !DILocation(line: 118, column: 21, scope: !187)
-!189 = !DILocation(line: 118, column: 18, scope: !187)
-!190 = !DILocation(line: 118, column: 7, scope: !171)
-!191 = !DILocation(line: 119, column: 5, scope: !187)
-!192 = !DILocation(line: 121, column: 6, scope: !171)
-!193 = !DILocation(line: 122, column: 10, scope: !194)
-!194 = distinct !DILexicalBlock(scope: !171, file: !3, line: 122, column: 7)
-!195 = !DILocation(line: 122, column: 21, scope: !194)
-!196 = !DILocation(line: 122, column: 18, scope: !194)
-!197 = !DILocation(line: 122, column: 7, scope: !171)
-!198 = !DILocation(line: 123, column: 5, scope: !194)
-!199 = !DILocation(line: 124, column: 10, scope: !200)
-!200 = distinct !DILexicalBlock(scope: !171, file: !3, line: 124, column: 7)
-!201 = !DILocation(line: 124, column: 21, scope: !200)
-!202 = !DILocation(line: 124, column: 18, scope: !200)
-!203 = !DILocation(line: 124, column: 7, scope: !171)
-!204 = !DILocation(line: 125, column: 5, scope: !200)
-!205 = !DILocation(line: 126, column: 10, scope: !206)
-!206 = distinct !DILexicalBlock(scope: !171, file: !3, line: 126, column: 7)
-!207 = !DILocation(line: 126, column: 21, scope: !206)
-!208 = !DILocation(line: 126, column: 18, scope: !206)
-!209 = !DILocation(line: 126, column: 7, scope: !171)
-!210 = !DILocation(line: 127, column: 5, scope: !206)
-!211 = !DILocation(line: 128, column: 10, scope: !212)
-!212 = distinct !DILexicalBlock(scope: !171, file: !3, line: 128, column: 7)
-!213 = !DILocation(line: 128, column: 21, scope: !212)
-!214 = !DILocation(line: 128, column: 18, scope: !212)
-!215 = !DILocation(line: 128, column: 7, scope: !171)
-!216 = !DILocation(line: 129, column: 5, scope: !212)
-!217 = !DILocation(line: 131, column: 6, scope: !171)
-!218 = !DILocation(line: 132, column: 6, scope: !171)
-!219 = !DILocation(line: 133, column: 8, scope: !220)
-!220 = distinct !DILexicalBlock(scope: !171, file: !3, line: 133, column: 7)
-!221 = !DILocation(line: 133, column: 7, scope: !171)
-!222 = !DILocation(line: 134, column: 5, scope: !220)
-!223 = !DILocation(line: 136, column: 11, scope: !171)
-!224 = !DILocation(line: 136, column: 15, scope: !171)
-!225 = !DILocalVariable(name: "f1", scope: !171, file: !3, line: 136, type: !28)
-!226 = !DILocation(line: 136, column: 6, scope: !171)
-!227 = !DILocation(line: 137, column: 8, scope: !228)
-!228 = distinct !DILexicalBlock(scope: !171, file: !3, line: 137, column: 7)
-!229 = !DILocation(line: 137, column: 7, scope: !171)
-!230 = !DILocation(line: 138, column: 5, scope: !228)
-!231 = !DILocation(line: 140, column: 3, scope: !171)
-!232 = !DILocation(line: 141, column: 3, scope: !171)
-!233 = !DILocation(line: 142, column: 3, scope: !171)
-!234 = !DILocation(line: 0, scope: !171)
-!235 = distinct !DISubprogram(name: "F", linkageName: "F::F()", scope: !29, file: !3, line: 86, type: !121, isLocal: false, isDefinition: true, scopeLine: 86, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !120, retainedNodes: !4)
-!236 = !DILocalVariable(name: "this", arg: 1, scope: !235, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!237 = !DILocation(line: 0, scope: !235)
-!238 = !DILocation(line: 87, column: 10, scope: !239)
-!239 = distinct !DILexicalBlock(scope: !235, file: !3, line: 86, column: 7)
-!240 = !DILocation(line: 87, column: 14, scope: !239)
-!241 = !DILocation(line: 87, column: 5, scope: !239)
-!242 = !DILocation(line: 87, column: 8, scope: !239)
-!243 = !DILocation(line: 88, column: 10, scope: !239)
-!244 = !DILocation(line: 88, column: 14, scope: !239)
-!245 = !DILocation(line: 88, column: 5, scope: !239)
-!246 = !DILocation(line: 88, column: 8, scope: !239)
-!247 = !DILocation(line: 89, column: 3, scope: !235)
-!248 = !DILocation(line: 89, column: 3, scope: !239)
-!249 = distinct !DISubprogram(name: "put", linkageName: "F::put(int*, float*)", scope: !29, file: !3, line: 70, type: !106, isLocal: false, isDefinition: true, scopeLine: 70, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !105, retainedNodes: !4)
-!250 = !DILocalVariable(name: "this", arg: 1, scope: !249, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!251 = !DILocation(line: 0, scope: !249)
-!252 = !DILocalVariable(name: "a", arg: 2, scope: !249, file: !3, line: 70, type: !7)
-!253 = !DILocation(line: 70, column: 17, scope: !249)
-!254 = !DILocalVariable(name: "b", arg: 3, scope: !249, file: !3, line: 70, type: !10)
-!255 = !DILocation(line: 70, column: 27, scope: !249)
-!256 = !DILocation(line: 71, column: 5, scope: !249)
-!257 = !DILocation(line: 71, column: 9, scope: !249)
-!258 = !DILocation(line: 72, column: 5, scope: !249)
-!259 = !DILocation(line: 72, column: 9, scope: !249)
-!260 = !DILocation(line: 73, column: 3, scope: !249)
-!261 = distinct !DISubprogram(name: "set1", linkageName: "F::set1(int, int*)", scope: !29, file: !3, line: 74, type: !109, isLocal: false, isDefinition: true, scopeLine: 74, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !108, retainedNodes: !4)
-!262 = !DILocalVariable(name: "this", arg: 1, scope: !261, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!263 = !DILocation(line: 0, scope: !261)
-!264 = !DILocalVariable(name: "i", arg: 2, scope: !261, file: !3, line: 74, type: !8)
-!265 = !DILocation(line: 74, column: 17, scope: !261)
-!266 = !DILocalVariable(name: "a", arg: 3, scope: !261, file: !3, line: 74, type: !7)
-!267 = !DILocation(line: 74, column: 25, scope: !261)
-!268 = !DILocation(line: 75, column: 5, scope: !261)
-!269 = !DILocation(line: 75, column: 9, scope: !261)
-!270 = !DILocation(line: 76, column: 3, scope: !261)
-!271 = distinct !DISubprogram(name: "set2", linkageName: "F::set2(int, float*)", scope: !29, file: !3, line: 77, type: !112, isLocal: false, isDefinition: true, scopeLine: 77, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !111, retainedNodes: !4)
-!272 = !DILocalVariable(name: "this", arg: 1, scope: !271, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!273 = !DILocation(line: 0, scope: !271)
-!274 = !DILocalVariable(name: "i", arg: 2, scope: !271, file: !3, line: 77, type: !8)
-!275 = !DILocation(line: 77, column: 17, scope: !271)
-!276 = !DILocalVariable(name: "b", arg: 3, scope: !271, file: !3, line: 77, type: !10)
-!277 = !DILocation(line: 77, column: 27, scope: !271)
-!278 = !DILocation(line: 78, column: 5, scope: !271)
-!279 = !DILocation(line: 78, column: 9, scope: !271)
-!280 = !DILocation(line: 79, column: 3, scope: !271)
-!281 = distinct !DISubprogram(name: "F", linkageName: "F::F(F const&)", scope: !29, file: !3, line: 66, type: !100, isLocal: false, isDefinition: true, scopeLine: 66, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !99, retainedNodes: !4)
-!282 = !DILocalVariable(name: "this", arg: 1, scope: !281, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!283 = !DILocation(line: 0, scope: !281)
-!284 = !DILocalVariable(name: "f", arg: 2, scope: !281, file: !3, line: 66, type: !103)
-!285 = !DILocation(line: 66, column: 14, scope: !281)
-!286 = !DILocation(line: 67, column: 10, scope: !287)
-!287 = distinct !DILexicalBlock(scope: !281, file: !3, line: 66, column: 17)
-!288 = !DILocation(line: 67, column: 28, scope: !287)
-!289 = !DILocation(line: 67, column: 14, scope: !287)
-!290 = !DILocation(line: 67, column: 5, scope: !287)
-!291 = !DILocation(line: 67, column: 8, scope: !287)
-!292 = !DILocation(line: 68, column: 10, scope: !287)
-!293 = !DILocation(line: 68, column: 30, scope: !287)
-!294 = !DILocation(line: 68, column: 14, scope: !287)
-!295 = !DILocation(line: 68, column: 5, scope: !287)
-!296 = !DILocation(line: 68, column: 8, scope: !287)
-!297 = !DILocation(line: 69, column: 3, scope: !281)
-!298 = !DILocation(line: 69, column: 3, scope: !287)
-!299 = distinct !DISubprogram(name: "~F", linkageName: "F::~F()", scope: !29, file: !3, line: 90, type: !121, isLocal: false, isDefinition: true, scopeLine: 90, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !123, retainedNodes: !4)
-!300 = !DILocalVariable(name: "this", arg: 1, scope: !299, type: !28, flags: DIFlagArtificial | DIFlagObjectPointer)
-!301 = !DILocation(line: 0, scope: !299)
-!302 = !DILocation(line: 91, column: 12, scope: !303)
-!303 = distinct !DILexicalBlock(scope: !299, file: !3, line: 90, column: 8)
-!304 = !DILocation(line: 91, column: 5, scope: !303)
-!305 = !DILocation(line: 92, column: 12, scope: !303)
-!306 = !DILocation(line: 92, column: 5, scope: !303)
-!307 = !DILocation(line: 93, column: 3, scope: !299)
-!308 = distinct !DISubprogram(name: "get", linkageName: "Arr<int*>::get(int)", scope: !33, file: !3, line: 10, type: !39, isLocal: false, isDefinition: true, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !38, retainedNodes: !4)
-!309 = !DILocalVariable(name: "this", arg: 1, scope: !308, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!310 = !DILocation(line: 0, scope: !308)
-!311 = !DILocalVariable(name: "i", arg: 2, scope: !308, file: !3, line: 10, type: !8)
-!312 = !DILocation(line: 10, column: 14, scope: !308)
-!313 = !DILocation(line: 11, column: 9, scope: !314)
-!314 = distinct !DILexicalBlock(scope: !308, file: !3, line: 11, column: 9)
-!315 = !DILocation(line: 11, column: 19, scope: !314)
-!316 = !DILocation(line: 11, column: 9, scope: !308)
-!317 = !DILocation(line: 12, column: 14, scope: !314)
-!318 = !DILocation(line: 12, column: 21, scope: !314)
-!319 = !DILocation(line: 12, column: 7, scope: !314)
-!320 = !DILocation(line: 13, column: 12, scope: !308)
-!321 = !DILocation(line: 13, column: 5, scope: !308)
-!322 = !DILocation(line: 14, column: 3, scope: !308)
-!323 = distinct !DISubprogram(name: "get", linkageName: "Arr<float*>::get(int)", scope: !67, file: !3, line: 10, type: !73, isLocal: false, isDefinition: true, scopeLine: 10, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !72, retainedNodes: !4)
-!324 = !DILocalVariable(name: "this", arg: 1, scope: !323, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!325 = !DILocation(line: 0, scope: !323)
-!326 = !DILocalVariable(name: "i", arg: 2, scope: !323, file: !3, line: 10, type: !8)
-!327 = !DILocation(line: 10, column: 14, scope: !323)
-!328 = !DILocation(line: 11, column: 9, scope: !329)
-!329 = distinct !DILexicalBlock(scope: !323, file: !3, line: 11, column: 9)
-!330 = !DILocation(line: 11, column: 19, scope: !329)
-!331 = !DILocation(line: 11, column: 9, scope: !323)
-!332 = !DILocation(line: 12, column: 14, scope: !329)
-!333 = !DILocation(line: 12, column: 21, scope: !329)
-!334 = !DILocation(line: 12, column: 7, scope: !329)
-!335 = !DILocation(line: 13, column: 12, scope: !323)
-!336 = !DILocation(line: 13, column: 5, scope: !323)
-!337 = !DILocation(line: 14, column: 3, scope: !323)
-!338 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(int, %struct.Mem*)", scope: !33, file: !3, line: 21, type: !47, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !46, retainedNodes: !4)
-!339 = !DILocalVariable(name: "this", arg: 1, scope: !338, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!340 = !DILocation(line: 0, scope: !338)
-!341 = !DILocalVariable(name: "c", arg: 2, scope: !338, file: !3, line: 21, type: !8)
-!342 = !DILocation(line: 21, column: 11, scope: !338)
-!343 = !DILocation(line: 21, column: 20, scope: !338)
-!344 = !DILocation(line: 21, column: 43, scope: !338)
-!345 = !DILocation(line: 21, column: 34, scope: !338)
-!346 = !DILocation(line: 22, column: 24, scope: !347)
-!347 = distinct !DILexicalBlock(scope: !338, file: !3, line: 21, column: 57)
-!348 = !DILocation(line: 22, column: 34, scope: !347)
-!349 = !DILocation(line: 22, column: 17, scope: !347)
-!350 = !DILocation(line: 22, column: 12, scope: !347)
-!351 = !DILocation(line: 22, column: 5, scope: !347)
-!352 = !DILocation(line: 22, column: 10, scope: !347)
-!353 = !DILocation(line: 23, column: 3, scope: !338)
-!354 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(int, %struct.Mem*)", scope: !67, file: !3, line: 21, type: !81, isLocal: false, isDefinition: true, scopeLine: 21, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !80, retainedNodes: !4)
-!355 = !DILocalVariable(name: "this", arg: 1, scope: !354, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!356 = !DILocation(line: 0, scope: !354)
-!357 = !DILocalVariable(name: "c", arg: 2, scope: !354, file: !3, line: 21, type: !8)
-!358 = !DILocation(line: 21, column: 11, scope: !354)
-!359 = !DILocation(line: 21, column: 20, scope: !354)
-!360 = !DILocation(line: 21, column: 43, scope: !354)
-!361 = !DILocation(line: 21, column: 34, scope: !354)
-!362 = !DILocation(line: 22, column: 24, scope: !363)
-!363 = distinct !DILexicalBlock(scope: !354, file: !3, line: 21, column: 57)
-!364 = !DILocation(line: 22, column: 34, scope: !363)
-!365 = !DILocation(line: 22, column: 17, scope: !363)
-!366 = !DILocation(line: 22, column: 12, scope: !363)
-!367 = !DILocation(line: 22, column: 5, scope: !363)
-!368 = !DILocation(line: 22, column: 10, scope: !363)
-!369 = !DILocation(line: 23, column: 3, scope: !354)
-!370 = distinct !DISubprogram(name: "add", linkageName: "Arr<int*>::add(int* const&)", scope: !33, file: !3, line: 36, type: !51, isLocal: false, isDefinition: true, scopeLine: 36, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !50, retainedNodes: !4)
-!371 = !DILocalVariable(name: "this", arg: 1, scope: !370, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!372 = !DILocation(line: 0, scope: !370)
-!373 = !DILocalVariable(name: "e", arg: 2, scope: !370, file: !3, line: 36, type: !53)
-!374 = !DILocation(line: 36, column: 21, scope: !370)
-!375 = !DILocation(line: 37, column: 5, scope: !370)
-!376 = !DILocation(line: 39, column: 9, scope: !377)
-!377 = distinct !DILexicalBlock(scope: !370, file: !3, line: 39, column: 9)
-!378 = !DILocation(line: 39, column: 19, scope: !377)
-!379 = !DILocation(line: 39, column: 9, scope: !370)
-!380 = !DILocation(line: 40, column: 24, scope: !377)
-!381 = !DILocation(line: 40, column: 7, scope: !377)
-!382 = !DILocation(line: 40, column: 16, scope: !377)
-!383 = !DILocation(line: 40, column: 14, scope: !377)
-!384 = !DILocation(line: 40, column: 22, scope: !377)
-!385 = !DILocation(line: 42, column: 20, scope: !377)
-!386 = !DILocation(line: 42, column: 7, scope: !377)
-!387 = !DILocation(line: 42, column: 12, scope: !377)
-!388 = !DILocation(line: 42, column: 18, scope: !377)
-!389 = !DILocation(line: 44, column: 7, scope: !370)
-!390 = !DILocation(line: 44, column: 5, scope: !370)
-!391 = !DILocation(line: 45, column: 3, scope: !370)
-!392 = distinct !DISubprogram(name: "add", linkageName: "Arr<float*>::add(float* const&)", scope: !67, file: !3, line: 36, type: !85, isLocal: false, isDefinition: true, scopeLine: 36, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !84, retainedNodes: !4)
-!393 = !DILocalVariable(name: "this", arg: 1, scope: !392, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!394 = !DILocation(line: 0, scope: !392)
-!395 = !DILocalVariable(name: "e", arg: 2, scope: !392, file: !3, line: 36, type: !87)
-!396 = !DILocation(line: 36, column: 21, scope: !392)
-!397 = !DILocation(line: 37, column: 5, scope: !392)
-!398 = !DILocation(line: 39, column: 9, scope: !399)
-!399 = distinct !DILexicalBlock(scope: !392, file: !3, line: 39, column: 9)
-!400 = !DILocation(line: 39, column: 19, scope: !399)
-!401 = !DILocation(line: 39, column: 9, scope: !392)
-!402 = !DILocation(line: 40, column: 24, scope: !399)
-!403 = !DILocation(line: 40, column: 7, scope: !399)
-!404 = !DILocation(line: 40, column: 16, scope: !399)
-!405 = !DILocation(line: 40, column: 14, scope: !399)
-!406 = !DILocation(line: 40, column: 22, scope: !399)
-!407 = !DILocation(line: 42, column: 20, scope: !399)
-!408 = !DILocation(line: 42, column: 7, scope: !399)
-!409 = !DILocation(line: 42, column: 12, scope: !399)
-!410 = !DILocation(line: 42, column: 18, scope: !399)
-!411 = !DILocation(line: 44, column: 7, scope: !392)
-!412 = !DILocation(line: 44, column: 5, scope: !392)
-!413 = !DILocation(line: 45, column: 3, scope: !392)
-!414 = distinct !DISubprogram(name: "realloc", linkageName: "Arr<int*>::realloc(int)", scope: !33, file: !3, line: 24, type: !47, isLocal: false, isDefinition: true, scopeLine: 24, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !49, retainedNodes: !4)
-!415 = !DILocalVariable(name: "this", arg: 1, scope: !414, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!416 = !DILocation(line: 0, scope: !414)
-!417 = !DILocalVariable(name: "inc", arg: 2, scope: !414, file: !3, line: 24, type: !8)
-!418 = !DILocation(line: 24, column: 20, scope: !414)
-!419 = !DILocation(line: 25, column: 9, scope: !420)
-!420 = distinct !DILexicalBlock(scope: !414, file: !3, line: 25, column: 9)
-!421 = !DILocation(line: 25, column: 14, scope: !420)
-!422 = !DILocation(line: 25, column: 23, scope: !420)
-!423 = !DILocation(line: 25, column: 20, scope: !420)
-!424 = !DILocation(line: 25, column: 9, scope: !414)
-!425 = !DILocation(line: 26, column: 7, scope: !420)
-!426 = !DILocation(line: 28, column: 17, scope: !414)
-!427 = !DILocation(line: 28, column: 22, scope: !414)
-!428 = !DILocation(line: 28, column: 5, scope: !414)
-!429 = !DILocation(line: 28, column: 15, scope: !414)
-!430 = !DILocation(line: 29, column: 35, scope: !414)
-!431 = !DILocation(line: 29, column: 33, scope: !414)
-!432 = !DILocation(line: 29, column: 31, scope: !414)
-!433 = !DILocation(line: 29, column: 45, scope: !414)
-!434 = !DILocation(line: 29, column: 24, scope: !414)
-!435 = !DILocation(line: 29, column: 19, scope: !414)
-!436 = !DILocalVariable(name: "new_base", scope: !414, file: !3, line: 29, type: !6)
-!437 = !DILocation(line: 29, column: 8, scope: !414)
-!438 = !DILocalVariable(name: "i", scope: !439, file: !3, line: 30, type: !8)
-!439 = distinct !DILexicalBlock(scope: !414, file: !3, line: 30, column: 5)
-!440 = !DILocation(line: 30, column: 14, scope: !439)
-!441 = !DILocation(line: 30, column: 10, scope: !439)
+!24 = !{!"S", %class.F zeroinitializer, i32 3, !25, !26, !27}
+!25 = !{%struct.Arr zeroinitializer, i32 1}
+!26 = !{%struct.Arr.0 zeroinitializer, i32 1}
+!27 = !{%struct.Mem zeroinitializer, i32 1}
+!28 = !{!"S", %struct.Arr zeroinitializer, i32 5, !29, !30, !31, !30, !27}
+!29 = !{i8 0, i32 0}
+!30 = !{i32 0, i32 0}
+!31 = !{i32 0, i32 2}
+!32 = !{!"S", %struct.Mem zeroinitializer, i32 1, !33}
+!33 = !{!34, i32 2}
+!34 = !{!"F", i1 true, i32 0, !30}
+!35 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !29, !30, !36, !30, !27}
+!36 = !{float 0.000000e+00, i32 2}
+!37 = distinct !DISubprogram(name: "check1", linkageName: "check1(F*)", scope: !3, file: !3, line: 101, type: !38, scopeLine: 101, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, retainedNodes: !4)
+!38 = !DISubroutineType(types: !39)
+!39 = !{!40, !41}
+!40 = !DIBasicType(name: "bool", size: 8, encoding: DW_ATE_boolean)
+!41 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !42, size: 64)
+!42 = distinct !DICompositeType(tag: DW_TAG_class_type, name: "F", file: !3, line: 62, size: 128, flags: DIFlagTypePassByReference, elements: !43, identifier: "typeinfo name for F")
+!43 = !{!44, !78, !112, !118, !121, !124, !127, !130, !133, !136}
+!44 = !DIDerivedType(tag: DW_TAG_member, name: "f1", scope: !42, file: !3, line: 64, baseType: !45, size: 64, flags: DIFlagPublic)
+!45 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !46, size: 64)
+!46 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<int *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !47, templateParams: !76, identifier: "typeinfo name for Arr<int*>")
+!47 = !{!48, !49, !50, !51, !56, !59, !62, !63, !68, !73}
+!48 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !46, file: !3, line: 7, baseType: !8, size: 32)
+!49 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !46, file: !3, line: 8, baseType: !6, size: 64, offset: 64)
+!50 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !46, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
+!51 = !DISubprogram(name: "get", linkageName: "Arr<int*>::get(int)", scope: !46, file: !3, line: 10, type: !52, scopeLine: 10, flags: DIFlagPrototyped, spFlags: 0)
+!52 = !DISubroutineType(types: !53)
+!53 = !{!54, !55, !8}
+!54 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !7, size: 64)
+!55 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !46, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
+!56 = !DISubprogram(name: "set", linkageName: "Arr<int*>::set(int, int*)", scope: !46, file: !3, line: 15, type: !57, scopeLine: 15, flags: DIFlagPrototyped, spFlags: 0)
+!57 = !DISubroutineType(types: !58)
+!58 = !{null, !55, !8, !7}
+!59 = !DISubprogram(name: "Arr", scope: !46, file: !3, line: 21, type: !60, scopeLine: 21, flags: DIFlagPrototyped, spFlags: 0)
+!60 = !DISubroutineType(types: !61)
+!61 = !{null, !55, !8}
+!62 = !DISubprogram(name: "realloc", linkageName: "Arr<int*>::realloc(int)", scope: !46, file: !3, line: 24, type: !60, scopeLine: 24, flags: DIFlagPrototyped, spFlags: 0)
+!63 = !DISubprogram(name: "add", linkageName: "Arr<int*>::add(int* const&)", scope: !46, file: !3, line: 36, type: !64, scopeLine: 36, flags: DIFlagPrototyped, spFlags: 0)
+!64 = !DISubroutineType(types: !65)
+!65 = !{null, !55, !66}
+!66 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !67, size: 64)
+!67 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !7)
+!68 = !DISubprogram(name: "Arr", scope: !46, file: !3, line: 46, type: !69, scopeLine: 46, flags: DIFlagPrototyped, spFlags: 0)
+!69 = !DISubroutineType(types: !70)
+!70 = !{null, !55, !71}
+!71 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !72, size: 64)
+!72 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !46)
+!73 = !DISubprogram(name: "~Arr", scope: !46, file: !3, line: 59, type: !74, scopeLine: 59, flags: DIFlagPrototyped, spFlags: 0)
+!74 = !DISubroutineType(types: !75)
+!75 = !{null, !55}
+!76 = !{!77}
+!77 = !DITemplateTypeParameter(name: "S", type: !7)
+!78 = !DIDerivedType(tag: DW_TAG_member, name: "f2", scope: !42, file: !3, line: 65, baseType: !79, size: 64, offset: 64, flags: DIFlagPublic)
+!79 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !80, size: 64)
+!80 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "Arr<float *>", file: !3, line: 6, size: 192, flags: DIFlagTypePassByReference, elements: !81, templateParams: !110, identifier: "typeinfo name for Arr<float*>")
+!81 = !{!82, !83, !84, !85, !90, !93, !96, !97, !102, !107}
+!82 = !DIDerivedType(tag: DW_TAG_member, name: "capacity", scope: !80, file: !3, line: 7, baseType: !8, size: 32)
+!83 = !DIDerivedType(tag: DW_TAG_member, name: "base", scope: !80, file: !3, line: 8, baseType: !9, size: 64, offset: 64)
+!84 = !DIDerivedType(tag: DW_TAG_member, name: "size", scope: !80, file: !3, line: 9, baseType: !8, size: 32, offset: 128)
+!85 = !DISubprogram(name: "get", linkageName: "Arr<float*>::get(int)", scope: !80, file: !3, line: 10, type: !86, scopeLine: 10, flags: DIFlagPrototyped, spFlags: 0)
+!86 = !DISubroutineType(types: !87)
+!87 = !{!88, !89, !8}
+!88 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !10, size: 64)
+!89 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !80, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
+!90 = !DISubprogram(name: "set", linkageName: "Arr<float*>::set(int, float*)", scope: !80, file: !3, line: 15, type: !91, scopeLine: 15, flags: DIFlagPrototyped, spFlags: 0)
+!91 = !DISubroutineType(types: !92)
+!92 = !{null, !89, !8, !10}
+!93 = !DISubprogram(name: "Arr", scope: !80, file: !3, line: 21, type: !94, scopeLine: 21, flags: DIFlagPrototyped, spFlags: 0)
+!94 = !DISubroutineType(types: !95)
+!95 = !{null, !89, !8}
+!96 = !DISubprogram(name: "realloc", linkageName: "Arr<float*>::realloc(int)", scope: !80, file: !3, line: 24, type: !94, scopeLine: 24, flags: DIFlagPrototyped, spFlags: 0)
+!97 = !DISubprogram(name: "add", linkageName: "Arr<float*>::add(float* const&)", scope: !80, file: !3, line: 36, type: !98, scopeLine: 36, flags: DIFlagPrototyped, spFlags: 0)
+!98 = !DISubroutineType(types: !99)
+!99 = !{null, !89, !100}
+!100 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !101, size: 64)
+!101 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !10)
+!102 = !DISubprogram(name: "Arr", scope: !80, file: !3, line: 46, type: !103, scopeLine: 46, flags: DIFlagPrototyped, spFlags: 0)
+!103 = !DISubroutineType(types: !104)
+!104 = !{null, !89, !105}
+!105 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !106, size: 64)
+!106 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !80)
+!107 = !DISubprogram(name: "~Arr", scope: !80, file: !3, line: 59, type: !108, scopeLine: 59, flags: DIFlagPrototyped, spFlags: 0)
+!108 = !DISubroutineType(types: !109)
+!109 = !{null, !89}
+!110 = !{!111}
+!111 = !DITemplateTypeParameter(name: "S", type: !10)
+!112 = !DISubprogram(name: "F", scope: !42, file: !3, line: 66, type: !113, scopeLine: 66, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!113 = !DISubroutineType(types: !114)
+!114 = !{null, !115, !116}
+!115 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !42, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
+!116 = !DIDerivedType(tag: DW_TAG_reference_type, baseType: !117, size: 64)
+!117 = !DIDerivedType(tag: DW_TAG_const_type, baseType: !42)
+!118 = !DISubprogram(name: "put", linkageName: "F::put(int*, float*)", scope: !42, file: !3, line: 70, type: !119, scopeLine: 70, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!119 = !DISubroutineType(types: !120)
+!120 = !{null, !115, !7, !10}
+!121 = !DISubprogram(name: "set1", linkageName: "F::set1(int, int*)", scope: !42, file: !3, line: 74, type: !122, scopeLine: 74, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!122 = !DISubroutineType(types: !123)
+!123 = !{null, !115, !8, !7}
+!124 = !DISubprogram(name: "set2", linkageName: "F::set2(int, float*)", scope: !42, file: !3, line: 77, type: !125, scopeLine: 77, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!125 = !DISubroutineType(types: !126)
+!126 = !{null, !115, !8, !10}
+!127 = !DISubprogram(name: "get1", linkageName: "F::get1(int)", scope: !42, file: !3, line: 80, type: !128, scopeLine: 80, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!128 = !DISubroutineType(types: !129)
+!129 = !{!8, !115, !8}
+!130 = !DISubprogram(name: "get2", linkageName: "F::get2(int)", scope: !42, file: !3, line: 83, type: !131, scopeLine: 83, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!131 = !DISubroutineType(types: !132)
+!132 = !{!11, !115, !8}
+!133 = !DISubprogram(name: "F", scope: !42, file: !3, line: 86, type: !134, scopeLine: 86, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!134 = !DISubroutineType(types: !135)
+!135 = !{null, !115}
+!136 = !DISubprogram(name: "~F", scope: !42, file: !3, line: 90, type: !134, scopeLine: 90, flags: DIFlagPublic | DIFlagPrototyped, spFlags: 0)
+!137 = distinct !{!138}
+!138 = !{%class.F zeroinitializer, i32 1}
+!139 = !DILocalVariable(name: "f", arg: 1, scope: !37, file: !3, line: 101, type: !41)
+!140 = !DILocation(line: 101, column: 16, scope: !37)
+!141 = !DILocation(line: 102, column: 10, scope: !142)
+!142 = distinct !DILexicalBlock(scope: !37, file: !3, line: 102, column: 7)
+!143 = !DILocation(line: 102, column: 21, scope: !142)
+!144 = !DILocation(line: 102, column: 18, scope: !142)
+!145 = !DILocation(line: 102, column: 7, scope: !37)
+!146 = !DILocation(line: 103, column: 5, scope: !142)
+!147 = !DILocation(line: 104, column: 10, scope: !148)
+!148 = distinct !DILexicalBlock(scope: !37, file: !3, line: 104, column: 7)
+!149 = !DILocation(line: 104, column: 21, scope: !148)
+!150 = !DILocation(line: 104, column: 18, scope: !148)
+!151 = !DILocation(line: 104, column: 7, scope: !37)
+!152 = !DILocation(line: 105, column: 5, scope: !148)
+!153 = !DILocation(line: 106, column: 10, scope: !154)
+!154 = distinct !DILexicalBlock(scope: !37, file: !3, line: 106, column: 7)
+!155 = !DILocation(line: 106, column: 21, scope: !154)
+!156 = !DILocation(line: 106, column: 18, scope: !154)
+!157 = !DILocation(line: 106, column: 7, scope: !37)
+!158 = !DILocation(line: 107, column: 5, scope: !154)
+!159 = !DILocation(line: 108, column: 10, scope: !160)
+!160 = distinct !DILexicalBlock(scope: !37, file: !3, line: 108, column: 7)
+!161 = !DILocation(line: 108, column: 21, scope: !160)
+!162 = !DILocation(line: 108, column: 18, scope: !160)
+!163 = !DILocation(line: 108, column: 7, scope: !37)
+!164 = !DILocation(line: 109, column: 5, scope: !160)
+!165 = !DILocation(line: 110, column: 3, scope: !37)
+!166 = !DILocation(line: 0, scope: !37)
+!167 = !DILocation(line: 111, column: 1, scope: !37)
+!168 = distinct !DISubprogram(name: "get1", linkageName: "F::get1(int)", scope: !42, file: !3, line: 80, type: !128, scopeLine: 80, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !127, retainedNodes: !4)
+!169 = distinct !{!138}
+!170 = !DILocalVariable(name: "this", arg: 1, scope: !168, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!171 = !DILocation(line: 0, scope: !168)
+!172 = !DILocalVariable(name: "i", arg: 2, scope: !168, file: !3, line: 80, type: !8)
+!173 = !DILocation(line: 80, column: 16, scope: !168)
+!174 = !DILocation(line: 81, column: 14, scope: !168)
+!175 = !DILocation(line: 81, column: 18, scope: !168)
+!176 = !DILocation(line: 81, column: 12, scope: !168)
+!177 = !DILocation(line: 81, column: 5, scope: !168)
+!178 = distinct !DISubprogram(name: "get2", linkageName: "F::get2(int)", scope: !42, file: !3, line: 83, type: !131, scopeLine: 83, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !130, retainedNodes: !4)
+!179 = distinct !{!138}
+!180 = !DILocalVariable(name: "this", arg: 1, scope: !178, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!181 = !DILocation(line: 0, scope: !178)
+!182 = !DILocalVariable(name: "i", arg: 2, scope: !178, file: !3, line: 83, type: !8)
+!183 = !DILocation(line: 83, column: 18, scope: !178)
+!184 = !DILocation(line: 84, column: 14, scope: !178)
+!185 = !DILocation(line: 84, column: 18, scope: !178)
+!186 = !DILocation(line: 84, column: 12, scope: !178)
+!187 = !DILocation(line: 84, column: 5, scope: !178)
+!188 = distinct !DISubprogram(name: "main", scope: !3, file: !3, line: 113, type: !189, scopeLine: 113, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, retainedNodes: !4)
+!189 = !DISubroutineType(types: !190)
+!190 = !{!8}
+!191 = !DILocation(line: 114, column: 10, scope: !188)
+!192 = !DILocation(line: 114, column: 14, scope: !188)
+!193 = !DILocalVariable(name: "f", scope: !188, file: !3, line: 114, type: !41)
+!194 = !DILocation(line: 114, column: 6, scope: !188)
+!195 = !DILocation(line: 115, column: 6, scope: !188)
+!196 = !DILocation(line: 116, column: 10, scope: !197)
+!197 = distinct !DILexicalBlock(scope: !188, file: !3, line: 116, column: 7)
+!198 = !DILocation(line: 116, column: 21, scope: !197)
+!199 = !DILocation(line: 116, column: 18, scope: !197)
+!200 = !DILocation(line: 116, column: 7, scope: !188)
+!201 = !DILocation(line: 117, column: 5, scope: !197)
+!202 = !DILocation(line: 143, column: 1, scope: !188)
+!203 = !DILocation(line: 118, column: 10, scope: !204)
+!204 = distinct !DILexicalBlock(scope: !188, file: !3, line: 118, column: 7)
+!205 = !DILocation(line: 118, column: 21, scope: !204)
+!206 = !DILocation(line: 118, column: 18, scope: !204)
+!207 = !DILocation(line: 118, column: 7, scope: !188)
+!208 = !DILocation(line: 119, column: 5, scope: !204)
+!209 = !DILocation(line: 121, column: 6, scope: !188)
+!210 = !DILocation(line: 122, column: 10, scope: !211)
+!211 = distinct !DILexicalBlock(scope: !188, file: !3, line: 122, column: 7)
+!212 = !DILocation(line: 122, column: 21, scope: !211)
+!213 = !DILocation(line: 122, column: 18, scope: !211)
+!214 = !DILocation(line: 122, column: 7, scope: !188)
+!215 = !DILocation(line: 123, column: 5, scope: !211)
+!216 = !DILocation(line: 124, column: 10, scope: !217)
+!217 = distinct !DILexicalBlock(scope: !188, file: !3, line: 124, column: 7)
+!218 = !DILocation(line: 124, column: 21, scope: !217)
+!219 = !DILocation(line: 124, column: 18, scope: !217)
+!220 = !DILocation(line: 124, column: 7, scope: !188)
+!221 = !DILocation(line: 125, column: 5, scope: !217)
+!222 = !DILocation(line: 126, column: 10, scope: !223)
+!223 = distinct !DILexicalBlock(scope: !188, file: !3, line: 126, column: 7)
+!224 = !DILocation(line: 126, column: 21, scope: !223)
+!225 = !DILocation(line: 126, column: 18, scope: !223)
+!226 = !DILocation(line: 126, column: 7, scope: !188)
+!227 = !DILocation(line: 127, column: 5, scope: !223)
+!228 = !DILocation(line: 128, column: 10, scope: !229)
+!229 = distinct !DILexicalBlock(scope: !188, file: !3, line: 128, column: 7)
+!230 = !DILocation(line: 128, column: 21, scope: !229)
+!231 = !DILocation(line: 128, column: 18, scope: !229)
+!232 = !DILocation(line: 128, column: 7, scope: !188)
+!233 = !DILocation(line: 129, column: 5, scope: !229)
+!234 = !DILocation(line: 131, column: 6, scope: !188)
+!235 = !DILocation(line: 132, column: 6, scope: !188)
+!236 = !DILocation(line: 133, column: 8, scope: !237)
+!237 = distinct !DILexicalBlock(scope: !188, file: !3, line: 133, column: 7)
+!238 = !DILocation(line: 133, column: 7, scope: !188)
+!239 = !DILocation(line: 134, column: 5, scope: !237)
+!240 = !DILocation(line: 136, column: 11, scope: !188)
+!241 = !DILocation(line: 136, column: 15, scope: !188)
+!242 = !DILocalVariable(name: "f1", scope: !188, file: !3, line: 136, type: !41)
+!243 = !DILocation(line: 136, column: 6, scope: !188)
+!244 = !DILocation(line: 137, column: 8, scope: !245)
+!245 = distinct !DILexicalBlock(scope: !188, file: !3, line: 137, column: 7)
+!246 = !DILocation(line: 137, column: 7, scope: !188)
+!247 = !DILocation(line: 138, column: 5, scope: !245)
+!248 = !DILocation(line: 140, column: 3, scope: !188)
+!249 = !DILocation(line: 141, column: 3, scope: !188)
+!250 = !DILocation(line: 142, column: 3, scope: !188)
+!251 = !DILocation(line: 0, scope: !188)
+!252 = distinct !{!253}
+!253 = !{i8 0, i32 1}
+!254 = distinct !DISubprogram(name: "F", linkageName: "F::F()", scope: !42, file: !3, line: 86, type: !134, scopeLine: 86, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !133, retainedNodes: !4)
+!255 = distinct !{!138}
+!256 = !DILocalVariable(name: "this", arg: 1, scope: !254, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!257 = !DILocation(line: 0, scope: !254)
+!258 = !DILocation(line: 87, column: 10, scope: !259)
+!259 = distinct !DILexicalBlock(scope: !254, file: !3, line: 86, column: 7)
+!260 = !DILocation(line: 87, column: 14, scope: !259)
+!261 = !DILocation(line: 87, column: 5, scope: !259)
+!262 = !DILocation(line: 87, column: 8, scope: !259)
+!263 = !DILocation(line: 88, column: 10, scope: !259)
+!264 = !DILocation(line: 88, column: 14, scope: !259)
+!265 = !DILocation(line: 88, column: 5, scope: !259)
+!266 = !DILocation(line: 88, column: 8, scope: !259)
+!267 = !DILocation(line: 89, column: 3, scope: !254)
+!268 = !DILocation(line: 89, column: 3, scope: !259)
+!269 = distinct !{!253}
+!270 = distinct !DISubprogram(name: "put", linkageName: "F::put(int*, float*)", scope: !42, file: !3, line: 70, type: !119, scopeLine: 70, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !118, retainedNodes: !4)
+!271 = distinct !{!138, !272, !273}
+!272 = !{i32 0, i32 1}
+!273 = !{float 0.000000e+00, i32 1}
+!274 = !DILocalVariable(name: "this", arg: 1, scope: !270, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!275 = !DILocation(line: 0, scope: !270)
+!276 = !DILocalVariable(name: "a", arg: 2, scope: !270, file: !3, line: 70, type: !7)
+!277 = !DILocation(line: 70, column: 17, scope: !270)
+!278 = !DILocalVariable(name: "b", arg: 3, scope: !270, file: !3, line: 70, type: !10)
+!279 = !DILocation(line: 70, column: 27, scope: !270)
+!280 = !DILocation(line: 71, column: 5, scope: !270)
+!281 = !DILocation(line: 71, column: 9, scope: !270)
+!282 = !DILocation(line: 72, column: 5, scope: !270)
+!283 = !DILocation(line: 72, column: 9, scope: !270)
+!284 = !DILocation(line: 73, column: 3, scope: !270)
+!285 = distinct !DISubprogram(name: "set1", linkageName: "F::set1(int, int*)", scope: !42, file: !3, line: 74, type: !122, scopeLine: 74, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !121, retainedNodes: !4)
+!286 = distinct !{!138, !272}
+!287 = !DILocalVariable(name: "this", arg: 1, scope: !285, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!288 = !DILocation(line: 0, scope: !285)
+!289 = !DILocalVariable(name: "i", arg: 2, scope: !285, file: !3, line: 74, type: !8)
+!290 = !DILocation(line: 74, column: 17, scope: !285)
+!291 = !DILocalVariable(name: "a", arg: 3, scope: !285, file: !3, line: 74, type: !7)
+!292 = !DILocation(line: 74, column: 25, scope: !285)
+!293 = !DILocation(line: 75, column: 5, scope: !285)
+!294 = !DILocation(line: 75, column: 9, scope: !285)
+!295 = !DILocation(line: 76, column: 3, scope: !285)
+!296 = distinct !DISubprogram(name: "set2", linkageName: "F::set2(int, float*)", scope: !42, file: !3, line: 77, type: !125, scopeLine: 77, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !124, retainedNodes: !4)
+!297 = distinct !{!138, !273}
+!298 = !DILocalVariable(name: "this", arg: 1, scope: !296, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!299 = !DILocation(line: 0, scope: !296)
+!300 = !DILocalVariable(name: "i", arg: 2, scope: !296, file: !3, line: 77, type: !8)
+!301 = !DILocation(line: 77, column: 17, scope: !296)
+!302 = !DILocalVariable(name: "b", arg: 3, scope: !296, file: !3, line: 77, type: !10)
+!303 = !DILocation(line: 77, column: 27, scope: !296)
+!304 = !DILocation(line: 78, column: 5, scope: !296)
+!305 = !DILocation(line: 78, column: 9, scope: !296)
+!306 = !DILocation(line: 79, column: 3, scope: !296)
+!307 = distinct !DISubprogram(name: "F", linkageName: "F::F(F const&)", scope: !42, file: !3, line: 66, type: !113, scopeLine: 66, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !112, retainedNodes: !4)
+!308 = distinct !{!138, !138}
+!309 = !DILocalVariable(name: "this", arg: 1, scope: !307, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!310 = !DILocation(line: 0, scope: !307)
+!311 = !DILocalVariable(name: "f", arg: 2, scope: !307, file: !3, line: 66, type: !116)
+!312 = !DILocation(line: 66, column: 14, scope: !307)
+!313 = !DILocation(line: 67, column: 10, scope: !314)
+!314 = distinct !DILexicalBlock(scope: !307, file: !3, line: 66, column: 17)
+!315 = !DILocation(line: 67, column: 28, scope: !314)
+!316 = !DILocation(line: 67, column: 14, scope: !314)
+!317 = !DILocation(line: 67, column: 5, scope: !314)
+!318 = !DILocation(line: 67, column: 8, scope: !314)
+!319 = !DILocation(line: 68, column: 10, scope: !314)
+!320 = !DILocation(line: 68, column: 30, scope: !314)
+!321 = !DILocation(line: 68, column: 14, scope: !314)
+!322 = !DILocation(line: 68, column: 5, scope: !314)
+!323 = !DILocation(line: 68, column: 8, scope: !314)
+!324 = !DILocation(line: 69, column: 3, scope: !307)
+!325 = !DILocation(line: 69, column: 3, scope: !314)
+!326 = distinct !DISubprogram(name: "~F", linkageName: "F::~F()", scope: !42, file: !3, line: 90, type: !134, scopeLine: 90, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !136, retainedNodes: !4)
+!327 = distinct !{!138}
+!328 = !DILocalVariable(name: "this", arg: 1, scope: !326, type: !41, flags: DIFlagArtificial | DIFlagObjectPointer)
+!329 = !DILocation(line: 0, scope: !326)
+!330 = !DILocation(line: 91, column: 12, scope: !331)
+!331 = distinct !DILexicalBlock(scope: !326, file: !3, line: 90, column: 8)
+!332 = !DILocation(line: 91, column: 5, scope: !331)
+!333 = !DILocation(line: 92, column: 12, scope: !331)
+!334 = !DILocation(line: 92, column: 5, scope: !331)
+!335 = !DILocation(line: 93, column: 3, scope: !326)
+!336 = distinct !DISubprogram(name: "get", linkageName: "Arr<int*>::get(int)", scope: !46, file: !3, line: 10, type: !52, scopeLine: 10, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !51, retainedNodes: !4)
+!337 = distinct !{!31, !25}
+!338 = !DILocalVariable(name: "this", arg: 1, scope: !336, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!339 = !DILocation(line: 0, scope: !336)
+!340 = !DILocalVariable(name: "i", arg: 2, scope: !336, file: !3, line: 10, type: !8)
+!341 = !DILocation(line: 10, column: 14, scope: !336)
+!342 = !DILocation(line: 11, column: 9, scope: !343)
+!343 = distinct !DILexicalBlock(scope: !336, file: !3, line: 11, column: 9)
+!344 = !DILocation(line: 11, column: 19, scope: !343)
+!345 = !DILocation(line: 11, column: 9, scope: !336)
+!346 = distinct !DISubprogram(name: "get", linkageName: "Arr<float*>::get(int)", scope: !80, file: !3, line: 10, type: !86, scopeLine: 10, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !85, retainedNodes: !4)
+!347 = distinct !{!36, !26}
+!348 = !DILocalVariable(name: "this", arg: 1, scope: !346, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!349 = !DILocation(line: 0, scope: !346)
+!350 = !DILocalVariable(name: "i", arg: 2, scope: !346, file: !3, line: 10, type: !8)
+!351 = !DILocation(line: 10, column: 14, scope: !346)
+!352 = !DILocation(line: 11, column: 9, scope: !353)
+!353 = distinct !DILexicalBlock(scope: !346, file: !3, line: 11, column: 9)
+!354 = !DILocation(line: 11, column: 19, scope: !353)
+!355 = !DILocation(line: 11, column: 9, scope: !346)
+!356 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(int, %struct.Mem*)", scope: !46, file: !3, line: 21, type: !60, scopeLine: 21, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !59, retainedNodes: !4)
+!357 = distinct !{!25, !27}
+!358 = !DILocalVariable(name: "this", arg: 1, scope: !356, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!359 = !DILocation(line: 0, scope: !356)
+!360 = !DILocalVariable(name: "c", arg: 2, scope: !356, file: !3, line: 21, type: !8)
+!361 = !DILocation(line: 21, column: 11, scope: !356)
+!362 = !DILocation(line: 21, column: 20, scope: !356)
+!363 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(int, %struct.Mem*)", scope: !80, file: !3, line: 21, type: !94, scopeLine: 21, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !93, retainedNodes: !4)
+!364 = distinct !{!26, !27}
+!365 = !DILocalVariable(name: "this", arg: 1, scope: !363, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!366 = !DILocation(line: 0, scope: !363)
+!367 = !DILocalVariable(name: "c", arg: 2, scope: !363, file: !3, line: 21, type: !8)
+!368 = !DILocation(line: 21, column: 11, scope: !363)
+!369 = !DILocation(line: 21, column: 20, scope: !363)
+!370 = distinct !{!253}
+!371 = distinct !DISubprogram(name: "add", linkageName: "Arr<int*>::add(int* const&)", scope: !46, file: !3, line: 36, type: !64, scopeLine: 36, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !63, retainedNodes: !4)
+!372 = distinct !{!25, !31}
+!373 = !DILocalVariable(name: "this", arg: 1, scope: !371, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!374 = !DILocation(line: 0, scope: !371)
+!375 = !DILocalVariable(name: "e", arg: 2, scope: !371, file: !3, line: 36, type: !66)
+!376 = !DILocation(line: 36, column: 21, scope: !371)
+!377 = !DILocation(line: 37, column: 5, scope: !371)
+!378 = !DILocation(line: 39, column: 9, scope: !379)
+!379 = distinct !DILexicalBlock(scope: !371, file: !3, line: 39, column: 9)
+!380 = !DILocation(line: 40, column: 7, scope: !379)
+!381 = !DILocation(line: 40, column: 16, scope: !379)
+!382 = !DILocation(line: 40, column: 22, scope: !379)
+!383 = !DILocation(line: 44, column: 5, scope: !371)
+!384 = !DILocation(line: 45, column: 3, scope: !371)
+!385 = distinct !DISubprogram(name: "add", linkageName: "Arr<float*>::add(float* const&)", scope: !80, file: !3, line: 36, type: !98, scopeLine: 36, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !97, retainedNodes: !4)
+!386 = distinct !{!26, !36}
+!387 = !DILocalVariable(name: "this", arg: 1, scope: !385, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!388 = !DILocation(line: 0, scope: !385)
+!389 = !DILocalVariable(name: "e", arg: 2, scope: !385, file: !3, line: 36, type: !100)
+!390 = !DILocation(line: 36, column: 21, scope: !385)
+!391 = !DILocation(line: 37, column: 5, scope: !385)
+!392 = !DILocation(line: 39, column: 9, scope: !393)
+!393 = distinct !DILexicalBlock(scope: !385, file: !3, line: 39, column: 9)
+!394 = !DILocation(line: 40, column: 7, scope: !393)
+!395 = !DILocation(line: 40, column: 16, scope: !393)
+!396 = !DILocation(line: 40, column: 22, scope: !393)
+!397 = !DILocation(line: 44, column: 5, scope: !385)
+!398 = !DILocation(line: 45, column: 3, scope: !385)
+!399 = distinct !DISubprogram(name: "realloc", linkageName: "Arr<int*>::realloc(int)", scope: !46, file: !3, line: 24, type: !60, scopeLine: 24, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !62, retainedNodes: !4)
+!400 = distinct !{!25}
+!401 = !DILocalVariable(name: "this", arg: 1, scope: !399, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!402 = !DILocation(line: 0, scope: !399)
+!403 = !DILocalVariable(name: "inc", arg: 2, scope: !399, file: !3, line: 24, type: !8)
+!404 = !DILocation(line: 24, column: 20, scope: !399)
+!405 = !DILocation(line: 25, column: 9, scope: !406)
+!406 = distinct !DILexicalBlock(scope: !399, file: !3, line: 25, column: 9)
+!407 = !DILocation(line: 25, column: 14, scope: !406)
+!408 = !DILocation(line: 25, column: 23, scope: !406)
+!409 = !DILocation(line: 25, column: 20, scope: !406)
+!410 = !DILocation(line: 35, column: 3, scope: !399)
+!411 = distinct !{!253}
+!412 = distinct !DISubprogram(name: "realloc", linkageName: "Arr<float*>::realloc(int)", scope: !80, file: !3, line: 24, type: !94, scopeLine: 24, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !96, retainedNodes: !4)
+!413 = distinct !{!26}
+!414 = !DILocalVariable(name: "this", arg: 1, scope: !412, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!415 = !DILocation(line: 0, scope: !412)
+!416 = !DILocalVariable(name: "inc", arg: 2, scope: !412, file: !3, line: 24, type: !8)
+!417 = !DILocation(line: 24, column: 20, scope: !412)
+!418 = !DILocation(line: 25, column: 9, scope: !419)
+!419 = distinct !DILexicalBlock(scope: !412, file: !3, line: 25, column: 9)
+!420 = !DILocation(line: 25, column: 14, scope: !419)
+!421 = !DILocation(line: 25, column: 23, scope: !419)
+!422 = !DILocation(line: 25, column: 20, scope: !419)
+!423 = !DILocation(line: 35, column: 3, scope: !412)
+!424 = distinct !DISubprogram(name: "set", linkageName: "Arr<int*>::set(int, int*)", scope: !46, file: !3, line: 15, type: !57, scopeLine: 15, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !56, retainedNodes: !4)
+!425 = distinct !{!25, !272}
+!426 = !DILocalVariable(name: "this", arg: 1, scope: !424, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!427 = !DILocation(line: 0, scope: !424)
+!428 = !DILocalVariable(name: "i", arg: 2, scope: !424, file: !3, line: 15, type: !8)
+!429 = !DILocation(line: 15, column: 16, scope: !424)
+!430 = !DILocalVariable(name: "val", arg: 3, scope: !424, file: !3, line: 15, type: !7)
+!431 = !DILocation(line: 15, column: 21, scope: !424)
+!432 = !DILocation(line: 16, column: 9, scope: !433)
+!433 = distinct !DILexicalBlock(scope: !424, file: !3, line: 16, column: 9)
+!434 = !DILocation(line: 16, column: 19, scope: !433)
+!435 = !DILocation(line: 16, column: 9, scope: !424)
+!436 = !DILocation(line: 19, column: 7, scope: !433)
+!437 = !DILocation(line: 19, column: 15, scope: !433)
+!438 = !DILocation(line: 20, column: 3, scope: !424)
+!439 = distinct !DISubprogram(name: "set", linkageName: "Arr<float*>::set(int, float*)", scope: !80, file: !3, line: 15, type: !91, scopeLine: 15, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !90, retainedNodes: !4)
+!440 = distinct !{!26, !273}
+!441 = !DILocalVariable(name: "this", arg: 1, scope: !439, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
 !442 = !DILocation(line: 0, scope: !439)
-!443 = !DILocation(line: 30, column: 25, scope: !444)
-!444 = distinct !DILexicalBlock(scope: !439, file: !3, line: 30, column: 5)
-!445 = !DILocation(line: 30, column: 23, scope: !444)
-!446 = !DILocation(line: 30, column: 5, scope: !439)
-!447 = !DILocation(line: 31, column: 25, scope: !448)
-!448 = distinct !DILexicalBlock(scope: !444, file: !3, line: 30, column: 36)
-!449 = !DILocation(line: 31, column: 18, scope: !448)
-!450 = !DILocation(line: 31, column: 7, scope: !448)
-!451 = !DILocation(line: 31, column: 23, scope: !448)
-!452 = !DILocation(line: 32, column: 5, scope: !448)
-!453 = !DILocation(line: 30, column: 31, scope: !444)
-!454 = !DILocation(line: 30, column: 5, scope: !444)
-!455 = distinct !{!455, !446, !456}
-!456 = !DILocation(line: 32, column: 5, scope: !439)
-!457 = !DILocation(line: 33, column: 10, scope: !414)
-!458 = !DILocation(line: 33, column: 5, scope: !414)
-!459 = !DILocation(line: 34, column: 5, scope: !414)
-!460 = !DILocation(line: 34, column: 10, scope: !414)
-!461 = !DILocation(line: 35, column: 3, scope: !414)
-!462 = distinct !DISubprogram(name: "realloc", linkageName: "Arr<float*>::realloc(int)", scope: !67, file: !3, line: 24, type: !81, isLocal: false, isDefinition: true, scopeLine: 24, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !83, retainedNodes: !4)
-!463 = !DILocalVariable(name: "this", arg: 1, scope: !462, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!464 = !DILocation(line: 0, scope: !462)
-!465 = !DILocalVariable(name: "inc", arg: 2, scope: !462, file: !3, line: 24, type: !8)
-!466 = !DILocation(line: 24, column: 20, scope: !462)
-!467 = !DILocation(line: 25, column: 9, scope: !468)
-!468 = distinct !DILexicalBlock(scope: !462, file: !3, line: 25, column: 9)
-!469 = !DILocation(line: 25, column: 14, scope: !468)
-!470 = !DILocation(line: 25, column: 23, scope: !468)
-!471 = !DILocation(line: 25, column: 20, scope: !468)
-!472 = !DILocation(line: 25, column: 9, scope: !462)
-!473 = !DILocation(line: 26, column: 7, scope: !468)
-!474 = !DILocation(line: 28, column: 17, scope: !462)
-!475 = !DILocation(line: 28, column: 22, scope: !462)
-!476 = !DILocation(line: 28, column: 5, scope: !462)
-!477 = !DILocation(line: 28, column: 15, scope: !462)
-!478 = !DILocation(line: 29, column: 35, scope: !462)
-!479 = !DILocation(line: 29, column: 33, scope: !462)
-!480 = !DILocation(line: 29, column: 31, scope: !462)
-!481 = !DILocation(line: 29, column: 45, scope: !462)
-!482 = !DILocation(line: 29, column: 24, scope: !462)
-!483 = !DILocation(line: 29, column: 19, scope: !462)
-!484 = !DILocalVariable(name: "new_base", scope: !462, file: !3, line: 29, type: !9)
-!485 = !DILocation(line: 29, column: 8, scope: !462)
-!486 = !DILocalVariable(name: "i", scope: !487, file: !3, line: 30, type: !8)
-!487 = distinct !DILexicalBlock(scope: !462, file: !3, line: 30, column: 5)
-!488 = !DILocation(line: 30, column: 14, scope: !487)
-!489 = !DILocation(line: 30, column: 10, scope: !487)
-!490 = !DILocation(line: 0, scope: !487)
-!491 = !DILocation(line: 30, column: 25, scope: !492)
-!492 = distinct !DILexicalBlock(scope: !487, file: !3, line: 30, column: 5)
-!493 = !DILocation(line: 30, column: 23, scope: !492)
-!494 = !DILocation(line: 30, column: 5, scope: !487)
-!495 = !DILocation(line: 31, column: 25, scope: !496)
-!496 = distinct !DILexicalBlock(scope: !492, file: !3, line: 30, column: 36)
-!497 = !DILocation(line: 31, column: 18, scope: !496)
-!498 = !DILocation(line: 31, column: 7, scope: !496)
-!499 = !DILocation(line: 31, column: 23, scope: !496)
-!500 = !DILocation(line: 32, column: 5, scope: !496)
-!501 = !DILocation(line: 30, column: 31, scope: !492)
-!502 = !DILocation(line: 30, column: 5, scope: !492)
-!503 = distinct !{!503, !494, !504}
-!504 = !DILocation(line: 32, column: 5, scope: !487)
-!505 = !DILocation(line: 33, column: 10, scope: !462)
-!506 = !DILocation(line: 33, column: 5, scope: !462)
-!507 = !DILocation(line: 34, column: 5, scope: !462)
-!508 = !DILocation(line: 34, column: 10, scope: !462)
-!509 = !DILocation(line: 35, column: 3, scope: !462)
-!510 = distinct !DISubprogram(name: "set", linkageName: "Arr<int*>::set(int, int*)", scope: !33, file: !3, line: 15, type: !44, isLocal: false, isDefinition: true, scopeLine: 15, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !43, retainedNodes: !4)
-!511 = !DILocalVariable(name: "this", arg: 1, scope: !510, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!512 = !DILocation(line: 0, scope: !510)
-!513 = !DILocalVariable(name: "i", arg: 2, scope: !510, file: !3, line: 15, type: !8)
-!514 = !DILocation(line: 15, column: 16, scope: !510)
-!515 = !DILocalVariable(name: "val", arg: 3, scope: !510, file: !3, line: 15, type: !7)
-!516 = !DILocation(line: 15, column: 21, scope: !510)
-!517 = !DILocation(line: 16, column: 9, scope: !518)
-!518 = distinct !DILexicalBlock(scope: !510, file: !3, line: 16, column: 9)
-!519 = !DILocation(line: 16, column: 19, scope: !518)
-!520 = !DILocation(line: 16, column: 9, scope: !510)
-!521 = !DILocation(line: 17, column: 7, scope: !518)
-!522 = !DILocation(line: 17, column: 13, scope: !518)
-!523 = !DILocation(line: 17, column: 17, scope: !518)
-!524 = !DILocation(line: 19, column: 7, scope: !518)
-!525 = !DILocation(line: 19, column: 15, scope: !518)
-!526 = !DILocation(line: 20, column: 3, scope: !510)
-!527 = distinct !DISubprogram(name: "set", linkageName: "Arr<float*>::set(int, float*)", scope: !67, file: !3, line: 15, type: !78, isLocal: false, isDefinition: true, scopeLine: 15, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !77, retainedNodes: !4)
-!528 = !DILocalVariable(name: "this", arg: 1, scope: !527, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!529 = !DILocation(line: 0, scope: !527)
-!530 = !DILocalVariable(name: "i", arg: 2, scope: !527, file: !3, line: 15, type: !8)
-!531 = !DILocation(line: 15, column: 16, scope: !527)
-!532 = !DILocalVariable(name: "val", arg: 3, scope: !527, file: !3, line: 15, type: !10)
-!533 = !DILocation(line: 15, column: 21, scope: !527)
-!534 = !DILocation(line: 16, column: 9, scope: !535)
-!535 = distinct !DILexicalBlock(scope: !527, file: !3, line: 16, column: 9)
-!536 = !DILocation(line: 16, column: 19, scope: !535)
-!537 = !DILocation(line: 16, column: 9, scope: !527)
-!538 = !DILocation(line: 17, column: 7, scope: !535)
-!539 = !DILocation(line: 17, column: 13, scope: !535)
-!540 = !DILocation(line: 17, column: 17, scope: !535)
-!541 = !DILocation(line: 19, column: 7, scope: !535)
-!542 = !DILocation(line: 19, column: 15, scope: !535)
-!543 = !DILocation(line: 20, column: 3, scope: !527)
-!544 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(Arr<int*> const&)", scope: !33, file: !3, line: 46, type: !56, isLocal: false, isDefinition: true, scopeLine: 46, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !55, retainedNodes: !4)
-!545 = !DILocalVariable(name: "this", arg: 1, scope: !544, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!546 = !DILocation(line: 0, scope: !544)
-!547 = !DILocalVariable(name: "A", arg: 2, scope: !544, file: !3, line: 46, type: !58)
-!548 = !DILocation(line: 46, column: 18, scope: !544)
-!549 = !DILocation(line: 47, column: 19, scope: !550)
-!550 = distinct !DILexicalBlock(scope: !544, file: !3, line: 46, column: 21)
-!551 = !DILocation(line: 47, column: 5, scope: !550)
-!552 = !DILocation(line: 47, column: 15, scope: !550)
-!553 = !DILocation(line: 48, column: 14, scope: !550)
-!554 = !DILocation(line: 48, column: 5, scope: !550)
-!555 = !DILocation(line: 48, column: 10, scope: !550)
-!556 = !DILocation(line: 49, column: 9, scope: !557)
-!557 = distinct !DILexicalBlock(scope: !550, file: !3, line: 49, column: 9)
-!558 = !DILocation(line: 49, column: 19, scope: !557)
-!559 = !DILocation(line: 49, column: 9, scope: !550)
-!560 = !DILocation(line: 50, column: 30, scope: !557)
-!561 = !DILocation(line: 50, column: 28, scope: !557)
-!562 = !DILocation(line: 50, column: 26, scope: !557)
-!563 = !DILocation(line: 50, column: 40, scope: !557)
-!564 = !DILocation(line: 50, column: 19, scope: !557)
-!565 = !DILocation(line: 50, column: 14, scope: !557)
-!566 = !DILocation(line: 50, column: 7, scope: !557)
-!567 = !DILocation(line: 50, column: 12, scope: !557)
-!568 = !DILocation(line: 52, column: 26, scope: !557)
-!569 = !DILocation(line: 52, column: 36, scope: !557)
-!570 = !DILocation(line: 52, column: 19, scope: !557)
-!571 = !DILocation(line: 52, column: 14, scope: !557)
-!572 = !DILocation(line: 52, column: 7, scope: !557)
-!573 = !DILocation(line: 52, column: 12, scope: !557)
-!574 = !DILocalVariable(name: "i", scope: !575, file: !3, line: 53, type: !8)
-!575 = distinct !DILexicalBlock(scope: !550, file: !3, line: 53, column: 5)
-!576 = !DILocation(line: 53, column: 14, scope: !575)
-!577 = !DILocation(line: 53, column: 10, scope: !575)
-!578 = !DILocation(line: 0, scope: !575)
-!579 = !DILocation(line: 53, column: 25, scope: !580)
-!580 = distinct !DILexicalBlock(scope: !575, file: !3, line: 53, column: 5)
-!581 = !DILocation(line: 53, column: 23, scope: !580)
-!582 = !DILocation(line: 53, column: 5, scope: !575)
-!583 = !DILocation(line: 54, column: 11, scope: !584)
-!584 = distinct !DILexicalBlock(scope: !580, file: !3, line: 54, column: 11)
-!585 = !DILocation(line: 54, column: 21, scope: !584)
-!586 = !DILocation(line: 54, column: 11, scope: !580)
-!587 = !DILocation(line: 55, column: 25, scope: !584)
-!588 = !DILocation(line: 55, column: 32, scope: !584)
-!589 = !DILocation(line: 55, column: 23, scope: !584)
-!590 = !DILocation(line: 55, column: 9, scope: !584)
-!591 = !DILocation(line: 55, column: 16, scope: !584)
-!592 = !DILocation(line: 55, column: 21, scope: !584)
-!593 = !DILocation(line: 57, column: 21, scope: !584)
-!594 = !DILocation(line: 57, column: 19, scope: !584)
-!595 = !DILocation(line: 57, column: 9, scope: !584)
-!596 = !DILocation(line: 57, column: 17, scope: !584)
-!597 = !DILocation(line: 54, column: 23, scope: !584)
-!598 = !DILocation(line: 53, column: 31, scope: !580)
-!599 = !DILocation(line: 53, column: 5, scope: !580)
-!600 = distinct !{!600, !582, !601}
-!601 = !DILocation(line: 57, column: 27, scope: !575)
-!602 = !DILocation(line: 58, column: 3, scope: !544)
-!603 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(Arr<float*> const&)", scope: !67, file: !3, line: 46, type: !90, isLocal: false, isDefinition: true, scopeLine: 46, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !89, retainedNodes: !4)
-!604 = !DILocalVariable(name: "this", arg: 1, scope: !603, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!605 = !DILocation(line: 0, scope: !603)
-!606 = !DILocalVariable(name: "A", arg: 2, scope: !603, file: !3, line: 46, type: !92)
-!607 = !DILocation(line: 46, column: 18, scope: !603)
-!608 = !DILocation(line: 47, column: 19, scope: !609)
-!609 = distinct !DILexicalBlock(scope: !603, file: !3, line: 46, column: 21)
-!610 = !DILocation(line: 47, column: 5, scope: !609)
-!611 = !DILocation(line: 47, column: 15, scope: !609)
-!612 = !DILocation(line: 48, column: 14, scope: !609)
-!613 = !DILocation(line: 48, column: 5, scope: !609)
-!614 = !DILocation(line: 48, column: 10, scope: !609)
-!615 = !DILocation(line: 49, column: 9, scope: !616)
-!616 = distinct !DILexicalBlock(scope: !609, file: !3, line: 49, column: 9)
-!617 = !DILocation(line: 49, column: 19, scope: !616)
-!618 = !DILocation(line: 49, column: 9, scope: !609)
-!619 = !DILocation(line: 50, column: 30, scope: !616)
-!620 = !DILocation(line: 50, column: 28, scope: !616)
-!621 = !DILocation(line: 50, column: 26, scope: !616)
-!622 = !DILocation(line: 50, column: 40, scope: !616)
-!623 = !DILocation(line: 50, column: 19, scope: !616)
-!624 = !DILocation(line: 50, column: 14, scope: !616)
-!625 = !DILocation(line: 50, column: 7, scope: !616)
-!626 = !DILocation(line: 50, column: 12, scope: !616)
-!627 = !DILocation(line: 52, column: 26, scope: !616)
-!628 = !DILocation(line: 52, column: 36, scope: !616)
-!629 = !DILocation(line: 52, column: 19, scope: !616)
-!630 = !DILocation(line: 52, column: 14, scope: !616)
-!631 = !DILocation(line: 52, column: 7, scope: !616)
-!632 = !DILocation(line: 52, column: 12, scope: !616)
-!633 = !DILocalVariable(name: "i", scope: !634, file: !3, line: 53, type: !8)
-!634 = distinct !DILexicalBlock(scope: !609, file: !3, line: 53, column: 5)
-!635 = !DILocation(line: 53, column: 14, scope: !634)
-!636 = !DILocation(line: 53, column: 10, scope: !634)
-!637 = !DILocation(line: 0, scope: !634)
-!638 = !DILocation(line: 53, column: 25, scope: !639)
-!639 = distinct !DILexicalBlock(scope: !634, file: !3, line: 53, column: 5)
-!640 = !DILocation(line: 53, column: 23, scope: !639)
-!641 = !DILocation(line: 53, column: 5, scope: !634)
-!642 = !DILocation(line: 54, column: 11, scope: !643)
-!643 = distinct !DILexicalBlock(scope: !639, file: !3, line: 54, column: 11)
-!644 = !DILocation(line: 54, column: 21, scope: !643)
-!645 = !DILocation(line: 54, column: 11, scope: !639)
-!646 = !DILocation(line: 55, column: 25, scope: !643)
-!647 = !DILocation(line: 55, column: 32, scope: !643)
-!648 = !DILocation(line: 55, column: 23, scope: !643)
-!649 = !DILocation(line: 55, column: 9, scope: !643)
-!650 = !DILocation(line: 55, column: 16, scope: !643)
-!651 = !DILocation(line: 55, column: 21, scope: !643)
-!652 = !DILocation(line: 57, column: 21, scope: !643)
-!653 = !DILocation(line: 57, column: 19, scope: !643)
-!654 = !DILocation(line: 57, column: 9, scope: !643)
-!655 = !DILocation(line: 57, column: 17, scope: !643)
-!656 = !DILocation(line: 54, column: 23, scope: !643)
-!657 = !DILocation(line: 53, column: 31, scope: !639)
-!658 = !DILocation(line: 53, column: 5, scope: !639)
-!659 = distinct !{!659, !641, !660}
-!660 = !DILocation(line: 57, column: 27, scope: !634)
-!661 = !DILocation(line: 58, column: 3, scope: !603)
-!662 = distinct !DISubprogram(name: "~Arr", linkageName: "Arr<int*>::~Arr()", scope: !33, file: !3, line: 59, type: !61, isLocal: false, isDefinition: true, scopeLine: 59, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !60, retainedNodes: !4)
-!663 = !DILocalVariable(name: "this", arg: 1, scope: !662, type: !32, flags: DIFlagArtificial | DIFlagObjectPointer)
-!664 = !DILocation(line: 0, scope: !662)
-!665 = !DILocation(line: 59, column: 17, scope: !666)
-!666 = distinct !DILexicalBlock(scope: !662, file: !3, line: 59, column: 10)
-!667 = !DILocation(line: 59, column: 12, scope: !666)
-!668 = !DILocation(line: 59, column: 24, scope: !662)
-!669 = distinct !DISubprogram(name: "~Arr", linkageName: "Arr<float*>::~Arr()", scope: !67, file: !3, line: 59, type: !95, isLocal: false, isDefinition: true, scopeLine: 59, flags: DIFlagPrototyped, isOptimized: false, unit: !2, declaration: !94, retainedNodes: !4)
-!670 = !DILocalVariable(name: "this", arg: 1, scope: !669, type: !66, flags: DIFlagArtificial | DIFlagObjectPointer)
-!671 = !DILocation(line: 0, scope: !669)
-!672 = !DILocation(line: 59, column: 17, scope: !673)
-!673 = distinct !DILexicalBlock(scope: !669, file: !3, line: 59, column: 10)
-!674 = !DILocation(line: 59, column: 12, scope: !673)
-!675 = !DILocation(line: 59, column: 24, scope: !669)
-!676 = !{!"S", %class.F zeroinitializer, i32 3, !677, !678, !679}
-!677 = !{%struct.Arr zeroinitializer, i32 1}
-!678 = !{%struct.Arr.0 zeroinitializer, i32 1}
-!679 = !{%struct.Mem zeroinitializer, i32 1}
-!680 = !{!"S", %struct.Arr zeroinitializer, i32 5, !681, !682, !683, !682, !679}
-!681 = !{i8 0, i32 0}
-!682 = !{i32 0, i32 0}
-!683 = !{i32 0, i32 2}
-!684 = !{!"S", %struct.Mem zeroinitializer, i32 1, !685}
-!685 = !{!686, i32 2}
-!686 = !{!"F", i1 true, i32 0, !682}
-!687 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !681, !682, !720, !682, !679}
-!688 = !{%class.F zeroinitializer, i32 1}
-!689 = distinct !{!688}
-!690 = distinct !{!688}
-!691 = distinct !{!692}
-!692 = !{i8 0, i32 1}
-!693 = distinct !{!688}
-!694 = distinct !{!692}
-!695 = distinct !{!688, !696, !697}
-!696 = !{i32 0, i32 1}
-!697 = !{float 0.000000e+00, i32 1}
-!698 = distinct !{!688, !696}
-!699 = distinct !{!688, !697}
-!700 = distinct !{!688, !688}
-!701 = distinct !{!688}
-!702 = distinct !{!683, !677}
-!703 = distinct !{!720, !678}
-!704 = distinct !{!677, !679}
-!705 = distinct !{!678, !679}
-!706 = distinct !{!692}
-!707 = distinct !{!692, !692}
-!708 = distinct !{!677, !683}
-!709 = distinct !{!678, !720}
-!710 = distinct !{!677}
-!711 = distinct !{!692}
-!712 = distinct !{!678}
-!713 = distinct !{!677, !696}
-!714 = distinct !{!678, !697}
-!715 = distinct !{!677, !677}
-!716 = distinct !{!678, !678}
-!717 = distinct !{!677}
-!718 = distinct !{!678}
-!719 = distinct !{!688}
-!720 = !{float 0.000000e+00, i32 2}
+!443 = !DILocalVariable(name: "i", arg: 2, scope: !439, file: !3, line: 15, type: !8)
+!444 = !DILocation(line: 15, column: 16, scope: !439)
+!445 = !DILocalVariable(name: "val", arg: 3, scope: !439, file: !3, line: 15, type: !10)
+!446 = !DILocation(line: 15, column: 21, scope: !439)
+!447 = !DILocation(line: 16, column: 9, scope: !448)
+!448 = distinct !DILexicalBlock(scope: !439, file: !3, line: 16, column: 9)
+!449 = !DILocation(line: 16, column: 19, scope: !448)
+!450 = !DILocation(line: 16, column: 9, scope: !439)
+!451 = !DILocation(line: 19, column: 7, scope: !448)
+!452 = !DILocation(line: 19, column: 15, scope: !448)
+!453 = !DILocation(line: 20, column: 3, scope: !439)
+!454 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<int*>::Arr(Arr<int*> const&)", scope: !46, file: !3, line: 46, type: !69, scopeLine: 46, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !68, retainedNodes: !4)
+!455 = distinct !{!25, !25}
+!456 = !DILocalVariable(name: "this", arg: 1, scope: !454, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!457 = !DILocation(line: 0, scope: !454)
+!458 = !DILocalVariable(name: "A", arg: 2, scope: !454, file: !3, line: 46, type: !71)
+!459 = !DILocation(line: 46, column: 18, scope: !454)
+!460 = !DILocation(line: 47, column: 19, scope: !461)
+!461 = distinct !DILexicalBlock(scope: !454, file: !3, line: 46, column: 21)
+!462 = !DILocation(line: 58, column: 3, scope: !454)
+!463 = distinct !DISubprogram(name: "Arr", linkageName: "Arr<float*>::Arr(Arr<float*> const&)", scope: !80, file: !3, line: 46, type: !103, scopeLine: 46, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !102, retainedNodes: !4)
+!464 = distinct !{!26, !26}
+!465 = !DILocalVariable(name: "this", arg: 1, scope: !463, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!466 = !DILocation(line: 0, scope: !463)
+!467 = !DILocalVariable(name: "A", arg: 2, scope: !463, file: !3, line: 46, type: !105)
+!468 = !DILocation(line: 46, column: 18, scope: !463)
+!469 = !DILocation(line: 47, column: 19, scope: !470)
+!470 = distinct !DILexicalBlock(scope: !463, file: !3, line: 46, column: 21)
+!471 = !DILocation(line: 58, column: 3, scope: !463)
+!472 = distinct !DISubprogram(name: "~Arr", linkageName: "Arr<int*>::~Arr()", scope: !46, file: !3, line: 59, type: !74, scopeLine: 59, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !73, retainedNodes: !4)
+!473 = distinct !{!25}
+!474 = !DILocalVariable(name: "this", arg: 1, scope: !472, type: !45, flags: DIFlagArtificial | DIFlagObjectPointer)
+!475 = !DILocation(line: 0, scope: !472)
+!476 = !DILocation(line: 59, column: 17, scope: !477)
+!477 = distinct !DILexicalBlock(scope: !472, file: !3, line: 59, column: 10)
+!478 = !DILocation(line: 59, column: 12, scope: !477)
+!479 = !DILocation(line: 59, column: 24, scope: !472)
+!480 = distinct !DISubprogram(name: "~Arr", linkageName: "Arr<float*>::~Arr()", scope: !80, file: !3, line: 59, type: !108, scopeLine: 59, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !107, retainedNodes: !4)
+!481 = distinct !{!26}
+!482 = !DILocalVariable(name: "this", arg: 1, scope: !480, type: !79, flags: DIFlagArtificial | DIFlagObjectPointer)
+!483 = !DILocation(line: 0, scope: !480)
+!484 = !DILocation(line: 59, column: 17, scope: !485)
+!485 = distinct !DILexicalBlock(scope: !480, file: !3, line: 59, column: 10)
+!486 = !DILocation(line: 59, column: 12, scope: !485)
+!487 = !DILocation(line: 59, column: 24, scope: !480)
