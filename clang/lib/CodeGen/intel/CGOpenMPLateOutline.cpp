@@ -209,7 +209,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
   IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
   FunctionProtoType::ExtProtoInfo EPI;
-  QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
+  QualType FunctionTy = C.getFunctionType(C.VoidTy, std::nullopt, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
       FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy),
@@ -313,7 +313,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 
   IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
   FunctionProtoType::ExtProtoInfo EPI;
-  QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
+  QualType FunctionTy = C.getFunctionType(C.VoidTy, std::nullopt, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
       FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy),
