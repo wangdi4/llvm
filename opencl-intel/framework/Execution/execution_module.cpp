@@ -59,7 +59,7 @@ using namespace Intel::OpenCL::Utils;
 namespace {
 
 /// Sync for the access of ExecutionModule::m_OclKernelEventMap
-Intel::OpenCL::Utils::OclMutex KernelEventMutex;
+std::mutex KernelEventMutex;
 
 /// Check mutex of map flags.
 /// \return CL_SUCCESS if OK.
@@ -79,7 +79,7 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
 /// Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
 /// remove it from kernel-event map.
 void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
-  OclAutoMutex Mu(&KernelEventMutex);
+  std::lock_guard<std::mutex> Mu(KernelEventMutex);
 
   assert(EM && "expect valid ExecutionModule instance");
   OclKernelEventMapTy &KernelEvents = EM->getKernelEventMap();
@@ -2193,7 +2193,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return errVal;
 
       {
-        OclAutoMutex mu(&KernelEventMutex);
+        std::lock_guard<std::mutex> mu(KernelEventMutex);
         auto it = m_OclKernelEventMap.find(kernelName);
         if (it != m_OclKernelEventMap.end()) {
           cl_event prevClEvent = it->second;

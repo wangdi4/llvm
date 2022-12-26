@@ -641,7 +641,7 @@ FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue *command_queue,
                                          cl_dev_cmd_list clDevCmdListId) {
   assert(command_queue && "Invalid command queue passed.");
   assert(clDevCmdListId && "Invalid command list passed.");
-  OclAutoMutex CS(&m_changeDefaultDeviceMutex);
+  std::lock_guard<std::mutex> CS(m_changeDefaultDeviceMutex);
   // The next two operations should be executed under a mutex otherwise
   // races may occur.
   m_default_command_queue = command_queue;
@@ -650,7 +650,7 @@ FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue *command_queue,
 
 cl_err_code
 FissionableDevice::UnsetDefaultQueueIfEqual(OclCommandQueue *command_queue) {
-  OclAutoMutex CS(&m_changeDefaultDeviceMutex);
+  std::lock_guard<std::mutex> CS(m_changeDefaultDeviceMutex);
   // The next two operations should be executed under a mutex otherwise
   // races may occur.
   const OclCommandQueue *res =

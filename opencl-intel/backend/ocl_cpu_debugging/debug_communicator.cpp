@@ -135,7 +135,7 @@ void DebugCommunicator::log_and_terminate(string msg) {
 }
 
 void DebugCommunicator::set_state(State s) {
-  OclAutoMutex M(&m_lock);
+  std::lock_guard<std::mutex> M(m_lock);
   m_state = s;
 }
 

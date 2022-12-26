@@ -202,7 +202,7 @@ private:
   IUnknown *m_pD3DDevice;
   cl_context_properties m_iD3DDevType = 0;
 
-  OclMutex m_changeDefaultDeviceMutex;
+  std::mutex m_changeDefaultDeviceMutex;
   AtomicPointer<OclCommandQueue> m_default_command_queue;
 };
 

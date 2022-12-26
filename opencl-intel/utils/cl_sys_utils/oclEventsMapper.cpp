@@ -20,14 +20,14 @@ using namespace Intel::OpenCL::Utils;
 
 void NotifierEventsMapper::addEventPair(cl_event userEvent,
                                         cl_event notifierEvent) {
-  OclAutoMutex M(&m_lock);
+  std::lock_guard<std::mutex> M(m_lock);
   map<cl_event, cl_event>::iterator it;
   it = m_eventsMap.find(userEvent);
   assert(m_eventsMap.end() == it);
   m_eventsMap[userEvent] = notifierEvent;
 }
 cl_event NotifierEventsMapper::getNotifierEvent(cl_event userEvent) {
-  OclAutoMutex M(&m_lock);
+  std::lock_guard<std::mutex> M(m_lock);
   cl_event notifierEvent = nullptr;
   map<cl_event, cl_event>::iterator it;
   it = m_eventsMap.find(userEvent);
@@ -37,7 +37,7 @@ cl_event NotifierEventsMapper::getNotifierEvent(cl_event userEvent) {
   return notifierEvent;
 }
 cl_event NotifierEventsMapper::getUserEvent(cl_event notifierEvent) {
-  OclAutoMutex M(&m_lock);
+  std::lock_guard<std::mutex> M(m_lock);
   cl_event userEvent = nullptr;
   map<cl_event, cl_event>::iterator it;
   for (it = m_eventsMap.begin(); m_eventsMap.end() != it; ++it) {
@@ -49,7 +49,7 @@ cl_event NotifierEventsMapper::getUserEvent(cl_event notifierEvent) {
   return userEvent;
 }
 void NotifierEventsMapper::delEvent(cl_event userEvent) {
-  OclAutoMutex M(&m_lock);
+  std::lock_guard<std::mutex> M(m_lock);
   map<cl_event, cl_event>::iterator it;
   it = m_eventsMap.find(userEvent);
   assert(m_eventsMap.end() != it);

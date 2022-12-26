@@ -43,7 +43,7 @@ public:
   //    true  - new handle is available
   //    false  - nothing to allocate
   bool AllocateHandle(_HandleType *newHandle) {
-    OclAutoMutex mutex(&m_muRange);
+    std::lock_guard<std::mutex> mutex(m_muRange);
 
     if (m_freeRanges.empty()) {
       return false;
@@ -63,7 +63,7 @@ public:
 
   // Returns unused handle to empty pool
   void FreeHandle(_HandleType handle) {
-    OclAutoMutex mutex(&m_muRange);
+    std::lock_guard<std::mutex> mutex(m_muRange);
 
     // Create new range for empty list
     if (m_freeRanges.empty()) {
@@ -115,7 +115,7 @@ public:
 
   // Clear all allocated handles and return allocator to its initial state
   void Clear() {
-    OclAutoMutex mutex(&m_muRange);
+    std::lock_guard<std::mutex> mutex(m_muRange);
 
     // Bug: TODO: check why this is not working.
     // assert(m_freeRanges.size() == 1);
@@ -134,7 +134,7 @@ protected:
   RangesList_t m_freeRanges;
   RangeEntry_t m_initValues;
 
-  OclMutex m_muRange;
+  std::mutex m_muRange;
 };
 
 } // namespace Utils

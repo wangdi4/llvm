@@ -235,7 +235,7 @@ protected:
   const char **m_pszHeadersNames;
   std::string m_sOptions;
 
-  static Intel::OpenCL::Utils::OclMutex m_compileMtx;
+  static std::mutex m_compileMtx;
 };
 
 class LinkTask : public BuildTask {
@@ -268,7 +268,7 @@ protected:
   unsigned int m_uiNumPrograms;
   std::string m_sOptions;
 
-  static Intel::OpenCL::Utils::OclMutex m_linkMtx;
+  static std::mutex m_linkMtx;
 };
 
 class DeviceBuildTask : public BuildTask {
@@ -294,7 +294,7 @@ protected:
   DeviceProgram *m_pDeviceProgram;
   std::string m_sOptions;
 
-  static Intel::OpenCL::Utils::OclMutex m_deviceBuildMtx;
+  static std::mutex m_deviceBuildMtx;
 };
 
 class PostBuildTask : public BuildTask {

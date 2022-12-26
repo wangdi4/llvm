@@ -93,7 +93,7 @@ private:
 
   // Lock for synchronizing between internal thread and external callers.
   //
-  mutable OclMutex m_lock;
+  mutable std::mutex m_lock;
 
   // Event used to signal that a message was received
   //

@@ -221,7 +221,7 @@ protected:
   ObserversList_t m_CompleteObserversList;
   ObserversList_t m_RunningObserversList;
   ObserversList_t m_SubmittedObserversList;
-  Intel::OpenCL::Utils::OclMutex m_ObserversListGuard;
+  std::mutex m_ObserversListGuard;
 
   Intel::OpenCL::Utils::AtomicCounter m_numOfDependencies;
 

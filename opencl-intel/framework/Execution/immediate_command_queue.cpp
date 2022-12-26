@@ -48,7 +48,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(
         m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
   }
   if (!m_bOutOfOrderEnabled) {
-    m_CS.Lock();
+    m_CS.lock();
   }
   if (uNumEventsInWaitList > 0) {
     ret =
@@ -56,7 +56,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(
   }
   if (CL_SUCCESS != ret) {
     if (!m_bOutOfOrderEnabled) {
-      m_CS.Unlock();
+      m_CS.unlock();
     }
     return ret;
   }
@@ -72,7 +72,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(
   ret = Enqueue(pCommand);
 
   if (!m_bOutOfOrderEnabled) {
-    m_CS.Unlock();
+    m_CS.unlock();
   }
 
   if (nullptr == pEvent) {
@@ -113,9 +113,9 @@ cl_err_code ImmediateCommandQueue::EnqueueMarkerWaitForEvents(Command *marker) {
     }
     if (!m_bOutOfOrderEnabled) {
       // Must block while commands are executed
-      m_CS.Lock();
+      m_CS.lock();
       ret = Enqueue(marker);
-      m_CS.Unlock();
+      m_CS.unlock();
     } else {
       ret = Enqueue(marker);
     }

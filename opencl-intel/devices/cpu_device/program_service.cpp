@@ -645,11 +645,11 @@ cl_dev_err_code ProgramService::GetKernelId(cl_dev_program IN prog,
 
   // Find if ID is already allocated
   TName2IdMap::const_iterator nameIt;
-  pEntry->muMap.Lock();
+  pEntry->muMap.lock();
   nameIt = pEntry->mapKernels.find(name);
   if (pEntry->mapKernels.end() != nameIt) {
     *kernelId = (cl_dev_kernel)&nameIt->second;
-    pEntry->muMap.Unlock();
+    pEntry->muMap.unlock();
     return CL_DEV_SUCCESS;
   }
 
@@ -661,7 +661,7 @@ cl_dev_err_code ProgramService::GetKernelId(cl_dev_program IN prog,
   if (CL_DEV_FAILED(iRet)) {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
                TEXT("Requested kernel not found<%0X>"), iRet);
-    pEntry->muMap.Unlock();
+    pEntry->muMap.unlock();
     return iRet;
   }
 
@@ -672,7 +672,7 @@ cl_dev_err_code ProgramService::GetKernelId(cl_dev_program IN prog,
   mapEntry.ittTaskNameHandle = __itt_string_handle_create(name);
 #endif
   pEntry->mapKernels[name] = mapEntry;
-  pEntry->muMap.Unlock();
+  pEntry->muMap.unlock();
 
   *kernelId = (cl_dev_kernel) & (pEntry->mapKernels[name]);
 
@@ -711,7 +711,7 @@ cl_dev_err_code ProgramService::GetProgramKernels(cl_dev_program IN prog,
     return CL_DEV_INVALID_VALUE;
   }
 
-  OclAutoMutex mu(&pEntry->muMap);
+  std::lock_guard<std::mutex> mu(pEntry->muMap);
   // Retrieve kernels from program and store internally
   for (unsigned int i = 0, ret_kernel_idx = 0; i < uiAllProgKernels; ++i) {
     const ICLDevBackendKernel_ *pKernel;

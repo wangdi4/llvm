@@ -16,6 +16,7 @@
 
 #include "cl_synch_objects.h"
 #include <iostream>
+#include <mutex>
 #include <set>
 #include <string>
 
@@ -35,7 +36,7 @@ namespace Framework {
 
 class OCLObjectBase {
   const std::string m_typename;
-  Intel::OpenCL::Utils::OclMutex m_muAcquireRelease;
+  std::mutex m_muAcquireRelease;
   std::multiset<const OCLObjectBase *> m_dependencySet;
   std::multiset<const OCLObjectBase *> m_reverseDependencySet;
 

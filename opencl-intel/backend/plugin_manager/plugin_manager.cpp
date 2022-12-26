@@ -52,7 +52,7 @@ class PluginInfo {
   Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
   IPlugin *m_pPlugin;
   // lock for the cleanup operation
-  Utils::OclMutex m_lock;
+  std::mutex m_lock;
 
 public:
   PluginInfo(const std::string &dllName);
@@ -188,7 +188,7 @@ PluginInfo::~PluginInfo() {
         (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
     {
       assert(m_pPlugin && "NULL plugin");
-      Utils::OclAutoMutex cleanlock(&m_lock);
+      std::lock_guard<std::mutex> cleanlock(m_lock);
       cleanup(m_pPlugin);
     }
     m_pPlugin = nullptr;

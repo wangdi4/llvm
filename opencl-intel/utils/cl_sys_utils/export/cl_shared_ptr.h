@@ -17,6 +17,7 @@
 #include "cl_synch_objects.h"
 
 #include <list>
+#include <mutex>
 #include <set>
 
 // macro that each class T that wish to user SharedPtrBase<T> must call in its
@@ -626,7 +627,7 @@ public:
 
 private:
   std::set<SharedPtr<T>> m_set;
-  OclMutex m_lock;
+  std::mutex m_lock;
 };
 
 } // namespace Utils

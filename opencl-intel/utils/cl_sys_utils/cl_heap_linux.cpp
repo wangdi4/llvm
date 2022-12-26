@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <map>
+#include <mutex>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -45,7 +46,7 @@ struct ClHeapInfo_t {
   size_t actualAllocatedSpace;
 
   EntryMap_t entryMap;
-  OclMutex critSectionMtx;
+  std::mutex critSectionMtx;
 };
 
 //////////////////////////////////////////////////////////////////
@@ -120,7 +121,7 @@ void *clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment,
 
   ClHeapInfo_t *heapInfo = (ClHeapInfo_t *)hHeap;
 
-  OclAutoMutex critSection(&heapInfo->critSectionMtx);
+  std::lock_guard<std::mutex> critSection(heapInfo->critSectionMtx);
 
   if (heapInfo->maxSize < heapInfo->userAllocatedSpace + allocSize) {
     return nullptr;
@@ -167,7 +168,7 @@ int clFreeHeapPointer(ClHeap hHeap, void *ptr) {
 
   ClHeapInfo_t *heapInfo = (ClHeapInfo_t *)hHeap;
 
-  OclAutoMutex critSection(&heapInfo->critSectionMtx);
+  std::lock_guard<std::mutex> critSection(heapInfo->critSectionMtx);
 
   EntryMap_t::iterator it = heapInfo->entryMap.find((size_t)ptr);
 

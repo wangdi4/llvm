@@ -27,6 +27,7 @@
 #include "SimpleBackingStore.h"
 #include "cl_device_api.h"
 #include "cl_synch_objects.h"
+#include <mutex>
 #include <set>
 
 #ifdef _WIN32
@@ -142,16 +143,16 @@ public:
   Intel::OpenCL::TaskExecutor::ITaskExecutor *clDevGetTaskExecutor();
 
   void AddUserCallback(IOCLFrameworkCallbacks &callback) {
-    Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+    std::lock_guard<std::mutex> mutex(m_mutex);
     m_userCallbacks.insert(&callback);
   }
 
   void RemoveUserCallback(IOCLFrameworkCallbacks &callback) {
-    Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+    std::lock_guard<std::mutex> mutex(m_mutex);
     m_userCallbacks.erase(&callback);
   }
 
 private:
   std::set<IOCLFrameworkCallbacks *> m_userCallbacks;
-  Intel::OpenCL::Utils::OclMutex m_mutex;
+  std::mutex m_mutex;
 };

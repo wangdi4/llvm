@@ -15,8 +15,8 @@
 #pragma once
 
 #include "cl_synch_objects.h"
-
 #include <CL/cl.h>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -47,7 +47,7 @@ public:
   virtual void delEvent(cl_event userEvent) override;
 
 private:
-  OclMutex m_lock;
+  std::mutex m_lock;
 
   typedef cl_event UserEvent;
   typedef cl_event NotifierEvent;
