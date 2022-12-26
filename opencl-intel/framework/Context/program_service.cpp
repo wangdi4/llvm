@@ -89,9 +89,9 @@ void BuildTask::SetComplete(cl_int returnCode) {
   BuildEvent::SetComplete(returnCode);
 }
 
-Intel::OpenCL::Utils::OclMutex CompileTask::m_compileMtx;
-Intel::OpenCL::Utils::OclMutex LinkTask::m_linkMtx;
-Intel::OpenCL::Utils::OclMutex DeviceBuildTask::m_deviceBuildMtx;
+std::mutex CompileTask::m_compileMtx;
+std::mutex LinkTask::m_linkMtx;
+std::mutex DeviceBuildTask::m_deviceBuildMtx;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +143,7 @@ bool CompileTask::Execute() {
 
   {
     // The frontend compiler is not thread safe
-    OclAutoMutex lockCompile(&m_compileMtx);
+    std::lock_guard<std::mutex> lockCompile(m_compileMtx);
     if (pIL) {
       unsigned int binarySize = pIL->GetSize();
       assert(szSource != NULL && "Invalid source code");
@@ -320,7 +320,7 @@ bool LinkTask::Execute() {
 
   {
     // The frontend compiler is not thread safe
-    OclAutoMutex lockLink(&m_linkMtx);
+    std::lock_guard<std::mutex> lockLink(m_linkMtx);
 
     m_pFECompiler->LinkProgram(arrBinaries, m_uiNumPrograms, arrBinariesSizes,
                                m_sOptions.c_str(), pOutBinary.getOutPtr(),
@@ -471,7 +471,7 @@ bool DeviceBuildTask::Execute() {
     // to guard not only clDevBuildProgram but clDevCreatePRogram also.
     // Likely they shared some internal state.
     // Sporadic assertions in vectorizer happens without the lock.
-    OclAutoMutex lockBuild(&m_deviceBuildMtx);
+    std::lock_guard<std::mutex> lockBuild(m_deviceBuildMtx);
 
     err = pDeviceAgent->clDevCreateProgram(
         uiBinarySize, pBinary, CL_DEV_BINARY_COMPILER, &programHandle);

@@ -37,7 +37,6 @@
 #endif // DEVICE_NATIVE
 
 using Intel::OpenCL::Utils::AtomicPointer;
-using Intel::OpenCL::Utils::OclMutex;
 using Intel::OpenCL::Utils::SharedPtr;
 
 namespace Intel {

@@ -38,7 +38,7 @@ void OCLObjectBase::PrintDependencyGraphRecursive(std::ostream &os,
 }
 
 void OCLObjectBase::PrintDependencyGraph(std::ostream &os) {
-  m_muAcquireRelease.Lock();
+  m_muAcquireRelease.lock();
   // Save ostream flags
   ios::fmtflags f(os.flags());
   os << std::hex;
@@ -47,25 +47,25 @@ void OCLObjectBase::PrintDependencyGraph(std::ostream &os) {
   PrintDependencyGraphRecursive(os, 1);
   // Restore ostream flags
   os.flags(f);
-  m_muAcquireRelease.Unlock();
+  m_muAcquireRelease.unlock();
 }
 
 void OCLObjectBase::InsertToDependencySet(OCLObjectBase * /*pObj*/) {
 #if defined DEBUG_DEPENDENCY
-  m_muAcquireRelease.Lock();
+  m_muAcquireRelease.lock();
   m_dependencySet.insert(pObj);
   pObj->m_reverseDependencySet.insert(this);
-  m_muAcquireRelease.Unlock();
+  m_muAcquireRelease.unlock();
 #endif
 }
 
 void OCLObjectBase::EraseFromDependecySet(OCLObjectBase * /*pObj*/) {
 #if defined DEBUG_DEPENDENCY
-  m_muAcquireRelease.Lock();
+  m_muAcquireRelease.lock();
   m_dependencySet.erase(
       m_dependencySet.find(pObj)); // remove only one occurrence
   pObj->m_reverseDependencySet.erase(pObj->m_reverseDependencySet.find(this));
-  m_muAcquireRelease.Unlock();
+  m_muAcquireRelease.unlock();
 #endif
 }
 

@@ -90,7 +90,7 @@ void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void *data,
     profile_run = timer;
   }
 
-  Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+  std::lock_guard<std::mutex> mutex(m_mutex);
   for (std::set<IOCLFrameworkCallbacks *>::iterator iter =
            m_userCallbacks.begin();
        iter != m_userCallbacks.end(); iter++) {

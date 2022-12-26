@@ -52,7 +52,7 @@ cl_err_code Program::GetBuildInfo(cl_device_id clDevice,
                                   cl_program_build_info clParamName,
                                   size_t szParamValueSize, void *pParamValue,
                                   size_t *pszParamValueSizeRet) {
-  OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+  std::lock_guard<std::mutex> deviceProgMapMutex(m_deviceProgramMapMutex);
   DeviceProgram *pDeviceProgram = nullptr;
   tDeviceProgramMap::iterator deviceIdToProgramIter =
       m_deviceToProgram.find(clDevice);
@@ -229,7 +229,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
   }
 
   case CL_PROGRAM_BINARY_SIZES: {
-    OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+    std::lock_guard<std::mutex> deviceProgMapMutex(m_deviceProgramMapMutex);
     szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
     if (nullptr != param_value) {
       if (param_value_size < szParamValueSize) {
@@ -262,7 +262,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
   }
 
   case CL_PROGRAM_BINARIES: {
-    OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+    std::lock_guard<std::mutex> deviceProgMapMutex(m_deviceProgramMapMutex);
     szParamValueSize = sizeof(char *) * m_szNumAssociatedDevices;
     char **pParamValue = static_cast<char **>(param_value);
     size_t uiParam = 0;
@@ -967,7 +967,7 @@ void Program::Unacquire(cl_device_id clDevice) {
 }
 
 void Program::SetContextDevicesToProgramMappingInternal() {
-  OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+  std::lock_guard<std::mutex> deviceProgMapMutex(m_deviceProgramMapMutex);
   // Clear the previous mapping
   m_deviceToProgram.clear();
   unsigned int numDevicesInContext = 0;
@@ -1018,7 +1018,7 @@ void Program::SetContextDevicesToProgramMappingInternal() {
 
 bool Program::GetMyRelatedProgramDeviceIDInternal(const cl_device_id devID,
                                                   cl_int *pOutID) {
-  OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
+  std::lock_guard<std::mutex> deviceProgMapMutex(m_deviceProgramMapMutex);
   // Find the DeviceProgram that related to me (myne or my parent recursively
   // (if in the same context))
   tDeviceProgramMap::iterator deviceProgramIter = m_deviceToProgram.find(devID);

@@ -218,7 +218,7 @@ private:
   SharedPtr<Device> m_pDefaultDevice;
 
   // A mutex to prevent concurrent calls to clCreateSubDevices
-  Intel::OpenCL::Utils::OclMutex m_deviceFissionMutex;
+  std::mutex m_deviceFissionMutex;
 
   // static chars array - holds the platform's information string
   static std::string m_vPlatformInfoStr;

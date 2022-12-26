@@ -84,7 +84,7 @@ protected:
                         cl_command_queue_properties clProperties,
                         EventsManager *pEventManager);
 
-  Intel::OpenCL::Utils::OclMutex m_CS;
+  std::mutex m_CS;
 };
 
 } // namespace Framework

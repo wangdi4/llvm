@@ -155,7 +155,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count,
 }
 
 void OclEvent::AddObserver(const SharedPtr<IEventObserver> &pObserver) {
-  m_ObserversListGuard.Lock();
+  m_ObserversListGuard.lock();
   IEventObserver *observer = pObserver.GetPtr();
 
   cl_int currExecState = GetEventExecState();
@@ -164,7 +164,7 @@ void OclEvent::AddObserver(const SharedPtr<IEventObserver> &pObserver) {
   if (expectedState >= currExecState) {
     // event completed while we were registering, or already happened, notify
     // immediately
-    m_ObserversListGuard.Unlock();
+    m_ObserversListGuard.unlock();
     cl_int retcode = GetReturnCode();
     // Evgeny: Should find another way to propogate the EXEC_STATE.
     //            retcode has one notation
@@ -184,7 +184,7 @@ void OclEvent::AddObserver(const SharedPtr<IEventObserver> &pObserver) {
     default:
       assert(0 && "Trying to add an observer to invalid exec state.");
     }
-    m_ObserversListGuard.Unlock();
+    m_ObserversListGuard.unlock();
   }
 }
 
@@ -293,7 +293,7 @@ void OclEvent::DoneWithDependencies(const SharedPtr<OclEvent> & /*pEvent*/) {
 }
 
 void OclEvent::NotifyObservers(const cl_int retCode) {
-  m_ObserversListGuard.Lock();
+  m_ObserversListGuard.lock();
 
   // If error (negative), notify (and dispatch) all.
   cl_int execState = retCode < 0 ? CL_COMPLETE : retCode;
@@ -311,11 +311,11 @@ void OclEvent::NotifyObservers(const cl_int retCode) {
     NotifyObserversOfSingleExecState(m_SubmittedObserversList, retCode);
     break;
   default:
-    m_ObserversListGuard.Unlock();
+    m_ObserversListGuard.unlock();
     assert(0 && "invalid exec state to notify observers.");
   }
 
-  m_ObserversListGuard.Unlock();
+  m_ObserversListGuard.unlock();
 }
 
 /**

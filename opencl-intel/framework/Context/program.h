@@ -230,7 +230,7 @@ protected:
 
 private:
   // Mutex for m_deviceToProgram
-  mutable Intel::OpenCL::Utils::OclMutex m_deviceProgramMapMutex;
+  mutable std::mutex m_deviceProgramMapMutex;
 
   volatile bool m_isFinalized;
   std::mutex m_finalizeMutex;
