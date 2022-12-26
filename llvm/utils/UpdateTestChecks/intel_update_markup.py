@@ -181,8 +181,8 @@ def main():
 
     # Argument checking
     max_line = args.max
-    if max_line < 1:
-        raise ValueError(f'--max value {max_line} is less than 1')
+    if max_line < 0:
+        raise ValueError(f'--max value {max_line} is less than 0')
     exp = args.exp
     if not os.path.isfile(exp):
         raise OSError(f'Non-existing file {exp}')
