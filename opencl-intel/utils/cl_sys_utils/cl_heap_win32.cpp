@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <map>
+#include <mutex>
 #include <tchar.h>
 #include <windows.h>
 
@@ -49,7 +50,7 @@ struct ClHeapInfo_t {
   EntryMap_t entryMap;
   size_t numVirtualAllocs;
 
-  OclMutex critSectionMtx;
+  std::mutex critSectionMtx;
 };
 
 //////////////////////////////////////////////////////////////////
@@ -186,7 +187,7 @@ void *clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment,
 
   ClHeapInfo_t *heapInfo = (ClHeapInfo_t *)hHeap;
 
-  OclAutoMutex critSection(&heapInfo->critSectionMtx);
+  std::lock_guard<std::mutex> critSection(heapInfo->critSectionMtx);
 
   if (heapInfo->maxSize < heapInfo->userAllocatedSpace + allocSize) {
     return NULL;
@@ -247,7 +248,7 @@ int clFreeHeapPointer(ClHeap hHeap, void *ptr) {
   ClHeapInfo_t *heapInfo = (ClHeapInfo_t *)hHeap;
   BOOL retVal;
 
-  OclAutoMutex critSection(&heapInfo->critSectionMtx);
+  std::lock_guard<std::mutex> critSection(heapInfo->critSectionMtx);
 
   EntryMap_t::iterator it = heapInfo->entryMap.find((size_t)ptr);
 

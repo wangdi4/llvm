@@ -547,9 +547,9 @@ private:
   std::map<const void *, std::vector<std::shared_ptr<_cl_event>>>
       m_mapUSMFreeWaitList;
   // Mutex to guard access to m_mapSVMBuffers and m_mapSVMBuffers.
-  Intel::OpenCL::Utils::OclMutex m_SvmUsmMutex;
+  std::mutex m_SvmUsmMutex;
   // Mutex to guard access to backend library.
-  Intel::OpenCL::Utils::OclMutex m_backendLibraryMutex;
+  std::mutex m_backendLibraryMutex;
 
   Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue>
       m_setQueues; // set of all queues including invisible to user

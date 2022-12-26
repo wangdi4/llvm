@@ -17,7 +17,6 @@
 
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup;
-using Intel::OpenCL::Utils::OclAutoMutex;
 
 cl_dev_err_code
 KernelCommand::AddChildKernelToLists(const SharedPtr<KernelCommand> &child,

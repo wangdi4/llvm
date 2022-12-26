@@ -34,7 +34,6 @@ class TBBTaskExecutor;
 class TEDevice;
 
 using Intel::OpenCL::Utils::ConstSharedPtr;
-using Intel::OpenCL::Utils::OclMutex;
 using Intel::OpenCL::Utils::OclOsDependentEvent;
 using Intel::OpenCL::Utils::ReferenceCountedObject;
 using Intel::OpenCL::Utils::SharedPtr;

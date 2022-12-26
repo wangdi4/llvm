@@ -20,6 +20,7 @@
 #include "log_handler.h"
 #include "log_message.h"
 
+#include <mutex>
 #include <stdio.h>
 
 namespace Intel {
@@ -209,7 +210,7 @@ private:
   bool m_bIsActive;
 
   // The class critical section object.
-  OclMutex m_CS;
+  std::mutex m_CS;
 };
 
 } // namespace Utils

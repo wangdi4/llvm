@@ -3053,7 +3053,7 @@ ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
   threadid_t TID = clMyThreadId();
   std::vector<std::string> KernelNamesVec = SplitString(KernelNames, ';');
   {
-    OclAutoMutex mu(&m_backendLibraryMutex);
+    std::lock_guard<std::mutex> mu(m_backendLibraryMutex);
     for (auto &KName : KernelNamesVec) {
       cl_kernel K = CreateLibraryKernelForThread(Ctx, TID, KName);
       if (!K) {
@@ -3067,7 +3067,7 @@ ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
 
 cl_int ContextModule::releaseLibraryProgram(const cl_context Ctx) {
   LOG_INFO(TEXT("%s"), TEXT("releaseLibraryProgram enter"));
-  OclAutoMutex mu(&m_backendLibraryMutex);
+  std::lock_guard<std::mutex> mu(m_backendLibraryMutex);
   SharedPtr<Context> C =
       m_mapContexts.GetOCLObject((_cl_context_int *)Ctx).DynamicCast<Context>();
   if (!C) {
@@ -3121,7 +3121,7 @@ cl_kernel ContextModule::CreateLibraryKernelForThread(SharedPtr<Context> &Ctx,
 
 SharedPtr<Kernel> ContextModule::GetLibraryKernel(SharedPtr<Context> &Ctx,
                                                   const std::string &Name) {
-  OclAutoMutex mu(&m_backendLibraryMutex);
+  std::lock_guard<std::mutex> mu(m_backendLibraryMutex);
   threadid_t TID = clMyThreadId();
   auto &Kernels = Ctx->GetLibraryKernels();
   cl_kernel K = (Kernels.count(TID) && Kernels[TID].count(Name))
@@ -3199,7 +3199,7 @@ void *ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags,
   }
   void *pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
   if (pSvmBuf) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapSVMBuffers[pSvmBuf] = pContext;
   }
   return pSvmBuf;
@@ -3217,7 +3217,7 @@ void ContextModule::SVMFree(cl_context context, void *pSvmPtr) {
   }
   pContext->SVMFree(pSvmPtr);
   {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapSVMBuffers.erase(pSvmPtr);
   }
 }
@@ -3363,7 +3363,7 @@ void *ContextModule::USMHostAlloc(cl_context context,
   void *pUsmBuf =
       pContext->USMHostAlloc(properties, size, alignment, errcode_ret);
   if (pUsmBuf) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers[pUsmBuf] = pContext;
   }
   return pUsmBuf;
@@ -3384,7 +3384,7 @@ void *ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
   void *pUsmBuf = pContext->USMDeviceAlloc(device, properties, size, alignment,
                                            errcode_ret);
   if (pUsmBuf) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers[pUsmBuf] = pContext;
   }
   return pUsmBuf;
@@ -3405,7 +3405,7 @@ void *ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
   void *pUsmBuf = pContext->USMSharedAlloc(device, properties, size, alignment,
                                            errcode_ret);
   if (pUsmBuf) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers[pUsmBuf] = pContext;
   }
   return pUsmBuf;
@@ -3423,7 +3423,7 @@ cl_int ContextModule::USMFree(cl_context context, void *ptr) {
   }
   cl_err_code err = pContext->USMFree(ptr);
   if (CL_SUCCESS == err) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers.erase(ptr);
   }
   return err;
@@ -3450,7 +3450,7 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
   auto waitListIter = m_mapUSMFreeWaitList.end();
   std::vector<cl_event> waitList;
   {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     waitListIter = m_mapUSMFreeWaitList.find(ptr);
     if (waitListIter != m_mapUSMFreeWaitList.end())
       for (const auto &eventSPtr : waitListIter->second)
@@ -3478,7 +3478,7 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
   cl_err_code err = pContext->USMFree(ptr);
 
   if (CL_SUCCESS == err) {
-    OclAutoMutex mu(&m_SvmUsmMutex);
+    std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers.erase(usmBufferIter);
     if (waitListIter != m_mapUSMFreeWaitList.end())
       m_mapUSMFreeWaitList.erase(waitListIter);
@@ -3543,14 +3543,14 @@ void ContextModule::UnRegisterMappedMemoryObject(MemoryObject *pMemObj) {
 void ContextModule::RegisterUSMFreeWaitEvent(
     const void *usmPtr, std::shared_ptr<_cl_event> eventSPtr) {
   assert(usmPtr != nullptr && "Not a valid USM pointer");
-  OclAutoMutex mu(&m_SvmUsmMutex);
+  std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
   m_mapUSMFreeWaitList[usmPtr].push_back(eventSPtr);
 }
 
 void ContextModule::UnregisterUSMFreeWaitEvent(const void *usmPtr,
                                                cl_event evt) {
   assert(usmPtr != nullptr && "Not a valid USM pointer");
-  OclAutoMutex mu(&m_SvmUsmMutex);
+  std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
   auto WaitListIter = m_mapUSMFreeWaitList.find(usmPtr);
   if (WaitListIter == m_mapUSMFreeWaitList.end())
     return;

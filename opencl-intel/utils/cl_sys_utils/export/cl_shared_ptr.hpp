@@ -115,7 +115,7 @@ template <typename T> void ConstSharedPtr<T>::HandleRefCnt0(const T *ptr) {
 template <typename T>
 void LifetimeObjectContainer<T>::add(const SharedPtr<T> &ptr) {
   if (!isZombie(ptr.GetPtr())) {
-    OclAutoMutex lock(&m_lock);
+    std::lock_guard<std::mutex> lock(m_lock);
     if (!isZombie(ptr.GetPtr())) {
       if (true == m_set.insert(ptr).second) {
         // inserted a new element
@@ -131,7 +131,7 @@ void LifetimeObjectContainer<T>::add(const SharedPtr<T> &ptr) {
 template <typename T>
 void LifetimeObjectContainer<T>::remove(const SharedPtr<T> &ptr) {
   if (isZombie(ptr.GetPtr())) {
-    OclAutoMutex lock(&m_lock);
+    std::lock_guard<std::mutex> lock(m_lock);
     m_set.erase(ptr);
   } else {
     assert(false && "Cannot remove object from LifetimeObjectContainer in "
@@ -142,7 +142,7 @@ void LifetimeObjectContainer<T>::remove(const SharedPtr<T> &ptr) {
 template <typename T>
 template <class T1>
 void LifetimeObjectContainer<T>::getObjects(T1 &containerToFill) {
-  OclAutoMutex lock(&m_lock);
+  std::lock_guard<std::mutex> lock(m_lock);
   containerToFill.insert(containerToFill.end(), m_set.begin(), m_set.end());
 }
 

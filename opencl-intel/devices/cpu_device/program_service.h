@@ -167,7 +167,7 @@ protected:
     tProgramType programType;
     cl_build_status clBuildStatus;
     TName2IdMap mapKernels;
-    OclMutex muMap;
+    std::mutex muMap;
   };
 
   void DeleteProgramEntry(TProgramEntry *pEntry);

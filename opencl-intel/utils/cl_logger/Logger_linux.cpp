@@ -80,7 +80,7 @@ Logger *Logger::GetInstance() { return LoggerSingletonHandler::pLogger; }
 /////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Logger::AddLogHandler(LogHandler *logHandler) {
 
-  OclAutoMutex CS(&m_CS); // Lock the function
+  std::lock_guard<std::mutex> CS(m_CS); // Lock the function
   int i;
   for (i = 0; i < MAX_LOG_HANDLERS; i++) {
     if (m_logHandlers[i] == logHandler) {

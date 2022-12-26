@@ -743,7 +743,7 @@ cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device,
 cl_err_code PlatformModule::clCreateSubDevices(
     cl_device_id device, const cl_device_partition_property *properties,
     cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices) {
-  OclAutoMutex CS(&m_deviceFissionMutex);
+  std::lock_guard<std::mutex> CS(m_deviceFissionMutex);
   cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
   tNumDevices = 0;
   SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int>> pParent_obj =
