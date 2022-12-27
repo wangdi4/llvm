@@ -25,22 +25,6 @@ public:
   bool runImpl(Function &F);
 };
 
-/// RedundantPhiNodeLegacy pass for legacy pass manager.
-class RedundantPhiNodeLegacy : public FunctionPass {
-  RedundantPhiNode Impl;
-
-public:
-  static char ID;
-
-  RedundantPhiNodeLegacy();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel RedundantPhiNode";
-  }
-
-  bool runOnFunction(Function &F) override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_REDUNDANT_PHIS_H

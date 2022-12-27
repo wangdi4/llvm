@@ -59,29 +59,6 @@ private:
   CallInst *getWICall(Instruction *Before, StringRef FuncName, unsigned DimIdx);
 };
 
-class GroupBuiltinLegacy : public ModulePass {
-  GroupBuiltinPass Impl;
-
-public:
-  static char ID;
-
-  /// \brief C'tor
-  explicit GroupBuiltinLegacy();
-
-  /// \brief Provides name of pass
-  StringRef getPassName() const override {
-    return "GroupBuiltin";
-  }
-
-  /// \brief execute pass on given module
-  /// \param M module to optimize
-  /// \returns True if module was modified
-  bool runOnModule(Module &M) override;
-
-  /// \brief Inform about usage/mofication/dependency of this pass
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_GROUP_BUILTIN_PASS_H

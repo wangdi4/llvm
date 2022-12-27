@@ -34,23 +34,6 @@ public:
   static bool isRequired() { return true; }
 };
 
-class DuplicateCalledKernelsLegacy : public ModulePass {
-  DuplicateCalledKernelsPass Impl;
-
-public:
-  static char ID;
-
-  DuplicateCalledKernelsLegacy();
-
-  virtual llvm::StringRef getPassName() const override {
-    return "DuplicateCalledKernels";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  virtual bool runOnModule(Module &M) override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_DUPLICATE_CALLED_KERNELS_PASS_H

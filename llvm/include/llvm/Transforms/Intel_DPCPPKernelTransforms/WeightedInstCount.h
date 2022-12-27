@@ -103,36 +103,5 @@ public:
   Result run(Function &, FunctionAnalysisManager &);
 };
 
-/// For legacy pass manager.
-class WeightedInstCountAnalysisLegacy : public FunctionPass {
-  std::unique_ptr<InstCountResult> Result;
-
-public:
-  static char ID;
-
-  WeightedInstCountAnalysisLegacy(VFISAKind ISA = VFISAKind::SSE,
-                                  bool PreVec = true);
-
-  StringRef getPassName() const override {
-    return "WeightedInstCountAnalysisLegacy";
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  bool runOnFunction(Function &F) override;
-
-  InstCountResult &getResult() { return *Result; }
-  const InstCountResult &getResult() const { return *Result; }
-
-  void print(raw_ostream &OS, const Module *) const override {
-    Result->print(OS);
-  }
-
-private:
-  VFISAKind ISA;
-  // True if this pass is run before vectorizer.
-  bool PreVec;
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_WEIGHTEDINSTCOUNT_H

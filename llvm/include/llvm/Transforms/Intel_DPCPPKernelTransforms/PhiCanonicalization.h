@@ -52,27 +52,6 @@ public:
   bool runImpl(Function &F, DominatorTree *DT, PostDominatorTree *PDT);
 };
 
-/// PhiCanonicalizationLegacy pass for legacy pass manager.
-class PhiCanonicalizationLegacy : public FunctionPass {
-  PhiCanonicalization Impl;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  PhiCanonicalizationLegacy();
-
-  /// Provides name of pass
-  StringRef getPassName() const override { return "PhiCanonicalization"; }
-
-  /// LLVM Function pass entry
-  /// F Function to transform
-  /// Return 'true' if changed
-  bool runOnFunction(Function &F) override;
-
-  // Need Dominator Tree and PostDominator tree prior to Phi Canonization
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
 } // namespace llvm
 
 #endif // define __INTEL_DPCPP_PHI_CANONICALIZATION_H__

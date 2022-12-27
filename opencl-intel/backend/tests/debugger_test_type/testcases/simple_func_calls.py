@@ -27,13 +27,7 @@ class SimpleFuncCalls(DebuggerTestCase):
 
         # step out of the first foo() call
         location = self.client.debug_step_out()
-        if self.use_gdb or self.use_cdb:
-          # Note: step_out works incorrectly with GDB.
-          # See test_steps.py tests for details.
-          self.assertEqual(location, (self.CLNAME, 12))
-          self.client.debug_step_over()
-        else:
-          self.assertEqual(location, (self.CLNAME, 13))
+        self.assertEqual(location, (self.CLNAME, 13))
 
         # step over to the second call
         self.assertEqual(self.client.debug_step_over(), (self.CLNAME, 14))
@@ -81,13 +75,7 @@ class SimpleFuncCalls(DebuggerTestCase):
 
         # get to the next call to foo and step in, get to line 3
         location = self.client.debug_step_out()
-        if self.use_gdb or self.use_cdb:
-          # Note: step_out works incorrectly with GDB.
-          # See test_steps.py tests for details.
-          self.assertEqual(location, (self.CLNAME, 12))
-          self.client.debug_step_over()
-        else:
-          self.assertEqual(location, (self.CLNAME, 13))
+        self.assertEqual(location, (self.CLNAME, 13))
 
         self.client.debug_step_over()
 
@@ -103,12 +91,7 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 4))
 
         # stepping out again now takes us back to main_kernel
-        if self.use_gdb or self.use_cdb:
-          # Note: step_out works incorrectly with GDB.
-          # See test_steps.py tests for details.
-          self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 14))
-        else:
-          self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 15))
+        self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 15))
 
         self.assertEqual(self.client.debug_run(bps), bps[0])
         self.client.debug_run_finish()

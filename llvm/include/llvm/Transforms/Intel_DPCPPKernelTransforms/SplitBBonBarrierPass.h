@@ -35,22 +35,6 @@ private:
   BarrierUtils Utils;
 };
 
-/// SplitBBonBarrierLegacy pass for legacy pass manager.
-class SplitBBonBarrierLegacy : public ModulePass {
-  SplitBBonBarrier Impl;
-
-public:
-  static char ID;
-
-  SplitBBonBarrierLegacy();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel SplitBBonBarrier";
-  }
-
-  bool runOnModule(Module &M) override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SPLIT_BB_ON_BARRIER
