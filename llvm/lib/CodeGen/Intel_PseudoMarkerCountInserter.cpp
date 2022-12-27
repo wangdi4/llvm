@@ -76,30 +76,37 @@ public:
     if (skipFunction(MF.getFunction()))
       return false;
 
-    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
     unsigned MCK = getMarkerCount(MF.getName());
     bool MarkPrologEpilog = MCK & MarkerCount::Function_BE;
     bool MarkLoopHeader = MCK & MarkerCount::Loop_BE;
+    assert((MarkPrologEpilog || MarkLoopHeader) &&
+           "expect at least one kind of marker count");
+    // Bail out early
+    if (!MarkPrologEpilog && getAnalysis<MachineLoopInfo>().empty())
+      return false;
+
+    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
     bool Changed = false;
     DebugLoc DL;
 
-    // Please gurantee the order:
-    //  PSEUDO_FUNCTION_PROLOG, PSEUDO_LOOP_HEADER, PSEUDO_FUNCTION_EPILOG
-    // if they occur in the same basic block.
+    // Loopless since function has only one entry basic block
+    if (MarkPrologEpilog) {
+      MachineBasicBlock &MBB = MF.front();
+      BuildMI(MBB, MBB.getFirstNonPHI(), DL,
+              TII->get(TargetOpcode::PSEUDO_FUNCTION_PROLOG));
+      Changed = true;
+    }
+
     for (MachineBasicBlock &MBB : MF) {
       if (MBB.isReturnBlock() && MarkPrologEpilog) {
-        BuildMI(MBB, MBB.getFirstNonPHI(), DL,
+        BuildMI(MBB, MBB.getFirstTerminator(), DL,
                 TII->get(TargetOpcode::PSEUDO_FUNCTION_EPILOG));
-        Changed = true;
+        assert(Changed &&
+               "should already be set due to the insertion in entry block");
       }
       if (MarkLoopHeader && getAnalysis<MachineLoopInfo>().isLoopHeader(&MBB)) {
         BuildMI(MBB, MBB.getFirstNonPHI(), DL,
                 TII->get(TargetOpcode::PSEUDO_LOOP_HEADER));
-        Changed = true;
-      }
-      if (MBB.isEntryBlock() && MarkPrologEpilog) {
-        BuildMI(MBB, MBB.getFirstNonPHI(), DL,
-                TII->get(TargetOpcode::PSEUDO_FUNCTION_PROLOG));
         Changed = true;
       }
     }
