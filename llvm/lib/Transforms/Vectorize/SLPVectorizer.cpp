@@ -11023,8 +11023,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         WorkList.emplace_front(VecLoad, GroupOrder);
       }
 
-      Value *RetValue = nullptr;
-
       // If we have two or more loads emit the pair-wise shuffles.
       // At the end we build a tree like this:
       //
@@ -11034,6 +11032,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       //      \       /
       //       Shuffle
       //
+      ShuffleInstructionBuilder ShuffleBuilder(Builder, *this);
       while (WorkList.size() >= 2) {
         // Pop front a pair of loads/shuffles from the worklist, create a
         // shuffle, and push it back into the worklist.
@@ -11092,24 +11091,24 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         // If we are about to generate finalizing shuffle
         // apply reordering indices directly to the shuffle mask
         // rather than generate another one afterwards.
-        if (WorkList.empty() && !E->ReorderIndices.empty()) {
-          assert(ShuffleMask.size() == E->ReorderIndices.size() &&
-                 "Reordering indices mask does not match vector size");
-          SmallVector<int> Mask;
-          inversePermutation(E->ReorderIndices, Mask);
-          addMask(ShuffleMask, Mask);
+        if (WorkList.empty()) {
+          if (!E->ReorderIndices.empty()) {
+            assert(ShuffleMask.size() == E->ReorderIndices.size() &&
+                   "Reordering indices mask does not match vector size");
+            SmallVector<int> Mask;
+            inversePermutation(E->ReorderIndices, Mask);
+            addMask(ShuffleMask, Mask);
+          }
+          ShuffleBuilder.add(Vec0, Vec1, ShuffleMask);
+          break;
         }
 
         Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
                                                      "SplitLoadShuffle");
-        if (WorkList.empty()) {
-          RetValue = Shuffle;
-          break;
-        }
         VecOrder0.clear();
         WorkList.emplace_front(Shuffle, VecOrder0);
       }
-      RetValue = FinalShuffle(RetValue, E);
+      Value *RetValue = ShuffleBuilder.finalize(E->ReuseShuffleIndices);
       E->VectorizedValue = RetValue;
       return RetValue;
 #endif // INTEL_CUSTOMIZATION
