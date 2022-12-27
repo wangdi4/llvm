@@ -305,7 +305,8 @@ void IOclCommandQueueBase::NotifyCommandFailed(
            << "parameter, and its value is: 0x" << handle
            << ". for more information use logging.";
     const std::string &tmp = stream.str();
-    GetContext()->NotifyError(tmp.c_str(), handle, sizeof(handle));
+    GetContext()->NotifyError(tmp.c_str(), handle,
+                              handle ? sizeof(*handle) : 0);
   }
 }
 
