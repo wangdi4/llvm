@@ -604,7 +604,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     for (LoopBlocksDFS::RPOIterator BB = BlockBegin; BB != BlockEnd; ++BB) {
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
-      Header->getParent()->getBasicBlockList().insert(BlockInsertPt, New);
+      Header->getParent()->insertBasicBlockAt(BlockInsertPt, New);
 
 #if INTEL_CUSTOMIZATION
       // Restore the opt report metadata that gets dropped during cloning to New

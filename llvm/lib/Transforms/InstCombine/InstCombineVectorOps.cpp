@@ -943,7 +943,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
 
   // Try to find a value of each element of an aggregate.
   // FIXME: deal with more complex, not one-dimensional, aggregate types
-  SmallVector<Optional<Instruction *>, 2> AggElts(NumAggElts, NotFound);
+  SmallVector<std::optional<Instruction *>, 2> AggElts(NumAggElts, NotFound);
 
   // Do we know values for each element of the aggregate?
   auto KnowAllElts = [&AggElts]() {
@@ -976,7 +976,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
     // Now, we may have already previously recorded the value for this element
     // of an aggregate. If we did, that means the CurrIVI will later be
     // overwritten with the already-recorded value. But if not, let's record it!
-    Optional<Instruction *> &Elt = AggElts[Indices.front()];
+    std::optional<Instruction *> &Elt = AggElts[Indices.front()];
     Elt = Elt.value_or(InsertedValue);
 
     // FIXME: should we handle chain-terminating undef base operand?
@@ -1006,7 +1006,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
     /// or different elements had different source aggregates.
     FoundMismatch
   };
-  auto Describe = [](Optional<Value *> SourceAggregate) {
+  auto Describe = [](std::optional<Value *> SourceAggregate) {
     if (SourceAggregate == NotFound)
       return AggregateDescription::NotFound;
     if (*SourceAggregate == FoundMismatch)
@@ -1020,8 +1020,8 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
   // If found, return the source aggregate from which the extraction was.
   // If \p PredBB is provided, does PHI translation of an \p Elt first.
   auto FindSourceAggregate =
-      [&](Instruction *Elt, unsigned EltIdx, Optional<BasicBlock *> UseBB,
-          Optional<BasicBlock *> PredBB) -> Optional<Value *> {
+      [&](Instruction *Elt, unsigned EltIdx, std::optional<BasicBlock *> UseBB,
+          std::optional<BasicBlock *> PredBB) -> std::optional<Value *> {
     // For now(?), only deal with, at most, a single level of PHI indirection.
     if (UseBB && PredBB)
       Elt = dyn_cast<Instruction>(Elt->DoPHITranslation(*UseBB, *PredBB));
@@ -1048,9 +1048,9 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
   // see if we can find appropriate source aggregate for each of the elements,
   // and see it's the same aggregate for each element. If so, return it.
   auto FindCommonSourceAggregate =
-      [&](Optional<BasicBlock *> UseBB,
-          Optional<BasicBlock *> PredBB) -> Optional<Value *> {
-    Optional<Value *> SourceAggregate;
+      [&](std::optional<BasicBlock *> UseBB,
+          std::optional<BasicBlock *> PredBB) -> std::optional<Value *> {
+    std::optional<Value *> SourceAggregate;
 
     for (auto I : enumerate(AggElts)) {
       assert(Describe(SourceAggregate) != AggregateDescription::FoundMismatch &&
@@ -1062,7 +1062,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
       // For this element, is there a plausible source aggregate?
       // FIXME: we could special-case undef element, IFF we know that in the
       //        source aggregate said element isn't poison.
-      Optional<Value *> SourceAggregateForElement =
+      std::optional<Value *> SourceAggregateForElement =
           FindSourceAggregate(*I.value(), I.index(), UseBB, PredBB);
 
       // Okay, what have we found? Does that correlate with previous findings?
@@ -1096,7 +1096,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
     return *SourceAggregate;
   };
 
-  Optional<Value *> SourceAggregate;
+  std::optional<Value *> SourceAggregate;
 
   // Can we find the source aggregate without looking at predecessors?
   SourceAggregate = FindCommonSourceAggregate(/*UseBB=*/std::nullopt,
@@ -1117,7 +1117,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
   // they all should be defined in the same basic block.
   BasicBlock *UseBB = nullptr;
 
-  for (const Optional<Instruction *> &I : AggElts) {
+  for (const std::optional<Instruction *> &I : AggElts) {
     BasicBlock *BB = (*I)->getParent();
     // If it's the first instruction we've encountered, record the basic block.
     if (!UseBB) {
