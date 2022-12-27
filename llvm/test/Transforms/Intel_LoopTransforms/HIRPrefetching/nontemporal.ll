@@ -39,7 +39,7 @@
 ;
 ;*** IR Dump After HIR Prefetching ***
 ;
-; CHECK:    BEGIN REGION { }
+; CHECK:    BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>
 ; CHECK:           |   %0 = (@A)[0][i1 + 1];
 ; CHECK:           |   %3 = (@A)[0][2 * i1 + 2];

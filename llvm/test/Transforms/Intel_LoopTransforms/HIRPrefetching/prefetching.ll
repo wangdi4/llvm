@@ -49,7 +49,7 @@
 ;<0>          END REGION
 ;
 ;*** IR Dump After HIR Prefetching ***
-; CHECK:     BEGIN REGION { }
+; CHECK:     BEGIN REGION { modified }
 ; CHECK-NEXT:      + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; CHECK-NEXT:      |   %0 = (@A)[0][i1 + 1];
 ; CHECK-NEXT:      |   %3 = (@A)[0][2 * i1 + 2];
