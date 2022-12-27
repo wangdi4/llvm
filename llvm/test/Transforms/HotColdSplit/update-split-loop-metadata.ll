@@ -1,4 +1,4 @@
-; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=0 -S < %s | FileCheck %s
+; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=0 -S -intel-codeextractor-debug=false < %s | FileCheck %s ;INTEL
 
 ; Check that llvm.loop metadata extracted by CodeExtractor is updated so that
 ; the debug locations it contains have the right scope.
@@ -30,7 +30,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %incdec.ptr = getelementptr inbounds i32, ptr %p.addr.04, i32 1
   store i32 %i.05, ptr %p.addr.04, align 4
   %inc = add nsw i32 %i.05, 1
-  call void @sink(), !dbg !11                                            ;INTEL
+  call void @sink()
   %cmp = icmp slt i32 %inc, %k
   br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge, !llvm.loop !10
 
@@ -57,6 +57,6 @@ declare void @sink() cold
 !7 = !DISubroutineType(types: !2)
 !8 = !{}
 !9 = !DILocation(line: 1, column: 1, scope: !6)
-!10 = distinct !{!10, !9, !9}
-!11 = !DILocation(line: 2, column: 1, scope: !6)                         ;INTEL
+!10 = distinct !{!10, !9, !11}
+!11 = !DILocation(line: 2, column: 2, scope: !12)
 !12 = !DILexicalBlock(scope: !6, file: !1, line: 3, column: 3)
