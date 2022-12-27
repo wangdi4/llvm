@@ -1141,11 +1141,8 @@ namespace slpvectorizer {
 class BoUpSLP {
   struct TreeEntry;
   struct ScheduleData;
-<<<<<<< HEAD
   struct BlockScheduling; // INTEL
-=======
   class ShuffleInstructionBuilder;
->>>>>>> ecac8192dbf699e8bc947cf31e0112e4190a3340
 
 public:
   using ValueList = SmallVector<Value *, 8>;
@@ -11112,8 +11109,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         VecOrder0.clear();
         WorkList.emplace_front(Shuffle, VecOrder0);
       }
-      ShuffleBuilder.addMask(E->ReuseShuffleIndices);
-      RetValue = ShuffleBuilder.finalize(RetValue);
+      RetValue = FinalShuffle(RetValue, E);
       E->VectorizedValue = RetValue;
       return RetValue;
 #endif // INTEL_CUSTOMIZATION
