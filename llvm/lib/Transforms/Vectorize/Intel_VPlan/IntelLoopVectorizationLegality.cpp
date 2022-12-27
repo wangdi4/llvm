@@ -54,7 +54,7 @@ static cl::opt<bool>
 namespace llvm {
 namespace vpo {
 bool ForceComplexTyReductionVec = false;
-bool ForceUDSReductionVec = false;
+bool ForceUDSReductionVec = true;
 } // namespace vpo
 } // namespace llvm
 

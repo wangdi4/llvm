@@ -904,7 +904,7 @@ bool HIRPrefetching::doPrefetching(
     }
   }
 
-  if (HasPragmaInfo) {
+  if (HasPragmaInfo || !SkipNonModifiedRegions) {
     Lp->getParentRegion()->setGenCode();
   }
 

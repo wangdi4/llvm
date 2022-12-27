@@ -1,4 +1,4 @@
-; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=2 -vplan-force-uds-reduction-vectorization=true < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ;; Original source for reference:
 
