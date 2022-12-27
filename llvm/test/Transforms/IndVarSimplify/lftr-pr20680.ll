@@ -12,9 +12,9 @@ target datalayout = "n8:16:32:64"
 define void @f() {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* @a, align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr @a, align 4
 ; CHECK-NEXT:    [[TOBOOL2:%.*]] = icmp eq i32 [[TMP0]], 0
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* @a, align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr @a, align 4
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TMP1]], 0
 ; CHECK-NEXT:    br label [[FOR_COND2_PREHEADER:%.*]]
 ; CHECK:       for.cond2.preheader:
@@ -35,15 +35,15 @@ define void @f() {
 ; CHECK:       cond.false.us.us:
 ; CHECK-NEXT:    br label [[COND_END_US_US]]
 ; CHECK:       cond.end.us.us:
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP2]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP4]], 1
 ; CHECK-NEXT:    br i1 [[CMP91_US_US]], label [[FOR_INC_LR_PH_US_US:%.*]], label [[FOR_COND2_LOOPEXIT_US_US:%.*]]
 ; CHECK:       for.cond2.loopexit.us.us:
 ; CHECK-NEXT:    br i1 true, label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US_US_LCSSA_US:%.*]], label [[FOR_BODY3_US_US]]
 ; CHECK:       for.inc.lr.ph.us.us:
 ; CHECK-NEXT:    br label [[FOR_INC_US_US:%.*]]
 ; CHECK:       for.cond8.for.cond2.loopexit_crit_edge.us.us:
-; CHECK-NEXT:    store i32 1, i32* @b, align 4
+; CHECK-NEXT:    store i32 1, ptr @b, align 4
 ; CHECK-NEXT:    br label [[FOR_COND2_LOOPEXIT_US_US]]
 ; CHECK:       for.inc.us.us:
 ; CHECK-NEXT:    [[TMP3:%.*]] = phi i32 [ [[TMP2]], [[FOR_INC_LR_PH_US_US]] ], [ [[INC_US_US:%.*]], [[FOR_INC_US_US]] ]
@@ -59,8 +59,8 @@ define void @f() {
 ; CHECK:       cond.false.us:
 ; CHECK-NEXT:    br label [[COND_END_US]]
 ; CHECK:       cond.end.us:
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP4]], 1
+; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP6]], 1
 ; CHECK-NEXT:    br i1 [[CMP91_US]], label [[FOR_INC_LR_PH_US:%.*]], label [[FOR_COND2_LOOPEXIT_US:%.*]]
 ; CHECK:       for.inc.us:
 ; CHECK-NEXT:    [[TMP5:%.*]] = phi i32 [ [[TMP4]], [[FOR_INC_LR_PH_US]] ], [ [[INC_US:%.*]], [[FOR_INC_US:%.*]] ]
@@ -72,7 +72,7 @@ define void @f() {
 ; CHECK:       for.inc.lr.ph.us:
 ; CHECK-NEXT:    br label [[FOR_INC_US]]
 ; CHECK:       for.cond8.for.cond2.loopexit_crit_edge.us:
-; CHECK-NEXT:    store i32 1, i32* @b, align 4
+; CHECK-NEXT:    store i32 1, ptr @b, align 4
 ; CHECK-NEXT:    br label [[FOR_COND2_LOOPEXIT_US]]
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa.us.us-lcssa:
 ; CHECK-NEXT:    br label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US]]
@@ -89,8 +89,8 @@ define void @f() {
 ; CHECK:       cond.false.us4:
 ; CHECK-NEXT:    br label [[COND_END_US5]]
 ; CHECK:       cond.end.us5:
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP6]], 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP8]], 1
 ; CHECK-NEXT:    br i1 [[CMP91_US7]], label [[FOR_INC_LR_PH_US12:%.*]], label [[FOR_COND2_LOOPEXIT_US11:%.*]]
 ; CHECK:       for.inc.us8:
 ; CHECK-NEXT:    [[TMP7:%.*]] = phi i32 [ [[TMP6]], [[FOR_INC_LR_PH_US12]] ], [ [[INC_US9:%.*]], [[FOR_INC_US8:%.*]] ]
@@ -102,14 +102,14 @@ define void @f() {
 ; CHECK:       for.inc.lr.ph.us12:
 ; CHECK-NEXT:    br label [[FOR_INC_US8]]
 ; CHECK:       for.cond8.for.cond2.loopexit_crit_edge.us13:
-; CHECK-NEXT:    store i32 1, i32* @b, align 4
+; CHECK-NEXT:    store i32 1, ptr @b, align 4
 ; CHECK-NEXT:    br label [[FOR_COND2_LOOPEXIT_US11]]
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa.us-lcssa.us:
 ; CHECK-NEXT:    br label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA:%.*]]
 ; CHECK:       for.body3.lr.ph.split.split:
 ; CHECK-NEXT:    br label [[FOR_BODY3:%.*]]
 ; CHECK:       for.cond8.for.cond2.loopexit_crit_edge:
-; CHECK-NEXT:    store i32 1, i32* @b, align 4
+; CHECK-NEXT:    store i32 1, ptr @b, align 4
 ; CHECK-NEXT:    br label [[FOR_COND2_LOOPEXIT:%.*]]
 ; CHECK:       for.cond2.loopexit:
 ; CHECK-NEXT:    br i1 false, label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US_LCSSA:%.*]], label [[FOR_BODY3]]
@@ -118,8 +118,8 @@ define void @f() {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP8]], 1
+; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP10]], 1
 ; CHECK-NEXT:    br i1 [[CMP91]], label [[FOR_INC_LR_PH:%.*]], label [[FOR_COND2_LOOPEXIT]]
 ; CHECK:       for.inc.lr.ph:
 ; CHECK-NEXT:    br label [[FOR_INC:%.*]]
@@ -133,7 +133,7 @@ define void @f() {
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa:
 ; CHECK-NEXT:    br label [[FOR_COND2_FOR_INC13_CRIT_EDGE]]
 ; CHECK:       for.cond2.for.inc13_crit_edge:
-; CHECK-NEXT:    store i32 [[INDVARS_IV]], i32* @c, align 4
+; CHECK-NEXT:    store i32 [[INDVARS_IV]], ptr @c, align 4
 ; CHECK-NEXT:    br label [[FOR_INC13]]
 ; CHECK:       for.inc13:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i32 [[INDVARS_IV]], 1
@@ -145,9 +145,9 @@ define void @f() {
 
 ; br i1 {{.*}}, label %[[for_inc13]], label %
 entry:
-  %0 = load i32, i32* @a, align 4
+  %0 = load i32, ptr @a, align 4
   %tobool2 = icmp eq i32 %0, 0
-  %1 = load i32, i32* @a, align 4
+  %1 = load i32, ptr @a, align 4
   %tobool = icmp eq i32 %1, 0
   br label %for.cond2.preheader
 
@@ -183,7 +183,7 @@ cond.false.us.us:                                 ; preds = %for.body3.us.us
 
 cond.end.us.us:                                   ; preds = %cond.false.us.us, %for.body3.us.us
   %cond.us.us = phi i32 [ %div, %cond.false.us.us ], [ %conv7, %for.body3.us.us ]
-  %4 = load i32, i32* @b, align 4
+  %4 = load i32, ptr @b, align 4
   %cmp91.us.us = icmp slt i32 %4, 1
   br i1 %cmp91.us.us, label %for.inc.lr.ph.us.us, label %for.cond2.loopexit.us.us
 
@@ -195,7 +195,7 @@ for.inc.lr.ph.us.us:                              ; preds = %cond.end.us.us
 
 for.cond8.for.cond2.loopexit_crit_edge.us.us:     ; preds = %for.inc.us.us
   %inc.lcssa.us.us = phi i32 [ %inc.us.us, %for.inc.us.us ]
-  store i32 %inc.lcssa.us.us, i32* @b, align 4
+  store i32 %inc.lcssa.us.us, ptr @b, align 4
   br label %for.cond2.loopexit.us.us
 
 for.inc.us.us:                                    ; preds = %for.inc.us.us, %for.inc.lr.ph.us.us
@@ -219,7 +219,7 @@ cond.false.us:                                    ; preds = %for.body3.us
 
 cond.end.us:                                      ; preds = %cond.false.us, %for.body3.us
   %cond.us = phi i32 [ %div, %cond.false.us ], [ %conv7, %for.body3.us ]
-  %6 = load i32, i32* @b, align 4
+  %6 = load i32, ptr @b, align 4
   %cmp91.us = icmp slt i32 %6, 1
   br i1 %cmp91.us, label %for.inc.lr.ph.us, label %for.cond2.loopexit.us
 
@@ -237,7 +237,7 @@ for.inc.lr.ph.us:                                 ; preds = %cond.end.us
 
 for.cond8.for.cond2.loopexit_crit_edge.us:        ; preds = %for.inc.us
   %inc.lcssa.us = phi i32 [ %inc.us, %for.inc.us ]
-  store i32 %inc.lcssa.us, i32* @b, align 4
+  store i32 %inc.lcssa.us, ptr @b, align 4
   br label %for.cond2.loopexit.us
 
 for.cond2.for.inc13_crit_edge.us-lcssa.us.us-lcssa: ; preds = %for.cond2.loopexit.us
@@ -265,7 +265,7 @@ cond.false.us4:                                   ; preds = %for.body3.us3
 
 cond.end.us5:                                     ; preds = %cond.false.us4, %for.body3.us3
   %cond.us6 = phi i32 [ %div, %cond.false.us4 ], [ %conv7, %for.body3.us3 ]
-  %8 = load i32, i32* @b, align 4
+  %8 = load i32, ptr @b, align 4
   %cmp91.us7 = icmp slt i32 %8, 1
   br i1 %cmp91.us7, label %for.inc.lr.ph.us12, label %for.cond2.loopexit.us11
 
@@ -283,7 +283,7 @@ for.inc.lr.ph.us12:                               ; preds = %cond.end.us5
 
 for.cond8.for.cond2.loopexit_crit_edge.us13:      ; preds = %for.inc.us8
   %inc.lcssa.us14 = phi i32 [ %inc.us9, %for.inc.us8 ]
-  store i32 %inc.lcssa.us14, i32* @b, align 4
+  store i32 %inc.lcssa.us14, ptr @b, align 4
   br label %for.cond2.loopexit.us11
 
 for.cond2.for.inc13_crit_edge.us-lcssa.us-lcssa.us: ; preds = %for.cond2.loopexit.us11
@@ -295,7 +295,7 @@ for.body3.lr.ph.split.split:                      ; preds = %for.body3.lr.ph.spl
 
 for.cond8.for.cond2.loopexit_crit_edge:           ; preds = %for.inc
   %inc.lcssa = phi i32 [ %inc, %for.inc ]
-  store i32 %inc.lcssa, i32* @b, align 4
+  store i32 %inc.lcssa, ptr @b, align 4
   br label %for.cond2.loopexit
 
 for.cond2.loopexit:                               ; preds = %cond.end, %for.cond8.for.cond2.loopexit_crit_edge
@@ -309,7 +309,7 @@ cond.false:                                       ; preds = %for.body3
 
 cond.end:                                         ; preds = %cond.false, %for.body3
   %cond = phi i32 [ %div, %cond.false ], [ %conv7, %for.body3 ]
-  %10 = load i32, i32* @b, align 4
+  %10 = load i32, ptr @b, align 4
   %cmp91 = icmp slt i32 %10, 1
   br i1 %cmp91, label %for.inc.lr.ph, label %for.cond2.loopexit
 
@@ -332,7 +332,7 @@ for.cond2.for.inc13_crit_edge.us-lcssa:           ; preds = %for.cond2.for.inc13
 
 for.cond2.for.inc13_crit_edge:                    ; preds = %for.cond2.for.inc13_crit_edge.us-lcssa, %for.cond2.for.inc13_crit_edge.us-lcssa.us
   %cond.lcssa = phi i32 [ %cond.lcssa.ph, %for.cond2.for.inc13_crit_edge.us-lcssa ], [ %cond.lcssa.ph.us, %for.cond2.for.inc13_crit_edge.us-lcssa.us ]
-  store i32 %cond.lcssa, i32* @c, align 4
+  store i32 %cond.lcssa, ptr @c, align 4
   br label %for.inc13
 
 for.inc13:                                        ; preds = %for.cond2.for.inc13_crit_edge, %for.cond2.preheader
