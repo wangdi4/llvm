@@ -2917,114 +2917,163 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     return nullptr;
 
 #if INTEL_CUSTOMIZATION
-    // Change: A = select B, true, C --> A = or B, C
-    // Change: A = select B, C, false --> A = and B, C
-    // For example, if we have:
-    //   A = select B, true, C
-    //      =>
-    //   A = or B, C
-    // If "C" is poison, the select becomes poison only if "C" is selected.
-    // But if we flatten the select to "or", the "or" is always poison if "C"
-    // is poison.
-    // The transformation is only correct if:
-    //   "B" is dependent on "C" (so that the select is always poison
-    //   if "C" is poison)
-    // or
-    //   "C" is never poison.
-    //
-    // We can freeze "C" so that it has a defined value instead of poison.
-    // This transformation can already be done by X86 codegen, so we only
-    // want to do it when there is a possibility to combine and+or with
-    // other logical operations, and "select" is expensive vector type.
-    // "freeze" may block loop strength reduction or other instruction
-    // combining.
+  // Change: A = select B, true, C --> A = or B, C
+  // Change: A = select B, C, false --> A = and B, C
+  // For example, if we have:
+  //   A = select B, true, C
+  //      =>
+  //   A = or B, C
+  // If "C" is poison, the select becomes poison only if "C" is selected.
+  // But if we flatten the select to "or", the "or" is always poison if "C"
+  // is poison.
+  // The transformation is only correct if:
+  //   "B" is dependent on "C" (so that the select is always poison
+  //   if "C" is poison)
+  // or
+  //   "C" is never poison.
+  //
+  // We can freeze "C" so that it has a defined value instead of poison.
+  // This transformation can already be done by X86 codegen, so we only
+  // want to do it when there is a possibility to combine and+or with
+  // other logical operations, and "select" is expensive vector type.
+  // "freeze" may block loop strength reduction or other instruction
+  // combining.
 
-    // This lambda freezes the top of the compute chain starting at "StartVal".
-    // Return value:
-    //   New replacement for "StartVal".
-    //   or nullptr if freeze could not be inserted.
-    auto FreezeIt = [&](Value *StartVal) -> Value * {
-      // Don't freeze non-instructions.
-      if (!isa<Instruction>(StartVal))
-        return nullptr;
-      // Don't freeze instructions with multiple users.
-      if (!StartVal->hasOneUse())
-        return nullptr;
-      // Don't put the freeze in the middle of a sequence of simple
-      // IC-able computations.
-      // Get the top of the compute chain ending with StartVal.
-      auto *FreezeTop = TopOfComputeChain(cast<Instruction>(StartVal));
-      // Get the single use of the top instruction
-      // (guaranteed by TopOfComputeChain)
-      auto *Use = FreezeTop->getSingleUndroppableUse();
-      assert(Use && "Freeze point needs single use.");
-      auto *UseI = cast<Instruction>(Use->getUser());
-      auto *FI = new FreezeInst(FreezeTop, FreezeTop->getName() + ".fr");
-      // Insert the new freeze instruction just above the single use of
-      // FreezeTop.
-      InsertNewInstBefore(FI, *UseI);
-      // Replace FreezeTop's use with the frozen instruction.
-      replaceUse(*Use, FI);
-      // If we changed StartVal, return it.
-      if (FreezeTop == StartVal)
-        return FI;
-      // We put the freeze somewhere else, just return StartVal.
-      return StartVal;
-    };
+  // This lambda freezes the top of the compute chain starting at "StartVal".
+  // Return value:
+  //   New replacement for "StartVal".
+  //   or nullptr if freeze could not be inserted.
+  auto FreezeIt = [&](Value *StartVal) -> Value * {
+    // Don't freeze non-instructions.
+    if (!isa<Instruction>(StartVal))
+      return nullptr;
+    // Don't freeze instructions with multiple users.
+    if (!StartVal->hasOneUse())
+      return nullptr;
+    // Don't put the freeze in the middle of a sequence of simple
+    // IC-able computations.
+    // Get the top of the compute chain ending with StartVal.
+    auto *FreezeTop = TopOfComputeChain(cast<Instruction>(StartVal));
+    // Get the single use of the top instruction
+    // (guaranteed by TopOfComputeChain)
+    auto *Use = FreezeTop->getSingleUndroppableUse();
+    assert(Use && "Freeze point needs single use.");
+    auto *UseI = cast<Instruction>(Use->getUser());
+    auto *FI = new FreezeInst(FreezeTop, FreezeTop->getName() + ".fr");
+    // Insert the new freeze instruction just above the single use of
+    // FreezeTop.
+    InsertNewInstBefore(FI, *UseI);
+    // Replace FreezeTop's use with the frozen instruction.
+    replaceUse(*Use, FI);
+    // If we changed StartVal, return it.
+    if (FreezeTop == StartVal)
+      return FI;
+    // We put the freeze somewhere else, just return StartVal.
+    return StartVal;
+  };
 
-    Value *MaskedOp = nullptr;
-    if (match(TrueVal, m_One()))
-      MaskedOp = FalseVal;
-    else if (match(FalseVal, m_Zero()))
-      MaskedOp = TrueVal;
+  Value *MaskedOp = nullptr;
+  if (match(TrueVal, m_One()))
+    MaskedOp = FalseVal;
+  else if (match(FalseVal, m_Zero()))
+    MaskedOp = TrueVal;
 
-    if (MaskedOp) {
-      bool TransformToBool = false;
-      if (impliesPoison(MaskedOp, CondVal))
-        TransformToBool = true;
-      else if (SelType->isVectorTy() &&
-               MaskedOp->getType()->isIntOrIntVectorTy() &&
-               !isa<CmpInst>(MaskedOp) &&
-               MaskedOp->hasOneUse() &&
-               match(CondVal, m_BitwiseLogic(m_Value(), m_Value()))) {
-        // Choose vector select that is likely to combine with another logical
-        // op. Avoid freezing cmp+select pattern, or floating-point pattern.
-        MaskedOp = FreezeIt(MaskedOp);
-        TransformToBool = true;
-      }
-      if (TransformToBool && MaskedOp)
-        return match(TrueVal, m_One())
-                   ? BinaryOperator::CreateOr(CondVal, MaskedOp)
-                   : BinaryOperator::CreateAnd(CondVal, MaskedOp);
+  if (MaskedOp) {
+    bool TransformToBool = false;
+    if (impliesPoison(MaskedOp, CondVal))
+      TransformToBool = true;
+    else if (SelType->isVectorTy() &&
+             MaskedOp->getType()->isIntOrIntVectorTy() &&
+             !isa<CmpInst>(MaskedOp) && MaskedOp->hasOneUse() &&
+             match(CondVal, m_BitwiseLogic(m_Value(), m_Value()))) {
+      // Choose vector select that is likely to combine with another logical
+      // op. Avoid freezing cmp+select pattern, or floating-point pattern.
+      MaskedOp = FreezeIt(MaskedOp);
+      TransformToBool = true;
     }
-    if (match(TrueVal, m_One())) {
-      if (impliesPoison(FalseVal, CondVal)) {
-        // Change: A = select B, true, C --> A = or B, C
-        return BinaryOperator::CreateOr(CondVal, FalseVal);
-      }
-
-      if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
-        if (auto *RHS = dyn_cast<FCmpInst>(FalseVal))
-          if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ false,
-                                          /*IsSelectLogical*/ true))
-            return replaceInstUsesWith(SI, V);
-    }
-    if (match(FalseVal, m_Zero())) {
-      if (impliesPoison(TrueVal, CondVal)) {
-        // Change: A = select B, C, false --> A = and B, C
-        return BinaryOperator::CreateAnd(CondVal, TrueVal);
-      }
-
-      if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
-        if (auto *RHS = dyn_cast<FCmpInst>(TrueVal))
-          if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ true,
-                                          /*IsSelectLogical*/ true))
-            return replaceInstUsesWith(SI, V);
-    }
+    if (TransformToBool && MaskedOp)
+      return match(TrueVal, m_One())
+                 ? BinaryOperator::CreateOr(CondVal, MaskedOp)
+                 : BinaryOperator::CreateAnd(CondVal, MaskedOp);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   auto *One = ConstantInt::getTrue(SelType);
   auto *Zero = ConstantInt::getFalse(SelType);
+  Value *A, *B, *C, *D;
+
+  // Folding select to and/or i1 isn't poison safe in general. impliesPoison
+  // checks whether folding it does not convert a well-defined value into
+  // poison.
+  if (match(TrueVal, m_One())) {
+    if (impliesPoison(FalseVal, CondVal)) {
+      // Change: A = select B, true, C --> A = or B, C
+      return BinaryOperator::CreateOr(CondVal, FalseVal);
+    }
+
+    if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
+      if (auto *RHS = dyn_cast<FCmpInst>(FalseVal))
+        if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ false,
+                                        /*IsSelectLogical*/ true))
+          return replaceInstUsesWith(SI, V);
+
+    // (A && B) || (C && B) --> (A || C) && B
+    if (match(CondVal, m_LogicalAnd(m_Value(A), m_Value(B))) &&
+        match(FalseVal, m_LogicalAnd(m_Value(C), m_Value(D))) &&
+        (CondVal->hasOneUse() || FalseVal->hasOneUse())) {
+      bool CondLogicAnd = isa<SelectInst>(CondVal);
+      bool FalseLogicAnd = isa<SelectInst>(FalseVal);
+      if (CondLogicAnd && FalseLogicAnd) {
+        // (A ? B : 0) ? 1 : (A ? D : 0) --> A ? (B ? 1 : D) : 0
+        if (A == C)
+          return SelectInst::Create(A, Builder.CreateSelect(B, One, D), Zero);
+        // (A ? B : 0) ? 1 : (C ? A : 0) --> A ? (B ? 1 : C) : 0
+        if (A == D)
+          return SelectInst::Create(A, Builder.CreateSelect(B, One, C), Zero);
+        // (A ? B : 0) ? 1 : (B ? D : 0) --> B ? (A ? 1 : D) : 0
+        if (B == C)
+          return SelectInst::Create(B, Builder.CreateSelect(A, One, D), Zero);
+        // (A ? B : 0) ? 1 : (C ? B : 0) --> (A ? 1 : C) ? B : 0
+        if (B == D)
+          return SelectInst::Create(Builder.CreateSelect(A, One, C), B, Zero);
+      }
+    }
+  }
+
+  if (match(FalseVal, m_Zero())) {
+    if (impliesPoison(TrueVal, CondVal)) {
+      // Change: A = select B, C, false --> A = and B, C
+      return BinaryOperator::CreateAnd(CondVal, TrueVal);
+    }
+
+    if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
+      if (auto *RHS = dyn_cast<FCmpInst>(TrueVal))
+        if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ true,
+                                        /*IsSelectLogical*/ true))
+          return replaceInstUsesWith(SI, V);
+
+    // (A || B) && (C || B) --> (A && C) || B
+    if (match(CondVal, m_LogicalOr(m_Value(A), m_Value(B))) &&
+        match(TrueVal, m_LogicalOr(m_Value(C), m_Value(D))) &&
+        (CondVal->hasOneUse() || TrueVal->hasOneUse())) {
+      bool CondLogicOr = isa<SelectInst>(CondVal);
+      bool TrueLogicOr = isa<SelectInst>(TrueVal);
+      if (CondLogicOr && TrueLogicOr) {
+        // (A ? 1 : B) ? (A ? 1 : D) : 0 --> A ? 1 : (B ? D : 0)
+        if (A == C)
+          return SelectInst::Create(A, One, Builder.CreateSelect(B, D, Zero));
+        // (A ? 1 : B) ? (C ? 1 : A) : 0 --> A ? 1 : (B ? C : 0)
+        if (A == D)
+          return SelectInst::Create(A, One, Builder.CreateSelect(B, C, Zero));
+        // (A ? 1 : B) ? (B ? 1 : D) : 0 --> B ? 1 : (A ? D : 0)
+        if (B == C)
+          return SelectInst::Create(B, One, Builder.CreateSelect(A, D, Zero));
+        // (A ? 1 : B) ? (C ? 1 : B) : 0 --> (A ? C : 0) ? 1 : B
+        if (B == D)
+          return SelectInst::Create(Builder.CreateSelect(A, C, Zero), One, B);
+      }
+    }
+  }
 
   // We match the "full" 0 or 1 constant here to avoid a potential infinite
   // loop with vectors that may have undefined/poison elements.
@@ -3038,8 +3087,6 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     Value *NotCond = Builder.CreateNot(CondVal, "not." + CondVal->getName());
     return SelectInst::Create(NotCond, One, TrueVal);
   }
-
-  Value *A, *B;
 
   // DeMorgan in select form: !a && !b --> !(a || b)
   // select !a, !b, false --> not (select a, true, b)
@@ -3069,7 +3116,6 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
                                 m_c_LogicalOr(m_Deferred(A), m_Deferred(B)))))
     return BinaryOperator::CreateXor(A, B);
 
-  Value *C;
   // select (~a | c), a, b -> and a, (or c, freeze(b))
   if (match(CondVal, m_c_Or(m_Not(m_Specific(TrueVal)), m_Value(C))) &&
       CondVal->hasOneUse()) {
