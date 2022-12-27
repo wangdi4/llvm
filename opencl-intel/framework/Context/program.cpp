@@ -710,8 +710,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
     return clErrRet;
   }
   if (nullptr != puiNumKernelsRet) {
-    assert(szNumKernels <= CL_MAX_UINT32);
-    *puiNumKernelsRet = (cl_uint)szNumKernels;
+    *puiNumKernelsRet = szNumKernels;
   }
   if (0 == szNumKernels) {
     // If we don't have any kernels return
