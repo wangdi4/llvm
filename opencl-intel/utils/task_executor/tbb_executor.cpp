@@ -308,10 +308,10 @@ int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data *pGPAData,
   // Align stack size to 4 bytes.
   if ((stackSize & 3u) != 0) {
     // check that we can align stackSize without overflowing of size_t
-    assert((((size_t)-1) - 4u >= (stackSize & (~3u))) &&
+    assert((((size_t)-1) - 4u >= (stackSize & (~(size_t)3u))) &&
            "stackSize is too big");
     // if last 2 bits are non-zero clear it and add 4 bytes to cover the loss.
-    stackSize = (stackSize & (~3u)) + 4u;
+    stackSize = (stackSize & (~(size_t)3u)) + 4u;
   }
   // We force stack size of TBB created threads to match required value.
   m_tbbStackSize = std::make_unique<tbb::global_control>(
