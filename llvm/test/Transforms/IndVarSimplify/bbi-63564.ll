@@ -28,16 +28,11 @@ define void @f() {
 ; CHECK-NEXT:    store i16 [[INC]], ptr undef, align 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_BODY2]], label [[CRIT_EDGE:%.*]]
 ; CHECK:       crit_edge:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; xmain will store the loaded value, and llorg will use the lcssa live-out phi
 ; from the loop.
-; CHECK:    store i16 {{.*}}, i16* @a, align 1
+; CHECK:    store i16 {{.*}}, ptr @a, align 1
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[INC_LCSSA:%.*]] = phi i16 [ [[INC]], [[FOR_BODY2]] ]
-; CHECK-NEXT:    store i16 [[INC_LCSSA]], ptr @a, align 1
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
 ; CHECK-NEXT:    unreachable
 ; CHECK:       for.end4:
 ; CHECK-NEXT:    ret void

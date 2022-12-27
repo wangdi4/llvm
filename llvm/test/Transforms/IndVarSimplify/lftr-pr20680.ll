@@ -35,13 +35,8 @@ define void @f() {
 ; CHECK:       cond.false.us.us:
 ; CHECK-NEXT:    br label [[COND_END_US_US]]
 ; CHECK:       cond.end.us.us:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP2]], 1
-=======
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr @b, align 4
 ; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP4]], 1
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
 ; CHECK-NEXT:    br i1 [[CMP91_US_US]], label [[FOR_INC_LR_PH_US_US:%.*]], label [[FOR_COND2_LOOPEXIT_US_US:%.*]]
 ; CHECK:       for.cond2.loopexit.us.us:
 ; CHECK-NEXT:    br i1 true, label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US_US_LCSSA_US:%.*]], label [[FOR_BODY3_US_US]]
@@ -64,13 +59,8 @@ define void @f() {
 ; CHECK:       cond.false.us:
 ; CHECK-NEXT:    br label [[COND_END_US]]
 ; CHECK:       cond.end.us:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP4]], 1
-=======
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr @b, align 4
 ; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP6]], 1
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
 ; CHECK-NEXT:    br i1 [[CMP91_US]], label [[FOR_INC_LR_PH_US:%.*]], label [[FOR_COND2_LOOPEXIT_US:%.*]]
 ; CHECK:       for.inc.us:
 ; CHECK-NEXT:    [[TMP5:%.*]] = phi i32 [ [[TMP4]], [[FOR_INC_LR_PH_US]] ], [ [[INC_US:%.*]], [[FOR_INC_US:%.*]] ]
@@ -99,13 +89,8 @@ define void @f() {
 ; CHECK:       cond.false.us4:
 ; CHECK-NEXT:    br label [[COND_END_US5]]
 ; CHECK:       cond.end.us5:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP6]], 1
-=======
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr @b, align 4
 ; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP8]], 1
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
 ; CHECK-NEXT:    br i1 [[CMP91_US7]], label [[FOR_INC_LR_PH_US12:%.*]], label [[FOR_COND2_LOOPEXIT_US11:%.*]]
 ; CHECK:       for.inc.us8:
 ; CHECK-NEXT:    [[TMP7:%.*]] = phi i32 [ [[TMP6]], [[FOR_INC_LR_PH_US12]] ], [ [[INC_US9:%.*]], [[FOR_INC_US8:%.*]] ]
@@ -133,13 +118,8 @@ define void @f() {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* @b, align 4
-; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP8]], 1
-=======
-; CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr @b, align 4
+; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr @b, align 4
 ; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP10]], 1
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
 ; CHECK-NEXT:    br i1 [[CMP91]], label [[FOR_INC_LR_PH:%.*]], label [[FOR_COND2_LOOPEXIT]]
 ; CHECK:       for.inc.lr.ph:
 ; CHECK-NEXT:    br label [[FOR_INC:%.*]]
@@ -153,12 +133,7 @@ define void @f() {
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa:
 ; CHECK-NEXT:    br label [[FOR_COND2_FOR_INC13_CRIT_EDGE]]
 ; CHECK:       for.cond2.for.inc13_crit_edge:
-<<<<<<< HEAD
-; CHECK-NEXT:    store i32 [[INDVARS_IV]], i32* @c, align 4
-=======
-; CHECK-NEXT:    [[COND_LCSSA:%.*]] = phi i32 [ [[COND_LCSSA_PH]], [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA]] ], [ [[COND_LCSSA_PH_US]], [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US]] ]
-; CHECK-NEXT:    store i32 [[COND_LCSSA]], ptr @c, align 4
->>>>>>> 864bb84a427de367528d15270790dd152871daf2
+; CHECK-NEXT:    store i32 [[INDVARS_IV]], ptr @c, align 4
 ; CHECK-NEXT:    br label [[FOR_INC13]]
 ; CHECK:       for.inc13:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i32 [[INDVARS_IV]], 1
