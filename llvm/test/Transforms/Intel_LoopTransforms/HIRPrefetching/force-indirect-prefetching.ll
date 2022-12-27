@@ -16,7 +16,7 @@
 ;*** IR Dump After HIR Prefetching (hir-prefetching) ***
 ;Function: foo
 ;
-; CHECK:     BEGIN REGION { }
+; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; CHECK:           |   %0 = (@B)[0][i1];
 ; CHECK:           |   %1 = (@M)[0][i1];
@@ -35,7 +35,7 @@
 ;*** IR Dump After HIR Prefetching (hir-prefetching) ***
 ;Function: foo
 ;
-; INDIRECT:  BEGIN REGION { }
+; INDIRECT:  BEGIN REGION { modified }
 ; INDIRECT:        + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; INDIRECT:        |   %0 = (@B)[0][i1];
 ; INDIRECT:        |   %1 = (@M)[0][i1];

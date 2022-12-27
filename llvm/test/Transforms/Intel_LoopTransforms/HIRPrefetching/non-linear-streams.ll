@@ -29,7 +29,7 @@
 ;*** IR Dump After HIR Prefetching ***
 ;Function: foo
 ;
-; CHECK:     BEGIN REGION { }
+; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; CHECK:           |   %rem = i1  %u  5;
 ; CHECK:           |   (@A)[0][%rem] = i1;
