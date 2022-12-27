@@ -411,31 +411,6 @@ private:
   DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> HasBarrierFromTo;
 };
 
-/// KernelBarrierLegacy pass for legacy pass manager.
-class KernelBarrierLegacy : public ModulePass {
-  KernelBarrier Impl;
-
-public:
-  static char ID;
-
-  /// IsNativeDebug true if we are debugging natively (gdb).
-  explicit KernelBarrierLegacy(bool IsNativeDebug = false,
-                               bool useTLSGlobals = false);
-
-  ~KernelBarrierLegacy() {}
-
-  /// Provides name of pass.
-  StringRef getPassName() const override { return "Intel Kernel Barrier"; }
-
-  /// Execute pass on given module.
-  /// M module to optimize.
-  /// Returns True if module was modified.
-  bool runOnModule(Module &M) override;
-
-  /// Inform about usage/modification/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_BARRIER_PASS_H

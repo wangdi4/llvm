@@ -115,32 +115,5 @@ public:
   Result run(Function &, FunctionAnalysisManager &);
 };
 
-/// For legacy pass manager.
-class DPCPPAliasAnalysisLegacy : public ImmutablePass {
-  DPCPPAAResult AAResult;
-
-public:
-  static char ID;
-
-  DPCPPAliasAnalysisLegacy();
-
-  StringRef getPassName() const override { return "DPCPPAliasAnalysisLegacy"; }
-
-  bool doInitialization(Module &) override { return false; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  DPCPPAAResult &getResult() { return AAResult; }
-  const DPCPPAAResult &getResult() const { return AAResult; }
-};
-
-class DPCPPExternalAliasAnalysisLegacy : public ExternalAAWrapperPass {
-public:
-  static char ID;
-
-  DPCPPExternalAliasAnalysisLegacy();
-};
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_DPCPPALIASANALYSIS_H

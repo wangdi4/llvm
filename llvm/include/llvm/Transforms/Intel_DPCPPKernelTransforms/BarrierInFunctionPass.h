@@ -47,25 +47,6 @@ private:
   BarrierUtils Utils;
 };
 
-/// BarrierInFunctionLegacy pass for legacy pass manager.
-class BarrierInFunctionLegacy : public ModulePass {
-  BarrierInFunction Impl;
-
-public:
-  BarrierInFunctionLegacy();
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel Kernel BarrierInFunction";
-  }
-
-  /// Execute pass on given module.
-  /// M module to optimize,
-  /// True if module was modified.
-  bool runOnModule(Module &M) override;
-};
-
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_BARRIER_IN_FUNCTION_PASS_H
