@@ -977,6 +977,21 @@ struct OffsetInfo {
   bool operator==(const OffsetInfo &OI) const { return Offset == OI.Offset; }
 };
 
+<<<<<<< HEAD
+=======
+#ifndef NDEBUG
+static raw_ostream &operator<<(raw_ostream &OS, const OffsetInfo &OI) {
+  ListSeparator LS;
+  OS << "[";
+  for (auto Offset : OI) {
+    OS << LS << Offset;
+  }
+  OS << "]";
+  return OS;
+}
+#endif // NDEBUG
+
+>>>>>>> 59686bb3fc239c4a29164fdf1dcc7dd7b74d4788
 struct AAPointerInfoImpl
     : public StateWrapper<AA::PointerInfo::State, AAPointerInfo> {
   using BaseTy = StateWrapper<AA::PointerInfo::State, AAPointerInfo>;
