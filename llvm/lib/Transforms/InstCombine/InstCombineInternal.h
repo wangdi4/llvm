@@ -402,6 +402,7 @@ private:
   Value *foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd,
                           bool IsLogicalSelect = false);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).
   Instruction *recognizeFCmpMinMaxIdiom(Instruction &I);
@@ -424,6 +425,11 @@ private:
   /// type used in load/store uses, otherwise returns nullptr.
   GetElementPtrInst *convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP);
 #endif // INTEL_CUSTOMIZATION
+=======
+  Instruction *foldLogicOfIsFPClass(BinaryOperator &Operator, Value *LHS,
+                                    Value *RHS);
+
+>>>>>>> 8fc25caae5305b9e4113b9dd5332e7375a5657a6
   Value *foldAndOrOfICmpsOfAndWithPow2(ICmpInst *LHS, ICmpInst *RHS,
                                        Instruction *CxtI, bool IsAnd,
                                        bool IsLogical = false);
