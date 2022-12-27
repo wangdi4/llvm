@@ -138,6 +138,9 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/CodeGen/Intel_PseudoMarkerCountInserter.cpp @KanRobert
 /llvm/unittests/Analysis/Intel_MarkerCountInfoTest.cpp @KanRobert
 /llvm/test/CodeGen/X86/intel_markercount/ @KanRobert
+/llvm/include/llvm/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.h @KanRobert
+/llvm/lib/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.cpp @KanRobert
+/llvm/test/Transforms/Intel_MarkerCount @KanRobert
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders

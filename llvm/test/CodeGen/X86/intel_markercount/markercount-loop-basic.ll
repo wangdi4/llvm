@@ -6,12 +6,12 @@
 
 ; TAIL-NOT: PSEUDO_FUNCTION_PROLOG
 ; TAIL-NOT: PSEUDO_FUNCTION_EPILOG
-; TAIL: bb.{{.*}}.for.cond
+; TAIL: bb.{{.*}}.loop
 ; TAIL: PSEUDO_LOOP_HEADER
 ; TAIL-NOT: PSEUDO_LOOP_HEADER
 
 ; PSEUDO-NOT: PSEUDO_LOOP_HEADER
-; PSEUDO: bb.{{.*}}.for.cond
+; PSEUDO: bb.{{.*}}.loop
 ; PSEUDO: MARKER_COUNT_LOOP_HEADER
 ; PSEUDO-NOT: MARKER_COUNT_LOOP_HEADER
 
@@ -25,8 +25,8 @@
 
 define i32 @f() {
 entry:
-  br label %for.cond1
+  br label %loop
 
-for.cond1:                                        ; preds = %for.cond1, %entry
-  br label %for.cond1
+loop:                                        ; preds = %loop, %entry
+  br label %loop
 }

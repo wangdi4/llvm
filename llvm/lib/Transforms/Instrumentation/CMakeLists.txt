@@ -30,6 +30,9 @@ add_llvm_component_library(LLVMInstrumentation
   InstrProfiling.cpp
 # INTEL_CUSTOMIZATION
   Intel_FunctionSplitting.cpp
+# INTEL_FEATURE_MARKERCOUNT
+  Intel_MarkerCountIntrinsicInserter.cpp
+# end INTEL_FEATURE_MARKERCOUNT
 # end INTEL_CUSTOMIZATION
   KCFI.cpp
   PGOInstrumentation.cpp

@@ -1460,6 +1460,14 @@ def int_donothing : DefaultAttrsIntrinsic<[], [], [IntrNoMem, IntrWillReturn]>;
 // which specify that infinite loops must be preserved.
 def int_sideeffect : DefaultAttrsIntrinsic<[], [], [IntrInaccessibleMemOnly, IntrWillReturn]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+def int_mark_loop_header: DefaultAttrsIntrinsic<[], [], [IntrInaccessibleMemOnly]>;
+def int_mark_prolog: DefaultAttrsIntrinsic<[], [], [IntrInaccessibleMemOnly]>;
+def int_mark_epilog: DefaultAttrsIntrinsic<[], [], [IntrInaccessibleMemOnly]>;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 // The pseudoprobe intrinsic works as a place holder to the block it probes.
 // Like the sideeffect intrinsic defined above, this intrinsic is treated by the
 // optimizer as having opaque side effects so that it won't be get rid of or moved

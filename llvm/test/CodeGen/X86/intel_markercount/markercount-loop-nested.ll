@@ -8,11 +8,11 @@
 
 define i32 @f(i1 %cmp2) {
 entry:
-  br label %for.cond
+  br label %loop.outer
 
-for.cond:                                         ; preds = %for.cond1, %entry
-  br label %for.cond1
+loop.outer:                                         ; preds = %loop.inner, %entry
+  br label %loop.inner
 
-for.cond1:                                        ; preds = %for.cond1, %for.cond
-  br i1 %cmp2, label %for.cond1, label %for.cond
+loop.inner:                                        ; preds = %loop.inner, %loop.outer
+  br i1 %cmp2, label %loop.inner, label %loop.outer
 }

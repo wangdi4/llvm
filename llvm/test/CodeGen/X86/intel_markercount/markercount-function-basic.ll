@@ -4,16 +4,17 @@
 ; RUN: llc < %s -function-marker-count=be -mtriple=x86_64-- -x86-expand-pseudo-marker-count=false | FileCheck --check-prefix=COMMENT %s
 ; RUN: llc < %s -function-marker-count=be -mtriple=x86_64-- | FileCheck %s
 
-; TAIL-NOT: PSEUDO_LOOP_HEADER
 ; TAIL: f
+; TAIL-NOT: PSEUDO_LOOP_HEADER
 ; TAIL: PSEUDO_FUNCTION_PROLOG
+; TAIL: INLINEASM
 ; TAIL: PSEUDO_FUNCTION_EPILOG
 
 ; TAIL: g
 ; TAIL: bb.0.entry
 ; TAIL: PSEUDO_FUNCTION_PROLOG
 ; TAIL-NOT: PSEUDO_FUNCTION_PROLOG
-; TAIL: bb.{{.*}}.for.end
+; TAIL: bb.{{.*}}.exit
 ; TAIL: PSEUDO_FUNCTION_EPILOG
 ; TAIL-NOT: PSEUDO_FUNCTION_EPILOG
 
@@ -26,7 +27,7 @@
 ; PSEUDO: g
 ; PSEUDO: bb.0.entry
 ; PSEUDO: MARKER_COUNT_FUNCTION
-; PSEUDO: bb.{{.*}}.for.end
+; PSEUDO: bb.{{.*}}.exit
 ; PSEUDO: MARKER_COUNT_FUNCTION
 ; PSEUDO-NOT: MARKER_COUNT_FUNCTION
 
@@ -49,18 +50,20 @@
 ; CHECK: markercount_function                    # PROLOG
 ; CHECK: markercount_function                    # EPILOG
 ; CHECK: retq
+
 define i32 @f() {
 entry:
+  call void asm sideeffect "nop", ""()
   ret i32 0
 }
 
 define i32 @g(i1 %cmp) {
 entry:
-  br i1 %cmp, label %for.cond1, label %for.end6
+  br i1 %cmp, label %loop, label %exit
 
-for.cond1:                                        ; preds = %for.cond1, %entry
-  br label %for.cond1
+loop:                                        ; preds = %loop, %entry
+  br label %loop
 
-for.end6:                                         ; preds = %entry
+exit:                                         ; preds = %entry
   ret i32 0
 }

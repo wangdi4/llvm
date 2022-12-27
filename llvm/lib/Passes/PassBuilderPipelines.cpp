@@ -232,6 +232,11 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstructionPass.h"
 
+// Marker count pass
+#if INTEL_FEATURE_MARKERCOUNT
+#include "llvm/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.h"
+#endif // INTEL_FEATURE_MARKERCOUNT
+
 // VPlan Vectorizer passes
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
@@ -1548,6 +1553,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // frontend.
   FunctionPassManager EarlyFPM;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Marker count intrinsic should be emitted before any inline or loop opt pass
+  // b/c we may have different decisions base on ISA set and optimization level.
+  if (TM && (TM->Options.MarkerCountKind & MarkerCount::ME ||
+             !TM->Options.OverrideMarkerCountFile.empty()))
+    EarlyFPM.addPass(MarkerCountIntrinsicInserterPass(
+        TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
+#endif // INTEL_FEATURE_MARKERCOUNT
   if (isLoopOptEnabled(Level))
     EarlyFPM.addPass(LoopOptMarkerPass());
   else

@@ -645,6 +645,11 @@ FUNCTION_PASS("loop-simplify-unskippable", LoopSimplifyUnskippablePass())
 FUNCTION_PASS("loop-sink", LoopSinkPass())
 FUNCTION_PASS("lowerinvoke", LowerInvokePass())
 FUNCTION_PASS("lowerswitch", LowerSwitchPass())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+FUNCTION_PASS("markercount-intrinsic-inserter", MarkerCountIntrinsicInserterPass())
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("mem2reg", PromotePass())
 FUNCTION_PASS("memcpyopt", MemCpyOptPass())
 FUNCTION_PASS("mergeicmps", MergeICmpsPass())

@@ -706,6 +706,11 @@ public:
       break;
 #if INTEL_CUSTOMIZATION
     case Intrinsic::intel_pragma:
+#if INTEL_FEATURE_MARKERCOUNT
+    case Intrinsic::mark_prolog:
+    case Intrinsic::mark_epilog:
+    case Intrinsic::mark_loop_header:
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::annotation:
     case Intrinsic::assume:

@@ -368,6 +368,11 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstructionPass.h"
 
+// Marker count pass
+#if INTEL_FEATURE_MARKERCOUNT
+#include "llvm/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.h"
+#endif // INTEL_FEATURE_MARKERCOUNT
+
 // VPlan Vectorizer passes
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
