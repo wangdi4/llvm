@@ -2280,6 +2280,23 @@ void SelectionDAGISel::Select_ARITH_FENCE(SDNode *N) {
                        N->getOperand(0));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void SelectionDAGISel::Select_PSEUDO_FUNCTION_PROLOG(SDNode *N) {
+  CurDAG->SelectNodeTo(N, TargetOpcode::PSEUDO_FUNCTION_PROLOG,
+                       N->getValueType(0), N->getOperand(0));
+}
+void SelectionDAGISel::Select_PSEUDO_FUNCTION_EPILOG(SDNode *N) {
+  CurDAG->SelectNodeTo(N, TargetOpcode::PSEUDO_FUNCTION_EPILOG,
+                       N->getValueType(0), N->getOperand(0));
+}
+void SelectionDAGISel::Select_PSEUDO_LOOP_HEADER(SDNode *N) {
+  CurDAG->SelectNodeTo(N, TargetOpcode::PSEUDO_LOOP_HEADER, N->getValueType(0),
+                       N->getOperand(0));
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
 void SelectionDAGISel::pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops,
                                                 SDValue OpVal, SDLoc DL) {
   SDNode *OpNode = OpVal.getNode();
@@ -2945,6 +2962,29 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
   case ISD::PATCHPOINT:
     Select_PATCHPOINT(NodeToMatch);
     return;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  case ISD::INTRINSIC_VOID: {
+    if (NodeToMatch->getNumOperands() < 2)
+      break;
+    unsigned IID =
+        cast<ConstantSDNode>(NodeToMatch->getOperand(1))->getZExtValue();
+    switch (IID) {
+    default:
+      break;
+    case Intrinsic::mark_prolog:
+      Select_PSEUDO_FUNCTION_PROLOG(NodeToMatch);
+      return;
+    case Intrinsic::mark_epilog:
+      Select_PSEUDO_FUNCTION_EPILOG(NodeToMatch);
+      return;
+    case Intrinsic::mark_loop_header:
+      Select_PSEUDO_LOOP_HEADER(NodeToMatch);
+      return;
+    }
+  }
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
   }
 
   assert(!NodeToMatch->isMachineOpcode() && "Node already selected!");

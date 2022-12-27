@@ -8,11 +8,11 @@
 
 define i32 @g(i1 %cmp) {
 entry:
-  br i1 %cmp, label %for.cond1, label %for.end6
+  br i1 %cmp, label %loop, label %exit
 
-for.cond1:                                        ; preds = %for.cond1, %entry
-  br label %for.cond1
+loop:                                        ; preds = %loop, %entry
+  br label %loop
 
-for.end6:                                         ; preds = %entry
+exit:                                         ; preds = %entry
   ret i32 0
 }
