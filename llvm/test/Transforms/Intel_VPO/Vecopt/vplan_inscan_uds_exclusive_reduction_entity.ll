@@ -1,4 +1,4 @@
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -vplan-print-legality -vplan-entities-dump -debug-only=LoopVectorizationPlanner -vplan-force-uds-reduction-vectorization=true < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="vplan-vec" -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -vplan-print-legality -vplan-entities-dump -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ;; Original source for reference:
