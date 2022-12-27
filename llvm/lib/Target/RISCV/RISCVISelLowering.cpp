@@ -5846,29 +5846,28 @@ static bool hasNonZeroAVL(SDValue AVL) {
 
 /// Helper to lower a reduction sequence of the form:
 /// scalar = reduce_op vec, scalar_start
-static SDValue lowerReductionSeq(unsigned RVVOpcode, SDValue StartValue,
-                                 SDValue Vec, SDValue Mask, SDValue VL,
-                                 SDLoc DL, SelectionDAG &DAG,
+static SDValue lowerReductionSeq(unsigned RVVOpcode, MVT ResVT,
+                                 SDValue StartValue, SDValue Vec, SDValue Mask,
+                                 SDValue VL, SDLoc DL, SelectionDAG &DAG,
                                  const RISCVSubtarget &Subtarget) {
   const MVT VecVT = Vec.getSimpleValueType();
-  const MVT VecEltVT = VecVT.getVectorElementType();
   const MVT M1VT = getLMUL1VT(VecVT);
   const MVT XLenVT = Subtarget.getXLenVT();
 
   // The reduction needs an LMUL1 input; do the splat at either LMUL1
   // or the original VT if fractional.
   auto InnerVT = VecVT.bitsLE(M1VT) ? VecVT : M1VT;
-  SDValue InitialSplat =
-      lowerScalarSplat(SDValue(), StartValue, DAG.getConstant(1, DL, XLenVT),
-                       InnerVT, DL, DAG, Subtarget);
+  SDValue InitialValue =
+    lowerScalarInsert(StartValue, DAG.getConstant(1, DL, XLenVT),
+                      InnerVT, DL, DAG, Subtarget);
   if (M1VT != InnerVT)
-    InitialSplat = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, M1VT,
+    InitialValue = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, M1VT,
                                DAG.getUNDEF(M1VT),
-                               InitialSplat, DAG.getConstant(0, DL, XLenVT));
-  SDValue PassThru = hasNonZeroAVL(VL) ? DAG.getUNDEF(M1VT) : InitialSplat;
+                               InitialValue, DAG.getConstant(0, DL, XLenVT));
+  SDValue PassThru = hasNonZeroAVL(VL) ? DAG.getUNDEF(M1VT) : InitialValue;
   SDValue Reduction = DAG.getNode(RVVOpcode, DL, M1VT, PassThru, Vec,
-                                  InitialSplat, Mask, VL);
-  return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, VecEltVT, Reduction,
+                                  InitialValue, Mask, VL);
+  return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, ResVT, Reduction,
                      DAG.getConstant(0, DL, XLenVT));
 }
 
@@ -5908,9 +5907,8 @@ SDValue RISCVTargetLowering::lowerVECREDUCE(SDValue Op,
 
   SDValue NeutralElem =
       DAG.getNeutralElement(BaseOpc, DL, VecEltVT, SDNodeFlags());
-  SDValue Elt0 = lowerReductionSeq(RVVOpcode, NeutralElem, Vec, Mask, VL,
-                                   DL, DAG, Subtarget);
-  return DAG.getSExtOrTrunc(Elt0, DL, Op.getValueType());
+  return lowerReductionSeq(RVVOpcode, Op.getSimpleValueType(), NeutralElem, Vec,
+                           Mask, VL, DL, DAG, Subtarget);
 }
 
 // Given a reduction op, this function returns the matching reduction opcode,
@@ -5961,8 +5959,8 @@ SDValue RISCVTargetLowering::lowerFPVECREDUCE(SDValue Op,
   }
 
   auto [Mask, VL] = getDefaultVLOps(VecVT, ContainerVT, DL, DAG, Subtarget);
-  return lowerReductionSeq(RVVOpcode, ScalarVal, VectorVal, Mask, VL, DL, DAG,
-                           Subtarget);
+  return lowerReductionSeq(RVVOpcode, Op.getSimpleValueType(), ScalarVal,
+                           VectorVal, Mask, VL, DL, DAG, Subtarget);
 }
 
 static unsigned getRVVVPReductionOp(unsigned ISDOpcode) {
@@ -6017,11 +6015,8 @@ SDValue RISCVTargetLowering::lowerVPREDUCE(SDValue Op,
 
   SDValue VL = Op.getOperand(3);
   SDValue Mask = Op.getOperand(2);
-  SDValue Elt0 = lowerReductionSeq(RVVOpcode, Op.getOperand(0), Vec, Mask, VL,
-                                   DL, DAG, Subtarget);
-  if (!VecVT.isInteger())
-    return Elt0;
-  return DAG.getSExtOrTrunc(Elt0, DL, Op.getValueType());
+  return lowerReductionSeq(RVVOpcode, Op.getSimpleValueType(), Op.getOperand(0),
+                           Vec, Mask, VL, DL, DAG, Subtarget);
 }
 
 SDValue RISCVTargetLowering::lowerINSERT_SUBVECTOR(SDValue Op,
@@ -8007,7 +8002,8 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
 }
 
 // Try to fold (<bop> x, (reduction.<bop> vec, start))
-static SDValue combineBinOpToReduce(SDNode *N, SelectionDAG &DAG) {
+static SDValue combineBinOpToReduce(SDNode *N, SelectionDAG &DAG,
+                                    const RISCVSubtarget &Subtarget) {
   auto BinOpToRVVReduce = [](unsigned Opc) {
     switch (Opc) {
     default:
@@ -8084,20 +8080,11 @@ static SDValue combineBinOpToReduce(SDNode *N, SelectionDAG &DAG) {
   if (!ScalarV.hasOneUse())
     return SDValue();
 
-  EVT SplatVT = ScalarV.getValueType();
   SDValue NewStart = N->getOperand(1 - ReduceIdx);
-  unsigned SplatOpc = RISCVISD::VFMV_S_F_VL;
-  if (SplatVT.isInteger()) {
-    auto *C = dyn_cast<ConstantSDNode>(NewStart.getNode());
-    if (!C || C->isZero() || !isInt<5>(C->getSExtValue()))
-      SplatOpc = RISCVISD::VMV_S_X_VL;
-    else
-      SplatOpc = RISCVISD::VMV_V_X_VL;
-  }
 
   SDValue NewScalarV =
-      DAG.getNode(SplatOpc, SDLoc(N), SplatVT, ScalarV.getOperand(0), NewStart,
-                  ScalarV.getOperand(2));
+    lowerScalarInsert(NewStart, ScalarV.getOperand(2), ScalarV.getSimpleValueType(),
+                      SDLoc(N), DAG, Subtarget);
   SDValue NewReduce =
       DAG.getNode(Reduce.getOpcode(), SDLoc(Reduce), Reduce.getValueType(),
                   Reduce.getOperand(0), Reduce.getOperand(1), NewScalarV,
@@ -8299,7 +8286,7 @@ static SDValue performADDCombine(SDNode *N, SelectionDAG &DAG,
     return V;
   if (SDValue V = transformAddShlImm(N, DAG, Subtarget))
     return V;
-  if (SDValue V = combineBinOpToReduce(N, DAG))
+  if (SDValue V = combineBinOpToReduce(N, DAG, Subtarget))
     return V;
   // fold (add (select lhs, rhs, cc, 0, y), x) ->
   //      (select lhs, rhs, cc, x, (add x, y))
@@ -8453,7 +8440,7 @@ static SDValue performANDCombine(SDNode *N,
     return DAG.getNode(ISD::TRUNCATE, DL, MVT::i32, And);
   }
 
-  if (SDValue V = combineBinOpToReduce(N, DAG))
+  if (SDValue V = combineBinOpToReduce(N, DAG, Subtarget))
     return V;
 
   if (DCI.isAfterLegalizeDAG())
@@ -8469,7 +8456,7 @@ static SDValue performORCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI,
                                 const RISCVSubtarget &Subtarget) {
   SelectionDAG &DAG = DCI.DAG;
 
-  if (SDValue V = combineBinOpToReduce(N, DAG))
+  if (SDValue V = combineBinOpToReduce(N, DAG, Subtarget))
     return V;
 
   if (DCI.isAfterLegalizeDAG())
@@ -8497,7 +8484,7 @@ static SDValue performXORCombine(SDNode *N, SelectionDAG &DAG,
                        DAG.getConstant(~1, DL, MVT::i64), N0.getOperand(1));
   }
 
-  if (SDValue V = combineBinOpToReduce(N, DAG))
+  if (SDValue V = combineBinOpToReduce(N, DAG, Subtarget))
     return V;
   // fold (xor (select cond, 0, y), x) ->
   //      (select cond, x, (xor x, y))
@@ -9717,7 +9704,7 @@ SDValue RISCVTargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::SMIN:
   case ISD::FMAXNUM:
   case ISD::FMINNUM:
-    return combineBinOpToReduce(N, DAG);
+    return combineBinOpToReduce(N, DAG, Subtarget);
   case ISD::SETCC:
     return performSETCCCombine(N, DAG, Subtarget);
   case ISD::SIGN_EXTEND_INREG:
