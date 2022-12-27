@@ -76,32 +76,6 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
-// Legacy wrapper pass to provide the LocalBufferInfo object.
-class LocalBufferAnalysisLegacy : public ModulePass {
-  std::unique_ptr<LocalBufferInfo> Result;
-
-public:
-  /// Pass identification, replacement for typeid
-  static char ID;
-
-  LocalBufferAnalysisLegacy();
-
-  llvm::StringRef getPassName() const override {
-    return "LocalBufferAnalysisLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    // Analysis pass preserve all
-    AU.setPreservesAll();
-  }
-
-  LocalBufferInfo &getResult() { return *Result; }
-  const LocalBufferInfo &getResult() const { return *Result; }
-};
-
 } // namespace llvm
 
 #endif

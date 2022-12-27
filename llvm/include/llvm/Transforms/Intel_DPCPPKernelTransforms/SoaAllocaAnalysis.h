@@ -97,33 +97,5 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
-/// For legacy pass manager.
-class SoaAllocaAnalysisLegacy : public FunctionPass {
-  std::unique_ptr<SoaAllocaInfo> SAInfo;
-
-public:
-  static char ID;
-
-  SoaAllocaAnalysisLegacy();
-
-  bool runOnFunction(Function &F) override {
-    SAInfo.reset(new SoaAllocaInfo(F));
-    return false;
-  }
-
-  StringRef getPassName() const override { return "SoaAllocaAnalysisLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  void print(raw_ostream &OS, const Module *) const override {
-    SAInfo->print(OS);
-  }
-
-  SoaAllocaInfo &getResult() { return *SAInfo; }
-  const SoaAllocaInfo &getResult() const { return *SAInfo; }
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SOA_ALLOCA_ANALYSIS_H

@@ -102,28 +102,5 @@ public:
   ImplicitArgsInfo run(Module &M, AnalysisManager<Module> &AM);
 };
 
-// Legacy wrapper pass to provide image arugments info.
-class ImplicitArgsAnalysisLegacy : public ModulePass {
-  std::unique_ptr<ImplicitArgsInfo> Result;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  ImplicitArgsAnalysisLegacy();
-
-  StringRef getPassName() const override {
-    return "ImplicitArgsAnalysisLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  ImplicitArgsInfo &getResult() { return *Result; }
-  const ImplicitArgsInfo &getResult() const { return *Result; }
-};
-
 } // namespace llvm
 #endif

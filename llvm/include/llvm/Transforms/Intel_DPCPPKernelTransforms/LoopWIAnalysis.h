@@ -181,28 +181,5 @@ public:
                         LoopStandardAnalysisResults &AR, LPMUpdater &);
 };
 
-/// For legacy pass manager.
-class LoopWIAnalysisLegacy : public LoopPass {
-  LoopWIInfo WIInfo;
-
-public:
-  static char ID;
-
-  LoopWIAnalysisLegacy();
-
-  StringRef getPassName() const override { return "LoopWIAnalysisLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  bool runOnLoop(Loop *L, LPPassManager &LPM) override;
-
-  void print(raw_ostream &OS, const Module *) const override {
-    WIInfo.print(OS);
-  }
-
-  LoopWIInfo &getResult() { return WIInfo; }
-  const LoopWIInfo &getResult() const { return WIInfo; }
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_LOOPWIANALYSIS_H
