@@ -143,23 +143,13 @@ STATISTIC(NumVectorized, "Number of vectorized aggregates");
 static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
                                         cl::Hidden);
 namespace {
-constexpr uint64_t ByteWidth = 8;
-static uint64_t bitsToBytes(uint64_t Bits) {
-  assert(Bits % 8 == 0 && "unexpected bit count");
-  return Bits / ByteWidth;
-}
-static uint64_t bytesToBits(uint64_t Bytes) {
-  assert(Bytes <= (UINT64_MAX / ByteWidth) && "too many bytes");
-  return Bytes * ByteWidth;
-}
-
 /// Find linked dbg.assign and generate a new one with the correct
 /// FragmentInfo. Link Inst to the new dbg.assign.  If Value is nullptr the
 /// value component is copied from the old dbg.assign to the new.
 /// \param OldAlloca             Alloca for the variable before splitting.
-/// \param RelativeOffsetInBytes Offset into \p OldAlloca relative to the
+/// \param RelativeOffsetInBits  Offset into \p OldAlloca relative to the
 ///                              offset prior to splitting (change in offset).
-/// \param SliceSizeInBytes      New number of bytes being written to.
+/// \param SliceSizeInBits       New number of bits being written to.
 /// \param OldInst               Instruction that is being split.
 /// \param Inst                  New instruction performing this part of the
 ///                              split store.
@@ -167,8 +157,8 @@ static uint64_t bytesToBits(uint64_t Bytes) {
 /// \param Value                 Stored value.
 /// \param DL                    Datalayout.
 static void migrateDebugInfo(AllocaInst *OldAlloca,
-                             uint64_t RelativeOffsetInBytes,
-                             uint64_t SliceSizeInBytes, Instruction *OldInst,
+                             uint64_t RelativeOffsetInBits,
+                             uint64_t SliceSizeInBits, Instruction *OldInst,
                              Instruction *Inst, Value *Dest, Value *Value,
                              const DataLayout &DL) {
   auto MarkerRange = at::getAssignmentMarkers(OldInst);
@@ -176,13 +166,10 @@ static void migrateDebugInfo(AllocaInst *OldAlloca,
   if (MarkerRange.empty())
     return;
 
-  uint64_t RelativeOffset = bytesToBits(RelativeOffsetInBytes);
-  uint64_t SliceSize = bytesToBits(SliceSizeInBytes);
-
   LLVM_DEBUG(dbgs() << "  migrateDebugInfo\n");
   LLVM_DEBUG(dbgs() << "    OldAlloca: " << *OldAlloca << "\n");
-  LLVM_DEBUG(dbgs() << "    RelativeOffset: " << RelativeOffset << "\n");
-  LLVM_DEBUG(dbgs() << "    SliceSize: " << SliceSize << "\n");
+  LLVM_DEBUG(dbgs() << "    RelativeOffset: " << RelativeOffsetInBits << "\n");
+  LLVM_DEBUG(dbgs() << "    SliceSizeInBits: " << SliceSizeInBits << "\n");
   LLVM_DEBUG(dbgs() << "    OldInst: " << *OldInst << "\n");
   LLVM_DEBUG(dbgs() << "    Inst: " << *Inst << "\n");
   LLVM_DEBUG(dbgs() << "    Dest: " << *Dest << "\n");
@@ -195,7 +182,7 @@ static void migrateDebugInfo(AllocaInst *OldAlloca,
   DIAssignID *NewID = nullptr;
   auto &Ctx = Inst->getContext();
   DIBuilder DIB(*OldInst->getModule(), /*AllowUnresolved*/ false);
-  uint64_t AllocaSize = *OldAlloca->getAllocationSizeInBits(DL);
+  uint64_t AllocaSizeInBits = *OldAlloca->getAllocationSizeInBits(DL);
   assert(OldAlloca->isStaticAlloca());
 
   for (DbgAssignIntrinsic *DbgAssign : MarkerRange) {
@@ -204,7 +191,8 @@ static void migrateDebugInfo(AllocaInst *OldAlloca,
     auto *Expr = DbgAssign->getExpression();
 
     // Check if the dbg.assign already describes a fragment.
-    auto GetCurrentFragSize = [AllocaSize, DbgAssign, Expr]() -> uint64_t {
+    auto GetCurrentFragSize = [AllocaSizeInBits, DbgAssign,
+                               Expr]() -> uint64_t {
       if (auto FI = Expr->getFragmentInfo())
         return FI->SizeInBits;
       if (auto VarSize = DbgAssign->getVariable()->getSizeInBits())
@@ -213,17 +201,17 @@ static void migrateDebugInfo(AllocaInst *OldAlloca,
       // case of DW_TAG_unspecified_type types, e.g.  std::nullptr_t. Because
       // there is no fragment and we do not know the size of the variable type,
       // we'll guess by looking at the alloca.
-      return AllocaSize;
+      return AllocaSizeInBits;
     };
     uint64_t CurrentFragSize = GetCurrentFragSize();
-    bool MakeNewFragment = CurrentFragSize != SliceSize;
-    assert(MakeNewFragment || RelativeOffset == 0);
+    bool MakeNewFragment = CurrentFragSize != SliceSizeInBits;
+    assert(MakeNewFragment || RelativeOffsetInBits == 0);
 
-    assert(SliceSize <= AllocaSize);
+    assert(SliceSizeInBits <= AllocaSizeInBits);
     if (MakeNewFragment) {
-      assert(RelativeOffset + SliceSize <= CurrentFragSize);
-      auto E = DIExpression::createFragmentExpression(Expr, RelativeOffset,
-                                                      SliceSize);
+      assert(RelativeOffsetInBits + SliceSizeInBits <= CurrentFragSize);
+      auto E = DIExpression::createFragmentExpression(
+          Expr, RelativeOffsetInBits, SliceSizeInBits);
       assert(E && "Failed to create fragment expr!");
       Expr = *E;
     }
@@ -3076,7 +3064,7 @@ private:
     Pass.DeadInsts.push_back(&SI);
 
     // NOTE: Careful to use OrigV rather than V.
-    migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &SI, Store,
+    migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, Store,
                      Store->getPointerOperand(), OrigV, DL);
     LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     return true;
@@ -3101,7 +3089,7 @@ private:
     if (AATags)
       Store->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
 
-    migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &SI, Store,
+    migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, Store,
                      Store->getPointerOperand(), Store->getValueOperand(), DL);
 
     Pass.DeadInsts.push_back(&SI);
@@ -3180,7 +3168,7 @@ private:
     if (NewSI->isAtomic())
       NewSI->setAlignment(SI.getAlign());
 
-    migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &SI, NewSI,
+    migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, NewSI,
                      NewSI->getPointerOperand(), NewSI->getValueOperand(), DL);
 
     Pass.DeadInsts.push_back(&SI);
@@ -3281,7 +3269,7 @@ private:
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
 
-      migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &II, New,
+      migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
                        New->getRawDest(), nullptr, DL);
 
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
@@ -3357,7 +3345,7 @@ private:
     if (AATags)
       New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
 
-    migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &II, New,
+    migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
                      New->getPointerOperand(), V, DL);
 
     LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
@@ -3486,8 +3474,8 @@ private:
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
 
-      migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &II, New, DestPtr,
-                       nullptr, DL);
+      migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
+                       DestPtr, nullptr, DL);
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
       return false;
     }
@@ -3575,8 +3563,8 @@ private:
     if (AATags)
       Store->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
 
-    migrateDebugInfo(&OldAI, RelativeOffset, SliceSize, &II, Store, DstPtr, Src,
-                     DL);
+    migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, Store,
+                     DstPtr, Src, DL);
     LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     return !II.isVolatile();
   }
@@ -3988,10 +3976,9 @@ private:
       if (auto *OldAI = dyn_cast<AllocaInst>(Base)) {
         uint64_t SizeInBits =
             DL.getTypeSizeInBits(Store->getValueOperand()->getType());
-        migrateDebugInfo(OldAI, OffsetInBytes.getZExtValue(),
-                         bitsToBytes(SizeInBits), AggStore, Store,
-                         Store->getPointerOperand(), Store->getValueOperand(),
-                         DL);
+        migrateDebugInfo(OldAI, OffsetInBytes.getZExtValue() * 8, SizeInBits,
+                         AggStore, Store, Store->getPointerOperand(),
+                         Store->getValueOperand(), DL);
       } else {
         assert(at::getAssignmentMarkers(Store).empty() &&
                "AT: unexpected debug.assign linked to store through "

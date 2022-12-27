@@ -1110,7 +1110,7 @@ Value *InstCombinerImpl::foldEqOfParts(ICmpInst *Cmp0, ICmpInst *Cmp1,
 /// common operand with the constant. Callers are expected to call this with
 /// Cmp0/Cmp1 switched to handle logic op commutativity.
 static Value *foldAndOrOfICmpsWithConstEq(ICmpInst *Cmp0, ICmpInst *Cmp1,
-                                          bool IsAnd,
+                                          bool IsAnd, bool IsLogical,
                                           InstCombiner::BuilderTy &Builder,
                                           const SimplifyQuery &Q) {
   // Match an equality compare with a non-poison constant as Cmp0.
@@ -1146,6 +1146,9 @@ static Value *foldAndOrOfICmpsWithConstEq(ICmpInst *Cmp0, ICmpInst *Cmp1,
       return nullptr;
     SubstituteCmp = Builder.CreateICmp(Pred1, Y, C);
   }
+  if (IsLogical)
+    return IsAnd ? Builder.CreateLogicalAnd(Cmp0, SubstituteCmp)
+                 : Builder.CreateLogicalOr(Cmp0, SubstituteCmp);
   return Builder.CreateBinOp(IsAnd ? Instruction::And : Instruction::Or, Cmp0,
                              SubstituteCmp);
 }
@@ -2606,8 +2609,9 @@ Value *InstCombinerImpl::matchSelectFromAndOr(Value *A, Value *C, Value *B,
 
 // (icmp eq X, 0) | (icmp ult Other, X) -> (icmp ule Other, X-1)
 // (icmp ne X, 0) & (icmp uge Other, X) -> (icmp ugt Other, X-1)
-Value *foldAndOrOfICmpEqZeroAndICmp(ICmpInst *LHS, ICmpInst *RHS, bool IsAnd,
-                                    IRBuilderBase &Builder) {
+static Value *foldAndOrOfICmpEqZeroAndICmp(ICmpInst *LHS, ICmpInst *RHS,
+                                           bool IsAnd, bool IsLogical,
+                                           IRBuilderBase &Builder) {
   ICmpInst::Predicate LPred =
       IsAnd ? LHS->getInversePredicate() : LHS->getPredicate();
   ICmpInst::Predicate RPred =
@@ -2626,6 +2630,8 @@ Value *foldAndOrOfICmpEqZeroAndICmp(ICmpInst *LHS, ICmpInst *RHS, bool IsAnd,
   else
     return nullptr;
 
+  if (IsLogical)
+    Other = Builder.CreateFreeze(Other);
   return Builder.CreateICmp(
       IsAnd ? ICmpInst::ICMP_ULT : ICmpInst::ICMP_UGE,
       Builder.CreateAdd(LHS0, Constant::getAllOnesValue(LHS0->getType())),
@@ -2674,22 +2680,23 @@ Value *InstCombinerImpl::foldAndOrOfICmps(ICmpInst *LHS, ICmpInst *RHS,
   if (Value *V = foldLogOpOfMaskedICmps(LHS, RHS, IsAnd, IsLogical, Builder))
     return V;
 
-  // TODO: One of these directions is fine with logical and/or, the other could
-  // be supported by inserting freeze.
-  if (!IsLogical) {
-    if (Value *V = foldAndOrOfICmpEqZeroAndICmp(LHS, RHS, IsAnd, Builder))
-      return V;
-    if (Value *V = foldAndOrOfICmpEqZeroAndICmp(RHS, LHS, IsAnd, Builder))
-      return V;
-  }
+  if (Value *V =
+          foldAndOrOfICmpEqZeroAndICmp(LHS, RHS, IsAnd, IsLogical, Builder))
+    return V;
+  // We can treat logical like bitwise here, because both operands are used on
+  // the LHS, and as such poison from both will propagate.
+  if (Value *V = foldAndOrOfICmpEqZeroAndICmp(RHS, LHS, IsAnd,
+                                              /*IsLogical*/ false, Builder))
+    return V;
 
-  // TODO: Verify whether this is safe for logical and/or.
-  if (!IsLogical) {
-    if (Value *V = foldAndOrOfICmpsWithConstEq(LHS, RHS, IsAnd, Builder, Q))
-      return V;
-    if (Value *V = foldAndOrOfICmpsWithConstEq(RHS, LHS, IsAnd, Builder, Q))
-      return V;
-  }
+  if (Value *V =
+          foldAndOrOfICmpsWithConstEq(LHS, RHS, IsAnd, IsLogical, Builder, Q))
+    return V;
+  // We can convert this case to bitwise and, because both operands are used
+  // on the LHS, and as such poison from both will propagate.
+  if (Value *V = foldAndOrOfICmpsWithConstEq(RHS, LHS, IsAnd,
+                                             /*IsLogical*/ false, Builder, Q))
+    return V;
 
   if (Value *V = foldIsPowerOf2OrZero(LHS, RHS, IsAnd, Builder))
     return V;
@@ -3781,6 +3788,14 @@ Instruction *InstCombinerImpl::foldNot(BinaryOperator &I) {
       Value *NotY = Builder.CreateNot(Y);
       Value *InvMaxMin = Builder.CreateBinaryIntrinsic(InvID, X, NotY);
       return replaceInstUsesWith(I, InvMaxMin);
+    }
+
+    if (II->getIntrinsicID() == Intrinsic::is_fpclass) {
+      ConstantInt *ClassMask = cast<ConstantInt>(II->getArgOperand(1));
+      II->setArgOperand(
+          1, ConstantInt::get(ClassMask->getType(),
+                              ~ClassMask->getZExtValue() & fcAllFlags));
+      return replaceInstUsesWith(I, II);
     }
   }
 
