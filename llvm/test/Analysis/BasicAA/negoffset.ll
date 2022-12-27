@@ -1,6 +1,6 @@
 ; INTEL
 ; Subscript and GEP aliasing diverges in @all_inbounds.
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-SUBS
+; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-SUBS
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

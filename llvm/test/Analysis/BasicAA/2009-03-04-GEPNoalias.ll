@@ -1,6 +1,6 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -S | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -gvn -S | FileCheck %s
 
 declare noalias i32* @noalias()
 

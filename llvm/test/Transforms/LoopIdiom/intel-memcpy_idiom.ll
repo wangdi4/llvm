@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -loop-idiom < %s -S | FileCheck %s
+; RUN: opt -aa-pipeline=tbaa -loop-idiom < %s -S | FileCheck %s
 ;
 ; The loop in the following is expected to be transformed
 ; into the intrinsic llvm.memcpy

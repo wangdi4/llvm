@@ -2,8 +2,8 @@
 ; as noalias (restrict) argument and %twp.addr.029, which
 ; is a copy of another argument %twp, never overlap.
 ;
-; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -S | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-DAG:  NoAlias:      double* %data, double* %twp.addr.029
 ; CHECK-DAG:  NoAlias:      double* %data, double* %twp

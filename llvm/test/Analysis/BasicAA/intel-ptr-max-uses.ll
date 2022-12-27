@@ -1,4 +1,4 @@
-; RUN: opt -basic-aa -xmain-opt-level=3 -aa-eval -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -xmain-opt-level=3 -aa-eval -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
 
 ; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr12
 ; CHECK-DAG:   NoAlias:	double** %ptr.addr, double* %ptr11

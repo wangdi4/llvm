@@ -1,6 +1,10 @@
 ; XFAIL: *
 
+<<<<<<< HEAD
 ; RUN: opt -S -passes=dse < %s | FileCheck %s
+=======
+; RUN: opt -S -dse < %s | FileCheck %s
+>>>>>>> f3a928e2334a ([opt] Don't translate legacy -analysis flag to require<analysis>)
 
 ; We DSE stack alloc'ed and byval locations, in the presence of fences.
 ; Fence does not make an otherwise thread local store visible.

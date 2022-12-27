@@ -1,6 +1,6 @@
-; RUN: opt -basic-aa -licm -S < %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -licm -S < %s | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -S | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -licm -S | FileCheck %s
 ;
 ; struct matrix {
 ;   float *ptr;
