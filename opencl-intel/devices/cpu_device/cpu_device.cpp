@@ -2332,8 +2332,7 @@ bool CPUDevice::CoreToCoreIndex(unsigned int *core) {
   // Only support affinity masks on Linux
 #ifdef WIN32
   return true;
-#endif
-
+#else
   // Todo: maybe use binary search here
   unsigned int result = 0;
   for (; result < m_numCores; ++result) {
@@ -2343,6 +2342,7 @@ bool CPUDevice::CoreToCoreIndex(unsigned int *core) {
     }
   }
   return false;
+#endif
 }
 
 void CPUDevice::clDevGetComputeUnitMap(const unsigned OUT **computeUnitMap,

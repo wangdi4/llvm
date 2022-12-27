@@ -46,7 +46,6 @@ static const char UNUSED_ATTR *GetEventStateName(const cl_int state) {
   default:
     return "error state";
   }
-  return "error state";
 }
 
 OclEvent::OclEvent(_cl_context_int *context)
