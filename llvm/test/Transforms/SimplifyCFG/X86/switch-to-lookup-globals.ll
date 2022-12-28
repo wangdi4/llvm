@@ -23,15 +23,8 @@ define i1 @zot(i32 %arg) {
 ; CHECK-NEXT:    %switch.load = load ptr, ptr %switch.gep, align 8
 ; CHECK-NEXT:    br label %bb6
 ; CHECK:       bb6:
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    %tmp7 = phi %struct.ham* [ %switch.load, %switch.lookup ], [ bitcast (i64* @global2 to %struct.ham*), %bb ]
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    %tmp8 = icmp eq %struct.ham* %tmp7, bitcast (i32* getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], [75 x { i32, i32, i32, i8, i8 }]* @global, i64 1, i64 0, i32 0) to %struct.ham*)
-=======
 ; CHECK-NEXT:    %tmp7 = phi ptr [ %switch.load, %switch.lookup ], [ null, %bb ]
 ; CHECK-NEXT:    %tmp8 = icmp eq ptr %tmp7, getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], ptr @global, i64 1, i64 0, i32 0)
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
 ; CHECK-NEXT:    ret i1 %tmp8
 ;
 bb:
@@ -50,16 +43,7 @@ bb5:                                              ; preds = %bb3
   br label %bb6
 
 bb6:                                              ; preds = %bb5, %bb3, %bb1, %bb
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; the icmp+br+phi ladder above will be converted to a switch, and the switch
-; will be converted to a table lookup.
-  %tmp7 = phi %struct.ham* [ bitcast (i64* @global2 to %struct.ham*), %bb5 ], [ bitcast (i32* getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], [75 x { i32, i32, i32, i8, i8 }]* @global, i64 0, i64 6, i32 0) to %struct.ham*), %bb ], [ bitcast (i64* @global3 to %struct.ham*), %bb1 ], [ null, %bb3 ]
-; end INTEL_CUSTOMIZATION
-  %tmp8 = icmp eq %struct.ham* %tmp7, bitcast (i32* getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], [75 x { i32, i32, i32, i8, i8 }]* @global, i64 1, i64 0, i32 0) to %struct.ham*)
-=======
   %tmp7 = phi ptr [ null, %bb5 ], [ getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], ptr @global, i64 0, i64 6, i32 0), %bb ], [ null, %bb1 ], [ null, %bb3 ]
   %tmp8 = icmp eq ptr %tmp7, getelementptr inbounds ([75 x { i32, i32, i32, i8, i8 }], ptr @global, i64 1, i64 0, i32 0)
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
   ret i1 %tmp8
 }

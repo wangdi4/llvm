@@ -433,12 +433,8 @@ catch.cont:                                       ; preds = %catch
 return:                                           ; preds = %invoke.cont, %catch.cont
   ret void
 }
-<<<<<<< HEAD
 
-define i32 @f9() personality i32 (...)* @__CxxFrameHandler3 {
-=======
-define i32 @f9() personality ptr @__CxxFrameHandler3 {
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
+define i32 @f9() personality ptr (...)* @__CxxFrameHandler3 {
 ; CHECK-LABEL: @f9(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[S:%.*]] = alloca i8, align 1

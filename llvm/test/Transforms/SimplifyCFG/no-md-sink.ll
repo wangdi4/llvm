@@ -5,19 +5,13 @@
 define i1 @test1(i1 zeroext %flag, ptr %y) #0 {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; custom sinking code may reverse the order of these non-dependent insts.
 ; Check the select with hard-coded names so we know it's right.
-; CHECK-DAG:    %r = call i1 @llvm.type.test(i8* [[Y:%.*]], metadata [[META0:![0-9]+]])
-; CHECK-DAG:    %s = call i1 @llvm.type.test(i8* [[Y]], metadata [[META1:![0-9]+]])
+; CHECK-DAG:    %r = call i1 @llvm.type.test(ptr [[Y:%.*]], metadata [[META0:![0-9]+]])
+; CHECK-DAG:    %s = call i1 @llvm.type.test(ptr [[Y]], metadata [[META1:![0-9]+]])
 ; CHECK-NEXT:    [[T:%.*]] = select i1 [[FLAG:%.*]], i1 %r, i1 %s
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[S:%.*]] = call i1 @llvm.type.test(ptr [[Y:%.*]], metadata [[META0:![0-9]+]])
-; CHECK-NEXT:    [[R:%.*]] = call i1 @llvm.type.test(ptr [[Y]], metadata [[META1:![0-9]+]])
-; CHECK-NEXT:    [[T:%.*]] = select i1 [[FLAG:%.*]], i1 [[R]], i1 [[S]]
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
 ; CHECK-NEXT:    ret i1 [[T]]
 ;
 entry:
@@ -44,16 +38,11 @@ declare i1 @llvm.type.test(ptr %ptr, metadata %bitset) nounwind readnone
 define i1 @test2(i1 zeroext %flag, ptr %y, ptr %z) #0 {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[Y_Z:%.*]] = select i1 [[FLAG:%.*]], i8* [[Y:%.*]], i8* [[Z:%.*]]
+; CHECK-NEXT:    [[Y_Z:%.*]] = select i1 [[FLAG:%.*]], ptr [[Y:%.*]], ptr [[Z:%.*]]
 ; INTEL_CUSTOMIZATION
 ; hardcode !0 here so that it's not dependent on the order of the 2 calls above
-; CHECK-NEXT:    [[S:%.*]] = call i1 @llvm.type.test(i8* [[Y_Z]], metadata !0
+; CHECK-NEXT:    [[S:%.*]] = call i1 @llvm.type.test(ptr [[Y_Z]], metadata !0
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[Y_Z:%.*]] = select i1 [[FLAG:%.*]], ptr [[Y:%.*]], ptr [[Z:%.*]]
-; CHECK-NEXT:    [[S:%.*]] = call i1 @llvm.type.test(ptr [[Y_Z]], metadata [[META1]])
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
 ; CHECK-NEXT:    ret i1 [[S]]
 ;
 entry:

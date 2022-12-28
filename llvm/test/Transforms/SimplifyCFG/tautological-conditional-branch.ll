@@ -13,26 +13,14 @@ define void @eggs(i1 %arg, i1 %arg16, ptr %arg17, ptr %arg18, ptr %arg19) {
 ; CHECK-NEXT:    call void @wombat()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb21:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[I:%.*]] = icmp eq %0* [[ARG17:%.*]], null
+; CHECK-NEXT:    [[I:%.*]] = icmp eq ptr [[ARG17:%.*]], null
 ; INTEL_CUSTOMIZATION
 ; D109054 is preventing DCE of control flow. We would like to see removal of
 ; the branch and related conditional computation.
 ; CHECK-NEXT:    call void @hoge()
-; CHECK-NEXT:    [[I27:%.*]] = getelementptr inbounds %0, %0* [[ARG19:%.*]], i64 0, i32 0
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[I28:%.*]] = load %1*, %1** [[I27]], align 8
-; CHECK-NEXT:    call void @pluto.1(%1* [[I28]])
-=======
-; CHECK-NEXT:    [[I:%.*]] = icmp eq ptr [[ARG17:%.*]], null
-; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[I]], true
-; CHECK-NEXT:    call void @llvm.assume(i1 [[TMP0]])
-; CHECK-NEXT:    call void @hoge()
-; CHECK-NEXT:    [[TMP1:%.*]] = xor i1 [[ARG16:%.*]], true
-; CHECK-NEXT:    call void @llvm.assume(i1 [[TMP1]])
 ; CHECK-NEXT:    [[I28:%.*]] = load ptr, ptr [[ARG19:%.*]], align 8
 ; CHECK-NEXT:    call void @pluto.1(ptr [[I28]])
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
 ; CHECK-NEXT:    call void @pluto()
 ; CHECK-NEXT:    ret void
 ;

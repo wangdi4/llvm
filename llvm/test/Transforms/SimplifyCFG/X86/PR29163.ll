@@ -20,18 +20,10 @@ join:
   ret ptr %phi
 }
 
-<<<<<<< HEAD
-; CHECK-LABEL: define i64* @test1(
-; CHECK: %[[load:.*]] = load i64*, i64** @GV, align 8{{$}} ;INTEL
-; CHECK: %[[bc:.*]] = bitcast i8* %P to i64*               ;INTEL
-; CHECK: %[[phi:.*]] = select i1 %cond, i64* %[[load]], i64* %[[bc]]
-; CHECK: ret i64* %[[phi]]
-=======
 ; CHECK-LABEL: define ptr @test1(
 ; CHECK: %[[load:.*]] = load ptr, ptr @GV, align 8{{$}}
 ; CHECK: %[[phi:.*]] = select i1 %cond, ptr %[[load]], ptr %P
 ; CHECK: ret ptr %[[phi]]
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
 
 
 !0 = !{i64 8}

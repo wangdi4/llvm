@@ -120,13 +120,8 @@ bb2:
 define void @test5_no_null_opt(i1 %cond, ptr %ptr) #0 {
 ; CHECK-LABEL: @test5_no_null_opt(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[PTR_2:%.*]] = select i1 [[COND:%.*]], i8* null, i8* [[PTR:%.*]]
-; CHECK-NEXT:    store i8 2, i8* [[PTR_2]], align 8
-=======
-; CHECK-NEXT:    [[DOTPTR:%.*]] = select i1 [[COND:%.*]], ptr null, ptr [[PTR:%.*]]
-; CHECK-NEXT:    store i8 2, ptr [[DOTPTR]], align 8
->>>>>>> 8979ae42769e529b0f6fce3268492ffb49bd54b9
+; CHECK-NEXT:    [[PTR_2:%.*]] = select i1 [[COND:%.*]], ptr null, ptr [[PTR:%.*]]
+; CHECK-NEXT:    store i8 2, ptr [[PTR_2]], align 8
 ; CHECK-NEXT:    ret void
 ;
 entry:
