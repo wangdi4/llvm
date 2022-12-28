@@ -66,7 +66,7 @@ define void @test2() {
 ; CHECK: %f1 = getelementptr %struct.test2, ptr %var2, i64 0, i32 1
 ; CHECK: UNHANDLED
 
-; CHECK: %r1 = atomicrmw xchg ptr %f1, null seq_cst
+; CHECK: %r1 = atomicrmw xchg ptr %f1, ptr null seq_cst
 ; CHECK: UNHANDLED
 
 
@@ -127,7 +127,7 @@ define void @test5() {
 ; CHECK: %var2 = alloca %struct.test5, align 8
 ; CHECK: UNHANDLED
 
-; CHECK: %r1 = atomicrmw xchg ptr %var2, null seq_cst,
+; CHECK: %r1 = atomicrmw xchg ptr %var2, ptr null seq_cst,
 ; CHECK: UNHANDLED
 
 !intel.dtrans.types = !{!3, !4, !5, !6}
