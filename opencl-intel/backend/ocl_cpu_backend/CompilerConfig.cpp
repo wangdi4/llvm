@@ -191,12 +191,10 @@ void CompilerConfig::LoadConfig() {
   if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_DEBUG_ONLY"))
     llvm::setCurrentDebugType(Env.c_str());
 #endif // NDEBUG
-#ifndef INTEL_PRODUCT_RELEASE
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
     // base name for stat files
     m_dumpFilenamePrefix = Env;
   }
-#endif // INTEL_PRODUCT_RELEASE
 }
 
 void CompilerConfig::ApplyRuntimeOptions(

@@ -34,8 +34,8 @@
   "CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE" // cl_ulong
 #define CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR                                    \
   "CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR"                               // int
-#define CL_CONFIG_DUMP_ASM "CL_CONFIG_DUMP_ASM"                       // bool
 #define CL_CONFIG_DUMP_BIN "CL_CONFIG_DUMP_BIN"                       // bool
+#define CL_CONFIG_DUMP_DISASSEMBLY "CL_CONFIG_DUMP_DISASSEMBLY"       // bool
 #define CL_CONFIG_USE_VECTORIZER "CL_CONFIG_USE_VECTORIZER"           // bool
 #define CL_CONFIG_USE_VTUNE "CL_CONFIG_USE_VTUNE"                     // bool
 #define CL_CONFIG_USE_TRAPPING "CL_CONFIG_USE_TRAPPING"               // bool
@@ -61,11 +61,11 @@ public:
 
   VectorizerType GetVectorizerType() const;
   Intel::OpenCL::DeviceBackend::PassManagerType GetPassManagerType() const;
-  bool DumpAsm() const {
-    return m_pConfigFile->Read<bool>(CL_CONFIG_DUMP_ASM, false);
-  }
   bool DumpBin() const {
     return m_pConfigFile->Read<bool>(CL_CONFIG_DUMP_BIN, false);
+  }
+  bool DumpDisassembly() const {
+    return m_pConfigFile->Read<bool>(CL_CONFIG_DUMP_DISASSEMBLY, false);
   }
   bool UseVectorizer() const {
     return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true);

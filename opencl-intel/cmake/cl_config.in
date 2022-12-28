@@ -39,11 +39,11 @@
 # CL_CONFIG_DEVICES [string1; string2, string3 | string4 ...] - list of available devices.
 #                              First device is a default device.
 #
-# CL_CONFIG_DUMP_ASM              [bool] -
-#       Control whether disassembled assembly of OpenCL program is dumped.
-#       Destination is the current directory.
 # CL_CONFIG_DUMP_BIN              [bool] -
 #       Control whether object binary of OpenCL program is dumped.
+#       Destination is the current directory.
+# CL_CONFIG_DUMP_DISASSEMBLY           [bool] -
+#       Control whether disassembled assembly of OpenCL program is dumped.
 #       Destination is the current directory.
 #
 # CL_CONFIG_USE_ITT_API           [bool] - determine whether GPA/ITT traces collection is active or not
@@ -189,8 +189,8 @@
 
 #CL_CONFIG_USER_LOGGER = stderr
 
-CL_CONFIG_DUMP_ASM = False
 CL_CONFIG_DUMP_BIN = False
+CL_CONFIG_DUMP_DISASSEMBLY = False
 
 CL_CONFIG_USE_ITT_API = False
 CL_CONFIG_USE_VECTORIZER = True
