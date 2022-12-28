@@ -3873,7 +3873,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
                          IsArrayOrArraySection, &DT, LocalId0,
                          UseParallelReduction, &UpdateInfos, &TeamsIdxPhi](
                             Instruction *StartPt, BasicBlock *IVIncInsertBB,
-                            BasicBlock::iterator IVIncInsertPt) {
+                            Instruction *IVIncInsertPt) {
       Builder.SetInsertPoint(StartPt);
       auto *HeaderBB = StartPt->getParent();
       Instruction *CmpValue = nullptr;
@@ -3901,7 +3901,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       auto *ExitCond =
           cast<Instruction>(Builder.CreateICmpUGE(IdxPhi, CmpValue));
 
-      Builder.SetInsertPoint(IVIncInsertBB, IVIncInsertPt);
+      Builder.SetInsertPoint(IVIncInsertBB, IVIncInsertPt
+                                                ? IVIncInsertPt->getIterator()
+                                                : IVIncInsertBB->end());
       // loop (1) IV increment
       auto *IdxInc = cast<Instruction>(
           UseParallelReduction
@@ -3910,9 +3912,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       if (IsArrayOrArraySection)
         Builder.CreateBr(HeaderBB);
       // loop (1) latch
-      auto *LatchBB = SplitBlock(
-          IdxInc->getParent(),
-          IdxInc, DT, LI);
+      auto *LatchBB = SplitBlock(IdxInc->getParent(), IdxInc, DT, LI);
+      // Reset Builder's insert point since IVIncInsertPt's parent BB changed.
+      Builder.SetInsertPoint(LatchBB, IVIncInsertPt
+                                          ? IVIncInsertPt->getIterator()
+                                          : LatchBB->end());
       BasicBlock *OuterLatchBB = nullptr;
       if (UseParallelReduction) {
         // loop (0) IV increment
@@ -3999,10 +4003,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       return IdxPhi;
     };
 
+    auto *RedStoreParentBB = RedStore->getParent();
     IdxPhi =
-        GenerateLoop(StartPoint, RedStore->getParent(),
-                     RedI->getIsArraySection() ? RedStore->getParent()->end()
-                                               : RedStore->getIterator());
+        GenerateLoop(StartPoint, RedStoreParentBB,
+                     RedI->getIsArraySection() ? nullptr // use RedStoreParentBB
+                                               : RedStore);
 
     Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
   } else {
