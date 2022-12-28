@@ -118,7 +118,9 @@ set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics
 # INTEL_CUSTOMIZATION
 # Disable deprecated-declarations warnings because they are coming from
 # external GenXIntrinsics headers.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+if (NOT WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+endif (NOT WIN32)
 #end INTEL_CUSTOMIZATION
 
 add_llvm_component_library(LLVMSYCLLowerIR
