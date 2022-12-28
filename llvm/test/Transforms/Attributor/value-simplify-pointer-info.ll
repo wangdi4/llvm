@@ -3147,8 +3147,6 @@ entry:
   ret i8 %i
 }
 
-<<<<<<< HEAD
-=======
 @G = internal global i32 0, align 4
 
 ; Ensure this is not flattened to return 3
@@ -3191,7 +3189,6 @@ f:
   store i32 5, i32* @G
   ret i32 %r
 }
->>>>>>> 8be3133ecdb7c34891c702030a40e6d20f3e3bd4
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}
