@@ -576,7 +576,7 @@ bool createCloneFromMap(
 bool createClones(Module *M, std::string originalMangledName,
                   std::string remangledName,
                   const itanium_demangle::Node *functionTree,
-                  TargetTypeReplacements replacements) {
+                  TargetTypeReplacements &replacements) {
   // create clone of original function
   if (!createCloneFromMap(M, originalMangledName, functionTree,
                           replacements.getCloneTypeReplacements(),
