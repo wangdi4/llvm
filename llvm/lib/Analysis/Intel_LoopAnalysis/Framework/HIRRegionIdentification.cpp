@@ -1551,7 +1551,7 @@ public:
   }
 
   // See LoopBase<>::getNumBackEdges
-  bool isLoopBackedge(Optional<NodeRef> From, NodeRef To) const {
+  bool isLoopBackedge(std::optional<NodeRef> From, NodeRef To) const {
     if (!From) {
       return false;
     }
@@ -1585,7 +1585,7 @@ public:
 
   // Return true if edge destination should be visited.
   // Computes CycleSeen
-  bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+  bool insertEdge(std::optional<NodeRef> From, NodeRef To) {
     if (CycleSeen || DFLoopInfo.isOutgoing(To) ||
         DFLoopInfo.isLoopBackedge(From, To)) {
       return false;

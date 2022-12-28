@@ -1487,7 +1487,7 @@ public:
             !LI2->isSimple())
           return LookAheadHeuristics::ScoreFail;
 
-        Optional<int> Dist = getPointersDiff(
+        std::optional<int> Dist = getPointersDiff(
             LI1->getType(), LI1->getPointerOperand(), LI2->getType(),
             LI2->getPointerOperand(), DL, SE, /*StrictCheck=*/true);
         if (!Dist || *Dist == 0) {
@@ -5301,8 +5301,9 @@ static bool canVectorizeSplitLoads(
 
   auto IsConsecutive = [ScalarTy, &DL, &SE](Value *Ptr0, Value *PtrN,
                                             int Size) {
-    Optional<int> Dist = getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE,
-                                         /*StrictCheck=*/true);
+    std::optional<int> Dist =
+        getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE,
+                        /*StrictCheck=*/true);
     return Dist && *Dist == Size - 1;
   };
 
@@ -5432,7 +5433,7 @@ static LoadsState canVectorizeLoads(
         Ptr0 = PointerOps[Order.front()];
         PtrN = PointerOps[Order.back()];
       }
-      Optional<int> Diff =
+      std::optional<int> Diff =
           getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE);
       // Check that the sorted loads are consecutive.
       if (static_cast<unsigned>(*Diff) == VL.size() - 1)
@@ -5498,7 +5499,7 @@ bool clusterSortPtrAccesses(ArrayRef<Value *> VL, Type *ElemTy,
   unsigned Cnt = 1;
   for (Value *Ptr : VL.drop_front()) {
     bool Found = any_of(Bases, [&](auto &Base) {
-      Optional<int> Diff =
+      std::optional<int> Diff =
           getPointersDiff(ElemTy, Base.first, ElemTy, Ptr, DL, SE,
                           /*StrictCheck=*/true);
       if (!Diff)
@@ -6603,7 +6604,7 @@ bool BoUpSLP::canFormVector(const SmallVector<StoreInst *, 4> &StoresVec,
   Value *S0Ptr = S0->getPointerOperand();
   for (unsigned Idx : seq<unsigned>(1, StoresVec.size())) {
     StoreInst *SI = StoresVec[Idx];
-    Optional<int> Diff =
+    std::optional<int> Diff =
         getPointersDiff(S0Ty, S0Ptr, SI->getValueOperand()->getType(),
                         SI->getPointerOperand(), *DL, *SE,
                         /*StrictCheck=*/true);
@@ -7657,7 +7658,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
           Ptr0 = PointerOps[CurrentOrder.front()];
           PtrN = PointerOps[CurrentOrder.back()];
         }
-        Optional<int> Dist =
+        std::optional<int> Dist =
             getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, *DL, *SE);
         // Check that the sorted pointer operands are consecutive.
         if (static_cast<unsigned>(*Dist) == VL.size() - 1) {
@@ -13375,7 +13376,7 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
     ++IterCnt;
     CheckedPairs[Idx].set(K);
     CheckedPairs[K].set(Idx);
-    Optional<int> Diff = getPointersDiff(
+    std::optional<int> Diff = getPointersDiff(
         Stores[K]->getValueOperand()->getType(), Stores[K]->getPointerOperand(),
         Stores[Idx]->getValueOperand()->getType(),
         Stores[Idx]->getPointerOperand(), *DL, *SE, /*StrictCheck=*/true);

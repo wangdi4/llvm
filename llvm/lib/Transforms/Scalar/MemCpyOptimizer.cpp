@@ -484,7 +484,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
         break;
 
       // Check to see if this store is to a constant offset from the start ptr.
-      Optional<int64_t> Offset =
+      std::optional<int64_t> Offset =
           isPointerOffset(StartPtr, NextStore->getPointerOperand(), DL);
       if (!Offset)
         break;
@@ -498,7 +498,8 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
         break;
 
       // Check to see if this store is to a constant offset from the start ptr.
-      Optional<int64_t> Offset = isPointerOffset(StartPtr, MSI->getDest(), DL);
+      std::optional<int64_t> Offset =
+          isPointerOffset(StartPtr, MSI->getDest(), DL);
       if (!Offset)
         break;
 

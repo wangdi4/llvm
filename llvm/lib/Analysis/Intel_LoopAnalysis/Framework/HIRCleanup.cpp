@@ -121,7 +121,7 @@ void HIRCleanup::eliminateRedundantIfs() {
     }
 
     auto *If = IfBlockPair.first;
-    Optional<bool> Res = isImpliedByDomCondition(Cond, BI, DL, DT);
+    std::optional<bool> Res = isImpliedByDomCondition(Cond, BI, DL, DT);
     bool ImpliedCond = false;
 
     if (!Res) {

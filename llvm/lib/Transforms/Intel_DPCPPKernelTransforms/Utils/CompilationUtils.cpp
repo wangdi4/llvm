@@ -1379,7 +1379,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
   assert(NewFName.find(Suffix.str()) == std::string::npos &&
          "Invalid vectorized function name having suffix!");
 
-  Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
+  std::optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
   assert(Variant.has_value() && "Expect vector variant but it's not.");
 
   Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);

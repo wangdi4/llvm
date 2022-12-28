@@ -233,7 +233,7 @@ public:
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                Optional<InlineContext> IC = std::nullopt);
+                std::optional<InlineContext> IC = std::nullopt);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -245,7 +245,7 @@ protected:
 
   Module &M;
   FunctionAnalysisManager &FAM;
-  const Optional<InlineContext> IC;
+  const std::optional<InlineContext> IC;
   const std::string AnnotatedInlinePassName;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
