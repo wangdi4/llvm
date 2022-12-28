@@ -23,31 +23,11 @@ namespace Predicator {
 
 static constexpr int MaxNumBlocksInAnAllOnesByPass = 6;
 
-// Volcano masked load.
-bool isMangledLoad(StringRef Name) {
-  return Name.contains("masked_load_align");
-}
-
-// Volcano masked store.
-bool isMangledStore(StringRef Name) {
-  return Name.contains("masked_store_align");
-}
-
 // Volcano allOne.
 bool isAllOne(StringRef Name) { return Name.startswith("__ocl_allOne"); }
 
 // Volcano allZero.
 bool isAllZero(StringRef Name) { return Name.startswith("__ocl_allZero"); }
-
-// Volcano vectorizer gather.
-bool isMangledGather(StringRef Name) {
-  return Name.contains("internal.gather");
-}
-
-// Volcano vectorizer scatter.
-bool isMangledScatter(StringRef Name) {
-  return Name.contains("internal.scatter");
-}
 
 // Volcano vectorizer call.
 bool isMangledCall(StringRef Name) { return Name.contains("maskedf_"); }
