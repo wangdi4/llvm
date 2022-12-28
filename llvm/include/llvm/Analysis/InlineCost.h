@@ -279,7 +279,7 @@ class InlineCost {
   const char *Reason = nullptr;
 
   /// The cost-benefit pair computed by cost-benefit analysis.
-  Optional<CostBenefitPair> CostBenefit = std::nullopt;
+  std::optional<CostBenefitPair> CostBenefit = std::nullopt;
 
 #if INTEL_CUSTOMIZATION
   bool IsRecommended = false;
@@ -300,6 +300,7 @@ class InlineCost {
   // Trivial constructor, interesting logic in the factory functions below.
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, int StaticBonusApplied,
+<<<<<<< HEAD
     const char* Reason = nullptr,
     Optional<CostBenefitPair> CostBenefit = std::nullopt,
     bool IsRecommended = false,
@@ -312,6 +313,13 @@ class InlineCost {
     IsRecommended(IsRecommended), IntelReason(IntelReason),
     EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
     TotalSecondaryCost(TotalSecondaryCost) {
+=======
+             const char *Reason = nullptr,
+             std::optional<CostBenefitPair> CostBenefit = std::nullopt)
+      : Cost(Cost), Threshold(Threshold),
+        StaticBonusApplied(StaticBonusApplied), Reason(Reason),
+        CostBenefit(CostBenefit) {
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
     assert((isVariable() || Reason) &&
             "Reason must be provided for Never or Always");
   }
@@ -338,6 +346,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   static InlineCost
   getAlways(const char *Reason,
+<<<<<<< HEAD
             Optional<CostBenefitPair> CostBenefit = std::nullopt) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, // INTEL
                       true, InlineReportTypes::InlrAlwaysInline);  // INTEL
@@ -353,6 +362,15 @@ public:
                               InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,
                       IntelReason);
+=======
+            std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit);
+  }
+  static InlineCost
+  getNever(const char *Reason,
+           std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
+    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit);
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   }
   static InlineCost getNever(const char *Reason,
                              InlineReportTypes::InlineReason IntelReason) {
@@ -400,7 +418,7 @@ public:
   }
 
   /// Get the cost-benefit pair which was computed by cost-benefit analysis
-  Optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
+  std::optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
 
   /// Get the reason of Always or Never.
   const char *getReason() const {
@@ -480,7 +498,7 @@ struct InlineParams {
   int DefaultThreshold = -1;
 
   /// Threshold to use for callees with inline hint.
-  Optional<int> HintThreshold;
+  std::optional<int> HintThreshold;
 
 #if INTEL_CUSTOMIZATION
   /// Threshold to use for callees with ODR linkage, double callsites and
@@ -489,16 +507,16 @@ struct InlineParams {
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use for cold callees.
-  Optional<int> ColdThreshold;
+  std::optional<int> ColdThreshold;
 
   /// Threshold to use when the caller is optimized for size.
-  Optional<int> OptSizeThreshold;
+  std::optional<int> OptSizeThreshold;
 
   /// Threshold to use when the caller is optimized for minsize.
-  Optional<int> OptMinSizeThreshold;
+  std::optional<int> OptMinSizeThreshold;
 
   /// Threshold to use when the callsite is considered hot.
-  Optional<int> HotCallSiteThreshold;
+  std::optional<int> HotCallSiteThreshold;
 
 #if INTEL_CUSTOMIZATION
   /// This flag indicates that it is LTO compile phase. This flag is
@@ -520,10 +538,10 @@ struct InlineParams {
 
   /// Threshold to use when the callsite is considered hot relative to function
   /// entry.
-  Optional<int> LocallyHotCallSiteThreshold;
+  std::optional<int> LocallyHotCallSiteThreshold;
 
   /// Threshold to use when the callsite is considered cold.
-  Optional<int> ColdCallSiteThreshold;
+  std::optional<int> ColdCallSiteThreshold;
 
   /// Compute inline cost even when the cost has exceeded the threshold.
   std::optional<bool> ComputeFullInlineCost;
@@ -535,7 +553,7 @@ struct InlineParams {
   std::optional<bool> AllowRecursiveCall = false;
 };
 
-Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
+std::optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
 
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.
@@ -613,7 +631,7 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
 /// directives or incompatibilities detectable without needing callee traversal.
 /// Otherwise returns std::nullopt, meaning that inlining should be decided
 /// based on other criteria (e.g. cost modeling).
-Optional<InlineResult> getAttributeBasedInliningDecision(
+std::optional<InlineResult> getAttributeBasedInliningDecision(
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
@@ -625,7 +643,7 @@ Optional<InlineResult> getAttributeBasedInliningDecision(
 /// returns:
 /// - std::nullopt, if the inlining cannot happen (is illegal)
 /// - an integer, representing the cost.
-Optional<int> getInliningCostEstimate(
+std::optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
     function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
@@ -637,7 +655,7 @@ Optional<int> getInliningCostEstimate(
 
 /// Get the expanded cost features. The features are returned unconditionally,
 /// even if inlining is impossible.
-Optional<InlineCostFeatures> getInliningCostFeatures(
+std::optional<InlineCostFeatures> getInliningCostFeatures(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
     function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,

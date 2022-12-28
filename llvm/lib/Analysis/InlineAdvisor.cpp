@@ -150,11 +150,16 @@ void DefaultInlineAdvice::recordInliningImpl() {
                                Advisor->getAnnotatedInlinePassName());
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 llvm::InlineCost static getDefaultInlineAdvice(
     CallBase &CB, FunctionAnalysisManager &FAM, InlineParams &Params,
     InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
+=======
+std::optional<llvm::InlineCost> static getDefaultInlineAdvice(
+    CallBase &CB, FunctionAnalysisManager &FAM, const InlineParams &Params) {
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
@@ -415,11 +420,18 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 /// CallSite. If we return the cost, we will emit an optimisation remark later
 /// using that cost, so we won't do so from this function. Return std::nullopt
 /// if inlining should not be attempted.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InlineCost llvm::shouldInline(
     CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
     OptimizationRemarkEmitter &ORE, bool EnableDeferral) {
 #endif // INTEL_CUSTOMIZATION
+=======
+std::optional<InlineCost>
+llvm::shouldInline(CallBase &CB,
+                   function_ref<InlineCost(CallBase &CB)> GetInlineCost,
+                   OptimizationRemarkEmitter &ORE, bool EnableDeferral) {
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   using namespace ore;
 
   InlineCost IC = GetInlineCost(CB);
@@ -581,7 +593,7 @@ void llvm::emitInlinedIntoBasedOnCost(
 }
 
 InlineAdvisor::InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                             Optional<InlineContext> IC)
+                             std::optional<InlineContext> IC)
     : M(M), FAM(FAM), IC(IC),
       AnnotatedInlinePassName((IC && AnnotateInlinePhase)
                                   ? llvm::AnnotateInlinePassName(*IC)

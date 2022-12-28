@@ -915,17 +915,21 @@ bool matchSimpleRecurrence(const BinaryOperator *I, PHINode *&P, Value *&Start,
 ///  T | T | F
 ///  F | T | T
 /// (A)
-Optional<bool> isImpliedCondition(const Value *LHS, const Value *RHS,
-                                  const DataLayout &DL, bool LHSIsTrue = true,
-                                  unsigned Depth = 0);
-Optional<bool> isImpliedCondition(const Value *LHS, CmpInst::Predicate RHSPred,
-                                  const Value *RHSOp0, const Value *RHSOp1,
-                                  const DataLayout &DL, bool LHSIsTrue = true,
-                                  unsigned Depth = 0);
+std::optional<bool> isImpliedCondition(const Value *LHS, const Value *RHS,
+                                       const DataLayout &DL,
+                                       bool LHSIsTrue = true,
+                                       unsigned Depth = 0);
+std::optional<bool> isImpliedCondition(const Value *LHS,
+                                       CmpInst::Predicate RHSPred,
+                                       const Value *RHSOp0, const Value *RHSOp1,
+                                       const DataLayout &DL,
+                                       bool LHSIsTrue = true,
+                                       unsigned Depth = 0);
 
 #if INTEL_CUSTOMIZATION
 /// Return the boolean condition value in the context of the given instruction
 /// if it is known based on dominating conditions.
+<<<<<<< HEAD
 Optional<bool> isImpliedByDomCondition(const Value *Cond,
                                        const Instruction *ContextI,
                                        const DataLayout &DL,
@@ -935,10 +939,20 @@ Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
                                        const Value *LHS, const Value *RHS,
                                        const Instruction *ContextI,
                                        const DataLayout &DL);
+=======
+std::optional<bool> isImpliedByDomCondition(const Value *Cond,
+                                            const Instruction *ContextI,
+                                            const DataLayout &DL);
+std::optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
+                                            const Value *LHS, const Value *RHS,
+                                            const Instruction *ContextI,
+                                            const DataLayout &DL);
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 
 /// If Ptr1 is provably equal to Ptr2 plus a constant offset, return that
 /// offset. For example, Ptr1 might be &A[42], and Ptr2 might be &A[40]. In
 /// this case offset would be -8.
+<<<<<<< HEAD
 Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
                                   const DataLayout &DL);
 #if INTEL_CUSTOMIZATION
@@ -952,6 +966,10 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 #endif // INTEL_CUSTOMIZATION
+=======
+std::optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
+                                       const DataLayout &DL);
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_VALUETRACKING_H

@@ -167,6 +167,7 @@ private:
 
 class DefaultInlineAdvice : public InlineAdvice {
 public:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB, InlineCost IC,
                       OptimizationRemarkEmitter &ORE, // INTEL
@@ -176,6 +177,13 @@ public:
 
   InlineCost *getInlineCost() { return  &IC; }
 #endif // INTEL_CUSTOMIZATION
+=======
+  DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
+                      std::optional<InlineCost> OIC,
+                      OptimizationRemarkEmitter &ORE, bool EmitRemarks = true)
+      : InlineAdvice(Advisor, CB, ORE, OIC.has_value()), OriginalCB(&CB),
+        OIC(OIC), EmitRemarks(EmitRemarks) {}
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 
 private:
   void recordUnsuccessfulInliningImpl(const InlineResult &Result) override;
@@ -184,7 +192,11 @@ private:
 
 private:
   CallBase *const OriginalCB;
+<<<<<<< HEAD
   InlineCost IC; // INTEL
+=======
+  std::optional<InlineCost> OIC;
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   bool EmitRemarks;
 };
 
@@ -233,6 +245,7 @@ public:
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+<<<<<<< HEAD
                 Optional<InlineContext> IC = std::nullopt);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
@@ -242,10 +255,16 @@ protected:
   getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                      WholeProgramInfo *WPI, bool Advice);
 #endif // INTEL_CUSTOMIZATION
+=======
+                std::optional<InlineContext> IC = std::nullopt);
+  virtual std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) = 0;
+  virtual std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
+                                                           bool Advice);
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 
   Module &M;
   FunctionAnalysisManager &FAM;
-  const Optional<InlineContext> IC;
+  const std::optional<InlineContext> IC;
   const std::string AnnotatedInlinePassName;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
@@ -338,6 +357,7 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 /// CallSite. If we return the cost, we will emit an optimisation remark later
 /// using that cost, so we won't do so from this function. Return std::nullopt
 /// if inlining should not be attempted.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// INTEL: This function has been modified to always return an InlineCost,
 /// so that the inline analysis can pass back results for the inlining report
@@ -347,6 +367,9 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 ///
 InlineCost
 #endif // INTEL_CUSTOMIZATION
+=======
+std::optional<InlineCost>
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
              OptimizationRemarkEmitter &ORE, bool EnableDeferral = true);
 

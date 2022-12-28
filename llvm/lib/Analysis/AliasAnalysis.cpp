@@ -751,9 +751,14 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
 #endif // INTEL_CUSTOMIZATION
 
 ModRefInfo AAResults::getModRefInfo(const Instruction *I,
+<<<<<<< HEAD
                                     const Optional<MemoryLocation> &OptLoc,
                                     AAQueryInfo &AAQIP,                   // INTEL
                                     const Optional<LocationSize> &Size) { // INTEL
+=======
+                                    const std::optional<MemoryLocation> &OptLoc,
+                                    AAQueryInfo &AAQIP) {
+>>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   if (OptLoc == std::nullopt) {
     if (const auto *Call = dyn_cast<CallBase>(I))
       return getMemoryEffects(Call, AAQIP).getModRef();
