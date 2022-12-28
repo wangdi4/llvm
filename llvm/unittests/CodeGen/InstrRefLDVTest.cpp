@@ -1125,10 +1125,11 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
   // X86SubRegIdxRanges. We should change this value when upstream.
-  ASSERT_EQ(MTracker->getNumLocs(), 56u); // Tracks all possible stack locs.
+  const unsigned NumLoc = 56u;
 #else // INTEL_FEATURE_XISA_COMMON
-  ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
+  const unsigned NumLoc = 11u;
 #endif // INTEL_FEATURE_XISA_COMMON
+  ASSERT_EQ(MTracker->getNumLocs(), NumLoc); // Tracks all possible stack locs.
 #endif // INTEL_CUSTOMIZATION
   // Locations are: RSP, stack slots from 2^3 bits wide up to 2^9 for zmm regs,
   // then slots for sub_8bit_hi and sub_16bit_hi ({8, 8} and {16, 16}).
@@ -1152,7 +1153,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // ignore here.
 
   FuncValueTable MInLocs, MOutLocs;
-  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 11);
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, NumLoc); // INTEL
 
   // Transfer function: start with nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
@@ -1187,7 +1188,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // function.
   TransferFunc[1].insert({ALStackLoc, ALDefInBlk1});
   TransferFunc[1].insert({HAXStackLoc, HAXDefInBlk1});
-  initValueArray(MInLocs, 4, 11);
+  initValueArray(MInLocs, 4, NumLoc); // INTEL
   placeMLocPHIs(*MF, AllBlocks, MInLocs, TransferFunc);
   EXPECT_EQ(MInLocs[3][ALStackLoc.asU64()], ALPHI);
   EXPECT_EQ(MInLocs[3][AXStackLoc.asU64()], AXPHI);
