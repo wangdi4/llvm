@@ -329,25 +329,18 @@ ElementCount getECFromSignature(FunctionType *Signature) {
 }
 } // namespace
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 VFInfo VFABI::demangleForVFABI(StringRef MangledName) {
   return VFABI::tryDemangleForVFABI(MangledName).value();
 }
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module &M) {
+std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                                 const Module &M) {
   return VFABI::tryDemangleForVFABI(MangledName, &M);
 }
 
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module *M) {
-#endif
-=======
-// Format of the ABI name:
-// _ZGV<isa><mask><vlen><parameters>_<scalarname>[(<redirection>)]
 std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                                 const Module &M) {
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
+                                                 const Module *M) {
+#endif
   const StringRef OriginalName = MangledName;
   // Assume there is no custom name <redirection>, and therefore the
   // vector name consists of

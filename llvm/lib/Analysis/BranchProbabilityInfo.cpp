@@ -683,7 +683,6 @@ computeUnlikelySuccessors(const BasicBlock *BB, Loop *L,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void
 computeLikelySuccessors(const BasicBlock *BB, Loop *L,
@@ -807,10 +806,7 @@ static unsigned maxLoopDepth(Loop *L) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Optional<uint32_t>
-=======
 std::optional<uint32_t>
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 BranchProbabilityInfo::getEstimatedBlockWeight(const BasicBlock *BB) const {
   auto WeightIt = EstimatedBlockWeight.find(BB);
   if (WeightIt == EstimatedBlockWeight.end())

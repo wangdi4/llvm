@@ -722,14 +722,9 @@ public:
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const Instruction *I,
-<<<<<<< HEAD
-                           const Optional<MemoryLocation> &OptLoc,
-                           AAQueryInfo &AAQIP, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
-=======
                            const std::optional<MemoryLocation> &OptLoc,
-                           AAQueryInfo &AAQIP);
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
+                           AAQueryInfo &AAQIP,                       // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc, DominatorTree *DT,
                                 AAQueryInfo &AAQIP);

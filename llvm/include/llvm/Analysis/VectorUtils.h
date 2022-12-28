@@ -538,8 +538,8 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 
 #if INTEL_CUSTOMIZATION
 VFInfo demangleForVFABI(StringRef MangledName);
-Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
-                                     const Module *M = nullptr);
+std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
+                                          const Module *M = nullptr);
 #endif
 
 /// This routine mangles the given VectorName according to the LangRef

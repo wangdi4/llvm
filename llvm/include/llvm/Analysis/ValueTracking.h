@@ -929,32 +929,21 @@ std::optional<bool> isImpliedCondition(const Value *LHS,
 #if INTEL_CUSTOMIZATION
 /// Return the boolean condition value in the context of the given instruction
 /// if it is known based on dominating conditions.
-<<<<<<< HEAD
-Optional<bool> isImpliedByDomCondition(const Value *Cond,
-                                       const Instruction *ContextI,
-                                       const DataLayout &DL,
-                                       DominatorTree *DT = nullptr);
-#endif // INTEL_CUSTOMIZATION
-Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
-                                       const Value *LHS, const Value *RHS,
-                                       const Instruction *ContextI,
-                                       const DataLayout &DL);
-=======
 std::optional<bool> isImpliedByDomCondition(const Value *Cond,
                                             const Instruction *ContextI,
-                                            const DataLayout &DL);
+                                            const DataLayout &DL,
+                                            DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
 std::optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
                                             const Value *LHS, const Value *RHS,
                                             const Instruction *ContextI,
                                             const DataLayout &DL);
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 
 /// If Ptr1 is provably equal to Ptr2 plus a constant offset, return that
 /// offset. For example, Ptr1 might be &A[42], and Ptr2 might be &A[40]. In
 /// this case offset would be -8.
-<<<<<<< HEAD
-Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
-                                  const DataLayout &DL);
+std::optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
+                                       const DataLayout &DL);
 #if INTEL_CUSTOMIZATION
 /// Printer pass for the ComputeNumSignBits ValueTracking utility.
 class NumSignBitsPrinterPass : public PassInfoMixin<NumSignBitsPrinterPass> {
@@ -966,10 +955,6 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 #endif // INTEL_CUSTOMIZATION
-=======
-std::optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
-                                       const DataLayout &DL);
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_VALUETRACKING_H

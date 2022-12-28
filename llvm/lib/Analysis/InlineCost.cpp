@@ -1306,17 +1306,13 @@ public:
   int getThreshold() const { return Threshold; }
   int getCost() const { return Cost; }
   int getStaticBonusApplied() const { return StaticBonusApplied; }
-<<<<<<< HEAD
-  Optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
+  std::optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() const { return EarlyExitThreshold; }
   int getEarlyExitCost() const { return EarlyExitCost; }
   bool onDynamicAllocaInstException(AllocaInst &I) override;
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  std::optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   bool wasDecidedByCostBenefit() const { return DecidedByCostBenefit; }
   bool wasDecidedByCostThreshold() const { return DecidedByCostThreshold; }
 };

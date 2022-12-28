@@ -5301,8 +5301,9 @@ static bool canVectorizeSplitLoads(
 
   auto IsConsecutive = [ScalarTy, &DL, &SE](Value *Ptr0, Value *PtrN,
                                             int Size) {
-    Optional<int> Dist = getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE,
-                                         /*StrictCheck=*/true);
+    std::optional<int> Dist =
+        getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE,
+                        /*StrictCheck=*/true);
     return Dist && *Dist == Size - 1;
   };
 

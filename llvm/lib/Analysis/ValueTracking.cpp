@@ -7509,7 +7509,6 @@ getDomPredecessorCondition(const Instruction *ContextI) {
   return {PredCond, TrueBB == ContextBB};
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Returns the first instruction of the dominating node of \p DomNode.
 // Also updates \p DomNode to the dominating node.
@@ -7526,17 +7525,12 @@ static const Instruction *getDominatingContext(DomTreeNode *&DomNode) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-Optional<bool> llvm::isImpliedByDomCondition(const Value *Cond,
-                                             const Instruction *ContextI,
-#if INTEL_CUSTOMIZATION
-                                             const DataLayout &DL,
-                                             DominatorTree *DT) {
-#endif // INTEL_CUSTOMIZATION
-=======
 std::optional<bool> llvm::isImpliedByDomCondition(const Value *Cond,
                                                   const Instruction *ContextI,
-                                                  const DataLayout &DL) {
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
+#if INTEL_CUSTOMIZATION
+                                                  const DataLayout &DL,
+                                                  DominatorTree *DT) {
+#endif // INTEL_CUSTOMIZATION
   assert(Cond->getType()->isIntOrIntVectorTy(1) && "Condition must be bool");
 #if INTEL_CUSTOMIZATION
   // When DominatorTree is present, use all dominating blocks to detect implied

@@ -300,26 +300,19 @@ class InlineCost {
   // Trivial constructor, interesting logic in the factory functions below.
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, int StaticBonusApplied,
-<<<<<<< HEAD
-    const char* Reason = nullptr,
-    Optional<CostBenefitPair> CostBenefit = std::nullopt,
-    bool IsRecommended = false,
-    InlineReportTypes::InlineReason IntelReason
-    = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
-    int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
-    Cost(Cost), Threshold(Threshold), StaticBonusApplied(StaticBonusApplied),
-    Reason(Reason),
-    CostBenefit(CostBenefit),
-    IsRecommended(IsRecommended), IntelReason(IntelReason),
-    EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
-    TotalSecondaryCost(TotalSecondaryCost) {
-=======
              const char *Reason = nullptr,
-             std::optional<CostBenefitPair> CostBenefit = std::nullopt)
+             std::optional<CostBenefitPair> CostBenefit = std::nullopt,
+             bool IsRecommended = false,
+             InlineReportTypes::InlineReason IntelReason =
+                 InlineReportTypes::NinlrNoReason,
+             int EarlyExitCost = INT_MAX, int EarlyExitThreshold = INT_MAX,
+             int TotalSecondaryCost = INT_MAX)
       : Cost(Cost), Threshold(Threshold),
         StaticBonusApplied(StaticBonusApplied), Reason(Reason),
-        CostBenefit(CostBenefit) {
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
+        CostBenefit(CostBenefit), IsRecommended(IsRecommended),
+        IntelReason(IntelReason), EarlyExitCost(EarlyExitCost),
+        EarlyExitThreshold(EarlyExitThreshold),
+        TotalSecondaryCost(TotalSecondaryCost) {
     assert((isVariable() || Reason) &&
             "Reason must be provided for Never or Always");
   }
@@ -346,14 +339,13 @@ public:
 #endif // INTEL_CUSTOMIZATION
   static InlineCost
   getAlways(const char *Reason,
-<<<<<<< HEAD
-            Optional<CostBenefitPair> CostBenefit = std::nullopt) {
+            std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, // INTEL
                       true, InlineReportTypes::InlrAlwaysInline);  // INTEL
   }
   static InlineCost
   getNever(const char *Reason,
-           Optional<CostBenefitPair> CostBenefit = std::nullopt) {
+           std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
     return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit,  // INTEL
                       false, InlineReportTypes::NinlrNeverInline); // INTEL
   }
@@ -362,15 +354,6 @@ public:
                               InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,
                       IntelReason);
-=======
-            std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
-    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit);
-  }
-  static InlineCost
-  getNever(const char *Reason,
-           std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
-    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit);
->>>>>>> d4b6fcb32e29d0cd834a3c89205fef48fbfc1d2d
   }
   static InlineCost getNever(const char *Reason,
                              InlineReportTypes::InlineReason IntelReason) {
@@ -378,13 +361,13 @@ public:
                       IntelReason);
   }
   static InlineCost getAlways(const char *Reason,
-                              Optional<CostBenefitPair> CostBenefit,
+                              std::optional<CostBenefitPair> CostBenefit,
                               InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, true,
                       IntelReason);
   }
   static InlineCost getNever(const char *Reason,
-                             Optional<CostBenefitPair> CostBenefit,
+                             std::optional<CostBenefitPair> CostBenefit,
                              InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit, false,
                       IntelReason);
@@ -503,7 +486,7 @@ struct InlineParams {
 #if INTEL_CUSTOMIZATION
   /// Threshold to use for callees with ODR linkage, double callsites and
   /// inline hint.
-  Optional<int> DoubleCallSiteHintThreshold;
+  std::optional<int> DoubleCallSiteHintThreshold;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use for cold callees.
