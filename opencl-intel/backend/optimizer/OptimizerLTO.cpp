@@ -584,14 +584,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // These passes come after PrepareKernelArgs pass to eliminate the
       // redundancy produced by it.
       FunctionPassManager FPM;
-<<<<<<< HEAD
-      FPM.addPass(SimplifyCFGPass());
-      // Align with the pipeline in PassBuilderPipelines.cpp, forbid modifying
-      // CFG since there is no LICM and SimplifyCFG passes after this.
-      FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
-=======
       FPM.addPass(SROAPass());
->>>>>>> edd5f29ffb0c75065bd004dcc080c5751c616f4a
       FPM.addPass(InstCombinePass());
       FPM.addPass(SimplifyCFGPass());
       FPM.addPass(GVNPass());
