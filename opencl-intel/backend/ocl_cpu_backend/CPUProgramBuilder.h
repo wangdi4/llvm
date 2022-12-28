@@ -70,7 +70,8 @@ protected:
 
   void JitProcessing(Program *program, const ICLDevBackendOptions *options,
                      std::unique_ptr<llvm::TargetMachine> targetMachine,
-                     ObjectCodeCache *objCache) override;
+                     ObjectCodeCache *objCache,
+                     ProgramBuildResult &buildResult) override;
 
   // reloads the program container from the cached binary object
   virtual bool ReloadProgramFromCachedExecutable(Program *pProgram) override;

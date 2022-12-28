@@ -43,7 +43,9 @@ set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM})
 set_source_files_properties(cl_device_private_mem_size.cpp
                             PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=17825792)
 
-add_definitions(-DCURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+add_definitions(-DCURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  -DCXX_COMPILER="${CMAKE_CXX_COMPILER}"
+)
 
 set(INPUT_FILE test.cl)
 set(SPIRV_OUTPUT_FILE test.spv)
