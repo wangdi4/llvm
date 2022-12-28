@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -268,7 +268,6 @@ public:
   };
 
   // IOCLDeviceFECompilerDescription
-  const char *clDevFEModuleName() const override;
   const void *clDevFEDeviceInfo() const override;
   size_t clDevFEDeviceInfoSize() const override;
 

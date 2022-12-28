@@ -18,8 +18,8 @@
 #include "Link.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
+#include "cl_logger.h"
 #include "common_clang.h"
-#include "fe_driver_main.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>
@@ -37,36 +37,7 @@
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
-
-#if defined(_WIN32)
-#define DLL_EXPORT _declspec(dllexport)
-#else
-#define DLL_EXPORT
-#endif
-
 using namespace Intel::OpenCL::FECompilerAPI;
-
-DECLARE_LOGGER_CLIENT;
-
-void ClangCompilerTerminate() { llvm::llvm_shutdown(); }
-
-static volatile bool lazyClangCompilerInit =
-    true; // the flag must be 'volatile' to prevent caching in a CPU register
-static llvm::sys::Mutex lazyClangCompilerInitMutex;
-
-bool ClangCompilerInitialize() {
-  bool clangLoadSuccessful = true;
-  if (lazyClangCompilerInit) {
-    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
-
-    if (lazyClangCompilerInit) {
-      clangLoadSuccessful = LoadCommonClang();
-      atexit(ClangCompilerTerminate);
-      lazyClangCompilerInit = false;
-    }
-  }
-  return clangLoadSuccessful;
-}
 
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
@@ -183,14 +154,8 @@ void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
       .getSpecConstInfo(pSpecConstInfo);
 }
 
-extern "C" DLL_EXPORT int CreateFrontEndInstance(const void *pDeviceInfo,
-                                                 size_t devInfoSize,
-                                                 IOCLFECompiler **pFECompiler) {
-  // Lazy initialization
-  if (!ClangCompilerInitialize()) {
-    return CL_COMPILER_NOT_AVAILABLE;
-  }
-
+int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
+                           IOCLFECompiler **pFECompiler) {
   assert(nullptr != pFECompiler && "Front-end compiler can't be null");
   assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
 
@@ -198,7 +163,10 @@ extern "C" DLL_EXPORT int CreateFrontEndInstance(const void *pDeviceInfo,
     *pFECompiler = new ClangFECompiler(pDeviceInfo);
     return CL_SUCCESS;
   } catch (std::bad_alloc &) {
+    DECLARE_LOGGER_CLIENT;
+    INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
     LogErrorA("%S", "Can't allocate compiler instance");
+    RELEASE_LOGGER_CLIENT
     return CL_OUT_OF_HOST_MEMORY;
   }
 }

@@ -45,5 +45,4 @@ add_ocl_unittest_artifacts(
   data/atomics64.spv)
 
 add_dependencies(
-  fpga_test_type clang_compiler${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
-  OclCpuBackEnd cpu_device ${OCL_RT_TEST_DEPS})
+  fpga_test_type clang_compiler OclCpuBackEnd cpu_device ${OCL_RT_TEST_DEPS})

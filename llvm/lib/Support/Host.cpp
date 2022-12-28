@@ -861,7 +861,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
     // Royal:
-    case 0xad:
+    case 0x18:
       CPU = "royal";
       *Type = X86::INTEL_RYL;
       *Subtype = X86::INTEL_RYL_ROYAL;

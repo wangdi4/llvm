@@ -94,15 +94,4 @@ private:
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler *m_fe_compiler;
   llvm::LLVMContext *m_llvm_context;
 };
-
-#if defined(_WIN32)
-#define DLL_IMPORT _declspec(dllimport)
-#else
-#define DLL_IMPORT
-#endif
-
-extern "C" DLL_IMPORT int CreateFrontEndInstance(
-    const void *pDeviceInfo, size_t devInfoSize,
-    Intel::OpenCL::FECompilerAPI::IOCLFECompiler **pFECompiler);
-
 #endif

@@ -83,27 +83,31 @@ add_opencl_executable(
 
 target_link_libraries(
   ${TARGET_NAME}
-  OclPluginManager
-  OCLRecorderStat
-  OCLBuilder
-  OCLKernelDataGenerator
-  OpenCLKernelArgumentsParser
-  DataManager
+  ${COMMON_CLANG_LIB}
+  ${LLVM_MODULE_LIBS}
+  CLElfLib
+  CacheBinaryHandler
   Comparator
   DataGenerator
-  NEAT
-  REFALU
-  PlugInNEAT
-  OCLBuiltinsRef
-  llvm_gtest
+  DataManager
   ImathLibd
-  dynamic_load
-  cl_sys_utils
-  tinyxml_STL
-  ${LLVM_MODULE_LIBS}
-  LLVMAsmParser
   LLVMInterpreterPluggable
-  LLVMTransformUtils)
+  NEAT
+  OCLBuilder
+  OCLBuiltinsRef
+  OCLKernelDataGenerator
+  OCLRecorderStat
+  OclPluginManager
+  OpenCLKernelArgumentsParser
+  PlugInNEAT
+  REFALU
+  cl_logger
+  cl_sys_utils
+  clang_compiler
+  dynamic_load
+  llvm_gtest
+  reflection_module
+  tinyxml_STL)
 
 add_dependencies(${TARGET_NAME} cl_sys_utils)
 

@@ -451,7 +451,6 @@ void Device::InitFECompiler() const {
     m_pFrontEndCompiler = nullptr;
     return;
   }
-  string strModule = pFEConfig->clDevFEModuleName();
   m_pFrontEndCompiler = FrontEndCompiler::Allocate();
 
   if (0 == m_pFrontEndCompiler) {
@@ -460,8 +459,7 @@ void Device::InitFECompiler() const {
   }
 
   cl_err_code clErrRet = m_pFrontEndCompiler->Initialize(
-      OS_DLL_POST(strModule).c_str(), pFEConfig->clDevFEDeviceInfo(),
-      pFEConfig->clDevFEDeviceInfoSize());
+      pFEConfig->clDevFEDeviceInfo(), pFEConfig->clDevFEDeviceInfoSize());
   if (CL_FAILED(clErrRet)) {
     assert(false && "FrontEndCompiler initialization failed");
     m_pFrontEndCompiler = nullptr;

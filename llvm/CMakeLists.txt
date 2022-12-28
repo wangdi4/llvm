@@ -1158,6 +1158,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_CPU_RYL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
+# end INTEL_FEATURE_CPU_RYL
 # INTEL_FEATURE_MARKERCOUNT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
@@ -1474,14 +1478,6 @@ list(APPEND features_enabled_by_default
         CACHE STRING
         "Semicolon-separated list of Intel features to enable."
         FORCE)
-  endif()
-
-  # A temporary workaround until Royal is in silicon. Then it should be deleted
-  # and enabled by default above.
-  if ("${LLVM_INTELFEATURE_PREFIX}_CPU_RYL" IN_LIST LLVM_INTEL_FEATURES AND
-      "${LLVM_INTELFEATURE_PREFIX}_CPU_GNR" IN_LIST LLVM_INTEL_FEATURES)
-    message(FATAL_ERROR
-      "Royal and Graniterapids are incompatible as share the same CPU model")
   endif()
 
   # If any Intel features are specified for the build, we have to check
@@ -2147,7 +2143,6 @@ if (INTEL_CUSTOMIZATION)
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
       ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
       ocl-svml ocl-gdb-plugin ocl-library-kernel
-      ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
       ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
       )
