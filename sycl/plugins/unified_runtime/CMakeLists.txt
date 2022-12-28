@@ -6,6 +6,14 @@ include(FetchContent)
 set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
 set(UNIFIED_RUNTIME_TAG fd711c920acc4434cb52ff18b078c082d9d7f44d)
 
+if(INTEL_CUSTOMIZATION)
+  # 1Source policy is to use internal mirrors as much as possible.
+  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+    set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
 FetchContent_Declare(unified-runtime
   GIT_REPOSITORY    ${UNIFIED_RUNTIME_REPO}
