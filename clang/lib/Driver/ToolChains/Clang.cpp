@@ -10641,8 +10641,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
        getToolChain().getTriple().isSPIR())) {
-    // Workaround for old GPU driver version - bump up to 1.4 after uplift
-    TranslatorArgs.push_back("-spirv-max-version=1.3");
+    TranslatorArgs.push_back("-spirv-max-version=1.4");
 #endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
     // Prevent crash in the translator if input IR contains DIExpression
