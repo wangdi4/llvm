@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -189,7 +189,9 @@ if (INTEL_CUSTOMIZATION)
     get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
     set(LIBOMP_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${LIBOMP_LIB_BASENAME})
     add_custom_target(libomptarget-libiomp-file
-      BYPRODUCTS ${LIBOMP_LIB_FILE}
+      DEPENDS ${LIBOMP_LIB_FILE})
+
+    add_custom_command(OUTPUT ${LIBOMP_LIB_FILE}
       DEPENDS ${LIBOMP_LIB}
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${LIBOMP_LIB}" ${LIBOMP_LIB_FILE}
