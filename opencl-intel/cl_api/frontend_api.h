@@ -221,3 +221,7 @@ typedef int fnCreateFECompilerInstance(
 } // namespace FECompilerAPI
 } // namespace OpenCL
 } // namespace Intel
+
+int CreateFrontEndInstance(
+    const void *pDeviceInfo, size_t devInfoSize,
+    Intel::OpenCL::FECompilerAPI::IOCLFECompiler **pFECompiler);

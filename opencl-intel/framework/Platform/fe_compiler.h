@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -68,8 +68,7 @@ public:
    * Author:       Uri Levy
    * Date:         March 2008
    ****************************************************************************/
-  cl_err_code Initialize(const char *psModuleName, const void *pDeviceInfo,
-                         size_t stDevInfoSize);
+  cl_err_code Initialize(const void *pDeviceInfo, size_t stDevInfoSize);
 
   /*****************************************************************************
    * Function:     FreeResources
@@ -212,16 +211,6 @@ public:
                         size_t uiUnrecongnizedOptionsSize) const;
 
   /*****************************************************************************
-   * Function:     GetModuleName
-   * Description:  returns the module name of the front-end compiler
-   * Arguments:    N/A
-   * Return value: [char *] - pointer to the module name's string
-   * Author:       Uri Levy
-   * Date:         March 2008
-   ****************************************************************************/
-  const char *GetModuleName() const { return m_pszModuleName; }
-
-  /*****************************************************************************
    * Function:    GetSpecConstInfo
    * Description: Get information about specialization constants in the program.
    * Arguments: szProgramBinary - the program binary in SPIR-V format
@@ -251,12 +240,6 @@ protected:
    * Date:         March 2008
    ****************************************************************************/
   virtual ~FrontEndCompiler();
-
-  Utils::OclDynamicLib m_dlModule;
-  Intel::OpenCL::FECompilerAPI::fnCreateFECompilerInstance *m_pfnCreateInstance;
-
-  // module name
-  const char *m_pszModuleName;
 
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler *m_pFECompiler;
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -149,23 +149,13 @@ static std::string buildLibName(const char *s) {
 static void testFindSamplers(std::string sourceIn,
                              std::vector<unsigned int> &samplerIndxs,
                              std::string kernelName) {
-#if defined(_WIN32)
-#if defined(_M_X64)
-  std::string clangLib = buildLibName("clang_compiler64");
-#else
-  std::string clangLib = buildLibName("clang_compiler32");
-#endif
-#else
-  std::string clangLib = buildLibName("clang_compiler");
-#endif
-
   const char *source = sourceIn.c_str();
   OCLBuilder &builder = OCLBuilder::Instance();
 
   IOCLFEBinaryResult *pBinary;
 
   try {
-    pBinary = builder.withSource(source).withLibrary(clangLib.c_str()).build();
+    pBinary = builder.withSource(source).createCompiler().build();
 #if !defined(_WIN32)
     builder.close();
 #endif
@@ -330,24 +320,12 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
   vecConfigs.push_back(ConfigFile2);
   vecConfigs.push_back(ConfigFile3);
 
-#if defined(_WIN32)
-#if defined(_M_X64)
-  std::string clangLib = buildLibName("clang_compiler64");
-#else
-  std::string clangLib = buildLibName("clang_compiler32");
-#endif
-#else
-  std::string clangLib = buildLibName("clang_compiler");
-#endif
-
   OCLBuilder &builder = OCLBuilder::Instance();
 
   IOCLFEBinaryResult *pBinary;
 
   try {
-    pBinary = builder.withSource(source.c_str())
-                  .withLibrary(clangLib.c_str())
-                  .build();
+    pBinary = builder.withSource(source.c_str()).createCompiler().build();
 #if !defined(_WIN32)
     builder.close();
 #endif

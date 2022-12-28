@@ -51,8 +51,7 @@ add_custom_target(${TEST_BC_FILES} DEPENDS ${OUTPUT_FILE})
 add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
                  ${CPU_DEVICE_TEST_TYPE_LINK_LIBS})
 
-add_dependencies(${TARGET} clang_compiler${BUILD_PLATFORM} ${OCL_RT_TEST_DEPS}
-                 ${TEST_BC_FILES})
+add_dependencies(${TARGET} clang_compiler ${OCL_RT_TEST_DEPS} ${TEST_BC_FILES})
 
 if(WIN32)
   set_target_properties(

@@ -27,11 +27,6 @@ using namespace std;
 
 CommonOCLBuilder &CommonOCLBuilder::instance() { return _instance; }
 
-CommonOCLBuilder &CommonOCLBuilder::withLibrary(const char *lib) {
-  m_pCompiler = createCompiler(lib);
-  return *this;
-}
-
 CommonOCLBuilder &CommonOCLBuilder::withBuildOptions(const char *options) {
   m_options = options;
   return *this;
@@ -68,7 +63,6 @@ CommonOCLBuilder &CommonOCLBuilder::withFpgaEmulator(bool isFpgaEmulation) {
 }
 
 void CommonOCLBuilder::close() {
-  m_dynamicLoader.Close();
   if (m_pCompiler)
     m_pCompiler->Release();
   m_pCompiler = nullptr;
@@ -119,28 +113,19 @@ CommonOCLBuilder::CommonOCLBuilder()
     : m_pCompiler(nullptr), m_bSupportFP16(true), m_bSupportFP64(true),
       m_bSupportImages(true), m_bFpgaEmulator(false) {}
 
-IOCLFECompiler *CommonOCLBuilder::createCompiler(const char *lib) {
-  IOCLFECompiler *ret;
+CommonOCLBuilder &CommonOCLBuilder::createCompiler() {
   // constants
-  const char *fnFactoryName = "CreateFrontEndInstance";
   const char *strDeviceOptions = m_extensions.c_str();
 
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
       strDeviceOptions, m_bSupportImages, m_bSupportFP16, m_bSupportFP64, 0,
       m_bFpgaEmulator};
 
-  //
-  // loading clang dll
-  //
-  m_dynamicLoader.Load(lib);
-  fnCreateFECompilerInstance *factoryMethod =
-      (fnCreateFECompilerInstance *)(intptr_t)
-          m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
-  assert(factoryMethod && "GetFunctionPtrByName failed");
-  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret);
-  if (rc || nullptr == ret)
-    throw ocl_string_exception("factory method failed");
-  return ret;
+  int rc =
+      CreateFrontEndInstance(&sDeviceInfo, sizeof(sDeviceInfo), &m_pCompiler);
+  if (rc || nullptr == m_pCompiler)
+    throw ocl_string_exception("create frontend instance failed");
+  return *this;
 }
 
 CommonOCLBuilder CommonOCLBuilder::_instance;

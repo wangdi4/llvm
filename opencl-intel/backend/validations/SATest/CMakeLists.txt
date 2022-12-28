@@ -100,6 +100,7 @@ add_opencl_executable(
 
 target_link_libraries(
   ${TARGET_NAME}
+  ${COMMON_CLANG_LIB}
   ${LLVM_MODULE_LIBS}
   BuiltinLibInfo
   CLElfLib
@@ -108,15 +109,7 @@ target_link_libraries(
   DataManager
   DataVersion
   ImathLibd
-  LLVMAsmParser
-  LLVMBitReader
-  LLVMIntelJITEvents
-  LLVMInterpreter
   LLVMInterpreterPluggable
-  LLVMSPIRVLib
-  LLVMSymbolize
-  LLVMTransformUtils
-  LLVMVectorizer
   LoopUtils
   NEAT
   OCLBuilder
@@ -131,7 +124,9 @@ target_link_libraries(
   PlugInNEAT
   ProgramConfiguration
   REFALU
+  cl_logger
   cl_sys_utils
+  clang_compiler
   dynamic_load
   emutls
   reflection_module

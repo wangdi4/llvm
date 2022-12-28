@@ -16,6 +16,7 @@
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
 #include "common_clang.h"
+#include "frontend_api.h"
 #include "observer.h"
 
 #include <cl_sys_defines.h>
@@ -58,52 +59,18 @@ static std::string GetDriverStorePathToLibrary() {
 
 FrontEndCompiler::FrontEndCompiler()
     : OCLObject<_cl_object>(nullptr, "FrontEndCompiler"),
-      m_pfnCreateInstance(nullptr), m_pszModuleName(nullptr),
       m_pFECompiler(nullptr), m_pLoggerClient(nullptr) {}
 
 FrontEndCompiler::~FrontEndCompiler() { FreeResources(); }
 
-cl_err_code FrontEndCompiler::Initialize(const char *psModuleName,
-                                         const void *pDeviceInfo,
+cl_err_code FrontEndCompiler::Initialize(const void *pDeviceInfo,
                                          size_t stDevInfoSize) {
   FreeResources();
 
   INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-  if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0) {
-    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
-      FrameworkUserLogger::GetInstance()->PrintError(
-          "Failed to load " + std::string(psModuleName) +
-          " with error message: " + m_dlModule.GetError());
-
-#ifdef _WIN32
-    // This path is for loading clang from GPU driver.
-    const std::string pathString =
-        GetDriverStorePathToLibrary() + std::string(psModuleName);
-    if (m_dlModule.Load(GetFullModuleNameForLoad(pathString.c_str())) != 0) {
-      LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
-                psModuleName, pathString.c_str());
-      return CL_COMPILER_NOT_AVAILABLE;
-    }
-#else
-    LOG_ERROR(TEXT("Can't find frontend library %s)"), psModuleName);
-    return CL_COMPILER_NOT_AVAILABLE;
-#endif
-  }
-
-  m_pfnCreateInstance =
-      (fnCreateFECompilerInstance *)m_dlModule.GetFunctionPtrByName(
-          "CreateFrontEndInstance");
-  if (nullptr == m_pfnCreateInstance) {
-    LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
-    return CL_COMPILER_NOT_AVAILABLE;
-  }
-
-  m_pszModuleName = STRDUP(psModuleName);
-
   cl_err_code err =
-      m_pfnCreateInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
-
+      CreateFrontEndInstance(pDeviceInfo, stDevInfoSize, &m_pFECompiler);
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("FECompiler::CreateInstance() failed with %x"), err);
   }
@@ -119,13 +86,6 @@ void FrontEndCompiler::FreeResources() {
       m_pFECompiler->Release();
     }
     m_pFECompiler = nullptr;
-  }
-
-  if (nullptr != m_pszModuleName) {
-    free(const_cast<char *>(m_pszModuleName));
-    m_pszModuleName = nullptr;
-    m_dlModule.Close();
-    m_pfnCreateInstance = nullptr;
   }
 }
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -31,8 +31,7 @@ public:
   // returns a singleton instance of this.
   static OCLBuilder &Instance();
 
-  // Sets the name of the library, from which the compiler will be loaded
-  OCLBuilder &withLibrary(const char *lib);
+  OCLBuilder &createCompiler();
 
   // Sets the build options
   OCLBuilder &withBuildOptions(const char *options);
