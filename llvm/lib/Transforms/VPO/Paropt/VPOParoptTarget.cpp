@@ -963,8 +963,7 @@ class AliasSetTrackerSPIRV {
   }
 
 public:
-  AliasSetTrackerSPIRV(AAResults &AAR) {
-    BatchAAResults BAAR(AAR);
+  AliasSetTrackerSPIRV(BatchAAResults &BAAR) {
     ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(BAAR);
     ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(BAAR);
     ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(BAAR);
@@ -1065,13 +1064,14 @@ bool VPOParoptTransform::needBarriersAfterParallel(
                     &DT, OptLevel);
   AAResults AAR(*TLI);
   AAR.addAAResult(BAR);
+  BatchAAResults BAAR(AAR);
 
   SmallDenseMap<WRegionNode *, std::unique_ptr<AliasSetTrackerSPIRV>> ASTs;
-  auto GetAliasSets = [&ASTs, &AAR](WRegionNode *W,
-                                    unsigned AS) -> const ilist<AliasSet> & {
+  auto GetAliasSets = [&ASTs, &BAAR](WRegionNode *W,
+                                     unsigned AS) -> const ilist<AliasSet> & {
     auto P = ASTs.insert({W, nullptr});
     if (P.second) {
-      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(AAR);
+      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(BAAR);
 
       W->populateBBSet();
       for (BasicBlock *BB : W->blocks()) {
@@ -1129,7 +1129,7 @@ bool VPOParoptTransform::needBarriersAfterParallel(
           const ilist<AliasSet> &ASL2 =
               GetAliasSets(P.second, vpo::ADDRESS_SPACE_GLOBAL);
 
-          IsGlobal |= any_of(ASL1, [&ASL2, &AAR](const AliasSet &AS1) {
+          IsGlobal |= any_of(ASL1, [&ASL2, &BAAR](const AliasSet &AS1) {
             if (AS1.isForwardingAliasSet())
               return false;
 
@@ -1143,7 +1143,6 @@ bool VPOParoptTransform::needBarriersAfterParallel(
               // alias sets alias.
               if ((AS1.isMod() && (AS2.isMod() || AS2.isRef())) ||
                   (AS2.isMod() && (AS1.isMod() || AS1.isRef()))) {
-                BatchAAResults BAAR(AAR);
                 // Check if alias sets alias.
                 if (AS1.aliases(AS2, BAAR))
                   return true;
