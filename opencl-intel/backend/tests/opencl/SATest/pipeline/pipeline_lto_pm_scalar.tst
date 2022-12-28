@@ -136,14 +136,14 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Running pass: SimplifyCFGPass
-; CHECK:      Running pass: SROAPass
-; CHECK:      Running pass: InstCombinePass
-; CHECK:      Running pass: GVNPass
-; CHECK:      Running pass: DSEPass
-; CHECK:      Running pass: ADCEPass
-; CHECK:      Running pass: EarlyCSEPass
-; CHECK:      Running pass: InstCombinePass
+; CHECK:      Running pass: SROAPass on test
+; CHECK:      Running pass: InstCombinePass on test
+; CHECK:      Running pass: SimplifyCFGPass on test
+; CHECK:      Running pass: GVNPass on test
+; CHECK:      Running pass: DSEPass on test
+; CHECK:      Running pass: ADCEPass on test
+; CHECK:      Running pass: EarlyCSEPass on test
+; CHECK:      Running pass: InstCombinePass on test
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 
 ; CHECK: Test program was successfully built.
