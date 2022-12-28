@@ -120,6 +120,10 @@ static cl::opt<bool>
                       cl::desc("Print VPlan instructions' DA shape "
                                "instead of simple Uni/Div."));
 
+static cl::opt<bool>
+    VPlanDumpKnownBits("vplan-dump-known-bits", cl::init(false), cl::Hidden,
+                       cl::desc("Print VPlan instructions' known bits"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS);
@@ -425,8 +429,11 @@ void VPInstruction::print(raw_ostream &O) const {
   }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
   VPlanScalVecAnalysisBase *SVA = nullptr;
-  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
+  const VPlanValueTracking *VPVT = nullptr;
+  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan)) {
     SVA = VecVPlan->getVPlanSVA();
+    VPVT = VecVPlan->getVPVT();
+  }
 
   if (DA || SVA)
     O << "[";
@@ -463,6 +470,17 @@ void VPInstruction::print(raw_ostream &O) const {
       O << " ";
     }
     O << ")";
+  }
+
+  // Print known bits for int/ptr values, if requested and we have the analysis.
+  if (VPlanDumpKnownBits && VPVT) {
+    if (getType()->isIntOrPtrTy()) {
+      // Demarker if SVA ops were already printed.
+      if (SVA)
+        O << ", ";
+      O << "KnownBits: ";
+      VPVT->getKnownBits(this, this).print(O);
+    }
   }
 
   if (VPlanDumpDetails || VPlanDumpDebugLoc) {
