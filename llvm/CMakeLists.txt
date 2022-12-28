@@ -1152,6 +1152,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_CPU_RYL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
+# end INTEL_FEATURE_CPU_RYL
 # INTEL_FEATURE_MARKERCOUNT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
@@ -1468,14 +1472,6 @@ list(APPEND features_enabled_by_default
         CACHE STRING
         "Semicolon-separated list of Intel features to enable."
         FORCE)
-  endif()
-
-  # A temporary workaround until Royal is in silicon. Then it should be deleted
-  # and enabled by default above.
-  if ("${LLVM_INTELFEATURE_PREFIX}_CPU_RYL" IN_LIST LLVM_INTEL_FEATURES AND
-      "${LLVM_INTELFEATURE_PREFIX}_CPU_GNR" IN_LIST LLVM_INTEL_FEATURES)
-    message(FATAL_ERROR
-      "Royal and Graniterapids are incompatible as share the same CPU model")
   endif()
 
   # If any Intel features are specified for the build, we have to check
