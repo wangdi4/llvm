@@ -4772,22 +4772,6 @@ SDValue X86TargetLowering::LowerFormalArguments(
       else if (VA.getLocInfo() == CCValAssign::BCvt)
         ArgValue = DAG.getBitcast(VA.getValVT(), ArgValue);
 
-#if INTEL_CUSTOMIZATION
-      if (Subtarget.is64Bit() && VA.getValVT().isInteger() &&
-          (DAG.getTarget().Options.IntelSpillParms ||
-           F.getParent()->getModuleFlag("IntelSpillParms"))) {
-        int FI = MF.getFrameInfo().CreateStackObject(8, Align(8), false);
-        SDValue NewArg = ArgValue;
-        if (VA.getValVT() != MVT::i64)
-          NewArg = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i64, NewArg,
-                               DAG.getValueType(VA.getValVT()));
-        SDValue St = DAG.getStore(DAG.getEntryNode(), dl, NewArg,
-                                  DAG.getFrameIndex(FI, MVT::i64),
-                                  MachinePointerInfo::getFixedStack(MF, FI));
-        Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, St, Chain);
-      }
-#endif // INTEL_CUSTOMIZATION
-
       if (VA.isExtInLoc()) {
         // Handle MMX values passed in XMM regs.
         if (RegVT.isVector() && VA.getValVT().getScalarType() != MVT::i1)

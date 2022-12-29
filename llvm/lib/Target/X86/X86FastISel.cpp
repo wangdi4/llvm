@@ -3166,12 +3166,6 @@ bool X86FastISel::fastLowerArguments() {
       return false;
   }
 
-#if INTEL_CUSTOMIZATION
-  if (GPRCnt && (TM.Options.IntelSpillParms ||
-                 F->getParent()->getModuleFlag("IntelSpillParms")))
-    return false;
-#endif // INTEL_CUSTOMIZATION
-
   static const MCPhysReg GPR32ArgRegs[] = {
     X86::EDI, X86::ESI, X86::EDX, X86::ECX, X86::R8D, X86::R9D
   };

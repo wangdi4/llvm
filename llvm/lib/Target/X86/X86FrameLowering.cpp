@@ -2621,6 +2621,18 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Spill input GPR registers.
+  if (STI.is64Bit() &&
+      (MF.getTarget().Options.IntelSpillParms ||
+       MF.getMMI().getModule()->getModuleFlag("IntelSpillParms"))) {
+    MachineRegisterInfo &MRI = MF.getRegInfo();
+    for (auto I = MRI.livein_begin(), E = MRI.livein_end(); I != E; ++I)
+      if (TRI->isGeneralPurposeRegister(MF, I->first))
+        CSI.push_back(CalleeSavedInfo(getX86SubSuperRegister(I->first, 64)));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (hasFP(MF)) {
     // emitPrologue always spills frame register the first thing.
     SpillSlotOffset -= SlotSize;
