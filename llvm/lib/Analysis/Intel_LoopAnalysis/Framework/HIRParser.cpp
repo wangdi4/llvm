@@ -4616,7 +4616,7 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
     return true;
   }
 
-  bool IsBegin = false;
+  bool IsBegin;
 
   if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
     IsBegin = false;
