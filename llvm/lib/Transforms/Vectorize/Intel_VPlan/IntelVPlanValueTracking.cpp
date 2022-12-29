@@ -64,13 +64,19 @@ public:
     assert(V->getType()->isIntOrPtrTy() &&
            "can't calculate known bits for non-integral types!");
 
+    const unsigned BitWidth = static_cast<unsigned>(
+        Q.DL.getTypeSizeInBits(V->getType()).getKnownMinSize());
+
     // Constants are a special base case for which all known bits are known.
-    if (const auto *C = dyn_cast<VPConstantInt>(V))
-      return KnownBits::makeConstant(C->getValue());
+    if (const auto *C = dyn_cast<VPConstant>(V)) {
+      if (const auto *CI = dyn_cast<ConstantInt>(C->getConstant()))
+        return KnownBits::makeConstant(CI->getValue());
+      if (isa<ConstantPointerNull>(C->getConstant()))
+        return KnownBits::makeConstant(APInt::getNullValue(BitWidth));
+    }
 
     // Otherwise, we know nothing about V's known bits.
-    KnownBits KB{static_cast<unsigned>(
-        Q.DL.getTypeSizeInBits(V->getType()).getKnownMinSize())};
+    KnownBits KB{BitWidth};
 
     // If we've reached our recursion depth, assume unknown.
     if (Depth++ >= MaxRecursionDepth)
