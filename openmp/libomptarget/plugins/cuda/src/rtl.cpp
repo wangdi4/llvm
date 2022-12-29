@@ -1291,6 +1291,29 @@ public:
     return (Err == CUDA_SUCCESS) ? OFFLOAD_SUCCESS : OFFLOAD_FAIL;
   }
 
+  int queryAsync(const int DeviceId, __tgt_async_info *AsyncInfo) const {
+    CUstream Stream = reinterpret_cast<CUstream>(AsyncInfo->Queue);
+    CUresult Err = cuStreamQuery(Stream);
+
+    // Not ready streams must be considered as successful operations.
+    if (Err == CUDA_ERROR_NOT_READY)
+      return OFFLOAD_SUCCESS;
+
+    // Once the stream is synchronized or an error occurs, return it to the
+    // stream pool and reset AsyncInfo. This is to make sure the
+    // synchronization only works for its own tasks.
+    StreamPool[DeviceId]->release(Stream);
+    AsyncInfo->Queue = nullptr;
+
+    if (Err != CUDA_SUCCESS) {
+      DP("Error when querying for stream progress. stream = " DPxMOD
+         ", async info ptr = " DPxMOD "\n",
+         DPxPTR(Stream), DPxPTR(AsyncInfo));
+      CUDA_ERR_STRING(Err);
+    }
+    return (Err == CUDA_SUCCESS) ? OFFLOAD_SUCCESS : OFFLOAD_FAIL;
+  }
+
   void printDeviceInfo(int32_t DeviceId) {
     char TmpChar[1000];
     std::string TmpStr;
@@ -1861,10 +1884,22 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId,
   return DeviceRTL.synchronize(DeviceId, AsyncInfoPtr);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // -Wsign-compare
 #pragma GCC diagnostic pop
 #endif // INTEL_CUSTOMIZATION
+=======
+int32_t __tgt_rtl_query_async(int32_t DeviceId,
+                              __tgt_async_info *AsyncInfoPtr) {
+  assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
+  assert(AsyncInfoPtr && "async_info_ptr is nullptr");
+  assert(AsyncInfoPtr->Queue && "async_info_ptr->Queue is nullptr");
+  // NOTE: We don't need to set context for stream query.
+  return DeviceRTL.queryAsync(DeviceId, AsyncInfoPtr);
+}
+
+>>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 void __tgt_rtl_set_info_flag(uint32_t NewInfoLevel) {
   std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
   InfoLevel.store(NewInfoLevel);
