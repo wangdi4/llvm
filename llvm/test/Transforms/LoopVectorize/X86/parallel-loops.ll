@@ -27,22 +27,14 @@ define void @loop(ptr nocapture %a, ptr nocapture %b) nounwind uwtable {
 ; CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM3]]
 ; CHECK-NEXT:    store i32 [[TMP0]], ptr [[ARRAYIDX4]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
-<<<<<<< HEAD
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDVARS_IV_NEXT]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ARRAYIDX6]], align 4
-; CHECK-NEXT:    store i32 [[TMP2]], i32* [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[INDVARS_IV_NEXT]]
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX6]], align 4
+; CHECK-NEXT:    store i32 [[TMP2]], ptr [[ARRAYIDX2]], align 4
 ; INTEL_CUSTOMIZATION
 ; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
 ; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[LFTR_WIDEIV]], 512
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[INDVARS_IV_NEXT]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX6]], align 4
-; CHECK-NEXT:    store i32 [[TMP2]], ptr [[ARRAYIDX2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = and i64 [[INDVARS_IV_NEXT]], 4294967295
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[TMP3]], 512
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -60,17 +52,11 @@ for.body:                                         ; preds = %for.body, %entry
   %arrayidx4 = getelementptr inbounds i32, ptr %a, i64 %idxprom3
   store i32 %0, ptr %arrayidx4, align 4
   %indvars.iv.next = add i64 %indvars.iv, 1
-<<<<<<< HEAD
-  %arrayidx6 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv.next
-  %2 = load i32, i32* %arrayidx6, align 4
-  store i32 %2, i32* %arrayidx2, align 4
-; INTEL_CUSTOMIZATION
-; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
-=======
   %arrayidx6 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv.next
   %2 = load i32, ptr %arrayidx6, align 4
   store i32 %2, ptr %arrayidx2, align 4
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, 512
 ; end INTEL_CUSTOMIZATION
@@ -91,27 +77,11 @@ define void @parallel_loop(ptr nocapture %a, ptr nocapture %b) nounwind uwtable 
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i64 [[INDEX]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw nsw i64 [[INDEX]], 3
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4, !llvm.access.group [[ACC_GRP0:![0-9]+]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP1]]
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP2]]
-; CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP5]], align 4, !llvm.access.group [[ACC_GRP0]]
-; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP6]], align 4, !llvm.access.group [[ACC_GRP0]]
-; CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* [[TMP7]], align 4, !llvm.access.group [[ACC_GRP0]]
-; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[TMP8]], align 4, !llvm.access.group [[ACC_GRP0]]
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = or i64 [[INDEX]], 1
-; CHECK-NEXT:    [[TMP1:%.*]] = or i64 [[INDEX]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = or i64 [[INDEX]], 3
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[B:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[TMP3]], align 4, !llvm.access.group [[ACC_GRP0:![0-9]+]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[A:%.*]], i64 [[INDEX]]
@@ -122,7 +92,6 @@ define void @parallel_loop(ptr nocapture %a, ptr nocapture %b) nounwind uwtable 
 ; CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP6]], align 4, !llvm.access.group [[ACC_GRP0]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP7]], align 4, !llvm.access.group [[ACC_GRP0]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP8]], align 4, !llvm.access.group [[ACC_GRP0]]
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
 ; CHECK-NEXT:    [[TMP13:%.*]] = sext i32 [[TMP9]] to i64
 ; CHECK-NEXT:    [[TMP14:%.*]] = sext i32 [[TMP10]] to i64
 ; CHECK-NEXT:    [[TMP15:%.*]] = sext i32 [[TMP11]] to i64
@@ -138,23 +107,13 @@ define void @parallel_loop(ptr nocapture %a, ptr nocapture %b) nounwind uwtable 
 ; CHECK-NEXT:    [[TMP23:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 2
 ; CHECK-NEXT:    store i32 [[TMP23]], ptr [[TMP19]], align 4, !llvm.access.group [[ACC_GRP1]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 3
-<<<<<<< HEAD
-; CHECK-NEXT:    store i32 [[TMP24]], i32* [[TMP20]], align 4, !llvm.access.group [[ACC_GRP1]]
+; CHECK-NEXT:    store i32 [[TMP24]], ptr [[TMP20]], align 4, !llvm.access.group [[ACC_GRP1]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP25:%.*]] = add nuw nsw i64 [[INDEX]], 1
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[TMP25]]
-; CHECK-NEXT:    [[TMP27:%.*]] = bitcast i32* [[TMP26]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP27]], align 4, !llvm.access.group [[ACC_GRP0]]
-; CHECK-NEXT:    [[TMP28:%.*]] = bitcast i32* [[TMP5]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD1]], <4 x i32>* [[TMP28]], align 4, !llvm.access.group [[ACC_GRP0]]
-=======
-; CHECK-NEXT:    store i32 [[TMP24]], ptr [[TMP20]], align 4, !llvm.access.group [[ACC_GRP1]]
-; CHECK-NEXT:    [[TMP25:%.*]] = or i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[TMP25]]
 ; CHECK-NEXT:    [[WIDE_LOAD1:%.*]] = load <4 x i32>, ptr [[TMP26]], align 4, !llvm.access.group [[ACC_GRP0]]
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD1]], ptr [[TMP5]], align 4, !llvm.access.group [[ACC_GRP0]]
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP29:%.*]] = icmp eq i64 [[INDEX_NEXT]], 512
 ; CHECK-NEXT:    br i1 [[TMP29]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP2:![0-9]+]]
@@ -182,17 +141,11 @@ for.body:                                         ; preds = %for.body, %entry
   ; loop. Refers to a list with the "original loop reference" (!4) also included.
   store i32 %0, ptr %arrayidx4, align 4, !llvm.access.group !15
   %indvars.iv.next = add i64 %indvars.iv, 1
-<<<<<<< HEAD
-  %arrayidx6 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv.next
-  %2 = load i32, i32* %arrayidx6, align 4, !llvm.access.group !13
-  store i32 %2, i32* %arrayidx2, align 4, !llvm.access.group !13
-; INTEL_CUSTOMIZATION
-; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
-=======
   %arrayidx6 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv.next
   %2 = load i32, ptr %arrayidx6, align 4, !llvm.access.group !13
   store i32 %2, ptr %arrayidx2, align 4, !llvm.access.group !13
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, 512
 ; end INTEL_CUSTOMIZATION
@@ -220,21 +173,13 @@ define void @mixed_metadata(ptr nocapture %a, ptr nocapture %b) nounwind uwtable
 ; CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i32, ptr [[A]], i64 [[IDXPROM3]]
 ; CHECK-NEXT:    store i32 [[TMP0]], ptr [[ARRAYIDX4]], align 4, !llvm.access.group [[ACC_GRP8:![0-9]+]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
-<<<<<<< HEAD
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDVARS_IV_NEXT]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ARRAYIDX6]], align 4, !llvm.access.group [[ACC_GRP7]]
-; CHECK-NEXT:    store i32 [[TMP2]], i32* [[ARRAYIDX2]], align 4, !llvm.access.group [[ACC_GRP7]]
+; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[INDVARS_IV_NEXT]]
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX6]], align 4, !llvm.access.group [[ACC_GRP7]]
+; CHECK-NEXT:    store i32 [[TMP2]], ptr [[ARRAYIDX2]], align 4, !llvm.access.group [[ACC_GRP7]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[LFTR_WIDEIV:%.*]] = trunc i64 [[INDVARS_IV_NEXT]] to i32
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[LFTR_WIDEIV]], 512
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[B]], i64 [[INDVARS_IV_NEXT]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARRAYIDX6]], align 4, !llvm.access.group [[ACC_GRP7]]
-; CHECK-NEXT:    store i32 [[TMP2]], ptr [[ARRAYIDX2]], align 4, !llvm.access.group [[ACC_GRP7]]
-; CHECK-NEXT:    [[TMP3:%.*]] = and i64 [[INDVARS_IV_NEXT]], 4294967295
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[TMP3]], 512
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]], !llvm.loop [[LOOP9:![0-9]+]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
@@ -254,17 +199,11 @@ for.body:                                         ; preds = %for.body, %entry
   ; It should prevent detecting as a parallel loop.
   store i32 %0, ptr %arrayidx4, align 4, !llvm.access.group !17
   %indvars.iv.next = add i64 %indvars.iv, 1
-<<<<<<< HEAD
-  %arrayidx6 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv.next
-  %2 = load i32, i32* %arrayidx6, align 4, !llvm.access.group !16
-  store i32 %2, i32* %arrayidx2, align 4, !llvm.access.group !16
-; INTEL_CUSTOMIZATION
-; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
-=======
   %arrayidx6 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv.next
   %2 = load i32, ptr %arrayidx6, align 4, !llvm.access.group !16
   store i32 %2, ptr %arrayidx2, align 4, !llvm.access.group !16
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
+; INTEL_CUSTOMIZATION
+; cc88445 reverted in favor of ecda1c2 (trunc vs. and)
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, 512
 ; end INTEL_CUSTOMIZATION

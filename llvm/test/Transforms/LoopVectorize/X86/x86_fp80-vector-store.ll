@@ -14,19 +14,13 @@ define void @example() nounwind ssp uwtable {
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDEX]], 1 ;INTEL
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [1024 x x86_fp80], [1024 x x86_fp80]* @x, i64 0, i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [1024 x x86_fp80], [1024 x x86_fp80]* @x, i64 0, i64 [[TMP0]]
-; CHECK-NEXT:    store x86_fp80 0xK3FFF8000000000000000, x86_fp80* [[TMP1]], align 16
-; CHECK-NEXT:    store x86_fp80 0xK3FFF8000000000000000, x86_fp80* [[TMP2]], align 16
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = or i64 [[INDEX]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDEX]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [1024 x x86_fp80], ptr @x, i64 0, i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [1024 x x86_fp80], ptr @x, i64 0, i64 [[TMP0]]
 ; CHECK-NEXT:    store x86_fp80 0xK3FFF8000000000000000, ptr [[TMP1]], align 16
 ; CHECK-NEXT:    store x86_fp80 0xK3FFF8000000000000000, ptr [[TMP2]], align 16
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]

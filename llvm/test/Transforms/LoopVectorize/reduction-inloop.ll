@@ -1016,12 +1016,8 @@ entry:
 }
 
 
-<<<<<<< HEAD
-define i8 @reduction_and_trunc(i8* noalias nocapture %A) {
-; INTEL_CUSTOMIZATION
-=======
 define i8 @reduction_and_trunc(ptr noalias nocapture %A) {
->>>>>>> 7d7577256b76e4293f455b8093504d5f7044ab4b
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @reduction_and_trunc(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
