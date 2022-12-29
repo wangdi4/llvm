@@ -65,6 +65,13 @@ include(CheckCXXCompilerFlag)
 # If in-tree we don't need to include HandleLLVMOptions again: it contains logic
 # which should not be evaluted twice.
 if(NOT OPENCL_INTREE_BUILD)
+  if(NOT DEFINED LLVM_PATH_FE OR NOT DEFINED LLVM_PATH_BE)
+    message(FATAL_ERROR "LLVM_PATH_FE or LLVM_PATH_BE is not specified.")
+  endif()
+  set(LLVM_PATH ${LLVM_PATH_FE})
+  find_package(LLVM REQUIRED)
+
+  include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
   include(HandleLLVMOptions)
 endif()
 

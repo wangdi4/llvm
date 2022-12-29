@@ -1,10 +1,6 @@
 add_subdirectory(type_conversion)
 add_subdirectory(debugger_test_type)
 
-if(NOT OPENCL_INTREE_BUILD)
-  include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
-endif()
-
 # We need to pass some cmake variables into lit .cfg scripts
 configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
                        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg)
