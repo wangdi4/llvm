@@ -32,24 +32,14 @@ define i32 @main(ptr %ptr) {
 ; CHECK-NEXT:    br i1 [[CMP63]], label [[FOR_BODY8_LR_PH:%.*]], label [[FOR_INC9]]
 ; CHECK:       for.body8.lr.ph:
 ; CHECK-NEXT:    [[CONV3:%.*]] = trunc i32 [[STOREMERGE_IN9]] to i8
-<<<<<<< HEAD
-; CHECK-NEXT:    [[DOTPROMOTED:%.*]] = load i32, i32* getelementptr inbounds ([192 x [192 x i32]], [192 x [192 x i32]]* @a, i64 0, i64 0, i64 0), align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = add i8 [[CONV3]], -1
-; CHECK-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[TMP4]], 1
-; CHECK-NEXT:    [[UMIN1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP2]], i32 [[TMP4]])
-; CHECK-NEXT:    [[TMP6:%.*]] = sub i32 [[TMP5]], [[UMIN1]]
-; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP6]], 32
-=======
 ; CHECK-NEXT:    [[DOTPROMOTED:%.*]] = load i32, ptr @a, align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[CONV3]], -1
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext i8 [[TMP1]] to i32
-; CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i32 [[TMP2]], 1
 ; CHECK-NEXT:    [[UMIN1:%.*]] = call i32 @llvm.umin.i32(i32 [[TMP0]], i32 [[TMP2]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = sub i32 [[TMP3]], [[UMIN1]]
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i32 [[TMP4]], 32
->>>>>>> 5b40015063f6ad267ba844f6592077ab8d3b90d3
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; CHECK:       vector.scevcheck:
 ; CHECK-NEXT:    [[TMP5:%.*]] = add i8 [[CONV3]], -1

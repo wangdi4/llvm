@@ -35,30 +35,23 @@ define void @Test(ptr nocapture %obj, i64 %z) #0 {
 ; CHECK-NEXT:    br label [[DOTOUTER_PREHEADER:%.*]]
 ; CHECK:       .outer.preheader:
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, [[TMP0:%.*]] ], [ [[I_NEXT:%.*]], [[DOTOUTER:%.*]] ]
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 2, i64 [[I]], i64 0
-; CHECK-NEXT:    [[SCEVGEP1:%.*]] = bitcast i32* [[SCEVGEP]] to i8*
-; CHECK-NEXT:    [[SCEVGEP2:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 2, i64 [[I]], i64 [[Z]]
-; CHECK-NEXT:    [[SCEVGEP23:%.*]] = bitcast i32* [[SCEVGEP2]] to i8*
-; CHECK-NEXT:    [[SCEVGEP7:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[I]]
-; CHECK-NEXT:    [[SCEVGEP78:%.*]] = bitcast i32* [[SCEVGEP7]] to i8*
-; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i64 [[I]], 1 ;INTEL
-; CHECK-NEXT:    [[SCEVGEP9:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[TMP1]]
-; CHECK-NEXT:    [[SCEVGEP910:%.*]] = bitcast i32* [[SCEVGEP9]] to i8*
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[I]]
-=======
 ; CHECK-NEXT:    [[TMP3:%.*]] = shl nuw nsw i64 [[I]], 7
-; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP3]], 256
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP4:%.*]] = add nuw i64 [[TMP3]], 256
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = add i64 [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[UGLYGEP1:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP5]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = shl nuw nsw i64 [[I]], 2
-; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], 128
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP7:%.*]] = add nuw i64 [[TMP6]], 128
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[UGLYGEP3:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP7]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP6]], 132
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP8:%.*]] = add nuw i64 [[TMP6]], 132
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[UGLYGEP4:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP8]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[OBJ]], i64 0, i32 1, i64 [[I]]
->>>>>>> 5b40015063f6ad267ba844f6592077ab8d3b90d3
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[Z]], 4
 ; CHECK-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_MEMCHECK:%.*]]
 ; CHECK:       vector.memcheck:
