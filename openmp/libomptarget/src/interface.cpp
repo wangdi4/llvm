@@ -152,7 +152,7 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
 #endif
 
 #if INTEL_COLLAB
-  Device.pushSubDevice(EncodedId, DeviceId);
+  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataEnterBegin(DeviceId));
@@ -226,7 +226,7 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
 
 #if INTEL_COLLAB
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-  Device.pushSubDevice(EncodedId, DeviceId);
+  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataExitBegin(DeviceId));
@@ -268,7 +268,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
 
 #if INTEL_COLLAB
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-  Device.pushSubDevice(EncodedId, DeviceId);
+  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
