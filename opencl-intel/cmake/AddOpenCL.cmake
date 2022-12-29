@@ -34,14 +34,6 @@ add_definitions(-DOUTPUT_EMU_SUFF="_${OUTPUT_EMU_SUFF}")
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
-  if(NOT OPENCL_INTREE_BUILD)
-    if(NOT DEFINED LLVM_PATH_FE OR NOT DEFINED LLVM_PATH_BE)
-      message(FATAL_ERROR "LLVM_PATH_FE or LLVM_PATH_BE is not specified.")
-    endif()
-    set(LLVM_PATH ${LLVM_PATH_FE})
-    find_package(LLVM REQUIRED)
-  endif()
-
   math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
   set(VERSIONSTRING
       "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")

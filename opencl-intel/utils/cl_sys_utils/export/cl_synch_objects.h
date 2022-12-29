@@ -114,6 +114,9 @@ public:
   virtual void Unlock() = 0;
   virtual ~IMutex() {}
   IMutex(const IMutex &) = delete;
+  IMutex(IMutex &&) = delete;
+  IMutex &operator=(const IMutex &) = delete;
+  IMutex &operator=(IMutex &&) = delete;
 };
 
 /************************************************************************
@@ -276,6 +279,10 @@ public:
   OclOsDependentEvent(bool AutoReset);
   ~OclOsDependentEvent();
 
+  // Delete copy & move constructor
+  OclOsDependentEvent(const OclOsDependentEvent &) = delete;
+  OclOsDependentEvent(OclOsDependentEvent &&) = delete;
+
   // Delete assignment operator
   OclOsDependentEvent &operator=(const OclOsDependentEvent &) = delete;
   OclOsDependentEvent &operator=(OclOsDependentEvent &&) = delete;
@@ -302,6 +309,10 @@ class OclBinarySemaphore {
 public:
   OclBinarySemaphore();
   virtual ~OclBinarySemaphore();
+
+  // Delete copy & move constructor
+  OclBinarySemaphore(const OclBinarySemaphore &) = delete;
+  OclBinarySemaphore(OclBinarySemaphore &&) = delete;
 
   // Delete assignment operator
   OclBinarySemaphore &operator=(const OclBinarySemaphore &) = delete;

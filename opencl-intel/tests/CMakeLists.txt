@@ -34,11 +34,6 @@ set(CLANG_LIBRARY_DIR
 
 include(itt)
 
-# LIT infrastructure configuration
-if(NOT OPENCL_INTREE_BUILD)
-  include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
-endif()
-
 # Compile .cl to .bc
 macro(compile_bitcode SOURCE OUTPUT)
   cmake_parse_arguments("ARG" "BUILD_INV" "" "EXTRA_CLANG_FLAGS" ${ARGN})

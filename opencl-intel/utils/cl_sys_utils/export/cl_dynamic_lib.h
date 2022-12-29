@@ -33,6 +33,10 @@ public:
   OclDynamicLib(bool bUnloadOnDestructor = true);
   virtual ~OclDynamicLib();
 
+  // Delete copy & move constructor
+  OclDynamicLib(const OclDynamicLib &) = delete;
+  OclDynamicLib(OclDynamicLib &&) = delete;
+
   // Delete assignment operator
   OclDynamicLib &operator=(const OclDynamicLib &) = delete;
   OclDynamicLib &operator=(OclDynamicLib &&) = delete;

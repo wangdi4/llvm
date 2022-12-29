@@ -152,12 +152,25 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
     return nullptr;
   }
 
+  void expectKnownBits(Twine Name, const VPValue *V, const VPInstruction *CtxI,
+                       uint64_t Zero, uint64_t One) {
+    KnownBits KB = Plan->getVPVT()->getKnownBits(V, CtxI);
+    EXPECT_EQ(KB.Zero.getZExtValue(), Zero) << "KB('%" << Name << "')";
+    EXPECT_EQ(KB.One.getZExtValue(), One) << "KB('%" << Name << "')";
+  }
+
   void expectKnownBits(StringRef Name, uint64_t Zero, uint64_t One) {
     const VPInstruction *I = findInstructionByName(Name);
     ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
-    KnownBits KB = Plan->getVPVT()->getKnownBits(I, I);
-    EXPECT_EQ(KB.Zero.getZExtValue(), Zero) << "KB('%" << Name << "')";
-    EXPECT_EQ(KB.One.getZExtValue(), One) << "KB('%" << Name << "')";
+    expectKnownBits(Name, I, I, Zero, One);
+  }
+
+  void expectKnownBitsForOperand(StringRef Name, unsigned Idx, uint64_t Zero,
+                                 uint64_t One) {
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
+    expectKnownBits(Twine(Name) + "." + std::to_string(Idx), I->getOperand(Idx),
+                    I, Zero, One);
   }
 };
 
@@ -188,6 +201,30 @@ TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_Arithmetic) {
   expectKnownBits("b.shl", /*Zero:*/ 0b00000111, /*One:*/ 0b00000000);
   expectKnownBits("b.or",  /*Zero:*/ 0b00000000, /*One:*/ 0b00111111);
   expectKnownBits("b.sub", /*Zero:*/ 0b00000001, /*One:*/ 0b00111110);
+  // clang-format on
+}
+
+TEST_F(VPlanComputeKnownBitsTest, Constants) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %a) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %mul = mul i64 %a, 0
+      %add = add i64 %a, 127
+      %gep = getelementptr i64, i64* null, i64 42
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+  // clang-format off
+  expectKnownBitsForOperand("mul", /*Idx:*/ 1, /*Zero:*/   ~0, /*One:*/   0);
+  expectKnownBitsForOperand("add", /*Idx:*/ 1, /*Zero:*/ ~127, /*One:*/ 127);
+  expectKnownBitsForOperand("gep", /*Idx:*/ 0, /*Zero:*/   ~0, /*One:*/   0);
   // clang-format on
 }
 

@@ -88,10 +88,12 @@ int main(int argc, char **argv) {
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 
+  int ret = 0;
   try {
-    TableGenMain(argv[0], &OCLTableGenMain);
+    ret = TableGenMain(argv[0], &OCLTableGenMain);
   } catch (std::bad_array_new_length &e) {
     std::cerr << e.what() << std::endl;
     return -1;
   }
+  return ret;
 }

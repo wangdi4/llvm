@@ -124,6 +124,10 @@ struct LoggerSingletonHandler {
     }
   }
 
+  // Delete copy & move constructor
+  LoggerSingletonHandler(const LoggerSingletonHandler &) = delete;
+  LoggerSingletonHandler(LoggerSingletonHandler &&) = delete;
+
   // Delete assignment operator
   LoggerSingletonHandler &operator=(const LoggerSingletonHandler &) = delete;
   LoggerSingletonHandler &operator=(LoggerSingletonHandler &&) = delete;
