@@ -7,13 +7,9 @@
 // RUN: llvm-profdata merge -o %t.promo.profdata %t.promo.prof/
 // RUN: llvm-profdata show --counts --all-functions %t.promo.profdata  > %t.promo.dump
 // RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen -O2 %s
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-// RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen.ll -emit-llvm -S -O2 -mllvm -enable-andersen=false -Xclang -no-opaque-pointers %s
+// RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen.ll -emit-llvm -S -O2 -mllvm -enable-andersen=false %s
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen.ll -emit-llvm -S -O2 %s
->>>>>>> fe0bd3e24e9c8ed886170e242a429a49407e1a75
 // RUN: cat %t.nopromo.gen.ll | FileCheck --check-prefix=NOPROMO %s
 // RUN: %run %t.nopromo.gen
 // RUN: llvm-profdata merge -o %t.nopromo.profdata %t.nopromo.prof/
