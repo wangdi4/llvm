@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -33,8 +33,7 @@ public:
   // returns a singleton instance of this.
   static CommonOCLBuilder &instance();
 
-  // Sets the name of the library, from which the compiler will be loaded
-  CommonOCLBuilder &withLibrary(const char *lib);
+  CommonOCLBuilder &createCompiler();
 
   // Sets the build options
   CommonOCLBuilder &withBuildOptions(const char *options);
@@ -62,14 +61,10 @@ private:
   // Prevent misuse, can't be stack allocated
   CommonOCLBuilder(const CommonOCLBuilder &builder);
 
-  Intel::OpenCL::FECompilerAPI::IOCLFECompiler *createCompiler(const char *lib);
-
   // Statically initialized instance of the builder
   static CommonOCLBuilder _instance;
-  // compiler pointer, extracted by 'withLibrary' method
+  // compiler pointer, extracted by 'creatCompiler' method
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler *m_pCompiler;
-  // used to load the library
-  Intel::OpenCL::Utils::OclDynamicLib m_dynamicLoader;
   // source to be compiled
   std::string m_source;
   // build options

@@ -3233,32 +3233,6 @@ void CPUDevice::clDevCloseDevice(void) {
   delete this;
 }
 
-const char *CPUDevice::clDevFEModuleName() const {
-#if defined(_WIN32)
-#if defined(_M_X64)
-#define FE_MODULE_NAME "clang_compiler64"
-#else
-#define FE_MODULE_NAME "clang_compiler32"
-#endif
-#else
-#define FE_MODULE_NAME "clang_compiler"
-#endif
-
-#ifndef OUTPUT_EMU_SUFF
-#define OUTPUT_EMU_SUFF "_emu"
-#endif
-
-#define FE_MODULE_NAME_EMU FE_MODULE_NAME OUTPUT_EMU_SUFF
-
-  return m_CPUDeviceConfig.GetDeviceMode() == FPGA_EMU_DEVICE
-             ? FE_MODULE_NAME_EMU
-             : FE_MODULE_NAME;
-
-#undef FE_MODULE_NAME
-#undef OUTPUT_EMU_SUFF
-#undef FE_MODULE_NAME_EMU
-}
-
 const void *CPUDevice::clDevFEDeviceInfo() const {
   struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *dev_info =
       GetCPUDevInfo(m_CPUDeviceConfig);

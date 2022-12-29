@@ -17,7 +17,7 @@ list(
   llvm-as
   FileCheck
   OclCpuBackEnd
-  clang_compiler${BUILD_PLATFORM}
+  clang_compiler
   ${OCL_BUILTIN_LIBS})
 
 if(BACKEND_BUILD_VERIFICATION_LIB)

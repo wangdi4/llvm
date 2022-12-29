@@ -224,34 +224,6 @@ if(OPENCL_INTREE_BUILD)
   set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})
   set(LLVM_PATH_BE ${LLVM_BINARY_DIR})
   set(LLVM_PATH_FE ${LLVM_BINARY_DIR})
-
-  llvm_map_components_to_libnames(
-    LLVM_MODULE_LIBS
-    AllTargetsAsmParsers
-    AllTargetsCodeGens
-    AllTargetsDescs
-    AllTargetsDisassemblers
-    AllTargetsInfos
-    Analysis
-    BitWriter
-    CodeGen
-    Core
-    ExecutionEngine
-    MCJIT
-    IPO
-    IRReader
-    InstCombine
-    Linker
-    Option
-    OrcJIT
-    Passes
-    ScalarOpts
-    Support
-    Target
-    TransformUtils
-    Vectorize
-    Intel_DPCPPKernelTransforms
-    Intel_OpenCLTransforms)
 endif()
 
 find_package(Threads REQUIRED)
@@ -370,6 +342,53 @@ install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./ COMPONENT ocl-version)
 
 # Define OpenCL libraries version
 set_opencl_version()
+
+# Prepare llvm libraries which are needed by ocl
+llvm_map_components_to_libnames(
+  LLVM_MODULE_LIBS
+  AllTargetsAsmParsers
+  AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsDisassemblers
+  AllTargetsInfos
+  Analysis
+  BitReader
+  BitWriter
+  CodeGen
+  Core
+  ExecutionEngine
+  IPO
+  IRReader
+  InstCombine
+  IntelJITEvents
+  Interpreter
+  Linker
+  MCJIT
+  Option
+  OrcJIT
+  Passes
+  SPIRVLib
+  ScalarOpts
+  Support
+  Symbolize
+  Target
+  TransformUtils
+  Vectorizer
+  Intel_DPCPPKernelTransforms
+  Intel_OpenCLTransforms)
+
+# Prepare common_clang dynamic library
+if(OPENCL_INTREE_BUILD)
+  set(COMMON_CLANG_LIB ${COMMON_CLANG})
+else()
+  if(WIN32)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
+  else(WIN32)
+    set(COMMON_CLANG_LIB
+        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${CCLANG_LIBRARY_VERSION})
+    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
+  endif(WIN32)
+endif()
 
 if(WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
               OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
@@ -546,7 +565,6 @@ endif()
 
 if(NOT OPENCL_INTREE_BUILD)
   set(INTEL_DEPLOY_COMPONENTS
-      ocl-clang_compiler${BUILD_PLATFORM}
       ocl-builtins
       ocl-svml
       OpenCL-ICD

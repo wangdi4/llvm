@@ -34,6 +34,19 @@ compile_spv(${INPUT_FILE} ${SPIRV_OUTPUT_FILE} EXTRA_CLANG_FLAGS -cl-std=CL2.0
 add_custom_target(${TEST_SPV_FILE} DEPENDS ${SPIRV_OUTPUT_FILE})
 add_definitions(-DSPIRV_TEST_FILE="${SPIRV_OUTPUT_FILE}")
 
+set(FRONTEND_DRIVER_TEST_TYPE_LINK_LIBS
+  ${COMMON_CLANG_LIB}
+  ${LLVM_MODULE_LIBS}
+  CLElfLib
+  CacheBinaryHandler
+  OclPluginManager
+  cl_logger
+  cl_sys_utils
+  clang_compiler
+  dynamic_load
+  reflection_module
+  test_utils)
+
 # TODO: remove from runtime unittest
 add_ocl_unittest(
   ${TARGET}
@@ -41,10 +54,7 @@ add_ocl_unittest(
   FrontendDriverFixture.cpp
   FrontendDriver_test_type.cpp
   LINK_LIBRARIES
-  clang_compiler${BUILD_PLATFORM}
-  test_utils
-  LLVMCore
-  LLVMSupport)
+  ${FRONTEND_DRIVER_TEST_TYPE_LINK_LIBS})
 
 add_dependencies(${TARGET} ${TEST_SPV_FILE})
 

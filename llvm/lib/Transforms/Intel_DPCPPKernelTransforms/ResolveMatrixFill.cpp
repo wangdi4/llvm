@@ -104,12 +104,17 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
 
   // Handle the first arg, if it's a pointer.
   if (Data->getType()->isPointerTy()) {
+    IRBuilder<> Builder(CI);
     // Get load type info from intrinsics return type
-    auto *LI =
-        new LoadInst(cast<FixedVectorType>(CI->getType())->getElementType(),
-                     Data, "loaded.fill.data", CI);
-    LI->setDebugLoc(CI->getDebugLoc());
-    Data = LI;
+    auto *ElemType = CI->getType()->getScalarType();
+    auto *PtrArgType = cast<PointerType>(Data->getType());
+    // The arg pointee type may mismatch with the returning element type.
+    // e.g. struct { i16 } vs. i16
+    // Create a bitcast in such case.
+    if (!PtrArgType->isOpaqueOrPointeeTypeMatches(ElemType))
+      Data = Builder.CreateBitCast(
+          Data, ElemType->getPointerTo(PtrArgType->getAddressSpace()));
+    Data = Builder.CreateLoad(ElemType, Data, "loaded.fill.data");
   }
 
   // Extract row, col size of the matrix from the second, third args.

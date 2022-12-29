@@ -80,19 +80,13 @@ endif(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED
 link_directories(${TBB_LIB_DIR})
 
 set(FRAMEWORK_LINK_LIBS
+    ${COMMON_CLANG_LIB}
     ${LLVM_MODULE_LIBS}
     BuiltinLibInfo
-    CLElfLib
     CLElfLib
     CacheBinaryHandler
     Context
     Execution
-    LLVMBitReader
-    LLVMIntelJITEvents
-    LLVMSPIRVLib
-    LLVMSupport
-    LLVMSymbolize
-    LLVMVectorizer
     LoopUtils
     MemoryAllocator
     ObjDump
@@ -101,7 +95,6 @@ set(FRAMEWORK_LINK_LIBS
     OclPluginManager
     Platform
     Tracing
-    cl_sys_utils
     cl_sys_utils
     dynamic_load
     emutls
@@ -118,6 +111,7 @@ add_opencl_library(
   builtin_kernels
   cl_logger
   cl_sys_utils
+  clang_compiler
   cpu_device
   device_commands
   task_executor${BUILD_PLATFORM}
@@ -138,6 +132,7 @@ add_opencl_library(
   builtin_kernels
   cl_logger_${OUTPUT_EMU_SUFF}
   cl_sys_utils
+  clang_compiler
   cpu_device
   device_commands
   task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
@@ -184,9 +179,8 @@ install(
   COMPONENT ocl-config)
 
 if(WIN32)
-  set_target_properties(
-    ${TARGET_NAME} PROPERTIES LINK_FLAGS
-                              "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
+  set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS
+    "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DELAYLOAD:${COMMON_CLANG}.dll")
   get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
   set_target_properties(
     ${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1219,13 +1219,6 @@ class IOCLDeviceFECompilerDescription {
 public:
   virtual ~IOCLDeviceFECompilerDescription() {}
 
-  /* clDevFEModuleName
-      Description
-          This function returns the front compiler module name
-      Returns
-          Pointer to a string which holds front-end compiler module name
-  */
-  virtual const char *clDevFEModuleName() const = 0;
   /* clDevFEConfiguration
       Description
           This function returns the front compiler configuration block

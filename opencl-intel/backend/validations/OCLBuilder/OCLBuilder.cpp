@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -36,10 +36,9 @@ OCLBuilder &OCLBuilder::Instance() {
   return instance;
 }
 
-// Sets the name of the library, from which the compiler will be loaded
-OCLBuilder &OCLBuilder::withLibrary(const char *lib) {
+OCLBuilder &OCLBuilder::createCompiler() {
   try {
-    m_CommonBuilder.withLibrary(lib);
+    m_CommonBuilder.createCompiler();
     return *this;
   } catch (ocl_string_exception &Error) {
     throw Validation::Exception::OperationFailed(Error.what());
