@@ -798,7 +798,7 @@ private:
   bool createClones(llvm::Module *M, std::string OriginalMangledName,
                     std::string RemangledName,
                     const itanium_demangle::Node *FunctionTree,
-                    TargetTypeReplacements Replacements) {
+                    TargetTypeReplacements &Replacements) {
     // create clone of original function
     if (!createCloneFromMap(M, OriginalMangledName, FunctionTree,
                             Replacements.getCloneTypeReplacements(),
@@ -820,27 +820,7 @@ private:
                      bool CloneeTypeReplacement = false) {
     Remangler ATR{ContextAST, FunctionTree, TypeReplacements};
 
-<<<<<<< HEAD
     std::string const RemangledName = ATR.remangle();
-=======
-bool createClones(Module *M, std::string originalMangledName,
-                  std::string remangledName,
-                  const itanium_demangle::Node *functionTree,
-                  TargetTypeReplacements &replacements) {
-  // create clone of original function
-  if (!createCloneFromMap(M, originalMangledName, functionTree,
-                          replacements.getCloneTypeReplacements(),
-                          /* CloneeTypeReplacement= */ true))
-    return false;
-
-  // create clone of remangled function
-  if (!createCloneFromMap(M, remangledName, functionTree,
-                          replacements.getRemangledCloneTypeReplacements()))
-    return false;
-
-  return true;
-}
->>>>>>> 92decae2ca203e17d3f245bc34721f9427bbdd38
 
     if (ATR.hasFailed())
       return false;
