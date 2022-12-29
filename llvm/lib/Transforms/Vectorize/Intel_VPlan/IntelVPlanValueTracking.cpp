@@ -165,6 +165,9 @@ public:
     case Instruction::ZExt:
       KB = Op(0).zext(BitWidth);
       return;
+    case VPInstruction::Subscript:
+      computeKnownBitsFromSubscript(cast<VPSubscriptInst>(I), KB, Depth, Q);
+      return;
     default:
       break;
     }
@@ -229,6 +232,94 @@ public:
     computeAddConst(KB, AccConstOffset);
   }
 
+  static void computeKnownBitsFromSubscript(const VPSubscriptInst *Sub,
+                                            KnownBits &KB, unsigned Depth,
+                                            const Query &Q) {
+    // First, compute known bits of the base expression.
+    KB = computeKnownBits(Sub->getPointerOperand(), Depth, Q);
+
+    // Now, for each dimension, compute its known bits, and add the total offset
+    // to the base KB.
+    //
+    // For example, if `%base` is [4 x [256 x {i8, i8}]], and we have an
+    // expression like `&base[N][2].1`, then
+    //
+    //   KB(&(%base)[0:%N:512][0:2:1].1)
+    //     -> KB(%base)
+    //        + (KB(%N) - KB(0))  * 512
+    //        + (KB( 2) - KB(0))  *   1 + KB(&{i8, i8}[1])
+    //
+    // Accumulate constant offsets separately so they can be effiently added all
+    // at once after non-constant offsets are processed.
+    int64_t AccConstOffset = 0;
+    for (int I = Sub->getNumDimensions() - 1; I >= 0; --I) {
+      // If the computed offset becomes unknown at any point, bail out --
+      // further offsets will only result in more unknown bits.
+      if (KB.isUnknown())
+        return;
+
+      const auto Dim = Sub->dim(I);
+
+      // First, handle any struct offsets (which are always constant)
+      AccConstOffset += (int64_t)computeStructOffset(Dim.DimElementType,
+                                                     Dim.StructOffsets, Q.DL);
+
+      // Next, compute known bits for the lower bound and index.
+      const auto LowerKB = computeKnownBits(Dim.LowerBound, Depth, Q);
+      auto IndexKB = computeKnownBits(Dim.Index, Depth, Q);
+
+      // If the lower bound and index are zero, the whole offset is zero, and we
+      // can skip this dimension.
+      if (LowerKB.isZero() && IndexKB.isZero())
+        continue;
+
+      // Now, compute known bits for the element's stride. Using this, the
+      // index, and the lower bound, we compute the total dimension offset:
+      //
+      //   KB(Dim) = (KB(Index) - KB(LowerBound)) * KB(Stride)
+      //
+      // being careful to sign-extend each quantity, as necessary, to the
+      // indexed type's width.
+      const auto StrideKB = computeKnownBits(Dim.StrideInBytes, Depth, Q);
+      const unsigned IndexedTyBits = Q.DL.getIndexTypeSizeInBits(Dim.DimType);
+
+      // If all quantities involved are constant, compute the constant offset
+      // and add it to the accumulated constant offsets.
+      if (LowerKB.isConstant() && IndexKB.isConstant() &&
+          StrideKB.isConstant()) {
+        AccConstOffset += StrideKB.getConstant().getSExtValue() *
+                          (IndexKB.getConstant().getSExtValue() -
+                           LowerKB.getConstant().getSExtValue());
+        continue;
+      }
+
+      // At least one of the quantities is non-constant. Handle those here.
+      KnownBits DimKB{IndexedTyBits};
+      if (LowerKB.isConstant() && StrideKB.isConstant()) {
+        // In most cases, the lower bound and stride are constant. As an
+        // optimization, handle this case specifically (in case lower is 0 or
+        // stride is 1).
+        DimKB = std::move(IndexKB);
+        computeSubConst(DimKB, LowerKB.getConstant().getSExtValue());
+        computeMulConst(DimKB, StrideKB.getConstant().getSExtValue());
+      } else {
+        // Slow path -- compute using KnownBits interfaces.
+        DimKB = KnownBits::mul(StrideKB.sext(IndexedTyBits),
+                               KnownBits::computeForAddSub(
+                                   /*Add:*/ false, /*NSW:*/ true,
+                                   IndexKB.sext(IndexedTyBits),
+                                   LowerKB.sext(IndexedTyBits)));
+      }
+
+      // KB(Base) += KB(Dim)
+      KB =
+          KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false, KB, DimKB);
+    }
+
+    // Now add all accumulated constant offsets in one go.
+    computeAddConst(KB, AccConstOffset);
+  }
+
   /// Multiply the given KnownBits by a constant (possibly-signed) integer
   /// factor.
   template <typename T> static void computeMulConst(KnownBits &KB, T Val) {
@@ -244,19 +335,43 @@ public:
     KB = KnownBits::mul(KnownBits::makeConstant(ConstantInt), std::move(KB));
   }
 
-  /// Add to the given KnownBits a constant (possibly-signed) integer factor.
-  template <typename T> static void computeAddConst(KnownBits &KB, T Val) {
+  /// Add to/sub from the given KnownBits a constant (possibly-signed) integer
+  /// factor.
+  template <bool Add, typename T>
+  static void computeAddSubConst(KnownBits &KB, T Val) {
     static_assert(std::is_integral<T>::value, "can only add an integral value");
-
-    // Fold 0 + %KB => %KB
+    // Fold %KB +/- 0 => %KB
     if (Val == 0)
       return;
-
     APInt ConstantInt{KB.getBitWidth(), static_cast<uint64_t>(Val),
                       std::is_signed<T>::value};
-    KB = KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false,
+    KB = KnownBits::computeForAddSub(/*Add:*/ Add, /*NSW:*/ false,
                                      KnownBits::makeConstant(ConstantInt),
                                      std::move(KB));
+  }
+
+  /// Add to the given KnownBits a constant (possibly-signed) integer factor.
+  template <typename T> static void computeAddConst(KnownBits &KB, T Val) {
+    return computeAddSubConst</*Add:*/ true>(KB, Val);
+  }
+
+  /// Subtract from the given KnownBits a constant (possibly-signed) integer factor.
+  template <typename T> static void computeSubConst(KnownBits &KB, T Val) {
+    return computeAddSubConst</*Add:*/ false>(KB, Val);
+  }
+
+  /// Given a (possibly-empty) set of struct \p Offsets, compute the resulting
+  /// offset in bytes, starting from the base \p Ty.
+  static uint64_t computeStructOffset(Type *Ty, ArrayRef<unsigned> Offsets,
+                                      const DataLayout &DL) {
+    uint64_t Total = 0;
+    Type *Cursor = Ty;
+    for (unsigned Offset : Offsets) {
+      auto *STy = cast<StructType>(Cursor);
+      Total += DL.getStructLayout(STy)->getElementOffset(Offset);
+      Cursor = STy->getStructElementType(Offset);
+    }
+    return Total;
   }
 
   static const Instruction *
