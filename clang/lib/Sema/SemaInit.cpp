@@ -9786,13 +9786,10 @@ bool InitializationSequence::Diagnose(Sema &S,
     break;
   }
 
-<<<<<<< HEAD
-=======
   case FK_ParenthesizedListInitFailed:
     TryOrBuildParenListInitialization(S, Entity, Kind, Args, *this,
                                       /*VerifyOnly=*/false);
     break;
->>>>>>> 91f2918501a8cf21431c07380e6e16501e24f188
   }
 
   PrintInitLocationNote(S, Entity);
@@ -9960,12 +9957,9 @@ void InitializationSequence::dump(raw_ostream &OS) const {
       OS << "list copy initialization chose explicit constructor";
       break;
 
-<<<<<<< HEAD
-=======
     case FK_ParenthesizedListInitFailed:
       OS << "parenthesized list initialization failed";
       break;
->>>>>>> 91f2918501a8cf21431c07380e6e16501e24f188
     }
     OS << '\n';
     return;
