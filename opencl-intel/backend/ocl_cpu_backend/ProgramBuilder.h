@@ -90,7 +90,8 @@ protected:
   virtual void JitProcessing(Program *program,
                              const ICLDevBackendOptions *options,
                              std::unique_ptr<llvm::TargetMachine> targetMachine,
-                             ObjectCodeCache *objCache) = 0;
+                             ObjectCodeCache *objCache,
+                             ProgramBuildResult &buildResult) = 0;
 
   virtual KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
                                    ProgramBuildResult &buildResult) const = 0;

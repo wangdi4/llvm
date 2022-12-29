@@ -69,23 +69,11 @@ enum AllOnesBlockType {
   SINGLE_BLOCK_LOOP_EXIT = 10
 };
 
-// Volcano masked load.
-bool isMangledLoad(StringRef Name);
-
-// Volcano masked store.
-bool isMangledStore(StringRef Name);
-
 // Volcano allOne.
 bool isAllOne(StringRef Name);
 
 // Volcano allZero.
 bool isAllZero(StringRef Name);
-
-// Volcano vectorizer gather.
-bool isMangledGather(StringRef Name);
-
-// Volcano vectorizer scatter.
-bool isMangledScatter(StringRef Name);
 
 // Volcano vectorizer call.
 bool isMangledCall(StringRef Name);

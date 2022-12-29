@@ -17,17 +17,30 @@ extern cl_device_type gDeviceType;
 
 class DumpEnvTest : public ::testing::Test {
 protected:
-  virtual void TearDown() override {
-    cl_int Err = clReleaseProgram(m_program);
-    EXPECT_OCL_SUCCESS(Err, "clReleaseProgram");
+  virtual void SetUp() override {
+    // Set different prefix for each test, in order to avoid race condition in
+    // dumped filenames.
+    const auto *testInfo =
+        ::testing::UnitTest::GetInstance()->current_test_info();
+    m_prefix = std::string(testInfo->test_suite_name()) + testInfo->name();
+    ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX", m_prefix.c_str()));
+  }
 
-    if (!m_kernelName1.empty()) {
+  virtual void TearDown() override {
+    cl_int Err;
+    if (m_program) {
+      Err = clReleaseProgram(m_program);
+      EXPECT_OCL_SUCCESS(Err, "clReleaseProgram");
+    }
+    if (m_program1) {
       Err = clReleaseProgram(m_program1);
       EXPECT_OCL_SUCCESS(Err, "clReleaseProgram");
     }
 
-    Err = clReleaseContext(m_context);
-    EXPECT_OCL_SUCCESS(Err, "clReleaseContext");
+    if (m_context) {
+      Err = clReleaseContext(m_context);
+      EXPECT_OCL_SUCCESS(Err, "clReleaseContext");
+    }
 
     for (auto &e : m_env)
       ASSERT_TRUE(UNSETENV(e.first.c_str()))
@@ -36,6 +49,8 @@ protected:
     // Delete dumped files
     for (auto &filename : m_dumpFilenames)
       (void)std::remove(filename.c_str());
+
+    ASSERT_TRUE(UNSETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX"));
   }
 
   void createContext() {
@@ -62,31 +77,22 @@ protected:
   }
 
   void createFirstProgram() {
-    m_kernelName = "first_kernel";
-    createProgramHelper(m_kernelName, m_program);
+    ASSERT_NO_FATAL_FAILURE(createProgramHelper(m_kernelName, m_program));
   }
 
   void createSecondProgram() {
-    m_kernelName1 = "second_kernel";
-    createProgramHelper(m_kernelName1, m_program1);
-  }
-
-  void testBody(const std::vector<std::string> &suffix,
-                const std::vector<std::vector<std::string>> &patterns) {
-    std::string prefix("framework_test_type");
-    testBody(prefix, suffix, patterns);
+    ASSERT_NO_FATAL_FAILURE(createProgramHelper(m_kernelName1, m_program1));
   }
 
   void
-  validateDumpedFiles(const std::string &Prefix,
-                      const std::vector<std::string> &Suffix,
+  validateDumpedFiles(const std::vector<std::string> &Suffix,
                       const std::vector<std::vector<std::string>> &Patterns,
                       unsigned ProgramIndex = 1) {
     size_t NumFiles = Suffix.size();
     size_t NumPatterns = Patterns.size();
     ASSERT_TRUE(NumPatterns == 0 || NumPatterns == NumFiles);
     for (size_t I = 0; I < NumFiles; ++I) {
-      std::string FilenamePattern = Prefix + "_" +
+      std::string FilenamePattern = m_prefix + "_" +
                                     std::to_string(ProgramIndex) +
                                     "_[0-9a-f]{16}" + Suffix[I];
       Regex R(FilenamePattern);
@@ -107,8 +113,7 @@ protected:
     }
   }
 
-  void testBody(const std::string &prefix,
-                const std::vector<std::string> &suffix,
+  void testBody(const std::vector<std::string> &suffix,
                 const std::vector<std::vector<std::string>> &patterns) {
     for (auto &e : m_env)
       ASSERT_TRUE(SETENV(e.first.c_str(), e.second.c_str()))
@@ -121,17 +126,18 @@ protected:
         clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
     ASSERT_OCL_SUCCESS(err, "clBuildProgram");
 
-    ASSERT_NO_FATAL_FAILURE(validateDumpedFiles(prefix, suffix, patterns));
+    ASSERT_NO_FATAL_FAILURE(validateDumpedFiles(suffix, patterns));
   }
 
 protected:
-  cl_platform_id m_platform;
-  cl_device_id m_device;
-  cl_context m_context;
-  cl_program m_program;
-  cl_program m_program1;
-  std::string m_kernelName;
-  std::string m_kernelName1;
+  cl_platform_id m_platform = nullptr;
+  cl_device_id m_device = nullptr;
+  cl_context m_context = nullptr;
+  cl_program m_program = nullptr;
+  cl_program m_program1 = nullptr;
+  std::string m_kernelName = "first_kernel";
+  std::string m_kernelName1 = "second_kernel";
+  std::string m_prefix = "";
   std::vector<std::string> m_dumpFilenames;
   std::vector<std::pair<std::string, std::string>> m_env;
 };
@@ -204,7 +210,56 @@ TEST_F(DumpEnvTest, OptIRAsmDebug) {
 }
 
 TEST_F(DumpEnvTest, Asm) {
-  m_env = {{"CL_CONFIG_DUMP_ASM", "True"}};
+  // Don't put CL_CONFIG_DUMP_ASM into m_env, to avoid asm being dumped twice.
+  ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_ASM", "True"));
+  std::vector<std::string> suffix = {".s"};
+  std::vector<std::vector<std::string>> patterns = {{m_kernelName, "globl"}};
+  ASSERT_NO_FATAL_FAILURE(testBody(suffix, patterns));
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_DUMP_ASM"));
+  cl_int err = clReleaseProgram(m_program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  m_program = nullptr;
+
+  // Test loading asm and compiling asm to object.
+  ASSERT_EQ(m_dumpFilenames.size(), 1);
+  std::string asmFilename = m_dumpFilenames[0];
+  ASSERT_TRUE(SETENV("CL_CONFIG_REPLACE_ASM", asmFilename.c_str()));
+  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
+  err = clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  std::string log;
+  ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
+  ASSERT_NE(
+      log.find("WARNING: replace device kernel assembly with " + asmFilename),
+      std::string::npos);
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_REPLACE_ASM"));
+  err = clReleaseProgram(m_program);
+  EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  m_program = nullptr;
+
+#ifndef _WIN32
+  // Testing loading object file.
+  std::string objFilename = asmFilename + ".o";
+  std::string compileAsmToObj =
+      (Twine(CXX_COMPILER) + Twine(" -c ") + Twine(asmFilename) +
+       Twine(" -o ") + Twine(objFilename))
+          .str();
+  ASSERT_EQ(system(compileAsmToObj.c_str()), 0);
+  m_dumpFilenames.push_back(objFilename);
+  ASSERT_TRUE(SETENV("CL_CONFIG_REPLACE_OBJ", objFilename.c_str()));
+  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
+  err = clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+  ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
+  ASSERT_NE(
+      log.find("WARNING: replace device kernel object with " + objFilename),
+      std::string::npos);
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_REPLACE_OBJ"));
+#endif
+}
+
+TEST_F(DumpEnvTest, Disassembly) {
+  m_env = {{"CL_CONFIG_DUMP_DISASSEMBLY", "True"}};
   std::vector<std::string> suffix = {".asm"};
   std::vector<std::vector<std::string>> patterns = {
       {m_kernelName, "Disassembly of section"}};
@@ -221,21 +276,20 @@ TEST_F(DumpEnvTest, Bin) {
 
 /// Check that all dumped filenames contains the same hash.
 TEST_F(DumpEnvTest, CheckHashSame) {
-  std::string prefix = "TMP";
-  m_env = {{"CL_CONFIG_DUMP_FILE_NAME_PREFIX", prefix},
-           {"VOLCANO_EQUALIZER_STATS", "All"},
+  m_env = {{"VOLCANO_EQUALIZER_STATS", "All"},
            {"VOLCANO_STATS", "All"},
            {"CL_CONFIG_DUMP_ASM", "True"},
+           {"CL_CONFIG_DUMP_DISASSEMBLY", "True"},
            {"CL_CONFIG_DUMP_BIN", "True"}};
-  std::vector<std::string> suffix = {"_eq.ll", ".ll", ".asm", ".bin"};
+  std::vector<std::string> suffix = {"_eq.ll", ".ll", ".s", ".asm", ".bin"};
   std::vector<std::vector<std::string>> patterns;
-  ASSERT_NO_FATAL_FAILURE(testBody(prefix, suffix, patterns));
+  ASSERT_NO_FATAL_FAILURE(testBody(suffix, patterns));
 
   // Check hashes are the same.
   ASSERT_EQ(suffix.size(), m_dumpFilenames.size());
   std::string hash;
   for (auto &filename : m_dumpFilenames) {
-    std::string hashCurr = filename.substr(prefix.length() + 3, 16);
+    std::string hashCurr = filename.substr(m_prefix.length() + 3, 16);
     if (hash.empty()) {
       hash = hashCurr;
       continue;
@@ -270,13 +324,13 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 
     suffix = {".asm", ".bin"};
     for (auto &s : suffix) {
-      std::string filenamePattern = prefix + "_2_[0-9a-f]{16}" + s;
+      std::string filenamePattern = m_prefix + "_2_[0-9a-f]{16}" + s;
       Regex r(filenamePattern);
       std::vector<std::string> filenames = findFilesInDir(".", r);
       ASSERT_TRUE(!filenames.empty())
           << ("AOT " + filenamePattern + " is not dumped");
       bool found = llvm::any_of(filenames, [&](auto &filename) {
-        return hash == filename.substr(prefix.length() + 3, 16);
+        return hash == filename.substr(m_prefix.length() + 3, 16);
       });
       ASSERT_TRUE(found) << ("AOT " + filenamePattern + " with hash " + hash +
                              " is not dumped");
@@ -291,15 +345,6 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 /// a previous clCreateKernel call.
 TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   ASSERT_TRUE(SETENV("VOLCANO_EQUALIZER_STATS", "all"));
-  // There is race condition between StatsEqualizerAll and DumpAfterCreateKernel
-  // if CL_CONFIG_DUMP_FILE_NAME_PREFIX is not set, supposing the following
-  // steps happen:
-  //   1. Both tests dump it _eq.ll files. So there are two _eq.ll files.
-  //   2. Both tests find the first _eq.ll file.
-  //   3. Test DumpAfterCreateKernel finishes and the _eq.ll file is deleted.
-  //   4. Test StatsEqualizerAll fails to read the _eq.ll file and test fails.
-  std::string Prefix = "TMP2";
-  ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX", Prefix.c_str()));
   ASSERT_NO_FATAL_FAILURE(createContext());
   ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
@@ -317,7 +362,7 @@ TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   std::vector<std::vector<std::string>> Patterns = {
       {m_kernelName, "spir_kernel"}};
   ASSERT_NO_FATAL_FAILURE(
-      validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 1));
+      validateDumpedFiles(Suffix, Patterns, /*ProgramIndex*/ 1));
 
   // Check whether IR is dumped for an independent program built after a
   // previous clCreateKernel call (where all llvm cl options are reset).
@@ -327,8 +372,7 @@ TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   Patterns.clear();
   Patterns.push_back({m_kernelName1, "spir_kernel"});
   ASSERT_NO_FATAL_FAILURE(
-      validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 2));
+      validateDumpedFiles(Suffix, Patterns, /*ProgramIndex*/ 2));
 
   ASSERT_TRUE(UNSETENV("VOLCANO_EQUALIZER_STATS"));
-  ASSERT_TRUE(UNSETENV("CL_CONFIG_DUMP_FILE_NAME_PREFIX"));
 }

@@ -226,9 +226,13 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     std::string Env;
     llvm::LLVMContext *ReplaceModuleCtx = nullptr;
     auto ReplaceModule = [&](bool BeforeOptimizer) {
-      dbgs() << "WARNING: replace module IR before device "
-             << (BeforeOptimizer ? "optimizer" : "CodeGen") << ": " << Env
-             << "\n";
+      std::string WarningMsg =
+          (Twine("WARNING: replace module IR before device ") +
+           Twine(BeforeOptimizer ? "optimizer" : "CodeGen") + Twine(": ") +
+           Twine(Env) + Twine("\n"))
+              .str();
+      dbgs() << WarningMsg;
+      buildResult.LogS() << WarningMsg;
       // Create new LLVMContext instead of reusing pModule's LLVMContext, in
       // order to avoid type renaming in textual IR dump.
       static llvm::once_flag OnceFlag;
@@ -314,7 +318,7 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     if (!(pOptions && pOptions->GetBooleanValue(
                           CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false))) {
       JitProcessing(pProgram, pOptions, std::move(targetMachine),
-                    objCache.get());
+                    objCache.get(), buildResult);
 
       // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
       // L"Start iterating over kernels");

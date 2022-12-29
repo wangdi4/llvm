@@ -107,7 +107,8 @@ set(OCL_CPU_BACKEND_INCLUDE_FILES
     opencl_printf_ext.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
-    ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h)
+    ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h
+    AsmCompiler.h)
 
 set(OCL_CPU_BACKEND_SOURCE_FILES
     BackendConfiguration.cpp
@@ -149,12 +150,12 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     opencl20_ext_execution.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
-    opencl_task_sequence.cpp)
+    opencl_task_sequence.cpp
+    AsmCompiler.cpp)
 if(WIN32)
-  list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES LLDJITBuilder.h LLDJIT.h
-       AsmCompiler.h)
+  list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES LLDJITBuilder.h LLDJIT.h)
   list(APPEND OCL_CPU_BACKEND_SOURCE_FILES LLDJITBuilder.cpp LLDJIT.cpp
-       AsmCompiler.cpp ihc_thread_win32.cpp)
+       ihc_thread_win32.cpp)
 else(WIN32)
   list(APPEND OCL_CPU_BACKEND_SOURCE_FILES ihc_thread_linux.cpp)
 endif(WIN32)
