@@ -15,30 +15,30 @@
 #ifndef __AVX512VLMINMAXINTRIN_H
 #define __AVX512VLMINMAXINTRIN_H
 
-#define _mm_minmaxne_pbh(A, B, C)                                              \
+#define _mm_minmaxne_pbf16(A, B, C)                                            \
   ((__m128bh)__builtin_ia32_vminmaxnepbf16128((__v8hi)(A), (__v8hi)(B),        \
                                               (int)(C)))
 
-#define _mm_mask_minmaxne_pbh(W, U, A, B, C)                                   \
+#define _mm_mask_minmaxne_pbf16(W, U, A, B, C)                                 \
   ((__m128bh)__builtin_ia32_vminmaxnepbf16128_mask(                            \
       (__v8hi)(A), (__v8hi)(B), (int)(C), (__v8hi)(__m128bh)(W),               \
       (__mmask8)(U)))
 
-#define _mm_maskz_minmaxne_pbh(U, A, B, C)                                     \
+#define _mm_maskz_minmaxne_pbf16(U, A, B, C)                                   \
   ((__m128bh)__builtin_ia32_vminmaxnepbf16128_mask(                            \
       (__v8hi)(A), (__v8hi)(B), (int)(C),                                      \
       (__v8hi)(__m128bh)_mm_setzero_si128(), (__mmask8)(U)))
 
-#define _mm256_minmaxne_pbh(A, B, C)                                           \
+#define _mm256_minmaxne_pbf16(A, B, C)                                         \
   ((__m256bh)__builtin_ia32_vminmaxnepbf16256((__v16hi)(A), (__v16hi)(B),      \
                                               (int)(C)))
 
-#define _mm256_mask_minmaxne_pbh(W, U, A, B, C)                                \
+#define _mm256_mask_minmaxne_pbf16(W, U, A, B, C)                              \
   ((__m256bh)__builtin_ia32_vminmaxnepbf16256_mask(                            \
       (__v16hi)(A), (__v16hi)(B), (int)(C), (__v16hi)(__m256bh)(W),            \
       (__mmask16)(U)))
 
-#define _mm256_maskz_minmaxne_pbh(U, A, B, C)                                  \
+#define _mm256_maskz_minmaxne_pbf16(U, A, B, C)                                \
   ((__m256bh)__builtin_ia32_vminmaxnepbf16256_mask(                            \
       (__v16hi)(A), (__v16hi)(B), (int)(C),                                    \
       (__v16hi)(__m256bh)_mm256_setzero_si256(), (__mmask16)(U)))
