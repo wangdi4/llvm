@@ -6502,6 +6502,53 @@ const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
 
   return nullptr;
 }
+
+// Returns true if \p PhiVal has two operands, one of which is \p Op0 and other
+// is \p Op1. Order of operands doesn't matter.
+bool isPhiWithOperands(Value *PhiVal, Value *Op0, Value *Op1) {
+  auto *Phi = dyn_cast<PHINode>(PhiVal);
+
+  if (!Phi || Phi->getNumOperands() != 2)
+    return false;
+
+  auto *PhiOp0 = Phi->getOperand(0);
+  auto *PhiOp1 = Phi->getOperand(1);
+
+  return (PhiOp0 == Op0 && PhiOp1 == Op1) || (PhiOp0 == Op1 && PhiOp1 == Op0);
+}
+
+// Tries to recognize redundant phi cycles of this form-
+//
+// %phi1 = [ %init ], [ %phi2 ]
+//
+// %phi2 = [ %init ]. [ %phi1 ]
+//
+// Which decay to just %init. This might be generalizable to phis with more than
+// 2 operands.
+//
+// This can happen with LICM/GVN hoisting loads out of loops in LTO mode.
+// Although instcombine can eliminate such phis, adding it to the pipeline is
+// resulting in performance regressions as InstCombine does a whole bunch of
+// things. Teaching ScalarEvolution to look through these phis is an alternate
+// solution.
+const SCEV *ScalarEvolution::createNodeForRedundantPHICycle(PHINode *PN) {
+  auto NumOp = PN->getNumOperands();
+
+  if (NumOp != 2)
+    return nullptr;
+
+  auto *Op0 = PN->getOperand(0);
+  auto *Op1 = PN->getOperand(1);
+
+  if (isPhiWithOperands(Op0, PN, Op1))
+    return getSCEV(Op1);
+
+  if (isPhiWithOperands(Op1, PN, Op0))
+    return getSCEV(Op0);
+
+  return nullptr;
+}
+
 #endif // INTEL_CUSTOMIZATION
 const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 #if INTEL_CUSTOMIZATION
@@ -6534,6 +6581,9 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 
 #if INTEL_CUSTOMIZATION
   if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
+    return S;
+
+  if (const SCEV *S = createNodeForRedundantPHICycle(PN))
     return S;
 #endif // INTEL_CUSTOMIZATION
   // If it's not a loop phi, we can't handle it yet.
