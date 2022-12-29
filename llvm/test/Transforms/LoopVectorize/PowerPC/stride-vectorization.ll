@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ; RUN: opt -S -aa-pipeline=basic-aa -passes=loop-vectorize < %s | FileCheck %s
-=======
-; RUN: opt -S -loop-vectorize < %s | FileCheck %s
->>>>>>> f3a928e2334a ([opt] Don't translate legacy -analysis flag to require<analysis>)
 target datalayout = "E-m:e-i64:64-n32:64"
 target triple = "powerpc64-unknown-linux-gnu"
 

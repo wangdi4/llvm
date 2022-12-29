@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ; RUN: opt -S < %s -aa-pipeline=basic-aa -passes=loop-vectorize -force-vector-interleave=1 2>&1 | FileCheck %s
-=======
-; RUN: opt -S < %s -loop-vectorize -force-vector-interleave=1 2>&1 | FileCheck %s
->>>>>>> f3a928e2334a ([opt] Don't translate legacy -analysis flag to require<analysis>)
 
 target datalayout = "e-m:e-i64:64-i128:128-n32:64-S128"
 target triple = "aarch64"

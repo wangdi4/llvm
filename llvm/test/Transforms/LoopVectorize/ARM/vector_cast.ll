@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ; RUN: opt -aa-pipeline=tbaa -passes=loop-vectorize -S -mattr=+neon < %s | FileCheck %s
-=======
-; RUN: opt -loop-vectorize -S -mattr=+neon < %s | FileCheck %s
->>>>>>> f3a928e2334a ([opt] Don't translate legacy -analysis flag to require<analysis>)
 
 target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 target triple = "armv7--linux-gnueabi"
