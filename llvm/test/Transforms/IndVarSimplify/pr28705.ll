@@ -25,15 +25,9 @@ define void @foo(i32 %sub.ptr.div.i, ptr %ref.i1174) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[END:%.*]]
 ; CHECK:       for.body650:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[FOR_BODY650_LR_PH]] ], [ [[INC655:%.*]], [[FOR_BODY650]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[IV2:%.*]] = phi i32 [ 1, [[FOR_BODY650_LR_PH]] ], [ [[INC_I_I:%.*]], [[FOR_BODY650]] ] ;INTEL
-; CHECK-NEXT:    [[ARRAYIDX_I_I1105:%.*]] = getelementptr inbounds i8, i8* [[REF_I1174:%.*]], i32 [[IV2]]
-; CHECK-NEXT:    store i8 7, i8* [[ARRAYIDX_I_I1105]], align 1
-=======
-; CHECK-NEXT:    [[IV2:%.*]] = phi i32 [ 1, [[FOR_BODY650_LR_PH]] ], [ [[INC_I_I]], [[FOR_BODY650]] ]
 ; CHECK-NEXT:    [[ARRAYIDX_I_I1105:%.*]] = getelementptr inbounds i8, ptr [[REF_I1174:%.*]], i32 [[IV2]]
 ; CHECK-NEXT:    store i8 7, ptr [[ARRAYIDX_I_I1105]], align 1
->>>>>>> 3ce360f15b5a790a5fd9dcab716bbed7b4d3a347
 ; CHECK-NEXT:    [[INC_I_I]] = add nuw nsw i32 [[IV2]], 1
 ; CHECK-NEXT:    [[INC655]] = add nuw nsw i32 [[IV]], 1
 ; CHECK-NEXT:    [[CMP648:%.*]] = icmp eq i32 [[INC655]], [[DOTSROA_SPECULATED]]
