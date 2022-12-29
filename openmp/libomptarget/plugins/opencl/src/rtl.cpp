@@ -2007,13 +2007,6 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
     AllocKind = TARGET_ALLOC_SVM;
     CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
   } else {
-    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
-                                                clDeviceMemAllocINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(DeviceId,
-                                              clDeviceMemAllocINTELId));
-      return nullptr;
-    }
     cl_int RC;
     auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
     CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
@@ -2061,11 +2054,6 @@ static void *dataAllocExplicit(
   case TARGET_ALLOC_HOST:
     if (DeviceInfo->Option.Flags.UseSingleContext)
       ID = DeviceInfo->NumDevices;
-    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
-                                                clHostMemAllocINTELId)) {
-      DP("Host memory allocator is not available\n");
-      return nullptr;
-    }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
                      AllocProp->data(), Size, Align);
     if (Mem) {
@@ -2075,11 +2063,6 @@ static void *dataAllocExplicit(
     }
     break;
   case TARGET_ALLOC_SHARED:
-    if (!DeviceInfo->isExtensionFunctionEnabled(
-          DeviceId, clSharedMemAllocINTELId)) {
-      DP("Shared memory allocator is not available\n");
-      return nullptr;
-    }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
                      AllocProp->data(), Size, Align);
     if (Mem) {
@@ -2097,181 +2080,151 @@ static void *dataAllocExplicit(
   return Mem;
 }
 
-static int32_t submitData(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                          int64_t size) {
-  if (size == 0)
+static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
+                          int64_t Size) {
+  if (Size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
     return OFFLOAD_SUCCESS;
 
-  cl_command_queue queue = DeviceInfo->Queues[device_id];
+  auto &Queue = DeviceInfo->Queues[DeviceId];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
   const char *ProfileKey = "DataWrite (Host to Device)";
+  cl_event Event = nullptr;
 
   if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
-      cl_event event;
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
-                       0, size, hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
+    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
+      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
+                       Size, HstPtr, 0, nullptr, &Event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
       if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
       return OFFLOAD_SUCCESS;
     }
   }
 
   if (!DeviceInfo->Option.Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
-                                                clEnqueueMemcpyINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(device_id,
-                                              clEnqueueMemcpyINTELId));
-      return OFFLOAD_FAIL;
-    }
-    cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
-                         tgt_ptr, hst_ptr, size, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
+                         TgtPtr, HstPtr, Size, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
-    cl_event event;
-    ProfileIntervalTy SubmitTime(ProfileKey, device_id);
+    ProfileIntervalTy SubmitTime(ProfileKey, DeviceId);
     SubmitTime.start();
-
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-    memcpy(tgt_ptr, hst_ptr, size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_WRITE, TgtPtr,
+                     Size, 0, nullptr, nullptr);
+    memcpy(TgtPtr, HstPtr, Size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     SubmitTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    cl_event event;
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
-                     size, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, TgtPtr, HstPtr, Size,
+                     0, nullptr, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
-    cl_event event;
-    cl_int rc;
-    cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
-                 CL_MEM_USE_HOST_PTR, size, tgt_ptr);
-    if (rc != CL_SUCCESS) {
+    cl_int RC;
+    cl_mem Mem = nullptr;
+    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
+                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
+    if (RC != CL_SUCCESS) {
       DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(tgt_ptr));
+         DPxPTR(TgtPtr));
       return OFFLOAD_FAIL;
     }
-    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
-                     hst_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, Mem, CL_FALSE, 0, Size,
+                     HstPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   }
   }
   return OFFLOAD_SUCCESS;
 }
 
-static int32_t retrieveData(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                            int64_t size) {
-  if (size == 0)
+static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
+                            int64_t Size) {
+  if (Size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
     return OFFLOAD_SUCCESS;
 
-  cl_command_queue queue = DeviceInfo->Queues[device_id];
+  auto &Queue = DeviceInfo->Queues[DeviceId];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
   const char *ProfileKey = "DataRead (Device to Host)";
+  cl_event Event = nullptr;
 
   if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
-      cl_event event;
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
-                       0, size, hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
+    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
+      CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
+                       Size, HstPtr, 0, nullptr, &Event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
       if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
       return OFFLOAD_SUCCESS;
     }
   }
 
   if (!DeviceInfo->Option.Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
-                                                clEnqueueMemcpyINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(device_id,
-                                              clEnqueueMemcpyINTELId));
-      return OFFLOAD_FAIL;
-    }
-    cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
-                         hst_ptr, tgt_ptr, size, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
+                         HstPtr, TgtPtr, Size, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
-    cl_event event;
-    ProfileIntervalTy RetrieveTime(ProfileKey, device_id);
+    ProfileIntervalTy RetrieveTime(ProfileKey, DeviceId);
     RetrieveTime.start();
-
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-    memcpy(hst_ptr, tgt_ptr, size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_READ, TgtPtr, Size,
+                     0, nullptr, nullptr);
+    memcpy(HstPtr, TgtPtr, Size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     RetrieveTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    cl_event event;
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
-                     size, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, HstPtr, TgtPtr, Size,
+                     0, nullptr, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
-    cl_int rc;
-    cl_event event;
-    cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
-                 CL_MEM_USE_HOST_PTR, size, tgt_ptr);
-    if (rc != CL_SUCCESS) {
+    cl_int RC;
+    cl_mem Mem = nullptr;
+    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
+                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
+    if (RC != CL_SUCCESS) {
       DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(tgt_ptr));
+         DPxPTR(TgtPtr));
       return OFFLOAD_FAIL;
     }
-    CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
-                     hst_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, Mem, CL_FALSE, 0, Size, HstPtr,
+                     0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   }
   }
   return OFFLOAD_SUCCESS;
@@ -2820,13 +2773,6 @@ static inline int32_t runTargetTeamNDRegion(
       } else if (DeviceInfo->Option.Flags.UseSVM) {
         CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
       } else {
-        if (!DeviceInfo->isExtensionFunctionEnabled(
-                DeviceId, clSetKernelArgMemPointerINTELId)) {
-          DP("Error: Extension %s is not supported\n",
-             DeviceInfo->getExtensionFunctionName(
-                 DeviceId, clSetKernelArgMemPointerINTELId));
-          return OFFLOAD_FAIL;
-        }
         CALL_CL_EXT_RET_FAIL(
             DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I, Ptr);
       }
@@ -2944,18 +2890,27 @@ static inline int32_t runTargetTeamNDRegion(
 #endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
+  bool IsDiscrete = DeviceInfo->isDiscreteDevice(DeviceId);
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
 #endif // INTEL_CUSTOMIZATION
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
-
-  DeviceInfo->Mutexes[DeviceId].unlock();
+  if (IsDiscrete)
+    DeviceInfo->Mutexes[DeviceId].unlock();
 
   DP("Started executing kernel.\n");
 
   CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+
+  // There seems to be subtle race condition when launching target regions with
+  // reduction from multiple host threads on integrated devices. We do not have
+  // overlapping kernel execution anyway with this plugin, so protect the kernel
+  // execution only on integrated devices.
+  if (!IsDiscrete)
+    DeviceInfo->Mutexes[DeviceId].unlock();
+
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
 #endif // INTEL_CUSTOMIZATION
@@ -4322,6 +4277,12 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   auto &Extension = DeviceInfo->Extensions[DeviceId];
   Extension.getExtensionsInfoForDevice(DeviceId);
+
+  // Check USM extension and fail fast if unavailable
+  if (Extension.UnifiedSharedMemory != ExtensionStatusEnabled) {
+    DP("Error: Required USM extension is not found\n");
+    return OFFLOAD_FAIL;
+  }
 
   bool HasDeviceAttributeExtension =
       Extension.DeviceAttributeQuery == ExtensionStatusEnabled;
