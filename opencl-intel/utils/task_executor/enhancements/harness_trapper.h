@@ -94,6 +94,10 @@ public:
     }
   }
 
+  // Delete copy & move constructor
+  TbbWorkersTrapper(const TbbWorkersTrapper &) = delete;
+  TbbWorkersTrapper(TbbWorkersTrapper &&) = delete;
+
   // Delete assignment operator
   TbbWorkersTrapper &operator=(const TbbWorkersTrapper &) = delete;
   TbbWorkersTrapper &operator=(TbbWorkersTrapper &&) = delete;

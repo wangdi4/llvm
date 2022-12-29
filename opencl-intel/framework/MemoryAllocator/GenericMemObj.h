@@ -933,6 +933,10 @@ public:
       const size_t *origin, const size_t *region,
       GenericMemObjectBackingStore &copy_setting_from);
 
+  // Delete copy & move constructor
+  GenericMemObjectBackingStore(const GenericMemObjectBackingStore &) = delete;
+  GenericMemObjectBackingStore(GenericMemObjectBackingStore &&) = delete;
+
   // Delete assignment operator
   GenericMemObjectBackingStore &
   operator=(const GenericMemObjectBackingStore &) = delete;

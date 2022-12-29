@@ -46,6 +46,10 @@ public:
                  ICLDevBackendServiceFactory *pBackendFactory);
   virtual ~ProgramService();
 
+  // Delete copy & move constructor
+  ProgramService(const ProgramService &) = delete;
+  ProgramService(ProgramService &&) = delete;
+
   // Delete assignment operator
   ProgramService &operator=(const ProgramService &) = delete;
   ProgramService &operator=(ProgramService &&) = delete;

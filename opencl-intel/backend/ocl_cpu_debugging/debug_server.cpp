@@ -241,6 +241,10 @@ struct DebugServer::DebugServerImpl {
 
   ~DebugServerImpl() { TerminateCommunicator(); }
 
+  // Delete copy & move constructor
+  DebugServerImpl(const DebugServerImpl &) = delete;
+  DebugServerImpl(DebugServerImpl &&) = delete;
+
   // Delete assignment operator
   DebugServerImpl &operator=(const DebugServerImpl &) = delete;
   DebugServerImpl &operator=(DebugServerImpl &&) = delete;
