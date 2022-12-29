@@ -120,6 +120,8 @@ set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics
 # external GenXIntrinsics headers.
 if (NOT WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+else(NOT WIN32)
+  add_definitions(-wd4996)
 endif (NOT WIN32)
 #end INTEL_CUSTOMIZATION
 
