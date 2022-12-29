@@ -230,7 +230,6 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_synchronize(int32_t ID, __tgt_async_info *AsyncInfo);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 // Manifest target pointers, which are not passed as arguments,
 // to the offloaded entry represented by TgtEntryPtr. The target pointers
@@ -387,7 +386,7 @@ EXTERN void *__tgt_rtl_data_aligned_alloc_shared(
 EXTERN int __tgt_rtl_prefetch_shared_mem(
     int32_t ID, size_t NumPtrs, void **Ptrs, size_t *Sizes);
 #endif // INTEL_COLLAB
-=======
+
 // Queries for the completion of asynchronous operations. Instead of blocking
 // the calling thread as __tgt_rtl_synchronize, the progress of the operations
 // stored in AsyncInfo->Queue is queried in a non-blocking manner, partially
@@ -398,7 +397,6 @@ EXTERN int __tgt_rtl_prefetch_shared_mem(
 // error code.
 int32_t __tgt_rtl_query_async(int32_t ID, __tgt_async_info *AsyncInfo);
 
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
 

@@ -1884,12 +1884,11 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId,
   return DeviceRTL.synchronize(DeviceId, AsyncInfoPtr);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // -Wsign-compare
 #pragma GCC diagnostic pop
 #endif // INTEL_CUSTOMIZATION
-=======
+
 int32_t __tgt_rtl_query_async(int32_t DeviceId,
                               __tgt_async_info *AsyncInfoPtr) {
   assert(DeviceRTL.isValidDeviceId(DeviceId) && "device_id is invalid");
@@ -1899,7 +1898,6 @@ int32_t __tgt_rtl_query_async(int32_t DeviceId,
   return DeviceRTL.queryAsync(DeviceId, AsyncInfoPtr);
 }
 
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 void __tgt_rtl_set_info_flag(uint32_t NewInfoLevel) {
   std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
   InfoLevel.store(NewInfoLevel);

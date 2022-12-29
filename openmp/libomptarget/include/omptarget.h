@@ -798,7 +798,6 @@ int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                void *DepList, int32_t NoAliasDepNum,
                                void *NoAliasDepList);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType);
 
@@ -879,7 +878,7 @@ EXTERN void __tgt_target_free_per_hw_thread_scratch(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-=======
+
 // Non-blocking synchronization for target nowait regions. This function
 // acquires the asynchronous context from task data of the current task being
 // executed and tries to query for the completion of its operations. If the
@@ -889,7 +888,6 @@ EXTERN
 // data.
 void __tgt_target_nowait_query(void **AsyncHandle);
 
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 void __tgt_set_info_flag(uint32_t);
 
 #if INTEL_COLLAB

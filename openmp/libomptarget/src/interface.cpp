@@ -44,7 +44,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
-<<<<<<< HEAD
+#include <type_traits>
+
 #if INTEL_COLLAB
 #include <string.h>
 #endif  // INTEL_COLLAB
@@ -70,9 +71,6 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   return EncodedID;
 }
 #endif // INTEL_COLLAB
-=======
-#include <type_traits>
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
@@ -126,7 +124,6 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
 
   TIMESCOPE_WITH_IDENT(Loc);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
@@ -135,13 +132,8 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
 #endif // INTEL_COLLAB
 
-  DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
-     DeviceId, ArgNum);
-=======
   DP("Entering data %s region for device %" PRId64 " with %d mappings\n",
      RegionName, DeviceId, ArgNum);
-
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
   if (checkDeviceAndCtors(DeviceId, Loc)) {
     DP("Not offloading to device %" PRId64 "\n", DeviceId);
     return;
@@ -159,7 +151,6 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   Device.pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
@@ -167,10 +158,6 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   OMPT_TRACE(targetDataEnterBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
-  AsyncInfoTy AsyncInfo(Device);
-  int Rc = targetDataBegin(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
-                           ArgTypes, ArgNames, ArgMappers, AsyncInfo);
-=======
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
@@ -180,7 +167,6 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
                           ArgTypes, ArgNames, ArgMappers, AsyncInfo,
                           false /* FromMapper */);
 
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
 
@@ -233,7 +219,6 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
@@ -241,43 +226,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
 
 #if INTEL_COLLAB
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
-
-  DP("Entering data end region with %d mappings\n", ArgNum);
-  if (checkDeviceAndCtors(DeviceId, Loc)) {
-    DP("Not offloading to device %" PRId64 "\n", DeviceId);
-    return;
-  }
-
-  DeviceTy &Device = *PM->Devices[DeviceId];
-
-  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
-    printKernelArguments(Loc, DeviceId, ArgNum, ArgSizes, ArgTypes, ArgNames,
-                         "Exiting OpenMP data region");
-#ifdef OMPTARGET_DEBUG
-  for (int I = 0; I < ArgNum; ++I) {
-    DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-       ", Type=0x%" PRIx64 ", Name=%s\n",
-       I, DPxPTR(ArgsBase[I]), DPxPTR(Args[I]), ArgSizes[I], ArgTypes[I],
-       (ArgNames) ? getNameFromMapping(ArgNames[I]).c_str() : "unknown");
-  }
-#endif
-
-#if INTEL_COLLAB
   Device.pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataExitBegin(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-  AsyncInfoTy AsyncInfo(Device);
-  int Rc = targetDataEnd(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
-                         ArgTypes, ArgNames, ArgMappers, AsyncInfo);
-  if (Rc == OFFLOAD_SUCCESS)
-    Rc = AsyncInfo.synchronize();
-  handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
-
-#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataExitEnd(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
@@ -286,11 +238,9 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
     PM->Devices[DeviceId]->popSubDevice();
 #endif // INTEL_COLLAB
 
-=======
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataEnd,
                                 "Exiting OpenMP data region", "end");
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 }
 
 EXTERN void __tgt_target_data_end_nowait_mapper(
@@ -311,45 +261,18 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
 
-  DP("Entering data update with %d mappings\n", ArgNum);
-
 #if INTEL_COLLAB
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
-
-  if (checkDeviceAndCtors(DeviceId, Loc)) {
-    DP("Not offloading to device %" PRId64 "\n", DeviceId);
-    return;
-  }
-
-  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
-    printKernelArguments(Loc, DeviceId, ArgNum, ArgSizes, ArgTypes, ArgNames,
-                         "Updating OpenMP data");
-
-  DeviceTy &Device = *PM->Devices[DeviceId];
-  AsyncInfoTy AsyncInfo(Device);
-
-#if INTEL_COLLAB
   Device.pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataUpdateBegin(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-  int Rc = targetDataUpdate(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
-                            ArgTypes, ArgNames, ArgMappers, AsyncInfo);
-  if (Rc == OFFLOAD_SUCCESS)
-    Rc = AsyncInfo.synchronize();
-  handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
-
-#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataUpdateEnd(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
@@ -358,11 +281,9 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
     PM->Devices[DeviceId]->popSubDevice();
 #endif // INTEL_COLLAB
 
-=======
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
       ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 }
 
 EXTERN void __tgt_target_data_update_nowait_mapper(
@@ -385,7 +306,6 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 
   TIMESCOPE_WITH_IDENT(Loc);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
@@ -394,10 +314,7 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
 #endif // INTEL_COLLAB
 
-  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
-=======
   DP("Entering target region for device %" PRId64 " with entry point " DPxMOD
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
      "\n",
      DeviceId, DPxPTR(HostPtr));
 
@@ -1027,7 +944,6 @@ EXTERN int __tgt_print_device_info(int64_t DeviceId) {
       PM->Devices[DeviceId]->RTLDeviceID);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 typedef void* (*omp_create_task_fptr)(int);
 typedef void (*omp_complete_task_fptr)(int, void *);
@@ -1043,7 +959,7 @@ EXTERN void __tgt_task_completed ( void * task )
     DP("Callback to _tgt_task_completed task=" DPxMOD "\n",DPxPTR(task));
 }
 #endif
-=======
+
 EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   if (!AsyncHandle || !*AsyncHandle) {
     FATAL_MESSAGE0(
@@ -1083,4 +999,3 @@ EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   delete AsyncInfo;
   *AsyncHandle = nullptr;
 }
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8

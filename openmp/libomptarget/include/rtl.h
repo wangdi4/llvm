@@ -79,7 +79,6 @@ struct RTLInfoTy {
                                             __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
   typedef int32_t(synchronize_ty)(int32_t, __tgt_async_info *);
-<<<<<<< HEAD
 #if INTEL_COLLAB
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
@@ -133,9 +132,7 @@ struct RTLInfoTy {
                                                int32_t);
   typedef int(prefetch_shared_mem_ty)(int32_t, size_t, void **, size_t *);
 #endif // INTEL_COLLAB
-=======
   typedef int32_t(query_async_ty)(int32_t, __tgt_async_info *);
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
   typedef void(print_device_info_ty)(int32_t);
@@ -190,7 +187,6 @@ struct RTLInfoTy {
   run_team_region_async_ty *run_team_region_async = nullptr;
   init_requires_ty *init_requires = nullptr;
   synchronize_ty *synchronize = nullptr;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
@@ -236,9 +232,7 @@ struct RTLInfoTy {
   data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
   prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
 #endif // INTEL_COLLAB
-=======
   query_async_ty *query_async = nullptr;
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
   supports_empty_images_ty *supports_empty_images = nullptr;

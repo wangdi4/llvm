@@ -153,7 +153,6 @@ void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
                           kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
                           kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
-<<<<<<< HEAD
 void __kmpc_proxy_task_completed_ooo(void *);
 void kmp_set_defaults(const char *);
 #endif
@@ -166,13 +165,11 @@ void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
                           kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
 #endif // INTEL_COLLAB
-=======
 void **__kmpc_omp_get_target_async_handle_ptr(kmp_int32 gtid)
     __attribute__((weak));
 bool __kmpc_omp_has_task_team(kmp_int32 gtid) __attribute__((weak));
 // Invalid GTID as defined by libomp; keep in sync
 #define KMP_GTID_DNE (-2)
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
 #ifdef __cplusplus
 }
 #endif
@@ -245,14 +242,28 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // NOTE: LLVM turns on TIMESCOPE() by default when this file is included.
 #define TIMESCOPE()
 #define TIMESCOPE_WITH_IDENT(IDENT)
 #define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
 #else // INTEL_CUSTOMIZATION
-=======
+#include "llvm/Support/TimeProfiler.h"
+#define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
+#define TIMESCOPE_WITH_IDENT(IDENT)                                            \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation())
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
+#endif // INTEL_CUSTOMIZATION
+#else
+#define TIMESCOPE()
+#define TIMESCOPE_WITH_IDENT(IDENT)
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
+
+#endif
+
 // Wrapper for task stored async info objects.
 class TaskAsyncInfoWrapperTy {
   const int ExecThreadID = KMP_GTID_DNE;
@@ -344,20 +355,3 @@ public:
 
   bool isAboveThreshold() const { return Count > CountThreshold; }
 };
-
->>>>>>> 89c82c83949b2bea26ea574c88c1ceada399d7d8
-#include "llvm/Support/TimeProfiler.h"
-#define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
-#define TIMESCOPE_WITH_IDENT(IDENT)                                            \
-  SourceInfo SI(IDENT);                                                        \
-  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation())
-#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
-  SourceInfo SI(IDENT);                                                        \
-  llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
-#endif // INTEL_CUSTOMIZATION
-#else
-#define TIMESCOPE()
-#define TIMESCOPE_WITH_IDENT(IDENT)
-#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
-
-#endif
