@@ -1125,7 +1125,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
   // X86SubRegIdxRanges. We should change this value when upstream.
-  const unsigned NumLoc = 56u;
+  const unsigned NumLoc = 67u;
 #else // INTEL_FEATURE_XISA_COMMON
   const unsigned NumLoc = 11u;
 #endif // INTEL_FEATURE_XISA_COMMON

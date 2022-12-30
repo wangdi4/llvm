@@ -2320,6 +2320,29 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
 #endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+// AVX512VPMM
+let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
+  def int_x86_vpmm_vmmxf16ps_128 : ClangBuiltin<"__builtin_ia32_vmmxf16ps128">,
+          Intrinsic<[llvm_v4f32_ty, llvm_v4f32_ty],
+                    [llvm_v4f32_ty, llvm_v4f32_ty, llvm_v8f16_ty, llvm_v8f16_ty],
+                    [IntrNoMem]>;
+
+  def int_x86_vpmm_vmmxf16ps_256 : ClangBuiltin<"__builtin_ia32_vmmxf16ps256">,
+          Intrinsic<[llvm_v8f32_ty, llvm_v8f32_ty],
+                    [llvm_v8f32_ty, llvm_v8f32_ty, llvm_v16f16_ty, llvm_v16f16_ty],
+                    [IntrNoMem]>;
+
+  def int_x86_vpmm_vmmxf16ps_512 : ClangBuiltin<"__builtin_ia32_vmmxf16ps512">,
+          Intrinsic<[llvm_v16f32_ty, llvm_v16f32_ty],
+                    [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v32f16_ty, llvm_v32f16_ty],
+                    [IntrNoMem]>;
+}
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // XOP
 

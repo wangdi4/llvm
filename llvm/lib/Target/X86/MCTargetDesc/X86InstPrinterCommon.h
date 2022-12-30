@@ -61,6 +61,11 @@ protected:
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   void printTILEQuad(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  void printXMMPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
+  void printYMMPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
+  void printZMMPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 };
 

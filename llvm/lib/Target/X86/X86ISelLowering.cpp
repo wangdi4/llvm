@@ -29743,6 +29743,86 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     return SDValue();
   }
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+  // Lowering avx512 vpmm instructions with srcdst register pair.
+  //
+  // Take llvm.x86.avx512.vmmxf16ps.512 for example:
+  // Our goal is finally isel
+  // {v16f32,v16f32} = intrinsic.vmmxf16ps ID, v16f32, v16f32, v32f16, v32f16
+  // to
+  // vmmxf16ps zmm1:zmm2(srcdst v16f32:v16f32) zmm3(s1:v32f16) zmm4(s2:v32f16)
+  // Note:
+  // Currenty we do not have a legal type (e.g. v32f32) for such register pair,
+  // so we mannually lower the intrinsics here.
+  // TODO:
+  // Directly map the intrinsics to MI in pattern (td file) once we leglize
+  // related type (e.g. v32f32).
+  case Intrinsic::x86_vpmm_vmmxf16ps_128:
+  case Intrinsic::x86_vpmm_vmmxf16ps_256:
+  case Intrinsic::x86_vpmm_vmmxf16ps_512: {
+    unsigned Opc = 0;
+    unsigned RegClassID = 0;
+    int SubRegLo = 0;
+    int SubRegHi = 0;
+    MVT DstVT = MVT::INVALID_SIMPLE_VALUE_TYPE;
+    switch (IntNo) {
+      default:
+        llvm_unreachable("Impossible intrinsic");
+      case Intrinsic::x86_vpmm_vmmxf16ps_128:
+        Opc = X86::VMMXF16PS128rr;
+        RegClassID = X86::XMMPAIRXRegClassID;
+        SubRegLo = X86::sub_x0;
+        SubRegHi = X86::sub_x1;
+        DstVT = MVT::v4f32;
+        break;
+      case Intrinsic::x86_vpmm_vmmxf16ps_256:
+        Opc = X86::VMMXF16PS256rr;
+        RegClassID = X86::YMMPAIRXRegClassID;
+        SubRegLo = X86::sub_y0;
+        SubRegHi = X86::sub_y1;
+        DstVT = MVT::v8f32;
+        break;
+      case Intrinsic::x86_vpmm_vmmxf16ps_512:
+        Opc = X86::VMMXF16PS512rr;
+        RegClassID = X86::ZMMPAIRXRegClassID;
+        SubRegLo = X86::sub_z0;
+        SubRegHi = X86::sub_z1;
+        DstVT = MVT::v16f32;
+        break;
+    }
+
+    SDLoc DL(Op);
+    SDValue Src1 = Op.getOperand(1);
+    SDValue Src2 = Op.getOperand(2);
+    SDValue Src3 = Op.getOperand(3);
+    SDValue Src4 = Op.getOperand(4);
+
+    // So here we coalesce the intrinsic first 2 operands in zmmpairx reg class.
+    SDValue RegClass =
+      DAG.getTargetConstant(RegClassID, DL, MVT::i32);
+    SDValue SubReg0 = DAG.getTargetConstant(SubRegLo, DL, MVT::i32);
+    SDValue SubReg1 = DAG.getTargetConstant(SubRegHi, DL, MVT::i32);
+    const SDValue RegOps[] = { RegClass, Src1, SubReg0, Src2, SubReg1 };
+    MachineSDNode *NewSrc1 =
+      DAG.getMachineNode(TargetOpcode::REG_SEQUENCE, DL, MVT::Untyped, RegOps);
+
+    // Then feed to the vmmxf16ps's first operand.
+    // Note: we can't directly use 1024 size type, it is illegal for current
+    // target. And eliminate here code once it (e.g. v32f32) is illegal.
+    SDValue Ops[] = {SDValue(NewSrc1, 0), Src3, Src4};
+    MachineSDNode *Res = DAG.getMachineNode(Opc, DL, MVT::Untyped, Ops);
+
+    SDValue Res0 = DAG.getTargetExtractSubreg(SubRegLo, DL, DstVT,
+                                              SDValue(Res, 0));
+    SDValue Res1 = DAG.getTargetExtractSubreg(SubRegHi, DL, DstVT,
+                                              SDValue(Res, 0));
+
+    // Currently we can't return an Untyped Res directly, because we are not
+    // sure how it will be used, return an aggregate value instead.
+    return DAG.getMergeValues({Res0, Res1}, DL);
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
 #endif // INTEL_CUSTOMIZATION
   }
 }

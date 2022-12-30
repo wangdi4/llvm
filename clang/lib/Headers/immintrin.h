@@ -1339,6 +1339,17 @@ _storebe_i64(void * __P, long long __D) {
 #include <avx512vlvp2intersectintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_VPMM */
+#if defined(__AMX512VPMM_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VPMM__)
+#include <avx512vpmm/avx512vpmmintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_VPMM */
+/* end INTEL_CUSTOMIZATION */
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__ENQCMD__)
 #include <enqcmdintrin.h>

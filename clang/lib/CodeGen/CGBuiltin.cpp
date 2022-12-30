@@ -17325,6 +17325,37 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86Select(*this, Ops[3], Call, Ops[0]);
   }
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+  case X86::BI__builtin_ia32_vmmxf16ps_128:
+  case X86::BI__builtin_ia32_vmmxf16ps_256:
+  case X86::BI__builtin_ia32_vmmxf16ps_512: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unsupported intrinsic!");
+    case X86::BI__builtin_ia32_vmmxf16ps_128:
+      IID = Intrinsic::x86_vpmm_vmmxf16ps_128;
+      break;
+    case X86::BI__builtin_ia32_vmmxf16ps_256:
+      IID = Intrinsic::x86_vpmm_vmmxf16ps_256;
+      break;
+    case X86::BI__builtin_ia32_vmmxf16ps_512:
+      IID = Intrinsic::x86_vpmm_vmmxf16ps_512;
+      break;
+    }
+    // Ops = (Dst0PtrHigh, Dst1PtrLow, Src2, Src3, Src4_high, Src5_low)
+    // {Low, High} = vmmxf16ps Src4_high, Src5_low, Src2, Src3
+    Value *Call = Builder.CreateCall(CGM.getIntrinsic(IID),
+                                     {Ops[4], Ops[5], Ops[2], Ops[3]});
+
+    Value *DstLow = Builder.CreateExtractValue(Call, 0);
+    Builder.CreateDefaultAlignedStore(DstLow, Ops[1]);
+
+    Value *DstHigh = Builder.CreateExtractValue(Call, 1);
+    Value *Store = Builder.CreateDefaultAlignedStore(DstHigh, Ops[0]);
+
+    return Store;
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfcmaddcsh_round_mask:
     IsConjFMA = true;

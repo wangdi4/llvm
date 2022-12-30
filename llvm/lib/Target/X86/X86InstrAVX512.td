@@ -18922,4 +18922,41 @@ defm VFNMADD231NE : avx512_fp_binopne_pbf16_fma<0xBC, "vfnmadd231ne", SchedWrite
 defm VFNMSUB231NE : avx512_fp_binopne_pbf16_fma<0xBE, "vfnmsub231ne", SchedWriteFAddSizes>;
 
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
+
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+// RefineMe: Choose a better Sched when these instrucitons has more available details.
+// And try directly map from intrinsic by design a type.
+//   [(set ZMMPairX:$dst,
+//         (x86_vpmm_vmmxf16ps_512 ZMMPairX:$src1, VR512:$src2, VR512:$src3))]>,
+
+let Predicates = [HasAVX512VPMM, In64BitMode] in {
+  let SchedRW = [WriteFMAZ] in {
+    let Constraints = "$src1 = $dst" in {
+      def VMMXF16PS512rr : I<0x7f, MRMSrcReg, (outs ZMMPairX:$dst),
+                        (ins ZMMPairX:$src1, VR512:$src2, VR512:$src3),
+                        "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        []>,
+                        EVEX_4V, EVEX_V512, T_MAP6XS;
+    }
+  }
+}
+
+let Predicates = [HasAVX512VPMM, In64BitMode] in {
+  let SchedRW = [WriteFMAZ] in {
+    let Constraints = "$src1 = $dst" in {
+      def VMMXF16PS128rr : I<0x7f, MRMSrcReg, (outs XMMPairX:$dst),
+                        (ins XMMPairX:$src1, VR128:$src2, VR128:$src3),
+                        "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        []>,
+                        EVEX_4V, EVEX_V128, T_MAP6XS;
+      def VMMXF16PS256rr : I<0x7f, MRMSrcReg, (outs YMMPairX:$dst),
+                        (ins YMMPairX:$src1, VR256:$src2, VR256:$src3),
+                        "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        []>,
+                        EVEX_4V, EVEX_V256, T_MAP6XS;
+    }
+  }
+}
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
+
 #endif // INTEL_CUSTOMIZATION
