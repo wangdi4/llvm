@@ -82,9 +82,12 @@ namespace {
 class VPlanFunctionVectorizer {
   Function &F;
   AssumptionCache &AC;
+  const DominatorTree &DT;
 
 public:
-  VPlanFunctionVectorizer(Function &F, AssumptionCache &AC) : F(F), AC(AC) {}
+  VPlanFunctionVectorizer(Function &F, AssumptionCache &AC,
+                          const DominatorTree &DT)
+      : F(F), AC(AC), DT(DT) {}
 
   bool run() {
     auto Externals = std::make_unique<VPExternalValues>(
@@ -92,7 +95,7 @@ public:
     auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
 
-    VPlanFunctionCFGBuilder Builder(Plan.get(), F, AC);
+    VPlanFunctionCFGBuilder Builder(Plan.get(), F, AC, DT);
     Builder.buildCFG();
     Plan->setName(F.getName());
 
@@ -202,16 +205,18 @@ bool VPlanFunctionVectorizerLegacyPass::runOnFunction(Function &Fn) {
     return false;
 
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
-  VPlanFunctionVectorizer FunctionVectorizer(Fn, AC);
+  VPlanFunctionVectorizer FunctionVectorizer(Fn, AC, DT);
   return FunctionVectorizer.run();
 }
 
 PreservedAnalyses
 VPlanFunctionVectorizerPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  const auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
 
-  VPlanFunctionVectorizer FunctionVectorizer(F, AC);
+  VPlanFunctionVectorizer FunctionVectorizer(F, AC, DT);
   if (!FunctionVectorizer.run())
     return PreservedAnalyses::all();
 

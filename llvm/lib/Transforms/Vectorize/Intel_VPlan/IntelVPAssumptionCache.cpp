@@ -13,6 +13,7 @@
 #include "IntelVPlanClone.h"
 #include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
@@ -24,16 +25,17 @@ static bool isAssumeCall(const VPCallInstruction &Call) {
   return Call.getCalledFunction()->getIntrinsicID() == Intrinsic::assume;
 }
 
-VPAssumptionCache VPAssumptionCache::clone(const VPValueMapper &Mapper) const {
-  VPAssumptionCache Clone(*getLLVMCache());
+std::unique_ptr<VPAssumptionCache>
+VPAssumptionCache::clone(const VPValueMapper &Mapper) const {
+  auto *Clone = new VPAssumptionCache(*getLLVMCache(), DT);
 
   for (auto It : AffectedValues)
     for (auto Assumption : It.second) {
       if (auto *RemappedVal = Mapper.getRemappedValue(It.first))
-        Clone.insertAssume(RemappedVal, Assumption.Assume, Assumption.Index);
+        Clone->insertAssume(RemappedVal, Assumption.Assume, Assumption.Index);
     }
 
-  return Clone;
+  return std::unique_ptr<VPAssumptionCache>(Clone);
 }
 
 void VPAssumptionCache::insertAssume(const VPValue *V, AssumeT Assume,

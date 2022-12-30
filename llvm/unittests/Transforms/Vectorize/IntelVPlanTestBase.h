@@ -96,7 +96,7 @@ protected:
 
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get(),
-                                 *AC, SE.get());
+                                 *AC, *DT.get(), SE.get());
     HCFGBuilder.buildHierarchicalCFG();
     Plan->setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(
         *SE, *LI->begin(), *Plan->getLLVMContext(), DL.get()));
@@ -114,7 +114,7 @@ protected:
   std::unique_ptr<VPlanNonMasked> buildFCFG(Function *F) {
     doAnalysis(*F, &F->getEntryBlock());
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
-    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F, *AC.get());
+    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F, *AC.get(), *DT.get());
     FCFGBuilder.buildCFG();
     return Plan;
   }

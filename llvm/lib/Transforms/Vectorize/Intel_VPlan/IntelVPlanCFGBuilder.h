@@ -92,6 +92,19 @@ protected:
   void processBB(BasicBlock *BB);
 
   VPValue *getOrCreateVPOperand(Value *IRVal);
+
+public:
+  // Method for `VPAssumptionCache::importExternalAssumptions()`
+  bool isValidExternalAssume(AssumeInst *I, const DominatorTree *DT) const {
+    // Filter out internal assumes; these are handled separately.
+    if (contains(I))
+      return false;
+
+    // Now check if this assume is valid at the loop entry point.
+    const Instruction *CtxI =
+        static_cast<const CFGBuilder *>(this)->getLoopEntryInst();
+    return llvm::isValidAssumeForContext(I, CtxI, DT);
+  }
 };
 
 class VPlanLoopCFGBuilder : public VPlanCFGBuilderBase<VPlanLoopCFGBuilder> {
@@ -102,6 +115,10 @@ protected:
 public:
   bool contains(Instruction *Inst) const {
     return TheLoop->contains(Inst);
+  }
+
+  const Instruction *getLoopEntryInst() const {
+    return &*TheLoop->getHeader()->begin();
   }
 
   VPlanLoopCFGBuilder(VPlanVector *Plan, Loop *Lp, LoopInfo *LI,
@@ -118,15 +135,23 @@ class VPlanFunctionCFGBuilder
 
   AssumptionCache &AC;
 
+  const DominatorTree &DT;
+
 public:
   bool contains(Instruction *Inst) const {
     assert(Inst->getParent()->getParent() == &F && "Use from another function?");
     return true;
   }
 
+  const Instruction *getLoopEntryInst() const {
+    return &*F.getEntryBlock().begin();
+  }
+
   VPlanFunctionCFGBuilder(VPlanVector *Plan, Function &F, AssumptionCache &AC,
+                          const DominatorTree &DT,
                           BlockFrequencyInfo *BFI = nullptr)
-      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan, BFI), F(F), AC(AC) {}
+      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan, BFI), F(F), AC(AC),
+        DT(DT) {}
 
   void buildCFG();
 };

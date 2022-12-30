@@ -80,4 +80,35 @@ TEST_F(VPAssumptionCacheTest, AssumeInsidePlan) {
   EXPECT_EQ(cast<VPCallInstruction>(AffectingAssumes.front()), AssumeCall);
 }
 
+TEST_F(VPAssumptionCacheTest, AssumeOutsidePlan) {
+  buildVPlanFromString(R"(
+      declare void @llvm.assume(i1)
+      define void @foo(i32* %p) {
+      entry:
+        call void @llvm.assume(i1 true) [ "align"(i32* %p, i32 16) ]
+        br label %for.body
+      for.body:
+        %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]
+        store i32 1, i32* %p
+        %ind.next = add nuw nsw i32 %ind, 1
+        %cond = icmp eq i32 %ind.next, 256
+        br i1 %cond, label %for.body, label %exit
+      exit:
+        ret void
+      })");
+
+  const auto Assumes = Plan->getVPAC()->assumptions();
+  ASSERT_EQ(Assumes.size(), (size_t)1);
+  EXPECT_TRUE(isa<AssumeInst>(Assumes.front()));
+
+  const auto *ParamVal = getStoreInst()->getOperand(1);
+
+  const auto AffectingAssumes = Plan->getVPAC()->assumptionsFor(ParamVal);
+  ASSERT_EQ(AffectingAssumes.size(), (size_t)1);
+  EXPECT_TRUE(isa<AssumeInst>(AffectingAssumes.front()));
+
+  EXPECT_EQ(cast<AssumeInst>(AffectingAssumes.front()),
+            cast<AssumeInst>(Assumes.front()));
+}
+
 } // namespace

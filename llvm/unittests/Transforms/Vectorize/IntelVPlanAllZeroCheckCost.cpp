@@ -64,7 +64,8 @@ entry:
       std::make_unique<VPExternalValues>(&M.getContext(), &M.getDataLayout());
   auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
   auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
-  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get());
+  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get(),
+                                             *DT.get());
   FunctionCFGBuilder.buildCFG();
   Plan->setName(F->getName());
   Plan->computeDT();
