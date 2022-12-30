@@ -1506,7 +1506,7 @@ size_t Context::CalculateSupportedImageFormats(const cl_mem_flags clMemFlags,
     if (rDev != rDevSet->begin()) {
       // not first device
       tImageFormatList tempFormatsList;
-      std::set_union(&pFormats[0], &pFormats[devSpecificFormatsCount],
+      std::set_union(pFormats, pFormats + devSpecificFormatsCount,
                      imageFormatsList.begin(), imageFormatsList.end(),
                      tempFormatsList.begin(), compareImageFormats);
 

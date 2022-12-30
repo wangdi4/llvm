@@ -33,11 +33,11 @@ using namespace CompilationUtils;
 static constexpr unsigned MinIndexBitwidthToPreserve = 16;
 
 /// Define shorter names for dependencies, for clarity of the conversion map.
-static constexpr WorkItemInfo::Dependency UNI = WorkItemInfo::UNIFORM;
-static constexpr WorkItemInfo::Dependency SEQ = WorkItemInfo::CONSECUTIVE;
-static constexpr WorkItemInfo::Dependency PTR = WorkItemInfo::PTR_CONSECUTIVE;
-static constexpr WorkItemInfo::Dependency STR = WorkItemInfo::STRIDED;
-static constexpr WorkItemInfo::Dependency RND = WorkItemInfo::RANDOM;
+static constexpr auto UNI = WorkItemInfo::Dependency::UNIFORM;
+static constexpr auto SEQ = WorkItemInfo::Dependency::CONSECUTIVE;
+static constexpr auto PTR = WorkItemInfo::Dependency::PTR_CONSECUTIVE;
+static constexpr auto STR = WorkItemInfo::Dependency::STRIDED;
+static constexpr auto RND = WorkItemInfo::Dependency::RANDOM;
 
 /// Depdency maps which defines output dependency according to 2 input deps.
 static constexpr WorkItemInfo::Dependency
@@ -140,7 +140,7 @@ void WorkItemInfo::compute(unsigned Dim) {
   LLVM_DEBUG(dbgs() << F.getName() << "\n");
   LLVM_DEBUG(for (auto &I
                   : instructions(F)) dbgs()
-             << "WIA " << Deps[&I] << " " << I << " \n");
+             << "WIA " << static_cast<int>(Deps[&I]) << " " << I << " \n");
 
   // Concatenate predicated regions, when possible, to guarantee that predicated
   // regions appear one after the other will still appear one after the other
@@ -177,7 +177,7 @@ void WorkItemInfo::setDepend(const Instruction *From, const Instruction *To) {
   if (DivPhiBlocks.contains(FromBB))
     DivPhiBlocks.insert(ToBB);
   LLVM_DEBUG(dbgs() << "setDepend Deps[" << *To << "] = Deps[" << *From
-                    << "]: " << It->second << "\n");
+                    << "]: " << static_cast<int>(It->second) << "\n");
   Deps[To] = It->second;
 }
 
@@ -187,10 +187,11 @@ WorkItemInfo::Dependency WorkItemInfo::whichDepend(const Value *V) {
 
   auto It = Deps.find(V);
   auto Dep = (It != Deps.end())    ? It->second
-             : isa<Instruction>(V) ? RANDOM
-                                   : UNIFORM;
+             : isa<Instruction>(V) ? Dependency::RANDOM
+                                   : Dependency::UNIFORM;
 
-  LLVM_DEBUG(dbgs() << "whichDepend " << Dep << " " << *V << "\n");
+  LLVM_DEBUG(dbgs() << "whichDepend " << static_cast<int>(Dep) << " " << *V
+                    << "\n");
   return Dep;
 }
 
@@ -202,19 +203,19 @@ void WorkItemInfo::print(raw_ostream &OS) const {
            "Expect all instructions to have WorkItem dependency at this point");
     OS.indent(2) << "";
     switch (It->second) {
-    case UNIFORM:
+    case Dependency::UNIFORM:
       OS << "UNI";
       break;
-    case CONSECUTIVE:
+    case Dependency::CONSECUTIVE:
       OS << "SEQ";
       break;
-    case PTR_CONSECUTIVE:
+    case Dependency::PTR_CONSECUTIVE:
       OS << "PTR";
       break;
-    case STRIDED:
+    case Dependency::STRIDED:
       OS << "STR";
       break;
-    case RANDOM:
+    case Dependency::RANDOM:
       OS << "RND";
       break;
     }
@@ -252,8 +253,8 @@ void WorkItemInfo::calculateDep(const Value *V) {
   }
 
   // Our initial value.
-  Dependency Dep = hasDependency(I) ? getDependency(I) : UNIFORM;
-  if (RANDOM == Dep) {
+  Dependency Dep = hasDependency(I) ? getDependency(I) : Dependency::UNIFORM;
+  if (Dependency::RANDOM == Dep) {
     LLVM_DEBUG(dbgs() << "Skip random dep: " << *I << "\n");
     return;
   }
@@ -303,7 +304,8 @@ void WorkItemInfo::calculateDep(const Value *V) {
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const AllocaInst *I) {
   // Check if alloca instruction can be converted to SOA-alloca.
-  return (SA->isSoaAllocaScalarRelated(I)) ? PTR_CONSECUTIVE : RANDOM;
+  return (SA->isSoaAllocaScalarRelated(I)) ? Dependency::PTR_CONSECUTIVE
+                                           : Dependency::RANDOM;
 }
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const BinaryOperator *I) {
@@ -315,8 +317,8 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const BinaryOperator *I) {
   Dependency Dep1 = getDependency(Op1);
 
   // For whatever binary operation, uniform returns uniform.
-  if (UNIFORM == Dep0 && UNIFORM == Dep1)
-    return UNIFORM;
+  if (Dependency::UNIFORM == Dep0 && Dependency::UNIFORM == Dep1)
+    return Dependency::UNIFORM;
 
   // FIXME: assumes that the X value does not cross the +/- border - risky!
   // The pattern (and (X, C)), where C preserves the lower k bits of the value,
@@ -355,7 +357,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const BinaryOperator *I) {
     // WorkItem-dep.
     if (SHL && SHL->getOpcode() == Instruction::Add) {
       Value *AddedV = SHL->getOperand(1);
-      if (getDependency(AddedV) == UNIFORM)
+      if (getDependency(AddedV) == Dependency::UNIFORM)
         SHL = dyn_cast<BinaryOperator>(SHL->getOperand(0));
     }
 
@@ -379,10 +381,10 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const BinaryOperator *I) {
   // order to random.
   case Instruction::Add:
   case Instruction::FAdd:
-    return AddConversion[Dep0][Dep1];
+    return AddConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
   case Instruction::Sub:
   case Instruction::FSub:
-    return SubConversion[Dep0][Dep1];
+    return SubConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
   case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::Shl:
@@ -390,12 +392,12 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const BinaryOperator *I) {
     // (strided * uniform is still strided). Stride size is K, where K is the
     // uniform input. An exception to this is ptr_consecutive, which is
     // promoted to strided.
-    if (UNIFORM == Dep0 || UNIFORM == Dep1)
-      return MulConversion[Dep0][Dep1];
+    if (Dependency::UNIFORM == Dep0 || Dependency::UNIFORM == Dep1)
+      return MulConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
     LLVM_FALLTHROUGH;
   default:
     // TODO Support more arithmetic if needed.
-    return RANDOM;
+    return Dependency::RANDOM;
   }
 }
 
@@ -411,20 +413,20 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
   std::tie(IsTidGen, Dim) = isTIDGenerator(I);
   // All WorkItem's are consecutive along the dimension.
   if (IsTidGen && Dim == VectorizeDim)
-    return CONSECUTIVE;
+    return Dependency::CONSECUTIVE;
 
   auto *Callee = I->getCalledFunction();
   assert(Callee && "Unexpected indirect function invocation");
 
   // For functions defined in this module, it is unsafe to assume anything.
   if (!Callee->isDeclaration())
-    return RANDOM;
+    return Dependency::RANDOM;
 
   // Check if the function is in the table of functions.
   StringRef CalleeName = Callee->getName();
   // WG functions must be packetized (although their results may be uniform)
   if (isWorkGroupBuiltin(CalleeName))
-    return RANDOM;
+    return Dependency::RANDOM;
 
   // FIXME remove code in following block that is for volcano.
   std::string ScalarFuncName = CalleeName.str();
@@ -517,28 +519,28 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
   bool UniformByOps = RTService.hasNoSideEffect(ScalarFuncName);
   // Look for the function in the builtin functions hash.
   if (!MaskedMemOp && !IsTidGen && !UniformByOps)
-    return RANDOM;
+    return Dependency::RANDOM;
 
   // Iterate over all input dependencies. If all are uniform, propagate it,
   // otherwise, return RANDOM.
   bool IsAllUniform = all_of(I->args(), [&](const Value *Arg) {
-    return UNIFORM == getDependency(Arg);
+    return Dependency::UNIFORM == getDependency(Arg);
   });
 
   // FIXME remove following code that is for volcano.
   // An allones and allzeros branches are uniform branch.
   if (CalleeName.contains("__ocl_allOne") ||
       CalleeName.contains("__ocl_allZero"))
-    return UNIFORM;
+    return Dependency::UNIFORM;
 
-  return IsAllUniform ? UNIFORM : RANDOM;
+  return IsAllUniform ? Dependency::UNIFORM : Dependency::RANDOM;
 }
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CastInst *I) {
   auto *Op0 = I->getOperand(0);
   Dependency Dep0 = getDependency(Op0);
   // Independent remains independent.
-  if (UNIFORM == Dep0)
+  if (Dependency::UNIFORM == Dep0)
     return Dep0;
 
   switch (I->getOpcode()) {
@@ -555,13 +557,13 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CastInst *I) {
     return Dep0;
   case Instruction::BitCast:
   case Instruction::ZExt:
-    return RANDOM;
+    return Dependency::RANDOM;
   case Instruction::Trunc: {
     const Type *DstTy = I->getDestTy();
     const auto *IntTy = dyn_cast<IntegerType>(DstTy);
     return (IntTy && IntTy->getBitWidth() >= MinIndexBitwidthToPreserve)
                ? Dep0
-               : RANDOM;
+               : Dependency::RANDOM;
   }
   default:
     llvm_unreachable("unsupported opcode");
@@ -574,8 +576,8 @@ WorkItemInfo::calculateDep(const GetElementPtrInst *I) {
   // Here we assume the pointer is the first operand.
   unsigned Num = I->getNumIndices();
   for (unsigned Idx = 1; Idx < Num; ++Idx)
-    if (getDependency(I->getOperand(Idx)) != UNIFORM)
-      return RANDOM;
+    if (getDependency(I->getOperand(Idx)) != Dependency::UNIFORM)
+      return Dependency::RANDOM;
 
   const Value *OpPtr = I->getOperand(0);
   Dependency DepPtr = getDependency(OpPtr);
@@ -586,8 +588,11 @@ WorkItemInfo::calculateDep(const GetElementPtrInst *I) {
   bool IsIndirectGEP =
       OpPtr->getType() != I->getType() && !SA->isSoaAllocaScalarRelated(OpPtr);
 
-  return IsIndirectGEP ? GEPConversionForIndirection[DepPtr][DepLastInd]
-                       : GEPConversion[DepPtr][DepLastInd];
+  return IsIndirectGEP
+             ? GEPConversionForIndirection[static_cast<int>(DepPtr)]
+                                          [static_cast<int>(DepLastInd)]
+             : GEPConversion[static_cast<int>(DepPtr)]
+                            [static_cast<int>(DepLastInd)];
 }
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const PHINode *I) {
@@ -605,7 +610,8 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const PHINode *I) {
 
   Dependency TotalDep = Deps[0];
   for (size_t Idx = 0, E = Deps.size(); Idx < E; ++Idx)
-    TotalDep = SelectConversion[TotalDep][Deps[Idx]];
+    TotalDep = SelectConversion[static_cast<int>(TotalDep)]
+                               [static_cast<int>(Deps[Idx])];
   return TotalDep;
 }
 
@@ -614,8 +620,8 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const SelectInst *I) {
 
   // If mask is non-uniform, the select output can be a combination so we know
   // nothing about it.
-  if (UNIFORM != getDependency(Op0))
-    return RANDOM;
+  if (Dependency::UNIFORM != getDependency(Op0))
+    return Dependency::RANDOM;
 
   Dependency Dep1 = getDependency(I->getOperand(1));
   Dependency Dep2 = getDependency(I->getOperand(2));
@@ -624,7 +630,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const SelectInst *I) {
     return C->getZExtValue() ? Dep1 : Dep2;
   // Select the 'weaker" dep, but if only one dep is PTR_CONSECUTIVE, it must be
   // promoted to STRIDED (as this data may propagate to Load/Store instructions.
-  return SelectConversion[Dep1][Dep2];
+  return SelectConversion[static_cast<int>(Dep1)][static_cast<int>(Dep2)];
 }
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const UnaryOperator *I) {
@@ -633,7 +639,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const UnaryOperator *I) {
 
 WorkItemInfo::Dependency WorkItemInfo::calculateDep(const VAArgInst *I) {
   assert(false && "Are we supporting this ??");
-  return RANDOM;
+  return Dependency::RANDOM;
 }
 
 WorkItemInfo::Dependency
@@ -647,27 +653,29 @@ WorkItemInfo::calculateDepTerminator(const Instruction *I) {
     const auto *Br = cast<BranchInst>(I);
     // Unconditional branch is non TID-dependent.
     if (!Br->isConditional())
-      return UNIFORM;
-    return getDependency(Br->getCondition()) == UNIFORM ? UNIFORM : RANDOM;
+      return Dependency::UNIFORM;
+    return getDependency(Br->getCondition()) == Dependency::UNIFORM
+               ? Dependency::UNIFORM
+               : Dependency::RANDOM;
   }
   case Instruction::Ret:
     // Return instruction is unconditional.
-    return UNIFORM;
+    return Dependency::UNIFORM;
   case Instruction::IndirectBr:
     // TODO: Define the dependency requirements of IndirectBr.
   case Instruction::Switch:
     // TODO: Should this depend only on the condition, like branch?
   default:
-    return RANDOM;
+    return Dependency::RANDOM;
   }
 }
 
 WorkItemInfo::Dependency
 WorkItemInfo::calculateDepSimple(const Instruction *I) {
   for (const Value *V : I->operands())
-    if (getDependency(V) != UNIFORM)
-      return RANDOM;
-  return UNIFORM;
+    if (getDependency(V) != Dependency::UNIFORM)
+      return Dependency::RANDOM;
+  return Dependency::UNIFORM;
 }
 
 void WorkItemInfo::calcInfoForBranch(const Instruction *I) {
@@ -838,7 +846,7 @@ void WorkItemInfo::findDivergePartialJoins(const Instruction *I) {
 }
 
 WorkItemInfo::Dependency WorkItemInfo::getDependency(const Value *V) {
-  return Deps.insert({V, UNIFORM}).first->second;
+  return Deps.insert({V, Dependency::UNIFORM}).first->second;
 }
 
 bool WorkItemInfo::hasDependency(const Value *V) {
@@ -865,7 +873,7 @@ void WorkItemInfo::markDependentPhiRandom() {
       if (!Phi)
         break;
       if (!PhiHasEqualIncomingValues(Phi))
-        updateDepMap(Phi, RANDOM);
+        updateDepMap(Phi, Dependency::RANDOM);
     }
   }
 
@@ -877,7 +885,7 @@ void WorkItemInfo::markDependentPhiRandom() {
       if (!Phi)
         break;
       if (!PhiHasEqualIncomingValues(Phi))
-        updateDepMap(Phi, RANDOM);
+        updateDepMap(Phi, Dependency::RANDOM);
     }
   }
 }
@@ -886,7 +894,8 @@ void WorkItemInfo::updateDepMap(const Instruction *I, Dependency Dep) {
   // Return if the value is not changed.
   if (hasDependency(I) && Dep == getDependency(I))
     return;
-  LLVM_DEBUG(dbgs() << "updateDepMap " << Dep << " " << *I << "\n");
+  LLVM_DEBUG(dbgs() << "updateDepMap " << static_cast<int>(Dep) << " " << *I
+                    << "\n");
   // Save the new value of this instruction.
   Deps[I] = Dep;
 
@@ -895,7 +904,7 @@ void WorkItemInfo::updateDepMap(const Instruction *I, Dependency Dep) {
   for (const User *U : I->users())
     ChangedNew->insert(U);
 
-  if (!I->isTerminator() || Dep == UNIFORM)
+  if (!I->isTerminator() || Dep == Dependency::UNIFORM)
     return;
 
   // Divergent branch, trigger updates due to control-dependence.
@@ -1015,7 +1024,7 @@ void WorkItemInfo::updateCfDependency(const Instruction *I) {
       }
 
       if (Br->isConditional() && !BranchIsAllOnes && !BranchIsAllZeroes) {
-        updateDepMap(T, RANDOM);
+        updateDepMap(T, Dependency::RANDOM);
         // This region is going to be part of a larger region that is going to
         // be predicated.
         ShouldUpdateConstraints = false;
@@ -1026,7 +1035,7 @@ void WorkItemInfo::updateCfDependency(const Instruction *I) {
     for (auto &DefI : *DefBB) {
       // If DefI is random then its randomness will propagate to its usages in
       // the regular way and no control flow into propagation is needed.
-      if (hasDependency(&DefI) && getDependency(&DefI) == RANDOM)
+      if (hasDependency(&DefI) && getDependency(&DefI) == Dependency::RANDOM)
         continue;
 
       // Look at the users.
@@ -1046,11 +1055,11 @@ void WorkItemInfo::updateCfDependency(const Instruction *I) {
           // but seems like redundant computation for our case.
           // For now we'll mark a usage in every join/partial join as random.
           // We might changed it in the future.
-          updateDepMap(UserI, RANDOM);
+          updateDepMap(UserI, Dependency::RANDOM);
         } else {
           // Mark each usage not in the influence region as random.
           if (!InfluenceRegion.contains(UserBB))
-            updateDepMap(UserI, RANDOM);
+            updateDepMap(UserI, Dependency::RANDOM);
         }
       }
     }

@@ -180,7 +180,7 @@ static std::pair<unsigned, unsigned> countLoadStores(WorkItemInfo &WI,
       continue;
 
     // It is either a load or a store.
-    if (WI.whichDepend(&I) == WorkItemInfo::UNIFORM) {
+    if (WI.whichDepend(&I) == WorkItemInfo::Dependency::UNIFORM) {
       // Uniform ops are always good.
       ++GoodLoadStores;
       continue;
@@ -193,13 +193,13 @@ static std::pair<unsigned, unsigned> countLoadStores(WorkItemInfo &WI,
     }
 
     WorkItemInfo::Dependency Dep = WI.whichDepend(PointerOp);
-    if (Dep == WorkItemInfo::PTR_CONSECUTIVE) {
+    if (Dep == WorkItemInfo::Dependency::PTR_CONSECUTIVE) {
       // Consecutive scalar ops are good.
       ++GoodLoadStores;
       continue;
     }
 
-    if (Dep == WorkItemInfo::UNIFORM) {
+    if (Dep == WorkItemInfo::Dependency::UNIFORM) {
       // Arguably counter-intuitive, as this mem op might be scalarized, but we
       // believe a uniform address is likely to suggest few executions anyway.
       ++GoodLoadStores;
