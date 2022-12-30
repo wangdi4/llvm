@@ -1317,11 +1317,6 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AVX512_VNNI_FP8 */
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CMPCCXADD__)
-#include <cmpccxaddintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>
 #endif
