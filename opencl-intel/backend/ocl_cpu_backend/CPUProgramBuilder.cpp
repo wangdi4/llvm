@@ -247,7 +247,7 @@ Kernel *CPUProgramBuilder::CreateKernel(Function *pFunc,
                                          pProps);
 }
 
-KernelSet *
+std::unique_ptr<KernelSet>
 CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
                                  ProgramBuildResult &buildResult) const {
   using namespace DPCPPKernelMetadataAPI;
@@ -351,7 +351,7 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
 
   buildResult.LogS() << "Done.";
   // LLVMBackend::GetInstance()->m_logger->Log(Logger::INFO_LEVEL, L"Exit");
-  return spKernels.release();
+  return spKernels;
 }
 
 void CPUProgramBuilder::AddKernelJIT(CPUProgram *pProgram, Kernel *pKernel,

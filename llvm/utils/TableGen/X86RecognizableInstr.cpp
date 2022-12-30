@@ -1192,6 +1192,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   TYPE("TILEQuad",            TYPE_TMM_QUAD)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  TYPE("XMMPairX",            TYPE_XMM_PAIR)
+  TYPE("YMMPairX",            TYPE_YMM_PAIR)
+  TYPE("ZMMPairX",            TYPE_ZMM_PAIR)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
@@ -1296,6 +1301,11 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_RM)
+  ENCODING("YMMPairX",        ENCODING_RM)
+  ENCODING("ZMMPairX",        ENCODING_RM)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
@@ -1363,6 +1373,11 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   ENCODING("TILEQuad",        ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_REG)
+  ENCODING("YMMPairX",        ENCODING_REG)
+  ENCODING("ZMMPairX",        ENCODING_REG)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
@@ -1406,6 +1421,11 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("TILEPair",        ENCODING_VVVV)
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_VVVV)
+  ENCODING("YMMPairX",        ENCODING_VVVV)
+  ENCODING("ZMMPairX",        ENCODING_VVVV)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");

@@ -1779,6 +1779,9 @@ protected: // INTEL
 #if INTEL_CUSTOMIZATION
   /// Helper function to handle Phi whose operands have identical Scevs.
   const SCEV *createNodeForIdenticalOperandsPHI(PHINode *PN);
+
+  /// Function to trace through redundant phi cycles.
+  const SCEV *createNodeForRedundantPHICycle(PHINode *PN);
 #endif // INTEL_CUSTOMIZATION
   /// Helper function called from createNodeForPHI.
   const SCEV *createNodeFromSelectLikePHI(PHINode *PN);

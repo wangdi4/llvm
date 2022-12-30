@@ -869,6 +869,24 @@ static int readModRM(struct InternalInstruction *insn) {
 #define ZMM16_TYPE_TUPLES(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
+#if INTEL_FEATURE_XISA_COMMON
+#define XMM_TYPE_PAIR(prefix)                                                  \
+    case TYPE_XMM_PAIR:                                                        \
+      return prefix##_XMM0_XMM1 + (index / 2);
+
+#define YMM_TYPE_PAIR(prefix)                                                  \
+    case TYPE_YMM_PAIR:                                                        \
+      return prefix##_YMM0_YMM1 + (index / 2);
+
+#define ZMM_TYPE_PAIR(prefix)                                                  \
+    case TYPE_ZMM_PAIR:                                                        \
+      return prefix##_ZMM0_ZMM1 + (index / 2);
+#else // INTEL_FEATURE_XISA_COMMON
+#define XMM_TYPE_PAIR(prefix)
+#define YMM_TYPE_PAIR(prefix)
+#define ZMM_TYPE_PAIR(prefix)
+#endif // INTEL_FEATURE_XISA_COMMON
+
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define TMM_TYPE_QUAD(prefix)                                                  \
     case TYPE_TMM_QUAD:                                                        \
@@ -924,6 +942,9 @@ static int readModRM(struct InternalInstruction *insn) {
     TMM_TYPE_PAIR(prefix)                                                      \
     TMM_TYPE_QUAD(prefix)                                                      \
     ZMM16_TYPE_TUPLES(prefix)                                                  \
+    XMM_TYPE_PAIR(prefix)                                                      \
+    YMM_TYPE_PAIR(prefix)                                                      \
+    ZMM_TYPE_PAIR(prefix)                                                      \
     case TYPE_VK:                                                              \
       index &= 0xf;                                                            \
       if (index > 7)                                                           \
@@ -2390,6 +2411,11 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   case TYPE_TMM_QUAD:
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  case TYPE_XMM_PAIR:
+  case TYPE_YMM_PAIR:
+  case TYPE_ZMM_PAIR:
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   case TYPE_TMM:
   case TYPE_VK_PAIR:

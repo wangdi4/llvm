@@ -627,8 +627,9 @@ private:
   bool graphNodeEscapes(Node *N);
   // Analyze whether the given global escapes or not
   bool analyzeGlobalEscape(const Value *V,
-               SmallPtrSet<const PHINode *, 16> PhiUsers,
-               const Function **SinlgeAcessingFunction);
+                           SmallPtrSet<const PHINode *, 16> PhiUsers,
+                           const Function **SinlgeAcessingFunction,
+                           DenseMap<const Value *, bool> &Cache);
   void PrintNonEscapes() const;
 
   void ProcessIndirectCall(CallBase *CB);

@@ -57,7 +57,7 @@ class DominatorTree;
 /// LoopWIInfo holds work item dependency info for loops.
 class LoopWIInfo {
 public:
-  enum Dependency {
+  enum class Dependency : int {
     /// Value is loop invariant. For vectors, this means all vector elements are
     /// the same (broadcast).
     UNIFORM = 0,
@@ -67,7 +67,8 @@ public:
     /// Unknown or non-consecutive order.
     RANDOM = 2,
   };
-  static constexpr int NumDeps = 3; /// Overall number of dependencies.
+  /// Overall number of dependencies.
+  static constexpr int NumDeps = static_cast<int>(Dependency::RANDOM) + 1;
 
   /// Run analysis.
   void run(Loop *L, DominatorTree *DT, LoopInfo *LI);

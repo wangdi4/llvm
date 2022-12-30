@@ -188,7 +188,7 @@ static bool isOutOfRangeAccess(int64_t TC, int64_t MemOpInnermostDimSize,
 
 bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
                                      MemsetMemcpyCandidate &MMC) const {
-  Intrinsic::ID IntrinID = 0;
+  Intrinsic::ID IntrinID;
   if (!Inst->isIntrinCall(IntrinID)) {
     return false;
   }

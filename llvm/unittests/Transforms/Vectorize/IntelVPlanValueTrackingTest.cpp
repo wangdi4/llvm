@@ -312,4 +312,34 @@ TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_GEP) {
   // clang-format on
 }
 
+TEST_F(VPlanComputeKnownBitsTest, ToggleUseUnderlyingValues) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %a) {
+    entry:
+      %a.mul = mul i64 %a, 8
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %add = add i64 %a.mul, 0
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  // Expect underlying values to be used by default
+  EXPECT_TRUE(VPlanValueTracking::getUseUnderlyingValues());
+  expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
+
+  // Expect that we can toggle underlying values to not be used.
+  VPlanValueTracking::setUseUnderlyingValues(false);
+  expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 0, /*One: */ 0);
+
+  // Expect that we can toggle underlying values to be used.
+  VPlanValueTracking::setUseUnderlyingValues(true);
+  expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
+}
+
 } // namespace

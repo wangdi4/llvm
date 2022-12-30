@@ -730,6 +730,245 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(Reg));
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_XISA_COMMON
+  bool isXMMPair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VR128XRegClassID].contains(getReg());
+  }
+
+  bool isYMMPair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VR256XRegClassID].contains(getReg());
+  }
+
+  bool isZMMPair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());
+  }
+
+  void addXMMPairOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    default:
+      llvm_unreachable("Invalid XMM register!");
+    case X86::XMM0:
+    case X86::XMM1:
+      Reg = X86::XMM0_XMM1;
+      break;
+    case X86::XMM2:
+    case X86::XMM3:
+      Reg = X86::XMM2_XMM3;
+      break;
+    case X86::XMM4:
+    case X86::XMM5:
+      Reg = X86::XMM4_XMM5;
+      break;
+    case X86::XMM6:
+    case X86::XMM7:
+      Reg = X86::XMM6_XMM7;
+      break;
+    case X86::XMM8:
+    case X86::XMM9:
+      Reg = X86::XMM8_XMM9;
+      break;
+    case X86::XMM10:
+    case X86::XMM11:
+      Reg = X86::XMM10_XMM11;
+      break;
+    case X86::XMM12:
+    case X86::XMM13:
+      Reg = X86::XMM12_XMM13;
+      break;
+    case X86::XMM14:
+    case X86::XMM15:
+      Reg = X86::XMM14_XMM15;
+      break;
+    case X86::XMM16:
+    case X86::XMM17:
+      Reg = X86::XMM16_XMM17;
+      break;
+    case X86::XMM18:
+    case X86::XMM19:
+      Reg = X86::XMM18_XMM19;
+      break;
+    case X86::XMM20:
+    case X86::XMM21:
+      Reg = X86::XMM20_XMM21;
+      break;
+    case X86::XMM22:
+    case X86::XMM23:
+      Reg = X86::XMM22_XMM23;
+      break;
+    case X86::XMM24:
+    case X86::XMM25:
+      Reg = X86::XMM24_XMM25;
+      break;
+    case X86::XMM26:
+    case X86::XMM27:
+      Reg = X86::XMM26_XMM27;
+      break;
+    case X86::XMM28:
+    case X86::XMM29:
+      Reg = X86::XMM28_XMM29;
+      break;
+    case X86::XMM30:
+    case X86::XMM31:
+      Reg = X86::XMM30_XMM31;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+
+  void addYMMPairOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    default:
+      llvm_unreachable("Invalid YMM register!");
+    case X86::YMM0:
+    case X86::YMM1:
+      Reg = X86::YMM0_YMM1;
+      break;
+    case X86::YMM2:
+    case X86::YMM3:
+      Reg = X86::YMM2_YMM3;
+      break;
+    case X86::YMM4:
+    case X86::YMM5:
+      Reg = X86::YMM4_YMM5;
+      break;
+    case X86::YMM6:
+    case X86::YMM7:
+      Reg = X86::YMM6_YMM7;
+      break;
+    case X86::YMM8:
+    case X86::YMM9:
+      Reg = X86::YMM8_YMM9;
+      break;
+    case X86::YMM10:
+    case X86::YMM11:
+      Reg = X86::YMM10_YMM11;
+      break;
+    case X86::YMM12:
+    case X86::YMM13:
+      Reg = X86::YMM12_YMM13;
+      break;
+    case X86::YMM14:
+    case X86::YMM15:
+      Reg = X86::YMM14_YMM15;
+      break;
+    case X86::YMM16:
+    case X86::YMM17:
+      Reg = X86::YMM16_YMM17;
+      break;
+    case X86::YMM18:
+    case X86::YMM19:
+      Reg = X86::YMM18_YMM19;
+      break;
+    case X86::YMM20:
+    case X86::YMM21:
+      Reg = X86::YMM20_YMM21;
+      break;
+    case X86::YMM22:
+    case X86::YMM23:
+      Reg = X86::YMM22_YMM23;
+      break;
+    case X86::YMM24:
+    case X86::YMM25:
+      Reg = X86::YMM24_YMM25;
+      break;
+    case X86::YMM26:
+    case X86::YMM27:
+      Reg = X86::YMM26_YMM27;
+      break;
+    case X86::YMM28:
+    case X86::YMM29:
+      Reg = X86::YMM28_YMM29;
+      break;
+    case X86::YMM30:
+    case X86::YMM31:
+      Reg = X86::YMM30_YMM31;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+
+  void addZMMPairOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    default:
+      llvm_unreachable("Invalid zmm register!");
+    case X86::ZMM0:
+    case X86::ZMM1:
+      Reg = X86::ZMM0_ZMM1;
+      break;
+    case X86::ZMM2:
+    case X86::ZMM3:
+      Reg = X86::ZMM2_ZMM3;
+      break;
+    case X86::ZMM4:
+    case X86::ZMM5:
+      Reg = X86::ZMM4_ZMM5;
+      break;
+    case X86::ZMM6:
+    case X86::ZMM7:
+      Reg = X86::ZMM6_ZMM7;
+      break;
+    case X86::ZMM8:
+    case X86::ZMM9:
+      Reg = X86::ZMM8_ZMM9;
+      break;
+    case X86::ZMM10:
+    case X86::ZMM11:
+      Reg = X86::ZMM10_ZMM11;
+      break;
+    case X86::ZMM12:
+    case X86::ZMM13:
+      Reg = X86::ZMM12_ZMM13;
+      break;
+    case X86::ZMM14:
+    case X86::ZMM15:
+      Reg = X86::ZMM14_ZMM15;
+      break;
+    case X86::ZMM16:
+    case X86::ZMM17:
+      Reg = X86::ZMM16_ZMM17;
+      break;
+    case X86::ZMM18:
+    case X86::ZMM19:
+      Reg = X86::ZMM18_ZMM19;
+      break;
+    case X86::ZMM20:
+    case X86::ZMM21:
+      Reg = X86::ZMM20_ZMM21;
+      break;
+    case X86::ZMM22:
+    case X86::ZMM23:
+      Reg = X86::ZMM22_ZMM23;
+      break;
+    case X86::ZMM24:
+    case X86::ZMM25:
+      Reg = X86::ZMM24_ZMM25;
+      break;
+    case X86::ZMM26:
+    case X86::ZMM27:
+      Reg = X86::ZMM26_ZMM27;
+      break;
+    case X86::ZMM28:
+    case X86::ZMM29:
+      Reg = X86::ZMM28_ZMM29;
+      break;
+    case X86::ZMM30:
+    case X86::ZMM31:
+      Reg = X86::ZMM30_ZMM31;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 
   void addMemOperands(MCInst &Inst, unsigned N) const {

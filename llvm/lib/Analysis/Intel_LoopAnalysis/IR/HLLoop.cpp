@@ -2351,7 +2351,7 @@ void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
 }
 
 void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
-  unsigned TC = 0;
+  unsigned TC;
 
   if (getPragmaBasedMinimumTripCount(TC)) {
     setPragmaBasedMinimumTripCount(TC / Factor);

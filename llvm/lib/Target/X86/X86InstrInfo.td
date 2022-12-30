@@ -876,6 +876,32 @@ def ZMM16Tuples : RegisterOperand<VR512> {
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
+#if INTEL_FEATURE_XISA_COMMON
+let RenderMethod = "addXMMPairOperands" in {
+  def XMMPairAsmOperand : AsmOperandClass { let Name = "XMMPair"; }
+}
+
+def XMMPairX : RegisterOperand<XMMPAIRX, "printXMMPair"> {
+  let ParserMatchClass = XMMPairAsmOperand;
+}
+
+let RenderMethod = "addYMMPairOperands" in {
+  def YMMPairAsmOperand : AsmOperandClass { let Name = "YMMPair"; }
+}
+
+def YMMPairX : RegisterOperand<YMMPAIRX, "printYMMPair"> {
+  let ParserMatchClass = YMMPairAsmOperand;
+}
+
+let RenderMethod = "addZMMPairOperands" in {
+  def ZMMPairAsmOperand : AsmOperandClass { let Name = "ZMMPair"; }
+}
+
+def ZMMPairX : RegisterOperand<ZMMPAIRX, "printZMMPair"> {
+  let ParserMatchClass = ZMMPairAsmOperand;
+}
+#endif // INTEL_FEATURE_XISA_COMMON
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def TILEPairX : RegisterOperand<TILEPAIRX, "printTILEPair"> {
   let ParserMatchClass = TILEPairAsmOperand;
@@ -976,6 +1002,9 @@ def NoVLX        : Predicate<"!Subtarget->hasVLX()">;
 def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+def HasAVX512VPMM  : Predicate<"Subtarget->hasAVX512VPMM()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
 def IntelAdvOpt    : Predicate<"TM.Options.IntelAdvancedOptim">;
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def NoVLX_Or_NoVBMI2 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVBMI2()">;

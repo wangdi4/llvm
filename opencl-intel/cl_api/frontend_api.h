@@ -15,6 +15,7 @@
 #pragma once
 
 #include <CL/cl.h>
+#include <memory>
 #include <stddef.h>
 #include <stdint.h>
 #include <string>
@@ -45,9 +46,6 @@ struct IOCLFESpecConstInfo {
   virtual size_t getSpecConstCount() const = 0;
   virtual cl_uint getSpecConstId(size_t index) const = 0;
   virtual cl_uint getSpecConstSize(size_t index) const = 0;
-  virtual void release() = 0;
-
-protected:
   virtual ~IOCLFESpecConstInfo() {}
 };
 } // namespace ClangFE
@@ -205,8 +203,8 @@ public:
   // Input: pProgDesc - descriptor of the program created with SPIRV
   // Output: pSpecConstInfo - Interface to specialization constants information
   // foung in the input.
-  virtual void GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
-                                IOCLFESpecConstInfo **pSpecConstInfo) = 0;
+  virtual std::unique_ptr<IOCLFESpecConstInfo>
+  GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc) = 0;
 
   // release compiler instance
   virtual void Release() = 0;
