@@ -1519,8 +1519,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI, Lp);
 
   HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
-                                  &VLSA, LightWeightMode);
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, getDT(), &HIRVecLegal,
+                                  DDA, &VLSA, LightWeightMode);
 
   // Send explicit data from WRLoop to the Legality and check whether we can
   // handle it.

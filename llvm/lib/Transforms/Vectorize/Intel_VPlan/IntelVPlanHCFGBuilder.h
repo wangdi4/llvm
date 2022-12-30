@@ -68,6 +68,8 @@ protected:
 
   ScalarEvolution *SE;
 
+  const DominatorTree &DT;
+
   AssumptionCache &AC;
 
   // Holds instructions from the original loop that we predicated. Such
@@ -95,7 +97,7 @@ public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                    VPOVectorizationLegality *Legal, AssumptionCache &AC,
-                   ScalarEvolution *SE = nullptr,
+                   const DominatorTree &DT, ScalarEvolution *SE = nullptr,
                    BlockFrequencyInfo *BFI = nullptr);
 
   virtual ~VPlanHCFGBuilder();

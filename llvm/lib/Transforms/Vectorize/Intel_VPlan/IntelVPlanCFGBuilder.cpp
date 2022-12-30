@@ -17,6 +17,7 @@
 #include "IntelVPlanCFGBuilder.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -110,9 +111,23 @@ void VPlanCFGBuilderBase<CFGBuilder>::addExternalUses(Value *Val,
 // the latter, please, look at 'createVPInstructionsForVPBB'.
 template <class CFGBuilder>
 VPValue *VPlanCFGBuilderBase<CFGBuilder>::getOrCreateVPOperand(Value *IRVal) {
+  const auto ImportExternalAssumptions = [this](const VPValue *VPVal,
+                                                const Value *IRVal) {
+    Plan->getVPAC()->importExternalAssumptions(*this, VPVal, IRVal);
+  };
+
   // Constant operand
-  if (Constant *IRConst = dyn_cast<Constant>(IRVal))
-    return Plan->getVPConstant(IRConst);
+  if (Constant *IRConst = dyn_cast<Constant>(IRVal)) {
+    VPConstant *VPConst = Plan->getVPConstant(IRConst);
+
+    if (isa<GlobalVariable>(IRConst)) {
+      // Global variables can be affected by external assumptions; import them
+      // if they exist.
+      ImportExternalAssumptions(VPConst, IRConst);
+    }
+
+    return VPConst;
+  }
 
   if (MetadataAsValue *MDAsValue = dyn_cast<MetadataAsValue>(IRVal))
     return Plan->getVPMetadataAsValue(MDAsValue);
@@ -135,6 +150,11 @@ VPValue *VPlanCFGBuilderBase<CFGBuilder>::getOrCreateVPOperand(Value *IRVal) {
   // to the Value->VPValue map.
   VPExternalDef *ExtDef = Plan->getVPExternalDef(IRVal);
   IRDef2VPValue[IRVal] = ExtDef;
+
+  // External defs may be affected by external assumptions; import them if they
+  // exist.
+  ImportExternalAssumptions(ExtDef, IRVal);
+
   return ExtDef;
 }
 
@@ -419,7 +439,7 @@ void VPlanFunctionCFGBuilder::buildCFG() {
 
   // Initialize the VPlan assumption cache in preparation for it being populated
   // while processing basic blocks.
-  Plan->setVPAC(std::make_unique<VPAssumptionCache>(AC));
+  Plan->setVPAC(std::make_unique<VPAssumptionCache>(AC, DT));
 
   ReversePostOrderTraversal<BasicBlock *> RPOT(&F.getEntryBlock());
   assert(count_if(F,

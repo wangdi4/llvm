@@ -267,7 +267,7 @@ private:
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlanVector *Plan,
                       HIRVectorizationLegality *Legality, const DDGraph &DDG,
-                      AssumptionCache &AC);
+                      const DominatorTree &DT, AssumptionCache &AC);
 };
 
 } // namespace vpo

@@ -335,8 +335,8 @@ public:
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA,
                            BlockFrequencyInfo *BFI = nullptr)
-      : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal),
-        VLSA(VLSA), TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
+      : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
+        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -668,6 +668,9 @@ protected:
   VPlanVLSAnalysis *VLSA;
 #endif // INTEL_CUSTOMIZATION
 
+  /// The dominator tree.
+  class DominatorTree *DT;
+
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   std::list<CfgMergerPlanDescr> MergerVPlans;
@@ -744,9 +747,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  /// The dominators tree.
-  class DominatorTree *DT;
 
   /// Block frequency info
   BlockFrequencyInfo *BFI;

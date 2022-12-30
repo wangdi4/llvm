@@ -1645,8 +1645,7 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   TargetPlan->setVPSE(VPAF.createVPSE());
 
   // Clone VPAssumptionCache for the new Plan.
-  TargetPlan->setVPAC(
-      std::make_unique<VPAssumptionCache>(getVPAC()->clone(Mapper)));
+  TargetPlan->setVPAC(getVPAC()->clone(Mapper));
 
   // Create ValueTracking for the new VPlan.
   TargetPlan->setVPVT(

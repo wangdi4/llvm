@@ -17,10 +17,12 @@
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 namespace llvm {
 class AssumeInst;
 class AssumptionCache;
+class DominatorTree;
 class Value;
 
 namespace vpo {
@@ -41,14 +43,17 @@ class VPValueMapper;
 /// definitions from the underlying AssumptionCache, and registering assumptions
 /// interally within the VPlan as they are encountered.
 ///
-/// NOTE: Support for importing external assumptions and unregistering internal
-/// assumptions is not yet implemented.
+/// NOTE: Support for unregistering internal assumptions is not yet implemented.
 class VPAssumptionCache {
+  template <typename IR> friend class VPlanCFGBuilderBase;
+  friend class VPDecomposerHIR;
+
 public:
-  VPAssumptionCache(AssumptionCache &AC) : AssumptionCacheLLVM(AC) {}
+  VPAssumptionCache(AssumptionCache &AC, const DominatorTree &DT)
+      : AssumptionCacheLLVM(AC), DT(DT) {}
 
   /// Clone this cache.
-  VPAssumptionCache clone(const VPValueMapper &Mapper) const;
+  std::unique_ptr<VPAssumptionCache> clone(const VPValueMapper &Mapper) const;
 
   /// Get the inner LLVM cache.
   AssumptionCache *getLLVMCache() const { return &AssumptionCacheLLVM; }
@@ -85,6 +90,22 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  /// Import assumptions that apply to \p VPVal from the inner LLVM cache using
+  /// the equivalent \p LLVMVal to look them up. The front-end \p FE is
+  /// consulted to determine whether underlying assumptions are 1) external and
+  /// 2) valid for the plan.
+  /// NOTE: Access to this method is granted via friendship and should be
+  /// limited to VPlan front-ends.
+  template <typename FrontEnd>
+  void importExternalAssumptions(const FrontEnd &FE, const VPValue *VPVal,
+                                 const Value *IRVal) {
+    for (auto Assumption : AssumptionCacheLLVM.assumptionsFor(IRVal)) {
+      auto *Assume = cast<AssumeInst>(Assumption);
+      if (FE.isValidExternalAssume(Assume, &DT))
+        insertAssume(VPVal, Assume, Assumption.Index);
+    }
+  }
+
   /// If not yet cached, insert this \p Assume and \p Index into the list of
   /// cached assumes and add \p Val as an affected value.
   void insertAssume(const VPValue *Val, AssumeT Assume, unsigned Index);
@@ -99,6 +120,11 @@ private:
   /// A handle to the inner LLVM cache -- should only be used in the LLVM-IR
   /// path, or when importing assumptions in the front-end.
   AssumptionCache &AssumptionCacheLLVM;
+
+  /// A handle to the dominator tree that we pass to the front-end to allow the
+  /// use of `llvm::isValidExternalAssume()` when determining whether or not an
+  /// external assume is valid.
+  const DominatorTree &DT;
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
