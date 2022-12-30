@@ -1106,9 +1106,10 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlanVector *Plan,
                                          HIRVectorizationLegality *Legal,
                                          const DDGraph &DDG,
+                                         const DominatorTree &DT,
                                          AssumptionCache &AC)
     : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
-                       WRL, Plan, nullptr, AC),
+                       WRL, Plan, nullptr, AC, DT),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
   Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&

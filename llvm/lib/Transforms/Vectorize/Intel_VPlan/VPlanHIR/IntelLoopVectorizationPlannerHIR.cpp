@@ -109,7 +109,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
-  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, AC);
+  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, *DT,
+                                  AC);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 

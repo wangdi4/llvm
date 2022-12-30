@@ -76,12 +76,12 @@ public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
-                              const DataLayout *DL,
+                              const DataLayout *DL, DominatorTree *DT,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
                               bool LightWeightMode)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
-                                 DL, nullptr, nullptr, VLSA, nullptr /* BFI */),
+                                 DL, DT, nullptr, VLSA, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
         HIRLegality(HIRLegal) {
     // Set the flag in scenario to indicate if we are dealing with a constant
