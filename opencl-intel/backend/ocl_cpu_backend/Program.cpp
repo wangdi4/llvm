@@ -155,7 +155,9 @@ void Program::SetBuildLog(const std::string &buildLog) {
   m_buildLog = buildLog;
 }
 
-void Program::SetKernelSet(KernelSet *pKernels) { m_kernels.reset(pKernels); }
+void Program::SetKernelSet(std::unique_ptr<KernelSet> pKernels) {
+  m_kernels = std::move(pKernels);
+}
 
 void Program::SetModule(std::unique_ptr<llvm::Module> M) {
   assert(m_pIRCodeContainer && "code container should be initialized by now");

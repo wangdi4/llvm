@@ -148,10 +148,10 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
                                                   uiUnrecognizedOptionsSize);
 }
 
-void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
-                                       IOCLFESpecConstInfo **pSpecConstInfo) {
-  ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
-      .getSpecConstInfo(pSpecConstInfo);
+std::unique_ptr<IOCLFESpecConstInfo>
+ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc) {
+  return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
+      .getSpecConstInfo();
 }
 
 int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,

@@ -17,6 +17,7 @@
 #include "frontend_api.h"
 
 #include <cstdint> // std::uint32_t
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,6 @@ public:
   cl_uint getSpecConstSize(size_t Index) const override {
     return SpecConstInfo[Index].second;
   }
-  void release() override { SpecConstInfo.clear(); }
   std::vector<SpecConstInfoTy> &getRef() { return SpecConstInfo; }
 
 private:
@@ -63,7 +63,7 @@ public:
 
   /// \brief partially parse SPIR-V module, i.e. only decode what is needed to
   /// get specialization constant info.
-  void getSpecConstInfo(IOCLFESpecConstInfo **pSpecConstInfo);
+  std::unique_ptr<IOCLFESpecConstInfo> getSpecConstInfo();
 
 private:
   /// \brief Read 32bit integer value and convert it to little-endian if

@@ -134,19 +134,18 @@ void FrontEndCompiler::GetSpecConstInfo(
   spirvDesc.puiSpecConstIds = nullptr;
   spirvDesc.puiSpecConstValues = nullptr;
 
-  IOCLFESpecConstInfo *pSpecConstInfo = nullptr;
+  std::unique_ptr<IOCLFESpecConstInfo> pSpecConstInfo =
+      m_pFECompiler->GetSpecConstInfo(&spirvDesc);
 
   LOG_DEBUG(TEXT("Enter FrontEndCompiler::GetSpecConstInfo("
                  "szProgramBinary=%d, uiProgramSize=%d)"),
             szProgramBinary, uiProgramSize);
-  m_pFECompiler->GetSpecConstInfo(&spirvDesc, &pSpecConstInfo);
   // Free resourses
   if (pSpecConstInfo) {
     for (size_t i = 0, e = pSpecConstInfo->getSpecConstCount(); i < e; ++i) {
       SpecConstInfo.emplace_back(pSpecConstInfo->getSpecConstId(i),
                                  pSpecConstInfo->getSpecConstSize(i));
     }
-    pSpecConstInfo->release();
   }
 }
 

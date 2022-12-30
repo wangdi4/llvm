@@ -428,11 +428,8 @@ struct strbuf : public std::stringbuf {
   }
 };
 
-void ClangFECompilerParseSPIRVTask::getSpecConstInfo(
-    IOCLFESpecConstInfo **pSpecConstInfo) {
-  if (!pSpecConstInfo) {
-    return;
-  }
+std::unique_ptr<IOCLFESpecConstInfo>
+ClangFECompilerParseSPIRVTask::getSpecConstInfo() {
   auto pResult = std::make_unique<OCLFESpecConstInfo>();
 
   char *pSPIRVData =
@@ -442,5 +439,5 @@ void ClangFECompilerParseSPIRVTask::getSpecConstInfo(
   std::istream SPIRVStream(&SPIRVbuffer);
 
   llvm::getSpecConstInfo(SPIRVStream, pResult->getRef());
-  *pSpecConstInfo = pResult.release();
+  return pResult;
 }

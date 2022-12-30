@@ -322,12 +322,12 @@ ProgramBuilder::BuildProgram(Program *pProgram,
 
       // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
       // L"Start iterating over kernels");
-      KernelSet *pKernels =
+      std::unique_ptr<KernelSet> pKernels =
           CreateKernels(pProgram, MergeOptions.c_str(), buildResult);
       // update kernels with RuntimeService
-      Utils::UpdateKernelsWithRuntimeService(lRuntimeService, pKernels);
+      Utils::UpdateKernelsWithRuntimeService(lRuntimeService, pKernels.get());
 
-      pProgram->SetKernelSet(pKernels);
+      pProgram->SetKernelSet(std::move(pKernels));
     }
 
     BuildProgramCachedExecutable(objCache.get(), pProgram);
@@ -680,7 +680,8 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
         RuntimeServiceSharedPtr(new RuntimeServiceImpl);
     Prog->SetRuntimeService(RTService);
 
-    KernelSet *Kernels = CreateKernels(Prog, nullptr, buildResult);
+    std::unique_ptr<KernelSet> Kernels =
+        CreateKernels(Prog, nullptr, buildResult);
 
     // Get kernel names.
     size_t NumKernels = Kernels->GetCount();
@@ -694,9 +695,9 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
     KernelNames = O.str();
 
     // Update kernels with RuntimeService.
-    Utils::UpdateKernelsWithRuntimeService(RTService, Kernels);
+    Utils::UpdateKernelsWithRuntimeService(RTService, Kernels.get());
 
-    Prog->SetKernelSet(Kernels);
+    Prog->SetKernelSet(std::move(Kernels));
 
     buildResult.SetBuildResult(CL_DEV_SUCCESS);
 
