@@ -307,18 +307,18 @@ LoopWIInfo::Dependency LoopWIInfo::calculateDep(BinaryOperator *BO) {
       updateConstStride(BO, Op0);
     else if (Dep1 == Dependency::STRIDED && Dep0 == Dependency::UNIFORM)
       updateConstStride(BO, Op1);
-    return AddConversion[Dep0][Dep1];
+    return AddConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
   case Instruction::Sub:
   case Instruction::FSub:
     if (Dep0 == Dependency::STRIDED && Dep1 == Dependency::UNIFORM)
       updateConstStride(BO, Op0);
     else if (Dep1 == Dependency::STRIDED && Dep0 == Dependency::UNIFORM)
       updateConstStride(BO, Op1, /* Negate */ true);
-    return AddConversion[Dep0][Dep1];
+    return AddConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
   case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::Shl:
-    return MulConversion[Dep0][Dep1];
+    return MulConversion[static_cast<int>(Dep0)][static_cast<int>(Dep1)];
   default:
     break;
   }
@@ -401,7 +401,7 @@ LoopWIInfo::Dependency LoopWIInfo::calculateDep(ShuffleVectorInst *SVI) {
     return Dependency::RANDOM;
 
   updateConstStride(SVI, V);
-  if (Dep = Dependency::STRIDED) {
+  if (Dep == Dependency::STRIDED) {
     StrideIntermediate.insert(IEI);
     updateConstStride(IEI, V);
   }
