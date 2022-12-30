@@ -360,7 +360,7 @@ public:
                                                    unsigned Idx) {
     const auto Bundle = A->getOperandBundleAt(Idx);
     if (Bundle.getTagName() != "align")
-      return None;
+      return std::nullopt;
 
     return cast<ConstInt>(Bundle.Inputs[1])->getAlignValue();
   }
@@ -373,7 +373,7 @@ public:
     if (const auto *VPAssume = dyn_cast<VPCallInstruction>(Assumption))
       return extractAlignmentFromAssumption<VPConstantInt>(VPAssume,
                                                            Assumption.Index);
-    return None;
+    return std::nullopt;
   }
 
   static void computeKnownBitsFromAssume(const VPValue *V, KnownBits &KB,
