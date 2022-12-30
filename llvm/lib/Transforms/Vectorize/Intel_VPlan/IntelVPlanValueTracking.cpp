@@ -89,12 +89,14 @@ public:
       break;
     }
     case VPValue::VPExternalDefSC: {
-      // Generally, we can't say much about an external def. However, if it
-      // has an underlying value, we can try to use LLVM's ValueTracking to
-      // obtain an answer.
-      if (const Value *IRVal = V->getUnderlyingValue())
-        llvm::computeKnownBits(IRVal, KB, Q.DL, Depth, Q.VPAC.getLLVMCache(),
-                               tryToGetUnderlyingInst(Q.CtxI), &Q.DT);
+      if (VPlanValueTracking::getUseUnderlyingValues()) {
+        // Generally, we can't say much about an external def. However, if it
+        // has an underlying value, we can try to use LLVM's ValueTracking to
+        // obtain an answer.
+        if (const Value *IRVal = V->getUnderlyingValue())
+          llvm::computeKnownBits(IRVal, KB, Q.DL, Depth, Q.VPAC.getLLVMCache(),
+                                 tryToGetUnderlyingInst(Q.CtxI), &Q.DT);
+      }
       break;
     }
     }

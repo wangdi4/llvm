@@ -51,7 +51,16 @@ public:
   /// Compute KnownBits for an arbitrary \p Expr at point \p CtxI.
   KnownBits getKnownBits(const VPValue *Expr, const VPInstruction *CtxI) const;
 
+  /// Set whether underlying values are used when computing known bits.
+  static void setUseUnderlyingValues(bool V) { UseUnderlyingValues = V; }
+
+  /// Get whether underlying values are used when computing known bits.
+  static bool getUseUnderlyingValues() { return UseUnderlyingValues; }
+
 private:
+  /// Controls whether underlying values are used when computing known bits.
+  static inline bool UseUnderlyingValues = true;
+
   /// Discriminant for LLVM-style RTTI.
   KindT Kind;
 };
