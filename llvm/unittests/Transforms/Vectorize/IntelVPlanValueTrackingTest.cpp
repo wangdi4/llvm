@@ -24,10 +24,20 @@ class VPlanValueTrackingTest : public vpo::VPlanTestBase {
 protected:
   std::unique_ptr<VPlanVector> Plan;
 
+  static BasicBlock *findBlockByName(Function *F, StringRef Name) {
+    for (BasicBlock &BB : F->getBasicBlockList())
+      if (BB.getName() == Name)
+        return &BB;
+    return nullptr;
+  }
+
   void buildVPlanFromString(const char *ModuleString) {
     Module &M = parseModule(ModuleString);
     Function *F = M.getFunction("foo");
-    BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+
+    BasicBlock *LoopHeader = findBlockByName(F, "for.body");
+    ASSERT_TRUE(LoopHeader) << "No block named 'for.body'!";
+
     Plan = buildHCFG(LoopHeader);
   }
 
@@ -145,11 +155,30 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
     return nullptr;
   }
 
-  template <typename InstTy> InstTy *findFirstInstruction() const {
+  template <typename InstTy>
+  InstTy *
+  findFirstInstruction(llvm::function_ref<bool(const InstTy *)> P) const {
     for (VPInstruction &I : vpinstructions(Plan.get()))
-      if (auto *VPCall = dyn_cast<InstTy>(&I))
-        return VPCall;
+      if (auto *Inst = dyn_cast<InstTy>(&I))
+        if (P(Inst))
+          return Inst;
     return nullptr;
+  }
+
+  template <typename InstTy> InstTy *findFirstInstruction() const {
+    return findFirstInstruction<InstTy>([](const auto *) { return true; });
+  }
+
+  VPLoadStoreInst *findFirstLoad() const {
+    return findFirstInstruction<VPLoadStoreInst>([](const VPLoadStoreInst *LS) {
+      return LS->getOpcode() == Instruction::Load;
+    });
+  }
+
+  VPLoadStoreInst *findFirstStore() const {
+    return findFirstInstruction<VPLoadStoreInst>([](const VPLoadStoreInst *LS) {
+      return LS->getOpcode() == Instruction::Store;
+    });
   }
 
   void expectKnownBits(Twine Name, const VPValue *V, const VPInstruction *CtxI,
@@ -174,7 +203,7 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
   }
 };
 
-TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_Arithmetic) {
+TEST_F(VPlanComputeKnownBitsTest, Arithmetic) {
   buildVPlanFromString(R"(
     define void @foo(i64 %a, i32 %b) {
     entry:
@@ -228,7 +257,7 @@ TEST_F(VPlanComputeKnownBitsTest, Constants) {
   // clang-format on
 }
 
-TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_ExternalDef) {
+TEST_F(VPlanComputeKnownBitsTest, ExternalDef) {
   buildVPlanFromString(R"(
     declare void @llvm.assume(i1)
     define void @foo(i64* %p) {
@@ -254,7 +283,7 @@ TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_ExternalDef) {
   EXPECT_EQ(ArgKB.One, 0);
 }
 
-TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_GEP) {
+TEST_F(VPlanComputeKnownBitsTest, GEP) {
   buildVPlanFromString(R"(
     %base.ty = type { [4 x i32], [4 x i32] } ; sizeof(%base.ty) == 32
 
@@ -285,7 +314,6 @@ TEST_F(VPlanComputeKnownBitsTest, ComputeKnownBits_GEP) {
       %gep11 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 0
       %gep12 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 %mul.iv, i64 %iv
       %gep13 = getelementptr [256 x %base.ty], [256 x %base.ty]* %q, i64 2, i64 %iv, i32 1
-
       %iv.next = add nuw nsw i64 %iv, 1
       %exitcond = icmp eq i64 %iv.next, 256
       br i1 %exitcond, label %exit, label %for.body
@@ -342,4 +370,144 @@ TEST_F(VPlanComputeKnownBitsTest, ToggleUseUnderlyingValues) {
   expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
 }
 
+TEST_F(VPlanComputeKnownBitsTest, AffectedByInternalAssumption) {
+  buildVPlanFromString(R"(
+    declare void @llvm.assume(i1)
+    define void @foo(i64* %p) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      call void @llvm.assume(i1 true) [ "align"(i64* %p, i32 64) ]
+      store i64 0, i64* %p, align 8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  const auto *Store = findFirstInstruction<VPLoadStoreInst>();
+  ASSERT_TRUE(Store);
+
+  // Ensure alignment comes from the VPAssumptionCache and not from underlying
+  // LLVM ValueTracking.
+  VPlanValueTracking::setUseUnderlyingValues(false);
+
+  KnownBits ArgKB =
+      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+  EXPECT_EQ(ArgKB.Zero, 63);
+  EXPECT_EQ(ArgKB.One, 0);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, AffectedByExternalAssumption) {
+  buildVPlanFromString(R"(
+    declare void @llvm.assume(i1)
+    define void @foo(i64* %p) {
+    entry:
+      call void @llvm.assume(i1 true) [ "align"(i64* %p, i32 64) ]
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      store i64 0, i64* %p, align 8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+  const auto *Store = findFirstInstruction<VPLoadStoreInst>();
+  ASSERT_TRUE(Store);
+
+  // Ensure alignment comes from the VPAssumptionCache and not from underlying
+  // LLVM ValueTracking.
+  VPlanValueTracking::setUseUnderlyingValues(false);
+
+  KnownBits ArgKB =
+      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+  // TODO: uncomment once we have support for external assumptions
+  // EXPECT_EQ(ArgKB.Zero, 63);
+  EXPECT_EQ(ArgKB.Zero, 0);
+  EXPECT_EQ(ArgKB.One, 0);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidInternalAssumption) {
+  buildVPlanFromString(R"(
+    declare i1 @cond()
+    declare void @llvm.assume(i1)
+    define void @foo(i64* %p) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %if.after ]
+      %if.cond = call i1 @cond()
+      br i1 %if.cond, label %if.then, label %if.else
+    if.then:
+      call void @llvm.assume(i1 true) [ "align"(i64* %p, i32 64) ]
+      br label %if.after
+    if.else:
+      br label %if.after
+    if.after:
+      store i64 0, i64* %p, align 8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  const auto *Store = findFirstInstruction<VPLoadStoreInst>();
+  ASSERT_TRUE(Store);
+
+  // Ensure alignment comes from the VPAssumptionCache and not from underlying
+  // LLVM ValueTracking.
+  VPlanValueTracking::setUseUnderlyingValues(false);
+
+  KnownBits ArgKB =
+      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+  EXPECT_EQ(ArgKB.Zero, 0);
+  EXPECT_EQ(ArgKB.One, 0);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidExternalAssumption) {
+  buildVPlanFromString(R"(
+    declare i1 @cond()
+    declare void @llvm.assume(i1)
+    define void @foo(i64* %p) {
+    entry:
+      %if.cond = call i1 @cond()
+      br i1 %if.cond, label %if.then, label %if.else
+    if.then:
+      call void @llvm.assume(i1 true) [ "align"(i64* %p, i32 64) ]
+      br label %if.after
+    if.else:
+      br label %if.after
+    if.after:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %if.after ], [ %iv.next, %for.body ]
+      store i64 0, i64* %p, align 8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  const auto *Store = findFirstInstruction<VPLoadStoreInst>();
+  ASSERT_TRUE(Store);
+
+  // Ensure alignment comes from the VPAssumptionCache and not from underlying
+  // LLVM ValueTracking.
+  VPlanValueTracking::setUseUnderlyingValues(false);
+
+  KnownBits ArgKB =
+      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+  EXPECT_EQ(ArgKB.Zero, 0);
+  EXPECT_EQ(ArgKB.One, 0);
+}
 } // namespace
