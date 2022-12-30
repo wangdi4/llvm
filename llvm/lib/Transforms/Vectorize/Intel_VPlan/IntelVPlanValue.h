@@ -500,6 +500,12 @@ public:
     return cast<ConstantInt>(getUnderlyingValue())->getSExtValue();
   }
 
+  Align getAlignValue() const {
+    assert(isConstantInt() &&
+           "Align value cannot be obtained for non-constant integers.");
+    return cast<ConstantInt>(getUnderlyingValue())->getAlignValue();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);

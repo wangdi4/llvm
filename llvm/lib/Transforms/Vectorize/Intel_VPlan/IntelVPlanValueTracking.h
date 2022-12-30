@@ -71,9 +71,10 @@ class VPlanValueTrackingLLVM final : public VPlanValueTracking {
 
 public:
   VPlanValueTrackingLLVM(VPlanScalarEvolutionLLVM &VPSE, const DataLayout &DL,
-                         VPAssumptionCache *VPAC, const DominatorTree *DT)
+                         VPAssumptionCache *VPAC, const DominatorTree *DT,
+                         const VPDominatorTree *VPDT)
       : VPlanValueTracking(VPlanValueTracking::LLVM), VPSE(&VPSE), DL(&DL),
-        VPAC(VPAC), DT(DT) {}
+        VPAC(VPAC), DT(DT), VPDT(VPDT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
 
@@ -89,6 +90,7 @@ private:
   const DataLayout *DL;
   VPAssumptionCache *VPAC;
   const DominatorTree *DT;
+  const VPDominatorTree *VPDT;
 };
 
 } // namespace vpo
