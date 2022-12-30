@@ -63,8 +63,9 @@ public:
   const Compiler *GetCompiler() const override { return &m_compiler; }
 
 protected:
-  KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
-                           ProgramBuildResult &buildResult) const override;
+  std::unique_ptr<KernelSet>
+  CreateKernels(Program *pProgram, const char *pBuildOpts,
+                ProgramBuildResult &buildResult) const override;
 
   void PostOptimizationProcessing(Program *pProgram) const override;
 

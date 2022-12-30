@@ -214,7 +214,7 @@ public:
    *
    * Note: will take ownership on passed kernel set
    */
-  void SetKernelSet(KernelSet *pKernels);
+  void SetKernelSet(std::unique_ptr<KernelSet> pKernels);
   KernelSet *GetKernelSet() { return m_kernels.get(); }
 
   /**

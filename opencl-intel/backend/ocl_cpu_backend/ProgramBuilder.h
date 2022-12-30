@@ -93,8 +93,9 @@ protected:
                              ObjectCodeCache *objCache,
                              ProgramBuildResult &buildResult) = 0;
 
-  virtual KernelSet *CreateKernels(Program *pProgram, const char *pBuildOpts,
-                                   ProgramBuildResult &buildResult) const = 0;
+  virtual std::unique_ptr<KernelSet>
+  CreateKernels(Program *pProgram, const char *pBuildOpts,
+                ProgramBuildResult &buildResult) const = 0;
 
   KernelJITProperties *CreateKernelJITProperties(unsigned int vectorSize) const;
 
