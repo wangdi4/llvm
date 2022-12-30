@@ -616,8 +616,8 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     auto *AI = dyn_cast<AllocaInst>(I++);
     if (!AI)
       continue;
-    Entry->getInstList().splice(InsertPoint, FirstNewBlock->getInstList(),
-                                AI->getIterator(), I);
+    AI->removeFromParent();
+    AI->insertAt(Entry, InsertPoint);
   }
 
   // Inject byval arguments initialization.

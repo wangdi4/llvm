@@ -992,15 +992,15 @@ void VPOUtils::genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
     Builder.CreateBr(Epilog);
 
     // Delete DIR_OMP_END_SECTION directive
-    SectionExitBB->getInstList().pop_front();
+    SectionExitBB->getFirstNonPHI()->eraseFromParent();
 
     // Delete DIR_OMP_SECTION directive
-    SectionEntryBB->getInstList().pop_front();
+    SectionEntryBB->getFirstNonPHI()->eraseFromParent();
 
     auto I = SectionEntryBB->begin();
     if (VPOAnalysisUtils::isOpenMPDirective(&*I)) {
-      SectionExitBB->getInstList().pop_front();
-      SectionEntryBB->getInstList().pop_front();
+      SectionExitBB->getFirstNonPHI()->eraseFromParent();
+      SectionEntryBB->getFirstNonPHI()->eraseFromParent();
     }
   }
   if (DT) {

@@ -9080,9 +9080,8 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     assert(!FindDirectiveCall(PreheaderBB) &&
            "Pre-header block already contains directives.");
 #endif  // NDEBUG
-    PreheaderBB->getInstList().splice(
-        PreheaderBB->getTerminator()->getIterator(), EntryBB->getInstList(),
-        EntryDir->getIterator(), ++(EntryDir->getIterator()));
+    EntryDir->removeFromParent();
+    EntryDir->insertBefore(PreheaderBB->getTerminator());
     Changed = true;
   }
 
@@ -9093,9 +9092,8 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     assert(!FindDirectiveCall(LoopExitBB) &&
            "Loop exit block already contains directives.");
 #endif  // NDEBUG
-    LoopExitBB->getInstList().splice(
-        LoopExitBB->getFirstInsertionPt(), ExitBB->getInstList(),
-        ExitDir->getIterator(), ++(ExitDir->getIterator()));
+    ExitDir->removeFromParent();
+    ExitDir->insertBefore(LoopExitBB->getFirstNonPHI());
     Changed = true;
   }
 

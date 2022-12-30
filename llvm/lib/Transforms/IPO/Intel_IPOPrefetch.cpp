@@ -1873,7 +1873,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
         // value
         Value *RetVal = nullptr;
         ReturnInst::Create(F->getContext(), RetVal, RI);
-        BB.getInstList().erase(RI);
+        RI->eraseFromParent();
       }
 
   // Clone metadata from the old function, including debug info descriptor.
