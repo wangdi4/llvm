@@ -103,7 +103,7 @@ protected:
     auto &VPSE =
         *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
     Plan->setVPVT(std::make_unique<VPlanValueTrackingLLVM>(
-        VPSE, *DL, Plan->getVPAC(), &*DT));
+        VPSE, *DL, Plan->getVPAC(), &*DT, Plan->getDT()));
 
     LVP->runInitialVecSpecificTransforms(Plan.get());
     LVP->createLiveInOutLists(*Plan.get());

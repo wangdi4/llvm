@@ -1081,7 +1081,8 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
     if (!Plan.getVPSE())
       Plan.setVPSE(VPAF.createVPSE());
     if (!Plan.getVPVT())
-      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE(), Plan.getVPAC()));
+      Plan.setVPVT(
+          VPAF.createVPVT(Plan.getVPSE(), Plan.getVPAC(), Plan.getDT()));
   }
 }
 

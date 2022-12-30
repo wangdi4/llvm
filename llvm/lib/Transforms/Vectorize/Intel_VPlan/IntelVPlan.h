@@ -156,7 +156,8 @@ public:
   virtual std::unique_ptr<VPlanScalarEvolution> createVPSE() = 0;
 
   virtual std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) = 0;
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) = 0;
 
   DominatorTree *getDominatorTree() { return DT; }
   const DataLayout *getDataLayout() { return DL; }
@@ -179,10 +180,11 @@ public:
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) override {
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) override {
     auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
-    return std::make_unique<VPlanValueTrackingLLVM>(*VPSELLVM, *getDataLayout(),
-                                                    VPAC, getDominatorTree());
+    return std::make_unique<VPlanValueTrackingLLVM>(
+        *VPSELLVM, *getDataLayout(), VPAC, getDominatorTree(), VPDT);
   }
 
   const Loop *getLoop() { return Lp; }
@@ -202,9 +204,10 @@ public:
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC) override {
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) override {
     return std::make_unique<VPlanValueTrackingHIR>(HLp, *getDataLayout(), VPAC,
-                                                   getDominatorTree());
+                                                   getDominatorTree(), VPDT);
   }
 
   loopopt::HLLoop *getLoop() { return HLp; }
@@ -1987,6 +1990,9 @@ struct VPOperandBundle {
       return const_cast<InputsTy &>(*this)[I];
     }
   } Inputs;
+
+  // For parity with 'OperandBundleUse'
+  StringRef getTagName() const { return Tag; }
 };
 
 /// Concrete class to represent Call instruction in VPlan.
