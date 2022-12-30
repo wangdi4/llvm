@@ -429,7 +429,7 @@ static Function *doPromotion(
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->splice(NF->begin(), F);
 #if INTEL_CUSTOMIZATION
   if (F->hasComdat()) {
     NF->setComdat(F->getComdat());

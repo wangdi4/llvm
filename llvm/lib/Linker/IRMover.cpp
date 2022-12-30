@@ -3437,7 +3437,7 @@ Error IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
 
   // Steal arguments and splice the body of Src into Dst.
   Dst.stealArgumentListFrom(Src);
-  Dst.getBasicBlockList().splice(Dst.end(), Src.getBasicBlockList());
+  Dst.splice(Dst.end(), &Src);
 
   // Everything has been moved over.  Remap it.
   Mapper.scheduleRemapFunction(Dst);
