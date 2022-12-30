@@ -3318,7 +3318,7 @@ void JumpThreadingPass::threadEdge(
          ++BI) {
       Instruction *New = BI->clone();
       New->setName(BI->getName());
-      NewBB->getInstList().push_back(New);
+      New->insertAt(NewBB, NewBB->end());
       ValueMapping[&*BI] = New;
       adaptNoAliasScopes(New, ClonedScopes, Context);
     }

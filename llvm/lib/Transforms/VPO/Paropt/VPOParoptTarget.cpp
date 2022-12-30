@@ -1489,8 +1489,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     Instruction *ElseInst = StopI->getNextNonDebugInstruction();
     BasicBlock *ElseBB = ElseInst->getParent();
     ElseBB->setName("master.thread.fallthru");
-    ThenBB->getInstList().splice(
-        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
+    ThenBB->splice(
+        ThenTerm->getIterator(), StartI->getParent(),
         StartI->getIterator(), ElseInst->getIterator());
 
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();

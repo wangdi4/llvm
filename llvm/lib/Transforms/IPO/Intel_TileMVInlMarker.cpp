@@ -1335,7 +1335,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
       LoadInst *NewLI = cast<LoadInst>(LI->clone());
       if (DIL)
         NewLI->setDebugLoc(DIL);
-      CondBB->getInstList().push_back(NewLI);
+      NewLI->insertAt(CondBB, CondBB->end());
       Constant *CZ = ConstantInt::get(LI->getType(), 0);
       CmpInst *CI = ICmpInst::Create(
           Instruction::ICmp, Sense ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ,
@@ -1359,7 +1359,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
         LoadInst *NewLLI = cast<LoadInst>(LLI->clone());
         if (DIL)
           NewLLI->setDebugLoc(DIL);
-        CondBB->getInstList().push_back(NewLLI);
+        NewLLI->insertAt(CondBB, CondBB->end());
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(), NewLLI,
@@ -1381,7 +1381,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
         LoadInst *NewLRI = cast<LoadInst>(LRI->clone());
         if (DIL)
           NewLRI->setDebugLoc(DIL);
-        CondBB->getInstList().push_back(NewLRI);
+        NewLRI->insertAt(CondBB, CondBB->end());
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(),
@@ -1461,9 +1461,9 @@ void TileMVInlMarker::cloneCallToRoot() {
   // Patch up the control flow between the BasicBlocks.
   BranchInst *BI = BranchInst::Create(TailBB, NewCallBB);
   BI->setDebugLoc(CI->getDebugLoc());
-  Instruction *BIDbg = &OrigBB->getInstList().back();
+  Instruction *BIDbg = &OrigBB->back();
   const DebugLoc BIDbgLoc = BIDbg->getDebugLoc();
-  OrigBB->getInstList().pop_back();
+  BIDbg->eraseFromParent();
   BI = BranchInst::Create(CondBB, OrigBB);
   BI->setDebugLoc(BIDbgLoc);
   BI = BranchInst::Create(OrigCallBB, NewCallBB, Cmp, CondBB);

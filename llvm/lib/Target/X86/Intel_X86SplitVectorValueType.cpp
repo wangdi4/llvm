@@ -221,15 +221,13 @@ protected:
 // Insert NI before I.
 struct InsertInst : public BinaryInstAction {
   InsertInst(Instruction *I, Instruction *NI) : BinaryInstAction(I, NI) {}
-  void run() { I->getParent()->getInstList().insert(I->getIterator(), NI); }
+  void run() { NI->insertBefore(I); }
 };
 
 // Insert NI after I.
 struct InsertInstAfter : public BinaryInstAction {
   InsertInstAfter(Instruction *I, Instruction *NI) : BinaryInstAction(I, NI) {}
-  void run() {
-    I->getParent()->getInstList().insertAfter(I->getIterator(), NI);
-  }
+  void run() { NI->insertAfter(I); }
 };
 
 // Update I's operands to NI according to OperandList.

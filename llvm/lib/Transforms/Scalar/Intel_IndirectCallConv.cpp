@@ -331,7 +331,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   assert(Tail_BB != nullptr && "Split BasicBlock Failed");
 
   // Get rid of branch that was added by splitBasicBlock.
-  OrigBlock->getInstList().pop_back();
+  OrigBlock->back().eraseFromParent();
 
   // List of newly created BasicBlocks that are created to hold direct calls.
   std::vector<BasicBlock *> NewDirectCallBBs;

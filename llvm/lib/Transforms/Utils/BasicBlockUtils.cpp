@@ -1641,7 +1641,7 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   CleanupPadInst *OrigCPad = dyn_cast<CleanupPadInst>(FirstNonPHI);
   Instruction *Clone = OrigCPad->clone();
   Clone->setName(Twine("cpad") + Suffix);
-  NewBB->getInstList().insert(NewBB->getFirstInsertionPt(), Clone);
+  Clone->insertAt(NewBB, NewBB->getFirstInsertionPt());
 
   // Create and insert the cleanupret instruction.
   CleanupReturnInst *CPadRet = CleanupReturnInst::Create(Clone, OrigBB, NewBB);
