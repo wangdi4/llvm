@@ -429,6 +429,7 @@ static Function *doPromotion(
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
+<<<<<<< HEAD
   NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
 #if INTEL_CUSTOMIZATION
   if (F->hasComdat()) {
@@ -455,6 +456,9 @@ static Function *doPromotion(
     return Val;
   };
 #endif // INTEL_CUSTOMIZATION
+=======
+  NF->splice(NF->begin(), F);
+>>>>>>> dc891846b811cdf945e2cdacd9b227c2d0966e71
 
   // We will collect all the new created allocas to promote them into registers
   // after the following loop
