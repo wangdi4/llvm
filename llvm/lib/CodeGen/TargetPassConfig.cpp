@@ -1171,6 +1171,7 @@ bool TargetPassConfig::addISelPasses() {
   addPass(createPreISelIntrinsicLoweringPass());
   PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
   addPass(createExpandLargeDivRemPass());
+  addPass(createExpandLargeFpConvertPass());
   addIRPasses();
   addCodeGenPrepare();
   addPassesToHandleExceptions();
