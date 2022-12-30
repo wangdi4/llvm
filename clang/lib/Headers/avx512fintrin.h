@@ -56,6 +56,14 @@ typedef long long __m512i_u __attribute__((__vector_size__(64), __aligned__(1)))
 typedef unsigned char __mmask8;
 typedef unsigned short __mmask16;
 
+/* INTEL_CUSTOMIZATION */
+#ifdef __SSE2__
+typedef _Float16 __v32hf __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h_u __attribute__((__vector_size__(64), __aligned__(1)));
+#endif
+/* end INTEL_CUSTOMIZATION */
+
 /* Rounding mode macros.  */
 #define _MM_FROUND_TO_NEAREST_INT   0x00
 #define _MM_FROUND_TO_NEG_INF       0x01

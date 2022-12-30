@@ -1481,6 +1481,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_FP8)
 # end INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+# INTEL_FEATURE_ISA_AVX512_VPMM
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM)
+# end INTEL_FEATURE_ISA_AVX512_VPMM
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
