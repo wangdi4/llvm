@@ -12,6 +12,7 @@
 #include "IntelVPlanValueTracking.h"
 
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanScalarEvolution.h"
 
 #include <llvm/Analysis/ScalarEvolutionExpressions.h>
@@ -36,6 +37,7 @@ public:
   struct Query {
     const DataLayout &DL;
     VPAssumptionCache &VPAC;
+    const VPDominatorTree &VPDT;
     const DominatorTree &DT;
 
     const VPInstruction *CtxI;
@@ -44,9 +46,9 @@ public:
   template <typename ValueTracking>
   static Query query(const ValueTracking *VPVT, const VPInstruction *CtxI) {
     if (const auto *VT = dyn_cast<VPlanValueTrackingLLVM>(VPVT))
-      return Query{*VT->DL, *VT->VPAC, *VT->DT, CtxI};
+      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI};
     if (const auto *VT = dyn_cast<VPlanValueTrackingHIR>(VPVT))
-      return Query{*VT->DL, *VT->VPAC, *VT->DT, CtxI};
+      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI};
     llvm_unreachable("unknown value tracking kind!");
   }
 
@@ -101,7 +103,8 @@ public:
     }
     }
 
-    // TODO: refine KB for pointers using alignment assumptions, if present.
+    // Now, try to refine the known bits using any assumptions.
+    computeKnownBitsFromAssume(V, KB, Q);
 
     assert(!KB.hasConflict() && "Bits known to be one AND zero?");
     return KB;
@@ -350,6 +353,62 @@ public:
     KB = KnownBits::computeForAddSub(/*Add:*/ Add, /*NSW:*/ false,
                                      KnownBits::makeConstant(ConstantInt),
                                      std::move(KB));
+  }
+
+  template <typename ConstInt, typename AssumeT>
+  static MaybeAlign extractAlignmentFromAssumption(const AssumeT *A,
+                                                   unsigned Idx) {
+    const auto Bundle = A->getOperandBundleAt(Idx);
+    if (Bundle.getTagName() != "align")
+      return None;
+
+    return cast<ConstInt>(Bundle.Inputs[1])->getAlignValue();
+  }
+
+  static MaybeAlign extractAlignmentFromAssumption(
+      const VPAssumptionCache::ResultElem &Assumption) {
+    if (const auto *AssumeLLVM = dyn_cast<AssumeInst>(Assumption))
+      return extractAlignmentFromAssumption<ConstantInt>(AssumeLLVM,
+                                                         Assumption.Index);
+    if (const auto *VPAssume = dyn_cast<VPCallInstruction>(Assumption))
+      return extractAlignmentFromAssumption<VPConstantInt>(VPAssume,
+                                                           Assumption.Index);
+    return None;
+  }
+
+  static void computeKnownBitsFromAssume(const VPValue *V, KnownBits &KB,
+                                         const Query &Q) {
+    // No support for non-ptr values at this time: we only care about alignment
+    // assumptions.
+    if (!V->getType()->isPointerTy())
+      return;
+
+    // Iterate over the assumptions for this value, trying to find alignment
+    // assumptions. Stop at the first one we find, and update our known bits
+    // to be a multiple of the assumed alignment.
+    //
+    // NOTE: We assume values will not be affected by more than one alignment
+    // assumption.
+    for (const auto &Assumption : Q.VPAC.assumptionsFor(V)) {
+      if (!isValidAssumeForContext(Assumption, Q))
+        continue;
+
+      if (MaybeAlign Assumed = extractAlignmentFromAssumption(Assumption)) {
+        KB.Zero.setLowBits(Log2(Assumed.value()));
+        return;
+      }
+    }
+  }
+
+  static bool
+  isValidAssumeForContext(const VPAssumptionCache::ResultElem &Assume,
+                          const Query &Q) {
+    // External assumes are always valid.
+    if (isa<AssumeInst>(Assume))
+      return true;
+
+    // For an internal assume, check that it dominates our context instruction.
+    return Q.VPDT.properlyDominates(cast<VPCallInstruction>(Assume), Q.CtxI);
   }
 
   /// Add to the given KnownBits a constant (possibly-signed) integer factor.

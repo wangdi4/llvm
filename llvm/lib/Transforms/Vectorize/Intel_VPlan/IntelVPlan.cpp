@@ -1648,8 +1648,8 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   TargetPlan->setVPAC(getVPAC()->clone(Mapper));
 
   // Create ValueTracking for the new VPlan.
-  TargetPlan->setVPVT(
-      VPAF.createVPVT(TargetPlan->getVPSE(), TargetPlan->getVPAC()));
+  TargetPlan->setVPVT(VPAF.createVPVT(
+      TargetPlan->getVPSE(), TargetPlan->getVPAC(), TargetPlan->getDT()));
 
   // Update dominator tree and post-dominator tree of new VPlan
   TargetPlan->computeDT();

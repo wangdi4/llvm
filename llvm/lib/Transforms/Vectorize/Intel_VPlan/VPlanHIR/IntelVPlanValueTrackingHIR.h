@@ -30,9 +30,10 @@ class VPlanValueTrackingHIR final : public VPlanValueTracking {
 
 public:
   VPlanValueTrackingHIR(loopopt::HLLoop *MainLoop, const DataLayout &DL,
-                        VPAssumptionCache *VPAC, const DominatorTree *DT)
+                        VPAssumptionCache *VPAC, const DominatorTree *DT,
+                        const VPDominatorTree *VPDT)
       : VPlanValueTracking(VPlanValueTracking::HIR), MainLoop(MainLoop),
-        DL(&DL), VPAC(VPAC), DT(DT) {}
+        DL(&DL), VPAC(VPAC), DT(DT), VPDT(VPDT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
 
@@ -50,6 +51,7 @@ private:
   const DataLayout *DL = nullptr;
   VPAssumptionCache *VPAC = nullptr;
   const DominatorTree *DT = nullptr;
+  const VPDominatorTree *VPDT = nullptr;
 };
 
 } // namespace vpo
