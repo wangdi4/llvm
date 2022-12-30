@@ -313,6 +313,7 @@ static bool areDistinctLocations(const RegDDRef *MemRef1,
          "Number of dimensions don't match!");
 
   unsigned NumDims = MemRef1->getNumDimensions();
+  auto &DL = MemRef1->getCanonExprUtils().getDataLayout();
 
   for (unsigned I = 1; I <= NumDims; ++I) {
     int64_t Const1 = 0, Const2 = 0;
@@ -322,7 +323,12 @@ static bool areDistinctLocations(const RegDDRef *MemRef1,
       return true;
     }
 
-    if (DDRefUtils::compareOffsets(MemRef1, MemRef2, I) != 0) {
+    auto *DimTy1 = MemRef1->getDimensionElementType(I);
+    auto *DimTy2 = MemRef2->getDimensionElementType(I);
+    auto Offsets1 = MemRef1->getTrailingStructOffsets(I);
+    auto Offsets2 = MemRef2->getTrailingStructOffsets(I);
+    if (DDRefUtils::getOffsetDistance(DimTy1, DL, Offsets1) !=
+        DDRefUtils::getOffsetDistance(DimTy2, DL, Offsets2)) {
       return true;
     }
   }
