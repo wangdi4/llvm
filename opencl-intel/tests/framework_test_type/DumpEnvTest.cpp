@@ -158,57 +158,6 @@ TEST_F(DumpEnvTest, StatsAll) {
   ASSERT_NO_FATAL_FAILURE(testBody(suffix, patterns));
 }
 
-TEST_F(DumpEnvTest, OptIRAsm) {
-  ASSERT_NO_FATAL_FAILURE(createContext());
-  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
-
-  std::string dir = get_exe_dir();
-  std::string asmFile = dir + "dump_opt.asm";
-  std::string irFile = dir + "dump_opt.ll";
-  // Build program
-  std::string options =
-      "-dump-opt-asm=\"" + asmFile + "\" -dump-opt-llvm=\"" + irFile + "\"";
-
-  cl_int err = clBuildProgram(m_program, 1, &m_device, options.c_str(), nullptr,
-                              nullptr);
-  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
-
-  // Check dumped files contain kernel name and section
-  std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
-  m_dumpFilenames.push_back(irFile);
-
-  patterns.push_back("Disassembly of section");
-  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
-  m_dumpFilenames.push_back(asmFile);
-}
-
-TEST_F(DumpEnvTest, OptIRAsmDebug) {
-  ASSERT_NO_FATAL_FAILURE(createContext());
-  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
-
-  std::string dir = get_exe_dir();
-  std::string asmFile = dir + "dump_opt_debug.asm";
-  std::string irFile = dir + "dump_opt_debug.ll";
-
-  // Build program
-  std::string options =
-      "-dump-opt-asm=\"" + asmFile + "\" -dump-opt-llvm=\"" + irFile + "\" -g";
-
-  cl_int err = clBuildProgram(m_program, 1, &m_device, options.c_str(), nullptr,
-                              nullptr);
-  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
-
-  // Check dumped files contain kernel name and section
-  std::vector<std::string> patterns = {m_kernelName};
-  ASSERT_NO_FATAL_FAILURE(checkFileContains(irFile, patterns));
-  m_dumpFilenames.push_back(irFile);
-
-  patterns.push_back("Disassembly of section .debug");
-  ASSERT_NO_FATAL_FAILURE(checkFileContains(asmFile, patterns));
-  m_dumpFilenames.push_back(asmFile);
-}
-
 TEST_F(DumpEnvTest, Asm) {
   // Don't put CL_CONFIG_DUMP_ASM into m_env, to avoid asm being dumped twice.
   ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_ASM", "True"));
