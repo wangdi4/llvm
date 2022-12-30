@@ -105,37 +105,24 @@ static void collectUsedGlobals(GlobalVariable *GV,
     return;
 
   auto *CA = cast<ConstantArray>(GV->getInitializer());
+#if INTEL_CUSTOMIZATION
+  GV->setInitializer(nullptr);
+#endif // INTEL_CUSTOMIZATION
   for (Use &Op : CA->operands())
     Init.insert(cast<Constant>(Op));
+
+#if INTEL_CUSTOMIZATION
+  if (isSafeToDestroyConstant(CA))
+    CA->destroyConstant();
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void appendToUsedList(Module &M, StringRef Name, ArrayRef<GlobalValue *> Values) {
   GlobalVariable *GV = M.getGlobalVariable(Name);
-<<<<<<< HEAD
-  SmallPtrSet<Constant *, 16> InitAsSet;
-  SmallVector<Constant *, 16> Init;
-  if (GV) {
-    if (GV->hasInitializer()) {
-      auto *CA = cast<ConstantArray>(GV->getInitializer());
-#if INTEL_CUSTOMIZATION
-      GV->setInitializer(nullptr);
-#endif // INTEL_CUSTOMIZATION
-      for (auto &Op : CA->operands()) {
-        Constant *C = cast_or_null<Constant>(Op);
-        if (InitAsSet.insert(C).second)
-          Init.push_back(C);
-      }
-#if INTEL_CUSTOMIZATION
-      if (isSafeToDestroyConstant(CA))
-        CA->destroyConstant();
-#endif // INTEL_CUSTOMIZATION
-    }
-=======
 
   SmallSetVector<Constant *, 16> Init;
   collectUsedGlobals(GV, Init);
   if (GV)
->>>>>>> aa9bdd50c25aa6a6dc58f2af397bdfcfad417244
     GV->eraseFromParent();
 
   Type *ArrayEltTy = llvm::Type::getInt8PtrTy(M.getContext());
