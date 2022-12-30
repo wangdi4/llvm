@@ -45,6 +45,7 @@
 #include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/CycleAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -1311,10 +1312,13 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
     return true;
   };
 
+  const auto *F = getAnchorScope();
+  const auto *CI =
+      F ? A.getInfoCache().getAnalysisResultForFunction<CycleAnalysis>(*F)
+        : nullptr;
   const auto *TLI =
-      getAnchorScope()
-          ? A.getInfoCache().getTargetLibraryInfoForFunction(*getAnchorScope())
-          : nullptr;
+      F ? A.getInfoCache().getTargetLibraryInfoForFunction(*F) : nullptr;
+
   auto UsePred = [&](const Use &U, bool &Follow) -> bool {
     Value *CurPtr = U.get();
     User *Usr = U.getUser();
@@ -1391,28 +1395,69 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         return true;
       }
 
-      // Check if the PHI operand is not dependent on the PHI itself.
+      // Check if the PHI operand can be traced back to AssociatedValue.
       APInt Offset(
           DL.getIndexSizeInBits(CurPtr->getType()->getPointerAddressSpace()),
           0);
       Value *CurPtrBase = CurPtr->stripAndAccumulateConstantOffsets(
           DL, Offset, /* AllowNonInbounds */ true);
       auto It = OffsetInfoMap.find(CurPtrBase);
+<<<<<<< HEAD
       if (It != OffsetInfoMap.end()) {
         Offset += It->getSecond().Offset;
         if (IsFirstPHIUser || Offset == UsrOI.Offset)
           return HandlePassthroughUser(Usr, PtrOI, Follow);
+=======
+      if (It == OffsetInfoMap.end()) {
+        LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI operand is too complex "
+                          << *CurPtr << " in " << *Usr << "\n");
+        UsrOI.setUnknown();
+        Follow = true;
+        return true;
+      }
+
+      auto mayBeInCycleHeader = [](const CycleInfo *CI, const Instruction *I) {
+        if (!CI)
+          return true;
+        auto *BB = I->getParent();
+        auto *C = CI->getCycle(BB);
+        if (!C)
+          return false;
+        return BB == C->getHeader();
+      };
+
+      // Check if the PHI operand is not dependent on the PHI itself. Every
+      // recurrence is a cyclic net of PHIs in the data flow, and has an
+      // equivalent Cycle in the control flow. One of those PHIs must be in the
+      // header of that control flow Cycle. This is independent of the choice of
+      // Cycles reported by CycleInfo. It is sufficient to check the PHIs in
+      // every Cycle header; if such a node is marked unknown, this will
+      // eventually propagate through the whole net of PHIs in the recurrence.
+      if (mayBeInCycleHeader(CI, cast<Instruction>(Usr))) {
+        auto BaseOI = It->getSecond();
+        BaseOI.addToAll(Offset.getZExtValue());
+        if (IsFirstPHIUser || BaseOI == UsrOI) {
+          LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI is invariant " << *CurPtr
+                            << " in " << *Usr << "\n");
+          return HandlePassthroughUser(Usr, PtrOI, Follow);
+        }
+
+>>>>>>> 179ed8871101cd197e0a719a3629cd5077b1a999
         LLVM_DEBUG(
             dbgs() << "[AAPointerInfo] PHI operand pointer offset mismatch "
                    << *CurPtr << " in " << *Usr << "\n");
-      } else {
-        LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI operand is too complex "
-                          << *CurPtr << " in " << *Usr << "\n");
+        UsrOI.setUnknown();
+        Follow = true;
+        return true;
       }
 
+<<<<<<< HEAD
       // TODO: Approximate in case we know the direction of the recurrence.
       UsrOI = PtrOI;
       UsrOI.Offset = AA::RangeTy::Unknown;
+=======
+      UsrOI.merge(PtrOI);
+>>>>>>> 179ed8871101cd197e0a719a3629cd5077b1a999
       Follow = true;
       return true;
     }
