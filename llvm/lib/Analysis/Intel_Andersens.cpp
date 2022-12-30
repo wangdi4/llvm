@@ -1498,7 +1498,13 @@ bool AndersensAAResult::pointsToSetEscapes(Node *N) {
 //
 bool AndersensAAResult::analyzeGlobalEscape(
     const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
-    const Function **SingleAcessingFunction) {
+    const Function **SingleAcessingFunction,
+    DenseMap<const Value *, bool> &Cache) {
+
+  auto IT = Cache.find(V);
+  if (IT != Cache.end())
+    return IT->second;
+
   const ConstantExpr *CE;
   bool escapes = false;
   for (const Use &U : V->uses()) {
@@ -1513,7 +1519,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
                 UniversalSet)
           escapes = true;
 
-      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction, Cache))
         escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
@@ -1531,7 +1537,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
 
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
+                                  Cache)) {
             escapes = true;
           }
         }
@@ -1543,20 +1550,20 @@ bool AndersensAAResult::analyzeGlobalEscape(
           NonPointerAssignments.insert(SI);
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second) {
           if (!isPointsToType(PN->getType()))
             NonPointerAssignments.insert(PN);
 
-          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
             escapes = true;
         }
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
@@ -1569,6 +1576,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
     }
   }
 
+  Cache.try_emplace(V, escapes);
   return escapes;
 }
 
@@ -6970,14 +6978,13 @@ void AndersensAAResult::ProcessOpaqueNode(unsigned int NodeIdx) {
 // The utilty analyzeGlobalEscape is also used to collect the 
 // non-pointer assignments related to the static variable.
 void AndersensAAResult::InitEscAnalForGlobals(Module &M) {
-
+  DenseMap<const Value *, bool> Cache;
   for (GlobalVariable &GV : M.globals()) {
     if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) { 
       SmallPtrSet<const PHINode *, 16> PhiUsers;
       const Function *SingleAcessingFunction = nullptr;
       const Value *V = &GV;
-      if (!analyzeGlobalEscape(V, PhiUsers, 
-                               &SingleAcessingFunction)) 
+      if (!analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction, Cache))
         NonEscapeStaticVars.insert(V);
     }
   }
