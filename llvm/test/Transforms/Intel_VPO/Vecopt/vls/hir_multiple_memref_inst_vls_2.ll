@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Test to check that correct vector code is generated for input HIR with
 ; multiple memrefs in the same HLInst. Incoming HIR into the vectorizer

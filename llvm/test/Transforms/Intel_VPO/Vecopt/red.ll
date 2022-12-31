@@ -1,4 +1,4 @@
-; RUN:  opt -slp-vectorizer %s
+; RUN:  opt -passes=slp-vectorizer %s
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
 source_filename = "/export/iusers/pchawla/ics/loopopt2/llvm/lib/Target/X86/X86ISelLowering.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

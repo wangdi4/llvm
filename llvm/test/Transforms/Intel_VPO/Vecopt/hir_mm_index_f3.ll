@@ -2,7 +2,7 @@
 ; In this test we have a "linear non-terminal" (load from a linear memref)
 ; value for index while non-linear indexes are disabled.
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert' -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
 ;
 ;CHECK: [MinMax+Index] Looking at candidate
 ;CHECK-NEXT: [MinMax+Index] Depends on

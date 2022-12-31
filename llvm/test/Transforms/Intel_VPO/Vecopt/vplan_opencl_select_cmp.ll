@@ -1,4 +1,4 @@
-; RUN: opt %s -vector-library=SVML -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 -S | FileCheck %s
+; RUN: opt %s -vector-library=SVML -passes=vplan-vec -disable-vplan-predicator -vplan-force-vf=4 -S | FileCheck %s
 
 ; Verify vectorization of Opencl select build-in. Generic case.
 ; This test is from Volcano compiler but it's been highly modified by hand.

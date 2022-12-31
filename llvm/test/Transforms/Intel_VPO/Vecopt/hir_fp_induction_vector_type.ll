@@ -12,7 +12,7 @@
 ;        @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: LVP: Vector type reduction/induction currently not supported.
 ; CHECK: DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>

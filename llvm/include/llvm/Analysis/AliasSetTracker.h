@@ -51,7 +51,6 @@
 
 namespace llvm {
 
-class AAResults;
 class AliasResult;
 class AliasSetTracker;
 class AnyMemSetInst;
@@ -294,7 +293,7 @@ private:
 
   // This wraps all pairwise AA queries made by the AST and ensures that we use
   // the expected type of disambiguation.
-  AliasResult queryAA(AAResults &AA, const MemoryLocation &LocA,
+  AliasResult queryAA(BatchAAResults &AA, const MemoryLocation &LocA,
                       const MemoryLocation &LocB) const {
     return RequiresLoopCarried ? AA.loopCarriedAlias(LocA, LocB)
                                : AA.alias(LocA, LocB);
@@ -325,21 +324,17 @@ private:
   void addPointer(AliasSetTracker &AST, PointerRec &Entry, LocationSize Size,
                   const AAMDNodes &AAInfo, bool KnownMustAlias = false,
                   bool SkipSizeUpdate = false);
-  void addUnknownInst(Instruction *I, AAResults &AA);
+  void addUnknownInst(Instruction *I, BatchAAResults &AA);
 
 public:
   /// If the specified pointer "may" (or must) alias one of the members in the
   /// set return the appropriate AliasResult. Otherwise return NoAlias.
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
-#ifdef INTEL_CUSTOMIZATION
-                             const AAMDNodes &AAInfo, AAResults &AA) const;
-#else
                              const AAMDNodes &AAInfo, BatchAAResults &AA) const;
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 
   /// Check if alias set aliases with another alias set.
-  bool aliases(const AliasSet &AS, AAResults &AA) const;
+  bool aliases(const AliasSet &AS, BatchAAResults &AA) const;
 #endif // INTEL_COLLAB
   bool aliasesUnknownInst(const Instruction *Inst, BatchAAResults &AA) const;
 };
@@ -350,7 +345,7 @@ inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {
 }
 
 class AliasSetTracker {
-  AAResults &AA;
+  BatchAAResults &AA;
   ilist<AliasSet> AliasSets;
 #ifdef INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
@@ -368,11 +363,13 @@ class AliasSetTracker {
 public:
   /// Create an empty collection of AliasSets, and use the specified alias
   /// analysis object to disambiguate load and store addresses.
-  explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
+  explicit AliasSetTracker(BatchAAResults &AA) : AA(AA) {}
   ~AliasSetTracker() { clear(); }
 #ifdef INTEL_CUSTOMIZATION
-  explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried, unsigned STO = 0)
-      : AA(aa), LoopCarriedDisam(NeedsLoopCarried), SaturationThresholdOverriden(STO) {}
+  explicit AliasSetTracker(BatchAAResults &aa, bool NeedsLoopCarried,
+                           unsigned STO = 0)
+      : AA(aa), LoopCarriedDisam(NeedsLoopCarried),
+        SaturationThresholdOverriden(STO) {}
   bool getLoopCarriedDisam() { return LoopCarriedDisam; }
 #endif // INTEL_CUSTOMIZATION
 
@@ -412,7 +409,7 @@ public:
   AliasSet &getAliasSetFor(const MemoryLocation &MemLoc);
 
   /// Return the underlying alias analysis object used by this tracker.
-  AAResults &getAliasAnalysis() const { return AA; }
+  BatchAAResults &getAliasAnalysis() const { return AA; }
 
   using iterator = ilist<AliasSet>::iterator;
   using const_iterator = ilist<AliasSet>::const_iterator;
@@ -464,7 +461,7 @@ private:
 // loopCarriedAlias for disambiguation.
 class LoopCarriedAliasSetTracker : public AliasSetTracker {
 public:
-  explicit LoopCarriedAliasSetTracker(AAResults &AA, unsigned STO = 0)
+  explicit LoopCarriedAliasSetTracker(BatchAAResults &AA, unsigned STO = 0)
       : AliasSetTracker(AA, true, STO) {}
 };
 
@@ -485,7 +482,7 @@ private:
   }
 
 public:
-  explicit HybridAliasSetTracker(AAResults &AA, unsigned STO = 0)
+  explicit HybridAliasSetTracker(BatchAAResults &AA, unsigned STO = 0)
       : LoopCarriedAliasSetTracker(AA, STO), AliasAST(AA, false, STO) {}
   void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo,
            bool LoopCarried = false) {

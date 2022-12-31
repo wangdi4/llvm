@@ -26,6 +26,8 @@
 #include "CommonArgs.h"
 #include "Arch/AArch64.h"
 #include "Arch/ARM.h"
+#include "Arch/CSKY.h"
+#include "Arch/LoongArch.h"
 #include "Arch/M68k.h"
 #include "Arch/Mips.h"
 #include "Arch/PPC.h"
@@ -36,6 +38,7 @@
 #include "Arch/X86.h"
 #include "HIPAMD.h"
 #include "Hexagon.h"
+#include "MSP430.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ObjCRuntime.h"
@@ -77,6 +80,7 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/YAMLParser.h"
+#include <optional>
 
 using namespace clang::driver;
 using namespace clang::driver::tools;
@@ -517,6 +521,101 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   }
 }
 
+static void getWebAssemblyTargetFeatures(const ArgList &Args,
+                                         std::vector<StringRef> &Features) {
+  handleTargetFeaturesGroup(Args, Features, options::OPT_m_wasm_Features_Group);
+}
+
+void tools::getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
+                              const ArgList &Args, ArgStringList &CmdArgs,
+                              bool ForAS, bool IsAux) {
+  std::vector<StringRef> Features;
+  switch (Triple.getArch()) {
+  default:
+    break;
+  case llvm::Triple::mips:
+  case llvm::Triple::mipsel:
+  case llvm::Triple::mips64:
+  case llvm::Triple::mips64el:
+    mips::getMIPSTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::arm:
+  case llvm::Triple::armeb:
+  case llvm::Triple::thumb:
+  case llvm::Triple::thumbeb:
+    arm::getARMTargetFeatures(D, Triple, Args, Features, ForAS);
+    break;
+  case llvm::Triple::ppc:
+  case llvm::Triple::ppcle:
+  case llvm::Triple::ppc64:
+  case llvm::Triple::ppc64le:
+    ppc::getPPCTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::riscv32:
+  case llvm::Triple::riscv64:
+    riscv::getRISCVTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::systemz:
+    systemz::getSystemZTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64_32:
+  case llvm::Triple::aarch64_be:
+    aarch64::getAArch64TargetFeatures(D, Triple, Args, Features, ForAS);
+    break;
+  case llvm::Triple::x86:
+  case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+    x86::getX86TargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::hexagon:
+    hexagon::getHexagonTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::wasm32:
+  case llvm::Triple::wasm64:
+    getWebAssemblyTargetFeatures(Args, Features);
+    break;
+  case llvm::Triple::sparc:
+  case llvm::Triple::sparcel:
+  case llvm::Triple::sparcv9:
+    sparc::getSparcTargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::r600:
+  case llvm::Triple::amdgcn:
+    amdgpu::getAMDGPUTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::nvptx:
+  case llvm::Triple::nvptx64:
+    NVPTX::getNVPTXTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::m68k:
+    m68k::getM68kTargetFeatures(D, Triple, Args, Features);
+    break;
+  case llvm::Triple::msp430:
+    msp430::getMSP430TargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::ve:
+    ve::getVETargetFeatures(D, Args, Features);
+    break;
+  case llvm::Triple::csky:
+    csky::getCSKYTargetFeatures(D, Triple, Args, CmdArgs, Features);
+    break;
+  case llvm::Triple::loongarch32:
+  case llvm::Triple::loongarch64:
+    loongarch::getLoongArchTargetFeatures(D, Triple, Args, Features);
+    break;
+  }
+
+  for (auto Feature : unifyTargetFeatures(Features)) {
+    CmdArgs.push_back(IsAux ? "-aux-target-feature" : "-target-feature");
+    CmdArgs.push_back(Feature.data());
+  }
+}
+
 llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
   Arg *LtoJobsArg = Args.getLastArg(options::OPT_flto_jobs_EQ);
   if (!LtoJobsArg)
@@ -588,8 +687,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   const char *PluginOptPrefix = IsOSAIX ? "-bplugin_opt:" : "-plugin-opt=";
-  const char *mcpuOptPrefix = IsOSAIX ? "-mcpu=" : "mcpu=";
-  const char *OptLevelPrefix = IsOSAIX ? "-O" : "O";
+  const char *ExtraDash = IsOSAIX ? "-" : "";
 
   // Note, this solution is far from perfect, better to encode it into IR
   // metadata, but this may not be worth it, since it looks like aranges is on
@@ -606,7 +704,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   std::string CPU = getCPUName(D, Args, ToolChain.getTriple());
   if (!CPU.empty())
     CmdArgs.push_back(
-        Args.MakeArgString(Twine(PluginOptPrefix) + mcpuOptPrefix + CPU));
+        Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash + "mcpu=" + CPU));
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
     // The optimization level matches
@@ -625,7 +723,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       OOpt = "0";
     if (!OOpt.empty())
       CmdArgs.push_back(
-          Args.MakeArgString(Twine(PluginOptPrefix) + OptLevelPrefix + OOpt));
+          Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash + "O" + OOpt));
   }
 
   if (Args.hasArg(options::OPT_gsplit_dwarf))
@@ -722,24 +820,25 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   auto *ProfileUseArg = getLastProfileUseArg(Args);
 
   if (CSPGOGenerateArg) {
-    CmdArgs.push_back(
-        Args.MakeArgString(Twine(PluginOptPrefix) + "cs-profile-generate"));
+    CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
+                                         "cs-profile-generate"));
     if (CSPGOGenerateArg->getOption().matches(
             options::OPT_fcs_profile_generate_EQ)) {
       SmallString<128> Path(CSPGOGenerateArg->getValue());
       llvm::sys::path::append(Path, "default_%m.profraw");
-      CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
+      CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
                                            "cs-profile-path=" + Path));
     } else
-      CmdArgs.push_back(Args.MakeArgString(
-          Twine(PluginOptPrefix) + "cs-profile-path=default_%m.profraw"));
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
+                             "cs-profile-path=default_%m.profraw"));
   } else if (ProfileUseArg) {
     SmallString<128> Path(
         ProfileUseArg->getNumValues() == 0 ? "" : ProfileUseArg->getValue());
     if (Path.empty() || llvm::sys::fs::is_directory(Path))
       llvm::sys::path::append(Path, "default.profdata");
-    CmdArgs.push_back(
-        Args.MakeArgString(Twine(PluginOptPrefix) + "cs-profile-path=" + Path));
+    CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash +
+                                         "cs-profile-path=" + Path));
   }
 
 #ifdef INTEL_CUSTOMIZATION
@@ -760,6 +859,11 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     else
       D.Diag(clang::diag::warn_drv_fjmc_for_elf_only);
   }
+
+  if (Args.hasFlag(options::OPT_fstack_size_section,
+                   options::OPT_fno_stack_size_section, false))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + "-stack-size-section"));
 
   // Setup statistics file output.
   SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
@@ -1487,10 +1591,7 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
         SharedRuntimes.push_back("ubsan_standalone");
     }
     if (SanArgs.needsScudoRt() && SanArgs.linkRuntimes()) {
-      if (SanArgs.requiresMinimalRuntime())
-        SharedRuntimes.push_back("scudo_minimal");
-      else
-        SharedRuntimes.push_back("scudo");
+      SharedRuntimes.push_back("scudo_standalone");
     }
     if (SanArgs.needsTsanRt() && SanArgs.linkRuntimes())
       SharedRuntimes.push_back("tsan");
@@ -1587,15 +1688,9 @@ collectSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     RequiredSymbols.push_back("__sanitizer_stats_register");
   }
   if (!SanArgs.needsSharedRt() && SanArgs.needsScudoRt() && SanArgs.linkRuntimes()) {
-    if (SanArgs.requiresMinimalRuntime()) {
-      StaticRuntimes.push_back("scudo_minimal");
-      if (SanArgs.linkCXXRuntimes())
-        StaticRuntimes.push_back("scudo_cxx_minimal");
-    } else {
-      StaticRuntimes.push_back("scudo");
-      if (SanArgs.linkCXXRuntimes())
-        StaticRuntimes.push_back("scudo_cxx");
-    }
+    StaticRuntimes.push_back("scudo_standalone");
+    if (SanArgs.linkCXXRuntimes())
+      StaticRuntimes.push_back("scudo_standalone_cxx");
   }
 }
 
@@ -2644,7 +2739,7 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
 
   SmallVector<std::string, 8> LibraryPaths;
   // Add search directories from LIBRARY_PATH env variable
-  llvm::Optional<std::string> LibPath =
+  std::optional<std::string> LibPath =
       llvm::sys::Process::GetEnv("LIBRARY_PATH");
   if (LibPath) {
     SmallVector<StringRef, 8> Frags;
@@ -2811,7 +2906,7 @@ void tools::addOpenMPDeviceRTL(const Driver &D,
   LibraryPaths.emplace_back(DefaultLibPath.c_str());
 
   // Add user defined library paths from LIBRARY_PATH.
-  llvm::Optional<std::string> LibPath =
+  std::optional<std::string> LibPath =
       llvm::sys::Process::GetEnv("LIBRARY_PATH");
   if (LibPath) {
     SmallVector<StringRef, 8> Frags;

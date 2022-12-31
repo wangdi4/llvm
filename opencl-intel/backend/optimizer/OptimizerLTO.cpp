@@ -103,7 +103,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PTO.MergeFunctions = false;
   PTO.CallGraphProfile = true;
 
-  Optional<PGOOptions> PGOOpt;
+  std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
   bool DebugPassManager = DebugPM != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
@@ -204,7 +204,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
           if (Level == OptimizationLevel::O1)
             FPM.addPass(PromotePass());
           else
-            FPM.addPass(SROAPass());
+            FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
           FPM.addPass(InstCombinePass());
           FPM.addPass(InstSimplifyPass());
           MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -266,7 +266,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
             InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
         // Cleanup after InferAddressSpaces pass.
         FPM.addPass(SimplifyCFGPass());
-        FPM.addPass(SROAPass());
+        FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
         FPM.addPass(EarlyCSEPass());
         FPM.addPass(PromotePass());
         FPM.addPass(InstCombinePass());
@@ -563,7 +563,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
       FunctionPassManager FPM;
-      FPM.addPass(SROAPass());
+      FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
       FPM.addPass(LoopSimplifyPass());
       LoopPassManager LPM;
       LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
@@ -584,7 +584,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // These passes come after PrepareKernelArgs pass to eliminate the
       // redundancy produced by it.
       FunctionPassManager FPM;
-      FPM.addPass(SROAPass());
+      // Align with the pipeline in PassBuilderPipelines.cpp, forbid modifying
+      // CFG since there is no LICM and SimplifyCFG passes after this.
+      FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
       FPM.addPass(InstCombinePass());
       FPM.addPass(SimplifyCFGPass());
       FPM.addPass(GVNPass());

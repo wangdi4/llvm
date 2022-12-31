@@ -343,8 +343,8 @@ bool X86HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
   assert(Preheader && "Preheader is expected");
   Preheader->getTerminator()->eraseFromParent();
   IRBuilder<> IRB(Preheader);
-  CallInst *CoreType =
-      IRB.CreateIntrinsic(Intrinsic::x86_intel_fast_cpuid_coretype, None, None);
+  CallInst *CoreType = IRB.CreateIntrinsic(
+      Intrinsic::x86_intel_fast_cpuid_coretype, std::nullopt, std::nullopt);
   CoreType->getCalledFunction()->addFnAttr(CurFn->getFnAttribute("target-cpu"));
   // 20H is intel atom. 40H is intel core.
   Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt8(0x40));

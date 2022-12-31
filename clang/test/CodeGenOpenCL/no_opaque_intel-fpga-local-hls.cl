@@ -203,16 +203,16 @@ void bar2() {
   struct foo_five s2;
   s2.f1 = 0;
   //CHECK: %[[FIELD1:.*]] = getelementptr inbounds %struct.foo_five, %struct.foo_five* {{.*}}, i32 0, i32 0
-  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* %[[FIELD1]], {{.*}}getelementptr{{.*}}[[ANN4]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8.p2i8(i8* %[[FIELD1]], {{.*}}getelementptr{{.*}}[[ANN4]]
   s2.f2[0] = 0;
   //CHECK: %[[FIELD2:.*]] = getelementptr inbounds %struct.foo_five, %struct.foo_five* {{.*}}, i32 0, i32 1
-  //CHECK: call [2 x i8]* @llvm.ptr.annotation.p0a2i8([2 x i8]* %[[FIELD2]], {{.*}}getelementptr{{.*}}[[ANN4]]
+  //CHECK: call [2 x i8]* @llvm.ptr.annotation.p0a2i8.p2i8([2 x i8]* %[[FIELD2]], {{.*}}getelementptr{{.*}}[[ANN4]]
   s2.f3.f1[0] = 0;
   //CHECK: %[[FIELD3:.*]] = getelementptr inbounds %struct.foo_five, %struct.foo_five* {{.*}}, i32 0, i32 2
-  //CHECK: call %struct.foo_four* @llvm.ptr.annotation.p0s_struct.foo_fours(%struct.foo_four* %[[FIELD3]], {{.*}}getelementptr{{.*}}[[ANN4]]
+  //CHECK: call %struct.foo_four* @llvm.ptr.annotation.p0s_struct.foo_fours.p2i8(%struct.foo_four* %[[FIELD3]], {{.*}}getelementptr{{.*}}[[ANN4]]
   s2.f4[0].f1[0] = 0;
   //CHECK: %[[FIELD4:.*]] = getelementptr inbounds %struct.foo_five, %struct.foo_five* {{.*}}, i32 0, i32 3
-  //CHECK: call [2 x %struct.foo_four]* @llvm.ptr.annotation.p0a2s_struct.foo_fours([2 x %struct.foo_four]* %[[FIELD4]], {{.*}}getelementptr{{.*}}[[ANN4]]
+  //CHECK: call [2 x %struct.foo_four]* @llvm.ptr.annotation.p0a2s_struct.foo_fours.p2i8([2 x %struct.foo_four]* %[[FIELD4]], {{.*}}getelementptr{{.*}}[[ANN4]]
 }
 
 struct foo_six {
@@ -232,22 +232,22 @@ void bar3() {
   struct foo_seven s3;
   s3.f1 = 0;
   //CHECK: %[[FIELD1:.*]] = getelementptr inbounds %struct.foo_seven, %struct.foo_seven* {{.*}}, i32 0, i32 0
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %[[FIELD1]], {{.*}}getelementptr{{.*}}[[ANN15]]
+  //CHECK: call i32* @llvm.ptr.annotation.p0i32.p2i8(i32* %[[FIELD1]], {{.*}}getelementptr{{.*}}[[ANN15]]
 
   s3.f2[1] = 0;
   //CHECK: %[[FIELD2:.*]] = getelementptr inbounds %struct.foo_seven, %struct.foo_seven* {{.*}}, i32 0, i32 1
-  //CHECK: call [2 x i32]* @llvm.ptr.annotation.p0a2i32([2 x i32]* %[[FIELD2]],{{.*}}getelementptr{{.*}}[[ANN20]]
+  //CHECK: call [2 x i32]* @llvm.ptr.annotation.p0a2i32.p2i8([2 x i32]* %[[FIELD2]],{{.*}}getelementptr{{.*}}[[ANN20]]
 
   s3.f5.f1[0] = 0;
   //CHECK: %[[FIELD3:.*]] = getelementptr inbounds %struct.foo_seven, %struct.foo_seven* {{.*}}, i32 0, i32 4
-  //CHECK: call %struct.foo_six* @llvm.ptr.annotation.p0s_struct.foo_sixs(%struct.foo_six* %[[FIELD3]],{{.*}}[[ANN21]]
+  //CHECK: call %struct.foo_six* @llvm.ptr.annotation.p0s_struct.foo_sixs.p2i8(%struct.foo_six* %[[FIELD3]],{{.*}}[[ANN21]]
 
   s3.f5.f2 = 0;
   //CHECK: %[[FIELD4:.*]] = getelementptr inbounds %struct.foo_seven, %struct.foo_seven* {{.*}}, i32 0, i32 4
-  //CHECK: call %struct.foo_six* @llvm.ptr.annotation.p0s_struct.foo_sixs(%struct.foo_six* %[[FIELD4]],{{.*}}[[ANN21]]
+  //CHECK: call %struct.foo_six* @llvm.ptr.annotation.p0s_struct.foo_sixs.p2i8(%struct.foo_six* %[[FIELD4]],{{.*}}[[ANN21]]
 
   s3.f6[0].f1[0] = 0;
   //CHECK: %[[FIELD5:.*]] = getelementptr inbounds %struct.foo_seven, %struct.foo_seven* {{.*}}, i32 0, i32 5
-  //CHECK: call [2 x %struct.foo_six]* @llvm.ptr.annotation.p0a2s_struct.foo_sixs([2 x %struct.foo_six]* %[[FIELD5]],{{.*}}[[ANN22]]
+  //CHECK: call [2 x %struct.foo_six]* @llvm.ptr.annotation.p0a2s_struct.foo_sixs.p2i8([2 x %struct.foo_six]* %[[FIELD5]],{{.*}}[[ANN22]]
 }
 

@@ -52,7 +52,6 @@
 ; for this while checking for unique entries in VPExternalDefsHIR.
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
 
 

@@ -1,4 +1,4 @@
-; RUN: opt %s -S -vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths --debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes=vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths --debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma vector vectorlength(1) (!{!"llvm.loop.vector.vectorlength", i64 1} metadata)

@@ -1,6 +1,5 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -vplan-enable-soa=false -S %s -vplan-vec -vplan-print-after-predicator -disable-output | FileCheck %s
 ; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vplan-print-after-predicator -disable-output | FileCheck %s
 
 ;source code:

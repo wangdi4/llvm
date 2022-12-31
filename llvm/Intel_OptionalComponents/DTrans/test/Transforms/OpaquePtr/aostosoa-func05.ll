@@ -24,7 +24,7 @@ define i32 @test01() {
 ; CHECK-LABEL: define i32 @test01()
 
 ; CHECK: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK: call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %v0 = load i64, ptr %p0, align 8
 ; CHECK: call void @test02.1(i64 %v0)
 ; CHECK: ret i32 0
@@ -38,7 +38,7 @@ define void @test02(ptr "intel_dtrans_func_index"="1" nonnull nocapture %in) !in
 ; CHECK-LABEL: define internal void @test02.1(i64 %in)
 
 ; CHECK: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
-; CHECK: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 %in, ptr %p1, align 8
 ; CHECK: ret void
 

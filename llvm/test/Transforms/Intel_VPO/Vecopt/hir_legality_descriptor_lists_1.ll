@@ -38,7 +38,6 @@
 ; <40>               @llvm.directive.region.exit(%3); [ DIR.OMP.END.SIMD() ]
 ; <0>          END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 

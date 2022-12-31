@@ -802,6 +802,25 @@ public:
                                 DominatorTree *DT) {
     return AA.callCapturesBefore(I, MemLoc, DT, AAQI);
   }
+#if INTEL_CUSTOMIZATION
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB) {
+    // Note that we intentionally defeat the caching effect typically
+    // provided by BatchAAResults here by not passing AAQI. This avoids the
+    // need for any AAQI instance to handle both alias() and loopCarriedAlias()
+    // semantics simultaneously.
+    //
+    // This leaves BatchAAResults::loopCarriedAlias with no advantage over
+    // AAResults::loopCarriedAlias; it's implemented only because
+    // AliasSetTracker uses BatchAAResults exclusively.
+    return AA.loopCarriedAlias(LocA, LocB);
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  /// Assume that values may come from different cycle iterations.
+  void enableCrossIterationMode() {
+    AAQI.MayBeCrossIteration = true;
+  }
 };
 
 /// Temporary typedef for legacy code that uses a generic \c AliasAnalysis

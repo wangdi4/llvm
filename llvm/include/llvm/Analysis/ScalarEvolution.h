@@ -42,7 +42,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -57,6 +56,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -569,10 +569,10 @@ public:
 
   /// Parse NSW/NUW flags from add/sub/mul IR binary operation \p Op into
   /// SCEV no-wrap flags, and deduce flag[s] that aren't known yet.
-  /// Does not mutate the original instruction. Returns None if it could not
-  /// deduce more precise flags than the instruction already has, otherwise
+  /// Does not mutate the original instruction. Returns std::nullopt if it could
+  /// not deduce more precise flags than the instruction already has, otherwise
   /// returns proven flags.
-  Optional<SCEV::NoWrapFlags>
+  std::optional<SCEV::NoWrapFlags>
   getStrengthenedNoWrapFlagsFromBinOp(const OverflowingBinaryOperator *OBO);
 
   /// Notify this ScalarEvolution that \p User directly uses SCEVs in \p Ops.
@@ -596,6 +596,8 @@ public:
   const SCEV *getPtrToIntExpr(const SCEV *Op, Type *Ty);
   const SCEV *getTruncateExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
+  const SCEV *getZeroExtendExprImpl(const SCEV *Op, Type *Ty,
+                                    unsigned Depth = 0);
   const SCEV *getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getCastExpr(SCEVTypes Kind, const SCEV *Op, Type *Ty);
   const SCEV *getAnyExtendExpr(const SCEV *Op, Type *Ty);
@@ -650,7 +652,7 @@ public:
   /// Predicates. If successful return these <AddRecExpr, Predicates>;
   /// The function is intended to be called from PSCEV (the caller will decide
   /// whether to actually add the predicates and carry out the rewrites).
-  Optional<std::pair<const SCEV *, SmallVector<const SCEVPredicate *, 3>>>
+  std::optional<std::pair<const SCEV *, SmallVector<const SCEVPredicate *, 3>>>
   createAddRecFromPHIWithCasts(const SCEVUnknown *SymbolicPHI);
 
   /// Returns an expression for a GEP
@@ -1113,9 +1115,9 @@ public:
 
   /// Check whether the condition described by Pred, LHS, and RHS is true or
   /// false. If we know it, return the evaluation of this condition. If neither
-  /// is proved, return None.
-  Optional<bool> evaluatePredicate(ICmpInst::Predicate Pred, const SCEV *LHS,
-                                   const SCEV *RHS);
+  /// is proved, return std::nullopt.
+  std::optional<bool> evaluatePredicate(ICmpInst::Predicate Pred,
+                                        const SCEV *LHS, const SCEV *RHS);
 
   /// Test if the given expression is known to satisfy the condition described
   /// by Pred, LHS, and RHS in the given Context.
@@ -1124,9 +1126,10 @@ public:
 
   /// Check whether the condition described by Pred, LHS, and RHS is true or
   /// false in the given \p Context. If we know it, return the evaluation of
-  /// this condition. If neither is proved, return None.
-  Optional<bool> evaluatePredicateAt(ICmpInst::Predicate Pred, const SCEV *LHS,
-                                     const SCEV *RHS, const Instruction *CtxI);
+  /// this condition. If neither is proved, return std::nullopt.
+  std::optional<bool> evaluatePredicateAt(ICmpInst::Predicate Pred,
+                                          const SCEV *LHS, const SCEV *RHS,
+                                          const Instruction *CtxI);
 
   /// Test if the condition described by Pred, LHS, RHS is known to be true on
   /// every iteration of the loop of the recurrency LHS.
@@ -1146,8 +1149,9 @@ public:
   /// If, for all loop invariant X, the predicate "LHS `Pred` X" is
   /// monotonically increasing or decreasing, returns
   /// Some(MonotonicallyIncreasing) and Some(MonotonicallyDecreasing)
-  /// respectively. If we could not prove either of these facts, returns None.
-  Optional<MonotonicPredicateType>
+  /// respectively. If we could not prove either of these facts, returns
+  /// std::nullopt.
+  std::optional<MonotonicPredicateType>
   getMonotonicPredicateType(const SCEVAddRecExpr *LHS,
                             ICmpInst::Predicate Pred);
 
@@ -1162,8 +1166,8 @@ public:
   };
   /// If the result of the predicate LHS `Pred` RHS is loop invariant with
   /// respect to L, return a LoopInvariantPredicate with LHS and RHS being
-  /// invariants, available at L's entry. Otherwise, return None.
-  Optional<LoopInvariantPredicate>
+  /// invariants, available at L's entry. Otherwise, return std::nullopt.
+  std::optional<LoopInvariantPredicate>
   getLoopInvariantPredicate(ICmpInst::Predicate Pred, const SCEV *LHS,
                             const SCEV *RHS, const Loop *L,
                             const Instruction *CtxI = nullptr);
@@ -1171,9 +1175,9 @@ public:
   /// If the result of the predicate LHS `Pred` RHS is loop invariant with
   /// respect to L at given Context during at least first MaxIter iterations,
   /// return a LoopInvariantPredicate with LHS and RHS being invariants,
-  /// available at L's entry. Otherwise, return None. The predicate should be
-  /// the loop's exit condition.
-  Optional<LoopInvariantPredicate>
+  /// available at L's entry. Otherwise, return std::nullopt. The predicate
+  /// should be the loop's exit condition.
+  std::optional<LoopInvariantPredicate>
   getLoopInvariantExitCondDuringFirstIterations(ICmpInst::Predicate Pred,
                                                 const SCEV *LHS,
                                                 const SCEV *RHS, const Loop *L,
@@ -1259,7 +1263,7 @@ public:
       SmallPtrSetImpl<const SCEVPredicate *> &Preds);
 
   /// Compute \p LHS - \p RHS and returns the result as an APInt if it is a
-  /// constant, and None if it isn't.
+  /// constant, and std::nullopt if it isn't.
   ///
   /// This is intended to be a cheaper version of getMinusSCEV.  We can be
   /// frugal here since we just bail out of actually constructing and
@@ -1267,8 +1271,9 @@ public:
   /// to be a constant.
 #if INTEL_CUSTOMIZATION
   // INTEL: Added extra parameter.
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
-                                            bool *SignedOverflow = nullptr);
+  std::optional<APInt>
+  computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                            bool *SignedOverflow = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
   /// Update no-wrap flags of an AddRec. This may drop the cached info about
@@ -1290,6 +1295,45 @@ public:
   /// Return true if this loop is finite by assumption.  That is,
   /// to be infinite, it must also be undefined.
   bool loopIsFiniteByAssumption(const Loop *L);
+
+  class FoldID {
+    SmallVector<unsigned, 4> Bits;
+
+  public:
+    void addInteger(unsigned long I) { Bits.push_back(I); }
+    void addInteger(unsigned I) { Bits.push_back(I); }
+    void addInteger(int I) { Bits.push_back(I); }
+
+    void addInteger(unsigned long long I) {
+      addInteger(unsigned(I));
+      addInteger(unsigned(I >> 32));
+    }
+
+    void addPointer(const void *Ptr) {
+      // Note: this adds pointers to the hash using sizes and endianness that
+      // depend on the host. It doesn't matter, however, because hashing on
+      // pointer values is inherently unstable. Nothing should depend on the
+      // ordering of nodes in the folding set.
+      static_assert(sizeof(uintptr_t) <= sizeof(unsigned long long),
+                    "unexpected pointer size");
+      addInteger(reinterpret_cast<uintptr_t>(Ptr));
+    }
+
+    unsigned computeHash() const {
+      unsigned Hash = Bits.size();
+      for (unsigned I = 0; I != Bits.size(); ++I)
+        Hash = detail::combineHashValue(Hash, Bits[I]);
+      return Hash;
+    }
+    bool operator==(const FoldID &RHS) const {
+      if (Bits.size() != RHS.Bits.size())
+        return false;
+      for (unsigned I = 0; I != Bits.size(); ++I)
+        if (Bits[I] != RHS.Bits[I])
+          return false;
+      return true;
+    }
+  };
 
 private:
 protected: // INTEL
@@ -1352,6 +1396,11 @@ protected: // INTEL
 
   /// This is a cache of the values we have analyzed so far.
   ValueExprMapType ValueExprMap;
+
+  /// This is a cache for expressions that got folded to a different existing
+  /// SCEV.
+  DenseMap<FoldID, const SCEV *> FoldCache;
+  DenseMap<const SCEV *, SmallVector<FoldID, 2>> FoldCacheUser;
 
   /// Mark predicate values currently being processed by isImpliedCond.
   SmallPtrSet<const Value *, 6> PendingLoopPredicates;
@@ -1435,11 +1484,13 @@ protected: // INTEL
     /*implicit*/ ExitLimit(const SCEV *E);
 
     ExitLimit(
-        const SCEV *E, const SCEV *ConstantMaxNotTaken, bool MaxOrZero,
+        const SCEV *E, const SCEV *ConstantMaxNotTaken,
+        const SCEV *SymbolicMaxNotTaken, bool MaxOrZero,
         ArrayRef<const SmallPtrSetImpl<const SCEVPredicate *> *> PredSetList =
-            None);
+            std::nullopt);
 
-    ExitLimit(const SCEV *E, const SCEV *ConstantMaxNotTaken, bool MaxOrZero,
+    ExitLimit(const SCEV *E, const SCEV *ConstantMaxNotTaken,
+              const SCEV *SymbolicMaxNotTaken, bool MaxOrZero,
               const SmallPtrSetImpl<const SCEVPredicate *> &PredSet);
 
     /// Test whether this ExitLimit contains any computed information, or
@@ -1821,8 +1872,9 @@ protected: // INTEL
     ExitLimitCache(const Loop *L, bool ExitIfTrue, bool AllowPredicates)
         : L(L), ExitIfTrue(ExitIfTrue), AllowPredicates(AllowPredicates) {}
 
-    Optional<ExitLimit> find(const Loop *L, Value *ExitCond, bool ExitIfTrue,
-                             bool ControlsExit, bool AllowPredicates);
+    std::optional<ExitLimit> find(const Loop *L, Value *ExitCond,
+                                  bool ExitIfTrue, bool ControlsExit,
+                                  bool AllowPredicates);
 
     void insert(const Loop *L, Value *ExitCond, bool ExitIfTrue,
                 bool ControlsExit, bool AllowPredicates, const ExitLimit &EL);
@@ -1839,7 +1891,7 @@ protected: // INTEL
                                          Value *ExitCond, bool ExitIfTrue,
                                          bool ControlsExit,
                                          bool AllowPredicates);
-  Optional<ScalarEvolution::ExitLimit>
+  std::optional<ScalarEvolution::ExitLimit>
   computeExitLimitFromCondFromBinOp(ExitLimitCacheTy &Cache, const Loop *L,
                                     Value *ExitCond, bool ExitIfTrue,
                                     bool ControlsExit, bool AllowPredicates);
@@ -2147,7 +2199,7 @@ protected: // INTEL
   /// entry and backedge.
   SCEV::NoWrapFlags proveNoUnsignedWrapViaInduction(const SCEVAddRecExpr *AR);
 
-  Optional<MonotonicPredicateType>
+  std::optional<MonotonicPredicateType>
   getMonotonicPredicateTypeImpl(const SCEVAddRecExpr *LHS,
                                 ICmpInst::Predicate Pred);
 
@@ -2211,7 +2263,7 @@ protected: // INTEL
   /// If the analysis is not successful, a mapping from the \p SymbolicPHI to
   /// itself (with no predicates) is recorded, and a nullptr with an empty
   /// predicates vector is returned as a pair.
-  Optional<std::pair<const SCEV *, SmallVector<const SCEVPredicate *, 3>>>
+  std::optional<std::pair<const SCEV *, SmallVector<const SCEVPredicate *, 3>>>
   createAddRecFromPHIWithCastsImpl(const SCEVUnknown *SymbolicPHI);
 
   /// Compute the maximum backedge count based on the range of values
@@ -2614,7 +2666,30 @@ public:
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const ScalarEvolution *SE) { return SE->isScoped(); }
 };
+
 #endif // INTEL_CUSTOMIZATION
+template <> struct DenseMapInfo<ScalarEvolution::FoldID> {
+  static inline ScalarEvolution::FoldID getEmptyKey() {
+    ScalarEvolution::FoldID ID;
+    ID.addInteger(~0ULL);
+    return ID;
+  }
+  static inline ScalarEvolution::FoldID getTombstoneKey() {
+    ScalarEvolution::FoldID ID;
+    ID.addInteger(~0ULL - 1ULL);
+    return ID;
+  }
+
+  static unsigned getHashValue(const ScalarEvolution::FoldID &Val) {
+    return Val.computeHash();
+  }
+
+  static bool isEqual(const ScalarEvolution::FoldID &LHS,
+                      const ScalarEvolution::FoldID &RHS) {
+    return LHS == RHS;
+  }
+};
+
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_SCALAREVOLUTION_H

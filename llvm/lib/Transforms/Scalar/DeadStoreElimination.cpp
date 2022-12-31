@@ -103,6 +103,7 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <utility>
 
 #if INTEL_CUSTOMIZATION
@@ -517,8 +518,8 @@ static void shortenAssignment(Instruction *Inst, uint64_t OldOffsetInBits,
     // FIXME: This should be using the DIExpression in the Alloca's dbg.assign
     // for the variable, since that could also contain a fragment?
     return *DIExpression::createFragmentExpression(
-        DIExpression::get(Inst->getContext(), None), DeadFragment.OffsetInBits,
-        DeadFragment.SizeInBits);
+        DIExpression::get(Inst->getContext(), std::nullopt),
+        DeadFragment.OffsetInBits, DeadFragment.SizeInBits);
   };
 
   // A DIAssignID to use so that the inserted dbg.assign intrinsics do not
@@ -899,6 +900,27 @@ struct DSEState {
     CodeMetrics::collectEphemeralValues(&F, &AC, EphValues);
   }
 
+  LocationSize strengthenLocationSize(const Instruction *I,
+                                      LocationSize Size) const {
+    if (auto *CB = dyn_cast<CallBase>(I)) {
+      LibFunc F;
+      if (TLI.getLibFunc(*CB, F) && TLI.has(F) &&
+          (F == LibFunc_memset_chk || F == LibFunc_memcpy_chk)) {
+        // Use the precise location size specified by the 3rd argument
+        // for determining KillingI overwrites DeadLoc if it is a memset_chk
+        // instruction. memset_chk will write either the amount specified as 3rd
+        // argument or the function will immediately abort and exit the program.
+        // NOTE: AA may determine NoAlias if it can prove that the access size
+        // is larger than the allocation size due to that being UB. To avoid
+        // returning potentially invalid NoAlias results by AA, limit the use of
+        // the precise location size to isOverwrite.
+        if (const auto *Len = dyn_cast<ConstantInt>(CB->getArgOperand(2)))
+          return LocationSize::precise(Len->getZExtValue());
+      }
+    }
+    return Size;
+  }
+
   /// Return 'OW_Complete' if a store to the 'KillingLoc' location (by \p
   /// KillingI instruction) completely overwrites a store to the 'DeadLoc'
   /// location (by \p DeadI instruction).
@@ -918,6 +940,8 @@ struct DSEState {
     if (!isGuaranteedLoopIndependent(DeadI, KillingI, DeadLoc))
       return OW_Unknown;
 
+    LocationSize KillingLocSize =
+        strengthenLocationSize(KillingI, KillingLoc.Size);
     const Value *DeadPtr = DeadLoc.Ptr->stripPointerCasts();
     const Value *KillingPtr = KillingLoc.Ptr->stripPointerCasts();
     const Value *DeadUndObj = getUnderlyingObject(DeadPtr);
@@ -925,16 +949,16 @@ struct DSEState {
 
     // Check whether the killing store overwrites the whole object, in which
     // case the size/offset of the dead store does not matter.
-    if (DeadUndObj == KillingUndObj && KillingLoc.Size.isPrecise()) {
+    if (DeadUndObj == KillingUndObj && KillingLocSize.isPrecise()) {
       uint64_t KillingUndObjSize = getPointerSize(KillingUndObj, DL, TLI, &F);
       if (KillingUndObjSize != MemoryLocation::UnknownSize &&
-          KillingUndObjSize == KillingLoc.Size.getValue())
+          KillingUndObjSize == KillingLocSize.getValue())
         return OW_Complete;
     }
 
     // FIXME: Vet that this works for size upper-bounds. Seems unlikely that we'll
     // get imprecise values here, though (except for unknown sizes).
-    if (!KillingLoc.Size.isPrecise() || !DeadLoc.Size.isPrecise()) {
+    if (!KillingLocSize.isPrecise() || !DeadLoc.Size.isPrecise()) {
       // In case no constant size is known, try to an IR values for the number
       // of bytes written and check if they match.
       const auto *KillingMemI = dyn_cast<MemIntrinsic>(KillingI);
@@ -951,7 +975,7 @@ struct DSEState {
       return isMaskedStoreOverwrite(KillingI, DeadI, BatchAA);
     }
 
-    const uint64_t KillingSize = KillingLoc.Size.getValue();
+    const uint64_t KillingSize = KillingLocSize.getValue();
     const uint64_t DeadSize = DeadLoc.Size.getValue();
 
     // Query the alias information
@@ -1066,9 +1090,9 @@ struct DSEState {
     return !I.first->second;
   }
 
-  Optional<MemoryLocation> getLocForWrite(Instruction *I) const {
+  std::optional<MemoryLocation> getLocForWrite(Instruction *I) const {
     if (!I->mayWriteToMemory())
-      return None;
+      return std::nullopt;
 
     if (auto *CB = dyn_cast<CallBase>(I))
       return MemoryLocation::getForDest(CB, TLI);
@@ -1178,7 +1202,7 @@ struct DSEState {
   /// If \p I is a memory  terminator like llvm.lifetime.end or free, return a
   /// pair with the MemoryLocation terminated by \p I and a boolean flag
   /// indicating whether \p I is a free-like call.
-  Optional<std::pair<MemoryLocation, bool>>
+  std::optional<std::pair<MemoryLocation, bool>>
   getLocForTerminator(Instruction *I) const {
     uint64_t Len;
     Value *Ptr;
@@ -1191,7 +1215,7 @@ struct DSEState {
         return {std::make_pair(MemoryLocation::getAfter(FreedOp), true)};
     }
 
-    return None;
+    return std::nullopt;
   }
 
   /// Returns true if \p I is a memory terminator instruction like
@@ -1206,7 +1230,7 @@ struct DSEState {
   /// instruction \p AccessI.
   bool isMemTerminator(const MemoryLocation &Loc, Instruction *AccessI,
                        Instruction *MaybeTerm) {
-    Optional<std::pair<MemoryLocation, bool>> MaybeTermLoc =
+    std::optional<std::pair<MemoryLocation, bool>> MaybeTermLoc =
         getLocForTerminator(MaybeTerm);
 
     if (!MaybeTermLoc)
@@ -1290,7 +1314,7 @@ struct DSEState {
   // Find a MemoryDef writing to \p KillingLoc and dominating \p StartAccess,
   // with no read access between them or on any other path to a function exit
   // block if \p KillingLoc is not accessible after the function returns. If
-  // there is no such MemoryDef, return None. The returned value may not
+  // there is no such MemoryDef, return std::nullopt. The returned value may not
   // (completely) overwrite \p KillingLoc. Currently we bail out when we
   // encounter an aliasing MemoryUse (read).
   Optional<MemoryAccess *>
@@ -1300,7 +1324,7 @@ struct DSEState {
                   bool IsMemTerm, unsigned &PartialLimit) {
     if (ScanLimit == 0 || WalkerStepLimit == 0) {
       LLVM_DEBUG(dbgs() << "\n    ...  hit scan limit\n");
-      return None;
+      return std::nullopt;
     }
 
     MemoryAccess *Current = StartAccess;
@@ -1317,7 +1341,7 @@ struct DSEState {
                        !KillingI->mayReadFromMemory();
 
     // Find the next clobbering Mod access for DefLoc, starting at StartAccess.
-    Optional<MemoryLocation> CurrentLoc;
+    std::optional<MemoryLocation> CurrentLoc;
     for (;; Current = cast<MemoryDef>(Current)->getDefiningAccess()) {
       LLVM_DEBUG({
         dbgs() << "   visiting " << *Current;
@@ -1333,7 +1357,7 @@ struct DSEState {
         if (CanOptimize && Current != KillingDef->getDefiningAccess())
           // The first clobbering def is... none.
           KillingDef->setOptimized(Current);
-        return None;
+        return std::nullopt;
       }
 
       // Cost of a step. Accesses in the same block are more likely to be valid
@@ -1343,7 +1367,7 @@ struct DSEState {
                               : MemorySSAOtherBBStepCost;
       if (WalkerStepLimit <= StepCost) {
         LLVM_DEBUG(dbgs() << "   ...  hit walker step limit\n");
-        return None;
+        return std::nullopt;
       }
       WalkerStepLimit -= StepCost;
 
@@ -1368,14 +1392,14 @@ struct DSEState {
       // instructions that block us from DSEing
       if (mayThrowBetween(KillingI, CurrentI, KillingUndObj)) {
         LLVM_DEBUG(dbgs() << "  ... skip, may throw!\n");
-        return None;
+        return std::nullopt;
       }
 
       // Check for anything that looks like it will be a barrier to further
       // removal
       if (isDSEBarrier(KillingUndObj, CurrentI)) {
         LLVM_DEBUG(dbgs() << "  ... skip, barrier\n");
-        return None;
+        return std::nullopt;
       }
 
       // If Current is known to be on path that reads DefLoc or is a read
@@ -1383,7 +1407,7 @@ struct DSEState {
       // for intrinsic calls, because the code knows how to handle memcpy
       // intrinsics.
       if (!isa<IntrinsicInst>(CurrentI) && isReadClobber(KillingLoc, CurrentI))
-        return None;
+        return std::nullopt;
 
       // Quick check if there are direct uses that are read-clobbers.
       if (any_of(Current->uses(), [this, &KillingLoc, StartAccess](Use &U) {
@@ -1393,7 +1417,7 @@ struct DSEState {
             return false;
           })) {
         LLVM_DEBUG(dbgs() << "   ...  found a read clobber\n");
-        return None;
+        return std::nullopt;
       }
 
       // If Current does not have an analyzable write location or is not
@@ -1487,7 +1511,7 @@ struct DSEState {
       // Bail out if the number of accesses to check exceeds the scan limit.
       if (ScanLimit < (WorkList.size() - I)) {
         LLVM_DEBUG(dbgs() << "\n    ...  hit scan limit\n");
-        return None;
+        return std::nullopt;
       }
       --ScanLimit;
       NumDomMemDefChecks++;
@@ -1532,14 +1556,14 @@ struct DSEState {
 
       if (UseInst->mayThrow() && !isInvisibleToCallerOnUnwind(KillingUndObj)) {
         LLVM_DEBUG(dbgs() << "  ... found throwing instruction\n");
-        return None;
+        return std::nullopt;
       }
 
       // Uses which may read the original MemoryDef mean we cannot eliminate the
       // original MD. Stop walk.
       if (isReadClobber(MaybeDeadLoc, UseInst)) {
         LLVM_DEBUG(dbgs() << "    ... found read clobber\n");
-        return None;
+        return std::nullopt;
       }
 
       // If this worklist walks back to the original memory access (and the
@@ -1548,7 +1572,7 @@ struct DSEState {
       if (MaybeDeadAccess == UseAccess &&
           !isGuaranteedLoopInvariant(MaybeDeadLoc.Ptr)) {
         LLVM_DEBUG(dbgs() << "    ... found not loop invariant self access\n");
-        return None;
+        return std::nullopt;
       }
       // Otherwise, for the KillingDef and MaybeDeadAccess we only have to check
       // if it reads the memory location.
@@ -1582,7 +1606,7 @@ struct DSEState {
           } else {
             LLVM_DEBUG(dbgs()
                        << "    ... found preceeding def " << *UseInst << "\n");
-            return None;
+            return std::nullopt;
           }
         } else
           PushMemUses(UseDef);
@@ -1612,7 +1636,7 @@ struct DSEState {
       // killing block.
       if (!PDT.dominates(CommonPred, MaybeDeadAccess->getBlock())) {
         if (!AnyUnreachableExit)
-          return None;
+          return std::nullopt;
 
         // Fall back to CFG scan starting at all non-unreachable roots if not
         // all paths to the exit go through CommonPred.
@@ -1643,7 +1667,7 @@ struct DSEState {
         if (KillingBlocks.count(Current))
           continue;
         if (Current == MaybeDeadAccess->getBlock())
-          return None;
+          return std::nullopt;
 
         // MaybeDeadAccess is reachable from the entry, so we don't have to
         // explore unreachable blocks further.
@@ -1654,7 +1678,7 @@ struct DSEState {
           WorkList.insert(Pred);
 
         if (WorkList.size() >= MemorySSAPathCheckLimit)
-          return None;
+          return std::nullopt;
       }
       NumCFGSuccess++;
     }
@@ -1898,7 +1922,7 @@ struct DSEState {
       // can modify the memory location.
       if (InitC && InitC == StoredConstant)
         return MSSA.isLiveOnEntryDef(
-            MSSA.getSkipSelfWalker()->getClobberingMemoryAccess(Def));
+            MSSA.getSkipSelfWalker()->getClobberingMemoryAccess(Def, BatchAA));
     }
 
     if (!Store)
@@ -1917,7 +1941,7 @@ struct DSEState {
         // does not match LoadAccess.
         SetVector<MemoryAccess *> ToCheck;
         MemoryAccess *Current =
-            MSSA.getWalker()->getClobberingMemoryAccess(Def);
+            MSSA.getWalker()->getClobberingMemoryAccess(Def, BatchAA);
         // We don't want to bail when we run into the store memory def. But,
         // the phi access may point to it. So, pretend like we've already
         // checked it.
@@ -2045,12 +2069,13 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
       continue;
     Instruction *KillingI = KillingDef->getMemoryInst();
 
-    Optional<MemoryLocation> MaybeKillingLoc;
-    if (State.isMemTerminatorInst(KillingI))
-      MaybeKillingLoc = State.getLocForTerminator(KillingI).transform(
-          [](const std::pair<MemoryLocation, bool> &P) { return P.first; });
-    else
+    std::optional<MemoryLocation> MaybeKillingLoc;
+    if (State.isMemTerminatorInst(KillingI)) {
+      if (auto KillingLoc = State.getLocForTerminator(KillingI))
+        MaybeKillingLoc = KillingLoc->first;
+    } else {
       MaybeKillingLoc = State.getLocForWrite(KillingI);
+    }
 
     if (!MaybeKillingLoc) {
       LLVM_DEBUG(dbgs() << "Failed to find analyzable write location for "

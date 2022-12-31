@@ -523,12 +523,12 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
                                               CallBase &Call,
                                               bool IsLibIRCAllowed) {
   if (!(DTransInlineHeuristics && IsLibIRCAllowed))
-    return None;
+    return std::nullopt;
   if (!PSI || !PSI->hasInstrumentationProfile())
-    return None;
+    return std::nullopt;
   MDNode *MD = Call.getMetadata(LLVMContext::MD_intel_profx);
   if (!MD)
-    return None;
+    return std::nullopt;
   assert(MD->getNumOperands() == 2);
   ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
   assert(CI);
@@ -555,7 +555,7 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M,
         continue;
       Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB,
                                                          IsLibIRCAllowed);
-      if (ProfCount == None)
+      if (ProfCount == std::nullopt)
         continue;
       uint64_t NewValue = ProfCount.value();
       if (ProfQueue.size() < ProfInstrumentHotCount) {
@@ -589,7 +589,7 @@ static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
   Module *M = CB.getParent()->getParent()->getParent();
   uint64_t Threshold = profInstrumentThreshold(PSI, M, IsLibIRCAllowed);
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB, IsLibIRCAllowed);
-  if (ProfCount == None)
+  if (ProfCount == std::nullopt)
     return false;
   return ProfCount.value() >= Threshold;
 }
@@ -1282,7 +1282,7 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
     return true;
   for (auto &I : instructions(F))
     if (const auto *const CB = dyn_cast<CallBase>(&I))
-      if (getReallocatedOperand(CB, TLI))
+      if (getReallocatedOperand(CB))
         return true;
   return false;
 }
@@ -2022,7 +2022,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
   bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
-    return None;
+    return std::nullopt;
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall,
                                                      IsLibIRCAllowed);
   if (ProfCount && ProfCount.value() == 0) {
@@ -2079,7 +2079,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
   if (CandidateCall.getCaller() == Callee &&
       Callee->hasFnAttribute("no-more-recursive-inlining"))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
-  return None;
+  return std::nullopt;
 }
 
 //

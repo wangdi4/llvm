@@ -480,7 +480,7 @@ bool canUseOpDominance(const DenseSet<OpOperand *> &usesRead,
                        const DenseSet<OpOperand *> &usesWrite,
                        const AnalysisState &state) {
   const BufferizationOptions &options = state.getOptions();
-  Optional<Region *> commonEnclosingRegion = None;
+  Optional<Region *> commonEnclosingRegion = std::nullopt;
 
   // In case of a write, take the region in which the write takes place.
   for (OpOperand *uWrite : usesWrite) {
@@ -804,6 +804,23 @@ static bool wouldCreateReadAfterWriteInterference(
                                        aliasInfo);
 }
 
+/// Annotate IR with details about the detected non-writability conflict.
+static void annotateNonWritableTensor(Value value) {
+  static int64_t counter = 0;
+  OpBuilder b(value.getContext());
+  std::string id = "W_" + std::to_string(counter++);
+  if (auto opResult = value.dyn_cast<OpResult>()) {
+    std::string attr = id + "[NOT-WRITABLE: result " +
+                       std::to_string(opResult.getResultNumber()) + "]";
+    opResult.getDefiningOp()->setAttr(attr, b.getUnitAttr());
+  } else {
+    auto bbArg = value.cast<BlockArgument>();
+    std::string attr = id + "[NOT-WRITABLE: bbArg " +
+                       std::to_string(bbArg.getArgNumber()) + "]";
+    bbArg.getOwner()->getParentOp()->setAttr(attr, b.getUnitAttr());
+  }
+}
+
 /// Check the reverse SSA use-def chain (following aliasing OpOperands) for
 /// non-writable tensor values. Stop searching when an out-of-place bufferized
 /// OpOperand was found (or when the OpOperand was not bufferized yet).
@@ -817,8 +834,11 @@ hasPrecedingAliasingNonWritableTensor(Value value, OpOperand *currentOpOperand,
   worklist.push_back(value);
   while (!worklist.empty()) {
     Value nextVal = worklist.pop_back_val();
-    if (!state.isWritable(nextVal))
+    if (!state.isWritable(nextVal)) {
+      if (state.getOptions().printConflicts)
+        annotateNonWritableTensor(nextVal);
       return true;
+    }
 
     // If `nextVal` is not a BlockArgument: End of use-def chain reached.
     auto opResult = nextVal.dyn_cast<OpResult>();
@@ -1062,10 +1082,19 @@ annotateOpsWithBufferizationMarkers(Operation *op,
   });
 }
 
-/// Assert that IR is in destination-passing style. I.e., every value that is
-/// returned or yielded from a block is:
-/// * aliasing a bbArg of that block or a parent block, or
-/// * aliasing an OpResult of a op in a parent block.
+/// Assert that every allocation can be deallocated in the same block. I.e.,
+/// every value that is returned or yielded from a block is:
+/// * guaranteed to be aliasing a bbArg of that block or a parent block, or
+/// * guaranteed to be aliasing an OpResult of a op in a parent block.
+///
+/// In that case, buffer deallocation is simple: Every allocated buffer can be
+/// deallocated in the same block. Otherwise, the buffer deallocation pass must
+/// be run.
+///
+/// Note: The current implementation checks for equivalent values instead of
+/// aliasing values, which is stricter than needed. We can currently not check
+/// for aliasing values because the analysis is a maybe-alias analysis and we
+/// need a must-alias analysis here.
 ///
 /// Example:
 /// ```
@@ -1077,23 +1106,19 @@ annotateOpsWithBufferizationMarkers(Operation *op,
 ///   scf.yield %t : tensor<?xf32>
 /// }
 /// ```
-/// In the above example, the first scf.yield op satifies destination-passing
-/// style because the yielded value %0 is defined in the parent block. The
-/// second scf.yield op does not satisfy destination-passing style because the
-/// yielded value %t is defined in the same block as the scf.yield op.
-// TODO: The current implementation checks for equivalent values instead of
-// aliasing values, which is stricter than needed. We can currently not check
-// for aliasing values because the analysis is a maybe-alias analysis and we
-// need a must-alias analysis here.
-static LogicalResult
-assertDestinationPassingStyle(Operation *op, AnalysisState &state,
-                              BufferizationAliasInfo &aliasInfo,
-                              SmallVector<Operation *> &newOps) {
+///
+/// In the above example, the second scf.yield op is problematic because the
+/// yielded value %t is defined in the same block as the scf.yield op and
+/// and bufferizes to a new allocation.
+// TODO: Remove buffer deallocation from One-Shot Bufferize and fix the buffer
+// deallocation pass.
+static LogicalResult assertNoAllocsReturned(Operation *op,
+                                            const BufferizationOptions &options,
+                                            BufferizationAliasInfo &aliasInfo) {
   LogicalResult status = success();
   DominanceInfo domInfo(op);
   op->walk([&](Operation *returnOp) {
-    if (!isRegionReturnLike(returnOp) ||
-        !state.getOptions().isOpAllowed(returnOp))
+    if (!isRegionReturnLike(returnOp) || !options.isOpAllowed(returnOp))
       return WalkResult::advance();
 
     for (OpOperand &returnValOperand : returnOp->getOpOperands()) {
@@ -1119,11 +1144,12 @@ assertDestinationPassingStyle(Operation *op, AnalysisState &state,
             foundEquivValue = true;
       });
 
+      // Note: Returning/yielding buffer allocations is allowed only if
+      // `allowReturnAllocs` is set.
       if (!foundEquivValue)
-        status =
-            returnOp->emitError()
-            << "operand #" << returnValOperand.getOperandNumber()
-            << " of ReturnLike op does not satisfy destination passing style";
+        status = returnOp->emitError()
+                 << "operand #" << returnValOperand.getOperandNumber()
+                 << " may return/yield a new buffer allocation";
     }
 
     return WalkResult::advance();
@@ -1148,11 +1174,8 @@ LogicalResult bufferization::analyzeOp(Operation *op,
   equivalenceAnalysis(op, aliasInfo, state);
 
   bool failedAnalysis = false;
-  if (!options.allowReturnAllocs) {
-    SmallVector<Operation *> newOps;
-    failedAnalysis |=
-        failed(assertDestinationPassingStyle(op, state, aliasInfo, newOps));
-  }
+  if (!options.allowReturnAllocs)
+    failedAnalysis |= failed(assertNoAllocsReturned(op, options, aliasInfo));
 
   // Gather some extra analysis data.
   state.gatherYieldedTensors(op);

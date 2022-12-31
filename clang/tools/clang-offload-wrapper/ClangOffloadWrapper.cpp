@@ -1552,7 +1552,7 @@ public:
       bool ExecutionFailed = false;
       std::string ErrMsg;
       (void)sys::ExecuteAndWait(Yaml2ObjPath, Args,
-                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*Env=*/std::nullopt, /*Redirects=*/{},
                                 /*SecondsToWait=*/0,
                                 /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
 
@@ -1590,7 +1590,7 @@ public:
       bool ExecutionFailed = false;
       std::string ErrMsg;
       (void)sys::ExecuteAndWait(ObjcopyPath, Args,
-                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*Env=*/std::nullopt, /*Redirects=*/{},
                                 /*SecondsToWait=*/0,
                                 /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
 
@@ -1823,7 +1823,7 @@ public:
     bool ExecutionFailed = false;
     std::string ErrMsg;
     (void)sys::ExecuteAndWait(ObjcopyPath, Args,
-                              /*Env=*/llvm::None, /*Redirects=*/{},
+                              /*Env=*/std::nullopt, /*Redirects=*/{},
                               /*SecondsToWait=*/0,
                               /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
 

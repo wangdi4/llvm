@@ -1,7 +1,7 @@
 ; negative test: check that mm+index idiom analyzer bailouts in non-idiom cases.
 ; In this test we have linear with negative coeffs value assigned for the index part
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert' -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
 
 ; Input HIR. The statement <7> contains the negative multiplier for linear
 ; index part of the min/max+index idiom.

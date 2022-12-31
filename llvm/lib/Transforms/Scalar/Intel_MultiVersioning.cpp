@@ -377,11 +377,11 @@ class BoolMultiVersioningImpl {
   getBranchWeights(const BranchInst *I) {
     MDNode *ProfMD = I->getMetadata(LLVMContext::MD_prof);
     if (!ProfMD)
-      return None;
+      return std::nullopt;
 
     MDString *MDS = dyn_cast<MDString>(ProfMD->getOperand(0));
     if (!MDS || !MDS->getString().equals("branch_weights"))
-      return None;
+      return std::nullopt;
 
     assert(ProfMD->getNumOperands() == 3 && "Expected 3 value operands");
     ConstantInt *CI1 = mdconst::extract<ConstantInt>(ProfMD->getOperand(1));

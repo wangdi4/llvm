@@ -301,7 +301,7 @@ static bool warnByDefaultOnWrongCase(StringRef Include) {
 /// \param Candidates the candidates to find a similar string.
 ///
 /// \returns a similar string if exists. If no similar string exists,
-/// returns None.
+/// returns std::nullopt.
 static Optional<StringRef> findSimilarStr(
     StringRef LHS, const std::vector<StringRef> &Candidates) {
   // We need to check if `Candidates` has the exact case-insensitive string
@@ -335,7 +335,7 @@ static Optional<StringRef> findSimilarStr(
   if (SimilarStr) {
     return SimilarStr->first;
   } else {
-    return None;
+    return std::nullopt;
   }
 }
 
@@ -519,8 +519,7 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
   // lookup pointer.
   assert(!SkippingExcludedConditionalBlock &&
          "calling SkipExcludedConditionalBlock recursively");
-  llvm::SaveAndRestore<bool> SARSkipping(SkippingExcludedConditionalBlock,
-                                         true);
+  llvm::SaveAndRestore SARSkipping(SkippingExcludedConditionalBlock, true);
 
   ++NumSkipped;
   assert(!CurTokenLexer && CurPPLexer && "Lexing a macro, not a file?");
@@ -1106,7 +1105,7 @@ Optional<FileEntryRef> Preprocessor::LookupFile(
   }
 
   // Otherwise, we really couldn't find the file.
-  return None;
+  return std::nullopt;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2049,7 +2048,7 @@ Optional<FileEntryRef> Preprocessor::LookupHeaderIncludeOrImport(
     return File;
 
   if (SuppressIncludeNotFoundError)
-    return None;
+    return std::nullopt;
 
   // If the file could not be located and it was included via angle
   // brackets, we can attempt a lookup as though it were a quoted path to
@@ -2124,7 +2123,7 @@ Optional<FileEntryRef> Preprocessor::LookupHeaderIncludeOrImport(
         << CacheEntry.Directory->getName();
   }
 
-  return None;
+  return std::nullopt;
 }
 
 /// Handle either a #include-like directive or an import declaration that names
@@ -3100,8 +3099,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   StringRef Args[] = { MSCompiler, "/P", ResponseArg };
 
   StringRef Nul("NUL");
-  Optional<StringRef> Redirects[] = {Nul, Nul, Nul};
-  if (llvm::sys::ExecuteAndWait(MSCompiler, Args, None, Redirects, 0, 0,
+  std::optional<StringRef> Redirects[] = {Nul, Nul, Nul};
+  if (llvm::sys::ExecuteAndWait(MSCompiler, Args, std::nullopt, Redirects, 0, 0,
                                 &ErrMsg)) {
     Diag(FilenameTok, diag::err_import_exec) << MSCompiler;
     return;

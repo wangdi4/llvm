@@ -187,6 +187,12 @@ static const int DeviceEventsSetting = [] {
   return AllHostVisible;
 }();
 
+static const bool ExposeCSliceInAffinityPartitioning = [] {
+  const char *Flag =
+      std::getenv("SYCL_PI_LEVEL_ZERO_EXPOSE_CSLICE_IN_AFFINITY_PARTITIONING");
+  return Flag ? std::atoi(Flag) != 0 : false;
+}();
+
 // Helper function to implement zeHostSynchronize.
 // The behavior is to avoid infinite wait during host sync under ZE_DEBUG.
 // This allows for a much more responsive debugging of hangs.
@@ -479,10 +485,10 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
                      bool PreferCopyEngine = false);
 
 static pi_result enqueueMemCopyRectHelper(
-    pi_command_type CommandType, pi_queue Queue, void *SrcBuffer,
+    pi_command_type CommandType, pi_queue Queue, const void *SrcBuffer,
     void *DstBuffer, pi_buff_rect_offset SrcOrigin,
     pi_buff_rect_offset DstOrigin, pi_buff_rect_region Region,
-    size_t SrcRowPitch, size_t SrcSlicePitch, size_t DstRowPitch,
+    size_t SrcRowPitch, size_t DstRowPitch, size_t SrcSlicePitch,
     size_t DstSlicePitch, pi_bool Blocking, pi_uint32 NumEventsInWaitList,
     const pi_event *EventWaitList, pi_event *Event,
     bool PreferCopyEngine = false);
@@ -1032,19 +1038,20 @@ bool pi_command_list_info_t::isCopy(pi_queue Queue) const {
 
 bool _pi_queue::isInOrderQueue() const {
   // If out-of-order queue property is not set, then this is a in-order queue.
-  return ((this->Properties & PI_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0);
+  return ((this->Properties & PI_QUEUE_FLAG_OUT_OF_ORDER_EXEC_MODE_ENABLE) ==
+          0);
 }
 
 bool _pi_queue::isDiscardEvents() const {
-  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS) != 0);
+  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_FLAG_DISCARD_EVENTS) != 0);
 }
 
 bool _pi_queue::isPriorityLow() const {
-  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_PRIORITY_LOW) != 0);
+  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_FLAG_PRIORITY_LOW) != 0);
 }
 
 bool _pi_queue::isPriorityHigh() const {
-  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_PRIORITY_HIGH) != 0);
+  return ((this->Properties & PI_EXT_ONEAPI_QUEUE_FLAG_PRIORITY_HIGH) != 0);
 }
 
 pi_result _pi_queue::resetCommandList(pi_command_list_ptr_t CommandList,
@@ -1243,7 +1250,8 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
                      std::vector<ze_command_queue_handle_t> &CopyQueues,
                      pi_context Context, pi_device Device,
                      bool OwnZeCommandQueue,
-                     pi_queue_properties PiQueueProperties)
+                     pi_queue_properties PiQueueProperties,
+                     int ForceComputeIndex)
     : Context{Context}, Device{Device}, OwnZeCommandQueue{OwnZeCommandQueue},
       Properties(PiQueueProperties) {
 
@@ -1252,10 +1260,26 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
   // fixed to one particular compute CCS (it is so for sub-sub-devices).
   auto &ComputeQueueGroupInfo = Device->QueueGroup[queue_type::Compute];
   ComputeQueueGroup.ZeQueues = ComputeQueues;
+  // Create space to hold immediate commandlists corresponding to the
+  // ZeQueues
+  if (Device->useImmediateCommandLists()) {
+    ComputeQueueGroup.ImmCmdLists = std::vector<pi_command_list_ptr_t>(
+        ComputeQueueGroup.ZeQueues.size(), CommandListMap.end());
+  }
   if (ComputeQueueGroupInfo.ZeIndex >= 0) {
+    // Sub-sub-device
+
+    // sycl::ext::intel::property::queue::compute_index works with any
+    // backend/device by allowing single zero index if multiple compute CCSes
+    // are not supported. Sub-sub-device falls into the same bucket.
+    assert(ForceComputeIndex <= 0);
     ComputeQueueGroup.LowerIndex = ComputeQueueGroupInfo.ZeIndex;
     ComputeQueueGroup.UpperIndex = ComputeQueueGroupInfo.ZeIndex;
     ComputeQueueGroup.NextIndex = ComputeQueueGroupInfo.ZeIndex;
+  } else if (ForceComputeIndex >= 0) {
+    ComputeQueueGroup.LowerIndex = ForceComputeIndex;
+    ComputeQueueGroup.UpperIndex = ForceComputeIndex;
+    ComputeQueueGroup.NextIndex = ForceComputeIndex;
   } else {
     // Set-up to round-robin across allowed range of engines.
     uint32_t FilterLowerIndex = getRangeOfAllowedComputeEngines().first;
@@ -1266,12 +1290,6 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
       ComputeQueueGroup.LowerIndex = FilterLowerIndex;
       ComputeQueueGroup.UpperIndex = FilterUpperIndex;
       ComputeQueueGroup.NextIndex = ComputeQueueGroup.LowerIndex;
-      // Create space to hold immediate commandlists corresponding to the
-      // ZeQueues
-      if (Device->useImmediateCommandLists()) {
-        ComputeQueueGroup.ImmCmdLists = std::vector<pi_command_list_ptr_t>(
-            ComputeQueueGroup.ZeQueues.size(), CommandListMap.end());
-      }
     } else {
       die("No compute queue available/allowed.");
     }
@@ -2745,28 +2763,33 @@ pi_result _pi_platform::populateDeviceCacheIfNeeded() {
           }
         }
 
-        // Create PI sub-sub-devices with the sub-device for all the ordinals.
-        // Each {ordinal, index} points to a specific CCS which constructs
-        // a sub-sub-device at this point.
-        // FIXME: Level Zero creates multiple PiDevices for a single physical
-        // device when sub-device is partitioned into sub-sub-devices.
-        // Sub-sub-device is technically a command queue and we should not build
-        // program for each command queue. PiDevice is probably not the right
-        // abstraction for a Level Zero command queue.
-        for (uint32_t J = 0; J < Ordinals.size(); ++J) {
-          for (uint32_t K = 0; K < QueueGroupProperties[Ordinals[J]].numQueues;
-               ++K) {
-            std::unique_ptr<_pi_device> PiSubSubDevice(
-                new _pi_device(ZeSubdevices[I], this, PiSubDevice.get()));
-            pi_result Result = PiSubSubDevice->initialize(Ordinals[J], K);
-            if (Result != PI_SUCCESS) {
-              return Result;
-            }
+        // If isn't PVC, then submissions to different CCS can be executed on
+        // the same EUs still, so we cannot treat them as sub-sub-devices.
+        if (PiSubDevice->isPVC() || ExposeCSliceInAffinityPartitioning) {
+          // Create PI sub-sub-devices with the sub-device for all the ordinals.
+          // Each {ordinal, index} points to a specific CCS which constructs
+          // a sub-sub-device at this point.
+          //
+          // FIXME: Level Zero creates multiple PiDevices for a single physical
+          // device when sub-device is partitioned into sub-sub-devices.
+          // Sub-sub-device is technically a command queue and we should not
+          // build program for each command queue. PiDevice is probably not the
+          // right abstraction for a Level Zero command queue.
+          for (uint32_t J = 0; J < Ordinals.size(); ++J) {
+            for (uint32_t K = 0;
+                 K < QueueGroupProperties[Ordinals[J]].numQueues; ++K) {
+              std::unique_ptr<_pi_device> PiSubSubDevice(
+                  new _pi_device(ZeSubdevices[I], this, PiSubDevice.get()));
+              pi_result Result = PiSubSubDevice->initialize(Ordinals[J], K);
+              if (Result != PI_SUCCESS) {
+                return Result;
+              }
 
-            // save pointers to sub-sub-devices for quick retrieval in the
-            // future.
-            PiSubDevice->SubDevices.push_back(PiSubSubDevice.get());
-            PiDevicesCache.push_back(std::move(PiSubSubDevice));
+              // save pointers to sub-sub-devices for quick retrieval in the
+              // future.
+              PiSubDevice->SubDevices.push_back(PiSubSubDevice.get());
+              PiDevicesCache.push_back(std::move(PiSubSubDevice));
+            }
           }
         }
 
@@ -2921,6 +2944,12 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
         Device->ZeDeviceProperties->numEUsPerSubslice *
         Device->ZeDeviceProperties->numSubslicesPerSlice *
         Device->ZeDeviceProperties->numSlices;
+
+    bool RepresentsCSlice =
+        Device->QueueGroup[_pi_queue::queue_type::Compute].ZeIndex >= 0;
+    if (RepresentsCSlice)
+      MaxComputeUnits /= Device->RootDevice->SubDevices.size();
+
     return ReturnValue(pi_uint32{MaxComputeUnits});
   }
   case PI_DEVICE_INFO_MAX_WORK_ITEM_DIMENSIONS:
@@ -3001,31 +3030,49 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     if (ZeSubDeviceCount < 2) {
       return ReturnValue(pi_device_partition_property{0});
     }
-    // It is debatable if SYCL sub-device and partitioning APIs sufficient to
-    // expose Level Zero sub-devices / tiles?  We start with support of // INTEL
-    // "partition_by_affinity_domain" and "next_partitionable" but if that
-    // doesn't seem to be a good fit we could look at adding a more descriptive
-    // partitioning type.
-    struct {
-      pi_device_partition_property Arr[2];
-    } PartitionProperties = {{PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN, 0}};
-    return ReturnValue(PartitionProperties);
+    bool PartitionedByCSlice = Device->SubDevices[0]->isCCS();
+
+    auto ReturnHelper = [&](auto... Partitions) {
+      struct {
+        pi_device_partition_property Arr[sizeof...(Partitions) + 1];
+      } PartitionProperties = {{Partitions..., 0}};
+      return ReturnValue(PartitionProperties);
+    };
+
+    if (ExposeCSliceInAffinityPartitioning) {
+      if (PartitionedByCSlice)
+        return ReturnHelper(PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE,
+                            PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
+
+      else
+        return ReturnHelper(PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
+    } else {
+      return ReturnHelper(PartitionedByCSlice
+                              ? PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE
+                              : PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
+    }
   }
   case PI_DEVICE_INFO_PARTITION_AFFINITY_DOMAIN:
     return ReturnValue(pi_device_affinity_domain{
         PI_DEVICE_AFFINITY_DOMAIN_NUMA |
         PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE});
   case PI_DEVICE_INFO_PARTITION_TYPE: {
-    if (Device->isSubDevice()) {
+    // For root-device there is no partitioning to report.
+    if (!Device->isSubDevice())
+      return ReturnValue(pi_device_partition_property{0});
+
+    if (Device->isCCS()) {
       struct {
-        pi_device_partition_property Arr[3];
-      } PartitionProperties = {{PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
-                                PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE,
-                                0}};
+        pi_device_partition_property Arr[2];
+      } PartitionProperties = {{PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE, 0}};
       return ReturnValue(PartitionProperties);
     }
-    // For root-device there is no partitioning to report.
-    return ReturnValue(pi_device_partition_property{0});
+
+    struct {
+      pi_device_partition_property Arr[3];
+    } PartitionProperties = {{PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
+                              PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE, 0}};
+    return ReturnValue(PartitionProperties);
   }
 
     // Everything under here is not supported yet
@@ -3043,8 +3090,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     // TODO: To find out correct value
     return ReturnValue("");
   case PI_DEVICE_INFO_QUEUE_PROPERTIES:
-    return ReturnValue(pi_queue_properties{
-        PI_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | PI_QUEUE_PROFILING_ENABLE});
+    return ReturnValue(
+        pi_queue_properties{PI_QUEUE_FLAG_OUT_OF_ORDER_EXEC_MODE_ENABLE |
+                            PI_QUEUE_FLAG_PROFILING_ENABLE});
   case PI_DEVICE_INFO_EXECUTION_CAPABILITIES:
     return ReturnValue(
         pi_device_exec_capabilities{PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL});
@@ -3355,6 +3403,15 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
                          Device->ZeDeviceMemoryProperties->end(), Comp);
     return ReturnValue(pi_uint32{MinIt->maxBusWidth});
   }
+  case PI_EXT_INTEL_DEVICE_INFO_MAX_COMPUTE_QUEUE_INDICES: {
+    if (Device->QueueGroup[_pi_queue::queue_type::Compute].ZeIndex >= 0)
+      // Sub-sub-device represents a particular compute index already.
+      return ReturnValue(pi_int32{1});
+
+    auto ZeDeviceNumIndices = Device->QueueGroup[_pi_queue::queue_type::Compute]
+                                  .ZeProperties.numQueues;
+    return ReturnValue(pi_cast<pi_int32>(ZeDeviceNumIndices));
+  }
   case PI_DEVICE_INFO_GPU_EU_COUNT: {
     pi_uint32 count = Device->ZeDeviceProperties->numEUsPerSubslice *
                       Device->ZeDeviceProperties->numSubslicesPerSlice *
@@ -3397,14 +3454,18 @@ pi_result piDevicePartition(pi_device Device,
                             const pi_device_partition_property *Properties,
                             pi_uint32 NumDevices, pi_device *OutDevices,
                             pi_uint32 *OutNumDevices) {
+  PI_ASSERT(Device, PI_ERROR_INVALID_DEVICE);
   // Other partitioning ways are not supported by Level Zero
-  if (Properties[0] != PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN ||
-      (Properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE &&
-       Properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NUMA)) {
+  if (Properties[0] == PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN) {
+    if ((Properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE &&
+         Properties[1] != PI_DEVICE_AFFINITY_DOMAIN_NUMA))
+      return PI_ERROR_INVALID_VALUE;
+  } else if (Properties[0] == PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE) {
+    if (Properties[1] != 0)
+      return PI_ERROR_INVALID_VALUE;
+  } else {
     return PI_ERROR_INVALID_VALUE;
   }
-
-  PI_ASSERT(Device, PI_ERROR_INVALID_DEVICE);
 
   // Devices cache is normally created in piDevicesGet but still make
   // sure that cache is populated.
@@ -3414,8 +3475,31 @@ pi_result piDevicePartition(pi_device Device,
     return Res;
   }
 
+  auto EffectiveNumDevices = [&]() -> decltype(Device->SubDevices.size()) {
+    if (Device->SubDevices.size() == 0)
+      return 0;
+
+    // Sub-Sub-Devices are partitioned by CSlices, not by affinity domain.
+    // However, if
+    // SYCL_PI_LEVEL_ZERO_EXPOSE_CSLICE_IN_AFFINITY_PARTITIONING overrides that
+    // still expose CSlices in partitioning by affinity domain for compatibility
+    // reasons.
+    if (Properties[0] == PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN &&
+        !ExposeCSliceInAffinityPartitioning) {
+      if (Device->isSubDevice())
+        return 0;
+    }
+    if (Properties[0] == PI_EXT_INTEL_DEVICE_PARTITION_BY_CSLICE) {
+      // Not a CSlice-based partitioning.
+      if (!Device->SubDevices[0]->isCCS())
+        return 0;
+    }
+
+    return Device->SubDevices.size();
+  }();
+
   if (OutNumDevices) {
-    *OutNumDevices = Device->SubDevices.size();
+    *OutNumDevices = EffectiveNumDevices;
   }
 
   if (OutDevices) {
@@ -3423,7 +3507,7 @@ pi_result piDevicePartition(pi_device Device,
     // Currently supported partitioning (by affinity domain/numa) would always
     // partition to all sub-devices.
     //
-    PI_ASSERT(NumDevices == Device->SubDevices.size(), PI_ERROR_INVALID_VALUE);
+    PI_ASSERT(NumDevices == EffectiveNumDevices, PI_ERROR_INVALID_VALUE);
 
     for (uint32_t I = 0; I < NumDevices; I++) {
       OutDevices[I] = Device->SubDevices[I];
@@ -3580,6 +3664,13 @@ pi_result piContextGetInfo(pi_context Context, pi_context_info ParamName,
     return ReturnValue(pi_uint32(Context->Devices.size()));
   case PI_CONTEXT_INFO_REFERENCE_COUNT:
     return ReturnValue(pi_uint32{Context->RefCount.load()});
+  case PI_EXT_ONEAPI_CONTEXT_INFO_USM_MEMCPY2D_SUPPORT:
+    // 2D USM memcpy is supported.
+    return ReturnValue(pi_bool{true});
+  case PI_EXT_ONEAPI_CONTEXT_INFO_USM_FILL2D_SUPPORT:
+  case PI_EXT_ONEAPI_CONTEXT_INFO_USM_MEMSET2D_SUPPORT:
+    // 2D USM fill and memset is not supported.
+    return ReturnValue(pi_bool{false});
   case PI_CONTEXT_INFO_ATOMIC_MEMORY_SCOPE_CAPABILITIES:
   default:
     // TODO: implement other parameters
@@ -3691,16 +3782,33 @@ pi_result piContextRelease(pi_context Context) {
 }
 
 pi_result piQueueCreate(pi_context Context, pi_device Device,
-                        pi_queue_properties Properties, pi_queue *Queue) {
+                        pi_queue_properties Flags, pi_queue *Queue) {
+  pi_queue_properties Properties[] = {PI_QUEUE_FLAGS, Flags, 0};
+  return piextQueueCreate(Context, Device, Properties, Queue);
+}
+pi_result piextQueueCreate(pi_context Context, pi_device Device,
+                           pi_queue_properties *Properties, pi_queue *Queue) {
+  PI_ASSERT(Properties, PI_ERROR_INVALID_VALUE);
+  // Expect flags mask to be passed first.
+  PI_ASSERT(Properties[0] == PI_QUEUE_FLAGS, PI_ERROR_INVALID_VALUE);
+  pi_queue_properties Flags = Properties[1];
+
+  PI_ASSERT(Properties[2] == 0 ||
+                (Properties[2] == PI_QUEUE_COMPUTE_INDEX && Properties[4] == 0),
+            PI_ERROR_INVALID_VALUE);
+  auto ForceComputeIndex = Properties[2] == PI_QUEUE_COMPUTE_INDEX
+                               ? static_cast<int>(Properties[3])
+                               : -1; // Use default/round-robin.
 
   // Check that unexpected bits are not set.
-  PI_ASSERT(!(Properties & ~(PI_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
-                             PI_QUEUE_PROFILING_ENABLE | PI_QUEUE_ON_DEVICE |
-                             PI_QUEUE_ON_DEVICE_DEFAULT |
-                             PI_EXT_ONEAPI_QUEUE_DISCARD_EVENTS |
-                             PI_EXT_ONEAPI_QUEUE_PRIORITY_LOW |
-                             PI_EXT_ONEAPI_QUEUE_PRIORITY_HIGH)),
-            PI_ERROR_INVALID_VALUE);
+  PI_ASSERT(
+      !(Flags & ~(PI_QUEUE_FLAG_OUT_OF_ORDER_EXEC_MODE_ENABLE |
+                  PI_QUEUE_FLAG_PROFILING_ENABLE | PI_QUEUE_FLAG_ON_DEVICE |
+                  PI_QUEUE_FLAG_ON_DEVICE_DEFAULT |
+                  PI_EXT_ONEAPI_QUEUE_FLAG_DISCARD_EVENTS |
+                  PI_EXT_ONEAPI_QUEUE_FLAG_PRIORITY_LOW |
+                  PI_EXT_ONEAPI_QUEUE_FLAG_PRIORITY_HIGH)),
+      PI_ERROR_INVALID_VALUE);
 
   PI_ASSERT(Context, PI_ERROR_INVALID_CONTEXT);
   PI_ASSERT(Queue, PI_ERROR_INVALID_QUEUE);
@@ -3730,7 +3838,7 @@ pi_result piQueueCreate(pi_context Context, pi_device Device,
 
   try {
     *Queue = new _pi_queue(ZeComputeCommandQueues, ZeCopyCommandQueues, Context,
-                           Device, true, Properties);
+                           Device, true, Flags, ForceComputeIndex);
   } catch (const std::bad_alloc &) {
     return PI_ERROR_OUT_OF_HOST_MEMORY;
   } catch (...) {
@@ -5889,7 +5997,7 @@ void _pi_context::addEventToContextCache(pi_event Event) {
 static pi_result EventCreate(pi_context Context, pi_queue Queue,
                              bool HostVisible, pi_event *RetEvent) {
   bool ProfilingEnabled =
-      !Queue || (Queue->Properties & PI_QUEUE_PROFILING_ENABLE) != 0;
+      !Queue || (Queue->Properties & PI_QUEUE_FLAG_PROFILING_ENABLE) != 0;
 
   if (auto CachedEvent =
           Context->getEventFromContextCache(HostVisible, ProfilingEnabled)) {
@@ -6032,7 +6140,7 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
 
   std::shared_lock<pi_shared_mutex> EventLock(Event->Mutex);
   if (Event->Queue &&
-      (Event->Queue->Properties & PI_QUEUE_PROFILING_ENABLE) == 0) {
+      (Event->Queue->Properties & PI_QUEUE_FLAG_PROFILING_ENABLE) == 0) {
     return PI_ERROR_PROFILING_INFO_NOT_AVAILABLE;
   }
 
@@ -7043,7 +7151,7 @@ enqueueMemCopyHelper(pi_command_type CommandType, pi_queue Queue, void *Dst,
 // PI interfaces must have queue's and destination buffer's mutexes locked for
 // exclusive use and source buffer's mutex locked for shared use on entry.
 static pi_result enqueueMemCopyRectHelper(
-    pi_command_type CommandType, pi_queue Queue, void *SrcBuffer,
+    pi_command_type CommandType, pi_queue Queue, const void *SrcBuffer,
     void *DstBuffer, pi_buff_rect_offset SrcOrigin,
     pi_buff_rect_offset DstOrigin, pi_buff_rect_region Region,
     size_t SrcRowPitch, size_t DstRowPitch, size_t SrcSlicePitch,
@@ -8153,8 +8261,7 @@ static pi_result USMDeviceAllocImpl(void **ResultPtr, pi_context Context,
 }
 
 static pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
-                                    pi_device Device,
-                                    pi_usm_mem_properties *Properties,
+                                    pi_device Device, pi_usm_mem_properties *,
                                     size_t Size, pi_uint32 Alignment) {
   PI_ASSERT(Context, PI_ERROR_INVALID_CONTEXT);
   PI_ASSERT(Device, PI_ERROR_INVALID_DEVICE);
@@ -8180,31 +8287,7 @@ static pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
                 reinterpret_cast<std::uintptr_t>(*ResultPtr) % Alignment == 0,
             PI_ERROR_INVALID_VALUE);
 
-  // See if the memory is going to be read-only on the device.
-  bool DeviceReadOnly = false;
-  // Check that incorrect bits are not set in the properties.
-  if (Properties && *Properties != 0) {
-    PI_ASSERT(*(Properties) == PI_MEM_ALLOC_FLAGS && *(Properties + 2) == 0,
-              PI_ERROR_INVALID_VALUE);
-    DeviceReadOnly = *(Properties + 1) & PI_MEM_ALLOC_DEVICE_READ_ONLY;
-  }
-  if (!DeviceReadOnly)
-    return PI_SUCCESS;
-
-  // For read-only memory, let L0 know about that by using advises.
-
-  // zeCommandListAppendMemAdvise must not be called from simultaneous threads
-  // with the same command list handle.
-  std::scoped_lock<pi_mutex> Lock(Context->ImmediateCommandListMutex);
-
-  ZE_CALL(zeCommandListAppendMemAdvise,
-          (Context->ZeCommandListInit, Device->ZeDevice, *ResultPtr, Size,
-           ZE_MEMORY_ADVICE_SET_READ_MOSTLY));
-
-  ZE_CALL(zeCommandListAppendMemAdvise,
-          (Context->ZeCommandListInit, Device->ZeDevice, *ResultPtr, Size,
-           ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION));
-
+  // TODO: Handle PI_MEM_ALLOC_DEVICE_READ_ONLY.
   return PI_SUCCESS;
 }
 
@@ -8867,6 +8950,113 @@ pi_result piextUSMEnqueueMemAdvise(pi_queue Queue, const void *Ptr,
   Queue->executeCommandList(CommandList, false);
 
   return PI_SUCCESS;
+}
+
+/// USM 2D Fill API
+///
+/// \param queue is the queue to submit to
+/// \param ptr is the ptr to fill
+/// \param pitch is the total width of the destination memory including padding
+/// \param pattern is a pointer with the bytes of the pattern to set
+/// \param pattern_size is the size in bytes of the pattern
+/// \param width is width in bytes of each row to fill
+/// \param height is height the columns to fill
+/// \param num_events_in_waitlist is the number of events to wait on
+/// \param events_waitlist is an array of events to wait on
+/// \param event is the event that represents this operation
+__SYCL_EXPORT pi_result piextUSMEnqueueFill2D(pi_queue queue, void *ptr,
+                                              size_t pitch, size_t pattern_size,
+                                              const void *pattern, size_t width,
+                                              size_t height,
+                                              pi_uint32 num_events_in_waitlist,
+                                              const pi_event *events_waitlist,
+                                              pi_event *event) {
+  std::ignore = queue;
+  std::ignore = ptr;
+  std::ignore = pitch;
+  std::ignore = pattern_size;
+  std::ignore = pattern;
+  std::ignore = width;
+  std::ignore = height;
+  std::ignore = num_events_in_waitlist;
+  std::ignore = events_waitlist;
+  std::ignore = event;
+  die("piextUSMEnqueueFill2D: not implemented");
+  return {};
+}
+
+/// USM 2D Memset API
+///
+/// \param queue is the queue to submit to
+/// \param ptr is the ptr to fill
+/// \param pitch is the total width of the destination memory including padding
+/// \param pattern is a pointer with the bytes of the pattern to set
+/// \param pattern_size is the size in bytes of the pattern
+/// \param width is width in bytes of each row to fill
+/// \param height is height the columns to fill
+/// \param num_events_in_waitlist is the number of events to wait on
+/// \param events_waitlist is an array of events to wait on
+/// \param event is the event that represents this operation
+__SYCL_EXPORT pi_result piextUSMEnqueueMemset2D(
+    pi_queue queue, void *ptr, size_t pitch, int value, size_t width,
+    size_t height, pi_uint32 num_events_in_waitlist,
+    const pi_event *events_waitlist, pi_event *event) {
+  std::ignore = queue;
+  std::ignore = ptr;
+  std::ignore = pitch;
+  std::ignore = value;
+  std::ignore = width;
+  std::ignore = height;
+  std::ignore = num_events_in_waitlist;
+  std::ignore = events_waitlist;
+  std::ignore = event;
+  die("piextUSMEnqueueMemset2D: not implemented");
+  return {};
+}
+
+/// USM 2D Memcpy API
+///
+/// \param queue is the queue to submit to
+/// \param blocking is whether this operation should block the host
+/// \param dst_ptr is the location the data will be copied
+/// \param dst_pitch is the total width of the destination memory including
+/// padding
+/// \param src_ptr is the data to be copied
+/// \param dst_pitch is the total width of the source memory including padding
+/// \param width is width in bytes of each row to be copied
+/// \param height is height the columns to be copied
+/// \param num_events_in_waitlist is the number of events to wait on
+/// \param events_waitlist is an array of events to wait on
+/// \param event is the event that represents this operation
+__SYCL_EXPORT pi_result piextUSMEnqueueMemcpy2D(
+    pi_queue Queue, pi_bool Blocking, void *DstPtr, size_t DstPitch,
+    const void *SrcPtr, size_t SrcPitch, size_t Width, size_t Height,
+    pi_uint32 NumEventsInWaitlist, const pi_event *EventWaitlist,
+    pi_event *Event) {
+  if (!DstPtr || !SrcPtr)
+    return PI_ERROR_INVALID_VALUE;
+
+  PI_ASSERT(Queue, PI_ERROR_INVALID_QUEUE);
+
+  pi_buff_rect_offset_struct ZeroOffset{0, 0, 0};
+  pi_buff_rect_region_struct Region{Width, Height, 0};
+
+  std::scoped_lock<pi_shared_mutex> lock(Queue->Mutex);
+
+  // Device to Device copies are found to execute slower on copy engine
+  // (versus compute engine).
+  bool PreferCopyEngine = !IsDevicePointer(Queue->Context, SrcPtr) ||
+                          !IsDevicePointer(Queue->Context, DstPtr);
+
+  // Temporary option added to use copy engine for D2D copy
+  PreferCopyEngine |= UseCopyEngineForD2DCopy;
+
+  return enqueueMemCopyRectHelper(
+      // TODO: do we need a new command type for this?
+      PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT, Queue, SrcPtr, DstPtr, &ZeroOffset,
+      &ZeroOffset, &Region, SrcPitch, DstPitch, /*SrcSlicePitch=*/0,
+      /*DstSlicePitch=*/0, Blocking, NumEventsInWaitlist, EventWaitlist, Event,
+      PreferCopyEngine);
 }
 
 /// API to query information about USM allocated pointers.

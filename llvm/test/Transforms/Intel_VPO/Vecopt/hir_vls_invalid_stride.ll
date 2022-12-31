@@ -1,4 +1,4 @@
-; RUN: opt -enable-intel-advanced-opts -tbaa -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vls-analysis -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -aa-pipeline=tbaa -mattr=+avx2 -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -debug-only=vplan-vls-analysis -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 

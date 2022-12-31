@@ -31,7 +31,6 @@
 #include "SymbolTableListTraitsImpl.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -1873,17 +1872,17 @@ bool Intrinsic::getIntrinsicSignature(Function *F,
   return true;
 }
 
-Optional<Function *> Intrinsic::remangleIntrinsicFunction(Function *F) {
+std::optional<Function *> Intrinsic::remangleIntrinsicFunction(Function *F) {
   SmallVector<Type *, 4> ArgTys;
   if (!getIntrinsicSignature(F, ArgTys))
-    return None;
+    return std::nullopt;
 
   Intrinsic::ID ID = F->getIntrinsicID();
   StringRef Name = F->getName();
   std::string WantedName =
       Intrinsic::getName(ID, ArgTys, F->getParent(), F->getFunctionType());
   if (Name == WantedName)
-    return None;
+    return std::nullopt;
 
   Function *NewDecl = [&] {
     if (auto *ExistingGV = F->getParent()->getNamedValue(WantedName)) {
@@ -1904,6 +1903,10 @@ Optional<Function *> Intrinsic::remangleIntrinsicFunction(Function *F) {
   assert(NewDecl->getFunctionType() == F->getFunctionType() &&
          "Shouldn't change the signature");
   return NewDecl;
+}
+
+static bool isPointerCastOperator(const User *U) {
+  return isa<AddrSpaceCastOperator>(U) || isa<BitCastOperator>(U);
 }
 
 /// hasAddressTaken - returns true if there are any uses of this function
@@ -1927,17 +1930,15 @@ bool Function::hasAddressTaken(const User **PutOffender,
 
     const auto *Call = dyn_cast<CallBase>(FU);
     if (!Call) {
-      if (IgnoreAssumeLikeCalls) {
-        if (const auto *FI = dyn_cast<Instruction>(FU)) {
-          if (FI->isCast() && !FI->user_empty() &&
-              llvm::all_of(FU->users(), [](const User *U) {
-                if (const auto *I = dyn_cast<IntrinsicInst>(U))
-                  return I->isAssumeLikeIntrinsic();
-                return false;
-              }))
-            continue;
-        }
+      if (IgnoreAssumeLikeCalls && isPointerCastOperator(FU) &&
+          all_of(FU->users(), [](const User *U) {
+            if (const auto *I = dyn_cast<IntrinsicInst>(U))
+              return I->isAssumeLikeIntrinsic();
+            return false;
+          })) {
+        continue;
       }
+
       if (IgnoreLLVMUsed && !FU->user_empty()) {
         const User *FUU = FU;
         if (isa<BitCastOperator>(FU) && FU->hasOneUse() &&
@@ -1956,6 +1957,13 @@ bool Function::hasAddressTaken(const User **PutOffender,
         *PutOffender = FU;
       return true;
     }
+
+    if (IgnoreAssumeLikeCalls) {
+      if (const auto *I = dyn_cast<IntrinsicInst>(Call))
+        if (I->isAssumeLikeIntrinsic())
+          continue;
+    }
+
     if (!Call->isCallee(&U) || Call->getFunctionType() != getFunctionType()) {
       if (IgnoreARCAttachedCall &&
           Call->isOperandBundleOfType(LLVMContext::OB_clang_arc_attachedcall,
@@ -2081,7 +2089,7 @@ void Function::setEntryCount(uint64_t Count, Function::ProfileCountType Type,
   setEntryCount(ProfileCount(Count, Type), Imports);
 }
 
-Optional<ProfileCount> Function::getEntryCount(bool AllowSynthetic) const {
+std::optional<ProfileCount> Function::getEntryCount(bool AllowSynthetic) const {
   MDNode *MD = getMetadata(LLVMContext::MD_prof);
   if (MD && MD->getOperand(0))
     if (MDString *MDS = dyn_cast<MDString>(MD->getOperand(0))) {
@@ -2091,7 +2099,7 @@ Optional<ProfileCount> Function::getEntryCount(bool AllowSynthetic) const {
         // A value of -1 is used for SamplePGO when there were no samples.
         // Treat this the same as unknown.
         if (Count == (uint64_t)-1)
-          return None;
+          return std::nullopt;
         return ProfileCount(Count, PCT_Real);
       } else if (AllowSynthetic &&
                  MDS->getString().equals("synthetic_function_entry_count")) {
@@ -2100,7 +2108,7 @@ Optional<ProfileCount> Function::getEntryCount(bool AllowSynthetic) const {
         return ProfileCount(Count, PCT_Synthetic);
       }
     }
-  return None;
+  return std::nullopt;
 }
 
 DenseSet<GlobalValue::GUID> Function::getImportGUIDs() const {
@@ -2121,7 +2129,7 @@ void Function::setSectionPrefix(StringRef Prefix) {
               MDB.createFunctionSectionPrefix(Prefix));
 }
 
-Optional<StringRef> Function::getSectionPrefix() const {
+std::optional<StringRef> Function::getSectionPrefix() const {
   if (MDNode *MD = getMetadata(LLVMContext::MD_section_prefix)) {
     assert(cast<MDString>(MD->getOperand(0))
                ->getString()
@@ -2129,7 +2137,7 @@ Optional<StringRef> Function::getSectionPrefix() const {
            "Metadata not match");
     return cast<MDString>(MD->getOperand(1))->getString();
   }
-  return None;
+  return std::nullopt;
 }
 
 bool Function::nullPointerIsDefined() const {

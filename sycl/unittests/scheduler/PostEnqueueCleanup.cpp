@@ -21,6 +21,8 @@
 
 using namespace sycl;
 
+#if INTEL_CUSTOMIZATION
+#if 0
 inline constexpr auto HostUnifiedMemoryName = "SYCL_HOST_UNIFIED_MEMORY";
 
 int val;
@@ -274,3 +276,5 @@ TEST_F(SchedulerTest, PostEnqueueCleanup) {
         EXPECT_TRUE(ToCleanUp.empty());
       });
 }
+#endif // if 0
+#endif // INTEL_CUSTOMIZATION

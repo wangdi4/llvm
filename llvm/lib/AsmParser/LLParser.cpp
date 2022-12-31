@@ -30,7 +30,6 @@
 #include "llvm/AsmParser/LLParser.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -67,6 +66,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <vector>
 
 using namespace llvm;
@@ -850,7 +850,7 @@ bool LLParser::parseMDNodeID(MDNode *&Result) {
 
   // Otherwise, create MDNode forward reference.
   auto &FwdRef = ForwardRefMDNodes[MID];
-  FwdRef = std::make_pair(MDTuple::getTemporary(Context, None), IDLoc);
+  FwdRef = std::make_pair(MDTuple::getTemporary(Context, std::nullopt), IDLoc);
 
   Result = FwdRef.first.get();
   NumberedMetadata[MID].reset(Result);
@@ -1516,7 +1516,7 @@ bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
   }
   case Attribute::AllocSize: {
     unsigned ElemSizeArg;
-    Optional<unsigned> NumElemsArg;
+    std::optional<unsigned> NumElemsArg;
     if (parseAllocSizeArguments(ElemSizeArg, NumElemsArg))
       return true;
     B.addAllocSizeAttr(ElemSizeArg, NumElemsArg);
@@ -1527,7 +1527,7 @@ bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
     if (parseVScaleRangeArguments(MinValue, MaxValue))
       return true;
     B.addVScaleRangeAttr(MinValue,
-                         MaxValue > 0 ? MaxValue : Optional<unsigned>());
+                         MaxValue > 0 ? MaxValue : std::optional<unsigned>());
     return false;
   }
   case Attribute::Dereferenceable: {
@@ -1895,8 +1895,34 @@ bool LLParser::parseOptionalAddrSpace(unsigned &AddrSpace, unsigned DefaultAS) {
   AddrSpace = DefaultAS;
   if (!EatIfPresent(lltok::kw_addrspace))
     return false;
+
+  auto ParseAddrspaceValue = [&](unsigned &AddrSpace) -> bool {
+    if (Lex.getKind() == lltok::StringConstant) {
+      auto AddrSpaceStr = Lex.getStrVal();
+      if (AddrSpaceStr == "A") {
+        AddrSpace = M->getDataLayout().getAllocaAddrSpace();
+      } else if (AddrSpaceStr == "G") {
+        AddrSpace = M->getDataLayout().getDefaultGlobalsAddressSpace();
+      } else if (AddrSpaceStr == "P") {
+        AddrSpace = M->getDataLayout().getProgramAddressSpace();
+      } else {
+        return tokError("invalid symbolic addrspace '" + AddrSpaceStr + "'");
+      }
+      Lex.Lex();
+      return false;
+    }
+    if (Lex.getKind() != lltok::APSInt)
+      return tokError("expected integer or string constant");
+    SMLoc Loc = Lex.getLoc();
+    if (parseUInt32(AddrSpace))
+      return true;
+    if (!isUInt<24>(AddrSpace))
+      return error(Loc, "invalid address space, must be a 24-bit integer");
+    return false;
+  };
+
   return parseToken(lltok::lparen, "expected '(' in address space") ||
-         parseUInt32(AddrSpace) ||
+         ParseAddrspaceValue(AddrSpace) ||
          parseToken(lltok::rparen, "expected ')' in address space");
 }
 
@@ -2258,7 +2284,7 @@ bool LLParser::parseOptionalFunctionMetadata(Function &F) {
 ///   ::= /* empty */
 ///   ::= 'align' 4
 bool LLParser::parseOptionalAlignment(MaybeAlign &Alignment, bool AllowParens) {
-  Alignment = None;
+  Alignment = std::nullopt;
   if (!EatIfPresent(lltok::kw_align))
     return false;
   LocTy AlignLoc = Lex.getLoc();
@@ -2370,7 +2396,7 @@ static Optional<MemoryEffects::Location> keywordToLoc(lltok::Kind Tok) {
   case lltok::kw_inaccessiblemem:
     return MemoryEffects::InaccessibleMem;
   default:
-    return None;
+    return std::nullopt;
   }
 }
 
@@ -2385,7 +2411,7 @@ static Optional<ModRefInfo> keywordToModRef(lltok::Kind Tok) {
   case lltok::kw_readwrite:
     return ModRefInfo::ModRef;
   default:
-    return None;
+    return std::nullopt;
   }
 }
 
@@ -2400,7 +2426,7 @@ Optional<MemoryEffects> LLParser::parseMemoryAttr() {
   Lex.Lex();
   if (!EatIfPresent(lltok::lparen)) {
     tokError("expected '('");
-    return None;
+    return std::nullopt;
   }
 
   bool SeenLoc = false;
@@ -2410,7 +2436,7 @@ Optional<MemoryEffects> LLParser::parseMemoryAttr() {
       Lex.Lex();
       if (!EatIfPresent(lltok::colon)) {
         tokError("expected ':' after location");
-        return None;
+        return std::nullopt;
       }
     }
 
@@ -2421,7 +2447,7 @@ Optional<MemoryEffects> LLParser::parseMemoryAttr() {
                  "or access kind (none, read, write, readwrite)");
       else
         tokError("expected access kind (none, read, write, readwrite)");
-      return None;
+      return std::nullopt;
     }
 
     Lex.Lex();
@@ -2431,7 +2457,7 @@ Optional<MemoryEffects> LLParser::parseMemoryAttr() {
     } else {
       if (SeenLoc) {
         tokError("default access kind must be specified first");
-        return None;
+        return std::nullopt;
       }
       ME = MemoryEffects(*MR);
     }
@@ -2441,7 +2467,7 @@ Optional<MemoryEffects> LLParser::parseMemoryAttr() {
   } while (EatIfPresent(lltok::comma));
 
   tokError("unterminated memory attribute");
-  return None;
+  return std::nullopt;
 }
 
 /// parseOptionalCommaAlign
@@ -2498,7 +2524,7 @@ bool LLParser::parseOptionalCommaAddrSpace(unsigned &AddrSpace, LocTy &Loc,
 }
 
 bool LLParser::parseAllocSizeArguments(unsigned &BaseSizeArg,
-                                       Optional<unsigned> &HowManyArg) {
+                                       std::optional<unsigned> &HowManyArg) {
   Lex.Lex();
 
   auto StartParen = Lex.getLoc();
@@ -2518,7 +2544,7 @@ bool LLParser::parseAllocSizeArguments(unsigned &BaseSizeArg,
                    "'allocsize' indices can't refer to the same parameter");
     HowManyArg = HowMany;
   } else
-    HowManyArg = None;
+    HowManyArg = std::nullopt;
 
   auto EndParen = Lex.getLoc();
   if (!EatIfPresent(lltok::rparen))
@@ -3981,7 +4007,7 @@ bool LLParser::parseValID(ValID &ID, PerFunctionState *PFS, Type *ExpectedTy) {
         return true;
     }
 
-    Optional<unsigned> InRangeOp;
+    std::optional<unsigned> InRangeOp;
     if (parseGlobalValueVector(
             Elts, Opc == Instruction::GetElementPtr ? &InRangeOp : nullptr) ||
         parseToken(lltok::rparen, "expected ')' in constantexpr"))
@@ -4124,7 +4150,7 @@ bool LLParser::parseOptionalComdat(StringRef GlobalName, Comdat *&C) {
 ///   ::= /*empty*/
 ///   ::= [inrange] TypeAndValue (',' [inrange] TypeAndValue)*
 bool LLParser::parseGlobalValueVector(SmallVectorImpl<Constant *> &Elts,
-                                      Optional<unsigned> *InRangeOp) {
+                                      std::optional<unsigned> *InRangeOp) {
   // Empty list.
   if (Lex.getKind() == lltok::rbrace ||
       Lex.getKind() == lltok::rsquare ||
@@ -4716,7 +4742,7 @@ bool LLParser::parseMDField(LocTy Loc, StringRef Name, MDFieldList &Result) {
 template <>
 bool LLParser::parseMDField(LocTy Loc, StringRef Name,
                             ChecksumKindField &Result) {
-  Optional<DIFile::ChecksumKind> CSKind =
+  std::optional<DIFile::ChecksumKind> CSKind =
       DIFile::getChecksumKind(Lex.getStrVal());
 
   if (Lex.getKind() != lltok::ChecksumKind || !CSKind)
@@ -5016,7 +5042,7 @@ bool LLParser::parseDIDerivedType(MDNode *&Result, bool IsDistinct) {
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
-  Optional<unsigned> DWARFAddressSpace;
+  std::optional<unsigned> DWARFAddressSpace;
   if (dwarfAddressSpace.Val != UINT32_MAX)
     DWARFAddressSpace = dwarfAddressSpace.Val;
 
@@ -5116,17 +5142,17 @@ bool LLParser::parseDIFile(MDNode *&Result, bool IsDistinct) {
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
-  Optional<DIFile::ChecksumInfo<MDString *>> OptChecksum;
+  std::optional<DIFile::ChecksumInfo<MDString *>> OptChecksum;
   if (checksumkind.Seen && checksum.Seen)
     OptChecksum.emplace(checksumkind.Val, checksum.Val);
   else if (checksumkind.Seen || checksum.Seen)
     return Lex.Error("'checksumkind' and 'checksum' must be provided together");
 
-  Optional<MDString *> OptSource;
+  MDString *Source = nullptr;
   if (source.Seen)
-    OptSource = source.Val;
-  Result = GET_OR_DISTINCT(DIFile, (Context, filename.Val, directory.Val,
-                                    OptChecksum, OptSource));
+    Source = source.Val;
+  Result = GET_OR_DISTINCT(
+      DIFile, (Context, filename.Val, directory.Val, OptChecksum, Source));
   return false;
 }
 
@@ -6198,7 +6224,7 @@ bool LLParser::parseFunctionBody(Function &Fn) {
   // within this function.
   if (PFS.resolveForwardRefBlockAddresses())
     return true;
-  SaveAndRestore<PerFunctionState *> ScopeExit(BlockAddressPFS, &PFS);
+  SaveAndRestore ScopeExit(BlockAddressPFS, &PFS);
 
   // We need at least one basic block.
   if (Lex.getKind() == lltok::rbrace || Lex.getKind() == lltok::kw_uselistorder)
@@ -6267,7 +6293,7 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
       llvm_unreachable("Unknown parseInstruction result!");
     case InstError: return true;
     case InstNormal:
-      BB->getInstList().push_back(Inst);
+      Inst->insertAt(BB, BB->end());
 
       // With a normal result, we check to see if the instruction is followed by
       // a comma and metadata.
@@ -6276,7 +6302,7 @@ bool LLParser::parseBasicBlock(PerFunctionState &PFS) {
           return true;
       break;
     case InstExtraComma:
-      BB->getInstList().push_back(Inst);
+      Inst->insertAt(BB, BB->end());
 
       // If the instruction parser ate an extra comma at the end of it, it
       // *must* be followed by metadata.

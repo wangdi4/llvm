@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -disable-output < %s 2>&1 | FileCheck %s
 
 
@@ -13,7 +12,6 @@
 ; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
 ; CHECK: + END LOOP
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
 
 

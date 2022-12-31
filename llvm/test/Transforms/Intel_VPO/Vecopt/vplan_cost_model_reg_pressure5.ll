@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -disable-output -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s
 
 ; Check that FP inductions do not contribute into GPR register pressure.
 ; To control that we check CM dump output for VF=1. It should not contain

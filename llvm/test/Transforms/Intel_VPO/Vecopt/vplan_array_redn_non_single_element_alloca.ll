@@ -2,8 +2,8 @@
 ; represented via non-single element allocas.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; Checks for LLVM-IR vectorizer
 ; CHECK: VPlan LLVM-IR Driver for Function: test

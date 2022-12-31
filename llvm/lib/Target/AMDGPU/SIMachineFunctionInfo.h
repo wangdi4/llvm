@@ -22,6 +22,7 @@
 #include "llvm/CodeGen/MIRYamlMapping.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/Support/raw_ostream.h"
+#include <optional>
 
 namespace llvm {
 
@@ -58,19 +59,6 @@ public:
   }
 };
 
-class AMDGPUImagePseudoSourceValue final : public AMDGPUPseudoSourceValue {
-public:
-  // TODO: Is the img rsrc useful?
-  explicit AMDGPUImagePseudoSourceValue(const AMDGPUTargetMachine &TM)
-      : AMDGPUPseudoSourceValue(PSVImage, TM) {}
-
-  static bool classof(const PseudoSourceValue *V) {
-    return V->kind() == PSVImage;
-  }
-
-  void printCustom(raw_ostream &OS) const override { OS << "ImageResource"; }
-};
-
 class AMDGPUGWSResourcePseudoSourceValue final : public AMDGPUPseudoSourceValue {
 public:
   explicit AMDGPUGWSResourcePseudoSourceValue(const AMDGPUTargetMachine &TM)
@@ -103,7 +91,7 @@ struct SIArgument {
     StringValue RegisterName;
     unsigned StackOffset;
   };
-  Optional<unsigned> Mask;
+  std::optional<unsigned> Mask;
 
   // Default constructor, which creates a stack argument.
   SIArgument() : IsRegister(false), StackOffset(0) {}
@@ -166,27 +154,27 @@ template <> struct MappingTraits<SIArgument> {
 };
 
 struct SIArgumentInfo {
-  Optional<SIArgument> PrivateSegmentBuffer;
-  Optional<SIArgument> DispatchPtr;
-  Optional<SIArgument> QueuePtr;
-  Optional<SIArgument> KernargSegmentPtr;
-  Optional<SIArgument> DispatchID;
-  Optional<SIArgument> FlatScratchInit;
-  Optional<SIArgument> PrivateSegmentSize;
+  std::optional<SIArgument> PrivateSegmentBuffer;
+  std::optional<SIArgument> DispatchPtr;
+  std::optional<SIArgument> QueuePtr;
+  std::optional<SIArgument> KernargSegmentPtr;
+  std::optional<SIArgument> DispatchID;
+  std::optional<SIArgument> FlatScratchInit;
+  std::optional<SIArgument> PrivateSegmentSize;
 
-  Optional<SIArgument> WorkGroupIDX;
-  Optional<SIArgument> WorkGroupIDY;
-  Optional<SIArgument> WorkGroupIDZ;
-  Optional<SIArgument> WorkGroupInfo;
-  Optional<SIArgument> LDSKernelId;
-  Optional<SIArgument> PrivateSegmentWaveByteOffset;
+  std::optional<SIArgument> WorkGroupIDX;
+  std::optional<SIArgument> WorkGroupIDY;
+  std::optional<SIArgument> WorkGroupIDZ;
+  std::optional<SIArgument> WorkGroupInfo;
+  std::optional<SIArgument> LDSKernelId;
+  std::optional<SIArgument> PrivateSegmentWaveByteOffset;
 
-  Optional<SIArgument> ImplicitArgPtr;
-  Optional<SIArgument> ImplicitBufferPtr;
+  std::optional<SIArgument> ImplicitArgPtr;
+  std::optional<SIArgument> ImplicitBufferPtr;
 
-  Optional<SIArgument> WorkItemIDX;
-  Optional<SIArgument> WorkItemIDY;
-  Optional<SIArgument> WorkItemIDZ;
+  std::optional<SIArgument> WorkItemIDX;
+  std::optional<SIArgument> WorkItemIDY;
+  std::optional<SIArgument> WorkItemIDZ;
 };
 
 template <> struct MappingTraits<SIArgumentInfo> {
@@ -283,9 +271,9 @@ struct SIMachineFunctionInfo final : public yaml::MachineFunctionInfo {
   unsigned BytesInStackArgArea = 0;
   bool ReturnsVoid = true;
 
-  Optional<SIArgumentInfo> ArgInfo;
+  std::optional<SIArgumentInfo> ArgInfo;
   SIMode Mode;
-  Optional<FrameIndex> ScavengeFI;
+  std::optional<FrameIndex> ScavengeFI;
   StringValue VGPRForAGPRCopy;
 
   SIMachineFunctionInfo() = default;
@@ -381,7 +369,6 @@ class SIMachineFunctionInfo final : public AMDGPUMachineFunction {
   // unit. Minimum - first, maximum - second.
   std::pair<unsigned, unsigned> WavesPerEU = {0, 0};
 
-  const AMDGPUImagePseudoSourceValue ImagePSV;
   const AMDGPUGWSResourcePseudoSourceValue GWSResourcePSV;
 
 private:
@@ -931,11 +918,6 @@ public:
       return ArgInfo.WorkGroupIDZ.getRegister();
     }
     llvm_unreachable("unexpected dimension");
-  }
-
-  const AMDGPUImagePseudoSourceValue *
-  getImagePSV(const AMDGPUTargetMachine &TM) {
-    return &ImagePSV;
   }
 
   const AMDGPUGWSResourcePseudoSourceValue *

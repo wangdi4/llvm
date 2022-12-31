@@ -17,9 +17,9 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
-; RUN: opt -S -vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -S -passes=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Check debug info from LoopVectorizationPlanner
 ; CHECK-HIR: LVP: Safelen: [[Safelen:[0-9]+]]

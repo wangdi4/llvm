@@ -277,8 +277,8 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   std::array<Value *, 4> Args{
       Rows, Cols, Ptr,
       Builder.CreateMul(II->getOperand(1), Builder.getInt64(SizeFactor))};
-  Value *NewInst =
-      Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
+                                           std::nullopt, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
   II->eraseFromParent();
@@ -377,8 +377,8 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
                               {II->getOperand(0)->getType()},
                               {II->getOperand(0)})};
-  Value *NewInst =
-      Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal,
+                                           std::nullopt, Args);
   II->replaceAllUsesWith(NewInst);
   II->eraseFromParent();
   return true;
@@ -441,7 +441,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
                               {II->getOperand(2)->getType()},
                               {II->getOperand(2)})};
-  Value *NewInst = Builder.CreateIntrinsic(IID, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(IID, std::nullopt, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
   II->eraseFromParent();
@@ -612,8 +612,8 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
   Value *Cols = Builder.getInt16(ResCols);
   // Create the argument list
   std::array<Value *, 2> Args{Rows, Cols};
-  Value *NewInst =
-      Builder.CreateIntrinsic(Intrinsic::x86_tilezero_internal, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tilezero_internal,
+                                           std::nullopt, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
   II->eraseFromParent();

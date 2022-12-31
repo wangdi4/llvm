@@ -11,11 +11,11 @@ define void @test_mscatter_v16bf16(bfloat* %base, <16 x i32> %index, <16 x bfloa
 ; AVX512FP16-X64-NEXT:    vpbroadcastq %rdi, %zmm3
 ; AVX512FP16-X64-NEXT:    vextracti64x4 $1, %zmm0, %ymm2
 ; AVX512FP16-X64-NEXT:    vpmovsxdq %ymm2, %zmm2
-; AVX512FP16-X64-NEXT:    vpaddq %zmm3, %zmm2, %zmm4
-; AVX512FP16-X64-NEXT:    vpaddq %zmm4, %zmm2, %zmm2
+; AVX512FP16-X64-NEXT:    vpaddq %zmm2, %zmm3, %zmm4
+; AVX512FP16-X64-NEXT:    vpaddq %zmm2, %zmm4, %zmm2
 ; AVX512FP16-X64-NEXT:    vpmovsxdq %ymm0, %zmm0
-; AVX512FP16-X64-NEXT:    vpaddq %zmm3, %zmm0, %zmm3
-; AVX512FP16-X64-NEXT:    vpaddq %zmm3, %zmm0, %zmm0
+; AVX512FP16-X64-NEXT:    vpaddq %zmm0, %zmm3, %zmm3
+; AVX512FP16-X64-NEXT:    vpaddq %zmm0, %zmm3, %zmm0
 ; AVX512FP16-X64-NEXT:    vmovq %xmm0, %rax
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm1, (%rax)
 ; AVX512FP16-X64-NEXT:    vpsrld $16, %xmm1, %xmm3

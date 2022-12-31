@@ -126,6 +126,7 @@ public:
   const llvm::DataLayout &getDataLayout() const {
     return TheModule.getDataLayout();
   }
+  CodeGenModule &getCGM() const { return CGM; }
   ASTContext &getContext() const { return Context; }
   const ABIInfo &getABIInfo() const { return TheABIInfo; }
   const TargetInfo &getTarget() const { return Target; }
@@ -360,7 +361,7 @@ public:  // These are internal details of CGT that shouldn't be used externally.
   bool isRecordBeingLaidOut(const Type *Ty) const {
     return RecordsBeingLaidOut.count(Ty);
   }
-
+  unsigned getTargetAddressSpace(QualType T) const;
 };
 
 }  // end namespace CodeGen

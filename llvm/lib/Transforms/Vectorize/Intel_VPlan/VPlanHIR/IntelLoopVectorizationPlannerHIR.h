@@ -22,6 +22,7 @@
 #include "IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Support/CommandLine.h"
+#include <optional>
 
 extern cl::opt<uint64_t> VPlanDefaultEstTripHIR;
 
@@ -98,7 +99,7 @@ public:
 
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
-  ///  no such metadata, returns None.
+  ///  no such metadata, returns std::nullopt.
   Optional<bool> readVecRemainderEnabledHIR() {
     if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vecremainder")) {
       DEBUG_WITH_TYPE("VPlan_pragma_metadata",
@@ -112,7 +113,7 @@ public:
                                  "novecremainder\n");
       return false;
     }
-    return None;
+    return std::nullopt;
   }
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/

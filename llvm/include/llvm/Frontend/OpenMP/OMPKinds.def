@@ -220,6 +220,8 @@ __OMP_RTL(__kmpc_flush, false, Void, IdentPtr)
 __OMP_RTL(__kmpc_global_thread_num, false, Int32, IdentPtr)
 __OMP_RTL(__kmpc_get_hardware_thread_id_in_block, false, Int32, )
 __OMP_RTL(__kmpc_fork_call, true, Void, IdentPtr, Int32, ParallelTaskPtr)
+__OMP_RTL(__kmpc_fork_call_if, false, Void, IdentPtr, Int32, ParallelTaskPtr,
+          Int32, VoidPtr)
 __OMP_RTL(__kmpc_omp_taskwait, false, Int32, IdentPtr, Int32)
 __OMP_RTL(__kmpc_omp_taskyield, false, Int32, IdentPtr, Int32, /* Int */ Int32)
 __OMP_RTL(__kmpc_push_num_threads, false, Void, IdentPtr, Int32,
@@ -1014,7 +1016,7 @@ __OMP_RTL_ATTRS(__kmpc_doacross_fini, BarrierAttrs, AttributeSet(),
 __OMP_RTL_ATTRS(__kmpc_alloc_shared, AttributeSet(
   EnumAttr(NoUnwind),
   EnumAttr(NoSync),
-  AllocSizeAttr(0, None)), ReturnPtrAttrs, ParamAttrs())
+  AllocSizeAttr(0, std::nullopt)), ReturnPtrAttrs, ParamAttrs())
 __OMP_RTL_ATTRS(__kmpc_free_shared, DeviceAllocAttrs, AttributeSet(),
                 ParamAttrs(AttributeSet(EnumAttr(NoCapture), EnumAttr(AllocatedPointer))))
 

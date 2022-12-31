@@ -348,11 +348,11 @@ public:
   /// distance apart, returns that distance in bytes. If the memrefs are vectors
   /// and all ith elements of this and the ith elements of the \p Memref are a
   /// constant distance apart, returns this constant distance in bytes.
-  /// Otherwise, returns None. Returns Distance(this) - Distance(Memref). i.e.
-  /// the result is to be added to Memref's Distance to get the Distance of
-  /// 'this'. Positive distance implies that 'this' is located at a memory
-  /// address more than that of Memref and negative distance implies that it's
-  /// memory address is lower than Memref.
+  /// Otherwise, returns std::nullopt. Returns Distance(this) -
+  /// Distance(Memref). i.e. the result is to be added to Memref's Distance to
+  /// get the Distance of 'this'. Positive distance implies that 'this' is
+  /// located at a memory address more than that of Memref and negative distance
+  /// implies that it's memory address is lower than Memref.
   ///
   /// Please note that, VLS requires the distance that LLVM-IR maintains between
   /// the memrefs. Therefore, this distance computation in the client should
@@ -422,8 +422,9 @@ public:
 
   /// Returns stride in bytes between consecutive memory accesses if this is a
   /// strided access with a constant uniform distance between the elements.
-  /// Otherwise, returns None. Inverting the return value does not invert the
-  /// functionality (None does not mean that it has a variable stride).
+  /// Otherwise, returns std::nullopt. Inverting the return value does not
+  /// invert the functionality (std::nullopt does not mean that it has a
+  /// variable stride).
   virtual Optional<int64_t> getConstStride() const = 0;
 
   /// Check if this memory reference dominates/postdominates another one. It is
@@ -525,16 +526,16 @@ public:
   }
 
   /// Return constant stride if all of the memrefs in the group have the same
-  /// constant stride. Otherwise, returns None. Stride represents a uniform
-  /// distance in bytes between the vector elements of a OVLSMemref. Inverting
-  /// the function return does not invert the functionality (e.g. None does not
-  /// mean the group has a variable stride).
+  /// constant stride. Otherwise, returns std::nullopt. Stride represents a
+  /// uniform distance in bytes between the vector elements of a OVLSMemref.
+  /// Inverting the function return does not invert the functionality (e.g.
+  /// std::nullopt does not mean the group has a variable stride).
   Optional<int64_t> getConstStride() const {
     // A group only comprises the memrefs that have the same matching strides.
     // Therefore, checking whether the first memref in the group has a
     // constant stride is sufficient.
     const OVLSMemref *Mrf = getFirstMemref();
-    return Mrf ? Mrf->getConstStride() : None;
+    return Mrf ? Mrf->getConstStride() : std::nullopt;
   }
 
   // Currently, a group is formed only if the members have the same number

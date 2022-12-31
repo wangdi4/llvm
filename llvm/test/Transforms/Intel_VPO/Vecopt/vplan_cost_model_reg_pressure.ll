@@ -1,21 +1,21 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF16-SSE2
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-SSE2
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF16-AVX2
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-AVX2

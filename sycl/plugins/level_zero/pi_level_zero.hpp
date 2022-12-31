@@ -380,6 +380,14 @@ struct _pi_device : _pi_object {
 
   bool isSubDevice() { return RootDevice != nullptr; }
 
+  // Is this a Data Center GPU Max series (aka PVC).
+  bool isPVC() { return (ZeDeviceProperties->deviceId & 0xff0) == 0xbd0; }
+
+  // Does this device represent a single compute slice?
+  bool isCCS() const {
+    return QueueGroup[_pi_device::queue_group_info_t::Compute].ZeIndex >= 0;
+  }
+
   // Cache of the immutable device properties.
   ZeCache<ZeStruct<ze_device_properties_t>> ZeDeviceProperties;
   ZeCache<ZeStruct<ze_device_compute_properties_t>> ZeDeviceComputeProperties;
@@ -642,10 +650,12 @@ private:
 };
 
 struct _pi_queue : _pi_object {
+  // ForceComputeIndex, if non-negative, indicates that the queue must be fixed
+  // to that particular compute CCS.
   _pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
             std::vector<ze_command_queue_handle_t> &CopyQueues,
             pi_context Context, pi_device Device, bool OwnZeCommandQueue,
-            pi_queue_properties Properties = 0);
+            pi_queue_properties Properties = 0, int ForceComputeIndex = -1);
 
   using queue_type = _pi_device::queue_group_info_t::type;
 
@@ -1267,7 +1277,7 @@ struct _pi_event : _pi_object {
   // Tells if this event is with profiling capabilities.
   bool isProfilingEnabled() const {
     return !Queue || // tentatively assume user events are profiling enabled
-           (Queue->Properties & PI_QUEUE_PROFILING_ENABLE) != 0;
+           (Queue->Properties & PI_QUEUE_FLAG_PROFILING_ENABLE) != 0;
   }
 
   // Keeps the command-queue and command associated with the event.

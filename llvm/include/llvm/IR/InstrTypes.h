@@ -33,8 +33,6 @@
 #define LLVM_IR_INSTRTYPES_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
@@ -1784,7 +1782,7 @@ public:
       return Align;
     if (const Function *F = getCalledFunction())
       return F->getAttributes().getRetAlignment();
-    return None;
+    return std::nullopt;
   }
 
   /// Extract the alignment for a call or parameter (0=unknown).
@@ -2072,14 +2070,14 @@ public:
         return U;
     }
 
-    return None;
+    return std::nullopt;
   }
 
   /// Return an operand bundle by tag ID, if present.
   ///
   /// It is an error to call this for operand bundle types that may have
   /// multiple instances of them on the same instruction.
-  Optional<OperandBundleUse> getOperandBundle(uint32_t ID) const {
+  std::optional<OperandBundleUse> getOperandBundle(uint32_t ID) const {
     assert(countOperandBundlesOfType(ID) < 2 && "Precondition violated!");
 
     for (unsigned i = 0, e = getNumOperandBundles(); i != e; ++i) {
@@ -2088,7 +2086,7 @@ public:
         return U;
     }
 
-    return None;
+    return std::nullopt;
   }
 
   /// Return the list of operand bundles attached to this instruction as

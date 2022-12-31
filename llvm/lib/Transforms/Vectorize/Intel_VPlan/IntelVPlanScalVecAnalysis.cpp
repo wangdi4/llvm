@@ -20,6 +20,7 @@
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <numeric>
+#include <optional>
 
 #define DEBUG_TYPE "vplan-scalvec-analysis"
 
@@ -872,7 +873,8 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
   // Case 2: This is a new VPInst not found in table yet since it has no
   // use-site bits. Determine its ScalVec nature using DA.
   if (CombinedUseBits.none()) {
-    assert(InstBits == None && "Instruction is not expected to have SVABits.");
+    assert(InstBits == std::nullopt &&
+           "Instruction is not expected to have SVABits.");
     SVAKind NewSVAKind =
         DA->isDivergent(*VPInst) ? SVAKind::Vector : SVAKind::FirstScalar;
 
@@ -921,7 +923,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
     // Propagate all set bits from users for instruction and its operands. If
     // the instruction already has some analyzed bits, then we refine it further
     // by or-ing its current bits with user bits.
-    if (InstBits == None) {
+    if (InstBits == std::nullopt) {
       // Instruction has not been analyzed yet, initialize with empty bits.
       SVABits NullBits = 0;
       setSVABitsForInst(VPInst, NullBits);
@@ -1056,7 +1058,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
         continue;
       }
 
-      if (CurrentOpSVABits == None) {
+      if (CurrentOpSVABits == std::nullopt) {
         // Allow skipped loop header PHIs whose only users are other loop header
         // PHIs. Check PHI handling in computeSpecialInstruction for more
         // details.

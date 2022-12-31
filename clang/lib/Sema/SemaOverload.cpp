@@ -57,6 +57,7 @@
 #include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <cstdlib>
+#include <optional>
 
 using namespace clang;
 using namespace sema;
@@ -907,7 +908,7 @@ llvm::Optional<unsigned> DeductionFailureInfo::getCallArgIndex() {
     return static_cast<DFIDeducedMismatchArgs*>(Data)->CallArgIndex;
 
   default:
-    return llvm::None;
+    return std::nullopt;
   }
 }
 
@@ -5239,7 +5240,7 @@ TryListConversion(Sema &S, InitListExpr *From, QualType ToType,
         }
         if (CT->getSize().ugt(e)) {
           // Need an init from empty {}, is there one?
-          InitListExpr EmptyList(S.Context, From->getEndLoc(), None,
+          InitListExpr EmptyList(S.Context, From->getEndLoc(), std::nullopt,
                                  From->getEndLoc());
           EmptyList.setType(S.Context.VoidTy);
           DfltElt = TryListConversion(
@@ -7060,7 +7061,7 @@ void Sema::AddMethodCandidate(DeclAccessPair FoundDecl, QualType ObjectType,
   } else {
     AddMethodCandidate(cast<CXXMethodDecl>(Decl), FoundDecl, ActingContext,
                        ObjectType, ObjectClassification, Args, CandidateSet,
-                       SuppressUserConversions, false, None, PO);
+                       SuppressUserConversions, false, std::nullopt, PO);
   }
 }
 
@@ -7675,7 +7676,7 @@ void Sema::AddConversionCandidate(
   }
 
   if (EnableIfAttr *FailedAttr =
-          CheckEnableIf(Conversion, CandidateSet.getLocation(), None)) {
+          CheckEnableIf(Conversion, CandidateSet.getLocation(), std::nullopt)) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_enable_if;
     Candidate.DeductionFailure.Data = FailedAttr;
@@ -7846,7 +7847,7 @@ void Sema::AddSurrogateCandidate(CXXConversionDecl *Conversion,
   }
 
   if (EnableIfAttr *FailedAttr =
-          CheckEnableIf(Conversion, CandidateSet.getLocation(), None)) {
+          CheckEnableIf(Conversion, CandidateSet.getLocation(), std::nullopt)) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_enable_if;
     Candidate.DeductionFailure.Data = FailedAttr;
@@ -7888,10 +7889,10 @@ void Sema::AddNonMemberOperatorCandidates(
         continue;
       AddOverloadCandidate(FD, F.getPair(), FunctionArgs, CandidateSet);
       if (CandidateSet.getRewriteInfo().shouldAddReversed(*this, Args, FD))
-        AddOverloadCandidate(FD, F.getPair(),
-                             {FunctionArgs[1], FunctionArgs[0]}, CandidateSet,
-                             false, false, true, false, ADLCallKind::NotADL,
-                             None, OverloadCandidateParamOrder::Reversed);
+        AddOverloadCandidate(
+            FD, F.getPair(), {FunctionArgs[1], FunctionArgs[0]}, CandidateSet,
+            false, false, true, false, ADLCallKind::NotADL, std::nullopt,
+            OverloadCandidateParamOrder::Reversed);
     }
   }
 }
@@ -9649,7 +9650,8 @@ Sema::AddArgumentDependentLookupCandidates(DeclarationName Name,
             FD, FoundDecl, {Args[1], Args[0]}, CandidateSet,
             /*SuppressUserConversions=*/false, PartialOverloading,
             /*AllowExplicit=*/true, /*AllowExplicitConversion=*/false,
-            ADLCallKind::UsesADL, None, OverloadCandidateParamOrder::Reversed);
+            ADLCallKind::UsesADL, std::nullopt,
+            OverloadCandidateParamOrder::Reversed);
       }
     } else {
       auto *FTD = cast<FunctionTemplateDecl>(*I);
@@ -9700,8 +9702,8 @@ static Comparison compareEnableIfAttrs(const Sema &S, const FunctionDecl *Cand1,
 
   llvm::FoldingSetNodeID Cand1ID, Cand2ID;
   for (auto Pair : zip_longest(Cand1Attrs, Cand2Attrs)) {
-    Optional<EnableIfAttr *> Cand1A = std::get<0>(Pair);
-    Optional<EnableIfAttr *> Cand2A = std::get<1>(Pair);
+    std::optional<EnableIfAttr *> Cand1A = std::get<0>(Pair);
+    std::optional<EnableIfAttr *> Cand2A = std::get<1>(Pair);
 
     // It's impossible for Cand1 to be better than (or equal to) Cand2 if Cand1
     // has fewer enable_if attributes than Cand2, and vice versa.
@@ -9779,12 +9781,12 @@ isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
 }
 
 /// Compute the type of the implicit object parameter for the given function,
-/// if any. Returns None if there is no implicit object parameter, and a null
-/// QualType if there is a 'matches anything' implicit object parameter.
+/// if any. Returns std::nullopt if there is no implicit object parameter, and a
+/// null QualType if there is a 'matches anything' implicit object parameter.
 static Optional<QualType> getImplicitObjectParamType(ASTContext &Context,
                                                      const FunctionDecl *F) {
   if (!isa<CXXMethodDecl>(F) || isa<CXXConstructorDecl>(F))
-    return llvm::None;
+    return std::nullopt;
 
   auto *M = cast<CXXMethodDecl>(F);
   // Static member functions' object parameters match all types.
@@ -12699,11 +12701,11 @@ Sema::resolveAddressOfSingleOverloadCandidate(Expr *E, DeclAccessPair &Pair) {
     FD2->getAssociatedConstraints(AC2);
     bool AtLeastAsConstrained1, AtLeastAsConstrained2;
     if (IsAtLeastAsConstrained(FD1, AC1, FD2, AC2, AtLeastAsConstrained1))
-      return None;
+      return std::nullopt;
     if (IsAtLeastAsConstrained(FD2, AC2, FD1, AC1, AtLeastAsConstrained2))
-      return None;
+      return std::nullopt;
     if (AtLeastAsConstrained1 == AtLeastAsConstrained2)
-      return None;
+      return std::nullopt;
     return AtLeastAsConstrained1;
   };
 
@@ -15191,7 +15193,8 @@ Sema::BuildOverloadedArrowExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
   for (LookupResult::iterator Oper = R.begin(), OperEnd = R.end();
        Oper != OperEnd; ++Oper) {
     AddMethodCandidate(Oper.getPair(), Base->getType(), Base->Classify(Context),
-                       None, CandidateSet, /*SuppressUserConversion=*/false);
+                       std::nullopt, CandidateSet,
+                       /*SuppressUserConversion=*/false);
   }
 
   bool HadMultipleCandidates = (CandidateSet.size() > 1);
@@ -15381,7 +15384,8 @@ Sema::BuildForRangeBeginEndCall(SourceLocation Loc,
       *CallExpr = ExprError();
       return FRS_DiagnosticIssued;
     }
-    *CallExpr = BuildCallExpr(S, MemberRef.get(), Loc, None, Loc, nullptr);
+    *CallExpr =
+        BuildCallExpr(S, MemberRef.get(), Loc, std::nullopt, Loc, nullptr);
     if (CallExpr->isInvalid()) {
       *CallExpr = ExprError();
       return FRS_DiagnosticIssued;

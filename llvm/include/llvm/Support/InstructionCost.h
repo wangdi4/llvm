@@ -35,14 +35,13 @@
 #ifndef LLVM_SUPPORT_INSTRUCTIONCOST_H
 #define LLVM_SUPPORT_INSTRUCTIONCOST_H
 
-#include "llvm/ADT/APFixedPoint.h" // Intel
-#include "llvm/ADT/APFloat.h"      // Intel
-#include "llvm/ADT/Optional.h"
 #include "llvm/Support/MathExtras.h"
 #include <limits>
 #include <optional>
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/ADT/APFixedPoint.h"
+#include "llvm/ADT/APFloat.h"
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include <sstream>
 #include <iomanip>
@@ -114,7 +113,7 @@ public:
   std::optional<CostType> getValue() const {
     if (isValid())
       return Value;
-    return None;
+    return std::nullopt;
   }
 
   /// For all of the arithmetic operators provided here any invalid state is

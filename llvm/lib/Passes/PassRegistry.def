@@ -264,7 +264,6 @@ MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass())
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
-MODULE_PASS("function-specialization", FunctionSpecializationPass())
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
 MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
@@ -555,8 +554,6 @@ FUNCTION_ANALYSIS("vpo-wrninfo", WRegionInfoAnalysis())
   FUNCTION_ANALYSIS(NAME, CREATE_PASS)
 #endif
 FUNCTION_ALIAS_ANALYSIS("basic-aa", BasicAA())
-FUNCTION_ALIAS_ANALYSIS("cfl-anders-aa", CFLAndersAA())
-FUNCTION_ALIAS_ANALYSIS("cfl-steens-aa", CFLSteensAA())
 FUNCTION_ALIAS_ANALYSIS("dpcpp-kernel-aa", DPCPPAliasAnalysis()) // INTEL
 FUNCTION_ALIAS_ANALYSIS("objc-arc-aa", objcarc::ObjCARCAA())
 FUNCTION_ALIAS_ANALYSIS("scev-aa", SCEVAA())
@@ -715,7 +712,6 @@ FUNCTION_PASS("sink", SinkingPass())
 FUNCTION_PASS("slp-vectorizer", SLPVectorizerPass())
 FUNCTION_PASS("slsr", StraightLineStrengthReducePass())
 FUNCTION_PASS("speculative-execution", SpeculativeExecutionPass())
-FUNCTION_PASS("sroa", SROAPass())
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("std-container-opt", StdContainerOptPass())
 #endif // INTEL_CUSTOMIZATION
@@ -954,6 +950,13 @@ FUNCTION_PASS_WITH_PARAMS("gvn",
                           "no-load-pre;load-pre;"
                           "no-split-backedge-load-pre;split-backedge-load-pre;"
                           "no-memdep;memdep")
+FUNCTION_PASS_WITH_PARAMS("sroa",
+                          "SROAPass",
+                          [](SROAOptions PreserveCFG) {
+                            return SROAPass(PreserveCFG);
+                          },
+                          parseSROAOptions,
+                          "preserve-cfg;modify-cfg")
 FUNCTION_PASS_WITH_PARAMS("print<stack-lifetime>",
                           "StackLifetimePrinterPass",
                            [](StackLifetime::LivenessType Type) {

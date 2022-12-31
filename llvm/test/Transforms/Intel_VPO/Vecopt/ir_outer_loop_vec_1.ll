@@ -1,4 +1,4 @@
-; RUN: opt -S -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; CHECK: [[INNER_LOOP_HEADER:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]], %vector.body

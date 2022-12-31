@@ -2,7 +2,6 @@
 ; In the following lit test, the inner loop is uniform and all the side exits
 ; are uniform.
 
-; RUN: opt -vplan-vec -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

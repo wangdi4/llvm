@@ -19,6 +19,7 @@
 #include "../IntelVPlanVLSClient.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include <optional>
 
 using namespace llvm::loopopt;
 
@@ -64,7 +65,7 @@ public:
     if (DDRefUtils::getConstByteDistance(getRegDDRef(), FromMem->getRegDDRef(),
                                          &Dist))
       return Dist;
-    return None;
+    return std::nullopt;
   }
 
   bool canMoveTo(const OVLSMemref &To) override {
@@ -173,7 +174,7 @@ public:
     int64_t Stride;
     if (getRegDDRef()->getConstStrideAtLevel(getLoopLevel(), &Stride))
       return Stride;
-    return None;
+    return std::nullopt;
   }
 
   static bool classof(const OVLSMemref *Memref) {

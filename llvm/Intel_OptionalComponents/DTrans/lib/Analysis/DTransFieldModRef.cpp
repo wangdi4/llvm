@@ -547,7 +547,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
       if (Call->isArgOperand(U))
         return std::make_pair(Call, Call->getDataOperandNo(U));
       else
-        return None;
+        return std::nullopt;
     }
     // If the use is a constant cast expression which itself has only one use,
     // we look through the constant cast expression to identify the Call.
@@ -559,7 +559,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
             return std::make_pair(Call, Call->getDataOperandNo(CastU));
       }
 
-    return None;
+    return std::nullopt;
   };
 
   // Check whether the argument at index \p ArgNum of Function \p F is a safe

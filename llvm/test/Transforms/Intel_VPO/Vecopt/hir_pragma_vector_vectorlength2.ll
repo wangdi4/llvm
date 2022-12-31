@@ -1,4 +1,4 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
 ;
 ; Checks if the code with #pragma vector vectorlength(4, 2, 16)
 ; (!{!"llvm.loop.vector.vectorlength", i64 4, i64 2, i64 16} metadata) is being vectorized correctly with HIR.

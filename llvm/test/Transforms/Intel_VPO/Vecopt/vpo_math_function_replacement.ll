@@ -46,7 +46,7 @@
 ;}
 
 
-; RUN: opt -S -replace-with-math-library-functions -vector-library=SVML %s | FileCheck %s
+; RUN: opt -S -passes=replace-with-math-library-functions -vector-library=SVML %s | FileCheck %s
 
 ; CHECK: [[UDIV:%.*]] = call i32 @_Z4udivjj(i32 {{.*}}, i32 {{.*}})
 ; CHECK-NEXT: [[FUDIV:%.*]] = uitofp i32 [[UDIV]] to float
@@ -73,8 +73,6 @@
 ; CHECK-NEXT: [[SUREM64:%.*]] = sitofp i64 [[REM64]] to float
 
 ;; Check that no replacement happens when a given cl_opt is passed.
-; RUN: opt %s -enable-new-pm=0 -S -disable-mf-replacement -replace-with-math-library-functions \
-; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
 ; RUN: opt %s -S -passes=replace-with-math-library-functions -disable-mf-replacement \
 ; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
 
@@ -193,8 +191,6 @@ declare void @llvm.directive.region.exit(token)
 
 
 ;; Check that no replacement happens for vector input operands.
-; RUN: opt %s -S -replace-with-math-library-functions \
-; RUN: | FileCheck %s --check-prefix=CHECK-VEC-NO-REPLACEMENT
 
 %VEC3 = type { <3 x i32> }
 %RANGE = type { %ARRAY }

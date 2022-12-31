@@ -1,5 +1,5 @@
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir=0 2>&1 -disable-output | FileCheck %s --check-prefix=SKIP
-; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-enable-general-peeling-hir 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-general-peeling-hir=0 2>&1 -disable-output | FileCheck %s --check-prefix=SKIP
+; RUN: opt %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-general-peeling-hir 2>&1 | FileCheck %s
 ;
 ; Checks that in HIR path we process loops with "#pragma vector dynamic_align" and "#pragma vector vecremainder"
 ;

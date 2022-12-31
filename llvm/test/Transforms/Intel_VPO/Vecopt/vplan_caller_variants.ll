@@ -1,4 +1,3 @@
-; RUN: opt %s -S -hir-vplan-vec -debug-only=VPlanCallVecDecisions -disable-output 2>&1 | FileCheck %s
 ; RUN: opt %s -S -passes="hir-vplan-vec" -debug-only=VPlanCallVecDecisions -disable-output 2>&1 | FileCheck %s
 
 ; VPlanCallVecDecisions test to make sure it generates all combinations of caller side

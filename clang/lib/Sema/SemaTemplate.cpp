@@ -1224,7 +1224,7 @@ static ExprResult formImmediatelyDeclaredConstraint(
                             ImmediatelyDeclaredConstraint.get(), BO_LAnd,
                             EllipsisLoc, /*RHS=*/nullptr,
                             /*RParenLoc=*/SourceLocation(),
-                            /*NumExpansions=*/None);
+                            /*NumExpansions=*/std::nullopt);
 }
 
 /// Attach a type-constraint to a template parameter.
@@ -2395,8 +2395,9 @@ private:
           /*Depth*/ 0, Depth1IndexAdjustment + TTP->getIndex(),
           TTP->getIdentifier(), TTP->wasDeclaredWithTypename(),
           TTP->isParameterPack(), TTP->hasTypeConstraint(),
-          TTP->isExpandedParameterPack() ?
-          llvm::Optional<unsigned>(TTP->getNumExpansionParameters()) : None);
+          TTP->isExpandedParameterPack()
+              ? llvm::Optional<unsigned>(TTP->getNumExpansionParameters())
+              : std::nullopt);
       if (const auto *TC = TTP->getTypeConstraint())
         SemaRef.SubstTypeConstraint(NewTTP, TC, Args,
                                     /*EvaluateConstraint*/ true);
@@ -2649,7 +2650,7 @@ void Sema::DeclareImplicitDeductionGuides(TemplateDecl *Template,
   //    additional function template derived as above from a hypothetical
   //    constructor C().
   if (!AddedAny)
-    Transform.buildSimpleDeductionGuide(None);
+    Transform.buildSimpleDeductionGuide(std::nullopt);
 
   //    -- An additional function template derived as above from a hypothetical
   //    constructor C(C), called the copy deduction candidate.
@@ -3525,7 +3526,7 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
 
       // Fabricate an empty template parameter list for the invented header.
       return TemplateParameterList::Create(Context, SourceLocation(),
-                                           SourceLocation(), None,
+                                           SourceLocation(), std::nullopt,
                                            SourceLocation(), nullptr);
     }
 
@@ -5311,7 +5312,7 @@ static TypeSourceInfo *SubstDefaultTemplateArgument(
     MultiLevelTemplateArgumentList TemplateArgLists(Template, SugaredConverted,
                                                     /*Final=*/true);
     for (unsigned i = 0, e = Param->getDepth(); i != e; ++i)
-      TemplateArgLists.addOuterTemplateArguments(None);
+      TemplateArgLists.addOuterTemplateArguments(std::nullopt);
 
     bool ForLambdaCallOperator = false;
     if (const auto *Rec = dyn_cast<CXXRecordDecl>(Template->getDeclContext()))
@@ -5363,7 +5364,7 @@ static ExprResult SubstDefaultTemplateArgument(
   MultiLevelTemplateArgumentList TemplateArgLists(Template, SugaredConverted,
                                                   /*Final=*/true);
   for (unsigned i = 0, e = Param->getDepth(); i != e; ++i)
-    TemplateArgLists.addOuterTemplateArguments(None);
+    TemplateArgLists.addOuterTemplateArguments(std::nullopt);
 
   Sema::ContextRAII SavedContext(SemaRef, Template->getDeclContext());
   EnterExpressionEvaluationContext ConstantEvaluated(
@@ -5412,7 +5413,7 @@ static TemplateName SubstDefaultTemplateArgument(
   MultiLevelTemplateArgumentList TemplateArgLists(Template, SugaredConverted,
                                                   /*Final=*/true);
   for (unsigned i = 0, e = Param->getDepth(); i != e; ++i)
-    TemplateArgLists.addOuterTemplateArguments(None);
+    TemplateArgLists.addOuterTemplateArguments(std::nullopt);
 
   Sema::ContextRAII SavedContext(SemaRef, Template->getDeclContext());
   // Substitute into the nested-name-specifier first,

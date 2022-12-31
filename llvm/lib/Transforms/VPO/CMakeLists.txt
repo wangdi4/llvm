@@ -123,6 +123,13 @@ add_llvm_component_library(LLVMVPOTransforms
   VPOAnalysis
 )
 if(INTEL_CUSTOMIZATION)
+  # Disable deprecated-declarations warnings because they are coming from
+  # external GenXIntrinsics headers.
+  if (NOT WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+  else(NOT WIN32)
+    add_definitions(-wd4996)
+  endif (NOT WIN32)
 # INTEL_FEATURE_SW_DTRANS
   is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
   if (p)

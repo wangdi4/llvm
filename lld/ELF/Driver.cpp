@@ -1373,7 +1373,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->trace = args.hasArg(OPT_trace);
   config->undefined = args::getStrings(args, OPT_undefined);
   config->undefinedVersion =
-      args.hasFlag(OPT_undefined_version, OPT_no_undefined_version, true);
+      args.hasFlag(OPT_undefined_version, OPT_no_undefined_version, false);
   config->unique = args.hasArg(OPT_unique);
   config->useAndroidRelrTags = args.hasFlag(
       OPT_use_android_relr_tags, OPT_no_use_android_relr_tags, false);
@@ -1975,13 +1975,13 @@ void LinkerDriver::doGNULTOLinking(
     StringRef(linkerOutputCmd).split(newArgs," ");
 
     // Only write stderr
-    Optional<StringRef> redirects[3];
-    redirects[0] = None;
-    redirects[1] = None;
+    std::optional<StringRef> redirects[3];
+    redirects[0] = std::nullopt;
+    redirects[1] = std::nullopt;
     redirects[2] = gccOutMessage.str();
 
     // Execute gcc -flinker-output=nolto-rel
-    sys::ExecuteAndWait(newArgs[0], newArgs, None, redirects, 0, 0,
+    sys::ExecuteAndWait(newArgs[0], newArgs, std::nullopt, redirects, 0, 0,
       nullptr, nullptr);
 
     // Collect the buffer. We don't need to close it, MemoryBuffer reads
@@ -3211,6 +3211,10 @@ void LinkerDriver::link(opt::InputArgList &args) {
   // output sections in the usual way.
   if (!config->relocatable)
     combineEhSections();
+
+  // Merge .riscv.attributes sections.
+  if (config->emachine == EM_RISCV)
+    mergeRISCVAttributesSections();
 
   {
     llvm::TimeTraceScope timeScope("Assign sections");

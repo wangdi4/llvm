@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -load-coalescing -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S < %s 2>&1 | FileCheck %s
 
 @B = common dso_local local_unnamed_addr global [1024 x double] zeroinitializer, align 16

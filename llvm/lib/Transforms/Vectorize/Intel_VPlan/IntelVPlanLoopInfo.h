@@ -251,7 +251,7 @@ template <> struct OptReportTraits<vpo::VPLoop> {
   }
 
   static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
-    return None;
+    return std::nullopt;
   }
 
   static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,

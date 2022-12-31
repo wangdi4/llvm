@@ -161,7 +161,7 @@ public:
   // in the Graph (BBGuard). That is if any of the block is deleted or RAUWed
   // then the CFG is treated poisoned and no block pointer of the Graph is used.
   struct CFG {
-    Optional<DenseMap<intptr_t, BBGuard>> BBGuards;
+    std::optional<DenseMap<intptr_t, BBGuard>> BBGuards;
     DenseMap<const BasicBlock *, DenseMap<const BasicBlock *, unsigned>> Graph;
 
     CFG(const Function *F, bool TrackBBLifetime);
@@ -291,6 +291,32 @@ protected:
   void generateIRRepresentation(Any IR, StringRef PassID,
                                 std::string &Output) override;
   // Called when an interesting IR has changed.
+  void handleAfter(StringRef PassID, std::string &Name,
+                   const std::string &Before, const std::string &After,
+                   Any) override;
+};
+
+class IRChangedTester : public IRChangedPrinter {
+public:
+  IRChangedTester() : IRChangedPrinter(true) {}
+  ~IRChangedTester() override;
+  void registerCallbacks(PassInstrumentationCallbacks &PIC);
+
+protected:
+  void handleIR(const std::string &IR, StringRef PassID);
+
+  // Check initial IR
+  void handleInitialIR(Any IR) override;
+  // Do nothing.
+  void omitAfter(StringRef PassID, std::string &Name) override;
+  // Do nothing.
+  void handleInvalidated(StringRef PassID) override;
+  // Do nothing.
+  void handleFiltered(StringRef PassID, std::string &Name) override;
+  // Do nothing.
+  void handleIgnored(StringRef PassID, std::string &Name) override;
+
+  // Call test as interesting IR has changed.
   void handleAfter(StringRef PassID, std::string &Name,
                    const std::string &Before, const std::string &After,
                    Any) override;
@@ -574,6 +600,7 @@ class StandardInstrumentations {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   DotCfgChangeReporter WebsiteChangeReporter;
   PrintCrashIRInstrumentation PrintCrashIR;
+  IRChangedTester ChangeTester;
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   VerifyInstrumentation Verify;
 

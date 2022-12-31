@@ -3362,7 +3362,7 @@ unsigned X86TargetLowering::getJumpTableEncoding() const {
 
 bool X86TargetLowering::splitValueIntoRegisterParts(
     SelectionDAG &DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
-    unsigned NumParts, MVT PartVT, Optional<CallingConv::ID> CC) const {
+    unsigned NumParts, MVT PartVT, std::optional<CallingConv::ID> CC) const {
   bool IsABIRegCopy = CC.has_value();
   EVT ValueVT = Val.getValueType();
   if (IsABIRegCopy && ValueVT == MVT::bf16 && PartVT == MVT::f32) {
@@ -3379,7 +3379,7 @@ bool X86TargetLowering::splitValueIntoRegisterParts(
 
 SDValue X86TargetLowering::joinRegisterPartsIntoValue(
     SelectionDAG &DAG, const SDLoc &DL, const SDValue *Parts, unsigned NumParts,
-    MVT PartVT, EVT ValueVT, Optional<CallingConv::ID> CC) const {
+    MVT PartVT, EVT ValueVT, std::optional<CallingConv::ID> CC) const {
   bool IsABIRegCopy = CC.has_value();
   if (IsABIRegCopy && ValueVT == MVT::bf16 && PartVT == MVT::f32) {
     unsigned ValueBits = ValueVT.getSizeInBits();
@@ -4402,14 +4402,14 @@ static ArrayRef<MCPhysReg> get64BitArgumentXMMs(MachineFunction &MF,
     // in their paired GPR.  So we only need to save the GPR to their home
     // slots.
     // TODO: __vectorcall will change this.
-    return None;
+    return std::nullopt;
   }
 
   bool isSoftFloat = Subtarget.useSoftFloat();
   if (isSoftFloat || !Subtarget.hasSSE1())
     // Kernel mode asks for SSE to be disabled, so there are no XMM argument
     // registers.
-    return None;
+    return std::nullopt;
 
   static const MCPhysReg XMMArgRegs64Bit[] = {
     X86::XMM0, X86::XMM1, X86::XMM2, X86::XMM3,
@@ -24355,13 +24355,14 @@ SDValue X86TargetLowering::LRINT_LLRINTHelper(SDNode *N,
     SDValue Ops[] = { Chain, StackPtr };
 
     Src = DAG.getMemIntrinsicNode(X86ISD::FLD, DL, Tys, Ops, SrcVT, MPI,
-                                  /*Align*/ None, MachineMemOperand::MOLoad);
+                                  /*Align*/ std::nullopt,
+                                  MachineMemOperand::MOLoad);
     Chain = Src.getValue(1);
   }
 
   SDValue StoreOps[] = { Chain, Src, StackPtr };
   Chain = DAG.getMemIntrinsicNode(X86ISD::FIST, DL, DAG.getVTList(MVT::Other),
-                                  StoreOps, DstVT, MPI, /*Align*/ None,
+                                  StoreOps, DstVT, MPI, /*Align*/ std::nullopt,
                                   MachineMemOperand::MOStore);
 
   return DAG.getLoad(DstVT, DL, Chain, StackPtr, MPI);
@@ -28155,7 +28156,7 @@ SDValue X86TargetLowering::LowerVAARG(SDValue Op, SelectionDAG &DAG) const {
   SDValue VAARG = DAG.getMemIntrinsicNode(
       Subtarget.isTarget64BitLP64() ? X86ISD::VAARG_64 : X86ISD::VAARG_X32, dl,
       VTs, InstOps, MVT::i64, MachinePointerInfo(SV),
-      /*Alignment=*/None,
+      /*Alignment=*/std::nullopt,
       MachineMemOperand::MOLoad | MachineMemOperand::MOStore);
   Chain = VAARG.getValue(1);
 
@@ -34723,9 +34724,9 @@ static SDValue LowerATOMIC_STORE(SDValue Op, SelectionDAG &DAG,
                          MPI, MaybeAlign(), MachineMemOperand::MOStore);
         SDVTList Tys = DAG.getVTList(MVT::f80, MVT::Other);
         SDValue LdOps[] = {Chain, StackPtr};
-        SDValue Value =
-            DAG.getMemIntrinsicNode(X86ISD::FILD, dl, Tys, LdOps, MVT::i64, MPI,
-                                    /*Align*/ None, MachineMemOperand::MOLoad);
+        SDValue Value = DAG.getMemIntrinsicNode(
+            X86ISD::FILD, dl, Tys, LdOps, MVT::i64, MPI,
+            /*Align*/ std::nullopt, MachineMemOperand::MOLoad);
         Chain = Value.getValue(1);
 
         // Now use an FIST to do the atomic store.
@@ -36468,7 +36469,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
         SDValue StoreOps[] = { Chain, Result, StackPtr };
         Chain = DAG.getMemIntrinsicNode(
             X86ISD::FIST, dl, DAG.getVTList(MVT::Other), StoreOps, MVT::i64,
-            MPI, None /*Align*/, MachineMemOperand::MOStore);
+            MPI, std::nullopt /*Align*/, MachineMemOperand::MOStore);
 
         // Finally load the value back from the stack temporary and return it.
         // This load is not atomic and doesn't need to be.

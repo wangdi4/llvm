@@ -91,7 +91,7 @@ define i32 @main() {
 ; CHECK-PROP-NEXT:    [[TMP1:%.*]] = tail call noalias i8* @mallocFunc(i64 100)
 ; CHECK-PROP-NEXT:    store i8* [[TMP1]], i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
 ; CHECK-PROP-NEXT:    [[T:%.*]] = load i8*, i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
-; CHECK-PROP-NEXT:    [[T1:%.*]] = call i8* @llvm.ptr.annotation.p0i8(i8* [[T]], i8* getelementptr inbounds ([16 x i8], [16 x i8]* [[PADD]], i32 0, i32 0), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @1, i32 0, i32 0), i32 0, i8* null)
+; CHECK-PROP-NEXT:    [[T1:%.*]] = call i8* @llvm.ptr.annotation.p0i8.p0i8(i8* [[T]], i8* getelementptr inbounds ([16 x i8], [16 x i8]* [[PADD]], i32 0, i32 0), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @1, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-PROP-NEXT:    tail call void @free(i8* [[TMP1]])
 ; CHECK-PROP-NEXT:    store i8* null, i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
 ; CHECK-PROP-NEXT:    [[TMP2:%.*]] = call zeroext i1 @searchloop()

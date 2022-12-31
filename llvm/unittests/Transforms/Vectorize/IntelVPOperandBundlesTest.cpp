@@ -135,5 +135,5 @@ TEST_F(VPOperandBundlesTest, getOperandBundleFromTag) {
   ASSERT_TRUE(NonNullBundle.has_value());
   ASSERT_BUNDLE_EQ(*NonNullBundle, Call->getOperandBundleAt(1));
 
-  ASSERT_EQ(Call->getOperandBundle("nonexistent"), None);
+  ASSERT_EQ(Call->getOperandBundle("nonexistent"), std::nullopt);
 }

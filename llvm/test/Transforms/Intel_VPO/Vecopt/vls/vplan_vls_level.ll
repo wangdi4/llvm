@@ -1,19 +1,19 @@
-; RUN: opt -S -mattr=avx -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx -vplan-vls-level=never  -vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
-; RUN: opt -S -mattr=avx -vplan-vls-level=always -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx -vplan-vls-level=auto   -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx -vplan-vls-level=never  -passes=vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
+; RUN: opt -S -mattr=avx -vplan-vls-level=always -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx -vplan-vls-level=auto   -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
 
-; RUN: opt -S -mattr=avx2 -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx2 -vplan-vls-level=never  -vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
-; RUN: opt -S -mattr=avx2 -vplan-vls-level=always -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx2 -vplan-vls-level=auto   -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx2 -enable-intel-advanced-opts -vplan-vls-level=auto -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx2 -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx2 -vplan-vls-level=never  -passes=vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
+; RUN: opt -S -mattr=avx2 -vplan-vls-level=always -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx2 -vplan-vls-level=auto   -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx2 -enable-intel-advanced-opts -vplan-vls-level=auto -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
 
-; RUN: opt -S -mattr=avx512f -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx512f -vplan-vls-level=never  -vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
-; RUN: opt -S -mattr=avx512f -vplan-vls-level=always -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx512f -vplan-vls-level=auto   -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
-; RUN: opt -S -mattr=avx512f -enable-intel-advanced-opts -vplan-vls-level=always -vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx512f -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx512f -vplan-vls-level=never  -passes=vplan-vec  < %s | FileCheck %s --check-prefix=DISABLED
+; RUN: opt -S -mattr=avx512f -vplan-vls-level=always -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx512f -vplan-vls-level=auto   -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
+; RUN: opt -S -mattr=avx512f -enable-intel-advanced-opts -vplan-vls-level=always -passes=vplan-vec  < %s | FileCheck %s --check-prefix=ENABLED
 
 ; ENABLED:      @llvm.masked.load.v16i32
 ; ENABLED:      @llvm.masked.store.v16i32

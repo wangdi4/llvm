@@ -1,4 +1,4 @@
-; RUN: opt -S -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -S -passes=vplan-vec,instcombine -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
 
 ;float fp_inc;
 ;void fp_iv_loop(float init, float * __restrict__ A, int N) {

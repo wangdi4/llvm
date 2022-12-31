@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 -S | FileCheck %s
 
 ; The test purpose is to verify that having high register pressure even on scalar

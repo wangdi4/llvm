@@ -1106,7 +1106,7 @@ TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
   VPlanAlignmentAnalysis AA(*VPSE, *VPVT, 4);
 
   VPLoadStoreInst *S = findStoreInst();
-  EXPECT_EQ(None, AA.tryGetKnownAlignment(S->getOperand(1), S));
+  EXPECT_EQ(std::nullopt, AA.tryGetKnownAlignment(S->getOperand(1), S));
 }
 
 } // namespace

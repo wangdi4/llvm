@@ -1,4 +1,4 @@
-; RUN: opt -vplan-vec -S < %s  | FileCheck %s
+; RUN: opt -passes=vplan-vec -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x float> @_ZGVbM4vv_vec_sum

@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 @x = dso_local global [10 x i32] zeroinitializer, align 16
 define void @foo2(i64 %N) local_unnamed_addr #0 {

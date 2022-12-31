@@ -963,6 +963,7 @@ def TruePredicate : Predicate<"true">;
 def HasCMOV      : Predicate<"Subtarget->canUseCMOV()">;
 def NoCMOV       : Predicate<"!Subtarget->canUseCMOV()">;
 
+def HasNOPL      : Predicate<"Subtarget->hasNOPL()">;
 def HasMMX       : Predicate<"Subtarget->hasMMX()">;
 def Has3DNow     : Predicate<"Subtarget->hasThreeDNow()">;
 def Has3DNowA    : Predicate<"Subtarget->hasThreeDNowA()">;
@@ -1012,8 +1013,8 @@ def NoVLX_Or_NoVPOPCNTDQ : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVPO
 def NoVLX_Or_NoBITALG    : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBITALG()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
-def PKU        : Predicate<"Subtarget->hasPKU()">;
-def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+def HasPKU       : Predicate<"Subtarget->hasPKU()">;
+def HasVNNI      : Predicate<"Subtarget->hasVNNI()">;
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
@@ -1116,6 +1117,7 @@ def HasSGX       : Predicate<"Subtarget->hasSGX()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
+def HasPRFCHW    : Predicate<"Subtarget->hasPRFCHW()">;
 def HasPREFETCHI : Predicate<"Subtarget->hasPREFETCHI()">;
 def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
@@ -1125,6 +1127,7 @@ def HasPREFETCHST2 : Predicate<"Subtarget->hasPREFETCHST2()">;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
 def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
+def HasLAHFSAHF64 : Predicate<"Subtarget->hasLAHFSAHF64()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
 def HasCLZERO    : Predicate<"Subtarget->hasCLZERO()">;
 def HasCLDEMOTE  : Predicate<"Subtarget->hasCLDEMOTE()">;
@@ -1134,6 +1137,7 @@ def HasPTWRITE   : Predicate<"Subtarget->hasPTWRITE()">;
 def FPStackf32   : Predicate<"!Subtarget->hasSSE1()">;
 def FPStackf64   : Predicate<"!Subtarget->hasSSE2()">;
 def HasSHSTK     : Predicate<"Subtarget->hasSHSTK()">;
+def HasCLFLUSH   : Predicate<"Subtarget->hasCLFLUSH()">;
 def HasCLFLUSHOPT : Predicate<"Subtarget->hasCLFLUSHOPT()">;
 def HasCLWB      : Predicate<"Subtarget->hasCLWB()">;
 def HasWBNOINVD  : Predicate<"Subtarget->hasWBNOINVD()">;
@@ -1379,6 +1383,8 @@ def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 def HasUINTR     : Predicate<"Subtarget->hasUINTR()">;
 def HasCRC32     : Predicate<"Subtarget->hasCRC32()">;
+
+def HasX86_64    : Predicate<"Subtarget->hasX86_64()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Is64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,

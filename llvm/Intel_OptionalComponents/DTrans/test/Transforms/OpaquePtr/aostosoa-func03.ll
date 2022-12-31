@@ -35,7 +35,7 @@ define "intel_dtrans_func_index"="1" ptr @test02()  !intel.dtrans.func.type !3 {
 ; CHECK-LABEL: define internal i64 @test02.1()
 
 ; CHECK: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %v1 = load i64, ptr %p1, align 8
 ; CHECK: ret i64 %v1
 

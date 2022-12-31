@@ -20,6 +20,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include <optional>
 
 namespace llvm {
 
@@ -57,7 +58,7 @@ private:
   void eliminateRedundantLabels();
 
   /// Checks if \p Cond can be implied true or false using SCEV analysis.
-  Optional<bool> isImpliedUsingSCEVAnalysis(Value *Cond);
+  std::optional<bool> isImpliedUsingSCEVAnalysis(Value *Cond);
 
   /// Eliminates redundant HLIfs in the incoming IR which can be proven to be
   /// true or false.

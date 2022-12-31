@@ -76,7 +76,7 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
     }
   }
   if (!PeelTarget)
-    return None;
+    return std::nullopt;
 
   // Traverse use-def chain in post order to find all dependent instructions of
   // peeling target's pointer operand and clone them into EntryBB.

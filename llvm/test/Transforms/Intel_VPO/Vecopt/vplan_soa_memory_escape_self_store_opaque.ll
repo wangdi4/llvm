@@ -6,10 +6,9 @@
 ;; to demonstate that the memory escape analysis explores all paths until
 ;; the bad one is taken, and stops only then.
 
-; RUN: opt -S -opaque-pointers -vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
-; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 

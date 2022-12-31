@@ -32,7 +32,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
@@ -559,7 +558,7 @@ std::array<Value *, 2> Negator::getSortedOperandsOfBinOp(Instruction *I) {
     // endless combine looping.
     for (Instruction *I : llvm::reverse(NewInstructions))
       I->eraseFromParent();
-    return llvm::None;
+    return std::nullopt;
   }
   return std::make_pair(ArrayRef<Instruction *>(NewInstructions), Negated);
 }

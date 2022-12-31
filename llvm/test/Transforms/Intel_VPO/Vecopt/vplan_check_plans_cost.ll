@@ -1,6 +1,6 @@
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NO-PEEL-SCALAR-REMAINDER
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator -vplan-enable-non-masked-vectorized-remainder -disable-output -vplan-enable-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NON-MASKED-VECTOR-REMAINDER
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator  -vplan-enable-masked-vectorized-remainder -disable-output -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=MASKED-VECTOR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NO-PEEL-SCALAR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator -vplan-enable-non-masked-vectorized-remainder -disable-output -vplan-enable-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NON-MASKED-VECTOR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator  -vplan-enable-masked-vectorized-remainder -disable-output -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=MASKED-VECTOR-REMAINDER
 
 ; NO-PEEL-SCALAR-REMAINDER: Evaluators for VF=4
 ; NO-PEEL-SCALAR-REMAINDER-NEXT: There is no peel loop.

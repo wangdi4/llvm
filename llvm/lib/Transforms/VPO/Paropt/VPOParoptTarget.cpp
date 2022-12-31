@@ -66,6 +66,8 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 
+#include <optional>
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -961,11 +963,11 @@ class AliasSetTrackerSPIRV {
   }
 
 public:
-  AliasSetTrackerSPIRV(AAResults &AAR) {
-    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(AAR);
-    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(AAR);
+  AliasSetTrackerSPIRV(BatchAAResults &BAAR) {
+    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(BAAR);
+    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(BAAR);
   }
 
   void add(Instruction &I) {
@@ -1058,18 +1060,18 @@ bool VPOParoptTransform::needBarriersAfterParallel(
 
   // Setup AA for the outlined function.
   DominatorTree DT(*KernelF);
-  PhiValues PV(*KernelF);
   BasicAAResult BAR(KernelF->getParent()->getDataLayout(), *KernelF, *TLI, *AC,
-                    &DT, &PV, OptLevel);
+                    &DT, OptLevel);
   AAResults AAR(*TLI);
   AAR.addAAResult(BAR);
+  BatchAAResults BAAR(AAR);
 
   SmallDenseMap<WRegionNode *, std::unique_ptr<AliasSetTrackerSPIRV>> ASTs;
-  auto GetAliasSets = [&ASTs, &AAR](WRegionNode *W,
-                                    unsigned AS) -> const ilist<AliasSet> & {
+  auto GetAliasSets = [&ASTs, &BAAR](WRegionNode *W,
+                                     unsigned AS) -> const ilist<AliasSet> & {
     auto P = ASTs.insert({W, nullptr});
     if (P.second) {
-      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(AAR);
+      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(BAAR);
 
       W->populateBBSet();
       for (BasicBlock *BB : W->blocks()) {
@@ -1127,7 +1129,7 @@ bool VPOParoptTransform::needBarriersAfterParallel(
           const ilist<AliasSet> &ASL2 =
               GetAliasSets(P.second, vpo::ADDRESS_SPACE_GLOBAL);
 
-          IsGlobal |= any_of(ASL1, [&ASL2, &AAR](const AliasSet &AS1) {
+          IsGlobal |= any_of(ASL1, [&ASL2, &BAAR](const AliasSet &AS1) {
             if (AS1.isForwardingAliasSet())
               return false;
 
@@ -1142,7 +1144,7 @@ bool VPOParoptTransform::needBarriersAfterParallel(
               if ((AS1.isMod() && (AS2.isMod() || AS2.isRef())) ||
                   (AS2.isMod() && (AS1.isMod() || AS1.isRef()))) {
                 // Check if alias sets alias.
-                if (AS1.aliases(AS2, AAR))
+                if (AS1.aliases(AS2, BAAR))
                   return true;
               }
             }
@@ -1439,7 +1441,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     //
     Value *TeamLocalVal = nullptr;
     auto &DL = StartI->getModule()->getDataLayout();
-    MaybeAlign Alignment = llvm::None;
+    MaybeAlign Alignment = std::nullopt;
     if (StartI->getType()->isPointerTy()) {
       Align MinAlign = StartI->getPointerAlignment(DL);
       if (MinAlign > 1)
@@ -1552,7 +1554,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   // inferring. We cannot remove the directive call yet, because
   // the removal in paroptTransforms() will complain.
   OperandBundleDef B(
-      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
+      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), std::nullopt);
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
   auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
@@ -1708,7 +1710,7 @@ bool VPOParoptTransform::removeClausesFromNestedRegionsExceptSIMD(
 
     if (CallInst *OldEntry = cast_or_null<CallInst>(W->getEntryDirective())) {
       OperandBundleDef Bundles(
-          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), None);
+          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), std::nullopt);
       CallInst *NewEntry = CallInst::Create(OldEntry, Bundles, OldEntry);
       NewEntry->copyMetadata(*OldEntry);
       OldEntry->replaceAllUsesWith(NewEntry);
@@ -1744,7 +1746,7 @@ static void runSROA(Function *F) {
   FAM.registerPass([&] { return TargetIRAnalysis(); });
 
   FunctionPassManager FPM;
-  FPM.addPass(SROAPass());
+  FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
   FPM.run(*F, FAM);
 }
 
@@ -5339,7 +5341,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
   llvm::Optional<uint64_t> InteropPosition =
-      llvm::None;            // position of interop arg in variant call
+      std::nullopt;          // position of interop arg in variant call
 
   CallInst *BaseCall = nullptr;
 
@@ -5698,7 +5700,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
   llvm::Optional<uint64_t> InteropPosition =
-      llvm::None;            // position of interop arg in variant call
+      std::nullopt;          // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
   StringRef VariantName =

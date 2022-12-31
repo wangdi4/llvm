@@ -273,7 +273,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
@@ -281,7 +280,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
-; CHECK-O23SZ-NEXT: Running pass: LoopFlattenPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on loop

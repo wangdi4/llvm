@@ -43,6 +43,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <optional>
 #include <unordered_map>
 
 // Used for Parallel Section Transformations
@@ -163,14 +164,14 @@ public:
   /// stripped from \p BB; \b false otherwise.
   /// If \p IDs is not empty, then the method will only remove
   /// calls to directive intrinsics with the specified directive ids.
-  static bool stripDirectives(BasicBlock &BB, ArrayRef<int> IDs = None);
+  static bool stripDirectives(BasicBlock &BB, ArrayRef<int> IDs = std::nullopt);
 
   /// Remove calls to directive intrinsics from function \p F.
   /// \returns \b true if <em>one or more</em> directive intrinsics were
   /// stripped from \p F; \b false otherwise.
   /// If \p IDs is not empty, then the method will only remove
   /// calls to directive intrinsics with the specified directive ids.
-  static bool stripDirectives(Function &F, ArrayRef<int> IDs = None);
+  static bool stripDirectives(Function &F, ArrayRef<int> IDs = std::nullopt);
 
   /// Remove `@llvm.dbg.declare`, `@llvm.dbg.value` calls from \p F.
   /// This is a temporary workaround needed because CodeExtractor does not

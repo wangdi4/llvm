@@ -147,7 +147,6 @@ add_llvm_component_library(LLVMipo
   VPOTransforms
   Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
-  Scalar
   )
 
 # INTEL_CUSTOMIZATION

@@ -140,9 +140,9 @@ GlobalVariable &DTransAnnotator::getAnnotationVariable(Module &M,
 Instruction *DTransAnnotator::createPtrAnnotation(
     Module &M, Value &Ptr, Value &AnnotVal, Value &FileNameVal,
     unsigned LineNum, const Twine &NameStr, Instruction *InsertBefore) {
-  auto *Intrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation, Ptr.getType());
   LLVMContext &Ctx = M.getContext();
+  auto *Intrin = Intrinsic::getDeclaration(
+      &M, Intrinsic::ptr_annotation, {Ptr.getType(), Type::getInt8PtrTy(Ctx)});
   Value *Args[] = {&Ptr, &AnnotVal, &FileNameVal,
                    ConstantInt::get(Type::getInt32Ty(Ctx), LineNum),
                    ConstantPointerNull::get(Type::getInt8PtrTy(Ctx))};

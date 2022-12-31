@@ -3,7 +3,7 @@
 ; Intel custom changes enable breaking this critical edge. In this test the critical edges that get broken are:
 ; %if.then6.i, %if.then2.i, %call.i.noexc, %for.body -> ehcleanup.
 ; This enables loop unrolling, so removing the CHECK statements.
-; RUN: opt -loop-unroll -S < %s -verify
+; RUN: opt -passes=loop-unroll,verify -S < %s
 ; END INTEL_CUSTOMIZATION
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i686-pc-windows-msvc"

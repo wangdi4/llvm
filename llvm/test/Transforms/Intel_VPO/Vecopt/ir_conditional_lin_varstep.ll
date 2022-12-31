@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-dump-induction-init-details -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-dump-induction-init-details -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 ; CHECK:      VPlan after insertion of VPEntities instructions:
 ; CHECK:      IntInduction(+) Start: i64 %k.iv.b Step: i64 %step StartVal: ? EndVal: ? BinOp: i64 [[VP_IND_PHI:%.*]] = phi  [ i64 [[VP_IND_ADD1:%.*]], BB3 ],  [ i64 [[VP_IND_ADD0:%.*]], BB4 ] need close form

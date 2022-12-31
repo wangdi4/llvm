@@ -1,6 +1,6 @@
 ; Test VPlan HIR vectorizer codegen for call serialization.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR:
 ; BEGIN REGION { }

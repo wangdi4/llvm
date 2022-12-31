@@ -1,8 +1,4 @@
 ; Check that merged CFG based CG doesn't crash for search loops.
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -allow-memory-speculation \
-; RUN:     2>&1 | FileCheck %s
-
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -allow-memory-speculation 2>&1 | FileCheck %s
 ;

@@ -4,7 +4,6 @@
 ; one divergent icmp instruction (VP_CMPZ) that is used as a CondBit in two different blocks.
 ; This should cause two phis, VP_DIV_PHI and VP_DIV_PHI2, to be marked as divergent.
 
-; RUN: opt < %s -vplan-vec -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-vec" -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind

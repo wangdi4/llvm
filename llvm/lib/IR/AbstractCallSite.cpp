@@ -76,13 +76,22 @@ Argument *AbstractCallSite::getCallbackArg(const CallBase &CB, unsigned ArgNo) {
     AbstractCallSite ACS(U);
     assert(ACS && ACS.isCallbackCall() && "must be a callback call");
 
-    if (Function *Callback = ACS.getCalledFunction())
+    if (Function *Callback = ACS.getCalledFunction()) {
+
+      // Workaround for bad MD. Should remove later.
+      // ACS uses the callback MD to create a map of the callback args to
+      // the broker args. This includes vararg args. If any args are missing,
+      // we should not try to analyze.
+      if (ACS.getNumArgOperands() < Callback->arg_size())
+        return nullptr;
+
       for (Argument &CallbackArg : Callback->args()) {
         int CallArgNo = ACS.getCallArgOperandNo(CallbackArg);
         if (CallArgNo < 0 || unsigned(CallArgNo) != ArgNo)
           continue;
         return &CallbackArg;
       }
+    }
   }
   return nullptr;
 }

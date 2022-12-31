@@ -2,13 +2,9 @@
 
 
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec \
-; RUN: -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
 ; RUN: opt %s -S -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" \
 ; RUN: -vplan-force-vf=2 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec \
-; RUN: -vplan-force-vf=8 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 ; RUN: opt %s -S -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" \
 ; RUN: -vplan-force-vf=8 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
 

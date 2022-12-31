@@ -1,4 +1,4 @@
-;RUN: opt -vplan-vec -mtriple=x86_64-unknown-linux-gnu -S %s | FileCheck %s
+;RUN: opt -passes=vplan-vec -mtriple=x86_64-unknown-linux-gnu -S %s | FileCheck %s
 
 ; CHECK-LABEL: @reduc_select_icmp_ne
 ; CHECK: vector.body

@@ -3,7 +3,7 @@
 ; and all calls appropriate constructor/destructor to initialize and deallocate
 ; the memory.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR
 ;    BEGIN REGION { }

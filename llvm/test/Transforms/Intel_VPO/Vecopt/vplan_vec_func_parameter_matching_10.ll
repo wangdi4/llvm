@@ -1,4 +1,3 @@
-; RUN: opt %s -S -vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt %s -S -passes="vplan-vec" 2>&1 | FileCheck %s
 
 ; This test checks to make sure unreachable isn't executed for a call

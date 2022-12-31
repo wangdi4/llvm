@@ -1,4 +1,4 @@
-; RUN: opt -vplan-pragma-omp-ordered-simd-extract -S %s | FileCheck %s
+; RUN: opt -passes=vplan-pragma-omp-ordered-simd-extract -S %s | FileCheck %s
 
 ;void foo() {
 ;  int s, i, j, k;

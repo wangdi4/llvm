@@ -5,7 +5,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 
-;RUN: opt -vplan-vec -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
+;RUN: opt -passes=vplan-vec -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 
 
 define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {

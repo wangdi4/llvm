@@ -1,7 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -opaque-pointers -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
-; RUN: opt -opaque-pointers -S -convert-to-subscript < %s | opt -function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; RUN: opt -opaque-pointers -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
 

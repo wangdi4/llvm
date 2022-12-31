@@ -1,4 +1,4 @@
-; RUN: opt %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s
+; RUN: opt %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s
 
 ; Check that for uniform instruction that has vector type before vectorization and
 ; followed by serialized call we use either that uniform non-widened version or

@@ -1,6 +1,6 @@
 ; Test to check the functionality of target check of vectorization opt-report for LLVM-IR based vectorizer.
 ; Test should pass if remarks #15569 and 15300 apear for code with #pragma omp simd
-; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-opt-report=high -intel-ir-optreport-emitter -enable-intel-advanced-opts -mcpu=skylake-avx512 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=AVX512
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=4 -intel-opt-report=high -enable-intel-advanced-opts -mcpu=skylake-avx512 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=AVX512
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

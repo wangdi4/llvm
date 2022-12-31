@@ -12,7 +12,7 @@
 ;     s1.arr1[index] = index;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 < %s 2>&1 -disable-output | FileCheck %s
 
 ; HIR Test.
 ; CHECK: DO i1 = 0, 99, 4   <DO_LOOP>

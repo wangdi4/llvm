@@ -1,7 +1,7 @@
 ; This test verifies that we generate correct base-pointers for cases where we
 ; have to generate scatter-gathers for store/load instructions
 
-; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2  | FileCheck %s
+; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2  | FileCheck %s
 
 ; CHECK-LABEL:@foo
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>

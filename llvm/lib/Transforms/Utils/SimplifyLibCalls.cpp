@@ -3798,12 +3798,9 @@ void LibCallSimplifier::eraseFromParent(Instruction *I) {
 // Fortified Library Call Optimizations
 //===----------------------------------------------------------------------===//
 
-bool
-FortifiedLibCallSimplifier::isFortifiedCallFoldable(CallInst *CI,
-                                                    unsigned ObjSizeOp,
-                                                    Optional<unsigned> SizeOp,
-                                                    Optional<unsigned> StrOp,
-                                                    Optional<unsigned> FlagOp) {
+bool FortifiedLibCallSimplifier::isFortifiedCallFoldable(
+    CallInst *CI, unsigned ObjSizeOp, std::optional<unsigned> SizeOp,
+    std::optional<unsigned> StrOp, std::optional<unsigned> FlagOp) {
   // If this function takes a flag argument, the implementation may use it to
   // perform extra checks. Don't fold into the non-checking variant.
   if (FlagOp) {
@@ -3907,7 +3904,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
   // st[rp]cpy_chk call which may fail at runtime if the size is too long.
   // TODO: It might be nice to get a maximum length out of the possible
   // string lengths for varying.
-  if (isFortifiedCallFoldable(CI, 2, None, 1)) {
+  if (isFortifiedCallFoldable(CI, 2, std::nullopt, 1)) {
     if (Func == LibFunc_strcpy_chk)
       return copyFlags(*CI, emitStrCpy(Dst, Src, B, TLI));
     else
@@ -3938,7 +3935,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrpCpyChk(CallInst *CI,
 
 Value *FortifiedLibCallSimplifier::optimizeStrLenChk(CallInst *CI,
                                                      IRBuilderBase &B) {
-  if (isFortifiedCallFoldable(CI, 1, None, 0))
+  if (isFortifiedCallFoldable(CI, 1, std::nullopt, 0))
     return copyFlags(*CI, emitStrLen(CI->getArgOperand(0), B,
                                      CI->getModule()->getDataLayout(), TLI));
   return nullptr;
@@ -3973,7 +3970,7 @@ Value *FortifiedLibCallSimplifier::optimizeMemCCpyChk(CallInst *CI,
 
 Value *FortifiedLibCallSimplifier::optimizeSNPrintfChk(CallInst *CI,
                                                        IRBuilderBase &B) {
-  if (isFortifiedCallFoldable(CI, 3, 1, None, 2)) {
+  if (isFortifiedCallFoldable(CI, 3, 1, std::nullopt, 2)) {
     SmallVector<Value *, 8> VariadicArgs(drop_begin(CI->args(), 5));
     return copyFlags(*CI,
                      emitSNPrintf(CI->getArgOperand(0), CI->getArgOperand(1),
@@ -3985,7 +3982,7 @@ Value *FortifiedLibCallSimplifier::optimizeSNPrintfChk(CallInst *CI,
 
 Value *FortifiedLibCallSimplifier::optimizeSPrintfChk(CallInst *CI,
                                                       IRBuilderBase &B) {
-  if (isFortifiedCallFoldable(CI, 2, None, None, 1)) {
+  if (isFortifiedCallFoldable(CI, 2, std::nullopt, std::nullopt, 1)) {
     SmallVector<Value *, 8> VariadicArgs(drop_begin(CI->args(), 4));
     return copyFlags(*CI,
                      emitSPrintf(CI->getArgOperand(0), CI->getArgOperand(3),
@@ -4036,7 +4033,7 @@ Value *FortifiedLibCallSimplifier::optimizeStrLCpyChk(CallInst *CI,
 
 Value *FortifiedLibCallSimplifier::optimizeVSNPrintfChk(CallInst *CI,
                                                         IRBuilderBase &B) {
-  if (isFortifiedCallFoldable(CI, 3, 1, None, 2))
+  if (isFortifiedCallFoldable(CI, 3, 1, std::nullopt, 2))
     return copyFlags(
         *CI, emitVSNPrintf(CI->getArgOperand(0), CI->getArgOperand(1),
                            CI->getArgOperand(4), CI->getArgOperand(5), B, TLI));
@@ -4046,7 +4043,7 @@ Value *FortifiedLibCallSimplifier::optimizeVSNPrintfChk(CallInst *CI,
 
 Value *FortifiedLibCallSimplifier::optimizeVSPrintfChk(CallInst *CI,
                                                        IRBuilderBase &B) {
-  if (isFortifiedCallFoldable(CI, 2, None, None, 1))
+  if (isFortifiedCallFoldable(CI, 2, std::nullopt, std::nullopt, 1))
     return copyFlags(*CI,
                      emitVSPrintf(CI->getArgOperand(0), CI->getArgOperand(3),
                                   CI->getArgOperand(4), B, TLI));

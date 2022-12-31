@@ -2,7 +2,6 @@
 ; Test to check that DA initializes correct VectorShape for different types of IVs in loop.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

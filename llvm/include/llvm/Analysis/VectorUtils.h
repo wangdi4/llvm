@@ -35,6 +35,7 @@
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/IR/IRBuilder.h"           // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
+#include <optional>
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -98,7 +99,7 @@ struct VFParameter {
   VFParamKind ParamKind;     // Kind of Parameter.
   int LinearStepOrPos = 0;   // Step or Position of the Parameter.
 #if INTEL_CUSTOMIZATION
-  MaybeAlign Alignment = None; // Optional alignment in bytes.
+  MaybeAlign Alignment = std::nullopt; // Optional alignment in bytes.
 #endif
 
   // Comparison operator.
@@ -110,75 +111,79 @@ struct VFParameter {
 
 #if INTEL_CUSTOMIZATION
   // Create a vector parameter at the given position, with a possible alignment.
-  static VFParameter vector(unsigned Pos, MaybeAlign Alignment = None) {
+  static VFParameter vector(unsigned Pos, MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::Vector, 0, Alignment};
   }
 
   // Create a linear parameter at the given position, with the given stride,
   // with a possible alignment.
   static VFParameter linear(unsigned Pos, int Stride,
-                            MaybeAlign Alignment = None) {
+                            MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_Linear, Stride, Alignment};
   }
 
   // Create a linear ref parameter at the given position, with the given stride,
   // with a possible alignment.
   static VFParameter linearRef(unsigned Pos, int Stride,
-                               MaybeAlign Alignment = None) {
+                               MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_LinearRef, Stride, Alignment};
   }
 
-  // Create a linear uval parameter at the given position, with the given stride,
-  // with a possible alignment.
+  // Create a linear uval parameter at the given position, with the given
+  // stride, with a possible alignment.
   static VFParameter linearUVal(unsigned Pos, int Stride,
-                                MaybeAlign Alignment = None) {
+                                MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_LinearUVal, Stride, Alignment};
   }
 
   // Create a linear val parameter at the given position, with the given stride,
   // with a possible alignment.
   static VFParameter linearVal(unsigned Pos, int Stride,
-                               MaybeAlign Alignment = None) {
+                               MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_LinearVal, Stride, Alignment};
   }
 
   // Create a linear parameter at the given position, with the given variable
   // position, with a possible alignment.
   static VFParameter linearPos(unsigned Pos, int LinearPos,
-                               MaybeAlign Alignment = None) {
+                               MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_LinearPos, LinearPos, Alignment};
   }
 
   // Create a linearRef parameter at the given position, with the given variable
   // position, with a possible alignment.
   static VFParameter linearRefPos(unsigned Pos, int LinearPos,
-                                  MaybeAlign Alignment = None) {
-    return VFParameter{Pos, VFParamKind::OMP_LinearRefPos, LinearPos, Alignment};
+                                  MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearRefPos, LinearPos,
+                       Alignment};
   }
 
-  // Create a linearUVal parameter at the given position, with the given variable
-  // position, with a possible alignment.
+  // Create a linearUVal parameter at the given position, with the given
+  // variable position, with a possible alignment.
   static VFParameter linearUValPos(unsigned Pos, int LinearPos,
-                                   MaybeAlign Alignment = None) {
-    return VFParameter{Pos, VFParamKind::OMP_LinearUValPos, LinearPos, Alignment};
+                                   MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearUValPos, LinearPos,
+                       Alignment};
   }
 
   // Create a linearVal parameter at the given position, with the given variable
   // position, with a possible alignment.
   static VFParameter linearValPos(unsigned Pos, int LinearPos,
-                                  MaybeAlign Alignment = None) {
-    return VFParameter{Pos, VFParamKind::OMP_LinearValPos, LinearPos, Alignment};
+                                  MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearValPos, LinearPos,
+                       Alignment};
   }
 
   // Create a uniform parameter at the given position, with a possible
   // alignment.
-  static VFParameter uniform(unsigned Pos, MaybeAlign Alignment = None) {
+  static VFParameter uniform(unsigned Pos,
+                             MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_Uniform, 0, Alignment};
   }
 
   // Create a mask parameter at the given position.
   static VFParameter mask(unsigned Pos) {
-    return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, None};
+    return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, std::nullopt};
   }
 
   /// Is this a non-reference linear parameter? This includes linear integral
@@ -532,7 +537,8 @@ Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module &M);
 
 #if INTEL_CUSTOMIZATION
 VFInfo demangleForVFABI(StringRef MangledName);
-Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module *M = nullptr);
+Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
+                                     const Module *M = nullptr);
 #endif
 
 /// This routine mangles the given VectorName according to the LangRef
@@ -1265,7 +1271,7 @@ public:
   /// \returns false if the instruction doesn't belong to the group.
   bool insertMember(InstTy *Instr, int32_t Index, Align NewAlign) {
     // Make sure the key fits in an int32_t.
-    Optional<int32_t> MaybeKey = checkedAdd(Index, SmallestKey);
+    std::optional<int32_t> MaybeKey = checkedAdd(Index, SmallestKey);
     if (!MaybeKey)
       return false;
     int32_t Key = *MaybeKey;
@@ -1288,7 +1294,7 @@ public:
     } else if (Key < SmallestKey) {
 
       // Make sure the largest index fits in an int32_t.
-      Optional<int32_t> MaybeLargestIndex = checkedSub(LargestKey, Key);
+      std::optional<int32_t> MaybeLargestIndex = checkedSub(LargestKey, Key);
       if (!MaybeLargestIndex)
         return false;
 

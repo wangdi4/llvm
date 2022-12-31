@@ -88,6 +88,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 using namespace llvm;
 using namespace opt_tool;
 
@@ -116,6 +117,14 @@ static cl::opt<std::string> PassPipeline(
         "available before a certain pass, add 'require<foo-analysis>'."));
 static cl::alias PassPipeline2("p", cl::aliasopt(PassPipeline),
                                    cl::desc("Alias for -passes"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
+    "temporarily-allow-old-pass-syntax",
+    cl::desc("Do not use in new tests. To be removed once all tests have "
+             "migrated."),
+    cl::init(true));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> PrintPasses("print-passes",
                                  cl::desc("Print available passes that can be "
@@ -302,12 +311,12 @@ static cl::opt<bool> RemarksWithHotness(
     cl::desc("With PGO, include profile count in optimization remarks"),
     cl::Hidden);
 
-static cl::opt<Optional<uint64_t>, false, remarks::HotnessThresholdParser>
+static cl::opt<std::optional<uint64_t>, false, remarks::HotnessThresholdParser>
     RemarksHotnessThreshold(
         "pass-remarks-hotness-threshold",
         cl::desc("Minimum profile count required for "
                  "an optimization remark to be output. "
-                 "Use 'auto' to apply the threshold from profile summary."),
+                 "Use 'auto' to apply the threshold from profile summary"),
         cl::value_desc("N or 'auto'"), cl::init(0), cl::Hidden);
 
 static cl::opt<std::string>
@@ -638,9 +647,9 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> RemarksFile = std::move(*RemarksFileOrErr);
 
   // Load the input module...
-  auto SetDataLayout = [](StringRef) -> Optional<std::string> {
+  auto SetDataLayout = [](StringRef) -> std::optional<std::string> {
     if (ClDataLayout.empty())
-      return None;
+      return std::nullopt;
     return ClDataLayout;
   };
   std::unique_ptr<Module> M;
@@ -792,11 +801,13 @@ int main(int argc, char **argv) {
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
+#ifdef INTEL_CUSTOMIZATION
     if (PassPipeline.getNumOccurrences() > 0 && PassList.size() > 0) {
       errs()
           << "Cannot specify passes via both -foo-pass and --passes=foo-pass\n";
       return 1;
     }
+#endif //INTEL_CUSTOMIZATION
     auto NumOLevel = OptLevelO0 + OptLevelO1 + OptLevelO2 + OptLevelO3 +
                      OptLevelOs + OptLevelOz;
     if (NumOLevel > 1) {
@@ -804,21 +815,25 @@ int main(int argc, char **argv) {
       return 1;
     }
     if (NumOLevel > 0 &&
-        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) {
+        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) { // INTEL
       errs() << "Cannot specify -O# and --passes=/--foo-pass, use "
                 "-passes='default<O#>,other-pass'\n";
       return 1;
     }
+#ifdef INTEL_CUSTOMIZATION
     if (!PassList.empty()) {
       errs() << "The `opt -passname` syntax for the new pass manager is "
                 "deprecated, please use `opt -passes=<pipeline>` (or the `-p` "
                 "alias for a more concise version).\n";
       errs() << "See https://llvm.org/docs/NewPassManager.html#invoking-opt "
                 "for more details on the pass pipeline syntax.\n\n";
+      if (!TemporarilyAllowOldPassesSyntax)
+        return 1;
     }
+#endif // INTEL_CUSTOMIZATION
     std::string Pipeline = PassPipeline;
 
-    SmallVector<StringRef, 4> Passes;
+    SmallVector<StringRef, 4> Passes; // INTEL
     if (OptLevelO0)
       Pipeline = "default<O0>";
     if (OptLevelO1)
@@ -831,8 +846,10 @@ int main(int argc, char **argv) {
       Pipeline = "default<Os>";
     if (OptLevelOz)
       Pipeline = "default<Oz>";
+#ifdef INTEL_CUSTOMIZATION
     for (const auto &P : PassList)
       Passes.push_back(P->getPassArgument());
+#endif // INTEL_CUSTOMIZATION
     OutputKind OK = OK_NoOutput;
     if (!NoOutput)
       OK = OutputAssembly
@@ -850,7 +867,7 @@ int main(int argc, char **argv) {
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), &TLII, Out.get(),
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
-                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
+                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder, // INTEL
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify,
                            VerifyDebugInfoPreserve)

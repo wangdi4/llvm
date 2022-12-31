@@ -9,14 +9,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK:      Function info(caller1):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 4
-;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null) :: 32
+;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 4
+;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null) :: 32
 
 ;CHECK:      Function info(caller2):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null) :: 8
-;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null) :: 16
+;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null) :: 8
+;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null) :: 16
 ;CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ;CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -30,14 +30,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK:      Function info(caller1):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 4
-;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null) :: 32
+;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 4
+;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null) :: 32
 
 ;CHECK:      Function info(caller2):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null) :: 8
-;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null) :: 16
+;CHECK-NEXT:      %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr inbounds ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null) :: 8
+;CHECK-NEXT:      %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null) :: 16
 ;CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
 @.str = private constant [7 x i8] c"args.c\00"
@@ -51,9 +51,9 @@ entry:
   %arr = alloca [16 x i32]
   %0 = bitcast [16 x i32]* %arr to i8*
   %arrayidx = getelementptr [16 x i32], [16 x i32]* %arr, i64 0, i64 0
-  %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null)
+  %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr ([15 x i8], [15 x i8]* @2, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 8, i8* null)
   %2 = bitcast [16 x i32]* %arr to float*
-  %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null)
+  %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr ([16 x i8], [16 x i8]* @0, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 9, i8* null)
   %call = call i32 @callee(i32* %1, float* %3)
   ret i32 %call
 }
@@ -63,9 +63,9 @@ entry:
   %arr = alloca [16 x i32]
   %0 = bitcast [16 x i32]* %arr to i8*
   %arrayidx = getelementptr [16 x i32], [16 x i32]* %arr, i64 0, i64 0
-  %1 = call i32* @llvm.ptr.annotation.p0i32(i32* %arrayidx, i8* getelementptr ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null)
+  %1 = call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %arrayidx, i8* getelementptr ([15 x i8], [15 x i8]* @1, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 15, i8* null)
   %2 = bitcast [16 x i32]* %arr to float*
-  %3 = call float* @llvm.ptr.annotation.p0f32(float* %2, i8* getelementptr ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null)
+  %3 = call float* @llvm.ptr.annotation.p0f32.p0i8(float* %2, i8* getelementptr ([16 x i8], [16 x i8]* @3, i64 0, i64 0), i8* getelementptr ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 16, i8* null)
   %call = call i32 @callee(i32* %1, float* %3)
   ret i32 %call
 }
@@ -80,5 +80,5 @@ entry:
   ret i32 %conv1
 }
 
-declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
-declare float* @llvm.ptr.annotation.p0f32(float*, i8*, i8*, i32, i8*)
+declare i32* @llvm.ptr.annotation.p0i32.p0i8(i32*, i8*, i8*, i32, i8*)
+declare float* @llvm.ptr.annotation.p0f32.p0i8(float*, i8*, i8*, i32, i8*)

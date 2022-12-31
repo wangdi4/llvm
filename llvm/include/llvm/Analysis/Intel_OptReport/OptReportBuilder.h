@@ -399,7 +399,7 @@ template <> struct OptReportTraits<Loop> {
   }
 
   static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
-    return None;
+    return std::nullopt;
   }
 
   static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,

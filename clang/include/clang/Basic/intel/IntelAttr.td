@@ -511,7 +511,7 @@ def StaticArrayReset : Attr {
     }
   }];
 }
-def : MutualExclusions<[IntelFPGARegister, StaticArrayReset]>;
+def : MutualExclusions<[SYCLIntelRegister, StaticArrayReset]>;
 
 // IntrinsicPromotion implementation.
 // This is an AST only attribute that should never appear in customer code.

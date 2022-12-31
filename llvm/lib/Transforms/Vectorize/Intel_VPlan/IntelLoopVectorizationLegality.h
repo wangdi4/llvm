@@ -346,7 +346,7 @@ private:
 
     if (Kind == RecurKind::Udr) {
       // Check for UDR and inscan flags, that would make this UDS.
-      Optional<InscanReductionKind> InscanRedKind = None;
+      Optional<InscanReductionKind> InscanRedKind = std::nullopt;
       if (Item->getIsInscan()) {
         InscanRedKind =
             isa<InclusiveItem>(
@@ -366,7 +366,7 @@ private:
                    InscanReductionKind::Inclusive :
                    InscanReductionKind::Exclusive);
     } else
-      addReduction(Val, Kind, None);
+      addReduction(Val, Kind, std::nullopt);
     return true;
   }
 

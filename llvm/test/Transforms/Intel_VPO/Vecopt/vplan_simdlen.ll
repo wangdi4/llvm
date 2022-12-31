@@ -1,4 +1,3 @@
-; RUN: opt %s -S -vpo-cfg-restructuring -vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt %s -S -passes="vpo-cfg-restructuring,vplan-vec" 2>&1 | FileCheck %s
 ; Verify that VPlan understands simdlen directive information.
 

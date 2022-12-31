@@ -2,7 +2,6 @@
 ; Test to check that DA ignores integer overflow clamping pattern, and propagates shape of operand being checked for overflow.
 
 ; REQUIRES: asserts
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -vplan-vec -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-vec" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 
 

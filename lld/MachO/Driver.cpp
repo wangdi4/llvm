@@ -782,9 +782,9 @@ getUndefinedSymbolTreatment(const ArgList &args) {
              (treatment == UndefinedSymbolTreatment::warning ||
               treatment == UndefinedSymbolTreatment::suppress)) {
     if (treatment == UndefinedSymbolTreatment::warning)
-      error("'-undefined warning' only valid with '-flat_namespace'");
+      fatal("'-undefined warning' only valid with '-flat_namespace'");
     else
-      error("'-undefined suppress' only valid with '-flat_namespace'");
+      fatal("'-undefined suppress' only valid with '-flat_namespace'");
     treatment = UndefinedSymbolTreatment::error;
   }
   return treatment;
@@ -951,6 +951,15 @@ PlatformType macho::removeSimulator(PlatformType platform) {
 static bool supportsNoPie() {
   return !(config->arch() == AK_arm64 || config->arch() == AK_arm64e ||
            config->arch() == AK_arm64_32);
+}
+
+static bool shouldAdhocSignByDefault(Architecture arch, PlatformType platform) {
+  if (arch != AK_arm64 && arch != AK_arm64e)
+    return false;
+
+  return platform == PLATFORM_MACOS || platform == PLATFORM_IOSSIMULATOR ||
+         platform == PLATFORM_TVOSSIMULATOR ||
+         platform == PLATFORM_WATCHOSSIMULATOR;
 }
 
 static bool dataConstDefault(const InputArgList &args) {
@@ -1757,8 +1766,7 @@ bool macho::link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
 
   config->adhocCodesign = args.hasFlag(
       OPT_adhoc_codesign, OPT_no_adhoc_codesign,
-      (config->arch() == AK_arm64 || config->arch() == AK_arm64e) &&
-          config->platform() == PLATFORM_MACOS);
+      shouldAdhocSignByDefault(config->arch(), config->platform()));
 
   if (args.hasArg(OPT_v)) {
     message(getLLDVersion(), lld::errs());

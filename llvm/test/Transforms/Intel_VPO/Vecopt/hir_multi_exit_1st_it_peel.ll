@@ -1,4 +1,3 @@
-; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -vplan-force-vf=16 -hir-vplan-vec -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -allow-memory-speculation -vplan-force-vf=16 -disable-output < %s 2>&1 | FileCheck %s
 
 

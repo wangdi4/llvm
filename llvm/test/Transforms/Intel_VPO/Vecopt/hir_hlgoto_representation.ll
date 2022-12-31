@@ -1,6 +1,3 @@
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -allow-memory-speculation \
-; RUN:     -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     < %s -S -allow-memory-speculation -debug -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
 ;

@@ -1,4 +1,3 @@
-; RUN: opt %s -S -enable-new-pm=0 -vplan-vec -vplan-entities-dump -vplan-print-after-live-inout-list | FileCheck %s
 ; RUN: opt %s -S -passes='vplan-vec' -vplan-entities-dump -vplan-print-after-live-inout-list | FileCheck %s
 
 define void @_ZGVeN32u__ZTSZ4mainEUlN4sycl3_V17nd_itemILi3EEEE_(i32 addrspace(1)* align 4 %_arg_result_device) {

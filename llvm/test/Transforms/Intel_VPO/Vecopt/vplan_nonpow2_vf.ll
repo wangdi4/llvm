@@ -1,6 +1,4 @@
-; RUN: opt -disable-output %s -vplan-vec -vplan-enable-non-masked-vectorized-remainder -print-after=vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt -disable-output %s -passes="vplan-vec" -vplan-enable-non-masked-vectorized-remainder -print-after=vplan-vec 2>&1 | FileCheck %s
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-non-masked-vectorized-remainder -print-after=hir-vplan-vec 2>&1 | FileCheck %s -check-prefixes=HIR
 ; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-enable-non-masked-vectorized-remainder -print-after=hir-vplan-vec 2>&1 | FileCheck %s --check-prefixes=HIR
 ;
 ; Test to check that we don't crash on odd forced VF with simd directive.

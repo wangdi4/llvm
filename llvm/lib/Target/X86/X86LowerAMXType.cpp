@@ -403,8 +403,8 @@ void X86LowerAMXType::combineLoadBitcast(LoadInst *LD, BitCastInst *Bitcast) {
       Builder.CreateBitCast(LD->getOperand(0), Builder.getInt8PtrTy());
   std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
 
-  Value *NewInst =
-      Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
+                                           std::nullopt, Args);
   Bitcast->replaceAllUsesWith(NewInst);
 }
 
@@ -430,7 +430,8 @@ void X86LowerAMXType::combineBitcastStore(BitCastInst *Bitcast, StoreInst *ST) {
   Value *I8Ptr =
       Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
-  Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+  Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
+                          Args);
   if (Bitcast->hasOneUse())
     return;
   // %13 = bitcast x86_amx %src to <256 x i32>
@@ -480,7 +481,7 @@ bool X86LowerAMXType::transformBitcast(BitCastInst *Bitcast) {
     std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
     std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
     Value *NewInst = Builder.CreateIntrinsic(
-        Intrinsic::x86_tileloadd64_internal, None, Args);
+        Intrinsic::x86_tileloadd64_internal, std::nullopt, Args);
     Bitcast->replaceAllUsesWith(NewInst);
   } else {
     // %2 = bitcast x86_amx %src to <256 x i32>
@@ -497,7 +498,8 @@ bool X86LowerAMXType::transformBitcast(BitCastInst *Bitcast) {
     Value *Row = II->getOperand(0);
     Value *Col = II->getOperand(1);
     std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Src};
-    Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+    Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
+                            Args);
     Value *NewInst = Builder.CreateLoad(Bitcast->getType(), AllocaAddr);
     Bitcast->replaceAllUsesWith(NewInst);
   }
@@ -629,8 +631,8 @@ static Instruction *createTileStore(Instruction *TileDef, Value *Ptr) {
   Value *Stride = Builder.getInt64(64);
   std::array<Value *, 5> Args = {Row, Col, Ptr, Stride, TileDef};
 
-  Instruction *TileStore =
-      Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+  Instruction *TileStore = Builder.CreateIntrinsic(
+      Intrinsic::x86_tilestored64_internal, std::nullopt, Args);
   return TileStore;
 }
 
@@ -654,8 +656,8 @@ static void replaceWithTileLoad(Use &U, Value *Ptr, bool IsPHI = false) {
   Value *Stride = Builder.getInt64(64);
   std::array<Value *, 4> Args = {Row, Col, Ptr, Stride};
 
-  Value *TileLoad =
-      Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal, None, Args);
+  Value *TileLoad = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
+                                            std::nullopt, Args);
   UserI->replaceUsesOfWith(V, TileLoad);
 }
 
@@ -952,7 +954,7 @@ bool X86LowerAMXCast::optimizeAMXCastFromPhi(
         auto *Block = OldPN->getIncomingBlock(I);
         BasicBlock::iterator Iter = Block->getTerminator()->getIterator();
         Instruction *NewInst = Builder.CreateIntrinsic(
-            Intrinsic::x86_tilezero_internal, None, {Row, Col});
+            Intrinsic::x86_tilezero_internal, std::nullopt, {Row, Col});
         NewInst->moveBefore(&*Iter);
         NewInst = Builder.CreateIntrinsic(Intrinsic::x86_cast_tile_to_vector,
                                           {IncValue->getType()}, {NewInst});
@@ -1097,7 +1099,8 @@ void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   Value *I8Ptr =
       Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
-  Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+  Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
+                          Args);
 }
 
 // %65 = load <256 x i32>, <256 x i32>* %p, align 64
@@ -1140,8 +1143,8 @@ bool X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
   }
   std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
 
-  Value *NewInst =
-      Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal, None, Args);
+  Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
+                                           std::nullopt, Args);
   Cast->replaceAllUsesWith(NewInst);
 
   return EraseLoad;
@@ -1319,7 +1322,7 @@ bool X86LowerAMXCast::transformAMXCast(IntrinsicInst *AMXCast) {
     std::array<Value *, 4> Args = {
         Row, Col, I8Ptr, Builder.CreateSExt(Col, Builder.getInt64Ty())};
     Value *NewInst = Builder.CreateIntrinsic(
-        Intrinsic::x86_tileloadd64_internal, None, Args);
+        Intrinsic::x86_tileloadd64_internal, std::nullopt, Args);
     AMXCast->replaceAllUsesWith(NewInst);
     AMXCast->eraseFromParent();
   } else {
@@ -1338,7 +1341,8 @@ bool X86LowerAMXCast::transformAMXCast(IntrinsicInst *AMXCast) {
     Value *Col = II->getOperand(1);
     std::array<Value *, 5> Args = {
         Row, Col, I8Ptr, Builder.CreateSExt(Col, Builder.getInt64Ty()), Src};
-    Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, None, Args);
+    Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
+                            Args);
     Value *NewInst = Builder.CreateLoad(AMXCast->getType(), AllocaAddr);
     AMXCast->replaceAllUsesWith(NewInst);
     AMXCast->eraseFromParent();

@@ -139,7 +139,7 @@ static void parseCodeGenArgs(Fortran::frontend::CodeGenOptions &opts,
                   .Case("ropi", llvm::Reloc::ROPI)
                   .Case("rwpi", llvm::Reloc::RWPI)
                   .Case("ropi-rwpi", llvm::Reloc::ROPI_RWPI)
-                  .Default(llvm::None);
+                  .Default(std::nullopt);
     if (RM.has_value())
       opts.setRelocationModel(*RM);
     else
@@ -171,6 +171,14 @@ static void parseTargetArgs(TargetOptions &opts, llvm::opt::ArgList &args) {
   if (const llvm::opt::Arg *a =
           args.getLastArg(clang::driver::options::OPT_triple))
     opts.triple = a->getValue();
+
+  if (const llvm::opt::Arg *a =
+          args.getLastArg(clang::driver::options::OPT_target_cpu))
+    opts.cpu = a->getValue();
+
+  for (const llvm::opt::Arg *currentArg :
+       args.filtered(clang::driver::options::OPT_target_feature))
+    opts.featuresAsWritten.emplace_back(currentArg->getValue());
 }
 
 // Tweak the frontend configuration based on the frontend action
@@ -696,34 +704,38 @@ static bool parseFloatingPointArgs(CompilerInvocation &invoc,
     opts.setFPContractMode(fpContractMode);
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_menable_no_infinities)) {
+  if (args.getLastArg(clang::driver::options::OPT_menable_no_infinities)) {
     opts.NoHonorInfs = true;
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_menable_no_nans)) {
+  if (args.getLastArg(clang::driver::options::OPT_menable_no_nans)) {
     opts.NoHonorNaNs = true;
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_fapprox_func)) {
+  if (args.getLastArg(clang::driver::options::OPT_fapprox_func)) {
     opts.ApproxFunc = true;
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_fno_signed_zeros)) {
+  if (args.getLastArg(clang::driver::options::OPT_fno_signed_zeros)) {
     opts.NoSignedZeros = true;
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_mreassociate)) {
+  if (args.getLastArg(clang::driver::options::OPT_mreassociate)) {
     opts.AssociativeMath = true;
   }
 
-  if (const llvm::opt::Arg *a =
-          args.getLastArg(clang::driver::options::OPT_freciprocal_math)) {
+  if (args.getLastArg(clang::driver::options::OPT_freciprocal_math)) {
     opts.ReciprocalMath = true;
+  }
+
+  if (args.getLastArg(clang::driver::options::OPT_ffast_math)) {
+    opts.NoHonorInfs = true;
+    opts.NoHonorNaNs = true;
+    opts.AssociativeMath = true;
+    opts.ReciprocalMath = true;
+    opts.ApproxFunc = true;
+    opts.NoSignedZeros = true;
+    opts.setFPContractMode(LangOptions::FPM_Fast);
   }
 
   return true;

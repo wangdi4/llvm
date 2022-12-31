@@ -1,16 +1,10 @@
 ; Test to verify that structptreq search loop idiom is recognized on this loop, and correct vector code with peel loop and alignment is generated.
 
 ; Check if search loop was recognized
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation  -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
 
 
 ; Check final vectorized codegen
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
-
-
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec"\
 ; RUN:     -print-after=hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
@@ -79,11 +73,9 @@
 ; CG-CHECK-NEXT:     END REGION
 
 ; Check that VF=16 is used for targets with 2K or higher DSB size (icelake-server and alderlake).
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
+; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -mcpu=alderlake < %s 2>&1 | FileCheck --check-prefix=VF16-CHECK %s
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
+; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -mcpu=icelake-server < %s 2>&1 | FileCheck --check-prefix=VF16-CHECK %s
 ; VF16-CHECK:           BEGIN REGION { modified }
 ; VF16-CHECK:                 + DO i1 = 0, 16 * %tgu + -1, 16   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <nounroll> <novectorize>

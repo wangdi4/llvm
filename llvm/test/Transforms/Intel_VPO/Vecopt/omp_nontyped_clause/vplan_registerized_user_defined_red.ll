@@ -14,9 +14,7 @@
 ; }
 
 ; XFAIL: *
-; RUN: opt -disable-output -vplan-vec -debug-only=LoopVectorizationPlanner  < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes="vplan-vec" -debug-only=LoopVectorizationPlanner  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 

@@ -1,7 +1,7 @@
 ; Check if vector codegen copies operator-related attributes to generated
 ; vector code.
 
-; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s
+; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s
 
 declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind

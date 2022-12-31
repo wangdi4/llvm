@@ -1289,7 +1289,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   BranchInst *RegionBranch = BranchInst::Create(
       RegionEntry, EntrySecondHalf,
       ConstantInt::get(IntegerType::get(F.getContext(), 1), 1));
-  ReplaceInstWithInst(Term->getParent()->getInstList(), It, RegionBranch);
+  ReplaceInstWithInst(Term->getParent(), It, RegionBranch);
 }
 
 Value *CGVisitor::visitRegion(HLRegion *Reg) {

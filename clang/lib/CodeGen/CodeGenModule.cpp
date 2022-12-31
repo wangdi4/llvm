@@ -96,6 +96,8 @@
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
+#include <optional>
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -149,9 +151,10 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   BFloatTy = llvm::Type::getBFloatTy(LLVMContext);
   FloatTy = llvm::Type::getFloatTy(LLVMContext);
   DoubleTy = llvm::Type::getDoubleTy(LLVMContext);
-  PointerWidthInBits = C.getTargetInfo().getPointerWidth(0);
+  PointerWidthInBits = C.getTargetInfo().getPointerWidth(LangAS::Default);
   PointerAlignInBytes =
-    C.toCharUnitsFromBits(C.getTargetInfo().getPointerAlign(0)).getQuantity();
+      C.toCharUnitsFromBits(C.getTargetInfo().getPointerAlign(LangAS::Default))
+          .getQuantity();
   SizeSizeInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
   IntAlignInBytes =
@@ -166,10 +169,10 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   const llvm::DataLayout &DL = M.getDataLayout();
   AllocaInt8PtrTy = Int8Ty->getPointerTo(DL.getAllocaAddrSpace());
   GlobalsInt8PtrTy = Int8Ty->getPointerTo(DL.getDefaultGlobalsAddressSpace());
-#if INTEL_COLLAB
-  TargetInt8PtrTy =
+  DefaultInt8PtrTy =
       Int8Ty->getPointerTo(getContext().getTargetAddressSpace(LangAS::Default));
-#endif // INTEL_COLLAB
+  ConstGlobalsPtrTy = Int8Ty->getPointerTo(
+      C.getTargetAddressSpace(GetGlobalConstantAddressSpace()));
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
 
   // Build C++20 Module initializers.
@@ -619,6 +622,14 @@ void CodeGenModule::Release() {
   applyGlobalValReplacements();
   applyReplacements();
   emitMultiVersionFunctions();
+
+  if (Context.getLangOpts().IncrementalExtensions &&
+      GlobalTopLevelStmtBlockInFlight.first) {
+    const TopLevelStmtDecl *TLSD = GlobalTopLevelStmtBlockInFlight.second;
+    GlobalTopLevelStmtBlockInFlight.first->FinishFunction(TLSD->getEndLoc());
+    GlobalTopLevelStmtBlockInFlight = {nullptr, nullptr};
+  }
+
   if (CXX20ModuleInits && Primary && Primary->isInterfaceOrPartition())
     EmitCXXModuleInitFunc(Primary);
   else
@@ -1916,7 +1927,7 @@ void CodeGenModule::EmitCtorList(CtorList &Fns, const char *GlobalName) {
 
   // The LTO linker doesn't seem to like it when we set an alignment
   // on appending variables.  Take it off as a workaround.
-  list->setAlignment(llvm::None);
+  list->setAlignment(std::nullopt);
 
   Fns.clear();
 }
@@ -3561,9 +3572,10 @@ llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
 
   // Not found yet, create a new global.
   llvm::Constant *s = llvm::ConstantDataArray::getString(getLLVMContext(), Str);
-  auto *gv =
-      new llvm::GlobalVariable(getModule(), s->getType(), true,
-                               llvm::GlobalValue::PrivateLinkage, s, ".str");
+  auto *gv = new llvm::GlobalVariable(
+      getModule(), s->getType(), true, llvm::GlobalValue::PrivateLinkage, s,
+      ".str", nullptr, llvm::GlobalValue::NotThreadLocal,
+      ConstGlobalsPtrTy->getAddressSpace());
   gv->setSection(AnnotationSection);
   gv->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
   AStr = gv;
@@ -3589,7 +3601,7 @@ llvm::Constant *CodeGenModule::EmitAnnotationLineNo(SourceLocation L) {
 llvm::Constant *CodeGenModule::EmitAnnotationArgs(const AnnotateAttr *Attr) {
   ArrayRef<Expr *> Exprs = {Attr->args_begin(), Attr->args_size()};
   if (Exprs.empty())
-    return llvm::ConstantPointerNull::get(GlobalsInt8PtrTy);
+    return llvm::ConstantPointerNull::get(ConstGlobalsPtrTy);
 
   llvm::FoldingSetNodeID ID;
   for (Expr *E : Exprs) {
@@ -3639,8 +3651,8 @@ llvm::Constant *CodeGenModule::EmitAnnotateAttr(llvm::GlobalValue *GV,
   // Create the ConstantStruct for the global annotation.
   llvm::Constant *Fields[] = {
       llvm::ConstantExpr::getBitCast(GVInGlobalsAS, GlobalsInt8PtrTy),
-      llvm::ConstantExpr::getBitCast(AnnoGV, GlobalsInt8PtrTy),
-      llvm::ConstantExpr::getBitCast(UnitGV, GlobalsInt8PtrTy),
+      llvm::ConstantExpr::getBitCast(AnnoGV, ConstGlobalsPtrTy),
+      llvm::ConstantExpr::getBitCast(UnitGV, ConstGlobalsPtrTy),
       LineNoCst,
       Args,
   };
@@ -3661,7 +3673,7 @@ llvm::Constant *CodeGenModule::EmitSYCLAnnotationArgs(
       AnnotationNameValPairs =
           Attr->getFilteredAttributeNameValuePairs(getContext());
   if (AnnotationNameValPairs.empty())
-    return llvm::ConstantPointerNull::get(GlobalsInt8PtrTy);
+    return llvm::ConstantPointerNull::get(ConstGlobalsPtrTy);
 
   // For each name-value pair of the SYCL annotation attribute, create an
   // annotation string for it. This will be the annotation arguments. If the
@@ -3673,7 +3685,7 @@ llvm::Constant *CodeGenModule::EmitSYCLAnnotationArgs(
        AnnotationNameValPairs) {
     llvm::Constant *NameStrC = EmitAnnotationString(NVP.first);
     llvm::Constant *ValueStrC =
-        NVP.second == "" ? llvm::ConstantPointerNull::get(GlobalsInt8PtrTy)
+        NVP.second == "" ? llvm::ConstantPointerNull::get(ConstGlobalsPtrTy)
                          : EmitAnnotationString(NVP.second);
     LLVMArgs.push_back(NameStrC);
     LLVMArgs.push_back(ValueStrC);
@@ -3691,12 +3703,13 @@ llvm::Constant *CodeGenModule::EmitSYCLAnnotationArgs(
   // arguments in the order they were added above. This is the final constant
   // used as the annotation value.
   auto *Struct = llvm::ConstantStruct::getAnon(LLVMArgs);
-  auto *GV = new llvm::GlobalVariable(getModule(), Struct->getType(), true,
-                                      llvm::GlobalValue::PrivateLinkage, Struct,
-                                      ".args");
+  auto *GV = new llvm::GlobalVariable(
+      getModule(), Struct->getType(), true, llvm::GlobalValue::PrivateLinkage,
+      Struct, ".args", nullptr, llvm::GlobalValue::NotThreadLocal,
+      ConstGlobalsPtrTy->getAddressSpace());
   GV->setSection(AnnotationSection);
   GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-  auto *Bitcasted = llvm::ConstantExpr::getBitCast(GV, GlobalsInt8PtrTy);
+  auto *Bitcasted = llvm::ConstantExpr::getBitCast(GV, ConstGlobalsPtrTy);
 
   // Set the look-up reference to the final annotation value for future
   // annotations to reuse.
@@ -4029,7 +4042,7 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   // See if there is already something with the target's name in the module.
   llvm::GlobalValue *Entry = GetGlobalValue(AA->getAliasee());
   if (Entry) {
-    unsigned AS = getContext().getTargetAddressSpace(VD->getType());
+    unsigned AS = getTypes().getTargetAddressSpace(VD->getType());
     auto Ptr = llvm::ConstantExpr::getBitCast(Entry, DeclTy->getPointerTo(AS));
     return ConstantAddress(Ptr, DeclTy, Alignment);
   }
@@ -4664,7 +4677,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 #endif // INTEL_CUSTOMIZATION
     ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(DeclTy,
-                               Context.getTargetAddressSpace(FD->getType())),
+                               getTypes().getTargetAddressSpace(FD->getType())),
         false);
   }
   else {
@@ -4841,8 +4854,8 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(GlobalDecl GD) {
         (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
 #endif // INTEL_CUSTOMIZATION
     llvm::Type *ResolverType = llvm::FunctionType::get(
-        llvm::PointerType::get(
-            DeclTy, getContext().getTargetAddressSpace(FD->getType())),
+        llvm::PointerType::get(DeclTy,
+                               getTypes().getTargetAddressSpace(FD->getType())),
         false);
     llvm::Constant *Resolver = GetOrCreateLLVMFunction(
         MangledName + ".resolver", ResolverType, GlobalDecl{},
@@ -5556,9 +5569,10 @@ llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
 #if INTEL_COLLAB
   if (!getLangOpts().SYCLIsDevice) {
     unsigned GlobalsAS = getDataLayout().getDefaultGlobalsAddressSpace();
-    Optional<unsigned> AS = GlobalsAS ? GlobalsAS
-                                      : getContext().getTargetAddressSpace(
-                                            GetGlobalConstantAddressSpace());
+    std::optional<unsigned> AS = GlobalsAS
+                                     ? GlobalsAS
+                                     : getContext().getTargetAddressSpace(
+                                           GetGlobalConstantAddressSpace());
     GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true, Linkage,
                                   nullptr, Name, nullptr,
                                   llvm::GlobalValue::NotThreadLocal, AS);
@@ -5907,15 +5921,15 @@ void CodeGenModule::addGlobalHLSAnnotation(const VarDecl *VD,
                    *LineNoCst = EmitAnnotationLineNo(VD->getLocation());
 
     llvm::Constant *C;
-    if (getContext().getTargetAddressSpace(VD->getType()) != 0)
+    if (getTypes().getTargetAddressSpace(VD->getType()) != 0)
       C = llvm::ConstantExpr::getAddrSpaceCast(GV, Int8PtrTy);
     else
       C = llvm::ConstantExpr::getBitCast(GV, Int8PtrTy);
 
     // Create the ConstantStruct for the global annotation.
     llvm::Constant *Fields[4] = {
-        C, llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
-        llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst};
+        C, llvm::ConstantExpr::getBitCast(AnnoGV, ConstGlobalsPtrTy),
+        llvm::ConstantExpr::getBitCast(UnitGV, ConstGlobalsPtrTy), LineNoCst};
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }
 }
@@ -5934,17 +5948,17 @@ void CodeGenModule::setAspectsEnumDecl(const EnumDecl *ED) {
 void CodeGenModule::generateIntelFPGAAnnotation(
     const Decl *D, llvm::SmallString<256> &AnnotStr) {
   llvm::raw_svector_ostream Out(AnnotStr);
-  if (D->hasAttr<IntelFPGARegisterAttr>())
+  if (D->hasAttr<SYCLIntelRegisterAttr>())
     Out << "{register:1}";
-  if (auto const *MA = D->getAttr<IntelFPGAMemoryAttr>()) {
-    IntelFPGAMemoryAttr::MemoryKind Kind = MA->getKind();
+  if (auto const *MA = D->getAttr<SYCLIntelMemoryAttr>()) {
+    SYCLIntelMemoryAttr::MemoryKind Kind = MA->getKind();
     Out << "{memory:";
     switch (Kind) {
-    case IntelFPGAMemoryAttr::MLAB:
-    case IntelFPGAMemoryAttr::BlockRAM:
-      Out << IntelFPGAMemoryAttr::ConvertMemoryKindToStr(Kind);
+    case SYCLIntelMemoryAttr::MLAB:
+    case SYCLIntelMemoryAttr::BlockRAM:
+      Out << SYCLIntelMemoryAttr::ConvertMemoryKindToStr(Kind);
       break;
-    case IntelFPGAMemoryAttr::Default:
+    case SYCLIntelMemoryAttr::Default:
       Out << "DEFAULT";
       break;
     }
@@ -5968,25 +5982,25 @@ void CodeGenModule::generateIntelFPGAAnnotation(
       Out << '}';
     }
   }
-  if (D->hasAttr<IntelFPGASinglePumpAttr>())
+  if (D->hasAttr<SYCLIntelSinglePumpAttr>())
     Out << "{pump:1}";
-  if (D->hasAttr<IntelFPGADoublePumpAttr>())
+  if (D->hasAttr<SYCLIntelDoublePumpAttr>())
     Out << "{pump:2}";
-  if (const auto *BWA = D->getAttr<IntelFPGABankWidthAttr>()) {
+  if (const auto *BWA = D->getAttr<SYCLIntelBankWidthAttr>()) {
     llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *PCA = D->getAttr<IntelFPGAPrivateCopiesAttr>()) {
+  if (const auto *PCA = D->getAttr<SYCLIntelPrivateCopiesAttr>()) {
     llvm::APSInt PCAInt = PCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << PCA->getSpelling() << ':' << PCAInt << '}';
   }
-  if (const auto *NBA = D->getAttr<IntelFPGANumBanksAttr>()) {
+  if (const auto *NBA = D->getAttr<SYCLIntelNumBanksAttr>()) {
     llvm::APSInt NBAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NBA->getSpelling() << ':' << NBAInt << '}';
   }
-  if (const auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
+  if (const auto *BBA = D->getAttr<SYCLIntelBankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
-    for (IntelFPGABankBitsAttr::args_iterator I = BBA->args_begin(),
+    for (SYCLIntelBankBitsAttr::args_iterator I = BBA->args_begin(),
                                               E = BBA->args_end();
          I != E; ++I) {
       if (I != BBA->args_begin())
@@ -5996,17 +6010,17 @@ void CodeGenModule::generateIntelFPGAAnnotation(
     }
     Out << '}';
   }
-  if (const auto *MRA = D->getAttr<IntelFPGAMaxReplicatesAttr>()) {
+  if (const auto *MRA = D->getAttr<SYCLIntelMaxReplicatesAttr>()) {
     llvm::APSInt MRAInt = MRA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MRA->getSpelling() << ':' << MRAInt << '}';
   }
-  if (const auto *MA = D->getAttr<IntelFPGAMergeAttr>()) {
+  if (const auto *MA = D->getAttr<SYCLIntelMergeAttr>()) {
     Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
         << MA->getDirection() << '}';
   }
-  if (D->hasAttr<IntelFPGASimpleDualPortAttr>())
+  if (D->hasAttr<SYCLIntelSimpleDualPortAttr>())
     Out << "{simple_dual_port:1}";
-  if (const auto *FP2D = D->getAttr<IntelFPGAForcePow2DepthAttr>()) {
+  if (const auto *FP2D = D->getAttr<SYCLIntelForcePow2DepthAttr>()) {
     llvm::APSInt FP2DInt =
         FP2D->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << FP2D->getSpelling() << ':' << FP2DInt << '}';
@@ -6031,9 +6045,9 @@ void CodeGenModule::addGlobalIntelFPGAAnnotation(const VarDecl *VD,
     // Create the ConstantStruct for the global annotation.
     llvm::Constant *Fields[5] = {
         llvm::ConstantExpr::getBitCast(ASZeroGV, Int8PtrTy),
-        llvm::ConstantExpr::getBitCast(AnnoGV, Int8PtrTy),
-        llvm::ConstantExpr::getBitCast(UnitGV, Int8PtrTy), LineNoCst,
-        llvm::ConstantPointerNull::get(Int8PtrTy)};
+        llvm::ConstantExpr::getBitCast(AnnoGV, ConstGlobalsPtrTy),
+        llvm::ConstantExpr::getBitCast(UnitGV, ConstGlobalsPtrTy), LineNoCst,
+        llvm::ConstantPointerNull::get(ConstGlobalsPtrTy)};
     Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
   }
 }
@@ -7602,6 +7616,39 @@ void CodeGenModule::EmitLinkageSpec(const LinkageSpecDecl *LSD) {
   EmitDeclContext(LSD);
 }
 
+void CodeGenModule::EmitTopLevelStmt(const TopLevelStmtDecl *D) {
+  std::unique_ptr<CodeGenFunction> &CurCGF =
+      GlobalTopLevelStmtBlockInFlight.first;
+
+  // We emitted a top-level stmt but after it there is initialization.
+  // Stop squashing the top-level stmts into a single function.
+  if (CurCGF && CXXGlobalInits.back() != CurCGF->CurFn) {
+    CurCGF->FinishFunction(D->getEndLoc());
+    CurCGF = nullptr;
+  }
+
+  if (!CurCGF) {
+    // void __stmts__N(void)
+    // FIXME: Ask the ABI name mangler to pick a name.
+    std::string Name = "__stmts__" + llvm::utostr(CXXGlobalInits.size());
+    FunctionArgList Args;
+    QualType RetTy = getContext().VoidTy;
+    const CGFunctionInfo &FnInfo =
+        getTypes().arrangeBuiltinFunctionDeclaration(RetTy, Args);
+    llvm::FunctionType *FnTy = getTypes().GetFunctionType(FnInfo);
+    llvm::Function *Fn = llvm::Function::Create(
+        FnTy, llvm::GlobalValue::InternalLinkage, Name, &getModule());
+
+    CurCGF.reset(new CodeGenFunction(*this));
+    GlobalTopLevelStmtBlockInFlight.second = D;
+    CurCGF->StartFunction(GlobalDecl(), RetTy, Fn, FnInfo, Args,
+                          D->getBeginLoc(), D->getBeginLoc());
+    CXXGlobalInits.push_back(Fn);
+  }
+
+  CurCGF->EmitStmt(D->getStmt());
+}
+
 void CodeGenModule::EmitDeclContext(const DeclContext *DC) {
   for (auto *I : DC->decls()) {
     // Unlike other DeclContexts, the contents of an ObjCImplDecl at TU scope
@@ -7810,6 +7857,10 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     getModule().appendModuleInlineAsm(AD->getAsmString()->getString());
     break;
   }
+
+  case Decl::TopLevelStmt:
+    EmitTopLevelStmt(cast<TopLevelStmtDecl>(D));
+    break;
 
   case Decl::Import: {
     auto *Import = cast<ImportDecl>(D);
@@ -8309,7 +8360,7 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
        getTriple().isNVPTX()))
 #if INTEL_COLLAB
-    return llvm::Constant::getNullValue(TargetInt8PtrTy);
+    return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     return llvm::Constant::getNullValue(Int8PtrTy);
 #endif // INTEL_COLLAB

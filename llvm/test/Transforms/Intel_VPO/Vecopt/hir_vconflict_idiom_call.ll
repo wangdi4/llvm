@@ -4,7 +4,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-vec-dir-insert -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert -hir-cost-model-throttling=0 -debug-only=parvec-analysis -aa-pipeline=tbaa < %s 2>&1 | FileCheck %s
 declare void @foo(float * ) #1
 
 ;<0>          BEGIN REGION { }

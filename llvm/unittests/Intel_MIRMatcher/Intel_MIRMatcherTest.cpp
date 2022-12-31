@@ -62,8 +62,8 @@ bool initTargetMachine() {
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
   if (! TheTarget) return false;
 
-  TM = static_cast<LLVMTargetMachine*>(
-      TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), None,
+  TM = static_cast<LLVMTargetMachine *>(
+      TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), std::nullopt,
                                      CodeModel::Large, CodeGenOpt::Default));
   if (! TM) return false;
 

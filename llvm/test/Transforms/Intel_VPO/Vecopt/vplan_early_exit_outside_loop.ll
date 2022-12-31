@@ -1,4 +1,4 @@
-; RUN: opt -S < %s -vplan-vec -vpo-vplan-build-stress-test
+; RUN: opt -S < %s -passes=vplan-vec -vpo-vplan-build-stress-test
 
 ; This test is used to check mergeLoopExits handling of early exit blocks falling outside
 ; of a loopnest. Here, mergeLoopExits re-wires the CFG to add a cascaded if block with

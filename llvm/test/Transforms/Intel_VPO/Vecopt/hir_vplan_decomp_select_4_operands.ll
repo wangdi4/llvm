@@ -10,7 +10,6 @@
 ; + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 

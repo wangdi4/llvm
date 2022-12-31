@@ -4,7 +4,6 @@
 ; necessarily defined in the predecessor VPBB, but the value rather flows in
 ; from another predecessor in the control flow.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR

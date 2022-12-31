@@ -317,7 +317,7 @@ public:
     bool IsSwiftAsync : 1;
     bool IsSwiftError : 1;
     bool IsCFGuardTarget : 1;
-    MaybeAlign Alignment = None;
+    MaybeAlign Alignment = std::nullopt;
     Type *IndirectType = nullptr;
 
     ArgListEntry()
@@ -847,6 +847,9 @@ public:
     return true;
   }
 
+  // Return true if the target wants to transform Op(Splat(X)) -> Splat(Op(X))
+  virtual bool preferScalarizeSplat(unsigned Opc) const { return true; }
+
   /// Return true if the target wants to use the optimization that
   /// turns ext(promotableInst1(...(promotableInstN(load)))) into
   /// promotedInst1(...(promotedInstN(ext(load)))).
@@ -1096,9 +1099,9 @@ public:
     // value representing memory location
     PointerUnion<const Value *, const PseudoSourceValue *> ptrVal;
 
-    // Fallback address space for use if ptrVal is nullptr. None means unknown
-    // address space.
-    Optional<unsigned> fallbackAddressSpace;
+    // Fallback address space for use if ptrVal is nullptr. std::nullopt means
+    // unknown address space.
+    std::optional<unsigned> fallbackAddressSpace;
 
     int          offset = 0;       // offset off of ptrVal
     uint64_t     size = 0;         // the size of the memory location
@@ -1634,7 +1637,7 @@ public:
   /// instance with i128 inline assembly operands on SystemZ.
   virtual unsigned
   getNumRegisters(LLVMContext &Context, EVT VT,
-                  Optional<MVT> RegisterVT = None) const {
+                  std::optional<MVT> RegisterVT = std::nullopt) const {
 #if INTEL_CUSTOMIZATION
     // For non-power of 2 vector let target decide whether to use
     // getVectorTypeBreakdown or not.
@@ -4158,10 +4161,9 @@ public:
 
   /// Target-specific splitting of values into parts that fit a register
   /// storing a legal type
-  virtual bool splitValueIntoRegisterParts(SelectionDAG &DAG, const SDLoc &DL,
-                                           SDValue Val, SDValue *Parts,
-                                           unsigned NumParts, MVT PartVT,
-                                           Optional<CallingConv::ID> CC) const {
+  virtual bool splitValueIntoRegisterParts(
+      SelectionDAG & DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
+      unsigned NumParts, MVT PartVT, std::optional<CallingConv::ID> CC) const {
     return false;
   }
 
@@ -4187,7 +4189,7 @@ public:
   joinRegisterPartsIntoValue(SelectionDAG &DAG, const SDLoc &DL,
                              const SDValue *Parts, unsigned NumParts,
                              MVT PartVT, EVT ValueVT,
-                             Optional<CallingConv::ID> CC) const {
+                             std::optional<CallingConv::ID> CC) const {
     return SDValue();
   }
 
@@ -5014,6 +5016,11 @@ public:
   /// \param N Node to expand
   /// \returns The expansion result or SDValue() if it fails.
   SDValue expandBITREVERSE(SDNode *N, SelectionDAG &DAG) const;
+
+  /// Expand VP_BITREVERSE nodes. Expands VP_BITREVERSE nodes with
+  /// i8/i16/i32/i64 scalar types. \param N Node to expand \returns The
+  /// expansion result or SDValue() if it fails.
+  SDValue expandVPBITREVERSE(SDNode *N, SelectionDAG &DAG) const;
 
   /// Turn load of vector type into a load of the individual elements.
   /// \param LD load to expand

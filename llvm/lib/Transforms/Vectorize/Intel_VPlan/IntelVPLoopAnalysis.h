@@ -1376,7 +1376,7 @@ public:
     LinkPhi = nullptr;
     LinkedVPVals.clear();
     IsLinearIndex = false;
-    InscanRedKind = None;
+    InscanRedKind = std::nullopt;
     Combiner = nullptr;
     Initializer = nullptr;
     Ctor = nullptr;

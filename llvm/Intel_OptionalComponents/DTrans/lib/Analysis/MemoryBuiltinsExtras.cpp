@@ -84,7 +84,7 @@ AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI) {
     return Call->arg_size() == 1 ? AK_Malloc : AK_New;
   if (IntelMemoryBuiltins::isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (getReallocatedOperand(Call, &TLI))
+  if (getReallocatedOperand(Call))
     return AK_Realloc;
   return AK_NotAlloc;
 }

@@ -1,8 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK:   [12 x %struct.int_int]* [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int]*, OrigAlign = 8

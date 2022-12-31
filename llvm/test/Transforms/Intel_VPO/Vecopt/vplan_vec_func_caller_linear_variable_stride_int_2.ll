@@ -1,5 +1,5 @@
-; RUN: opt -vplan-vec -S < %s  | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -hir-cg -S < %s  | FileCheck %s
+; RUN: opt -passes=vplan-vec -S < %s  | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg -S < %s  | FileCheck %s
 
 ; Test to check that the vector variant is called for a parameter that is variable
 ; linear integer stride. i.e., the s encoding for vector variants. In this test

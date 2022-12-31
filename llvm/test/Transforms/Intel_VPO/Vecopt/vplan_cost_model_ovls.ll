@@ -1,9 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
-; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 \
-; RUN:     -enable-intel-advanced-opts | FileCheck %s
 
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts | FileCheck %s
 

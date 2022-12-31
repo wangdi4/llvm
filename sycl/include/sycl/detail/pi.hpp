@@ -113,6 +113,7 @@ using PiDeviceInfo = ::pi_device_info;
 using PiProgramInfo = ::pi_program_info;
 using PiDeviceBinaryType = ::pi_device_binary_type;
 using PiContext = ::pi_context;
+using PiContextInfo = ::pi_context_info;
 using PiProgram = ::pi_program;
 using PiKernel = ::pi_kernel;
 using PiQueue = ::pi_queue;

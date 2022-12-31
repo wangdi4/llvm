@@ -45,6 +45,7 @@
 #include "clang/Basic/CLWarnings.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
+#include "clang/Basic/HeaderInclude.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/LangStandard.h"
 #include "clang/Basic/MakeSupport.h"
@@ -341,103 +342,6 @@ static void ParseMPreferVectorWidth(const Driver &D, const ArgList &Args,
       return;
     }
     CmdArgs.push_back(Args.MakeArgString("-mprefer-vector-width=" + Value));
-  }
-}
-
-static void getWebAssemblyTargetFeatures(const ArgList &Args,
-                                         std::vector<StringRef> &Features) {
-  handleTargetFeaturesGroup(Args, Features, options::OPT_m_wasm_Features_Group);
-}
-
-static void getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
-                              const ArgList &Args, ArgStringList &CmdArgs,
-                              bool ForAS, bool IsAux = false) {
-  std::vector<StringRef> Features;
-  switch (Triple.getArch()) {
-  default:
-    break;
-  case llvm::Triple::mips:
-  case llvm::Triple::mipsel:
-  case llvm::Triple::mips64:
-  case llvm::Triple::mips64el:
-    mips::getMIPSTargetFeatures(D, Triple, Args, Features);
-    break;
-
-  case llvm::Triple::arm:
-  case llvm::Triple::armeb:
-  case llvm::Triple::thumb:
-  case llvm::Triple::thumbeb:
-    arm::getARMTargetFeatures(D, Triple, Args, Features, ForAS);
-    break;
-
-  case llvm::Triple::ppc:
-  case llvm::Triple::ppcle:
-  case llvm::Triple::ppc64:
-  case llvm::Triple::ppc64le:
-    ppc::getPPCTargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::riscv32:
-  case llvm::Triple::riscv64:
-    riscv::getRISCVTargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::systemz:
-    systemz::getSystemZTargetFeatures(D, Args, Features);
-    break;
-  case llvm::Triple::aarch64:
-  case llvm::Triple::aarch64_32:
-  case llvm::Triple::aarch64_be:
-    aarch64::getAArch64TargetFeatures(D, Triple, Args, Features, ForAS);
-    break;
-  case llvm::Triple::x86:
-  case llvm::Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-  case llvm::Triple::x86_64_xucc:
-#endif // INTEL_FEATURE_XUCC
-#endif // INTEL_CUSTOMIZATION
-    x86::getX86TargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::hexagon:
-    hexagon::getHexagonTargetFeatures(D, Args, Features);
-    break;
-  case llvm::Triple::wasm32:
-  case llvm::Triple::wasm64:
-    getWebAssemblyTargetFeatures(Args, Features);
-    break;
-  case llvm::Triple::sparc:
-  case llvm::Triple::sparcel:
-  case llvm::Triple::sparcv9:
-    sparc::getSparcTargetFeatures(D, Args, Features);
-    break;
-  case llvm::Triple::r600:
-  case llvm::Triple::amdgcn:
-    amdgpu::getAMDGPUTargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::nvptx:
-  case llvm::Triple::nvptx64:
-    NVPTX::getNVPTXTargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::m68k:
-    m68k::getM68kTargetFeatures(D, Triple, Args, Features);
-    break;
-  case llvm::Triple::msp430:
-    msp430::getMSP430TargetFeatures(D, Args, Features);
-    break;
-  case llvm::Triple::ve:
-    ve::getVETargetFeatures(D, Args, Features);
-    break;
-  case llvm::Triple::csky:
-    csky::getCSKYTargetFeatures(D, Triple, Args, CmdArgs, Features);
-    break;
-  case llvm::Triple::loongarch32:
-  case llvm::Triple::loongarch64:
-    loongarch::getLoongArchTargetFeatures(D, Triple, Args, Features);
-    break;
-  }
-
-  for (auto Feature : unifyTargetFeatures(Features)) {
-    CmdArgs.push_back(IsAux ? "-aux-target-feature" : "-target-feature");
-    CmdArgs.push_back(Feature.data());
   }
 }
 
@@ -3945,7 +3849,7 @@ static void RenderARCMigrateToolOptions(const Driver &D, const ArgList &Args,
     if (!Args.hasArg(options::OPT_objcmt_migrate_literals,
                      options::OPT_objcmt_migrate_subscripting,
                      options::OPT_objcmt_migrate_property)) {
-      // None specified, means enable them all.
+      // std::nullopt specified, means enable them all.
       CmdArgs.push_back("-objcmt-migrate-literals");
       CmdArgs.push_back("-objcmt-migrate-subscripting");
       CmdArgs.push_back("-objcmt-migrate-property");
@@ -4649,7 +4553,7 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-fsplit-dwarf-inlining");
 
   // After we've dealt with all combinations of things that could
-  // make DebugInfoKind be other than None or DebugLineTablesOnly,
+  // make DebugInfoKind be other than std::nullopt or DebugLineTablesOnly,
   // figure out if we need to "upgrade" it to standalone debug info.
   // We parse these two '-f' options whether or not they will be used,
   // to claim them even if you wrote "-fstandalone-debug -gline-tables-only"
@@ -4958,7 +4862,7 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
   llvm::sys::path::append(ClangTidyPath, "clang-tidy");
   const char *ClangTidy = TCArgs.MakeArgString(ClangTidyPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
-                                       ClangTidy, ClangTidyArgs, None);
+                                       ClangTidy, ClangTidyArgs, std::nullopt);
   C.addCommand(std::move(Cmd));
 }
 #endif // INTEL_CUSTOMIZATION
@@ -5139,7 +5043,7 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
   const Tool *T = TC.SelectTool(JA);
   auto Cmd = std::make_unique<Command>(JA, *T, ResponseFileSupport::None(),
                                        TCArgs.MakeArgString(ExecPath),
-                                       HostCompileArgs, None);
+                                       HostCompileArgs, std::nullopt);
 
   C.addCommand(std::move(Cmd));
 }
@@ -5359,7 +5263,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_no_offload_new_driver, false));
 
   bool IsRDCMode =
-      Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, false);
+      Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, IsSYCL);
   bool IsUsingLTO = D.isUsingLTO(IsDeviceOffloadAction);
   auto LTOMode = D.getLTOMode(IsDeviceOffloadAction);
   bool IsFPGASYCLOffloadDevice =
@@ -5695,10 +5599,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // between device and host where we should be able to use the offloading
     // arch to add the macro to the host compile.
     auto addTargetMacros = [&](const llvm::Triple &Triple) {
-      if (!Triple.isSPIR())
+      if (!Triple.isSPIR() && !Triple.isNVPTX() && !Triple.isAMDGCN())
         return;
       SmallString<64> Macro;
-      if (Triple.getSubArch() == llvm::Triple::SPIRSubArch_gen) {
+      if ((Triple.isSPIR() &&
+           Triple.getSubArch() == llvm::Triple::SPIRSubArch_gen) ||
+          Triple.isNVPTX() || Triple.isAMDGCN()) {
         StringRef Device = JA.getOffloadingArch();
         if (!Device.empty()) {
           Macro = "-D";
@@ -6933,12 +6839,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
   Args.AddAllArgs(CmdArgs, options::OPT_fshow_skipped_includes);
 
-  if (D.CCPrintHeaders && !D.CCGenDiagnostics) {
+  if (D.CCPrintHeadersFormat && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-header-include-file");
     CmdArgs.push_back(!D.CCPrintHeadersFilename.empty()
                           ? D.CCPrintHeadersFilename.c_str()
                           : "-");
     CmdArgs.push_back("-sys-header-deps");
+    CmdArgs.push_back(Args.MakeArgString(
+        "-header-include-format=" +
+        std::string(headerIncludeFormatKindToString(D.CCPrintHeadersFormat))));
+    CmdArgs.push_back(
+        Args.MakeArgString("-header-include-filtering=" +
+                           std::string(headerIncludeFilteringKindToString(
+                               D.CCPrintHeadersFiltering))));
   }
   Args.AddLastArg(CmdArgs, options::OPT_P);
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
@@ -7750,6 +7663,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
             << A->getAsString(Args) << TripleStr;
     }
   }
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_p)) {
+    if (!TC.getTriple().isOSAIX() && !TC.getTriple().isOSOpenBSD()) {
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << A->getAsString(Args) << TripleStr;
+    }
+  }
 
   if (Args.getLastArg(options::OPT_fapple_kext) ||
       (Args.hasArg(options::OPT_mkernel) && types::isCXX(InputType)))
@@ -7877,9 +7796,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       options::OPT_fno_hip_kernel_arg_name);
   }
 
-  if (IsCuda || IsHIP) {
+  if (IsCuda || IsHIP || IsSYCL) {
     if (IsRDCMode)
       CmdArgs.push_back("-fgpu-rdc");
+    else
+      CmdArgs.push_back("-fno-gpu-rdc");
+  }
+  if (IsCuda || IsHIP) {
     if (Args.hasFlag(options::OPT_fgpu_defer_diag,
                      options::OPT_fno_gpu_defer_diag, false))
       CmdArgs.push_back("-fgpu-defer-diag");
@@ -10050,7 +9973,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None, Output));
+      CmdArgs, std::nullopt, Output));
 }
 
 void OffloadBundler::ConstructJobMultipleOutputs(
@@ -10235,7 +10158,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None, Outputs));
+      CmdArgs, std::nullopt, Outputs));
 }
 
 // Begin OffloadWrapper
@@ -10380,7 +10303,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     auto Cmd = std::make_unique<Command>(
         JA, *this, ResponseFileSupport::None(),
         TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-        WrapperArgs, None);
+        WrapperArgs, std::nullopt);
     C.addCommand(std::move(Cmd));
 
     // Construct llc command.
@@ -10403,7 +10326,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     llvm::sys::path::append(LlcPath, "llc");
     const char *Llc = C.getArgs().MakeArgString(LlcPath);
     C.addCommand(std::make_unique<Command>(
-         JA, *this, ResponseFileSupport::None(), Llc, LlcArgs, None));
+         JA, *this, ResponseFileSupport::None(), Llc, LlcArgs, std::nullopt));
     return;
   } // end of SYCL flavor of offload wrapper command creation
 
@@ -10600,7 +10523,7 @@ void OffloadDeps::constructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None, Outputs));
+      CmdArgs, std::nullopt, Outputs));
 }
 
 void OffloadDeps::ConstructJob(Compilation &C, const JobAction &JA,
@@ -10712,7 +10635,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_hw_thread_queries"
                 ",+SPV_INTEL_memory_access_aliasing" // INTEL_COLLAB
                 ",+SPV_KHR_uniform_group_instructions"
-                ",+SPV_INTEL_masked_gather_scatter";
+                ",+SPV_INTEL_masked_gather_scatter"
+                ",+SPV_INTEL_tensor_float32_conversion";
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
@@ -10731,7 +10655,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      TranslatorArgs, None);
+      TranslatorArgs, std::nullopt);
 
   if (!ForeachArgs.empty()) {
     // Construct llvm-foreach command.
@@ -10767,7 +10691,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     llvm::sys::path::append(ForeachPath, "llvm-foreach");
     const char *Foreach = C.getArgs().MakeArgString(ForeachPath);
     C.addCommand(std::make_unique<Command>(
-        JA, *this, ResponseFileSupport::None(), Foreach, ForeachArgs, None));
+        JA, *this, ResponseFileSupport::None(), Foreach, ForeachArgs, std::nullopt));
   } else
     C.addCommand(std::move(Cmd));
 }
@@ -10797,7 +10721,7 @@ void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CheckArgs, None);
+      CheckArgs, std::nullopt);
 
   if (getToolChain().getTriple().getSubArch() ==
       llvm::Triple::SPIRSubArch_fpga) {
@@ -11052,6 +10976,13 @@ void FileTableTform::ConstructJob(Compilation &C, const JobAction &JA,
       addArgs(CmdArgs, TCArgs, {Arg});
       break;
     }
+    case FileTableTformJobAction::Tform::MERGE: {
+      assert(Tf.TheArgs.size() == 1 && "column name expected");
+      SmallString<128> Arg("-merge=");
+      Arg += Tf.TheArgs[0];
+      addArgs(CmdArgs, TCArgs, {Arg});
+      break;
+    }
     }
   }
 
@@ -11107,7 +11038,7 @@ void AppendFooter::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None));
+      CmdArgs, std::nullopt));
 }
 
 void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
@@ -11140,7 +11071,7 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None);
+      CmdArgs, std::nullopt);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
 #if INTEL_CUSTOMIZATION

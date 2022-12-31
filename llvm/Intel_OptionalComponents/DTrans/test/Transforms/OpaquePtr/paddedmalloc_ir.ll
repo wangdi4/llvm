@@ -54,7 +54,7 @@
 ; CHECK-PROP-NEXT:    [[TMP1:%.*]] = tail call ptr @mallocFunc(i64 100)
 ; CHECK-PROP-NEXT:    store ptr [[TMP1]], ptr @globalStruct, align 8
 ; CHECK-PROP-NEXT:    [[T:%.*]] = load ptr, ptr @globalStruct, align 8
-; CHECK-PROP-NEXT:    [[T1:%.*]] = call ptr @llvm.ptr.annotation.p0(ptr [[T]], ptr [[PADD]], ptr @1, i32 0, ptr null)
+; CHECK-PROP-NEXT:    [[T1:%.*]] = call ptr @llvm.ptr.annotation.p0.p0(ptr [[T]], ptr [[PADD]], ptr @1, i32 0, ptr null)
 ; CHECK-PROP-NEXT:    tail call void @free(ptr [[TMP1]])
 ; CHECK-PROP-NEXT:    store ptr null, ptr @globalStruct, align 8
 ; CHECK-PROP-NEXT:    [[TMP2:%.*]] = call zeroext i1 @searchloop()

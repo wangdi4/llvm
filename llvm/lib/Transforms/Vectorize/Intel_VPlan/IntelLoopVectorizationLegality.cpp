@@ -30,6 +30,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include <optional>
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
 
@@ -536,8 +537,8 @@ void VPOVectorizationLegality::parseMinMaxReduction(
                             nullptr /*IntermediateStore*/, Kind, FMF, nullptr,
                             StartV->getType(), true /*Signed*/,
                             false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
-                                             None /*InscanReductionKind*/};
+    ExplicitReductions[LoopHeaderPhiNode] = {
+        RD, RedVarPtr, std::nullopt /*InscanReductionKind*/};
   } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 }

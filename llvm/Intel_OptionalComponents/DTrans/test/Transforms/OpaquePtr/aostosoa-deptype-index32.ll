@@ -37,15 +37,15 @@ define void @test01() {
   %value_A = load ptr, ptr %p8_A
   store ptr null, ptr %p8_A
 ; CHECK: %p8_A = getelementptr i8, ptr %p, i64 0
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p8_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %p8_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %value_A = load i32, ptr %p8_A
-; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %p8_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %p8_A, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i32 0, ptr %p8_A
 
   %p8_B = getelementptr i8, ptr %p, i64 8
   store ptr %value_A, ptr %p8_B
 ; CHECK: %p8_B = getelementptr i8, ptr %p, i64 4
-; CHECK: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0(ptr %p8_B, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0.p0(ptr %p8_B, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i32 %value_A, ptr %p8_B
 
   %p8_C = getelementptr i8, ptr %p, i64 16

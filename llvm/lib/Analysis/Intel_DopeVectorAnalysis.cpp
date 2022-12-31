@@ -198,7 +198,7 @@ Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
   auto FieldIndex = dyn_cast<ConstantInt>(GEP.getOperand(OpNum));
   if (FieldIndex)
     return Optional<uint64_t>(FieldIndex->getLimitedValue());
-  return None;
+  return std::nullopt;
 }
 
 Optional<unsigned int> getArgumentPosition(const CallBase &CI,
@@ -208,7 +208,7 @@ Optional<unsigned int> getArgumentPosition(const CallBase &CI,
   for (unsigned int ArgNum = 0; ArgNum < ArgCount; ++ArgNum)
     if (CI.getArgOperand(ArgNum) == Val) {
       if (Pos)
-        return None;
+        return std::nullopt;
 
       Pos = ArgNum;
     }
@@ -638,7 +638,7 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
   // whether there is still only one written non-null value.
   //
   if (RequiresSingleNonNullValue) {
-    Optional<uint64_t> SIV = None;
+    Optional<uint64_t> SIV = std::nullopt;
     if (CouldHaveMultipleValues(*this, SIV))
       return false;
     if (CouldHaveMultipleValues(Other, SIV))
@@ -3663,7 +3663,7 @@ GlobalDopeVector::mergeNestedDopeVectors() {
   // The set will all have the same 'FieldNum' and a non-nullptr 'VBase'.
   //
   auto LoadNDVSubset = [this](NDVInfoVector &NDVSubset) {
-    Optional<uint64_t> FieldNum = None;
+    Optional<uint64_t> FieldNum = std::nullopt;
     NDVSubset.clear();
     for (auto *NestedDV : NestedDopeVectors) {
       if (NestedDV->getVBase()) {

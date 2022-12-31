@@ -14,7 +14,7 @@
 ;   return val;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -hir-vplan-vec -hir-cg -mem2reg -S %s -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,mem2reg' -vplan-force-vf=4 -S %s 2>&1 | FileCheck %s
 
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP>

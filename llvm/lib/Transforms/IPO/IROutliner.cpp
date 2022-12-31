@@ -479,14 +479,14 @@ void OutlinableRegion::reattachCandidate() {
 /// \param GVNToConstant - The mapping of global value number to Constants.
 /// \returns true if the Value matches the Constant mapped to by V and false if
 /// it \p V is a Constant but does not match.
-/// \returns None if \p V is not a Constant.
-static Optional<bool>
+/// \returns std::nullopt if \p V is not a Constant.
+static std::optional<bool>
 constantMatches(Value *V, unsigned GVN,
                 DenseMap<unsigned, Constant *> &GVNToConstant) {
   // See if we have a constants
   Constant *CST = dyn_cast<Constant>(V);
   if (!CST)
-    return None;
+    return std::nullopt;
 
   // Holds a mapping from a global value number to a Constant.
   DenseMap<unsigned, Constant *>::iterator GVNToConstantIt;
@@ -594,7 +594,8 @@ collectRegionsConstants(OutlinableRegion &Region,
       // associated Constant value match the previous instances of the same
       // global value number.  If the global value does not map to a Constant,
       // it is considered to not be the same value.
-      Optional<bool> ConstantMatches = constantMatches(V, GVN, GVNToConstant);
+      std::optional<bool> ConstantMatches =
+          constantMatches(V, GVN, GVNToConstant);
       if (ConstantMatches) {
         if (ConstantMatches.value())
           continue;
@@ -701,7 +702,8 @@ Function *IROutliner::createFunction(Module &M, OutlinableGroup &Group,
         Unit /* Context */, F->getName(), MangledNameStream.str(),
         Unit /* File */,
         0 /* Line 0 is reserved for compiler-generated code. */,
-        DB.createSubroutineType(DB.getOrCreateTypeArray(None)), /* void type */
+        DB.createSubroutineType(
+            DB.getOrCreateTypeArray(std::nullopt)), /* void type */
         0, /* Line 0 is reserved for compiler-generated code. */
         DINode::DIFlags::FlagArtificial /* Compiler-generated code. */,
         /* Outlined code is optimized code by definition. */
@@ -1190,8 +1192,8 @@ static hash_code encodePHINodeData(PHINodeData &PND) {
 /// \param PN - The PHINode we are analyzing.
 /// \param Blocks - The blocks for the region we are analyzing.
 /// \param AggArgIdx - The argument \p PN will be stored into.
-/// \returns An optional holding the assigned canonical number, or None if
-/// there is some attribute of the PHINode blocking it from being used.
+/// \returns An optional holding the assigned canonical number, or std::nullopt
+/// if there is some attribute of the PHINode blocking it from being used.
 static Optional<unsigned> getGVNForPHINode(OutlinableRegion &Region,
                                            PHINode *PN,
                                            DenseSet<BasicBlock *> &Blocks,
@@ -1213,7 +1215,7 @@ static Optional<unsigned> getGVNForPHINode(OutlinableRegion &Region,
     Optional<unsigned> OGVN = Cand.getGVN(Incoming);
     if (!OGVN && Blocks.contains(IncomingBlock)) {
       Region.IgnoreRegion = true;
-      return None;
+      return std::nullopt;
     }
 
     // If the incoming block isn't in the region, we don't have to worry about
@@ -1890,7 +1892,7 @@ replaceArgumentUses(OutlinableRegion &Region,
       StoreInst *NewI = cast<StoreInst>(I->clone());
       NewI->setDebugLoc(DebugLoc());
       BasicBlock *OutputBB = VBBIt->second;
-      OutputBB->getInstList().push_back(NewI);
+      NewI->insertAt(OutputBB, OutputBB->end());
       LLVM_DEBUG(dbgs() << "Move store for instruction " << *I << " to "
                         << *OutputBB << "\n");
 
@@ -1987,7 +1989,7 @@ void replaceConstants(OutlinableRegion &Region) {
 /// \param OutputBBs [in] the blocks we are looking for a duplicate of.
 /// \param OutputStoreBBs [in] The existing output blocks.
 /// \returns an optional value with the number output block if there is a match.
-Optional<unsigned> findDuplicateOutputBlock(
+std::optional<unsigned> findDuplicateOutputBlock(
     DenseMap<Value *, BasicBlock *> &OutputBBs,
     std::vector<DenseMap<Value *, BasicBlock *>> &OutputStoreBBs) {
 
@@ -2033,7 +2035,7 @@ Optional<unsigned> findDuplicateOutputBlock(
     MatchingNum++;
   }
 
-  return None;
+  return std::nullopt;
 }
 
 /// Remove empty output blocks from the outlined region.
@@ -2102,7 +2104,7 @@ static void alignOutputBlockWithAggFunc(
     return;
 
   // Determine is there is a duplicate set of blocks.
-  Optional<unsigned> MatchingBB =
+  std::optional<unsigned> MatchingBB =
       findDuplicateOutputBlock(OutputBBs, OutputStoreBBs);
 
   // If there is, we remove the new output blocks.  If it does not,

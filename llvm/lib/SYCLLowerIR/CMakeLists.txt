@@ -31,9 +31,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
     # Author: Gorban, Igor <igor.gorban@intel.com>
-    # Date:   Thu Nov 24 17:13:40 2022 +0000
-    # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
-    set(LLVMGenXIntrinsics_GIT_TAG 782fbf7301dc73acaa049a4324c976ad94f587f7)
+    # Date:   Sun Dec 11 20:40:12 2022 +0000
+    # Fix llvm_tot: legacy pass manager
+    set(LLVMGenXIntrinsics_GIT_TAG 7596a83751934c538d809f336ee18bea6e8d1b44)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -42,12 +42,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # or not)
 
       # default repo path for public xmain builds, not using ICS
-      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
-      set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
+      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
+      set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
       # Author: Gorban, Igor <igor.gorban@intel.com>
-      # Date:   Thu Nov 24 17:13:40 2022 +0000
-      # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
-      set(LLVMGenXIntrinsics_GIT_TAG 782fbf7301dc73acaa049a4324c976ad94f587f7)
+      # Date:   Tue Dec 13 18:21:41 2022 +0000
+      # VCWrappers does not installing, we can't use them in headers
+      set(LLVMGenXIntrinsics_GIT_TAG 88083f819d2391f0a15ecdb6f7efeefaf02364e8)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Mariya Podchishchaeva <mariya.podchishchaeva@intel.com>
-        # Date:   Fri Nov 25 18:10:12 2022 +0100
-        # Fix build after llvm commit 4b6b248731b81deb471838ff79392993aeb6c621
-        set(LLVMGenXIntrinsics_GIT_TAG a841e49dd3948f7de0b5f4aed7b7a435cb3928e3)
+        # Author: Igor Gorban <igor.gorban@intel.com>
+        # Date:   Tue Dec 13 23:10:52 2022 +0100
+        # [BugFix] VCWrappers does not installing, we can't use them in headers (#241)
+        set(LLVMGenXIntrinsics_GIT_TAG 73019eb10802e9dcf1715fd5c210f9d7ab7cc864)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
@@ -114,6 +114,16 @@ endif (NOT TARGET LLVMGenXIntrinsics)
 
 set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP ${LLVMGenXIntrinsics_SOURCE_DIR})
 set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics_BINARY_DIR})
+
+# INTEL_CUSTOMIZATION
+# Disable deprecated-declarations warnings because they are coming from
+# external GenXIntrinsics headers.
+if (NOT WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+else(NOT WIN32)
+  add_definitions(-wd4996)
+endif (NOT WIN32)
+#end INTEL_CUSTOMIZATION
 
 add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/LowerESIMD.cpp

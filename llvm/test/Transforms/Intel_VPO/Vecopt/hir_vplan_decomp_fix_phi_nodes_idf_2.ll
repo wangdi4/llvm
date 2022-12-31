@@ -34,7 +34,6 @@
 ; by IDF based PHI node placement. IDF will insert a PHI in loop header, and the incorrectly inserted PHI node by decomposer will blend
 ; the new PHI node from both incoming VPBBs (effectively a no-op).
 
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes

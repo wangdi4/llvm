@@ -655,9 +655,9 @@ static void collectSYCLAttributes(Sema &S, FunctionDecl *FD,
   // Attributes that should not be propagated from device functions to a kernel.
   if (DirectlyCalled) {
     llvm::copy_if(FD->getAttrs(), std::back_inserter(Attrs), [](Attr *A) {
-      return isa<SYCLIntelLoopFuseAttr, SYCLIntelFPGAMaxConcurrencyAttr,
-                 SYCLIntelFPGADisableLoopPipeliningAttr,
-                 SYCLIntelFPGAInitiationIntervalAttr,
+      return isa<SYCLIntelLoopFuseAttr, SYCLIntelMaxConcurrencyAttr,
+                 SYCLIntelDisableLoopPipeliningAttr,
+                 SYCLIntelInitiationIntervalAttr,
                  SYCLIntelUseStallEnableClustersAttr, SYCLDeviceHasAttr,
                  SYCLAddIRAttributesFunctionAttr>(A);
     });
@@ -3140,8 +3140,8 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
                    InitializationKind InitKind) {
     InitializedEntity Entity = InitializedEntity::InitializeBase(
         SemaRef.Context, &BS, /*IsInheritedVirtualBase*/ false, &VarEntity);
-    InitializationSequence InitSeq(SemaRef, Entity, InitKind, None);
-    ExprResult Init = InitSeq.Perform(SemaRef, Entity, InitKind, None);
+    InitializationSequence InitSeq(SemaRef, Entity, InitKind, std::nullopt);
+    ExprResult Init = InitSeq.Perform(SemaRef, Entity, InitKind, std::nullopt);
 
     InitListExpr *ParentILE = CollectionInitExprs.back();
     ParentILE->updateInit(SemaRef.getASTContext(), ParentILE->getNumInits(),
@@ -3342,7 +3342,7 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
 
   // Default inits the type, then calls the init-method in the body.
   bool handleSpecialType(FieldDecl *FD, QualType Ty) {
-    addFieldInit(FD, Ty, None,
+    addFieldInit(FD, Ty, std::nullopt,
                  InitializationKind::CreateDefault(KernelCallerSrcLoc));
 
     addFieldMemberExpr(FD, Ty);
@@ -3393,8 +3393,8 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
         InitializedEntity::InitializeVariable(KernelHandlerClone);
     InitializationKind InitKind =
         InitializationKind::CreateDefault(KernelCallerSrcLoc);
-    InitializationSequence InitSeq(SemaRef, VarEntity, InitKind, None);
-    ExprResult Init = InitSeq.Perform(SemaRef, VarEntity, InitKind, None);
+    InitializationSequence InitSeq(SemaRef, VarEntity, InitKind, std::nullopt);
+    ExprResult Init = InitSeq.Perform(SemaRef, VarEntity, InitKind, std::nullopt);
     KernelHandlerClone->setInit(
         SemaRef.MaybeCreateExprWithCleanups(Init.get()));
     KernelHandlerClone->setInitStyle(VarDecl::CallInit);
@@ -4570,9 +4570,9 @@ static void PropagateAndDiagnoseDeviceAttr(
   case attr::Kind::SYCLIntelMaxGlobalWorkDim:
   case attr::Kind::SYCLIntelNoGlobalWorkOffset:
   case attr::Kind::SYCLIntelLoopFuse:
-  case attr::Kind::SYCLIntelFPGAMaxConcurrency:
-  case attr::Kind::SYCLIntelFPGADisableLoopPipelining:
-  case attr::Kind::SYCLIntelFPGAInitiationInterval:
+  case attr::Kind::SYCLIntelMaxConcurrency:
+  case attr::Kind::SYCLIntelDisableLoopPipelining:
+  case attr::Kind::SYCLIntelInitiationInterval:
   case attr::Kind::SYCLIntelUseStallEnableClusters:
   case attr::Kind::SYCLDeviceHas:
   case attr::Kind::SYCLAddIRAttributesFunction:

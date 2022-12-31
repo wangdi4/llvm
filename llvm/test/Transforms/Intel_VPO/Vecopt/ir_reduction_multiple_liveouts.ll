@@ -1,7 +1,7 @@
 ; Verify that VPlan bails out from scenarios where reduction is associated
 ; with multiple liveout instructions.
 
-; RUN: opt -vplan-vec -vplan-force-vf=2 -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: LVP: Reduction with multiple liveout instructions is not supported.
 

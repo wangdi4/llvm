@@ -294,6 +294,12 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS);
 
+#ifdef INTEL_CUSTOMIZATION
+IntrusiveRefCntPtr<llvm::vfs::FileSystem> createVFSFromOverlayFiles(
+    ArrayRef<std::string> VFSOverlayFiles, ArrayRef<std::string> VFSOverlayLibs,
+    DiagnosticsEngine &Diags, IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS);
+#endif // INTEL_CUSTOMIZATION
+
 } // namespace clang
 
 #endif // LLVM_CLANG_FRONTEND_COMPILERINVOCATION_H
