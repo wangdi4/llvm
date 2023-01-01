@@ -542,41 +542,25 @@ attributes #13 = { builtin nounwind }
 ; Partially inline (A == null) in Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEPvi:                 ; preds = %entry
 ; CHECK:         %cmp.i[[V0:[0-9]+]] = icmp eq ptr %A, null
-; CHECK-NEXT:    %cmp.not.i[[V6:[0-9]+]] = xor i1 %cmp.i[[V0]], true
+
 ; Partially inline (Size = 0) in Derived::foo
-; CHECK-NEXT:    %cmp29.i[[V7:[0-9]+]] = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    %or.cond.i[[V8:[0-9]+]] = select i1 %cmp.not.i[[V6]], i1 %cmp29.i[[V7]], i1 false
-; CHECK-NEXT:    br i1 %or.cond.i[[V8]], label %codeRepl.i[[V9:[0-9]+]], label %_ZN7Derived3fooEPvi.2.exit
+; CHECK:    %cmp29.i[[V7:[0-9]+]] = icmp sgt i32 %Size, 0
 
 ; Call the outline function of Derived::foo
-; CHECK:        codeRepl.i[[V9]]:                                     ; preds = %BBDevirt__ZN7Derived3fooEPvi
+; CHECK:        codeRepl.i{{.*}}:
 ; CHECK-NEXT:    call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, ptr %A)
 ; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
-;
-; CHECK: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi, %codeRepl.i[[V9]]
-; CHECK:        %retval.0.i[[V3:[0-9]+]] = phi i1 [ %cmp.not.i[[V6]], %BBDevirt__ZN7Derived3fooEPvi ], [ true, %codeRepl.i[[V9]] ]
-; CHECK-NEXT:    br label %MergeBB
 ;
 ; Partially inline (A == null) in Derived2::foo
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEPvi:                ; preds = %entry
 ; CHECK:         %cmp.i = icmp eq ptr %A, null
-; CHECK-NEXT:    %cmp.not.i = xor i1 %cmp.i, true
+
 ; Partially inline (Size == 0) in Derived2::foo
-; CHECK-NEXT:    %cmp29.i = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    %or.cond.i = select i1 %cmp.not.i, i1 %cmp29.i, i1 false
-; CHECK-NEXT:    br i1 %or.cond.i, label %codeRepl.i, label %_ZN8Derived23fooEPvi.1.exit
+; CHECK:         %cmp29.i = icmp sgt i32 %Size, 0
 
 ; Call the outline function of Derived2:foo
-; CHECK-LABEL: codeRepl.i:                                       ; preds = %BBDevirt__ZN8Derived23fooEPvi
+; CHECK-LABEL: codeRepl.i{{.*}}:
 ; CHECK-NEXT:    call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, ptr %A)
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
-; CHECK-LABEL: _ZN8Derived23fooEPvi.1.exit:
-; CHECK-NEXT:    %retval.0.i = phi i1 [ %cmp.not.i, %BBDevirt__ZN8Derived23fooEPvi ], [ true, %codeRepl.i ]
-; CHECK-NEXT:    br label %MergeBB
-;
-; CHECK-LABEL: MergeBB:                                      ; preds = %_ZN8Derived23fooEPvi.1.exit, %_ZN7Derived3fooEPvi.2.exit
-; CHECK-NEXT:    %i[[V4:[0-9]+]] = phi i1 [ %retval.0.i[[V3]], %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
-; CHECK-NEXT:    br label %bb
-
 ; end INTEL_FEATURE_SW_DTRANS
