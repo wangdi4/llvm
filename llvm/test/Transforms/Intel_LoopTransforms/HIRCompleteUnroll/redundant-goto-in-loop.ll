@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Check that last conditional GOTO in the i2 loop will not be removed by redundant node removal after the post vec complete unroll.
