@@ -115,6 +115,16 @@ endif (NOT TARGET LLVMGenXIntrinsics)
 set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP ${LLVMGenXIntrinsics_SOURCE_DIR})
 set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics_BINARY_DIR})
 
+# INTEL_CUSTOMIZATION
+# Disable deprecated-declarations warnings because they are coming from
+# external GenXIntrinsics headers.
+if (NOT WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+else(NOT WIN32)
+  add_definitions(-wd4996)
+endif (NOT WIN32)
+#end INTEL_CUSTOMIZATION
+
 add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/LowerESIMD.cpp
   ESIMD/LowerESIMDVLoadVStore.cpp

@@ -335,6 +335,10 @@ private:
              LHS == RHS;
     };
     unsigned NumReplaced = 0;
+#ifdef INTEL_CUSTOMIZATION
+    // Silence unused variable warning.
+    (void)NumReplaced;
+#endif
     unsigned Idx = 0;
     for (auto &TemplateArgQT : TemplateArgTys) {
       if (AreQTsEqual(TemplateArgQT, RetTy)) {
