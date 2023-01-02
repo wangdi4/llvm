@@ -394,7 +394,11 @@ define amdgpu_kernel void @load_group_size_x_y_multiple_dispatch_ptr(ptr addrspa
 
 ; CHECK-LABEL: @use_local_size_x_uniform_work_group_size(
 ; CHECK-NEXT: %dispatch.ptr = tail call ptr addrspace(4) @llvm.amdgcn.dispatch.ptr()
-; CHECK-NEXT: %gep.group.size.x = getelementptr inbounds i8, ptr addrspace(4) %dispatch.ptr, i64 4
+; if INTEL_CUSTOMIZATION
+; It looks like our internal version of instcombine produces gep i16 instead of gep i8
+; See InstCombinerImpl::convertOpaqueGEPToLoadStoreType
+; CHECK-NEXT: %gep.group.size.x = getelementptr inbounds i16, ptr addrspace(4) %dispatch.ptr, i64 2
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: %group.size.x = load i16, ptr addrspace(4) %gep.group.size.x, align 4
 ; CHECK-NEXT: %zext = zext i16 %group.size.x to i64
 ; CHECK-NEXT: store i64 %zext, ptr addrspace(1) %out, align 4

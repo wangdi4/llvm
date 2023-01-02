@@ -143,6 +143,7 @@ STATISTIC(NumVectorized, "Number of vectorized aggregates");
 static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
                                         cl::Hidden);
 namespace {
+<<<<<<< HEAD
 /// Find linked dbg.assign and generate a new one with the correct
 /// FragmentInfo. Link Inst to the new dbg.assign.  If Value is nullptr the
 /// value component is copied from the old dbg.assign to the new.
@@ -247,6 +248,8 @@ static void migrateDebugInfo(AllocaInst *OldAlloca,
                       << "\n");
   }
 }
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
 
 /// A custom IRBuilder inserter which prefixes all names, but only in
 /// Assert builds.
@@ -2714,7 +2717,6 @@ class llvm::sroa::AllocaSliceRewriter
   // original alloca.
   uint64_t NewBeginOffset = 0, NewEndOffset = 0;
 
-  uint64_t RelativeOffset = 0;
   uint64_t SliceSize = 0;
   bool IsSplittable = false;
   bool IsSplit = false;
@@ -2788,14 +2790,8 @@ public:
     NewBeginOffset = std::max(BeginOffset, NewAllocaBeginOffset);
     NewEndOffset = std::min(EndOffset, NewAllocaEndOffset);
 
-    RelativeOffset = NewBeginOffset - BeginOffset;
     SliceSize = NewEndOffset - NewBeginOffset;
-    LLVM_DEBUG(dbgs() << "   Begin:(" << BeginOffset << ", " << EndOffset
-                      << ") NewBegin:(" << NewBeginOffset << ", "
-                      << NewEndOffset << ") NewAllocaBegin:("
-                      << NewAllocaBeginOffset << ", " << NewAllocaEndOffset
-                      << ")\n");
-    assert(IsSplit || RelativeOffset == 0);
+
     OldUse = I->getUse();
     OldPtr = cast<Instruction>(OldUse->get());
 
@@ -3035,9 +3031,6 @@ private:
 
   bool rewriteVectorizedStoreInst(Value *V, StoreInst &SI, Value *OldOp,
                                   AAMDNodes AATags) {
-    // Capture V for the purpose of debug-info accounting once it's converted
-    // to a vector store.
-    Value *OrigV = V;
     if (V->getType() != VecTy) {
       unsigned BeginIndex = getIndex(NewBeginOffset);
       unsigned EndIndex = getIndex(NewEndOffset);
@@ -3063,9 +3056,12 @@ private:
       Store->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
     Pass.DeadInsts.push_back(&SI);
 
+<<<<<<< HEAD
     // NOTE: Careful to use OrigV rather than V.
     migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, Store,
                      Store->getPointerOperand(), OrigV, DL);
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
     LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     return true;
   }
@@ -3088,10 +3084,13 @@ private:
                              LLVMContext::MD_access_group});
     if (AATags)
       Store->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
+<<<<<<< HEAD
 
     migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, Store,
                      Store->getPointerOperand(), Store->getValueOperand(), DL);
 
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
     Pass.DeadInsts.push_back(&SI);
     LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     return true;
@@ -3167,10 +3166,13 @@ private:
       NewSI->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
     if (NewSI->isAtomic())
       NewSI->setAlignment(SI.getAlign());
+<<<<<<< HEAD
 
     migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &SI, NewSI,
                      NewSI->getPointerOperand(), NewSI->getValueOperand(), DL);
 
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
     Pass.DeadInsts.push_back(&SI);
     deleteIfTriviallyDead(OldOp);
 
@@ -3226,11 +3228,7 @@ private:
       assert(NewBeginOffset == BeginOffset);
       II.setDest(getNewAllocaSlicePtr(IRB, OldPtr->getType()));
       II.setDestAlignment(getSliceAlign());
-      // In theory we should call migrateDebugInfo here. However, we do not
-      // emit dbg.assign intrinsics for mem intrinsics storing through non-
-      // constant geps, or storing a variable number of bytes.
-      assert(at::getAssignmentMarkers(&II).empty() &&
-             "AT: Unexpected link to non-const GEP");
+
       deleteIfTriviallyDead(OldPtr);
       return false;
     }
@@ -3263,15 +3261,18 @@ private:
     if (!CanContinue) {
       Type *SizeTy = II.getLength()->getType();
       Constant *Size = ConstantInt::get(SizeTy, NewEndOffset - NewBeginOffset);
-      MemIntrinsic *New = cast<MemIntrinsic>(IRB.CreateMemSet(
+      CallInst *New = IRB.CreateMemSet(
           getNewAllocaSlicePtr(IRB, OldPtr->getType()), II.getValue(), Size,
-          MaybeAlign(getSliceAlign()), II.isVolatile()));
+          MaybeAlign(getSliceAlign()), II.isVolatile());
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
+<<<<<<< HEAD
 
       migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
                        New->getRawDest(), nullptr, DL);
 
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
       return false;
     }
@@ -3344,10 +3345,13 @@ private:
                            LLVMContext::MD_access_group});
     if (AATags)
       New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
+<<<<<<< HEAD
 
     migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
                      New->getPointerOperand(), V, DL);
 
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
     LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
     return !II.isVolatile();
   }
@@ -3365,6 +3369,7 @@ private:
            (!IsDest && II.getRawSource() == OldPtr));
 
     Align SliceAlign = getSliceAlign();
+
     // For unsplit intrinsics, we simply modify the source and destination
     // pointers in place. This isn't just an optimization, it is a matter of
     // correctness. With unsplit intrinsics we may be dealing with transfers
@@ -3375,16 +3380,10 @@ private:
     if (!IsSplittable) {
       Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
       if (IsDest) {
-        // Update the address component of linked dbg.assigns.
-        for (auto *DAI : at::getAssignmentMarkers(&II)) {
-          if (any_of(DAI->location_ops(),
-                     [&](Value *V) { return V == II.getDest(); }) ||
-              DAI->getAddress() == II.getDest())
-            DAI->replaceVariableLocationOp(II.getDest(), AdjustedPtr);
-        }
         II.setDest(AdjustedPtr);
         II.setDestAlignment(SliceAlign);
-      } else {
+      }
+      else {
         II.setSource(AdjustedPtr);
         II.setSourceAlignment(SliceAlign);
       }
@@ -3473,9 +3472,12 @@ private:
                                        Size, II.isVolatile());
       if (AATags)
         New->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
+<<<<<<< HEAD
 
       migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, New,
                        DestPtr, nullptr, DL);
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
       LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
       return false;
     }
@@ -3562,9 +3564,12 @@ private:
                              LLVMContext::MD_access_group});
     if (AATags)
       Store->setAAMetadata(AATags.shift(NewBeginOffset - BeginOffset));
+<<<<<<< HEAD
 
     migrateDebugInfo(&OldAI, RelativeOffset * 8, SliceSize * 8, &II, Store,
                      DstPtr, Src, DL);
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
     LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     return !II.isVolatile();
   }
@@ -3938,13 +3943,12 @@ private:
 
   struct StoreOpSplitter : public OpSplitter<StoreOpSplitter> {
     StoreOpSplitter(Instruction *InsertionPoint, Value *Ptr, Type *BaseTy,
-                    AAMDNodes AATags, StoreInst *AggStore, Align BaseAlign,
-                    const DataLayout &DL, IRBuilderTy &IRB)
+                    AAMDNodes AATags, Align BaseAlign, const DataLayout &DL,
+                    IRBuilderTy &IRB)
         : OpSplitter<StoreOpSplitter>(InsertionPoint, Ptr, BaseTy, BaseAlign,
                                       DL, IRB),
-          AATags(AATags), AggStore(AggStore) {}
+          AATags(AATags) {}
     AAMDNodes AATags;
-    StoreInst *AggStore;
     /// Emit a leaf store of a single value. This is called at the leaves of the
     /// recursive emission to actually produce stores.
     void emitFunc(Type *Ty, Value *&Agg, Align Alignment, const Twine &Name) {
@@ -3966,6 +3970,7 @@ private:
           GEPOperator::accumulateConstantOffset(BaseTy, GEPIndices, DL, Offset))
         Store->setAAMetadata(AATags.shift(Offset.getZExtValue()));
 
+<<<<<<< HEAD
       // migrateDebugInfo requires the base Alloca. Walk to it from this gep.
       // If we cannot (because there's an intervening non-const or unbounded
       // gep) then we wouldn't expect to see dbg.assign intrinsics linked to
@@ -3984,6 +3989,8 @@ private:
                "AT: unexpected debug.assign linked to store through "
                "unbounded GEP");
       }
+=======
+>>>>>>> f370248aaf2615853640b52a49dfb6c69cbf1f9d
       LLVM_DEBUG(dbgs() << "          to: " << *Store << "\n");
     }
   };
@@ -3997,7 +4004,7 @@ private:
 
     // We have an aggregate being stored, split it apart.
     LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
-    StoreOpSplitter Splitter(&SI, *U, V->getType(), SI.getAAMetadata(), &SI,
+    StoreOpSplitter Splitter(&SI, *U, V->getType(), SI.getAAMetadata(),
                              getAdjustedAlignment(&SI, 0), DL, IRB);
     Splitter.emitSplitOps(V->getType(), V, V->getName() + ".fca");
     Visited.erase(&SI);
@@ -4598,8 +4605,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
             getAdjustedAlignment(SI, PartOffset),
             /*IsVolatile*/ false);
         PStore->copyMetadata(*SI, {LLVMContext::MD_mem_parallel_loop_access,
-                                   LLVMContext::MD_access_group,
-                                   LLVMContext::MD_DIAssignID});
+                                   LLVMContext::MD_access_group});
         LLVM_DEBUG(dbgs() << "      +" << PartOffset << ":" << *PStore << "\n");
       }
 
@@ -5090,8 +5096,6 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   // Migrate debug information from the old alloca to the new alloca(s)
   // and the individual partitions.
   TinyPtrVector<DbgVariableIntrinsic *> DbgDeclares = FindDbgAddrUses(&AI);
-  for (auto *DbgAssign : at::getAssignmentMarkers(&AI))
-    DbgDeclares.push_back(DbgAssign);
   for (DbgVariableIntrinsic *DbgDeclare : DbgDeclares) {
     auto *Expr = DbgDeclare->getExpression();
     DIBuilder DIB(*AI.getModule(), /*AllowUnresolved*/ false);
@@ -5111,10 +5115,9 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
         if (ExprFragment) {
           uint64_t AbsEnd =
               ExprFragment->OffsetInBits + ExprFragment->SizeInBits;
-          if (Start >= AbsEnd) {
+          if (Start >= AbsEnd)
             // No need to describe a SROAed padding.
             continue;
-          }
           Size = std::min(Size, AbsEnd - Start);
         }
         // The new, smaller fragment is stenciled out from the old fragment.
@@ -5156,23 +5159,8 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
           OldDII->eraseFromParent();
       }
 
-      if (auto *DbgAssign = dyn_cast<DbgAssignIntrinsic>(DbgDeclare)) {
-        if (!Fragment.Alloca->hasMetadata(LLVMContext::MD_DIAssignID)) {
-          Fragment.Alloca->setMetadata(
-              LLVMContext::MD_DIAssignID,
-              DIAssignID::getDistinct(AI.getContext()));
-        }
-        auto *NewAssign = DIB.insertDbgAssign(
-            Fragment.Alloca, DbgAssign->getValue(), DbgAssign->getVariable(),
-            FragmentExpr, Fragment.Alloca, DbgAssign->getAddressExpression(),
-            DbgAssign->getDebugLoc());
-        NewAssign->setDebugLoc(DbgAssign->getDebugLoc());
-        LLVM_DEBUG(dbgs() << "Created new assign intrinsic: " << *NewAssign
-                          << "\n");
-      } else {
-        DIB.insertDeclare(Fragment.Alloca, DbgDeclare->getVariable(),
-                          FragmentExpr, DbgDeclare->getDebugLoc(), &AI);
-      }
+      DIB.insertDeclare(Fragment.Alloca, DbgDeclare->getVariable(), FragmentExpr,
+                        DbgDeclare->getDebugLoc(), &AI);
     }
   }
   return Changed;
@@ -5298,7 +5286,6 @@ bool SROAPass::deleteDeadInstructions(
         OldDII->eraseFromParent();
     }
 
-    at::deleteAssignmentMarkers(I);
     I->replaceAllUsesWith(UndefValue::get(I->getType()));
 
     for (Use &Operand : I->operands())
