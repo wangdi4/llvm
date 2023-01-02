@@ -28,8 +28,7 @@ define i32 @ashr(i32 %a) {
 define i64 @ashr_global() {
 ; CHECK-LABEL: 'ashr_global'
 ; CHECK-NEXT:  Classifying expressions for: @ashr_global
-<<<<<<< HEAD
-; CHECK-NEXT:    %ashr = ashr i64 ptrtoint (i8* @G to i64), 63
+; CHECK-NEXT:    %ashr = ashr i64 ptrtoint (ptr @G to i64), 63
 ; INTEL_CUSTOMIZATION
 ; This customization is necessary due the fact that the ScalarEvolution uses
 ; ValueTracking, which itself uses AssumptionCache. The assumption in this
@@ -37,10 +36,6 @@ define i64 @ashr_global() {
 ; precise.
 ; CHECK-NEXT:    --> %ashr U: [0,1) S: [0,1)
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    %ashr = ashr i64 ptrtoint (ptr @G to i64), 63
-; CHECK-NEXT:    --> %ashr U: [-1,1) S: [-1,1)
->>>>>>> 92619956eb27ef08dd24045307593fc3d7f78db0
 ; CHECK-NEXT:  Determining loop execution counts for: @ashr_global
 ;
   %ashr = ashr i64 ptrtoint (ptr @G to i64), 63
