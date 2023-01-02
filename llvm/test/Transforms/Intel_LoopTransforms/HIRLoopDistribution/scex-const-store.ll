@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,verify<hir>,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; Check that "%t.0 = 0" and "%t.0 = 1" expanded as "(%.TempArray)[0][i1] = 0" and "(%.TempArray)[0][i1] = 1".
