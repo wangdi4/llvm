@@ -121,18 +121,6 @@ end:
   ret ptr %x10
 }
 
-<<<<<<< HEAD
-define ptr @test5(i32 %a, i32 %b, i32 %c, ptr dereferenceable(10) %ptr1, ptr dereferenceable(10) %ptr2, ptr dereferenceable(10) align 8 %ptr3) nofree nosync {
-; CHECK-LABEL: @test5(
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[T1:%.*]] = icmp eq i32 [[B:%.*]], 0
-; CHECK-NEXT:    [[T2:%.*]] = icmp sgt i32 [[C:%.*]], 1
-; CHECK-NEXT:    [[T4_SEL:%.*]] = select i1 [[T1]], ptr [[PTR2:%.*]], ptr [[PTR1:%.*]]
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[T1]], i1 [[T2]], i1 false
-; CHECK-NEXT:    [[T3:%.*]] = load ptr, ptr [[PTR3:%.*]], align 8
-; CHECK-NEXT:    [[T4:%.*]] = select i1 [[OR_COND]], ptr [[T3]], ptr [[T4_SEL]]
-; CHECK-NEXT:    ret ptr [[T4]]
-=======
 define i32* @test5(i32 %a, i32 %b, i32 %c, i32* dereferenceable(10) %ptr1, i32* dereferenceable(10) %ptr2, i32** dereferenceable(10) align 8 %ptr3) nofree nosync {
 ; CHECK-LABEL: define {{[^@]+}}@test5(
 ; CHECK-NEXT:  entry:
@@ -142,7 +130,6 @@ define i32* @test5(i32 %a, i32 %b, i32 %c, i32* dereferenceable(10) %ptr1, i32* 
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], i32* [[T3]], i32* [[PTR2:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[T1]], i32* [[SPEC_SELECT]], i32* [[PTR1:%.*]]
 ; CHECK-NEXT:    ret i32* [[TMP0]]
->>>>>>> 00ebb756b3ebaed239811b1ccff549885b5c1acb
 ;
 entry:
   %t1 = icmp eq i32 %b, 0

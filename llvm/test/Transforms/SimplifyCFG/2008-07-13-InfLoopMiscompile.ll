@@ -20,12 +20,8 @@ define i32 @main() nounwind  {
 ; CHECK-NEXT:    [[DOTMUX:%.*]] = select i1 [[CMPB]], i32 0, i32 2
 ; CHECK-NEXT:    br i1 [[BRMERGE]], label [[FUNC_1_EXIT]], label [[INFLOOP:%.*]]
 ; CHECK:       func_1.exit:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[POUT:%.*]] = tail call i32 (ptr, ...) @printf(ptr noalias @.str, i32 [[OUTVAL_SEL_MUX]]) #[[ATTR0:[0-9]+]]
-=======
 ; CHECK-NEXT:    [[OUTVAL:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[DOTMUX]], [[MOOSEBLOCK]] ]
 ; CHECK-NEXT:    [[POUT:%.*]] = tail call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0), i32 [[OUTVAL]]) #[[ATTR0:[0-9]+]]
->>>>>>> 00ebb756b3ebaed239811b1ccff549885b5c1acb
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       infloop:
 ; CHECK-NEXT:    br label [[INFLOOP]]
