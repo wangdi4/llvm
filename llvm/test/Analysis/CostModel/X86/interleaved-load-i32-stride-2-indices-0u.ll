@@ -36,26 +36,16 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 16 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
 ;
 ; AVX512-LABEL: 'test'
-<<<<<<< HEAD
-; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: %v0 = load i32, i32* %in0, align 4
-; AVX512:  LV: Found an estimated cost of 1 for VF 2 For instruction: %v0 = load i32, i32* %in0, align 4
-; AVX512:  LV: Found an estimated cost of 1 for VF 4 For instruction: %v0 = load i32, i32* %in0, align 4
-; AVX512:  LV: Found an estimated cost of 1 for VF 8 For instruction: %v0 = load i32, i32* %in0, align 4
-; AVX512:  LV: Found an estimated cost of 2 for VF 16 For instruction: %v0 = load i32, i32* %in0, align 4
-; INTEL_CUSTOMIZATION
-; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
-; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
-; AVX512: LV: Found an estimated cost of 32 for VF 64 For instruction:   %v0 = load i32, i32* %in0, align 4
-; end INTEL_CUSTOMIZATION
-=======
 ; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 1 for VF 2 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 1 for VF 4 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 1 for VF 8 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 2 for VF 16 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 13 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 50 for VF 64 For instruction: %v0 = load i32, ptr %in0, align 4
->>>>>>> 68c50b111d74afb9489cf97770fa917d0a1c7f77
+; INTEL_CUSTOMIZATION
+; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
+; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
+; AVX512: LV: Found an estimated cost of 32 for VF 64 For instruction:   %v0 = load i32, ptr %in0, align 4
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %for.body
