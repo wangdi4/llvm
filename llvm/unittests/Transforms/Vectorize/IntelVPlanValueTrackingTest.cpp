@@ -427,9 +427,7 @@ TEST_F(VPlanComputeKnownBitsTest, AffectedByExternalAssumption) {
 
   KnownBits ArgKB =
       Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
-  // TODO: uncomment once we have support for external assumptions
-  // EXPECT_EQ(ArgKB.Zero, 63);
-  EXPECT_EQ(ArgKB.Zero, 0);
+  EXPECT_EQ(ArgKB.Zero, 63);
   EXPECT_EQ(ArgKB.One, 0);
 }
 
