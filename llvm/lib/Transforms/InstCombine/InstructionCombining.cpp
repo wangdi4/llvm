@@ -2506,7 +2506,7 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
         if (Instruction *I = visitBitCast(*BCI)) {
           if (I != BCI) {
             I->takeName(BCI);
-            I->insertAt(BCI->getParent(), BCI->getIterator());
+            I->insertInto(BCI->getParent(), BCI->getIterator());
             replaceInstUsesWith(*BCI, I);
           }
           return &GEP;
@@ -2805,7 +2805,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       NewGEP->setOperand(DI, NewPN);
     }
 
-    NewGEP->insertAt(GEP.getParent(), GEP.getParent()->getFirstInsertionPt());
+    NewGEP->insertInto(GEP.getParent(), GEP.getParent()->getFirstInsertionPt());
     return replaceOperand(GEP, 0, NewGEP);
   }
 
@@ -4819,7 +4819,7 @@ bool InstCombinerImpl::run() {
             InsertPos = InstParent->getFirstNonPHI()->getIterator();
         }
 
-        Result->insertAt(InstParent, InsertPos);
+        Result->insertInto(InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);

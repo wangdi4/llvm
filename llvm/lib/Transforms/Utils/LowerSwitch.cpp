@@ -325,7 +325,7 @@ BasicBlock *SwitchConvert(CaseItr Begin, CaseItr End, ConstantInt *LowerBound,
                     NewNode, OrigBlock, Default, UnreachableRanges);
 
   F->insert(++OrigBlock->getIterator(), NewNode);
-  Comp->insertAt(NewNode, NewNode->end());
+  Comp->insertInto(NewNode, NewNode->end());
 
   BranchInst::Create(LBranch, RBranch, Comp, NewNode);
   return NewNode;
