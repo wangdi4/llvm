@@ -683,12 +683,19 @@ public:
     return canInstructionRangeModRef(I1, I2, MemoryLocation(Ptr, Size), Mode);
   }
 
+  // CtxI can be nullptr, in which case the query is whether or not the aliasing
+  // relationship holds through the entire function.
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+<<<<<<< HEAD
                     AAQueryInfo &AAQI);
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI);
 #endif // INTEL_CUSTOMIZATION
+=======
+                    AAQueryInfo &AAQI, const Instruction *CtxI = nullptr);
+
+>>>>>>> d9db6340e72dc8ad744a1a567ef037ae84c8a4fc
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
   ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
@@ -854,7 +861,8 @@ public:
   /// each other. This is the interface that must be implemented by specific
   /// alias analysis implementations.
   virtual AliasResult alias(const MemoryLocation &LocA,
-                            const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
+                            const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                            const Instruction *CtxI) = 0;
 
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
@@ -930,8 +938,8 @@ public:
   ~Model() override = default;
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) override {
-    return Result.alias(LocA, LocB, AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI) override {
+    return Result.alias(LocA, LocB, AAQI, CtxI);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -1013,7 +1021,7 @@ protected:
 
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) {
+                    AAQueryInfo &AAQI, const Instruction *I) {
     return AliasResult::MayAlias;
   }
 

@@ -119,7 +119,7 @@ public:
                   FunctionAnalysisManager::Invalidator &Inv);
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI);
 
 #if INTEL_COLLAB
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,

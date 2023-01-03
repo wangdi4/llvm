@@ -111,7 +111,7 @@ public:
   // Implement the AliasAnalysis API
   //
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI);
 
   using AAResultBase::getModRefInfo;
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
