@@ -36,7 +36,6 @@
 #include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
-#include <cl_local_array.h>
 #include <cl_objects_map.h>
 #include <cl_utils.h>
 #include <framework_proxy.h>

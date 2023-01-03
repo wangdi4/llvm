@@ -21,7 +21,6 @@
 #include <cl_objects_map.h>
 #include <cl_sys_defines.h>
 
-#include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
@@ -1001,13 +1000,15 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(
       if (CL_FAILED(err)) {
         return err;
       }
-      clLocalArray<char> sDevEx(szParamValSize);
+
+      llvm::SmallVector<char> sDevEx(szParamValSize);
+
       err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize,
-                                        (char *)sDevEx, nullptr);
+                                        sDevEx.data(), nullptr);
       if (CL_FAILED(err)) {
         return err;
       }
-      if (std::string((char *)sDevEx).find(d3dDefinitions.GetExtensionName()) !=
+      if (std::string(sDevEx.data()).find(d3dDefinitions.GetExtensionName()) !=
           std::string::npos) {
         szFoundDevices++;
         if (nullptr != pclDevices && szDevIndex < uiNumEntries) {
