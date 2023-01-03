@@ -291,7 +291,6 @@ bool operator>=(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator<(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator>(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 inline Align operator*(Align Lhs, uint64_t Rhs) {
   assert(Rhs > 0 && "Rhs must be positive");
@@ -305,7 +304,6 @@ inline Align operator/(Align Lhs, uint64_t Divisor) {
   return Align(Lhs.value() / Divisor);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 // Allow equality comparisons between Align and MaybeAlign.
 inline bool operator==(MaybeAlign Lhs, Align Rhs) { return Lhs && *Lhs == Rhs; }
 inline bool operator!=(MaybeAlign Lhs, Align Rhs) { return !(Lhs == Rhs); }
@@ -321,7 +319,6 @@ inline bool operator==(MaybeAlign Lhs, std::nullopt_t) { return !bool(Lhs); }
 inline bool operator!=(MaybeAlign Lhs, std::nullopt_t) { return bool(Lhs); }
 inline bool operator==(std::nullopt_t, MaybeAlign Rhs) { return !bool(Rhs); }
 inline bool operator!=(std::nullopt_t, MaybeAlign Rhs) { return bool(Rhs); }
->>>>>>> faa1b57d16009790ed6fd59342b12607c5460b49
 
 #ifndef NDEBUG
 // For usage in LLVM_DEBUG macros.
