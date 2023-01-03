@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,6 +17,9 @@
 #
 # end INTEL_CUSTOMIZATION
 if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
+=======
+if (DEFINED LLVM_HAVE_TF_AOT OR LLVM_HAVE_TFLITE)
+>>>>>>> 9112ec6ad0593b067762ae24a036d207f689c78a
   include(TensorFlowCompile)
   set(LLVM_INLINER_MODEL_PATH_DEFAULT "models/inliner-Oz")
 
@@ -34,18 +38,14 @@ if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
     )
   endif()
 
-  if (DEFINED LLVM_HAVE_TF_API)
-    if (LLVM_HAVE_TFLITE)
-      build_proto(
-        tensorflow/core/protobuf/error_codes
-        tensorflow/core/example/feature
-        tensorflow/core/example/example)
-      list(APPEND MLLinkDeps 
-        tensorflow-lite::tensorflow-lite
-        protobuf::libprotobuf)
-    else()
-      list(APPEND MLLinkDeps ${tensorflow_c_api} ${tensorflow_fx})
-    endif()
+  if (LLVM_HAVE_TFLITE)
+    build_proto(
+      tensorflow/core/protobuf/error_codes
+      tensorflow/core/example/feature
+      tensorflow/core/example/example)
+    list(APPEND MLLinkDeps
+      tensorflow-lite::tensorflow-lite
+      protobuf::libprotobuf)
   endif()
 endif()
 
