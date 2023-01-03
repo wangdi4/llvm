@@ -44,16 +44,11 @@
  * to the clang resource header until that is fully supported.  The
  * `stdatomic.h` header requires C++ 23 or newer.
  */
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #if !__USE_CLANG_CATOMICS && __STDC_HOSTED__ &&                                \
-    __has_include_next(<stdatomic.h>) && !(defined(_MSC_VER) && !defined(__cplusplus))
-/* end INTEL_CUSTOMIZATION */
-=======
-#if __STDC_HOSTED__ &&                                                         \
     __has_include_next(<stdatomic.h>) &&                                       \
     !(defined(_MSC_VER) && defined(__cplusplus) && __cplusplus < 202002L)
->>>>>>> e0c3142af075e2ef89395dbed5939071345eb622
+/* end INTEL_CUSTOMIZATION */
 # include_next <stdatomic.h>
 #else
 
