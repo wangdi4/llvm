@@ -18937,6 +18937,20 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
                         "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>,
                         EVEX_4V, EVEX_V512, T_MAP6XS;
+
+      def VMMIF16PS512rri : Ii8<0x6f, MRMSrcReg, (outs VR512:$dst),
+                        (ins VR512:$src1, VR512:$src2, VR512:$src3, i32u8imm:$src4),
+                        "vmmif16ps\t{$src4, $src3, $src2, $src1|$src1, $src2, $src3, $src4}",
+                        [(set VR512:$dst,
+                            (int_x86_vpmm_vmmif16ps_512 VR512:$src1, VR512:$src2, VR512:$src3, timm:$src4))]>,
+                        EVEX_4V, EVEX_V512, TAXS;
+
+      def VMMF16PS512rr : I<0x6f, MRMSrcReg, (outs VR512:$dst),
+                        (ins VR512:$src1, VR512:$src2, VR512:$src3),
+                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        [(set VR512:$dst,
+                            (int_x86_vpmm_vmmf16ps_512 VR512:$src1, VR512:$src2, VR512:$src3))]>,
+                        EVEX_4V, EVEX_V512, T_MAP6XS;
     }
   }
 }
@@ -18953,6 +18967,34 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
                         (ins YMMPairX:$src1, VR256:$src2, VR256:$src3),
                         "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>,
+                        EVEX_4V, EVEX_V256, T_MAP6XS;
+
+      def VMMIF16PS128rri : Ii8<0x6f, MRMSrcReg, (outs VR128X:$dst),
+                        (ins VR128X:$src1, VR128X:$src2, VR128X:$src3, i32u8imm:$src4),
+                        "vmmif16ps\t{$src4, $src3, $src2, $src1|$src1, $src2, $src3, $src4}",
+                        [(set VR128X:$dst,
+                            (int_x86_vpmm_vmmif16ps_128 VR128X:$src1, VR128X:$src2, VR128X:$src3, timm:$src4))]>,
+                        EVEX_4V, EVEX_V128, TAXS;
+
+      def VMMIF16PS256rri : Ii8<0x6f, MRMSrcReg, (outs VR256X:$dst),
+                        (ins VR256X:$src1, VR256X:$src2, VR256X:$src3, i32u8imm:$src4),
+                        "vmmif16ps\t{$src4, $src3, $src2, $src1|$src1, $src2, $src3, $src4}",
+                        [(set VR256X:$dst,
+                            (int_x86_vpmm_vmmif16ps_256 VR256X:$src1, VR256X:$src2, VR256X:$src3, timm:$src4))]>,
+                        EVEX_4V, EVEX_V256, TAXS;
+
+      def VMMF16PS128rr : I<0x6f, MRMSrcReg, (outs VR128X:$dst),
+                        (ins VR128X:$src1, VR128X:$src2, VR128X:$src3),
+                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        [(set VR128X:$dst,
+                            (int_x86_vpmm_vmmf16ps_128 VR128X:$src1, VR128X:$src2, VR128X:$src3))]>,
+                        EVEX_4V, EVEX_V128, T_MAP6XS;
+
+      def VMMF16PS256rr : I<0x6f, MRMSrcReg, (outs VR256X:$dst),
+                        (ins VR256X:$src1, VR256X:$src2, VR256X:$src3),
+                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                        [(set VR256X:$dst,
+                            (int_x86_vpmm_vmmf16ps_256 VR256X:$src1, VR256X:$src2, VR256X:$src3))]>,
                         EVEX_4V, EVEX_V256, T_MAP6XS;
     }
   }

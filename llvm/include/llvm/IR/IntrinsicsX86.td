@@ -2339,6 +2339,36 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
           Intrinsic<[llvm_v16f32_ty, llvm_v16f32_ty],
                     [llvm_v16f32_ty, llvm_v16f32_ty, llvm_v32f16_ty, llvm_v32f16_ty],
                     [IntrNoMem]>;
+
+  def int_x86_vpmm_vmmif16ps_128 : ClangBuiltin<"__builtin_ia32_vmmif16ps_128">,
+          DefaultAttrsIntrinsic<[llvm_v4f32_ty],
+                    [llvm_v4f32_ty, llvm_v8f16_ty, llvm_v8f16_ty, llvm_i32_ty],
+                    [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+
+  def int_x86_vpmm_vmmif16ps_256 : ClangBuiltin<"__builtin_ia32_vmmif16ps_256">,
+          DefaultAttrsIntrinsic<[llvm_v8f32_ty],
+                    [llvm_v8f32_ty, llvm_v16f16_ty, llvm_v16f16_ty, llvm_i32_ty],
+                    [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+
+  def int_x86_vpmm_vmmif16ps_512 : ClangBuiltin<"__builtin_ia32_vmmif16ps_512">,
+          DefaultAttrsIntrinsic<[llvm_v16f32_ty],
+                    [llvm_v16f32_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty],
+                    [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+
+  def int_x86_vpmm_vmmf16ps_128 : ClangBuiltin<"__builtin_ia32_vmmf16ps_128">,
+          DefaultAttrsIntrinsic<[llvm_v4f32_ty],
+                    [llvm_v4f32_ty, llvm_v8f16_ty, llvm_v8f16_ty],
+                    [IntrNoMem]>;
+
+  def int_x86_vpmm_vmmf16ps_256 : ClangBuiltin<"__builtin_ia32_vmmf16ps_256">,
+          DefaultAttrsIntrinsic<[llvm_v8f32_ty],
+                    [llvm_v8f32_ty, llvm_v16f16_ty, llvm_v16f16_ty],
+                    [IntrNoMem]>;
+
+  def int_x86_vpmm_vmmf16ps_512 : ClangBuiltin<"__builtin_ia32_vmmf16ps_512">,
+          DefaultAttrsIntrinsic<[llvm_v16f32_ty],
+                    [llvm_v16f32_ty, llvm_v32f16_ty, llvm_v32f16_ty],
+                    [IntrNoMem]>;
 }
 #endif // INTEL_FEATURE_ISA_AVX512_VPMM
 #endif // INTEL_CUSTOMIZATION

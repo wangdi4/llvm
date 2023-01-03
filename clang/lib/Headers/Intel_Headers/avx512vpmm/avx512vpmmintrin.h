@@ -57,6 +57,7 @@
   __attribute__((__always_inline__, __nodebug__, __target__("avx512vpmm"),     \
                  __min_vector_width__(512)))
 
+// vmmxf16ps
 static __inline__ void __DEFAULT_FN_ATTRS128
 _mm128_vmmxf16_ps(__m128 *__dst_low, __m128 *__dst_high, __m128h __b,
                   __m128h __c, __m128 __low, __m128 __high) {
@@ -75,6 +76,31 @@ _mm512_vmmxf16_ps(__m512 *__dst_low, __m512 *__dst_high, __m512h __b,
   __builtin_ia32_vmmxf16ps_512(__dst_high, __dst_low, __b, __c, __high, __low);
 }
 
+// vmmif16ps
+#define _mm128_vmmif16_ps(b, c, s, i) \
+  __builtin_ia32_vmmif16ps_128((__m128)(s), (__m128h)(b), (__m128h)(c), (int)i)
+
+#define _mm256_vmmif16_ps(b, c, s, i) \
+  __builtin_ia32_vmmif16ps_256((__m256)(s), (__m256h)(b), (__m256h)(c), (int)i)
+
+#define _mm512_vmmif16_ps(b, c, s, i) \
+  __builtin_ia32_vmmif16ps_512((__m512)(s), (__m512h)(b), (__m512h)(c), (int)i)
+
+// vmmf16ps
+static __inline__ __m128 __DEFAULT_FN_ATTRS128
+_mm128_vmmf16_ps(__m128h __b, __m128h __c, __m128 __src) {
+  return __builtin_ia32_vmmf16ps_128(__src, __b, __c);
+}
+
+static __inline__ __m256 __DEFAULT_FN_ATTRS256
+_mm256_vmmf16_ps(__m256h __b, __m256h __c, __m256 __src) {
+  return __builtin_ia32_vmmf16ps_256(__src, __b, __c);
+}
+
+static __inline__ __m512 __DEFAULT_FN_ATTRS512
+_mm512_vmmf16_ps(__m512h __b, __m512h __c, __m512 __src) {
+  return __builtin_ia32_vmmf16ps_512(__src, __b, __c);
+}
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 #undef __DEFAULT_FN_ATTRS512

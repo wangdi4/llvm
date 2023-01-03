@@ -6371,6 +6371,17 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     i = 2; l = 0; u = 3;
     break;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+  case X86::BI__builtin_ia32_vmmif16ps_128:
+    i = 3; l = 0; u = 0;
+    break;
+  case X86::BI__builtin_ia32_vmmif16ps_256:
+    i = 3; l = 0; u = 1;
+    break;
+  case X86::BI__builtin_ia32_vmmif16ps_512:
+    i = 3; l = 0; u = 3;
+    break;
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_fixupimmpd512_mask:
   case X86::BI__builtin_ia32_fixupimmpd512_maskz:
