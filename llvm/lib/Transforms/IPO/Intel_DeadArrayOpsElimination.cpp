@@ -381,7 +381,7 @@ void CandidateInfo::wrapRecursionCallUnderCond() {
   (void)SuccBB;
   assert(SuccBB && "The split block should have a single successor");
   RecursionCall->removeFromParent();
-  RecursionCall->insertAt(SortBB, SortBB->getFirstInsertionPt());
+  RecursionCall->insertInto(SortBB, SortBB->getFirstInsertionPt());
   DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI, {
     dbgs() << "    Cond: " << *Cond << "\n\n";
     dbgs() << "    After  wrapping :\n";

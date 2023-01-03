@@ -276,7 +276,7 @@ Value *ResolveWICallPass::updateGetFunction(CallInst *CI,
   ICmpInst *CheckIndex = new ICmpInst(ICmpInst::ICMP_ULT, CI->getArgOperand(0),
                                       MaxWorkDimI32, "check.index.inbound");
   CheckIndex->setDebugLoc(CI->getDebugLoc());
-  CheckIndex->insertAt(BB, BB->end());
+  CheckIndex->insertInto(BB, BB->end());
   BranchInst *CheckIndexBI = BranchInst::Create(getWIProperties, splitContinue, CheckIndex, BB);
   CheckIndexBI->setDebugLoc(CI->getDebugLoc());
 

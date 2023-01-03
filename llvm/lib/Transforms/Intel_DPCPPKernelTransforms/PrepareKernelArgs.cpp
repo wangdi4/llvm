@@ -617,7 +617,7 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     if (!AI)
       continue;
     AI->removeFromParent();
-    AI->insertAt(Entry, InsertPoint);
+    AI->insertInto(Entry, InsertPoint);
   }
 
   // Inject byval arguments initialization.

@@ -1335,7 +1335,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
       LoadInst *NewLI = cast<LoadInst>(LI->clone());
       if (DIL)
         NewLI->setDebugLoc(DIL);
-      NewLI->insertAt(CondBB, CondBB->end());
+      NewLI->insertInto(CondBB, CondBB->end());
       Constant *CZ = ConstantInt::get(LI->getType(), 0);
       CmpInst *CI = ICmpInst::Create(
           Instruction::ICmp, Sense ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ,
@@ -1359,7 +1359,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
         LoadInst *NewLLI = cast<LoadInst>(LLI->clone());
         if (DIL)
           NewLLI->setDebugLoc(DIL);
-        NewLLI->insertAt(CondBB, CondBB->end());
+        NewLLI->insertInto(CondBB, CondBB->end());
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(), NewLLI,
@@ -1381,7 +1381,7 @@ Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB,
         LoadInst *NewLRI = cast<LoadInst>(LRI->clone());
         if (DIL)
           NewLRI->setDebugLoc(DIL);
-        NewLRI->insertAt(CondBB, CondBB->end());
+        NewLRI->insertInto(CondBB, CondBB->end());
         CmpInst *CI = ICmpInst::Create(
             Instruction::ICmp,
             Sense ? IC->getPredicate() : IC->getInversePredicate(),
