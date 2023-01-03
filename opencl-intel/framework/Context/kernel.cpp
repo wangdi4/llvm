@@ -30,11 +30,11 @@
 #include <CL/cl_fpga_ext.h>
 #include <Device.h>
 #include <assert.h>
-#include <cl_local_array.h>
 #include <cl_objects_map.h>
 #include <cl_sys_defines.h>
 #include <cl_utils.h>
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace Intel::OpenCL::Utils;
@@ -854,11 +854,12 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel *pDeviceKernel) {
     size_t numArgs = m_sKernelPrototype.m_vArguments.size();
     m_vArgumentsInfo.resize(numArgs);
 
-    clLocalArray<cl_kernel_argument_info> argInfoArray(numArgs);
+    llvm::SmallVector<cl_kernel_argument_info> argInfoArray(numArgs);
 
     cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
         pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, nullptr,
-        numArgs * sizeof(cl_kernel_argument_info), &argInfoArray[0], nullptr);
+        numArgs * sizeof(cl_kernel_argument_info), argInfoArray.data(),
+        nullptr);
     if (CL_DEV_FAILED(clDevErr)) {
       m_vArgumentsInfo.clear();
       clErrCode = (clDevErr == CL_DEV_INVALID_KERNEL_NAME)

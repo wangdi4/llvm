@@ -147,3 +147,138 @@ void test_mm512_vmmxf16_ps(__m512 *HighPtr, __m512 *LowPtr,
                            __m512h Src1, __m512h Src2) {
   _mm512_vmmxf16_ps(LowPtr, HighPtr, Src1, Src2, *LowPtr, *HighPtr);
 }
+
+// CHECK-LABEL: @test_mm128_vmmif16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <4 x float>, align 16
+// CHECK-NEXT:    store <8 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 16
+// CHECK-NEXT:    store <8 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 16
+// CHECK-NEXT:    store <4 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 16
+// CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[SRCDST_ADDR]], align 16
+// CHECK-NEXT:    [[TMP1:%.*]] = load <8 x half>, ptr [[SRC1_ADDR]], align 16
+// CHECK-NEXT:    [[TMP2:%.*]] = load <8 x half>, ptr [[SRC2_ADDR]], align 16
+// CHECK-NEXT:    [[TMP3:%.*]] = call <4 x float> @llvm.x86.vpmm.vmmif16ps.128(<4 x float> [[TMP0]], <8 x half> [[TMP1]], <8 x half> [[TMP2]], i32 0)
+// CHECK-NEXT:    ret <4 x float> [[TMP3]]
+//
+__m128 test_mm128_vmmif16_ps(__m128h Src1, __m128h Src2, __m128 SrcDst) {
+  return _mm128_vmmif16_ps(Src1, Src2, SrcDst, 0);
+}
+
+// CHECK-LABEL: @test_mm256_vmmif16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <8 x float>, align 32
+// CHECK-NEXT:    store <16 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 32
+// CHECK-NEXT:    store <16 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 32
+// CHECK-NEXT:    store <8 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 32
+// CHECK-NEXT:    [[TMP0:%.*]] = load <8 x float>, ptr [[SRCDST_ADDR]], align 32
+// CHECK-NEXT:    [[TMP1:%.*]] = load <16 x half>, ptr [[SRC1_ADDR]], align 32
+// CHECK-NEXT:    [[TMP2:%.*]] = load <16 x half>, ptr [[SRC2_ADDR]], align 32
+// CHECK-NEXT:    [[TMP3:%.*]] = call <8 x float> @llvm.x86.vpmm.vmmif16ps.256(<8 x float> [[TMP0]], <16 x half> [[TMP1]], <16 x half> [[TMP2]], i32 0)
+// CHECK-NEXT:    ret <8 x float> [[TMP3]]
+//
+__m256 test_mm256_vmmif16_ps(__m256h Src1, __m256h Src2, __m256 SrcDst) {
+  return _mm256_vmmif16_ps(Src1, Src2, SrcDst, 0);
+}
+
+// CHECK-LABEL: @test_mm512_vmmif16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <16 x float>, align 64
+// CHECK-NEXT:    store <32 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 64
+// CHECK-NEXT:    store <32 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 64
+// CHECK-NEXT:    store <16 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 64
+// CHECK-NEXT:    [[TMP0:%.*]] = load <16 x float>, ptr [[SRCDST_ADDR]], align 64
+// CHECK-NEXT:    [[TMP1:%.*]] = load <32 x half>, ptr [[SRC1_ADDR]], align 64
+// CHECK-NEXT:    [[TMP2:%.*]] = load <32 x half>, ptr [[SRC2_ADDR]], align 64
+// CHECK-NEXT:    [[TMP3:%.*]] = call <16 x float> @llvm.x86.vpmm.vmmif16ps.512(<16 x float> [[TMP0]], <32 x half> [[TMP1]], <32 x half> [[TMP2]], i32 0)
+// CHECK-NEXT:    ret <16 x float> [[TMP3]]
+//
+__m512 test_mm512_vmmif16_ps(__m512h Src1, __m512h Src2, __m512 SrcDst) {
+  return _mm512_vmmif16_ps(Src1, Src2, SrcDst, 0);
+}
+
+// CHECK-LABEL: @test_mm128_vmmf16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[__B_ADDR_I:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[__C_ADDR_I:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[__SRC_ADDR_I:%.*]] = alloca <4 x float>, align 16
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <8 x half>, align 16
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <4 x float>, align 16
+// CHECK-NEXT:    store <8 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 16
+// CHECK-NEXT:    store <8 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 16
+// CHECK-NEXT:    store <4 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 16
+// CHECK-NEXT:    [[TMP0:%.*]] = load <8 x half>, ptr [[SRC1_ADDR]], align 16
+// CHECK-NEXT:    [[TMP1:%.*]] = load <8 x half>, ptr [[SRC2_ADDR]], align 16
+// CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, ptr [[SRCDST_ADDR]], align 16
+// CHECK-NEXT:    store <8 x half> [[TMP0]], ptr [[__B_ADDR_I]], align 16
+// CHECK-NEXT:    store <8 x half> [[TMP1]], ptr [[__C_ADDR_I]], align 16
+// CHECK-NEXT:    store <4 x float> [[TMP2]], ptr [[__SRC_ADDR_I]], align 16
+// CHECK-NEXT:    [[TMP3:%.*]] = load <4 x float>, ptr [[__SRC_ADDR_I]], align 16
+// CHECK-NEXT:    [[TMP4:%.*]] = load <8 x half>, ptr [[__B_ADDR_I]], align 16
+// CHECK-NEXT:    [[TMP5:%.*]] = load <8 x half>, ptr [[__C_ADDR_I]], align 16
+// CHECK-NEXT:    [[TMP6:%.*]] = call <4 x float> @llvm.x86.vpmm.vmmf16ps.128(<4 x float> [[TMP3]], <8 x half> [[TMP4]], <8 x half> [[TMP5]])
+// CHECK-NEXT:    ret <4 x float> [[TMP6]]
+//
+__m128 test_mm128_vmmf16_ps(__m128h Src1, __m128h Src2, __m128 SrcDst) {
+  return _mm128_vmmf16_ps(Src1, Src2, SrcDst);
+}
+
+// CHECK-LABEL: @test_mm256_vmmf16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[__B_ADDR_I:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[__C_ADDR_I:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[__SRC_ADDR_I:%.*]] = alloca <8 x float>, align 32
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <16 x half>, align 32
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <8 x float>, align 32
+// CHECK-NEXT:    store <16 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 32
+// CHECK-NEXT:    store <16 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 32
+// CHECK-NEXT:    store <8 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 32
+// CHECK-NEXT:    [[TMP0:%.*]] = load <16 x half>, ptr [[SRC1_ADDR]], align 32
+// CHECK-NEXT:    [[TMP1:%.*]] = load <16 x half>, ptr [[SRC2_ADDR]], align 32
+// CHECK-NEXT:    [[TMP2:%.*]] = load <8 x float>, ptr [[SRCDST_ADDR]], align 32
+// CHECK-NEXT:    store <16 x half> [[TMP0]], ptr [[__B_ADDR_I]], align 32
+// CHECK-NEXT:    store <16 x half> [[TMP1]], ptr [[__C_ADDR_I]], align 32
+// CHECK-NEXT:    store <8 x float> [[TMP2]], ptr [[__SRC_ADDR_I]], align 32
+// CHECK-NEXT:    [[TMP3:%.*]] = load <8 x float>, ptr [[__SRC_ADDR_I]], align 32
+// CHECK-NEXT:    [[TMP4:%.*]] = load <16 x half>, ptr [[__B_ADDR_I]], align 32
+// CHECK-NEXT:    [[TMP5:%.*]] = load <16 x half>, ptr [[__C_ADDR_I]], align 32
+// CHECK-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.x86.vpmm.vmmf16ps.256(<8 x float> [[TMP3]], <16 x half> [[TMP4]], <16 x half> [[TMP5]])
+// CHECK-NEXT:    ret <8 x float> [[TMP6]]
+//
+__m256 test_mm256_vmmf16_ps(__m256h Src1, __m256h Src2, __m256 SrcDst) {
+  return _mm256_vmmf16_ps(Src1, Src2, SrcDst);
+}
+
+// CHECK-LABEL: @test_mm512_vmmf16_ps(
+// CHECK-NEXT:  entry:
+// CHECK-NEXT:    [[__B_ADDR_I:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[__C_ADDR_I:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[__SRC_ADDR_I:%.*]] = alloca <16 x float>, align 64
+// CHECK-NEXT:    [[SRC1_ADDR:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[SRC2_ADDR:%.*]] = alloca <32 x half>, align 64
+// CHECK-NEXT:    [[SRCDST_ADDR:%.*]] = alloca <16 x float>, align 64
+// CHECK-NEXT:    store <32 x half> [[SRC1:%.*]], ptr [[SRC1_ADDR]], align 64
+// CHECK-NEXT:    store <32 x half> [[SRC2:%.*]], ptr [[SRC2_ADDR]], align 64
+// CHECK-NEXT:    store <16 x float> [[SRCDST:%.*]], ptr [[SRCDST_ADDR]], align 64
+// CHECK-NEXT:    [[TMP0:%.*]] = load <32 x half>, ptr [[SRC1_ADDR]], align 64
+// CHECK-NEXT:    [[TMP1:%.*]] = load <32 x half>, ptr [[SRC2_ADDR]], align 64
+// CHECK-NEXT:    [[TMP2:%.*]] = load <16 x float>, ptr [[SRCDST_ADDR]], align 64
+// CHECK-NEXT:    store <32 x half> [[TMP0]], ptr [[__B_ADDR_I]], align 64
+// CHECK-NEXT:    store <32 x half> [[TMP1]], ptr [[__C_ADDR_I]], align 64
+// CHECK-NEXT:    store <16 x float> [[TMP2]], ptr [[__SRC_ADDR_I]], align 64
+// CHECK-NEXT:    [[TMP3:%.*]] = load <16 x float>, ptr [[__SRC_ADDR_I]], align 64
+// CHECK-NEXT:    [[TMP4:%.*]] = load <32 x half>, ptr [[__B_ADDR_I]], align 64
+// CHECK-NEXT:    [[TMP5:%.*]] = load <32 x half>, ptr [[__C_ADDR_I]], align 64
+// CHECK-NEXT:    [[TMP6:%.*]] = call <16 x float> @llvm.x86.vpmm.vmmf16ps.512(<16 x float> [[TMP3]], <32 x half> [[TMP4]], <32 x half> [[TMP5]])
+// CHECK-NEXT:    ret <16 x float> [[TMP6]]
+//
+__m512 test_mm512_vmmf16_ps(__m512h Src1, __m512h Src2, __m512 SrcDst) {
+  return _mm512_vmmf16_ps(Src1, Src2, SrcDst);
+}

@@ -242,7 +242,7 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName,
     if (!m_bCommandCompleteValid ||
         m_sProfilingInfo.m_ulCommandComplete < ulData) {
       m_sProfilingInfo.m_ulCommandComplete = ulData;
-      m_bCommandEndValid = true;
+      m_bCommandCompleteValid = true;
     }
     break;
 

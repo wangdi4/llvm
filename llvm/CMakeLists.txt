@@ -2135,7 +2135,7 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
-      libdev-libistrconv libdev-svml libdev-libimf
+      libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
     )
 
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST

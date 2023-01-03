@@ -135,7 +135,7 @@ struct LoggerSingletonHandler {
   // Pointer to a singleton object
   static Logger *pLogger;
   HANDLE hMapFile;
-  LPVOID pSharedBuf;
+  LPVOID pSharedBuf = nullptr;
   HANDLE hMutex = nullptr;
 };
 

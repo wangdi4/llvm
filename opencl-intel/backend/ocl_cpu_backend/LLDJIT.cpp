@@ -368,7 +368,8 @@ void LLDJIT::LoadDLL() {
   OwnedTempFiles.emplace_back(std::move(PDBFile));
 
   assert(!DLLHandle);
-  HMODULE dllHandle = LoadLibraryA(DLLPath.c_str());
+  HMODULE dllHandle =
+      LoadLibraryExA(DLLPath.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
   if (!dllHandle)
     throw Exceptions::CompilerException("LoadLibrary(" + DLLPath +
                                         ") failed: " + getLastErrorMessage());

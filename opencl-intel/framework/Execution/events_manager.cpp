@@ -14,7 +14,6 @@
 
 #include "events_manager.h"
 #include "build_event.h"
-#include "cl_local_array.h"
 #include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_utils.h"

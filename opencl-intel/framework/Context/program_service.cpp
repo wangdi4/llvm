@@ -28,8 +28,8 @@
 #include "program_with_binary.h"
 #include "program_with_il.h"
 #include "program_with_source.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
-#include <cl_local_array.h>
 #include <cl_synch_objects.h>
 
 #include <string>
@@ -298,8 +298,8 @@ bool LinkTask::Execute() {
     useInputPrograms = false;
   }
 
-  clLocalArray<const void *> arrBinaries(m_uiNumPrograms);
-  clLocalArray<size_t> arrBinariesSizes(m_uiNumPrograms);
+  llvm::SmallVector<const void *> arrBinaries(m_uiNumPrograms);
+  llvm::SmallVector<size_t> arrBinariesSizes(m_uiNumPrograms);
 
   // Will get all kernel names when LinkTask parse all input programs' IR
   auto_ptr_ex<char, ArrayDP<char>> pKernelNames;
@@ -322,10 +322,10 @@ bool LinkTask::Execute() {
     // The frontend compiler is not thread safe
     std::lock_guard<std::mutex> lockLink(m_linkMtx);
 
-    m_pFECompiler->LinkProgram(arrBinaries, m_uiNumPrograms, arrBinariesSizes,
-                               m_sOptions.c_str(), pOutBinary.getOutPtr(),
-                               &uiOutBinarySize, linkLog, &bIsLibrary,
-                               pKernelNames.getOutPtr());
+    m_pFECompiler->LinkProgram(arrBinaries.data(), m_uiNumPrograms,
+                               arrBinariesSizes.data(), m_sOptions.c_str(),
+                               pOutBinary.getOutPtr(), &uiOutBinarySize,
+                               linkLog, &bIsLibrary, pKernelNames.getOutPtr());
   }
 
   // filter to get all kernels name which can get ArgsInfo
@@ -654,11 +654,7 @@ cl_err_code ProgramService::CompileProgram(
     buildOptions = options;
   }
 
-  clLocalArray<SharedPtr<BuildTask>> arrCompileTasks(uiNumDevices);
-
-  for (unsigned int i = 0; i < uiNumDevices; ++i) {
-    arrCompileTasks[i] = NULL;
-  }
+  llvm::SmallVector<SharedPtr<BuildTask>> arrCompileTasks(uiNumDevices);
 
   // The memory will be used by compiler tasks for all devices
   // it will be released by PostBuild task
@@ -753,7 +749,8 @@ cl_err_code ProgramService::CompileProgram(
     }
   }
 
-  clLocalArray<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(uiNumDevices);
+  llvm::SmallVector<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(
+      uiNumDevices);
 
   // Check if the compile options are legal for all the devices
   for (unsigned int i = 0; i < uiNumDevices; ++i) {
@@ -922,13 +919,8 @@ cl_err_code ProgramService::LinkProgram(
     buildOptions = options;
   }
 
-  clLocalArray<SharedPtr<BuildTask>> arrLinkTasks(uiNumDevices);
-  clLocalArray<SharedPtr<BuildTask>> arrDeviceBuildTasks(uiNumDevices);
-
-  for (unsigned int i = 0; i < uiNumDevices; ++i) {
-    arrLinkTasks[i] = NULL;
-    arrDeviceBuildTasks[i] = NULL;
-  }
+  llvm::SmallVector<SharedPtr<BuildTask>> arrLinkTasks(uiNumDevices);
+  llvm::SmallVector<SharedPtr<BuildTask>> arrDeviceBuildTasks(uiNumDevices);
 
   // This will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
@@ -950,7 +942,7 @@ cl_err_code ProgramService::LinkProgram(
   }
 
   // Check that all libraries have valid binary
-  clLocalArray<bool> arrBuildForDevice(uiNumDevices);
+  llvm::SmallVector<bool> arrBuildForDevice(uiNumDevices);
 
   for (unsigned int devIndex = 0; devIndex < uiNumDevices; ++devIndex) {
     unsigned int uiFoundBinaries = 0;
@@ -999,7 +991,8 @@ cl_err_code ProgramService::LinkProgram(
     }
   }
 
-  clLocalArray<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(uiNumDevices);
+  llvm::SmallVector<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(
+      uiNumDevices);
 
   // Check if the link options are legal for all the devices
   for (unsigned int i = 0; i < uiNumDevices; ++i) {
@@ -1220,9 +1213,9 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
     buildOptions = options;
   }
 
-  clLocalArray<SharedPtr<BuildTask>> arrCompileTasks(uiNumDevices);
-  clLocalArray<SharedPtr<BuildTask>> arrLinkTasks(uiNumDevices);
-  clLocalArray<SharedPtr<BuildTask>> arrDeviceBuildTasks(uiNumDevices);
+  llvm::SmallVector<SharedPtr<BuildTask>> arrCompileTasks(uiNumDevices);
+  llvm::SmallVector<SharedPtr<BuildTask>> arrLinkTasks(uiNumDevices);
+  llvm::SmallVector<SharedPtr<BuildTask>> arrDeviceBuildTasks(uiNumDevices);
 
   // this will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
@@ -1266,7 +1259,8 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
     }
   }
 
-  clLocalArray<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(uiNumDevices);
+  llvm::SmallVector<ConstSharedPtr<FrontEndCompiler>> arrFeCompilers(
+      uiNumDevices);
 
   // Check if the build options are legal for all the devices
   for (unsigned int i = 0; i < uiNumDevices; ++i) {

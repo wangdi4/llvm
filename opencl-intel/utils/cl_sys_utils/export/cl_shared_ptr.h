@@ -345,7 +345,7 @@ public:
 
   template <typename S>
   SharedPtrBase &operator=(const SharedPtrBase<S> &other) {
-    if (other != *this) {
+    if (other.GetPtr() != this->m_ptr) {
       // get hold of the original object address
       T *ptr = this->m_ptr;
       // update m_ptr to the new address

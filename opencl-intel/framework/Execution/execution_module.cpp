@@ -43,7 +43,6 @@
 #include <CL/cl_ext.h>
 #include <Logger.h>
 #include <cassert>
-#include <cl_local_array.h>
 #include <cl_objects_map.h>
 
 using namespace Intel::OpenCL::Framework;

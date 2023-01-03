@@ -1599,9 +1599,9 @@ int X86TTIImpl::getMatchingVectorVariant(
   int BestArg = -1;
   int BestScore = 0;
   Optional<VFISAKind> BestISA;
-  for (auto CallVariant : ForCall) {
+  for (auto &CallVariant : ForCall) {
     int CurrIndex = -1;
-    for (auto Variant : Variants) {
+    for (auto &Variant : Variants) {
       CurrIndex++;
       if (!targetMatchesVariantISA(Variant.getISA()))
         continue;
@@ -6844,6 +6844,10 @@ bool X86TTIImpl::supportsGather() const {
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.
+#if INTEL_CUSTOMIZATION
+  if (ST->gatherDisabled())
+    return false;
+#endif // INTEL_CUSTOMIZATION
   return ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2());
 }
 
