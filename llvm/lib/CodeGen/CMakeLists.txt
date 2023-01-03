@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -36,6 +37,9 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_CUSTOMIZATION
 
 if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
+=======
+if (DEFINED LLVM_HAVE_TF_AOT OR LLVM_HAVE_TFLITE)
+>>>>>>> ee0c631716a0038833e204c1a47c214ce1d9dbd5
   include(TensorFlowCompile)
   set(LLVM_RAEVICT_MODEL_PATH_DEFAULT "models/regalloc-eviction")
 
@@ -54,7 +58,7 @@ if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
     )
   endif()
 
-  if (DEFINED LLVM_HAVE_TF_API)
+  if (LLVM_HAVE_TFLITE)
     list(APPEND MLLinkDeps ${tensorflow_c_api} ${tensorflow_fx})
   endif()
 endif()
