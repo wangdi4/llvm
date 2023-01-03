@@ -1121,6 +1121,8 @@ public:
 class WRNTargetVariantNode : public WRegionNode {
 private:
   MapClause Map;
+  NeedDevicePtrSet NeedDevicePtr;
+  NeedDevicePtrSet NeedDevicePtrToPtr;
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   SubdeviceClause Subdevice;
@@ -1136,9 +1138,11 @@ protected:
   void setCall(CallInst *CI) override { Call = CI; }
 
 public:
-  DEFINE_GETTER(MapClause,          getMap,          Map)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(MapClause,          getMap,                Map)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtr,      NeedDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtrToPtr, NeedDevicePtrToPtr)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr,       UseDevicePtr)
+  DEFINE_GETTER(SubdeviceClause,    getSubdevice,          Subdevice)
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
   CallInst *getCall() const override { return Call; }
@@ -1160,6 +1164,8 @@ class WRNDispatchNode : public WRegionNode {
 private:
   // No need to represent depend clause here; it's moved to the implicit task
   IsDevicePtrClause IsDevicePtr;
+  NeedDevicePtrSet NeedDevicePtr;
+  NeedDevicePtrSet NeedDevicePtrToPtr;
   SubdeviceClause Subdevice;
   InteropClause Interop;
   EXPR Device;
@@ -1168,7 +1174,7 @@ private:
   bool Nowait = false;
 
   // To be populated during Paropt codegen
-  CallInst *Call;                  // The dispatch call.
+  CallInst *Call = nullptr;        // The dispatch call.
   MapClause Map;                   // Map and UseDevicePtr clauses let us reuse
   UseDevicePtrClause UseDevicePtr; // the target data logic to use device ptrs.
 
@@ -1183,11 +1189,13 @@ protected:
   void setCall(CallInst *CI) override { Call = CI; }
 
 public:
-  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
-  DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
-  DEFINE_GETTER(InteropClause,      getInterop,      Interop)
-  DEFINE_GETTER(MapClause,          getMap,          Map)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
+  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,        IsDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtr,      NeedDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtrToPtr, NeedDevicePtrToPtr)
+  DEFINE_GETTER(SubdeviceClause,    getSubdevice,          Subdevice)
+  DEFINE_GETTER(InteropClause,      getInterop,            Interop)
+  DEFINE_GETTER(MapClause,          getMap,                Map)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr,       UseDevicePtr)
   EXPR getDevice() const override { return Device; }
   EXPR getNocontext() const override { return Nocontext; }
   EXPR getNovariants() const override { return Novariants; }

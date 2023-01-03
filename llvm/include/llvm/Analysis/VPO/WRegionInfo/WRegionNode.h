@@ -31,6 +31,7 @@
 #define LLVM_ANALYSIS_VPO_WREGIONNODE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -74,6 +75,7 @@ typedef WRContainerTy::const_iterator         wrn_const_iterator;
 typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
 typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
+typedef SmallSetVector<unsigned, 8> NeedDevicePtrSet;
 class WRNLoopInfo;  // WRegion.h
 
 /// WRegion Node base class
@@ -386,6 +388,10 @@ public:
   virtual LinearClause &getLinear()          {WRNERROR(QUAL_OMP_LINEAR);      }
   virtual LiveinClause &getLivein()          {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual MapClause &getMap()                {WRNERROR("MAP");                }
+  virtual NeedDevicePtrSet &getNeedDevicePtr()
+                                          {WRNERROR(QUAL_OMP_NEED_DEVICE_PTR);}
+  virtual NeedDevicePtrSet &getNeedDevicePtrToPtr()
+                                          {WRNERROR(QUAL_OMP_NEED_DEVICE_PTR);}
   virtual PrivateClause &getPriv()           {WRNERROR(QUAL_OMP_PRIVATE);     }
   virtual ReductionClause &getInRed()        {WRNERROR("IN_REDUCTION");       }
   virtual ReductionClause &getRed()          {WRNERROR("REDUCTION");          }
@@ -443,6 +449,10 @@ public:
   virtual const LiveinClause &getLivein() const
                                            {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
+  virtual const NeedDevicePtrSet &getNeedDevicePtr() const
+                                        {WRNERROR(QUAL_OMP_NEED_DEVICE_PTR);}
+  virtual const NeedDevicePtrSet &getNeedDevicePtrToPtr() const
+                                        {WRNERROR(QUAL_OMP_NEED_DEVICE_PTR);}
   virtual const PrivateClause &getPriv() const
                                            {WRNERROR(QUAL_OMP_PRIVATE);     }
   virtual const ReductionClause &getInRed() const
@@ -1134,6 +1144,16 @@ extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 ///  * print "Title: <Num>"
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1, int Min=1);
+
+/// Auxiliary function to print a set of uint in a WRN dump.
+///
+/// If \p Set is empty:
+///    Verbosity == 0: don't printing anything
+///    Verbosity >= 1: print "Title: UNSPECIFIED"
+extern void printSetOfUint(StringRef Title,
+                           const SmallSetVector<unsigned, 8> &Set,
+                           formatted_raw_ostream &OS, int Indent,
+                           unsigned Verbosity = 1);
 
 /// Auxiliary function to print a boolean in a WRN dump.
 ///

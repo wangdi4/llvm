@@ -1301,7 +1301,8 @@ private:
                             SmallVectorImpl<uint64_t> &MapTypes,
                             SmallVectorImpl<GlobalVariable *> &Names,
                             SmallVectorImpl<Value *> &Mappers,
-                            bool hasRuntimeEvaluationCaptureSize);
+                            bool hasRuntimeEvaluationCaptureSize,
+                            Instruction *InsertPtForAllocas = nullptr);
 
   /// Utility to construct the assignment to the base pointers, section
   /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
@@ -2245,14 +2246,20 @@ private:
                            llvm::Optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
-  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
+  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall,
+                               Instruction *InsertPtForAllocas = nullptr);
 
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
 
-  /// Emit code to handle need_device_ptr for dispatch
+  /// Emit code to handle adjust_args(need_device_ptr:...) for dispatch
   void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
                             StringRef &NeedDevicePtrStr);
+
+  /// Emit code to handle need_device_ptr clause for dispatch and
+  /// target variant dispatch
+  void processNeedDevicePtrClause(WRegionNode *W, CallInst *VariantCall,
+                                  uint64_t InteropPosition);
 
   /// Emit code to handle depend clause for dispatch. If \p SupportOMPTTracing
   /// is true, also emit the runtime calls __kmpc_omp_task_begin/complete__if0

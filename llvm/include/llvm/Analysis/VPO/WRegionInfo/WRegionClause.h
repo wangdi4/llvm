@@ -2168,10 +2168,13 @@ template <typename ClauseItem> class Clause
     // Constructor
     Clause();
     /// Delete all clause items for the Clause.
-    ~Clause() {
+    void clear() {
       for (auto *CI : C)
         delete CI;
       C.clear();
+    }
+    ~Clause() {
+      clear();
     }
 
   protected:

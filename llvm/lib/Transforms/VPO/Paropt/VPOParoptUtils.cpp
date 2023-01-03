@@ -4659,12 +4659,13 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
 // Create a variant version of BaseCall using  the same arguments.
 // The base and variant functions must have identical signatures.
-CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
-                                         StringRef VariantName,
-                                         Value *InteropObj,
-                                         llvm::Optional<uint64_t> InteropPosition,
-                                         Instruction *InsertPt, WRegionNode *W,
-                                         bool IsTail) {
+// Output 'InteropPositionIfEmitted' is updated with the position (1-based)
+// of the interop obj if one was added into the variant call, or zero if not.
+CallInst *VPOParoptUtils::genVariantCall(
+    CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
+    llvm::Optional<uint64_t> InteropPosition,
+    uint64_t &InteropPositionIfEmitted, Instruction *InsertPt, WRegionNode *W,
+    bool IsTail) {
   assert(BaseCall && "BaseCall is null");
 
   Module *M = BaseCall->getModule();
@@ -4690,6 +4691,8 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
 
   // At this point, the FnArgs and FnArgTypes of the variant call is the same
   // as the base call. If !InteropObj then the lists are ready for genCall.
+  
+  InteropPositionIfEmitted = 0; // 0 means no interop obj was added to the call
 
   if (InteropObj != nullptr) {
     // Case 1: non-variadic functions
@@ -4740,10 +4743,12 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
         // Case 1a. No InteropPosition. Add interop as last arg.
         FnArgs.push_back(InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
+        InteropPositionIfEmitted = FnArgs.size();
       } else {
         // Case 1b. With InteropPosition.
         // The position is 1-based (ie, first arg is position 1, not 0).
         uint64_t Position = InteropPosition.value();
+        InteropPositionIfEmitted = Position;
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
@@ -4755,12 +4760,14 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       if (isa<WRNDispatchNode>(W) || !PutInteropAfterVararg) {
         // Case 2a: Add interop right after the fixed args but before varargs
         uint64_t Position = FnArgTypes.size() + 1; // number of fixed args + 1
+        InteropPositionIfEmitted = Position;
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
       } else {
         // Case 2b: Add interop as last argument
         FnArgs.push_back(InteropObj);
+        InteropPositionIfEmitted = FnArgs.size();
         // FnArgTypes is the same as the base decl's. No change needed.
       }
     }

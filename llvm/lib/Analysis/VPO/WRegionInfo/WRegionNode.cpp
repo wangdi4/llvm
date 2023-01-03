@@ -1876,6 +1876,23 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                            getIsDevicePtr());
     break;
   }
+  case QUAL_OMP_NEED_DEVICE_PTR: {
+    NeedDevicePtrSet *NDP;
+    if (ClauseInfo.getIsPointerToPointer())
+      NDP = &getNeedDevicePtrToPtr();
+    else
+      NDP = &getNeedDevicePtr();
+
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      assert(isa<ConstantInt>(V) &&
+           "Non-constant argument in need_device_ptr clause.");
+      ConstantInt *CI = cast<ConstantInt>(V);
+      unsigned N = CI->getZExtValue();
+      NDP->insert(N);
+    }
+    break;
+  }
   case QUAL_OMP_USE_DEVICE_PTR:
   case QUAL_OMP_USE_DEVICE_ADDR: {
     extractQualOpndList<UseDevicePtrClause>(Args, NumArgs, ClauseInfo,
@@ -2946,6 +2963,33 @@ void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
     return;
   }
   OS << Num << "\n";
+}
+
+// Auxiliary function to print a set of uint in a WRN dump.
+// If the set is empty:
+//    Verbosity == 0: don't printing anything
+//    Verbosity >= 1: print "Title: UNSPECIFIED"
+void vpo::printSetOfUint(StringRef Title,
+                         const SmallSetVector<unsigned, 8> &Set,
+                         formatted_raw_ostream &OS, int Indent,
+                         unsigned Verbosity) {
+  if (Verbosity==0 && Set.empty())
+    return;
+
+  OS.indent(Indent) << Title << ": ";
+  if (Set.empty()) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  bool First = true;
+  for (unsigned N : Set) {
+    if (First)
+      First = false;
+    else
+      OS << ", ";
+    OS << N;
+  }
+  OS << "\n";
 }
 
 // Auxiliary function to print a boolean in a WRN dump
