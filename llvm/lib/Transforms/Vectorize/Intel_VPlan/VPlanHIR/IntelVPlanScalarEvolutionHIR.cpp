@@ -71,7 +71,7 @@ VPlanScalarEvolutionHIR::asConstStepLinear(VPlanSCEV *Expr) const {
   //        request to asConstStepInduction. That is, no variables that are
   //        linear but non-inductive can be detected by this routine yet.
   Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
-  return Ind.transform([](const auto &I) {
+  return llvm::transformOptional(Ind, [](const auto &I) {
     return VPConstStepLinear{I.InvariantBase, I.Step};
   });
 }
