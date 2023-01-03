@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -340,9 +340,6 @@ add_custom_target( sycl-toolchain
           sycl-compiler
           sycl-ls
           ${XPTIFW_LIBS}
-# INTEL_CUSTOMIZATION
-          sycl-config-file
-# end INTEL_CUSTOMIZATION
 )
 
 # Check if opencl-aot tool is enabled.

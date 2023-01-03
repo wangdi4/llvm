@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -296,17 +296,15 @@ install(TARGETS ${SYCL_RT_LIBS}
   LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
   RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
 
-# Copy SYCL config to build location
-add_custom_target(sycl-config-file ALL
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf $<TARGET_FILE_DIR:sycl>
-COMMENT "Copying SYCL config ...")
-
-# Copy SYCL config to install location
 set(SYCL_CONF_INSTALL_PATH "NOT SET")
 if (MSVC)
-  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_RUNTIME_INSTALL_DIR})
+  set(SYCL_CONF_INSTALL_PATH ${SYCL_RUNTIME_INSTALL_DIR})
 else()
-  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_LIBRARY_INSTALL_DIR})
+  set(SYCL_CONF_INSTALL_PATH ${SYCL_LIBRARY_INSTALL_DIR})
 endif()
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
+
+# Configure SYCL config to build location
+configure_file(sycl.conf ${CMAKE_BINARY_DIR}/${SYCL_CONF_INSTALL_PATH}/sycl.conf COPYONLY)
+# Copy SYCL config to install location
+install(FILES sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
 # end INTEL_CUSTOMIZATION
