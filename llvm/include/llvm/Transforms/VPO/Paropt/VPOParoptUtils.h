@@ -2076,12 +2076,14 @@ public:
   /// argument in the argument list of the variant call. Otherwise, the
   /// InteropObj is inserted in the argument list in the position indicated
   /// by \p InteropPosition. (First argument is position 1.)
-  static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Value *InteropObj,
-                                  llvm::Optional<uint64_t> InteropPosition,
-                                  Instruction *InsertPt,
-                                  WRegionNode *W = nullptr,
-                                  bool IsTail = false);
+  /// The output variable \p InteropPositionIfEmitted holds the position
+  /// (1-based) of the first interop obj emitted into the variant call, or zero
+  /// if no interop obj is added into the variant call.
+  static CallInst *
+  genVariantCall(CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
+                 llvm::Optional<uint64_t> InteropPosition,
+                 uint64_t &InteropPositionIfEmitted, Instruction *InsertPt,
+                 WRegionNode *W = nullptr, bool IsTail = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt

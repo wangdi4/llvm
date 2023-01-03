@@ -289,6 +289,7 @@ def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.SUBDEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
 def "QUAL.OMP.HAS_DEVICE_ADDR" : Clause;
+def "QUAL.OMP.NEED_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_ADDR" : Clause;
 def "QUAL.OMP.DEFAULTMAP.ALLOC" : Clause;

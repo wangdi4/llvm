@@ -130,6 +130,12 @@ static cl::opt<bool>
     DisablePromotion("disable-licm-promotion", cl::Hidden, cl::init(false),
                      cl::desc("Disable memory promotion in LICM pass"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    DisableLICM("disable-licm", cl::Hidden, cl::init(false),
+                cl::desc("Disable LICM completely, for debugging."));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<bool> ControlFlowHoisting(
     "licm-control-flow-hoisting", cl::Hidden, cl::init(false),
     cl::desc("Enable control flow (and PHI) hoisting in LICM"));
@@ -426,6 +432,12 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
   bool Changed = false;
 
   assert(L->isLCSSAForm(*DT) && "Loop is not in LCSSA form.");
+
+#if INTEL_CUSTOMIZATION
+  if (DisableLICM)
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   MSSA->ensureOptimizedUses();
 
   // If this loop has metadata indicating that LICM is not to be performed then
