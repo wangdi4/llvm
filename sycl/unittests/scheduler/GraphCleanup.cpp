@@ -25,8 +25,6 @@ namespace {
 
 using namespace sycl;
 
-#if INTEL_CUSTOMIZATION
-#if 0
 inline constexpr auto HostUnifiedMemoryName = "SYCL_HOST_UNIFIED_MEMORY";
 
 int val;
@@ -280,10 +278,6 @@ TEST_F(SchedulerTest, PostEnqueueCleanup) {
         EXPECT_TRUE(ToCleanUp.empty());
       });
 }
-<<<<<<< HEAD:sycl/unittests/scheduler/PostEnqueueCleanup.cpp
-#endif // if 0
-#endif // INTEL_CUSTOMIZATION
-=======
 
 // Check that host tasks are cleaned up after completion.
 TEST_F(SchedulerTest, HostTaskCleanup) {
@@ -433,4 +427,3 @@ TEST_F(SchedulerTest, AuxiliaryResourcesDeallocation) {
   ASSERT_EQ(MSPtr->MDeferredMemObjRelease.size(), 0u);
 }
 } // anonymous namespace
->>>>>>> 7181b4c2eae272a3887ae8f9c7e986e6fdbdc360:sycl/unittests/scheduler/GraphCleanup.cpp
