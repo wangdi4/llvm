@@ -1599,9 +1599,9 @@ int X86TTIImpl::getMatchingVectorVariant(
   int BestArg = -1;
   int BestScore = 0;
   Optional<VFISAKind> BestISA;
-  for (auto CallVariant : ForCall) {
+  for (auto &CallVariant : ForCall) {
     int CurrIndex = -1;
-    for (auto Variant : Variants) {
+    for (auto &Variant : Variants) {
       CurrIndex++;
       if (!targetMatchesVariantISA(Variant.getISA()))
         continue;
