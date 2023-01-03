@@ -3409,7 +3409,7 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+  if (auto *A = D->getAttr<SYCLReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
 
     Optional<llvm::APSInt> XDimVal = A->getXDimVal();
@@ -4538,7 +4538,6 @@ static bool CheckWorkGroupSize(Sema &S, const Expr *NSWIValue,
   return WorkGroupSize % NSWIValueExpr->getResultAsAPSInt().getZExtValue() != 0;
 }
 
-<<<<<<< HEAD
 // If the 'reqd_work_group_size' attribute is specified on a declaration along
 // with 'Autorun' attribute, Autorun kernel functions must have reqd work group
 // sizes that are divisors of 2^32.
@@ -4562,12 +4561,8 @@ static bool isValidAutorunWorkGroupSize(const Expr *RWGSXDim,
          N % RWGSZDimExpr->getResultAsAPSInt().getZExtValue() != 0;
 }
 
-void Sema::AddReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
-                                    Expr *XDim, Expr *YDim, Expr *ZDim) {
-=======
 void Sema::AddSYCLReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
                                         Expr *XDim, Expr *YDim, Expr *ZDim) {
->>>>>>> 2f537725de4f5cef3e987d21b29cc6f335c67f7f
   // Returns nullptr if diagnosing, otherwise returns the original expression
   // or the original expression converted to a constant expression.
   auto CheckAndConvertArg = [&](Expr *E) -> Optional<Expr *> {
