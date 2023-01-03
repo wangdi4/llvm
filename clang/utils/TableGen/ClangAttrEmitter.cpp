@@ -213,7 +213,8 @@ static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
 #endif // INTEL_CUSTOMIZATION
     if (Attr->getValueAsBit("SemaHandler")) {
       std::string AN;
-      if (Attr->isSubClassOf("TargetSpecificAttr") &&
+      if ((Attr->isSubClassOf("TargetSpecificAttr") ||
+           Attr->isSubClassOf("LanguageOptionsSpecificAttr")) &&
           !Attr->isValueUnset("ParseKind")) {
         AN = std::string(Attr->getValueAsString("ParseKind"));
 
@@ -2617,6 +2618,7 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
     for (const auto &Super : llvm::reverse(Supers)) {
       const Record *R = Super.first;
       if (R->getName() != "TargetSpecificAttr" &&
+          R->getName() != "LanguageOptionsSpecificAttr" &&
           R->getName() != "DeclOrTypeAttr" && SuperName.empty())
         SuperName = std::string(R->getName());
       if (R->getName() == "InheritableAttr")
@@ -4319,10 +4321,27 @@ emitAttributeMatchRules(PragmaClangAttributeSupport &PragmaAttributeSupport,
 }
 
 static void GenerateLangOptRequirements(const Record &R,
+                                        const ParsedAttrMap &Dupes,
                                         raw_ostream &OS) {
   // If the attribute has an empty or unset list of language requirements,
   // use the default handler.
   std::vector<Record *> LangOpts = R.getValueAsListOfDefs("LangOpts");
+
+  // Attributes inheriting from LanguageOptionsSpecificAttr may share their
+  // ParseKind name with other attributes. Attributes like these are considered
+  // valid for a given language option if any of the attributes they share
+  // ParseKind with accepts it.
+  if (R.isSubClassOf("LanguageOptionsSpecificAttr") &&
+      !R.isValueUnset("ParseKind")) {
+    const StringRef APK = R.getValueAsString("ParseKind");
+    for (const auto &I : Dupes) {
+      if (I.first == APK) {
+        std::vector<Record *> LO = I.second->getValueAsListOfDefs("LangOpts");
+        LangOpts.insert(LangOpts.end(), LO.begin(), LO.end());
+      }
+    }
+  }
+
   if (LangOpts.empty())
     return;
 
@@ -4588,7 +4607,7 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << ") {}\n";
     GenerateAppertainsTo(Attr, OS);
     GenerateMutualExclusionsChecks(Attr, Records, OS, MergeDeclOS, MergeStmtOS);
-    GenerateLangOptRequirements(Attr, OS);
+    GenerateLangOptRequirements(Attr, Dupes, OS);
     GenerateTargetRequirements(Attr, Dupes, OS);
     GenerateSpellingIndexToSemanticSpelling(Attr, OS);
     PragmaAttributeSupport.generateStrictConformsTo(*I->second, OS);
@@ -4664,7 +4683,8 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
       // generate a list of string to match based on the syntax, and emit
       // multiple string matchers depending on the syntax used.
       std::string AttrName;
-      if (Attr.isSubClassOf("TargetSpecificAttr") &&
+      if ((Attr.isSubClassOf("TargetSpecificAttr") ||
+           Attr.isSubClassOf("LanguageOptionsSpecificAttr")) &&
           !Attr.isValueUnset("ParseKind")) {
         AttrName = std::string(Attr.getValueAsString("ParseKind"));
         if (!Seen.insert(AttrName).second)
