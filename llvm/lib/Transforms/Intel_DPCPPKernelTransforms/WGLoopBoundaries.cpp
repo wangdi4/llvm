@@ -614,7 +614,7 @@ void WGLoopBoundariesImpl::recoverInstructions(VMap &ValueMap, VVec &Roots,
     if (!ValueMap.count(&I))
       continue;
     auto *Clone = cast<Instruction>(ValueMap[&I]);
-    Clone->insertAt(BB, BB->end());
+    Clone->insertInto(BB, BB->end());
     for (auto Op = Clone->op_begin(), E = Clone->op_end(); Op != E; ++Op) {
       Value *&VMSlot = ValueMap[*Op];
       assert(VMSlot && "all operands should be mapped");

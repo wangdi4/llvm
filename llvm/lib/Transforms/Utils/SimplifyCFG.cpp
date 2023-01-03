@@ -1173,7 +1173,7 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
     NewBonusInst->dropUndefImplyingAttrsAndUnknownMetadata(
         LLVMContext::MD_annotation);
 
-    NewBonusInst->insertAt(PredBlock, PTI->getIterator());
+    NewBonusInst->insertInto(PredBlock, PTI->getIterator());
     NewBonusInst->takeName(&BonusInst);
     BonusInst.setName(NewBonusInst->getName() + ".old");
 
@@ -1744,7 +1744,7 @@ HoistTerminator:
 
   // Okay, it is safe to hoist the terminator.
   Instruction *NT = I1->clone();
-  NT->insertAt(BIParent, BI->getIterator());
+  NT->insertInto(BIParent, BI->getIterator());
   if (!NT->getType()->isVoidTy()) {
     I1->replaceAllUsesWith(NT);
     I2->replaceAllUsesWith(NT);
@@ -2548,7 +2548,7 @@ static void MergeCompatibleInvokesImpl(ArrayRef<InvokeInst *> Invokes,
 
     auto *MergedInvoke = cast<InvokeInst>(II0->clone());
     // NOTE: all invokes have the same attributes, so no handling needed.
-    MergedInvoke->insertAt(MergedInvokeBB, MergedInvokeBB->end());
+    MergedInvoke->insertInto(MergedInvokeBB, MergedInvokeBB->end());
 
     if (!HasNormalDest) {
       // This set does not have a normal destination,
@@ -3304,7 +3304,7 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
       }
       if (N) {
         // Insert the new instruction into its new home.
-        N->insertAt(EdgeBB, InsertPt);
+        N->insertInto(EdgeBB, InsertPt);
 
         // Register the new instruction with the assumption cache if necessary.
         if (auto *Assume = dyn_cast<AssumeInst>(N))

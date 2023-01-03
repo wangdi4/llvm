@@ -3172,7 +3172,7 @@ static void cloneSpecializationFunction(void) {
       BasicBlock *CallBB = BasicBlock::Create(
           CI->getContext(), ".clone.spec.call", OrigBB->getParent(), TailBB);
       CallInst *NewCI = cast<CallInst>(CI->clone());
-      NewCI->insertAt(CallBB, CallBB->end());
+      NewCI->insertInto(CallBB, CallBB->end());
       NewClonedCalls.push_back(NewCI);
       // NewCondStmtBBs.push_back(CallBB);
       BranchInst *BI = BranchInst::Create(TailBB, CallBB);
