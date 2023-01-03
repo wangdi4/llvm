@@ -4076,7 +4076,7 @@ static uint64_t computeThreadsNeeded(
 static int32_t decideLoopKernelGroupArguments(
     int32_t DeviceId, uint32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
     ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
-    uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
   uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
@@ -4085,8 +4085,13 @@ static int32_t decideLoopKernelGroupArguments(
 
   // Set correct max group size if the kernel was compiled with explicit SIMD
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+  // Adjust number of threads if requested
+  if (HalfNumThreads)
+    NumThreadsPerEU /= 2;
+
   if (KernelPR.SIMDWidth == 1) {
-    MaxGroupSize = DevicePR.numEUsPerSubslice * DevicePR.numThreadsPerEU;
+    MaxGroupSize = DevicePR.numEUsPerSubslice * NumThreadsPerEU;
   }
 
   if (KernelPR.MaxThreadGroupSize < MaxGroupSize) {
@@ -4227,7 +4232,6 @@ static int32_t decideLoopKernelGroupArguments(
         uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
         uint32_t NumSubslices =
             DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
-        uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
         uint64_t TotalThreads =
             uint64_t(NumThreadsPerEU) * NumEUsPerSubslice * NumSubslices;
         TotalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
@@ -4279,7 +4283,7 @@ static int32_t decideLoopKernelGroupArguments(
 static void decideKernelGroupArguments(
     int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
     ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
-    uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   if (!KInfo) {
@@ -4294,6 +4298,9 @@ static void decideKernelGroupArguments(
   uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
   bool MaxGroupSizeForced = false;
   bool MaxGroupCountForced = false;
+  // Adjust number of threads if requested
+  if (HalfNumThreads)
+    NumThreadsPerEU /= 2;
 
   // Dump input data for the occupancy calculation to ease triaging.
   DPI("NumEUsPerSubslice: %" PRIu32 "\n", NumEUsPerSubslice);
@@ -4520,10 +4527,25 @@ static int32_t runTargetTeamRegion(
       GroupCounts);
 
   if (!GroupParamsReused) {
+    // Detect if we need to reduce available HW threads. We need this adjustment
+    // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
+    static std::once_flag OnceFlag;
+    static bool ZeDebugEnabled = false;
+    std::call_once(OnceFlag, []() {
+      const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
+      if (EnvVal && std::atoi(EnvVal) == 1)
+        ZeDebugEnabled = true;
+    });
+    bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
+    bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
+    if (HalfNumThreads) {
+      DP("Using half of the reported HW threads due to "
+         "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+    }
     if (LoopDesc) {
       auto RC = decideLoopKernelGroupArguments(
           SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
-          KernelPR, GroupSizes, GroupCounts);
+          KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
       if (RC != OFFLOAD_SUCCESS)
         return OFFLOAD_FAIL;
       // L0 has implemented heuristics to batch WG-submission. However, L0
@@ -4532,9 +4554,9 @@ static int32_t runTargetTeamRegion(
       if (GroupCounts.groupCountX > 8)
         GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
     } else {
-      decideKernelGroupArguments(
-          SubId, (uint32_t )NumTeams, (uint32_t)ThreadLimit, Kernel, KernelPR,
-          GroupSizes, GroupCounts);
+      decideKernelGroupArguments(SubId, (uint32_t)NumTeams,
+                                 (uint32_t)ThreadLimit, Kernel, KernelPR,
+                                 GroupSizes, GroupCounts, HalfNumThreads);
     }
     KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
                               ThreadLimit, GroupSizes, GroupCounts);
