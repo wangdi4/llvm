@@ -7121,7 +7121,7 @@ static Instruction *foldFabsWithFcmpZero(FCmpInst &I, InstCombinerImpl &IC) {
     return nullptr;
 
   if (!C->isPosZero()) {
-    if (*C != APFloat::getSmallestNormalized(C->getSemantics()))
+    if (!C->isSmallestNormalized())
       return nullptr;
 
     const Function *F = I.getFunction();
