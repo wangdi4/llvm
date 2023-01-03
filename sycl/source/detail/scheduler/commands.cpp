@@ -636,6 +636,11 @@ bool Command::producesPiEvent() const { return true; }
 
 bool Command::supportsPostEnqueueCleanup() const { return true; }
 
+bool Command::readyForCleanup() const {
+  return MLeafCounter == 0 &&
+         MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess;
+}
+
 Command *Command::addDep(DepDesc NewDep, std::vector<Command *> &ToCleanUp) {
   Command *ConnectionCmd = nullptr;
 
@@ -765,8 +770,8 @@ bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking,
     MEnqueueStatus = EnqueueResultT::SyclEnqueueSuccess;
     if (MLeafCounter == 0 && supportsPostEnqueueCleanup() &&
         !SYCLConfig<SYCL_DISABLE_POST_ENQUEUE_CLEANUP>::get()) {
-      assert(!MPostEnqueueCleanup);
-      MPostEnqueueCleanup = true;
+      assert(!MMarkedForCleanup);
+      MMarkedForCleanup = true;
       ToCleanUp.push_back(this);
     }
   }
@@ -867,6 +872,8 @@ void AllocaCommandBase::emitInstrumentationData() {
 bool AllocaCommandBase::producesPiEvent() const { return false; }
 
 bool AllocaCommandBase::supportsPostEnqueueCleanup() const { return false; }
+
+bool AllocaCommandBase::readyForCleanup() const { return false; }
 
 AllocaCommand::AllocaCommand(QueueImplPtr Queue, Requirement Req,
                              bool InitFromUserData,
@@ -1143,6 +1150,8 @@ bool ReleaseCommand::producesPiEvent() const { return false; }
 
 bool ReleaseCommand::supportsPostEnqueueCleanup() const { return false; }
 
+bool ReleaseCommand::readyForCleanup() const { return false; }
+
 MapMemObject::MapMemObject(AllocaCommandBase *SrcAllocaCmd, Requirement Req,
                            void **DstPtr, QueueImplPtr Queue,
                            access::mode MapMode)
@@ -1409,22 +1418,11 @@ AllocaCommandBase *ExecCGCommand::getAllocaForReq(Requirement *Req) {
                       PI_ERROR_INVALID_OPERATION);
 }
 
-std::vector<StreamImplPtr> ExecCGCommand::getStreams() const {
-  if (MCommandGroup->getType() == CG::Kernel)
-    return ((CGExecKernel *)MCommandGroup.get())->getStreams();
-  return {};
-}
-
 std::vector<std::shared_ptr<const void>>
 ExecCGCommand::getAuxiliaryResources() const {
   if (MCommandGroup->getType() == CG::Kernel)
     return ((CGExecKernel *)MCommandGroup.get())->getAuxiliaryResources();
   return {};
-}
-
-void ExecCGCommand::clearStreams() {
-  if (MCommandGroup->getType() == CG::Kernel)
-    ((CGExecKernel *)MCommandGroup.get())->clearStreams();
 }
 
 void ExecCGCommand::clearAuxiliaryResources() {
@@ -1730,12 +1728,7 @@ ExecCGCommand::ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup,
   if (MCommandGroup->getType() == detail::CG::CodeplayHostTask) {
     MEvent->setSubmittedQueue(
         static_cast<detail::CGHostTask *>(MCommandGroup.get())->MQueue);
-    MEvent->setNeedsCleanupAfterWait(true);
-  } else if (MCommandGroup->getType() == CG::CGTYPE::Kernel &&
-             (static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() ||
-              static_cast<CGExecKernel *>(MCommandGroup.get())
-                  ->hasAuxiliaryResources()))
-    MEvent->setNeedsCleanupAfterWait(true);
+  }
 
   emitInstrumentationDataProxy();
 }
@@ -2599,14 +2592,15 @@ bool ExecCGCommand::producesPiEvent() const {
 }
 
 bool ExecCGCommand::supportsPostEnqueueCleanup() const {
-  // TODO enable cleaning up host task commands and kernels with streams after
-  // enqueue
+  // Host tasks are cleaned up upon completion instead.
   return Command::supportsPostEnqueueCleanup() &&
-         (MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask) &&
-         (MCommandGroup->getType() != CG::CGTYPE::Kernel ||
-          (!static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() &&
-           !static_cast<CGExecKernel *>(MCommandGroup.get())
-                ->hasAuxiliaryResources()));
+         (MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask);
+}
+
+bool ExecCGCommand::readyForCleanup() const {
+  if (MCommandGroup->getType() == CG::CGTYPE::CodeplayHostTask)
+    return MLeafCounter == 0 && MEvent->isCompleted();
+  return Command::readyForCleanup();
 }
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
