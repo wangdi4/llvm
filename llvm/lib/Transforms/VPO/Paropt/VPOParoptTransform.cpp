@@ -3650,9 +3650,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   PHINode *IdxPhi = nullptr;
   PHINode *TeamsIdxPhi = nullptr;
 
-  Type *RedElemType = nullptr;
-  Value *NumElements = nullptr;
-  std::tie(RedElemType, NumElements, std::ignore) =
+  const auto &[RedElemType, NumElements, AddrSpace] =
       VPOParoptUtils::getItemInfo(RedI);
   bool IsArrayOrArraySection =
       RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
@@ -4006,8 +4004,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     auto *RedStoreParentBB = RedStore->getParent();
     IdxPhi =
         GenerateLoop(StartPoint, RedStoreParentBB,
-                     RedI->getIsArraySection() ? nullptr // use RedStoreParentBB
-                                               : RedStore);
+                     IsArrayOrArraySection ? nullptr // use RedStoreParentBB
+                                           : RedStore);
 
     Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
   } else {
@@ -4153,8 +4151,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     auto *GlobalGep = Builder.CreateGEP(GepToSkip->getSourceElementType(), GepPtr, Idx);
     // TODO: consider cloning the exisitng addrspacecast
     if (IsArrayOrArraySection)
-      GlobalGep = Builder.CreateAddrSpaceCast(
-          GlobalGep, PointerType::get(RedElemType, vpo::ADDRESS_SPACE_GENERIC));
+      GlobalGep = Builder.CreatePointerBitCastOrAddrSpaceCast(
+          GlobalGep, PointerType::get(RedElemType, AddrSpace));
     PtrUseToFix->replaceUsesOfWith(PtrToCheck, GlobalGep);
 
     // For parallel update loop there's no phi because in a tree pattern
@@ -6621,9 +6619,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                 Builder.getInt32(0), InsertPt);
           }
 
-          Type *ElemTy = nullptr;
-          Value *NumElements = nullptr;
-          std::tie(ElemTy, NumElements, std::ignore) =
+          const auto &[ElemTy, NumElements, AddrSpace] =
               VPOParoptUtils::getItemInfo(RedI);
           if (NumElements)
             GroupId0 = Builder.CreateMul(GroupId0, NumElements);
@@ -6638,9 +6634,14 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           // For non-arrsec cases it's also necessary when there are
           // some users - call instructions, since by default FE generates
           // generic addrspace pointer arguments.
-          GlobalBufToReplaceWith = Builder.CreateAddrSpaceCast(
-              GlobalBufToReplaceWith,
-              PointerType::get(ElemTy, vpo::ADDRESS_SPACE_GENERIC));
+          // For global variables, the frontend emits generic addrspace operands
+          // but canonicalizeGlobalVariableReferences() can strip off
+          // constant-expr casts on operands, leaving behind GLOBAL addrspace
+          // operands on clauses. So, we need to use the addrspace of the
+          // original operand -- whether that's generic or global -- for the
+          // replacement.
+          GlobalBufToReplaceWith = Builder.CreatePointerBitCastOrAddrSpaceCast(
+              GlobalBufToReplaceWith, PointerType::get(ElemTy, AddrSpace));
         }
         if (GlobalBufToReplaceWith &&
             (!AtomicFreeReductionUseSLM || RedI->getIsArraySection())) {

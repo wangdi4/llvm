@@ -307,6 +307,40 @@ void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
 }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Returns true if \p MemRef is accessing structure fields in an unusual way.
+//
+// For example, suppose %s is a structure containing 2 i32 fields.
+// Then the following store and load have loop-carried dependency as the load is
+// accessing structure fields in a combined manner.
+//
+// (%s)[i1+1].1 =
+//            = (%s)[i1]
+static bool isUnconventionalStructFieldAccess(const RegDDRef *MemRef,
+                                              const DataLayout &DL) {
+
+  auto *StructTy = dyn_cast<StructType>(MemRef->getDimensionElementType(1));
+
+  if (!StructTy) {
+    return false;
+  }
+
+  auto Offsets = MemRef->getTrailingStructOffsets(1);
+  auto *OffsetTy = DDRefUtils::getOffsetType(StructTy, Offsets);
+
+  // For empty offsets, assume zeroth field access of structs.
+  if (Offsets.empty()) {
+    while (OffsetTy->isStructTy()) {
+      OffsetTy = cast<StructType>(OffsetTy)->getTypeAtIndex(0u);
+    }
+  }
+
+  if (MemRef->getDestTypeSizeInBytes() > DL.getTypeAllocSize(OffsetTy)) {
+    return true;
+  }
+
+  return false;
+}
+
 static bool areDistinctLocations(const RegDDRef *MemRef1,
                                  const RegDDRef *MemRef2) {
   assert(MemRef1->getNumDimensions() == MemRef2->getNumDimensions() &&
@@ -323,10 +357,20 @@ static bool areDistinctLocations(const RegDDRef *MemRef1,
       return true;
     }
 
+    // Even if the structure of the memrefs is similar, one of the refs may be
+    // accessing structure fields in an unconventional way. The following logic
+    // tries to identify such accesses and gives up on looking at field
+    // accesses.
+    if ((I == 1) && (isUnconventionalStructFieldAccess(MemRef1, DL) ||
+                     isUnconventionalStructFieldAccess(MemRef2, DL))) {
+      continue;
+    }
+
     auto *DimTy1 = MemRef1->getDimensionElementType(I);
     auto *DimTy2 = MemRef2->getDimensionElementType(I);
     auto Offsets1 = MemRef1->getTrailingStructOffsets(I);
     auto Offsets2 = MemRef2->getTrailingStructOffsets(I);
+
     if (DDRefUtils::getOffsetDistance(DimTy1, DL, Offsets1) !=
         DDRefUtils::getOffsetDistance(DimTy2, DL, Offsets2)) {
       return true;
