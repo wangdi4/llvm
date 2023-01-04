@@ -6,37 +6,19 @@ if (NOT DEFINED UNIFIED_RUNTIME_INCLUDE_DIR)
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
   set(UNIFIED_RUNTIME_TAG fd711c920acc4434cb52ff18b078c082d9d7f44d)
 
-<<<<<<< HEAD
-set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-set(UNIFIED_RUNTIME_TAG fd711c920acc4434cb52ff18b078c082d9d7f44d)
+  if(INTEL_CUSTOMIZATION)
+    # 1Source policy is to use internal mirrors as much as possible.
+    if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+      STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+      set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
+    endif()
+  endif(INTEL_CUSTOMIZATION)
 
-if(INTEL_CUSTOMIZATION)
-  # 1Source policy is to use internal mirrors as much as possible.
-  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
-    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
-    set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
-  endif()
-endif(INTEL_CUSTOMIZATION)
-
-message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
-FetchContent_Declare(unified-runtime
-  GIT_REPOSITORY    ${UNIFIED_RUNTIME_REPO}
-  GIT_TAG           ${UNIFIED_RUNTIME_TAG}
-)
-
-FetchContent_MakeAvailable(unified-runtime)
-FetchContent_GetProperties(unified-runtime)
-
-set(UNIFIED_RUNTIME_SOURCE_DIR
-  ${unified-runtime_SOURCE_DIR} CACHE PATH "Path to Unified Runtime Headers")
-set(UNIFIED_RUNTIME_INCLUDE_DIR "${UNIFIED_RUNTIME_SOURCE_DIR}/include")
-=======
   message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
   FetchContent_Declare(unified-runtime
     GIT_REPOSITORY    ${UNIFIED_RUNTIME_REPO}
     GIT_TAG           ${UNIFIED_RUNTIME_TAG}
   )
->>>>>>> 8e2473bb837501e8136b87e3f653b0697bec05f4
 
   FetchContent_MakeAvailable(unified-runtime)
   FetchContent_GetProperties(unified-runtime)
