@@ -3059,8 +3059,10 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   }
 
   // Add all linked VPValues collected during Phase 2 analysis
-  for (auto *V : LinkedVPVals)
+  for (auto *V : LinkedVPVals) {
     VPRed->addLinkedVPValue(V);
+    LE->linkValue(VPRed, V);
+  }
 
   // Invalidate underlying IR of reduction instructions.
   invalidateReductionInstructions();
