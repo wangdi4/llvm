@@ -44,7 +44,6 @@
 #include <zet_api.h>
 
 #include "ur_bindings.hpp"
-#include "usm_allocator.hpp"
 
 extern "C" {
 // Forward declarartions.
