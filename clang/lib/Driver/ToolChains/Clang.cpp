@@ -5082,7 +5082,7 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
   if (isSYCL && !isSPIR && SetArg &&
       (RTOptionID == options::OPT__SLASH_MT ||
        RTOptionID == options::OPT__SLASH_MTd))
-    // Use of /MT or /MTd is not supported for SYCL.
+      // Use of /MT or /MTd is not supported for SYCL.
     TC.getDriver().Diag(diag::err_drv_unsupported_opt_dpcpp)
         << SetArg->getOption().getName();
 
