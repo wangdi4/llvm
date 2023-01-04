@@ -144,8 +144,8 @@ TEST_F(TBAATest, checkTBAACommutativity) {
 
   AAResults AAR(TLI);
   SimpleAAQueryInfo AAQIP(AAR);
-  auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP);
-  auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP);
+  auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP, nullptr);
+  auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP, nullptr);
 
   EXPECT_EQ(AliasResult1, AliasResult::MayAlias);
   EXPECT_EQ(AliasResult2, AliasResult::MayAlias);

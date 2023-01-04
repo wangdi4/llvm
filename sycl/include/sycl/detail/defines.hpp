@@ -22,11 +22,7 @@
 #endif
 #endif
 
-<<<<<<< HEAD
 #if __has_attribute(sycl_special_class) && defined(SYCL_LANGUAGE_VERSION)
-=======
-#if __has_attribute(sycl_special_class) && (defined __SYCL_DEVICE_ONLY__)
->>>>>>> 236a09d7f6c3b9178c896fb855a3169d9c40b40a
 #define __SYCL_SPECIAL_CLASS __attribute__((sycl_special_class))
 #else
 #define __SYCL_SPECIAL_CLASS
