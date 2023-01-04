@@ -12,7 +12,7 @@ define void @foo(i64* nocapture %ptr, i32 %sw) {
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i64, i64* [[PTR:%.*]], i64 6
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i64* [[GEP1]] to <4 x i64>*
 ; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x i64>, <4 x i64>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i64> [[TMP0]], [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i64> [[TMP2]], [[TMP0]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64* [[GEP1]] to <4 x i64>*
 ; CHECK-NEXT:    store <4 x i64> [[TMP3]], <4 x i64>* [[TMP4]], align 4
 ; CHECK-NEXT:    br i1 poison, label [[BB1]], label [[EXIT:%.*]]

@@ -23,7 +23,7 @@ define <2 x i64> @test(i32 %a, i32 %b, i32 %c, i64 %d, i64 %e) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = sext <2 x i32> [[TMP2]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i64> poison, i64 [[D:%.*]], i32 0
 ; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <2 x i64> [[TMP4]], i64 [[E:%.*]], i32 1
-; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i64> [[TMP5]], <i64 -2, i64 -1>
+; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i64> <i64 -2, i64 -1>, [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i64> [[TMP6]], [[TMP3]]
 ; CHECK-NEXT:    br label [[BB1:%.*]]
 ; CHECK:       bb1:

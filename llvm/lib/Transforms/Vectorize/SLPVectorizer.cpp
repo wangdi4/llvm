@@ -172,16 +172,6 @@ static cl::opt<bool> CompatibilitySLPMode(
     cl::desc("Suppress some customizations in order to produce results like "
              "unaltered LLVM community version."));
 
-// NOTE: This is a quick hack for following the best path (left or right branch)
-// while buildTree_rec(). Ideally we would like to explore both orderings and
-// select the best, but this could be computationally intensive.
-// FIXME: This is causing SLPVectorizer/X86/extractelement.ll to fail.
-static cl::opt<bool>
-    BuildTreeOrderReverse("build-tree-order-reverse", cl::init(true),
-                          cl::Hidden,
-                          cl::desc("Reverse the order in which the operands "
-                                   "are visited while building the tree"));
-
 // A minimal vector size (in elements) considered for masked gather load.
 static cl::opt<unsigned> MinGatherLoadSize(
     "slp-min-gather-load-size", cl::init(8), cl::Hidden,
@@ -3267,7 +3257,7 @@ private:
           return false;
         }
         if (inOriginalOrder()) {
-          LLVM_DEBUG(dbgs() << "SLP: MultiNode: reordereing did not change the "
+          LLVM_DEBUG(dbgs() << "SLP: MultiNode: reordering did not change the "
                                "original state.\n");
           return false;
         }
@@ -6445,18 +6435,6 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
     TE->setOperand(OpIdx, OpVL);
   }
 
-  // TODO: This is a workaround. Currently we don't add a MultiNode leaf
-  // if its values are already in trunk. The problem is that if the
-  // skipped leaf is a good permutation, while the one in the trunk is a bad
-  // one, then the good leaf is not visited at all.
-  // Disabling the 'alreadyInTrunk()' condition should fix this but I am not
-  // sure it is safe to remove it.
-  SmallVector<unsigned> BuildOrder(Ops.getNumOperands());
-  if (BuildTreeOrderReverse)
-    std::iota(BuildOrder.rbegin(), BuildOrder.rend(), 0);
-  else
-    std::iota(BuildOrder.begin(), BuildOrder.end(), 0);
-
   auto &&PopulateAPOs = [&UserTreeIdx, &Ops](EdgeInfo &EI, int OpIdx,
                                              bool UserIsMNRoot) {
     Ops.getAPOVec(EI.APOs, OpIdx);
@@ -6472,7 +6450,7 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
   };
 
   // We are now ready to continue the recursion towards the operands.
-  for (unsigned OpIdx : BuildOrder) {
+  for (unsigned OpIdx : seq(0U, Ops.getNumOperands())) {
     const ValueList &OpVL = Ops.getVL(OpIdx);
     struct EdgeInfo EI(TE, OpIdx);
 
