@@ -18959,12 +18959,12 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
   let SchedRW = [WriteFMAZ] in {
     let Constraints = "$src1 = $dst" in {
       def VMMXF16PS128rr : I<0x7f, MRMSrcReg, (outs XMMPairX:$dst),
-                        (ins XMMPairX:$src1, VR128:$src2, VR128:$src3),
+                        (ins XMMPairX:$src1, VR128X:$src2, VR128X:$src3),
                         "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>,
                         EVEX_4V, EVEX_V128, T_MAP6XS;
       def VMMXF16PS256rr : I<0x7f, MRMSrcReg, (outs YMMPairX:$dst),
-                        (ins YMMPairX:$src1, VR256:$src2, VR256:$src3),
+                        (ins YMMPairX:$src1, VR256X:$src2, VR256X:$src3),
                         "vmmxf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>,
                         EVEX_4V, EVEX_V256, T_MAP6XS;
