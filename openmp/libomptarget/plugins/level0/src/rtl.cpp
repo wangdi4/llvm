@@ -3640,7 +3640,10 @@ ATTRIBUTE(constructor(101)) void init() {
   TLSList = new std::list<TLSTy *>();
 }
 
-ATTRIBUTE(destructor(101)) void deinit() {
+/// RTL calls this function as early as possible (not as RTL destructor) to
+/// avoid finalization issues in various circumstances (e.g., tracing tool).
+/// We use the entry __tgt_rtl_unregister_lib.
+static void deinit() {
   DP("Deinit Level0 plugin!\n");
   closeRTL();
   delete TLSList;
@@ -6715,14 +6718,11 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
 int32_t __tgt_rtl_supports_empty_images() { return 1; }
 
-#ifdef _WIN32
 EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
   static std::once_flag Flag;
   std::call_once(Flag, deinit);
   return OFFLOAD_SUCCESS;
 }
-#endif // _WIN32
-
 
 ///
 /// Extended plugin interface
