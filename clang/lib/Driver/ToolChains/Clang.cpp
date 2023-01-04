@@ -5082,7 +5082,11 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
   if (isSYCL && !isSPIR && SetArg &&
       (RTOptionID == options::OPT__SLASH_MT ||
        RTOptionID == options::OPT__SLASH_MTd))
+<<<<<<< HEAD
     // Use of /MT or /MTd is not supported for SYCL.
+=======
+      // Use of /MT or /MTd is not supported for SYCL.
+>>>>>>> aaae33483e1f1d5a25fc0ab2e349c4ecf443c0bf
     TC.getDriver().Diag(diag::err_drv_unsupported_opt_dpcpp)
         << SetArg->getOption().getName();
 
@@ -5096,10 +5100,13 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
       CmdArgs.push_back("-D_DLL");
   };
   StringRef FlagForCRT;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   StringRef FlagForIntelMathLib;
   StringRef FlagForIntelSVMLLib;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> aaae33483e1f1d5a25fc0ab2e349c4ecf443c0bf
   switch (RTOptionID) {
   case options::OPT__SLASH_MD:
     addPreDefines((Args.hasArg(options::OPT__SLASH_LDd) ? addDEBUG : 0x0) |
@@ -5175,6 +5182,7 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
         CmdArgs.push_back("--dependent-lib=sycl" SYCL_MAJOR_VERSION);
       CmdArgs.push_back("--dependent-lib=sycl-devicelib-host");
     }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // Add Intel performance libraries
@@ -5221,6 +5229,8 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
       }
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> aaae33483e1f1d5a25fc0ab2e349c4ecf443c0bf
   }
 }
 
@@ -9291,9 +9301,13 @@ static EHFlags parseClangCLEHFlags(const Driver &D, const ArgList &Args) {
 void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            ArgStringList &CmdArgs,
                            codegenoptions::DebugInfoKind *DebugInfoKind,
+<<<<<<< HEAD
                            bool *EmitCodeView, const JobAction &JA) const {
   bool isSPIR = getToolChain().getTriple().isSPIR();
 #endif // INTEL_CUSTOMIZATION
+=======
+                           bool *EmitCodeView) const {
+>>>>>>> aaae33483e1f1d5a25fc0ab2e349c4ecf443c0bf
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
 
   ProcessVSRuntimeLibrary(Args, CmdArgs, getToolChain());
