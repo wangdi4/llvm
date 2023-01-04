@@ -14,13 +14,15 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 [[OUTER_TC0:%.*]] i32 live-in0
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP_OUTER_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i32 [[VP_OUTER_IV]] i32 [[OUTER_TC0:%.*]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_OUTER_IV]] i32 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i32 [[VP_OUTER_IV]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP2]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
@@ -52,7 +54,7 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB7]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV_NEXT]] = add i32 [[VP_OUTER_IV]] i32 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_OUTER_IV_NEXT]] i32 [[OUTER_TC0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_OUTER_IV_NEXT]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = all-zero-check i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB9:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:

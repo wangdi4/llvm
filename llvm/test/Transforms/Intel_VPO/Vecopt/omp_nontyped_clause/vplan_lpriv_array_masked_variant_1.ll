@@ -26,17 +26,17 @@ define i16 @foo(i16 %a, i32 %n) {
 ;
 ; ****** CG check for LLVM IR ******
 ; LLVMIR:	VPlannedBB23:
-; LLVMIR-NEXT:	  %24 = bitcast <2 x i1> %14 to i2
-; LLVMIR-NEXT:	  %ctlz = call i2 @llvm.ctlz.i2(i2 %24, i1 true)
-; LLVMIR-NEXT:	  %25 = sub i2 1, %ctlz
-; LLVMIR-NEXT:	  %priv.extract = extractelement <2 x [12 x i16]*> %.vec.base.addr, i2 %25
-; LLVMIR-NEXT:	  %26 = bitcast [12 x i16]* %b3.i.lpriv to i8*
-; LLVMIR-NEXT:	  %27 = bitcast [12 x i16]* %priv.extract to i8*
-; LLVMIR-NEXT:	  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %26, i8* align 2 %27, i64 24, i1 false)
-; LLVMIR-NEXT:	  br label %VPlannedBB22
+; LLVMIR:  %23 = bitcast <2 x i1> %15 to i2
+; LLVMIR:  %ctlz = call i2 @llvm.ctlz.i2(i2 %25, i1 true)
+; LLVMIR:  %26 = sub i2 1, %ctlz
+; LLVMIR:  %priv.extract = extractelement <2 x [12 x i16]*> %.vec.base.addr, i2 %26
+; LLVMIR:  %27 = bitcast [12 x i16]* %b3.i.lpriv to i8*
+; LLVMIR:  %28 = bitcast [12 x i16]* %priv.extract to i8*
+; LLVMIR:  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %27, i8* align 2 %28, i64 24, i1 false)
+; LLVMIR-NEXT:  br label %VPlannedBB24
 ;
 ; ****** Resulting HIR code check ******
-; HIR:            %bsfintmask = bitcast.<2 x i1>.i2(%.vec12);
+; HIR:            %bsfintmask = bitcast.<2 x i1>.i2(%.vec14);
 ; HIR-NEXT:       %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
 ; HIR-NEXT:       %ext.lane = 1  -  %bsf;
 ; HIR-NEXT:       @llvm.memcpy.p0a12i16.p0a12i16.i64(&((%b3.i.lpriv)[0]),  &(([12 x i16]*)(%priv.mem9)[0][%ext.lane]),  24,  0);

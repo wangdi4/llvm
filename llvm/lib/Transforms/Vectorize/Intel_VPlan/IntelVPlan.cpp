@@ -1071,19 +1071,16 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
 
   VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-  VPValue *OrigTC;
-  VPCmpInst *Cond;
-  std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
-  VPBasicBlock *Header = TopVPLoop->getHeader();
-  // Replace OrigTC in the latch condition and in the header
-  // top condition.
-  OrigTC->replaceUsesWithIf(TC, [Header, Cond](auto *VUse) {
-    if (VUse == Cond)
-      return true;
-    if (auto VCmp = dyn_cast<VPCmpInst>(VUse))
-      return VCmp->getParent() == Header;
-    return false;
-  });
+  VPValue *OrigTC =
+      TopVPLoop
+          ->getLoopUpperBound(true /*AssumeNormalizedIV*/, true /*GetOrig*/)
+          .first;
+  auto *NewTC = cast<VPInstruction>(TopVPLoop->getLoopUpperBound().first);
+  // Replace OrigTC in the NewTC calculation with the passed TC.
+  // Note: we expect VPlanMasked here, see the assertion above. And it's
+  // expected to have a normalized upper bound which is calculated as
+  // OrigUpper - OrigLower.
+  NewTC->replaceUsesOfWith(OrigTC, TC);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

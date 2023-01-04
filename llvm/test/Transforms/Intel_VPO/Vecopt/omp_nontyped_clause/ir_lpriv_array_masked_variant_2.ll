@@ -10,62 +10,63 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo() {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
 ; CHECK-NEXT:  VPlan IR for: foo:omp.inner.for.body.i.#{{[0-9]+}}.cloned.masked
-; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Div] [12 x i16]* [[VP1:%.*]] = allocate-priv [12 x i16]*, OrigAlign = 2
-; CHECK-NEXT:     [DA: Div] i8* [[VP2:%.*]] = bitcast [12 x i16]* [[VP1]]
-; CHECK-NEXT:     [DA: Div] call i64 24 i8* [[VP2]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = induction-init{add} i32 live-in0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] [12 x i16]* [[VP0:%.*]] = allocate-priv [12 x i16]*, OrigAlign = 2
+; CHECK-NEXT:     [DA: Div] i8* [[VP1:%.*]] = bitcast [12 x i16]* [[VP0]]
+; CHECK-NEXT:     [DA: Div] call i64 24 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 undef i32 live-in0
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], new_latch
-; CHECK-NEXT:     [DA: Div] i32 [[VP__OMP_IV_I_LOCAL_03_1:%.*]] = phi  [ i32 [[VP_ADD5_I_1:%.*]], new_latch ],  [ i32 [[VP3]], [[BB7]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp ult i32 [[VP__OMP_IV_I_LOCAL_03_1]] i32 undef
-; CHECK-NEXT:     [DA: Div] br i1 [[VP5]], [[BB9:BB[0-9]+]], new_latch
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
+; CHECK-NEXT:     [DA: Div] i32 [[VP__OMP_IV_I_LOCAL_03:%.*]] = phi  [ i32 [[VP_ADD5_I:%.*]], new_latch ],  [ i32 [[VP2]], [[BB1]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP__OMP_IV_I_LOCAL_03]] i32 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp ult i32 [[VP__OMP_IV_I_LOCAL_03]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP4]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
-; CHECK-NEXT:       [DA: Div] i16* [[VP_ARRAYIDX_I_1:%.*]] = getelementptr inbounds [12 x i16]* [[VP1]] i64 0 i64 1
-; CHECK-NEXT:       [DA: Div] store i16 1 i16* [[VP_ARRAYIDX_I_1]]
-; CHECK-NEXT:       [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i16* [[VP_ARRAYIDX_I:%.*]] = getelementptr inbounds [12 x i16]* [[VP0]] i64 0 i64 1
+; CHECK-NEXT:       [DA: Div] store i16 1 i16* [[VP_ARRAYIDX_I]]
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: [[BB10]], [[BB8]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD5_I_1]] = add i32 [[VP__OMP_IV_I_LOCAL_03_1]] i32 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_ADD5_I_1]] i32 undef
-; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB11:BB[0-9]+]], [[BB8]]
+; CHECK-NEXT:    new_latch: # preds: [[BB4]], [[BB2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD5_I]] = add i32 [[VP__OMP_IV_I_LOCAL_03]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp ult i32 [[VP_ADD5_I]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = all-zero-check i1 [[VP5]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP6]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] private-final-array-masked [12 x i16]* [[VP1]] [12 x i16]* [[B3_I_LPRIV0:%.*]] i1 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
+; CHECK-NEXT:    [[BB5]]: # preds: new_latch
+; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] private-final-array-masked [12 x i16]* [[VP0]] [12 x i16]* [[B3_I_LPRIV0:%.*]] i1 [[VP4]]
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB12]]: # preds: [[BB11]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP8]]
-;
-; CHECK:	VPlannedBB19:                                     ; preds = %VPlannedBB17
-; CHECK-NEXT:	  %20 = bitcast <2 x i1> %12 to i2
-; CHECK-NEXT:	  %ctlz = call i2 @llvm.ctlz.i2(i2 %20, i1 true)
-; CHECK-NEXT:	  %21 = sub i2 1, %ctlz
-; CHECK-NEXT:	  br label %array.last.private.loop20
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP7]]
+; CHECK:       VPlannedBB21:
+; CHECK-NEXT:    [[TMP21:%.*]] = bitcast <2 x i1> [[TMP13:%.*]] to i2
+; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP21]], i1 true)
+; CHECK-NEXT:    [[TMP22:%.*]] = sub i2 1, [[CTLZ0]]
+; CHECK-NEXT:    br label %[[ARRAY_LAST_PRIVATE_LOOP220:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:	array.last.private.loop20:                        ; preds = %array.last.private.loop20, %VPlannedBB19
-; CHECK-NEXT:	  %22 = phi i64 [ 0, %VPlannedBB19 ], [ %26, %array.last.private.loop20 ]
-; CHECK-NEXT:	  %23 = getelementptr [12 x <2 x i16>], [12 x <2 x i16>]* %.soa.vec, i64 0, i64 %22, i2 %21
-; CHECK-NEXT:	  %24 = load i16, i16* %23, align 2
-; CHECK-NEXT:	  %25 = getelementptr [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 %22
-; CHECK-NEXT:	  store i16 %24, i16* %25, align 2
-; CHECK-NEXT:	  %26 = add i64 %22, 1
-; CHECK-NEXT:	  %27 = icmp ult i64 %26, 12
-; CHECK-NEXT:	  br i1 %27, label %array.last.private.loop20, label %array.last.private.loop.exit21
+; CHECK-NEXT:  array.last.private.loop22:
+; CHECK-NEXT:    [[TMP23:%.*]] = phi i64 [ 0, [[VPLANNEDBB210:%.*]] ], [ [[TMP27:%.*]], %[[ARRAY_LAST_PRIVATE_LOOP220]] ]
+; CHECK-NEXT:    [[TMP24:%.*]] = getelementptr [12 x <2 x i16>], [12 x <2 x i16>]* [[DOTSOA_VEC0:%.*]], i64 0, i64 [[TMP23]], i2 [[TMP22]]
+; CHECK-NEXT:    [[TMP25:%.*]] = load i16, i16* [[TMP24]], align 2
+; CHECK-NEXT:    [[TMP26:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV0:%.*]], i64 0, i64 [[TMP23]]
+; CHECK-NEXT:    store i16 [[TMP25]], i16* [[TMP26]], align 2
+; CHECK-NEXT:    [[TMP27]] = add i64 [[TMP23]], 1
+; CHECK-NEXT:    [[TMP28:%.*]] = icmp ult i64 [[TMP27]], 12
+; CHECK-NEXT:    br i1 [[TMP28]], label %[[ARRAY_LAST_PRIVATE_LOOP220]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT230:%.*]]
 
 entry:
   %b3.i.lpriv = alloca [12 x i16], align 1

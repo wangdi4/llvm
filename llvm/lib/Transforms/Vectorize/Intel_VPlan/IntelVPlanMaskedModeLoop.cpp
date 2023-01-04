@@ -110,6 +110,18 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
     VectorTC = cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(0));
   auto *OrigTC = VectorTC->getOperand(0);
 
+  int IniNdx = VPIndInstVPPhi->getOperand(0) == VPIndIncrement ? 1 : 0;
+  VPInductionInit *IndInit =
+      cast<VPInductionInit>(VPIndInstVPPhi->getOperand(IniNdx));
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(TopVPLoop->getLoopPreheader());
+
+  // Greate normalized UB and replace induction start with 0.
+  VPValue *LowerBound = IndInit->getStartValueOperand();
+  VPValue *NormUB = VPBldr.createSub(OrigTC, LowerBound, "norm.ub");
+  IndInit->replaceStartValue(
+      MaskedVPlan->getVPConstant(ConstantInt::get(LowerBound->getType(), 0)));
+
   // Create new bottom test condition, which then will be cloned to use as loop
   // body guarding test. Due to that re-use, we can't rely on the original
   // condition and create a new one with strictly defined single order of
@@ -117,7 +129,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // below). If the latch condition has an exact ub we use ULT predicate
   // otherwise we use ULE predicate to have ub+1 iterations
   VPCmpInst *NewBottomTest = new VPCmpInst(
-      VPIndIncrement, OrigTC,
+      VPIndIncrement, NormUB,
       TopVPLoop->exactUB() ? CmpInst::ICMP_ULT : CmpInst::ICMP_ULE);
   Latch->addInstruction(NewBottomTest, Term);
 
@@ -127,7 +139,6 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // NewBottomTest = cmp IV, OrigTC
   // AllZeroChk = call allzero(NewBottomTest)
   // br AllZeroChk, LoopExitBlock, Header
-  VPBuilder VPBldr;
   VPBldr.setInsertPoint(Term);
   auto *AllZeroChk = VPBldr.createAllZeroCheck(NewBottomTest);
   Latch->setTerminator(TopVPLoop->getExitBlock(), Header, AllZeroChk);
@@ -157,6 +168,30 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   assert(Header->getTerminator() && "BB should have a terminator");
   VPBasicBlock *HeaderSucc = VPBlockUtils::splitBlock(
       Header, NonVPPhiIt, MaskedVPlan->getVPLoopInfo());
+
+  // Restore induction to use in the loop, adding original lower bound.
+  VPBldr.setInsertPoint(Header);
+  VPInstruction *DenormPhi =
+      VPBldr.createAdd(VPIndInstVPPhi, LowerBound, "new.ind");
+  VPIndInstVPPhi->replaceUsesWithIf(
+      DenormPhi, [NewBottomTest, DenormPhi, VPIndIncrement](VPUser *U) {
+        return U != NewBottomTest && U != VPIndIncrement && U != DenormPhi;
+      });
+  // In case we replace original IV we need to drop FoldIVConvert due to
+  // induction is now adjusted.
+  for (auto *User : DenormPhi->users()) {
+    auto *I = cast<VPInstruction>(User);
+    switch (I->getOpcode()) {
+    default:
+      break;
+    case Instruction::ZExt:
+    case Instruction::SExt:
+    case Instruction::Trunc:
+      I->HIR().setFoldIVConvert(false);
+      break;
+    }
+  }
+  // Create loop body mask.
   VPInstruction *NewHeaderCond = NewBottomTest->clone();
   NewHeaderCond->replaceUsesOfWith(VPIndIncrement, VPIndInstVPPhi, true);
   Header->appendInstruction(NewHeaderCond);

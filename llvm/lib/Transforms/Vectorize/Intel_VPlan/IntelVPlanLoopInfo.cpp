@@ -84,23 +84,113 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
-std::pair<VPValue *, VPCmpInst *>
-VPLoop::getLoopUpperBound(bool AssumeNormalizedIV) const {
-  assert((AssumeNormalizedIV || hasNormalizedInduction()) &&
-         "must have normilized unduction");
-
+VPLoop::LatchCondDescr VPLoop::classifyLatchCond() const {
   VPCmpInst *Cond = getLatchComparison();
   assert(Cond && "expected comparison instruction");
 
-  auto *Op = dyn_cast<VPInstruction>(Cond->getOperand(0));
-  if (Op && Op->getOpcode() == Instruction::Add && contains(Op))
-    return std::make_pair(Cond->getOperand(1), Cond);
+  auto IsInstrWithOpcode = [](const VPValue *V, unsigned Opcode) -> bool {
+    if (auto *I = dyn_cast<VPInstruction>(V))
+      return I->getOpcode() == Opcode;
+    return false;
+  };
 
-  Op = dyn_cast<VPInstruction>(Cond->getOperand(1));
-  if (Op && Op->getOpcode() == Instruction::Add && contains(Op))
-    return std::make_pair(Cond->getOperand(0), Cond);
+  auto IsInductionInc = [&IsInstrWithOpcode](const VPValue *V) -> bool {
+    auto *I = dyn_cast<VPInstruction>(V);
+    return I && I->getOpcode() == Instruction::Add &&
+           (IsInstrWithOpcode(I->getOperand(0),
+                              VPInstruction::InductionInitStep) ||
+            IsInstrWithOpcode(I->getOperand(1),
+                              VPInstruction::InductionInitStep));
+  };
 
-  llvm_unreachable("Unexpected operand");
+  if (llvm::find_if(Cond->users(), [&IsInstrWithOpcode](const VPUser *U) {
+        return IsInstrWithOpcode(U, VPInstruction::AllZeroCheck);
+      }) == Cond->user_end()) {
+    // The first case: we have induction increment and compare with the loop
+    // upper bound.
+    VPInstruction *IAdd = nullptr;
+    if (IsInductionInc(Cond->getOperand(0)))
+      IAdd = cast<VPInstruction>(Cond->getOperand(0));
+    else if (IsInductionInc(Cond->getOperand(1)))
+      IAdd = cast<VPInstruction>(Cond->getOperand(1));
+    if (IAdd)
+      return LatchCondDescr{LckDoLoop, Cond, IAdd};
+  } else {
+    // Otherwise we can have the backedge variant with AllZero check.
+    assert(Cond->getNumUsers() == 1 &&
+           "Only one use of compare in AllZeroCheck is expected");
+    // In this case the second operand of compare should be a Sub instructions
+    // in preheader:
+    //   Loop_preheader:
+    //     %norm_ub = sub %ub %lower_bound
+    //     ...
+    //   Loop_latch:
+    //     ...
+    //     %ind_inc = add %ind_phi %ind_step
+    //     %cmp = icmp ult %ind_inc %norm_ub
+    //     %all_z = all-zero-check %cmp
+    //
+    if (IsInductionInc(Cond->getOperand(0)) &&
+        (IsInstrWithOpcode(Cond->getOperand(1), Instruction::Sub))) {
+      return LatchCondDescr{LckAllZero, Cond,
+                            cast<VPInstruction>(Cond->getOperand(0))};
+    }
+  }
+  return LatchCondDescr{LckUnknown, Cond, nullptr};
+}
+
+VPValue *VPLoop::getOrigLowerBound() const {
+  LatchCondDescr CD = classifyLatchCond();
+  switch (CD.Kind) {
+  case LckDoLoop: {
+    VPBasicBlock *Header = getHeader();
+    auto Iter = llvm::find_if(CD.IndIncr->users(), [Header](auto &User) {
+      return (isa<VPPHINode>(User) &&
+              cast<VPPHINode>(User)->getParent() == Header);
+    });
+    if (Iter != CD.IndIncr->user_end()) {
+      auto PhiNode = cast<VPPHINode>(*Iter);
+      int IniNdx = PhiNode->getOperand(0) == CD.IndIncr ? 1 : 0;
+      return cast<VPInductionInit>(PhiNode->getOperand(IniNdx))
+          ->getStartValueOperand();
+    }
+  } break;
+  case LckAllZero:
+    return cast<VPInstruction>(CD.Cond->getOperand(1))->getOperand(1);
+  case LckUnknown:
+    // Not expected to be called for inner unknown loops.
+    break;
+  }
+  llvm_unreachable("Unexpected loop latch");
+  return nullptr;
+}
+
+std::pair<VPValue *, VPCmpInst *>
+VPLoop::getLoopUpperBound(bool AssumeNormalizedIV, bool GetOrig) const {
+  assert((AssumeNormalizedIV || hasNormalizedInduction()) &&
+         "must have normilized unduction");
+
+  LatchCondDescr CD = classifyLatchCond();
+  switch (CD.Kind) {
+  case LckDoLoop:
+    if (CD.IndIncr == CD.Cond->getOperand(0))
+      return std::make_pair(CD.Cond->getOperand(1), CD.Cond);
+    else if (CD.IndIncr == CD.Cond->getOperand(1))
+      return std::make_pair(CD.Cond->getOperand(0), CD.Cond);
+    llvm_unreachable("Unexpected latch condition descriptor");
+    break;
+  case LckAllZero: {
+    auto RetVal =
+        GetOrig ? cast<VPInstruction>(CD.Cond->getOperand(1))->getOperand(0)
+                : CD.Cond->getOperand(1);
+    return std::make_pair(RetVal, CD.Cond);
+  }
+  case LckUnknown:
+    // Not expected to be called for inner unknown loops.
+    break;
+  }
+  llvm_unreachable("Unexpected loop latch");
+  return std::make_pair<VPValue *, VPCmpInst *>(nullptr, nullptr);
 }
 
 VPCmpInst *VPLoop::getLatchComparison() const {

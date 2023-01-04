@@ -24,9 +24,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
-; CHECK:    new_latch: # preds: [[BB3:BB[0-9]+]], [[BB2:BB[0-9]+]]
+; CHECK:         new_latch: # preds: [[BB3:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD1:%.*]] = add i32 [[VP__OMP_IV_LOCAL_010:%.*]] i32 [[VP4:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_ADD1]] i32 10000
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_ADD1]] i32 [[VP_NORM_UB:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP6]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -44,7 +44,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after private finalization instructions transformation:
 ; CHECK:      new_latch: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_LOCAL_010]] i32 [[VP4]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP6]] = icmp ult i32 [[VP_ADD1]] i32 10000
+; CHECK-NEXT:       [DA: Div] i1 [[VP6]] = icmp ult i32 [[VP_ADD1]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP7]] = all-zero-check i1 [[VP6]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP7]], [[BB4]], [[BB2]]
 ; CHECK-EMPTY:

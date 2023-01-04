@@ -116,8 +116,17 @@ public:
   /// means that normalized IV code has been added to VPlan but the original
   /// loop does not necessarily have IV normalized, so that we need to bypass
   /// that assertion.
+  /// \p GetOrig tells whether an original bound is needed. The original
+  /// upper bound may be changed during normalization of the masked loops and we
+  /// need some special code to retrieve it.
   std::pair<VPValue *, VPCmpInst *>
-  getLoopUpperBound(bool AssumeNormalizedIV = false) const;
+  getLoopUpperBound(bool AssumeNormalizedIV = false,
+                    bool GetOrig = false) const;
+
+  /// Return original lower bound of the loop. It is the starting value of loop
+  /// induction. It may be changed during normalization of the masked loops and
+  /// we need some special code to retrieve it.
+  VPValue *getOrigLowerBound() const;
 
   /// Return the comparison used for loop latch condition.
   /// If not found, return nullptr.
@@ -179,8 +188,30 @@ public:
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }
-
 private:
+  // Latch condition kind.
+  enum LatchCondKind {
+    LckUnknown,
+    LckDoLoop,
+    LckAllZero,
+  };
+  struct LatchCondDescr {
+    LatchCondKind Kind;
+    VPCmpInst* Cond;
+    VPInstruction *IndIncr;
+  };
+
+  // Classifies latch condition.
+  // Recognizing two kinds of backedge conditions for loops:
+  //   - compare the induction increment with the uper bound (LckDoLoop)
+  //   - allzero check of mask resulted from comparison of induction
+  //     increment with the upper bound (LckAllZero)
+  // These two cases cover all the top loops we can have at the moment.
+  // Other cases are not supported (LckUnknown).
+  // Returns LatchCondDescr containing classification code, latch condition and
+  // the loop induction increment. In case of LckUnknown IndIncr is nullptr.
+  LatchCondDescr classifyLatchCond() const;
+
   Optional<bool> HasNormalizedInduction;
   // Flag indicating how the loop iteration count is related to the
   // upper bound (invariant operand of the latch condition). False means

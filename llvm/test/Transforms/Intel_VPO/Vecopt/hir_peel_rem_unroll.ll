@@ -30,68 +30,75 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-NEXT:        }
 ; PEEL-NEXT:        [[DOTVEC90:%.*]] = zext.i32.i64([[N0]]) + -1  +  1
 ; PEEL-NEXT:        [[DOTSCAL0:%.*]] = zext.i32.i64([[N0]]) + -1  +  1
-; PEEL-NEXT:        [[EXTRACT_0_100:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[LOOP_UB0:%.*]] = [[EXTRACT_0_100]]  -  1
+; PEEL-NEXT:        [[DOTVEC100:%.*]] = [[DOTVEC30]]  -  0
+; PEEL-NEXT:        [[EXTRACT_0_110:%.*]] = extractelement [[DOTVEC100]],  0
+; PEEL-NEXT:        [[LOOP_UB0:%.*]] = [[EXTRACT_0_110]]  -  1
 ; ===== "unrolled" (stripped) masked peel loop
-; PEEL-NEXT:        [[DOTVEC110:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[DOTVEC30]]
-; PEEL-NEXT:        [[DOTVEC120:%.*]] = (-1 * <i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true> == 0) ? <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> : -1 * <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; PEEL-NEXT:        [[DOTVEC130:%.*]] = [[SEED0:%.*]] + [[DOTVEC120]]  %u  101
-; PEEL-NEXT:        (<8 x i32>*)([[A0]])[0] = [[DOTVEC130]], Mask = @{[[DOTVEC110]]}
-; PEEL-NEXT:        [[DOTVEC140:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[DOTVEC30]]
-; PEEL-NEXT:        [[TMP0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC140]])
+; PEEL-NEXT:        [[DOTVEC120:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[DOTVEC100]]
+; PEEL-NEXT:        [[DOTVEC130:%.*]] = zext.<8 x i1>.<8 x i32>(-1 * <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>)
+; PEEL-NEXT:        [[DOTVEC140:%.*]] = ([[DOTVEC130]] == 0) ? <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> : -1 * <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; PEEL-NEXT:        [[DOTVEC150:%.*]] = [[SEED0:%.*]] + [[DOTVEC140]]  %u  101
+; PEEL-NEXT:        (<8 x i32>*)([[A0]])[0] = [[DOTVEC150]], Mask = @{[[DOTVEC120:%.*]]}
+; PEEL-NEXT:        [[DOTVEC160:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[DOTVEC100]]
+; PEEL-NEXT:        [[TMP0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC160]])
 ; PEEL-NEXT:        [[CMP0:%.*]] = [[TMP0]] == 0
 ; PEEL-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; PEEL-NEXT:        [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[IND_FINAL0:%.*]] = 0  +  [[EXTRACT_0_150]]
+; PEEL-NEXT:        [[EXTRACT_0_170:%.*]] = extractelement [[DOTVEC30]],  0
+; PEEL-NEXT:        [[IND_FINAL0:%.*]] = 0  +  [[EXTRACT_0_170]]
 ; PEEL-NEXT:        [[PHI_TEMP0]] = [[IND_FINAL0]]
 ; PEEL-NEXT:        [[MERGE_BLK0]].30:
-; PEEL-NEXT:        [[DOTVEC170:%.*]] = [[DOTVEC30]] + 8 >u zext.i32.i64([[N0]])
+; PEEL-NEXT:        [[DOTVEC190:%.*]] = [[DOTVEC30]] + 8 >u zext.i32.i64([[N0]])
 ; PEEL-NEXT:        [[PHI_TEMP60]] = [[PHI_TEMP0]]
-; PEEL-NEXT:        [[EXTRACT_0_190:%.*]] = extractelement [[DOTVEC170]],  0
-; PEEL-NEXT:        if ([[EXTRACT_0_190]] == 1)
+; PEEL-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC190]],  0
+; PEEL-NEXT:        if ([[EXTRACT_0_210]] == 1)
 ; PEEL-NEXT:        {
 ; PEEL-NEXT:           goto [[MERGE_BLK1]].38
 ; PEEL-NEXT:        }
-; PEEL-NEXT:        [[EXTRACT_0_200:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[ADJ_TC0:%.*]] = zext.i32.i64([[N0]])  -  [[EXTRACT_0_200]]
+; PEEL-NEXT:        [[EXTRACT_0_220:%.*]] = extractelement [[DOTVEC30]],  0
+; PEEL-NEXT:        [[ADJ_TC0:%.*]] = zext.i32.i64([[N0]])  -  [[EXTRACT_0_220]]
 ; PEEL-NEXT:        [[TGU0:%.*]] = [[ADJ_TC0]]  /u  8
 ; PEEL-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  8
-; PEEL-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[ADJ_TC220:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_210]]
+; PEEL-NEXT:        [[EXTRACT_0_230:%.*]] = extractelement [[DOTVEC30]],  0
+; PEEL-NEXT:        [[ADJ_TC240:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_230]]
 ; PEEL-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
-; PEEL-NEXT:        [[LOOP_UB230:%.*]] = [[ADJ_TC220]]  -  1
+; PEEL-NEXT:        [[LOOP_UB250:%.*]] = [[ADJ_TC240]]  -  1
 ;
-; PEEL:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB230]], 8   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
-; PEEL-NEXT:        |   [[DOTVEC240:%.*]] = (-1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true> == 0) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> : -1 * i1 + -1 * <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; PEEL-NEXT:        |   [[DOTVEC250:%.*]] = [[SEED0]] + [[DOTVEC240]]  %u  101
-; PEEL-NEXT:        |   (<8 x i32>*)([[A0]])[i1] = [[DOTVEC250]]
+; PEEL:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB230:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; PEEL-NEXT:        |   [[DOTVEC260:%.*]] = (-1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true> == 0) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> : -1 * i1 + -1 * <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; PEEL-NEXT:        |   [[DOTVEC270:%.*]] = [[SEED0]] + [[DOTVEC260]]  %u  101
+; PEEL-NEXT:        |   (<8 x i32>*)([[A0]])[i1] = [[DOTVEC270]]
 ; PEEL-NEXT:        + END LOOP
 ;
-; PEEL:             [[IND_FINAL260:%.*]] = 0  +  [[ADJ_TC220]]
-; PEEL-NEXT:        [[DOTVEC270:%.*]] = zext.i32.i64([[N0]]) == [[ADJ_TC220]]
-; PEEL-NEXT:        [[PHI_TEMP60]] = [[IND_FINAL260]]
-; PEEL-NEXT:        [[PHI_TEMP290:%.*]] = [[IND_FINAL260]]
-; PEEL-NEXT:        [[EXTRACT_0_310:%.*]] = extractelement [[DOTVEC270]],  0
-; PEEL-NEXT:        if ([[EXTRACT_0_310]] == 1)
+; PEEL:             [[IND_FINAL280:%.*]] = 0  +  [[ADJ_TC240]]
+; PEEL-NEXT:        [[DOTVEC290:%.*]] = zext.i32.i64([[N0]]) == [[ADJ_TC240]]
+; PEEL-NEXT:        [[PHI_TEMP60]] = [[IND_FINAL280]]
+; PEEL-NEXT:        [[PHI_TEMP310:%.*]] = [[IND_FINAL280]]
+; PEEL-NEXT:        [[EXTRACT_0_330:%.*]] = extractelement [[DOTVEC290]],  0
+; PEEL-NEXT:        if ([[EXTRACT_0_330]] == 1)
 ; PEEL-NEXT:        {
-; PEEL-NEXT:           goto final.merge.103
+; PEEL-NEXT:           goto final.merge.105
 ; PEEL-NEXT:        }
 ; PEEL-NEXT:        [[MERGE_BLK1]].38:
-; PEEL-NEXT:        [[TMP2:%.*]] = [[PHI_TEMP60]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
-; PEEL-NEXT:        [[LOOP_UB320:%.*]] = zext.i32.i64([[N0]])  -  1
-; PEEL:             + DO i1 = [[PHI_TEMP60]], [[LOOP_UB320]], 8   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
-; PEEL-NEXT:        |   [[DOTVEC330:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u zext.i32.i64([[N0]])
-; PEEL-NEXT:        |   [[DOTVEC340:%.*]] = (-1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true> == 0) ? i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> : -1 * i1 + -1 * <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; PEEL-NEXT:        |   [[DOTVEC350:%.*]] = [[SEED0]] + [[DOTVEC340]]  %u  101
-; PEEL-NEXT:        |   (<8 x i32>*)([[A0]])[i1] = [[DOTVEC350]], Mask = @{[[DOTVEC330]]}
-; PEEL-NEXT:        |   [[DOTVEC360:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u zext.i32.i64([[N0]])
-; PEEL-NEXT:        |   [[TMP3:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC360]])
-; PEEL-NEXT:        |   [[CMP370:%.*]] = [[TMP3]] == 0
-; PEEL-NEXT:        |   [[ALL_ZERO_CHECK380:%.*]] = [[CMP370]]
+; PEEL-NEXT:        [[DOTVEC340:%.*]] = zext.i32.i64([[N0]])  -  [[PHI_TEMP60]]
+; PEEL-NEXT:        [[EXTRACT_0_350:%.*]] = extractelement [[DOTVEC340]],  0
+; PEEL-NEXT:        [[LOOP_UB360:%.*]] = [[EXTRACT_0_350]]  -  1
+; PEEL:             + DO i1 = 0, [[LOOP_UB360]], 8   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
+; PEEL-NEXT:        |   [[DOTVEC370:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[DOTVEC340]]
+; PEEL-NEXT:        |   [[DOTVEC380:%.*]] = -1  *  i1 + [[PHI_TEMP60]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; PEEL-NEXT:        |   [[DOTSCAL390:%.*]] = -1  *  i1 + [[PHI_TEMP60]]
+; PEEL-NEXT:        |   [[DOTVEC400:%.*]] = -1  *  i1 + [[PHI_TEMP60]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; PEEL-NEXT:        |   [[DOTSCAL410:%.*]] = -1  *  i1 + [[PHI_TEMP60]]
+; PEEL-NEXT:        |   [[DOTVEC420:%.*]] = ([[DOTVEC380]] == 0) ? i1 + [[PHI_TEMP60]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> : [[DOTVEC400]]
+; PEEL-NEXT:        |   [[DOTVEC430:%.*]] = [[SEED0]] + [[DOTVEC420]]  %u  101
+; PEEL-NEXT:        |   (<8 x i32>*)([[A0]])[i1 + [[PHI_TEMP60]]] = [[DOTVEC430]], Mask = @{[[DOTVEC370]]}
+; PEEL-NEXT:        |   [[DOTVEC440:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[DOTVEC340]]
+; PEEL-NEXT:        |   [[TMP2:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC440]])
+; PEEL-NEXT:        |   [[CMP450:%.*]] = [[TMP2]] == 0
+; PEEL-NEXT:        |   [[ALL_ZERO_CHECK460:%.*]] = [[CMP450]]
 ; PEEL-NEXT:        + END LOOP
-; PEEL:             [[IND_FINAL390:%.*]] = 0  +  zext.i32.i64([[N0]])
-; PEEL-NEXT:        [[PHI_TEMP290]] = [[IND_FINAL390]]
-; PEEL-NEXT:        final.merge.103:
+; PEEL:             [[IND_FINAL470:%.*]] = 0  +  zext.i32.i64([[N0]])
+; PEEL-NEXT:        [[PHI_TEMP310]] = [[IND_FINAL470]]
+; PEEL-NEXT:        final.merge.105:
 ; PEEL-NEXT:  END REGION
 ;
 ; REM:       BEGIN REGION { modified }
@@ -122,19 +129,24 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; REM-NEXT:           goto final.merge.52
 ; REM-NEXT:        }
 ; REM-NEXT:        [[MERGE_BLK0]].28:
-; REM-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
-; REM-NEXT:        [[LOOP_UB100:%.*]] = zext.i32.i64([[N0]])  -  1
+; REM-NEXT:        [[DOTVEC100:%.*]] = zext.i32.i64([[N0]])  -  [[PHI_TEMP0]]
+; REM-NEXT:        [[EXTRACT_0_110:%.*]] = extractelement [[DOTVEC100]],  0
+; REM-NEXT:        [[LOOP_UB120:%.*]] = [[EXTRACT_0_110]]  -  1
 ; ===== "unrolled" (stripped) masked remainder loop
-; REM-NEXT:        [[DOTVEC110:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u zext.i32.i64([[N0]])
-; REM-NEXT:        [[DOTVEC120:%.*]] = (-1 * <i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true> + -1 * trunc.i64.i1([[PHI_TEMP0]]) == 0) ? <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> + trunc.i64.i32([[PHI_TEMP0]]) : -1 * <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7> + -1 * trunc.i64.i32([[PHI_TEMP0]])
-; REM-NEXT:        [[DOTVEC130:%.*]] = [[SEED0]] + [[DOTVEC120]]  %u  101
-; REM-NEXT:        (<8 x i32>*)([[A0]])[%phi.temp] = [[DOTVEC130]], Mask = @{[[DOTVEC110]]}
-; REM-NEXT:        [[DOTVEC140:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u zext.i32.i64([[N0]])
-; REM-NEXT:        [[TMP1:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC140]])
-; REM-NEXT:        [[CMP0:%.*]] = [[TMP1]] == 0
+; REM-NEXT:        [[DOTVEC130:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> <u [[DOTVEC100]]
+; REM-NEXT:        [[DOTVEC140:%.*]] = -1  *  [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; REM-NEXT:        [[DOTSCAL0:%.*]] = -1  *  [[PHI_TEMP0]]
+; REM-NEXT:        [[DOTVEC150:%.*]] = -1  *  [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; REM-NEXT:        [[DOTSCAL160:%.*]] = -1  *  [[PHI_TEMP0]]
+; REM-NEXT:        [[DOTVEC170:%.*]] = ([[DOTVEC140]] == 0) ? [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> : [[DOTVEC150]]
+; REM-NEXT:        [[DOTVEC180:%.*]] = [[SEED0]] + [[DOTVEC170]]  %u  101
+; REM-NEXT:        (<8 x i32>*)([[A0]])[[[PHI_TEMP0]]] = [[DOTVEC180]], Mask = @{[[DOTVEC130:%.*]]}
+; REM-NEXT:        [[DOTVEC190:%.*]] = <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7> + 8 <u [[DOTVEC100]]
+; REM-NEXT:        [[TMP0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC190]])
+; REM-NEXT:        [[CMP0:%.*]] = [[TMP0]] == 0
 ; REM-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; REM-NEXT:        [[IND_FINAL150:%.*]] = 0  +  zext.i32.i64([[N0]])
-; REM-NEXT:        [[PHI_TEMP70]] = [[IND_FINAL150]]
+; REM-NEXT:        [[IND_FINAL200:%.*]] = 0  +  zext.i32.i64([[N0]])
+; REM-NEXT:        [[PHI_TEMP70]] = [[IND_FINAL200]]
 ; REM-NEXT:        final.merge.52:
 ; REM-NEXT:  END REGION
 entry:

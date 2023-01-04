@@ -25,16 +25,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:        %phi.temp = 96;
 
 ; CHECK:        %ind.vec.step16 = 4.000000e+00  *  <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00>;
-; CHECK:        %3 = %phi.temp1  +  %ind.vec.step16;
+; CHECK:        %2 = %phi.temp1  +  %ind.vec.step16;
 ; CHECK:        %ind.step.init17 = 4.000000e+00  *  8.000000e+00;
-; CHECK:        %phi.temp18 = %3;
+; CHECK:        %phi.temp19 = %2;
 
 ; Finalization after vector remainder loop.
-; CHECK:        %cast.crd25 = sitofp.i64.float(100);
+; CHECK:        %cast.crd28 = sitofp.i64.float(100);
 ; CHECK:        %iv.lb.cast.crd = sitofp.i64.float(%phi.temp);
-; CHECK:        %iv.lb.sub = %cast.crd25  -  %iv.lb.cast.crd;
-; CHECK:        %5 = 4.000000e+00  *  %iv.lb.sub;
-; CHECK:        %r.014 = %r.014  +  %5;
+; CHECK:        %iv.lb.sub = %cast.crd28  -  %iv.lb.cast.crd;
+; CHECK:        %4 = 4.000000e+00  *  %iv.lb.sub;
+; CHECK:        %r.014 = %r.014  +  %4;
 ; CHECK:  END REGION
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable
@@ -65,7 +65,7 @@ for.cond.cleanup:                                 ; preds = %for.body
 ; CHECK:        |   %ind.step.init = 4.000000e+00  *  8.000000e+00;
 ; CHECK:        |   %phi.temp6 = %0;
 
-; CHECK:        |   + DO i64 i2 = 0, %loop.ub, 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:        |   + DO i64 i2 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:        |   + END LOOP
 
 ; CHECK:        |   %ind.final = 0  +  %vec.tc5;
@@ -77,16 +77,16 @@ for.cond.cleanup:                                 ; preds = %for.body
 ; CHECK:        |   <LVAL-REG> NON-LINEAR i64 %phi.temp
 
 ; CHECK:        |   %ind.vec.step20 = 4.000000e+00  *  <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00>;
-; CHECK:        |   %3 = %phi.temp2  +  %ind.vec.step20;
+; CHECK:        |   %2 = %phi.temp2  +  %ind.vec.step20;
 ; CHECK:        |   %ind.step.init21 = 4.000000e+00  *  8.000000e+00;
-; CHECK:        |   %phi.temp22 = %3;
+; CHECK:        |   %phi.temp23 = %2;
 
-; CHECK:        |   %cast.crd31 = sitofp.i64.float(%n);
+; CHECK:        |   %cast.crd34 = sitofp.i64.float(%n);
 ; CHECK:        |   %iv.lb.cast.crd = sitofp.i64.float(%phi.temp);
 ; CHECK:        |   <RVAL-REG> NON-LINEAR i64 %phi.temp
-; CHECK:        |   %iv.lb.sub = %cast.crd31  -  %iv.lb.cast.crd;
-; CHECK:        |   %5 = 4.000000e+00  *  %iv.lb.sub;
-; CHECK:        |   %r.014 = %r.014  +  %5;
+; CHECK:        |   %iv.lb.sub = %cast.crd34  -  %iv.lb.cast.crd;
+; CHECK:        |   %4 = 4.000000e+00  *  %iv.lb.sub;
+; CHECK:        |   %r.014 = %r.014  +  %4;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
