@@ -1,4 +1,4 @@
-/*===---------- avx512vlbf16neintrin.h - AVX512-BF16-NE intrinsics ---------===
+/*===---------- avx512vlbf16neintrin.h - AVX512-BF16-NE intrinsics --------===*/
 /* INTEL_CUSTOMIZATION */
 /*
  * INTEL CONFIDENTIAL
@@ -8,8 +8,8 @@
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
  * provided to you ("License"). Unless the License provides otherwise, you may
- * not use, modify, copy, publish, distribute, disclose or transmit this software
- * or the related documents without Intel's prior written permission.
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -43,6 +43,8 @@
     "Never use <avx512vlbf16neintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVX512VLBF16NEINTRIN_H
 #define __AVX512VLBF16NEINTRIN_H
 
@@ -55,6 +57,17 @@
   __attribute__((__always_inline__, __nodebug__,                               \
                  __target__("avx512bf16ne, avx512vl"),                         \
                  __min_vector_width__(128)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 static __inline__ __bf16 __DEFAULT_FN_ATTRS128
 _mm_cvtsbf16_bf16(__m128bf16 __a) {
@@ -964,4 +977,5 @@ _mm_maskz_fnmsubne_pbf16(__mmask8 __U, __m128bf16 __A, __m128bf16 __B,
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 
+#endif
 #endif

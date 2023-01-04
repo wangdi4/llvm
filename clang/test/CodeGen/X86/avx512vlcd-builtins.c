@@ -25,20 +25,18 @@ __m256i test_mm256_broadcastmb_epi64(__m256i a, __m256i b) {
   return _mm256_broadcastmb_epi64(_mm256_cmpeq_epi64_mask ( a, b)); 
 }
 
-__m128i test_mm_broadcastmw_epi32(__m512i a, __m512i b) {
+__m128i test_mm_broadcastmw_epi32(__mmask16 k) { // INTEL
   // CHECK-LABEL: @test_mm_broadcastmw_epi32
-  // CHECK: icmp eq <16 x i32> %{{.*}}, %{{.*}}
   // CHECK: zext i16 %{{.*}} to i32
   // CHECK: insertelement <4 x i32> undef, i32 %{{.*}}, i32 0
   // CHECK: insertelement <4 x i32> %{{.*}}, i32 %{{.*}}, i32 1
   // CHECK: insertelement <4 x i32> %{{.*}}, i32 %{{.*}}, i32 2
   // CHECK: insertelement <4 x i32> %{{.*}}, i32 %{{.*}}, i32 3
-  return _mm_broadcastmw_epi32(_mm512_cmpeq_epi32_mask ( a, b));
+  return _mm_broadcastmw_epi32(k); // INTEL
 }
 
-__m256i test_mm256_broadcastmw_epi32(__m512i a, __m512i b) {
+__m256i test_mm256_broadcastmw_epi32(__mmask16 k) { // INTEL
   // CHECK-LABEL: @test_mm256_broadcastmw_epi32
-  // CHECK: icmp eq <16 x i32> %{{.*}}, %{{.*}}
   // CHECK: zext i16 %{{.*}} to i32
   // CHECK: insertelement <8 x i32> undef, i32 %{{.*}}, i32 0
   // CHECK: insertelement <8 x i32> %{{.*}}, i32 %{{.*}}, i32 1
@@ -48,7 +46,7 @@ __m256i test_mm256_broadcastmw_epi32(__m512i a, __m512i b) {
   // CHECK: insertelement <8 x i32> %{{.*}}, i32 %{{.*}}, i32 5
   // CHECK: insertelement <8 x i32> %{{.*}}, i32 %{{.*}}, i32 6
   // CHECK: insertelement <8 x i32> %{{.*}}, i32 %{{.*}}, i32 7
-  return _mm256_broadcastmw_epi32(_mm512_cmpeq_epi32_mask ( a, b)); 
+  return _mm256_broadcastmw_epi32(k);  // INTEL
 }
 
 __m128i test_mm_conflict_epi64(__m128i __A) {

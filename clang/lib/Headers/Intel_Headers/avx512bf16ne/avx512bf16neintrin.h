@@ -1,4 +1,4 @@
-/*===----------- avx512bf16neintrin.h - AVX512-BF16-NE intrinsics ----------===
+/*===----------- avx512bf16neintrin.h - AVX512-BF16-NE intrinsics ---------===*/
 /* INTEL_CUSTOMIZATION */
 /*
  * INTEL CONFIDENTIAL
@@ -8,8 +8,8 @@
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
  * provided to you ("License"). Unless the License provides otherwise, you may
- * not use, modify, copy, publish, distribute, disclose or transmit this software
- * or the related documents without Intel's prior written permission.
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -43,19 +43,18 @@
     "Never use <avx512bf16neintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVX512BF16NEINTRIN_H
 #define __AVX512BF16NEINTRIN_H
 
 /* Define the default attributes for the functions in this file. */
-typedef __bf16 __v32bf __attribute__((__vector_size__(64), __aligned__(64)));
 typedef __bf16 __m512bf16 __attribute__((__vector_size__(64), __aligned__(64)));
 typedef __bf16 __m512bf16_u
     __attribute__((__vector_size__(64), __aligned__(1)));
-typedef __bf16 __v8bf __attribute__((__vector_size__(16), __aligned__(16)));
 typedef __bf16 __m128bf16 __attribute__((__vector_size__(16), __aligned__(16)));
 typedef __bf16 __m128bf16_u
     __attribute__((__vector_size__(16), __aligned__(1)));
-typedef __bf16 __v16bf __attribute__((__vector_size__(32), __aligned__(32)));
 typedef __bf16 __m256bf16 __attribute__((__vector_size__(32), __aligned__(32)));
 typedef __bf16 __m256bf16_u
     __attribute__((__vector_size__(32), __aligned__(1)));
@@ -72,6 +71,17 @@ typedef __bf16 __m256bf16_u
 #define __DEFAULT_FN_ATTRS128                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("avx512bf16ne"),   \
                  __min_vector_width__(128)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __min_vector_width__(128)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 static __inline __m512bf16 __DEFAULT_FN_ATTRS512 _mm512_setzero_pbf16(void) {
   return __builtin_bit_cast(__m512bf16, _mm512_setzero_ps());
@@ -278,7 +288,7 @@ _mm512_abs_pbf16(__m512bf16 __A) {
 static __inline__ __m128bf16 __DEFAULT_FN_ATTRS128
 _mm_load_sbf16(void const *__dp) {
   __m128bf16 src = (__v8bf)_mm_setzero_pbf16();
-  return (__m128bf16)__builtin_ia32_loadsbf16128_mask((__v8bf *)__dp, src, 1);
+  return (__m128bf16)__builtin_ia32_loadsbf16128_mask((const __v8bf *)__dp, src, 1);
 }
 
 static __inline__ __m128bf16 __DEFAULT_FN_ATTRS128
@@ -286,14 +296,14 @@ _mm_mask_load_sbf16(__m128bf16 __W, __mmask8 __U, const void *__A) {
   __m128bf16 src = (__v8bf)__builtin_shufflevector(
       (__v8bf)__W, (__v8bf)_mm_setzero_pbf16(), 0, 8, 8, 8, 8, 8, 8, 8);
 
-  return (__m128bf16)__builtin_ia32_loadsbf16128_mask((__v8bf *)__A, src,
+  return (__m128bf16)__builtin_ia32_loadsbf16128_mask((const __v8bf *)__A, src,
                                                       __U & 1);
 }
 
 static __inline__ __m128bf16 __DEFAULT_FN_ATTRS128
 _mm_maskz_load_sbf16(__mmask8 __U, const void *__A) {
   return (__m128bf16)__builtin_ia32_loadsbf16128_mask(
-      (__v8bf *)__A, (__v8bf)_mm_setzero_pbf16(), __U & 1);
+      (const __v8bf *)__A, (__v8bf)_mm_setzero_pbf16(), __U & 1);
 }
 
 static __inline__ __m512bf16 __DEFAULT_FN_ATTRS512
@@ -858,4 +868,5 @@ _mm512_maskz_fnmsubne_pbf16(__mmask32 __U, __m512bf16 __A, __m512bf16 __B,
 #undef __DEFAULT_FN_ATTRS256
 #undef __DEFAULT_FN_ATTRS512
 
+#endif
 #endif
