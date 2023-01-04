@@ -1,4 +1,20 @@
-/*===--------- avx512vlbf16intrin.h - AVX512_BF16 intrinsics ---------------===
+/*===--------- avx512vlbf16intrin.h - AVX512_BF16 intrinsics ---------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  *
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
@@ -21,6 +37,17 @@
 #define __DEFAULT_FN_ATTRS256 \
   __attribute__((__always_inline__, __nodebug__, \
                  __target__("avx512vl, avx512bf16"), __min_vector_width__(256)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 /// Convert Two Packed Single Data to One Packed BF16 Data.
 ///

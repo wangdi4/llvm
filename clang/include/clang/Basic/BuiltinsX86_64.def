@@ -43,6 +43,13 @@
 #  define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANG, FEATURE) BUILTIN(ID, TYPE, ATTRS)
 #endif
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#define EXT_FEATURES "|avx256p"
+#else // INTEL_FEATURE_ISA_AVX256P
+#define EXT_FEATURES ""
+#endif // INTEL_FEATURE_ISA_AVX256P
+
 TARGET_HEADER_BUILTIN(_BitScanForward64, "UcUNi*ULLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_BitScanReverse64, "UcUNi*ULLi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 
@@ -101,25 +108,25 @@ TARGET_BUILTIN(__builtin_ia32_pext_di, "UOiUOiUOi", "nc", "bmi2")
 TARGET_BUILTIN(__builtin_ia32_bextri_u64, "UOiUOiIUOi", "nc", "tbm")
 TARGET_BUILTIN(__builtin_ia32_lwpins64, "UcUOiUiIUi", "n", "lwp")
 TARGET_BUILTIN(__builtin_ia32_lwpval64, "vUOiUiIUi", "n", "lwp")
-TARGET_BUILTIN(__builtin_ia32_vcvtsd2si64, "OiV2dIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvtsd2usi64, "UOiV2dIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvtss2si64, "OiV4fIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvtss2usi64, "UOiV4fIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvttsd2si64, "OiV2dIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvttsd2usi64, "UOiV2dIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvttss2si64, "OiV4fIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvttss2usi64, "UOiV4fIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_cvtsi2sd64, "V2dV2dOiIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_cvtsi2ss64, "V4fV4fOiIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dUOiIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fUOiIi", "ncV:128:", "avx512f")
-TARGET_BUILTIN(__builtin_ia32_vcvtsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_vcvtsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_vcvtusi642sh, "V8xV8xUOiIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_vcvtsi642sh, "V8xV8xOiIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_vcvttsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16")
-TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16")
-
+TARGET_BUILTIN(__builtin_ia32_vcvtsd2si64, "OiV2dIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtsd2usi64, "UOiV2dIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtss2si64, "OiV4fIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtss2usi64, "UOiV4fIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttsd2si64, "OiV2dIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttsd2usi64, "UOiV2dIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttss2si64, "OiV4fIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttss2usi64, "UOiV4fIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtsi2sd64, "V2dV2dOiIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtsi2ss64, "V4fV4fOiIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dUOiIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fUOiIi", "ncV:128:", "avx512f" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtusi642sh, "V8xV8xUOiIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvtsi642sh, "V8xV8xOiIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16" EXT_FEATURES)
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
 // FIXME: Remove the undisclosed target feature if needed.

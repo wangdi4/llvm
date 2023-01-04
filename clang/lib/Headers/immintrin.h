@@ -385,7 +385,8 @@ typedef struct __tile1024i_str {
 /* INTEL_CUSTOMIZATION */
 #ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX512BF16__) || defined(__AVX256P__) ||                         \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16intrin.h>
 #endif
 #endif
@@ -395,7 +396,7 @@ typedef struct __tile1024i_str {
 #ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VL__) && defined(__AVX512BF16__)) ||                      \
-    defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlbf16intrin.h>
 #endif
 #endif
@@ -663,7 +664,7 @@ typedef struct __tile1024i_str {
 #endif
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512NECONVERT__) && defined(__AVX512VL__)) ||                 \
-    defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512neconvert/avx512vlneconvertintrin.h>
 #endif
 #endif /* __AVX512NECONVERT_SUPPORTED__ */
@@ -1223,13 +1224,18 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AVX512_SAT_CVT */
 
 /* INTEL_FEATURE_ISA_AVX512_BF16_NE */
-// __bf16 is not supported by default, include below when target supports.
-#if defined(__AVX512BF16NE__)
+#if defined(__AVX512BF16NE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512BF16NE__) || defined(__AVX256P__) ||                       \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512bf16neintrin.h>
 #endif
 
-#if defined(__AVX512BF16NE__) && defined(__AVX512VL__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512BF16NE__) && defined(__AVX512VL__)) ||                    \
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512vlbf16neintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_BF16_NE */
 
