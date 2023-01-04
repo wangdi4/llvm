@@ -39,23 +39,21 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1
 ; CHECK-NEXT:    [[TMP14:%.*]] = or <4 x i32> [[TMP12]], [[TMP10]]
 ; CHECK-NEXT:    [[TMP15:%.*]] = sub nsw <4 x i32> [[TMP13]], [[TMP14]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = add nsw <4 x i32> [[TMP15]], [[TMP8]]
-; CHECK-NEXT:    [[SHUFFLE2:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 3, i32 2>
-; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 0, i32 undef, i32 3>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 3>
-; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
-; CHECK-NEXT:    [[TMP19:%.*]] = add <4 x i32> [[SHUFFLE]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP20:%.*]] = sub <4 x i32> [[SHUFFLE]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP19]], <4 x i32> [[TMP20]], <4 x i32> <i32 0, i32 1, i32 2, i32 7>
-; CHECK-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP21]], [[SHUFFLE2]]
-; CHECK-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP21]], [[SHUFFLE2]]
+; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP16]]
+; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP16]]
+; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECK-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECK-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP20]], [[SHUFFLE1]]
+; CHECK-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP20]], [[SHUFFLE1]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = shufflevector <4 x i32> [[TMP22]], <4 x i32> [[TMP23]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP25:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 3, i32 2, i32 0>
-; CHECK-NEXT:    [[TMP26:%.*]] = add <4 x i32> [[TMP24]], [[TMP25]]
-; CHECK-NEXT:    [[TMP27:%.*]] = sub <4 x i32> [[TMP24]], [[TMP25]]
-; CHECK-NEXT:    [[TMP28:%.*]] = shufflevector <4 x i32> [[TMP26]], <4 x i32> [[TMP27]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECK-NEXT:    [[TMP29:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP28]], <4 x i32>* [[TMP29]], align 4
+; CHECK-NEXT:    [[TMP25:%.*]] = add <4 x i32> [[TMP24]], [[TMP16]]
+; CHECK-NEXT:    [[TMP26:%.*]] = sub <4 x i32> [[TMP24]], [[TMP16]]
+; CHECK-NEXT:    [[TMP27:%.*]] = shufflevector <4 x i32> [[TMP25]], <4 x i32> [[TMP26]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECK-NEXT:    [[TMP28:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP27]], <4 x i32>* [[TMP28]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECK-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[I1_I64_0]], 15
 ; CHECK-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]
@@ -95,23 +93,21 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1
 ; CHECKWOIC-NEXT:    [[TMP14:%.*]] = sub <4 x i32> [[TMP13]], [[TMP10]]
 ; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP14]], [[TMP12]]
 ; CHECKWOIC-NEXT:    [[TMP16:%.*]] = add <4 x i32> [[TMP15]], [[TMP8]]
-; CHECKWOIC-NEXT:    [[SHUFFLE2:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 3, i32 2>
-; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 0, i32 undef, i32 3>
-; CHECKWOIC-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 3>
-; CHECKWOIC-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 undef>
-; CHECKWOIC-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
-; CHECKWOIC-NEXT:    [[TMP19:%.*]] = add <4 x i32> [[SHUFFLE]], [[SHUFFLE1]]
-; CHECKWOIC-NEXT:    [[TMP20:%.*]] = sub <4 x i32> [[SHUFFLE]], [[SHUFFLE1]]
-; CHECKWOIC-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP19]], <4 x i32> [[TMP20]], <4 x i32> <i32 0, i32 1, i32 2, i32 7>
-; CHECKWOIC-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP21]], [[SHUFFLE2]]
-; CHECKWOIC-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP21]], [[SHUFFLE2]]
+; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
+; CHECKWOIC-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP16]]
+; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP16]]
+; CHECKWOIC-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECKWOIC-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECKWOIC-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECKWOIC-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP20]], [[SHUFFLE1]]
+; CHECKWOIC-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP20]], [[SHUFFLE1]]
 ; CHECKWOIC-NEXT:    [[TMP24:%.*]] = shufflevector <4 x i32> [[TMP22]], <4 x i32> [[TMP23]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECKWOIC-NEXT:    [[TMP25:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 3, i32 2, i32 0>
-; CHECKWOIC-NEXT:    [[TMP26:%.*]] = add <4 x i32> [[TMP24]], [[TMP25]]
-; CHECKWOIC-NEXT:    [[TMP27:%.*]] = sub <4 x i32> [[TMP24]], [[TMP25]]
-; CHECKWOIC-NEXT:    [[TMP28:%.*]] = shufflevector <4 x i32> [[TMP26]], <4 x i32> [[TMP27]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECKWOIC-NEXT:    [[TMP29:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
-; CHECKWOIC-NEXT:    store <4 x i32> [[TMP28]], <4 x i32>* [[TMP29]], align 4
+; CHECKWOIC-NEXT:    [[TMP25:%.*]] = add <4 x i32> [[TMP24]], [[TMP16]]
+; CHECKWOIC-NEXT:    [[TMP26:%.*]] = sub <4 x i32> [[TMP24]], [[TMP16]]
+; CHECKWOIC-NEXT:    [[TMP27:%.*]] = shufflevector <4 x i32> [[TMP25]], <4 x i32> [[TMP26]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECKWOIC-NEXT:    [[TMP28:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
+; CHECKWOIC-NEXT:    store <4 x i32> [[TMP27]], <4 x i32>* [[TMP28]], align 4
 ; CHECKWOIC-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECKWOIC-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[NEXTIVLOOP_1247]], 16
 ; CHECKWOIC-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]

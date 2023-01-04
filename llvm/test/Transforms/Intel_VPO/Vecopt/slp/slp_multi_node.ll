@@ -13,8 +13,8 @@ define void @simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
@@ -59,7 +59,7 @@ define void @negative_different_sign_reorder(i32 *%a, i32 *%b, i32* %c) #0 {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i32> <i32 poison, i32 43>, i32 [[B0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], [[TMP1]]
+; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32> <i32 42, i32 poison>, i32 [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP4]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
@@ -103,8 +103,8 @@ define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
@@ -197,7 +197,7 @@ define void @wrap_flags_jr33142(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = mul nuw nsw <2 x i32> [[TMP1]], <i32 7, i32 7>
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> <i32 -1, i32 -1>, [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP3]], <i32 -1, i32 -1>
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[TMP5]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], align 4
@@ -246,10 +246,10 @@ define void @wrap_flags_alt_opcode(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP1]], <i32 42, i32 43>
-; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP1]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP3]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP5]], <2 x i32> <i32 0, i32 3>
-; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[TMP6]], [[TMP3]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[TMP6]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], align 4
 ; CHECK-NEXT:    ret void
