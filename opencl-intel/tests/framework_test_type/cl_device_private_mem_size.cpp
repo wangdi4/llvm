@@ -107,9 +107,8 @@ TEST_F(PrivateMemSizeTest, OutOfResources) {
   std::string programSources =
       "__kernel void test(__global int* o)\n"
       "{\n"
-      "    const int size = (STACK_SIZE/2) / sizeof(int);\n" // (STACK_SIZE/2)MB
-                                                             // of private
-                                                             // memory
+      "    // STACK_SIZE bytes of private memory\n"
+      "    const int size = (STACK_SIZE) / sizeof(int);\n"
       "    printf(\"SIZE: %d \\n\", size);\n"
       "    __private volatile int buf[size];\n"
       "    int gid = get_global_id(0);\n"
