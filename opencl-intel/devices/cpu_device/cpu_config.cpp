@@ -48,14 +48,7 @@ CPUDeviceConfig::~CPUDeviceConfig() {
 }
 
 cl_err_code CPUDeviceConfig::Initialize(std::string filename) {
-  BasicCLConfigWrapper::Initialize(filename);
-
-  // Initialize m_forcedWGSizeVec.
-  std::string forcedWGSizeStr = GetForcedWGSize();
-  if (!forcedWGSizeStr.empty())
-    (void)SplitStringInteger(forcedWGSizeStr, ',', m_forcedWGSizeVec);
-
-  return CL_SUCCESS;
+  return BasicCLConfigWrapper::Initialize(filename);
 }
 
 int CPUDeviceConfig::GetNumDevices() const {
@@ -83,6 +76,14 @@ cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const {
   }
 
   return ParseStringToSize(strForcedSize);
+}
+
+std::vector<size_t> CPUDeviceConfig::GetForcedWGSizeVec() const {
+  std::vector<size_t> forcedWGSizeVec;
+  std::string forcedWGSizeStr = GetForcedWGSize();
+  if (!forcedWGSizeStr.empty())
+    (void)SplitStringInteger(forcedWGSizeStr, ',', forcedWGSizeVec);
+  return forcedWGSizeVec;
 }
 
 cl_int CPUDeviceConfig::GetVectorizerMode() const {
