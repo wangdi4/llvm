@@ -608,11 +608,6 @@ private:
   ///  this ASTContext object.
   LangOptions &LangOpts;
 
-#if INTEL_CUSTOMIZATION
-  /// The flag specifies status of "fp_contract" feature
-  bool DisabledFPContract;
-#endif // INTEL_CUSTOMIZATION
-
   /// NoSanitizeList object that is used by sanitizers to decide which
   /// entities should not be instrumented.
   std::unique_ptr<NoSanitizeList> NoSanitizeL;
@@ -801,12 +796,6 @@ public:
   const XRayFunctionFilter &getXRayFilter() const {
     return *XRayFilter;
   }
-
-#if INTEL_CUSTOMIZATION
-  void disableFPContract() { DisabledFPContract = true; }
-
-  bool isFPContractDisabled() const { return DisabledFPContract; }
-#endif // INTEL_CUSTOMIZATION
 
   const ProfileList &getProfileList() const { return *ProfList; }
 
