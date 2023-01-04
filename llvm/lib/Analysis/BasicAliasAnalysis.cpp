@@ -1045,8 +1045,8 @@ static bool notDifferentParent(const Value *O1, const Value *O2) {
 #endif
 
 AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
+                                 const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                                 const Instruction *) {
   assert(notDifferentParent(LocA.Ptr, LocB.Ptr) &&
          "BasicAliasAnalysis doesn't support interprocedural queries.");
   return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
@@ -2193,7 +2193,7 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
                                             const MemoryLocation &LocB,
                                             AAQueryInfo &AAQI) {
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
-  return alias(LocA, LocB, AAQI);
+  return alias(LocA, LocB, AAQI, nullptr);
 }
 #endif // INTEL_CUSTOMIZATION
 

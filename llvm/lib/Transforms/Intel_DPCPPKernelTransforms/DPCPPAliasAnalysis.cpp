@@ -177,8 +177,8 @@ DPCPPAAResult::ResolveResult DPCPPAAResult::resolveAddressSpace(const Value *V,
 // Check aliasing using the fact that in openCL pointers from different
 // memory addresses do not alias.
 AliasResult DPCPPAAResult::alias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
+                                 const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                                 const Instruction *) {
   const Value *A = LocA.Ptr;
   const Value *B = LocB.Ptr;
 
@@ -207,7 +207,7 @@ AliasResult DPCPPAAResult::alias(const MemoryLocation &LocA,
     }
   }
 
-  return AAResultBase::alias(LocA, LocB, AAQI);
+  return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 }
 
 ModRefInfo DPCPPAAResult::getModRefInfoMask(const MemoryLocation &Loc,

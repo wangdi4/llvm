@@ -507,11 +507,11 @@ public:
   // Implement the AliasAnalysis API
   //
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI = nullptr);
 
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI) {
-    return alias(LocA, LocB, AAQI);
+    return alias(LocA, LocB, AAQI, nullptr);
   }
 
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
