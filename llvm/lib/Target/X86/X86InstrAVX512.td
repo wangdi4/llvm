@@ -19001,4 +19001,23 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_AVX512_VPMM
 
+#if INTEL_FEATURE_XISA_COMMON
+let Predicates = [In64BitMode], isPseudo = true in {
+  let mayStore = 1 in
+  def PXMMPAIRSTORE : PseudoI<(outs), (ins opaquemem:$src1, XMMPairX:$src2), []>;
+  let mayLoad = 1 in
+  def PXMMPAIRLOAD : PseudoI<(outs XMMPairX:$dst), (ins opaquemem:$src), []>;
+
+  let mayStore = 1 in
+  def PYMMPAIRSTORE : PseudoI<(outs), (ins opaquemem:$src1, YMMPairX:$src2), []>;
+  let mayLoad = 1 in
+  def PYMMPAIRLOAD : PseudoI<(outs YMMPairX:$dst), (ins opaquemem:$src), []>;
+
+  let mayStore = 1 in
+  def PZMMPAIRSTORE : PseudoI<(outs), (ins opaquemem:$src1, ZMMPairX:$src2), []>;
+  let mayLoad = 1 in
+  def PZMMPAIRLOAD : PseudoI<(outs ZMMPairX:$dst), (ins opaquemem:$src), []>;
+}
+#endif // INTEL_FEATURE_XISA_COMMON
+
 #endif // INTEL_CUSTOMIZATION
