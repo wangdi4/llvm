@@ -1256,12 +1256,6 @@ bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
   this->ScopedSE = &RI.getScopedSE();
   this->SCCF = &SCCF;
 
-#if INTEL_PRODUCT_RELEASE
-  // Set a flag to induce an error if anyone attempts to write the IR
-  // to a file after this pass has been run.
-  F.getParent()->setIntelProprietary();
-#endif // INTEL_PRODUCT_RELEASE
-
   deconstructSSAForRegions();
 
   return ModifiedIR;

@@ -5665,14 +5665,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // TODO: We are adding -disable-lifetime-markers as a short term
       // solution (CMPLRLLVM-23037/CMPLRLLVM-23038)
       CmdArgs.push_back("-disable-lifetime-markers");
-      // SPIR-V target requires LLVM BC emission, which cannot be done if any
-      // Intel proprietary optimization kicks in, so we have to disable all
-      // proprietary optimizations.
-      // Exceptions:  -fopenmp-target-loopopt -fopenmp-target-simd
-      if (!Args.hasArg(options::OPT_fopenmp_target_intel_proprietary_opts) &&
-          !(Args.hasArg(options::OPT_fopenmp_target_loopopt) &&
-            Args.hasArg(options::OPT_fopenmp_target_simd)))
-        CmdArgs.push_back("-disable-intel-proprietary-opts");
 
       // Add args specific to -fopenmp-target-simd
       if (Args.hasArg(options::OPT_fopenmp_target_simd)) {
@@ -8534,14 +8526,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       !(C.getDriver().embedBitcodeInObject() && !IsUsingLTO) &&
       !IsSYCLOffloadDevice && isa<CompileJobAction>(JA))
     CmdArgs.push_back("-disable-llvm-passes");
-
-#if INTEL_CUSTOMIZATION
-  // Disable Intel proprietary optimizations for the .bc generation during
-  // an offload compilation.
-  if ((isa<CompileJobAction>(JA) && JA.isHostOffloading(Action::OFK_OpenMP)) ||
-      (IsSYCLOffloadDevice && Triple.isAMDGCN() && isa<AssembleJobAction>(JA)))
-    CmdArgs.push_back("-disable-intel-proprietary-opts");
-#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgs(CmdArgs, options::OPT_undef);
 

@@ -1105,6 +1105,13 @@ bool dtransOP::DTransNormalizeOPPass::runImpl(Module &M,
                          "structure type metadata\n");
     return false;
   }
+
+#if INTEL_PRODUCT_RELEASE
+  // Set a flag to induce an error if anyone attempts to write the IR
+  // to a file after this pass has been run.
+  M.setIntelProprietary();
+#endif // INTEL_PRODUCT_RELEASE
+
   DTransAllocCollector DTAC(MDReader, GetTLI);
   DTAC.populateAllocDeallocTable(M);
   PtrTypeAnalyzer PtrAnalyzer(Ctx, TM, MDReader, DL, GetTLI);
