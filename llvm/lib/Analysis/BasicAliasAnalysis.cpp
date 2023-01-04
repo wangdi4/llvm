@@ -2193,7 +2193,7 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
                                             const MemoryLocation &LocB,
                                             AAQueryInfo &AAQI) {
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
-  return alias(LocA, LocB, AAQI);
+  return alias(LocA, LocB, AAQI, nullptr);
 }
 #endif // INTEL_CUSTOMIZATION
 

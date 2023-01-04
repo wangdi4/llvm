@@ -686,16 +686,11 @@ public:
   // CtxI can be nullptr, in which case the query is whether or not the aliasing
   // relationship holds through the entire function.
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-<<<<<<< HEAD
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI = nullptr);
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI);
 #endif // INTEL_CUSTOMIZATION
-=======
-                    AAQueryInfo &AAQI, const Instruction *CtxI = nullptr);
-
->>>>>>> d9db6340e72dc8ad744a1a567ef037ae84c8a4fc
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
                               bool OrLocal = false);
   ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,

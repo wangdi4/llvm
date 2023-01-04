@@ -69,7 +69,7 @@ public:
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI) {
-    return alias(LocA, LocB, AAQI);
+    return alias(LocA, LocB, AAQI, nullptr);
   }
 #endif // INTEL_CUSTOMIZATION
 
