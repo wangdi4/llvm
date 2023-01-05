@@ -285,6 +285,71 @@ void X86ExpandPseudo::expandCALL_RVMARKER(MachineBasicBlock &MBB,
                    std::next(RtCall->getIterator()));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+// TODO: Try merge with X86InstrInfo.cpp:getLoadStoreRegOpcode when disclose.
+static unsigned getLoadStoreRegOpcode(const X86Subtarget *STI,
+                                      unsigned SubSpillSize,
+                                      bool Load,
+                                      bool IsStackAligned = true) {
+  bool HasAVX = STI->hasAVX();
+  bool HasAVX512 = STI->hasAVX512();
+  bool HasVLX = STI->hasVLX();
+  switch (SubSpillSize) {
+  default:
+    llvm_unreachable("Unknown expected spill size");
+  case 16: {
+    // If stack is realigned we can use aligned stores.
+    if (IsStackAligned)
+      return Load ?
+        (HasVLX    ? X86::VMOVAPSZ128rm :
+         HasAVX512 ? X86::VMOVAPSZ128rm_NOVLX :
+         HasAVX    ? X86::VMOVAPSrm :
+                     X86::MOVAPSrm):
+        (HasVLX    ? X86::VMOVAPSZ128mr :
+         HasAVX512 ? X86::VMOVAPSZ128mr_NOVLX :
+         HasAVX    ? X86::VMOVAPSmr :
+                     X86::MOVAPSmr);
+    else
+      return Load ?
+        (HasVLX    ? X86::VMOVUPSZ128rm :
+         HasAVX512 ? X86::VMOVUPSZ128rm_NOVLX :
+         HasAVX    ? X86::VMOVUPSrm :
+                     X86::MOVUPSrm):
+        (HasVLX    ? X86::VMOVUPSZ128mr :
+         HasAVX512 ? X86::VMOVUPSZ128mr_NOVLX :
+         HasAVX    ? X86::VMOVUPSmr :
+                     X86::MOVUPSmr);
+  }
+  case 32:
+    // If stack is realigned we can use aligned stores.
+    if (IsStackAligned)
+      return Load ?
+        (HasVLX    ? X86::VMOVAPSZ256rm :
+         HasAVX512 ? X86::VMOVAPSZ256rm_NOVLX :
+                     X86::VMOVAPSYrm) :
+        (HasVLX    ? X86::VMOVAPSZ256mr :
+         HasAVX512 ? X86::VMOVAPSZ256mr_NOVLX :
+                     X86::VMOVAPSYmr);
+    else
+      return Load ?
+        (HasVLX    ? X86::VMOVUPSZ256rm :
+         HasAVX512 ? X86::VMOVUPSZ256rm_NOVLX :
+                     X86::VMOVUPSYrm) :
+        (HasVLX    ? X86::VMOVUPSZ256mr :
+         HasAVX512 ? X86::VMOVUPSZ256mr_NOVLX :
+                     X86::VMOVUPSYmr);
+  case 64:
+    assert(STI->hasAVX512() && "Using 512-bit register requires AVX512");
+    if (IsStackAligned)
+      return Load ? X86::VMOVAPSZrm : X86::VMOVAPSZmr;
+    else
+      return Load ? X86::VMOVUPSZrm : X86::VMOVUPSZmr;
+  }
+}
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
+
 /// If \p MBBI is a pseudo instruction, this method expands
 /// it to the corresponding (sequence of) actual instruction(s).
 /// \returns true if \p MBBI has been expanded.
@@ -782,6 +847,166 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.setDesc(TII->get(X86::MARKER_COUNT_LOOP_HEADER));
     return true;
 #endif // INTEL_FEATURE_MARKERCOUNT
+#if INTEL_FEATURE_XISA_COMMON
+  // Expand vector pair load, take XMMPAIRLOAD for example:
+  // XMMPAIRLOAD is just for XMMPair spill, we don't have corresponding
+  // AVX instruction to support it. So, split it to 2 load instructions:
+  // "XMMPAIRLOAD XMM0:XMM1, Base, Scale, Index, Offset, Segment" -->
+  // "XMMLOAD XMM0, Base, Scale, Index, Offset, Segment" +
+  // "XMMLOAD XMM1, Base, Scale, Index, Offset + XMM_SIZE, Segment"
+  case X86::PXMMPAIRLOAD:
+  case X86::PYMMPAIRLOAD:
+  case X86::PZMMPAIRLOAD: {
+    Register VReg = MBBI->getOperand(0).getReg();
+    unsigned SubRegIdx0 = 0;
+    unsigned SubRegIdx1 = 0;
+    // Note: Escape use RegisterClass to get following info for this
+    // maybe physical register.
+    unsigned SubSpillSize = 0;
+    switch (Opcode) {
+    default:
+      llvm_unreachable("Impossible Opcode!");
+    case X86::PXMMPAIRLOAD:
+      SubRegIdx0 = X86::sub_x0;
+      SubRegIdx1 = X86::sub_x1;
+      SubSpillSize = 16;
+      break;
+    case X86::PYMMPAIRLOAD:
+      SubRegIdx0 = X86::sub_y0;
+      SubRegIdx1 = X86::sub_y1;
+      SubSpillSize = 32;
+      break;
+    case X86::PZMMPAIRLOAD:
+      SubRegIdx0 = X86::sub_z0;
+      SubRegIdx1 = X86::sub_z1;
+      SubSpillSize = 64;
+      break;
+    }
+
+    int64_t Disp = MBBI->getOperand(1 + X86::AddrDisp).getImm();
+    bool DstIsDead = MBBI->getOperand(0).isDead();
+    Register VReg0 = TRI->getSubReg(VReg, SubRegIdx0);
+    Register VReg1 = TRI->getSubReg(VReg, SubRegIdx1);
+
+    unsigned LoadOpc = getLoadStoreRegOpcode(STI, SubSpillSize, true);
+
+    MachineInstrBuilder MIBLo =
+      BuildMI(MBB, MBBI, DL, TII->get(LoadOpc))
+      .addReg(VReg0, RegState::Define | getDeadRegState(DstIsDead));
+    MachineInstrBuilder MIBHi =
+      BuildMI(MBB, MBBI, DL, TII->get(LoadOpc))
+      .addReg(VReg1, RegState::Define | getDeadRegState(DstIsDead));
+
+    for (int i = 0; i < X86::AddrNumOperands; ++i) {
+      MIBLo.add(MBBI->getOperand(1 + i));
+      if (i == X86::AddrDisp)
+        MIBHi.addImm(Disp + SubSpillSize);
+      else
+        MIBHi.add(MBBI->getOperand(1 + i));
+    }
+
+    // Make sure the first reg used in first vector load is alive.
+    MachineOperand &Idx = MIBLo.getInstr()->getOperand(1 + X86::AddrIndexReg);
+    MachineOperand &Base = MIBLo.getInstr()->getOperand(1 + X86::AddrBaseReg);
+    if (Idx.isReg())
+      Idx.setIsKill(false);
+    if (Base.isReg())
+      Idx.setIsKill(false);
+
+    // Split the memory operand, adjusting the offset and size for the halves.
+    MachineMemOperand *OldMMO = MBBI->memoperands().front();
+    MachineFunction *MF = MBB.getParent();
+    MachineMemOperand *MMOLo =
+        MF->getMachineMemOperand(OldMMO, 0, SubSpillSize);
+    MachineMemOperand *MMOHi =
+        MF->getMachineMemOperand(OldMMO, SubSpillSize, SubSpillSize);
+
+    MIBLo.setMemRefs(MMOLo);
+    MIBHi.setMemRefs(MMOHi);
+
+    // Delete the pseudo.
+    MBB.erase(MBBI);
+    return true;
+  }
+  // Expand vector pair store, take XMMPAIRSTORE for example:
+  // Smilar with XMMPAIRLOAD, XMMPAIRSTORE is just for XMMPair spill, no
+  // corresponding instruction to support it. So, split it too:
+  // "XMMPAIRSTORE Base, Scale, Index, Offset, Segment, XMM0:XMM1" -->
+  // "XMMSTORE Base, Scale, Index, Offset, Segment, XMM0" +
+  // "XMMSTORE Base, Scale, Index, Offset + XMM_SIZE, Segment, XMM1"
+  case X86::PXMMPAIRSTORE:
+  case X86::PYMMPAIRSTORE:
+  case X86::PZMMPAIRSTORE: {
+    Register VReg = MBBI->getOperand(X86::AddrNumOperands).getReg();
+    unsigned SubRegIdx0 = 0;
+    unsigned SubRegIdx1 = 0;
+    // Note: Escape use RegisterClass to get following info for this
+    // maybe physical register.
+    unsigned SubSpillSize = 0;
+    switch (Opcode) {
+    default:
+      llvm_unreachable("Impossible Opcode!");
+    case X86::PXMMPAIRSTORE:
+      SubRegIdx0 = X86::sub_x0;
+      SubRegIdx1 = X86::sub_x1;
+      SubSpillSize = 16;
+      break;
+    case X86::PYMMPAIRSTORE:
+      SubRegIdx0 = X86::sub_y0;
+      SubRegIdx1 = X86::sub_y1;
+      SubSpillSize = 32;
+      break;
+    case X86::PZMMPAIRSTORE:
+      SubRegIdx0 = X86::sub_z0;
+      SubRegIdx1 = X86::sub_z1;
+      SubSpillSize = 64;
+      break;
+    }
+
+    int64_t Disp = MBBI->getOperand(X86::AddrDisp).getImm();
+    bool SrcIsKill = MBBI->getOperand(X86::AddrNumOperands).isKill();
+    Register VReg0 = TRI->getSubReg(VReg, SubRegIdx0);
+    Register VReg1 = TRI->getSubReg(VReg, SubRegIdx1);
+
+    unsigned StoreOpc = getLoadStoreRegOpcode(STI, SubSpillSize, false);
+
+    MachineInstrBuilder MIBLo = BuildMI(MBB, MBBI, DL, TII->get(StoreOpc));
+    MachineInstrBuilder MIBHi = BuildMI(MBB, MBBI, DL, TII->get(StoreOpc));
+
+    for (int i = 0; i < X86::AddrNumOperands; ++i) {
+      MIBLo.add(MBBI->getOperand(i));
+      if (i == X86::AddrDisp)
+        MIBHi.addImm(Disp + SubSpillSize);
+      else
+        MIBHi.add(MBBI->getOperand(i));
+    }
+    MIBLo.addReg(VReg0, getKillRegState(SrcIsKill));
+    MIBHi.addReg(VReg1, getKillRegState(SrcIsKill));
+
+    // Make sure the first stride reg used in first vector store is alive.
+    MachineOperand &Idx = MIBLo.getInstr()->getOperand(X86::AddrIndexReg);
+    MachineOperand &Base = MIBLo.getInstr()->getOperand(X86::AddrBaseReg);
+    if (Idx.isReg())
+      Idx.setIsKill(false);
+    if (Base.isReg())
+      Idx.setIsKill(false);
+
+    // Split the memory operand, adjusting the offset and size for the halves.
+    MachineMemOperand *OldMMO = MBBI->memoperands().front();
+    MachineFunction *MF = MBB.getParent();
+    MachineMemOperand *MMOLo =
+        MF->getMachineMemOperand(OldMMO, 0, SubSpillSize);
+    MachineMemOperand *MMOHi =
+        MF->getMachineMemOperand(OldMMO, SubSpillSize, SubSpillSize);
+
+    MIBLo.setMemRefs(MMOLo);
+    MIBHi.setMemRefs(MMOHi);
+
+    // Delete the pseudo.
+    MBB.erase(MBBI);
+    return true;
+  }
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Previous switch has a fallthrough?");
