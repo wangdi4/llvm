@@ -11574,7 +11574,7 @@ bool SelectionDAG::areNonVolatileConsecutiveLoads(LoadSDNode *LD,
     return false;
   if (LD->getChain() != Base->getChain())
     return false;
-  EVT VT = LD->getValueType(0);
+  EVT VT = LD->getMemoryVT();
   if (VT.getSizeInBits() / 8 != Bytes)
     return false;
 
