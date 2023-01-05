@@ -1,7 +1,7 @@
 ; CMPLRLLVM-11269: The loop in the fcmp block was crashing the blender
 ; pattern matching.
 
-; RUN: opt -simplifycfg -S < %s | FileCheck %s
+; RUN: opt -passes="simplifycfg" -S < %s | FileCheck %s
 ; CHECK: %cmp = fcmp fast olt double %11, 1.000000e+00
 ; CHECK-NEXT: br i1 %cmp, label %for.end, label %for.cond
 

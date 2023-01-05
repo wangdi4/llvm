@@ -1,9 +1,9 @@
 ; In the following IR widening %j.020 requires a widened decrementing IV in the outer loop because its initial value is (45 - i).
 ; Verify that the inner loop IV is not widened when the threshold for new parent loop IVs allowed is set to zero or deep loopnest threshold is set <=2.
 
-; RUN: opt < %s -indvars -indvars-new-parent-loop-iv-threshold=0 -indvars-deep-loopnest-threshold=2 -S | FileCheck %s --check-prefix=NO-WIDENING
-; RUN: opt < %s -indvars -indvars-new-parent-loop-iv-threshold=1 -indvars-deep-loopnest-threshold=2 -S | FileCheck %s --check-prefix=WIDENING
-; RUN: opt < %s -indvars -indvars-new-parent-loop-iv-threshold=0 -indvars-deep-loopnest-threshold=3 -S | FileCheck %s --check-prefix=WIDENING
+; RUN: opt -passes="loop(indvars)" < %s -indvars-new-parent-loop-iv-threshold=0 -indvars-deep-loopnest-threshold=2 -S | FileCheck %s --check-prefix=NO-WIDENING
+; RUN: opt -passes="loop(indvars)" < %s -indvars-new-parent-loop-iv-threshold=1 -indvars-deep-loopnest-threshold=2 -S | FileCheck %s --check-prefix=WIDENING
+; RUN: opt -passes="loop(indvars)" < %s -indvars-new-parent-loop-iv-threshold=0 -indvars-deep-loopnest-threshold=3 -S | FileCheck %s --check-prefix=WIDENING
 
 ; NO-WIDENING: for.body:
 ; NO-WIDENING: %indvars.iv = phi i64

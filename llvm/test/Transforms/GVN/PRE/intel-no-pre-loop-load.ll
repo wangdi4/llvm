@@ -8,7 +8,11 @@
 ; or
 ; OpenMP is enabled
 
+<<<<<<< HEAD
 ; RUN: opt -aa-pipeline=basic-aa -enable-load-pre -enable-pre -lcssa -gvn -S < %s | FileCheck %s
+=======
+; RUN: opt -aa-pipeline="basic-aa" -passes="lcssa,gvn" -enable-load-pre -enable-pre -S < %s | FileCheck %s
+>>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 declare void @may_free_memory()
 

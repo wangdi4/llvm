@@ -1,4 +1,4 @@
-; RUN: opt -S -dse < %s | FileCheck %s
+; RUN: opt -passes="dse" -S < %s | FileCheck %s
 
 ; 25029: from bwaves. DSE should not remove any of these stores. They should
 ; all be "MayAlias" with each other, and with the loads in the same loop.

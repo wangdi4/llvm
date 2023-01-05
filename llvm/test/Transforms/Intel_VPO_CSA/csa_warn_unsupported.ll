@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S 2>&1 | FileCheck %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -lcssa-verification -S 2>&1 | FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
 target triple = "csa"

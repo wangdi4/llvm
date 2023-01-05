@@ -1,4 +1,4 @@
-; RUN: opt -gvn %s -S | FileCheck %s
+; RUN: opt -passes="gvn" %s -S | FileCheck %s
 
 ; CMPLRLLVM-10341 describes a PRE of loads in 557.xz, that must happen in
 ; block 121 below.

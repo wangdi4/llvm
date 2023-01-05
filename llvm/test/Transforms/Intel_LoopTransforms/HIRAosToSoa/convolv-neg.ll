@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Aos-to-Soa doesn't kick in because subscripts do not have all IV, i2 throug i4 in
 ; <54>               |   |   |   |   %conv26 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i3 + i4].0);

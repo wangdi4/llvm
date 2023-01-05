@@ -1,4 +1,4 @@
-; RUN: opt -instcombine -S %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S %s | FileCheck %s
 
 ; 30207: A GEP outside a loop, is being converted into an add inside a loop.
 ; This has a big performance impact on small loops.

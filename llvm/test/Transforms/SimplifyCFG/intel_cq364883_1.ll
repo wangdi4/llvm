@@ -1,9 +1,9 @@
 ; Test whether the 3-entry phi node is folded into a 2-entry phi node.
 ; Fails if the 3-entry phi node still exists, passes otherwise.
 ;
-; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; RUN: opt -passes="simplifycfg" < %s -S | FileCheck %s
 ; INTEL
-; RUN: opt < %s -S -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
+; RUN: opt < %s -S -passes=convert-to-subscript | opt -passes="simplifycfg" -S | FileCheck %s
 ;
 
 @x = common global [1024 x double] zeroinitializer, align 16

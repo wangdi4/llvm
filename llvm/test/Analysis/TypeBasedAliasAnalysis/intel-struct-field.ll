@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -aa-pipeline=basic-aa,tbaa -gvn -S < %s | FileCheck %s
+=======
+; RUN: opt -aa-pipeline="basic-aa,tbaa" -passes="gvn" -S < %s | FileCheck %s
+>>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; GVN should be able to eliminate the load out of the loop
 ; by using both BasicAA and TBAA information.

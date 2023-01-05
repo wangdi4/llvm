@@ -3,8 +3,8 @@
 ; These functions are marked with the OpenMP attribute, so the conservative
 ; cost model calculation (using all predecessors) should be applied.
 
-; RUN: opt < %s -S -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=1 | FileCheck --check-prefixes=THR1 %s
-; RUN: opt < %s -S -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=2 | FileCheck --check-prefixes=THR2 %s
+; RUN: opt -passes="simplifycfg" < %s -S -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=1 | FileCheck --check-prefixes=THR1 %s
+; RUN: opt -passes="simplifycfg" < %s -S -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=2 | FileCheck --check-prefixes=THR2 %s
 
 declare void @sideeffect0()
 declare void @sideeffect1()

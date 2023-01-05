@@ -1,5 +1,4 @@
-; RUN: opt -S -infer-address-spaces -override-flat-addr-space=4 -o - %s \
-; RUN:   | FileCheck %s
+; RUN: opt -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
 ;
 ; Validate debug intrinsics are updated during address space inference.
 ;

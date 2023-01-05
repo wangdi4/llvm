@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+=======
+; RUN: opt -aa-pipeline="basic-aa" -passes="aa-eval" < %s -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+>>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; Check that "ptrnoalias" on arguments implies "noalias" for loaded pointers %p and %q.
 

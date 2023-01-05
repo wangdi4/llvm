@@ -1,4 +1,4 @@
-; RUN: opt < %s -jump-threading -S | FileCheck %s
+; RUN: opt -passes="jump-threading" < %s -S | FileCheck %s
 
 ; Verify that jump threading is suppressed for countable loop backedges prior to loopopt("pre_loopopt").
 ; CHECK: for.body6:

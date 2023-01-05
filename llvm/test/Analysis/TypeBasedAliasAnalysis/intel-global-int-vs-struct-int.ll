@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -aa-pipeline=tbaa -aa-eval -evaluate-aa-metadata -print-may-aliases -disable-output < %s 2>&1 | FileCheck %s
+=======
+; RUN: opt -aa-pipeline="tbaa" -passes="aa-eval" -evaluate-aa-metadata -print-may-aliases -disable-output < %s 2>&1 | FileCheck %s
+>>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; CHECK:   MayAlias:   %1 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 %1, i32* @h, align 4, !tbaa !9
 ; CHECK:   MayAlias:   %1 = load i32, i32* %a, align 4, !tbaa !6 <->   store i32 5, i32* @g, align 4, !tbaa !9

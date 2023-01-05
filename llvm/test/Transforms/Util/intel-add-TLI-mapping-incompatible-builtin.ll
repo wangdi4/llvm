@@ -1,8 +1,8 @@
 ; Test to check that InjectTLIMappings bails out for calls that are incompatible redeclaration
 ; of builtin library functions.
 
-; RUN: opt -vector-library=SVML       -inject-tli-mappings        -S < %s | FileCheck %s
-; RUN: opt -vector-library=MASSV      -inject-tli-mappings        -S < %s | FileCheck %s
+; RUN: opt -passes="inject-tli-mappings" -vector-library=SVML -S < %s | FileCheck %s
+; RUN: opt -passes="inject-tli-mappings" -vector-library=MASSV -S < %s | FileCheck %s
 
 ; CHECK-NOT: @llvm.compiler.used
 ; CHECK: %call = tail call signext i8 (...) @pow() 

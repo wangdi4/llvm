@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt -passes="loop(indvars)" < %s -S | FileCheck %s
 
 ; Verify that nsw flag was added to IVLIMIT (%n + 3).
 
