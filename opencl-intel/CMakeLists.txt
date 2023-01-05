@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -19,9 +19,11 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR NOT
-   OPENCL_INTREE_BUILD)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(OPENCL_INTREE_BUILD FALSE)
   project(OCL C CXX ASM)
+else()
+  set(OPENCL_INTREE_BUILD TRUE)
 endif()
 
 # Project-wise options
