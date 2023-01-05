@@ -229,6 +229,39 @@ attributeToExecModeMetadata(Module &M, const Attribute &Attr) {
   return std::nullopt;
 }
 
+SmallVector<std::pair<Optional<StringRef>, Optional<StringRef>>, 8>
+parseSYCLPropertiesString(Module &M, IntrinsicInst *IntrInst){
+  SmallVector<std::pair<Optional<StringRef>, Optional<StringRef>>, 8> result;
+
+  if (const auto *Cast =
+        dyn_cast<BitCastOperator>(IntrInst->getArgOperand(4))) {
+    if (const auto *AnnotValsGV =
+         dyn_cast<GlobalVariable>(Cast->getOperand(0))) {
+       if (const auto *AnnotValsAggr =
+           dyn_cast<ConstantAggregate>(AnnotValsGV->getInitializer())) {
+           assert(
+              (AnnotValsAggr->getNumOperands() & 1) == 0 &&
+              "sycl-properties annotation must have an even number of annotation "
+              "values.");
+
+            // Iterate over the pairs of property meta-names and meta-values.
+           for (size_t I = 0; I < AnnotValsAggr->getNumOperands(); I += 2) {
+              Optional<StringRef> PropMetaName =
+                  getGlobalVariableString(AnnotValsAggr->getOperand(I));
+              Optional<StringRef> PropMetaValue =
+                  getGlobalVariableString(AnnotValsAggr->getOperand(I + 1));
+
+              assert(PropMetaName &&
+                     "Unexpected format for property name in annotation.");
+
+              result.push_back(std::make_pair(PropMetaName, PropMetaValue));
+           }
+       }
+     }
+  }
+  return result;
+}
+
 } // anonymous namespace
 
 PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
@@ -332,9 +365,12 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
   for (Function &F : M)
     for (inst_iterator I = inst_begin(&F), E = inst_end(&F); I != E; ++I)
       if (auto *IntrInst = dyn_cast<IntrinsicInst>(&*I))
-        if (IntrInst->getIntrinsicID() == Intrinsic::ptr_annotation &&
-            transformSYCLPropertiesAnnotation(M, IntrInst, RemovableAnnots))
-          CompileTimePropertiesMet = true;
+          if (IntrInst->getIntrinsicID() == Intrinsic::ptr_annotation) {
+            transformAlignmentFromSYCLPropertiesAnnotation(M, IntrInst, RemovableAnnots);
+
+            if(transformSYCLPropertiesAnnotation(M, IntrInst, RemovableAnnots))
+                CompileTimePropertiesMet = true;
+        }
 
   // Remove irrelevant "sycl-properties" annotations after the transformations.
   for (IntrinsicInst *IntrInst : RemovableAnnots) {
@@ -347,6 +383,81 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
   // the caller that at least one compile-time property was met.
   return CompileTimePropertiesMet ? PreservedAnalyses::none()
                                   : PreservedAnalyses::all();
+}
+
+void CompileTimePropertiesPass::transformAlignmentFromSYCLPropertiesAnnotation(
+    Module &M, IntrinsicInst *IntrInst,
+    SmallVectorImpl<IntrinsicInst *> &RemovableAnnotations) {
+
+  assert(IntrInst->getIntrinsicID() == Intrinsic::ptr_annotation &&
+         "Intrinsic is not a pointer annotation.");
+  assert(IntrInst->arg_size() == 5 &&
+         "Unexpected number of arguments in annotation intrinsic.");
+
+  LLVMContext &Ctx = M.getContext();
+  unsigned MDKindID = Ctx.getMDKindID(SPIRV_DECOR_MD_KIND);
+
+  // Get the global variable with the annotation string.
+  const GlobalVariable *AnnotStrArgGV = nullptr;
+  const Value *IntrAnnotStringArg = IntrInst->getArgOperand(1);
+  if (auto *GEP = dyn_cast<GEPOperator>(IntrAnnotStringArg))
+    if (auto *C = dyn_cast<Constant>(GEP->getOperand(0)))
+      AnnotStrArgGV = dyn_cast<GlobalVariable>(C);
+  if (!AnnotStrArgGV)
+    return;
+
+  Optional<StringRef> AnnotStr = getGlobalVariableString(AnnotStrArgGV);
+  if (!AnnotStr)
+      return;
+
+  //parse properties string to decoration-value pairs
+  auto properties = parseSYCLPropertiesString(M, IntrInst);
+
+  SmallVector<Value*, 8> userList;
+  SmallVector<Instruction*, 4> instList;
+  //check if used by a load or store instructions
+  for (auto val: IntrInst->users()) {
+      //if castInst, push sussessors
+      if(auto cast = dyn_cast<CastInst>(val)) {
+          for (auto sussessor: cast->users())
+            userList.push_back(sussessor);
+      } else {
+          userList.push_back(val);
+      }
+  }
+
+  for (auto& value: userList) {
+      if (isa<LoadInst>(value) || isa<StoreInst>(value))
+          instList.push_back(cast<Instruction>(value));
+  }
+
+  for (auto property : properties) {
+      //get decorcode code
+      auto DecorIt = SpirvDecorMap.find(*property.first);
+      if (DecorIt == SpirvDecorMap.end())
+          continue;
+
+      uint32_t DecorCode = DecorIt->second.Code;
+      auto DecorStr = property.first->str();
+      auto DecorValue = property.second;
+      uint32_t attr_val;
+
+      if (DecorStr == "sycl-alignment") {
+          assert(DecorValue && !DecorValue->getAsInteger(0, attr_val) &&
+                  "sycl-alignment attribute is missing or not valid");
+
+          assert(llvm::isPowerOf2_64(attr_val) &&
+                  "sycl-alignment attribute is not a power of 2");
+
+          //apply alignment attributes to load/store
+          for (auto inst : instList) {
+              if (auto loadinst = dyn_cast<LoadInst>(inst))
+                loadinst->setAlignment(Align(attr_val));
+              else if (auto storeinst = dyn_cast<StoreInst>(inst))
+                storeinst->setAlignment(Align(attr_val));
+          }
+      }
+  }
 }
 
 // Returns true if the transformation changed IntrInst.
@@ -375,43 +486,21 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
 
   // Read the annotation values and create the new annotation string.
   std::string NewAnnotString = "";
-  if (const auto *Cast =
-          dyn_cast<BitCastOperator>(IntrInst->getArgOperand(4))) {
-    if (const auto *AnnotValsGV =
-            dyn_cast<GlobalVariable>(Cast->getOperand(0))) {
-      if (const auto *AnnotValsAggr =
-              dyn_cast<ConstantAggregate>(AnnotValsGV->getInitializer())) {
-        assert(
-            (AnnotValsAggr->getNumOperands() & 1) == 0 &&
-            "sycl-properties annotation must have an even number of annotation "
-            "values.");
+  auto properties = parseSYCLPropertiesString(M, IntrInst);
+  for (auto property : properties) {
+      auto DecorIt = SpirvDecorMap.find(*property.first);
+      if (DecorIt == SpirvDecorMap.end())
+          continue;
+      uint32_t DecorCode = DecorIt->second.Code;
 
-        // Iterate over the pairs of property meta-names and meta-values.
-        for (size_t I = 0; I < AnnotValsAggr->getNumOperands(); I += 2) {
-          Optional<StringRef> PropMetaName =
-              getGlobalVariableString(AnnotValsAggr->getOperand(I));
-          Optional<StringRef> PropMetaValue =
-              getGlobalVariableString(AnnotValsAggr->getOperand(I + 1));
-
-          assert(PropMetaName &&
-                 "Unexpected format for property name in annotation.");
-
-          auto DecorIt = SpirvDecorMap.find(*PropMetaName);
-          if (DecorIt == SpirvDecorMap.end())
-            continue;
-          uint32_t DecorCode = DecorIt->second.Code;
-
-          // Expected format is '{X}' or '{X:Y}' where X is decoration ID and
-          // Y is the value if present. It encloses Y in " to ensure that
-          // string values are handled correctly. Note that " around values are
-          // always valid, even if the decoration parameters are not strings.
-          NewAnnotString += "{" + std::to_string(DecorCode);
-          if (PropMetaValue)
-            NewAnnotString += ":\"" + PropMetaValue->str() + "\"";
-          NewAnnotString += "}";
-        }
-      }
-    }
+      // Expected format is '{X}' or '{X:Y}' where X is decoration ID and
+      // Y is the value if present. It encloses Y in " to ensure that
+      // string values are handled correctly. Note that " around values are
+      // always valid, even if the decoration parameters are not strings.
+      NewAnnotString += "{" + std::to_string(DecorCode);
+      if (property.second)
+        NewAnnotString += ":\"" + property.second->str() + "\"";
+      NewAnnotString += "}";
   }
 
   // If the new annotation string is empty there is no reason to keep it, so
