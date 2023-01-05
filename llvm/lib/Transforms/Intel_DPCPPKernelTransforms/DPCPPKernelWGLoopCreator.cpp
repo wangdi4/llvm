@@ -728,7 +728,7 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
       while (!F->empty())
         F->begin()->eraseFromParent();
 
-      F->getBasicBlockList().splice(F->begin(), MaskedF->getBasicBlockList());
+      F->splice(F->begin(), MaskedF);
       for (auto I = F->arg_begin(), E = F->arg_end(),
                 MaskedI = MaskedF->arg_begin();
            I != E; ++I, ++MaskedI)
@@ -1533,11 +1533,10 @@ PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,
   FuncSet FSet = getAllKernels(M);
   MapFunctionToReturnInst FuncReturn;
   for (auto *F : FSet) {
-    auto &BBList = F->getBasicBlockList();
-    auto It = std::find_if(BBList.rbegin(), BBList.rend(), [](BasicBlock &BB) {
+    auto It = std::find_if(F->begin(), F->end(), [](BasicBlock &BB) {
       return isa<ReturnInst>(BB.getTerminator());
     });
-    if (It != BBList.rend())
+    if (It != F->end())
       FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
   }
   WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn);

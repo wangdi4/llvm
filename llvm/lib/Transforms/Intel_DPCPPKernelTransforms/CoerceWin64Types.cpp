@@ -206,7 +206,7 @@ static void
 moveFunctionBody(Function *OldF, Function *NewF,
                  DenseMap<unsigned, std::pair<unsigned, uint64_t>> &ValueMap) {
   // Splice the body of the old function into the new one
-  NewF->getBasicBlockList().splice(NewF->begin(), OldF->getBasicBlockList());
+  NewF->splice(NewF->begin(), OldF);
 
   // Delete original function body - this is needed to remove linkage (if
   // exists)

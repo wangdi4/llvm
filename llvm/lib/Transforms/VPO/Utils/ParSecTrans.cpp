@@ -864,11 +864,8 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
   // Now move the newly created loop blocks from the end of basic block list
   // to the proper place, which is right before loop ExitBB. This will not
   // affect CFG, but CFG printing and readability.
-  F->getBasicBlockList().splice(ExitBB->getIterator(),
-                                F->getBasicBlockList(),
-                                HeaderBB->getIterator(),
-                                F->end());
-   if (DT) {
+  F->splice(ExitBB->getIterator(), F, HeaderBB->getIterator(), F->end());
+  if (DT) {
     // "deleteEdge" may have added the ph already.
     if (!DT->getNode(PreHeaderBB))
       DT->addNewBlock(PreHeaderBB, BeforeBB);

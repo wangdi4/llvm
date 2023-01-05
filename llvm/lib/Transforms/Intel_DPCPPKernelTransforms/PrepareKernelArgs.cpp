@@ -554,8 +554,7 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
   Function *CalledFunc = CI->getCalledFunction();
 
   BasicBlock *FirstNewBlock = &CalledFunc->getEntryBlock();
-  Caller->getBasicBlockList().splice(Caller->end(),
-                                     CalledFunc->getBasicBlockList());
+  Caller->splice(Caller->end(), CalledFunc);
 
   ValueToValueMapTy VMap;
   struct ByValInit {

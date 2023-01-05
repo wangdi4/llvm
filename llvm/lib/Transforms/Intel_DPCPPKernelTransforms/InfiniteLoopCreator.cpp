@@ -30,11 +30,10 @@ PreservedAnalyses InfiniteLoopCreatorPass::run(Module &M,
 }
 
 static bool runOnFunction(Function *F) {
-  auto &BBList = F->getBasicBlockList();
-  auto It = std::find_if(BBList.rbegin(), BBList.rend(), [](BasicBlock &BB) {
+  auto It = std::find_if(F->begin(), F->end(), [](BasicBlock &BB) {
     return isa<ReturnInst>(BB.getTerminator());
   });
-  if (It != BBList.rend()) {
+  if (It != F->end()) {
     BasicBlock *SingleRetBB = &(*It);
     BasicBlock *EntryBlock = &F->getEntryBlock();
     BasicBlock *InfiniteLoopEntry =

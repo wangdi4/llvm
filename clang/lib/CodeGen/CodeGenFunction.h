@@ -1960,19 +1960,19 @@ public:
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
         if (!CGF.TerminateHandler->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateHandler);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateHandler);
         else
           delete CGF.TerminateHandler;
       }
       if (CGF.TerminateLandingPad) {
         if (!CGF.TerminateLandingPad->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateLandingPad);
         else
           delete CGF.TerminateLandingPad;
       }
       if (CGF.UnreachableBlock) {
         if (!CGF.UnreachableBlock->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.UnreachableBlock);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.UnreachableBlock);
         else
           delete CGF.UnreachableBlock;
       }

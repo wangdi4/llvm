@@ -1444,7 +1444,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old body of the function
   // empty.
-  NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
+  NewF->splice(NewF->begin(), F);
   assert(F->isDeclaration() &&
          "splice does not work, original function body is not empty!");
 
