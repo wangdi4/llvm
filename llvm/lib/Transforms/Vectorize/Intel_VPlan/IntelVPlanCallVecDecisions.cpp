@@ -99,7 +99,7 @@ static void getCartesianProduct(std::vector<std::vector<VFParameter>> &Scratch,
   // CurrentEncodings = { l, R, U, L }
   // Scratch = { ul, uR, uU, uL }
   for (auto &PreviousEncodings : Result) {
-    for (auto ParamEncoding : CurrentEncodings) {
+    for (auto &ParamEncoding : CurrentEncodings) {
       Scratch.push_back(PreviousEncodings);
       Scratch.back().push_back(ParamEncoding);
     }

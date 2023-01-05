@@ -514,7 +514,7 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
                  }) << " for ";
                VPInst.printWithoutAnalyses(dbgs()); dbgs() << '\n';
                dbgs() << "Live vals:";
-               for (auto LiveValue : LiveValues)
+               for (const auto &LiveValue : LiveValues)
                  if (LiveValue.second) {
                    dbgs() << ' ';
                    LiveValue.first->printAsOperand(dbgs());

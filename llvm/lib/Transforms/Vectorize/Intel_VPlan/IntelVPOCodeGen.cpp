@@ -2574,7 +2574,7 @@ void VPOCodeGen::vectorizeCast(
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
   auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
-  bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
+  const bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
   bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
       VPInst->getOperand(0)); // Is this AOS-widened ptr,
                               // TODO: Add SOA-pointer check here.
@@ -4670,6 +4670,7 @@ void VPOCodeGen::generateArrayReductionFinal(
   auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
   Type *ElemTy = ArrTy->getElementType();
   unsigned NumElems = ArrTy->getNumElements();
+  assert(NumElems && "Reduction array should not be empty.");
 
   // Pseudo IR for generic array reduction finalization -
   //

@@ -1669,9 +1669,9 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
   auto PrintDefUseBlocks = [&](raw_ostream &OS) {
     OS << "\nSymbaseDefBlocks:\n";
-    for (auto MapIt : SymbaseDefBlocks) {
+    for (const auto &MapIt : SymbaseDefBlocks) {
       OS << "Symbase " << MapIt.first << " -> [";
-      for (auto B : MapIt.second) {
+      for (const auto &B : MapIt.second) {
         OS << " " << B->getName() << " ";
       }
       OS << "]\n";

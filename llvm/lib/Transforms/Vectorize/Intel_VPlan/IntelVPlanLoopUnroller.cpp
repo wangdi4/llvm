@@ -292,7 +292,7 @@ void VPlanLoopUnroller::run() {
   // TODO: Implement as part of some earlier traversal to save compile time.
   // Add all cloned blocks into the loop.
   for (auto &ValueMap : Clones)
-    for (auto Pair : ValueMap)
+    for (const auto &Pair : ValueMap)
       if (isa<VPBasicBlock>(Pair.first))
         VPL->addBasicBlockToLoop(cast<VPBasicBlock>(Pair.second), *VPLI);
 

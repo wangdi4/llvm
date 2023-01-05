@@ -570,7 +570,7 @@ public:
     int32_t IntShuffleMask[MaxNumElems];
     uint32_t MaskIndex = 0;
 
-    uint32_t Op2StartIndex;
+    uint32_t Op2StartIndex = 0;
     // Traverse through the incoming edges, collect the input vectors and the
     // correspondent vector indices
     for (Edge *E : IncomingEdges) {
