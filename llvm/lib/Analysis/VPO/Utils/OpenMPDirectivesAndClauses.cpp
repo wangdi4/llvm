@@ -337,6 +337,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
   case DIR_VPO_GUARD_MEM_MOTION:
     return true;
@@ -368,7 +369,13 @@ bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_TILE:
+#if INTEL_CUSTOMIZATION
+  case DIR_VPO_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
+  case DIR_PRAGMA_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -419,6 +426,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_PRAGMA_END_IVDEP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
   case DIR_VPO_END_GUARD_MEM_MOTION:
     return true;
@@ -450,7 +458,13 @@ bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_TILE:
+#if INTEL_CUSTOMIZATION
+  case DIR_VPO_END_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
+  case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -643,6 +657,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_PRAGMA_END_BLOCK_LOOP;
   case DIR_PRAGMA_DISTRIBUTE_POINT:
     return DIR_PRAGMA_END_DISTRIBUTE_POINT;
+  case DIR_PRAGMA_PREFETCH_LOOP:
+    return DIR_PRAGMA_END_PREFETCH_LOOP;
 #endif // INTEL_CUSTOMIZATION
 
   case DIR_VPO_GUARD_MEM_MOTION:

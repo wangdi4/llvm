@@ -189,6 +189,8 @@ def "DIR.PRAGMA.BLOCK_LOOP" : Directive;
 def "DIR.PRAGMA.END.BLOCK_LOOP" : Directive;
 def "DIR.PRAGMA.DISTRIBUTE_POINT" : Directive;
 def "DIR.PRAGMA.END.DISTRIBUTE_POINT" : Directive;
+def "DIR.PRAGMA.PREFETCH_LOOP" : Directive;
+def "DIR.PRAGMA.END.PREFETCH_LOOP" : Directive;
 #endif // INTEL_CUSTOMIZATION
 
 def "DIR.VPO.GUARD.MEM.MOTION" : Directive;
