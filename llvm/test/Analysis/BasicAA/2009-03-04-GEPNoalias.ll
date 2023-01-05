@@ -2,15 +2,15 @@
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -gvn -S | FileCheck %s
 
-declare noalias i32* @noalias()
+declare noalias ptr @noalias()
 
 define i32 @test(i32 %x) {
-; CHECK: load i32, i32* %a
-  %a = call i32* @noalias()
-  store i32 1, i32* %a
-  %b = getelementptr i32, i32* %a, i32 %x
-  store i32 2, i32* %b
+; CHECK: load i32, ptr %a
+  %a = call ptr @noalias()
+  store i32 1, ptr %a
+  %b = getelementptr i32, ptr %a, i32 %x
+  store i32 2, ptr %b
 
-  %c = load i32, i32* %a
+  %c = load i32, ptr %a
   ret i32 %c
 }
