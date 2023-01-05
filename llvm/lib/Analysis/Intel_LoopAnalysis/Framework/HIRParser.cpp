@@ -1438,12 +1438,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       llvm_unreachable("Blob contains AddRec!");
     }
 
-    for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
-      printBlob(OS, *I);
+    for (auto &I : NArySCEV->operands()) {
+      printBlob(OS, I);
 
-      if (std::next(I) != E) {
-        OS << OpStr;
-      }
+      OS << OpStr;
     }
     OS << ")";
 
@@ -1792,8 +1790,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
     SmallVector<BlobTy, 4> Ops;
 
-    for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
-      Ops.push_back(*I);
+    for (auto &I : MulBlob->operands()) {
+      Ops.push_back(I);
     }
 
     *Multiplier = getSCEVConstantValue(ConstOp);
@@ -1809,8 +1807,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   SmallVector<BlobTy, 4> Ops;
   bool FoundMultiplier = false;
 
-  for (auto I = MulBlob->op_begin(), E = MulBlob->op_end(); I != E; ++I) {
-    BlobTy Op = *I;
+  for (auto &I : MulBlob->operands()) {
+    BlobTy Op = I;
 
     int64_t OpMultiplier;
     BlobTy NewOp;
@@ -1877,10 +1875,9 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   SmallVector<BlobTy, 4> Ops;
   SmallVector<int64_t, 4> OpMultipliers;
 
-  for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
-       I != E; ++I) {
+  for (auto I : CommutativeBlob->operands()) {
 
-    BlobTy Op = *I;
+    BlobTy Op = I;
 
     BlobTy NewOp;
     int64_t OpMultiplier;
@@ -2236,8 +2233,8 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
       return parseBlob(AddSCEV, CE, Level, 0, IndicateFailure);
 
     } else {
-      for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
-        if (!parseRecursive(*I, CE, Level, false, UnderCast, IndicateFailure)) {
+      for (auto &I : AddSCEV->operands()) {
+        if (!parseRecursive(I, CE, Level, false, UnderCast, IndicateFailure)) {
           return false;
         }
       }

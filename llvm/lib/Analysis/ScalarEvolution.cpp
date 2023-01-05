@@ -13870,10 +13870,10 @@ ScalarEvolution::computeConstantDifference(const SCEV *More, const SCEV *Less,
     auto LessOps = cast<SCEVAddExpr>(Less)->operands();
 
     if ((C2 = dyn_cast<SCEVConstant>(*MoreOps.begin())))
-      MoreOps = drop_begin(MoreOps, 1);
+      MoreOps = MoreOps.drop_front(1);
 
     if ((C1 = dyn_cast<SCEVConstant>(*LessOps.begin())))
-      LessOps = drop_begin(LessOps, 1);
+      LessOps = LessOps.drop_front(1);
 
     // Check if the ranges are the same.
     if (std::equal(MoreOps.begin(), MoreOps.end(), LessOps.begin(),
