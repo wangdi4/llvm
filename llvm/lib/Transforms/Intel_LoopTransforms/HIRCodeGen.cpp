@@ -1466,7 +1466,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
 
   if (HasThenChildren) {
     // generate then block
-    F.getBasicBlockList().push_back(ThenBB);
+    F.insert(F.end(), ThenBB);
     Builder.SetInsertPoint(ThenBB);
 
     if (IVAdd) {
@@ -1492,7 +1492,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
     assert(!IVAdd && "Bottom test cannot have else case!");
 
     // generate else block
-    F.getBasicBlockList().push_back(ElseBB);
+    F.insert(F.end(), ElseBB);
     Builder.SetInsertPoint(ElseBB);
     for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
       visit(*It);
@@ -1502,7 +1502,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
   }
 
   // CG resumes at merge block
-  F.getBasicBlockList().push_back(MergeBB);
+  F.insert(F.end(), MergeBB);
   Builder.SetInsertPoint(MergeBB);
 
   return nullptr;
@@ -1773,7 +1773,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   }
 
   // generate default block
-  F.getBasicBlockList().push_back(DefaultBlock);
+  F.insert(F.end(), DefaultBlock);
   Builder.SetInsertPoint(DefaultBlock);
   for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
        I != E; ++I) {
@@ -1790,7 +1790,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
 
     BasicBlock *CaseBlock = BasicBlock::Create(
         F.getContext(), SwitchName + ".case." + std::to_string(I - 1));
-    F.getBasicBlockList().push_back(CaseBlock);
+    F.insert(F.end(), CaseBlock);
     Builder.SetInsertPoint(CaseBlock);
 
     for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
@@ -1802,7 +1802,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 
-  F.getBasicBlockList().push_back(EndBlock);
+  F.insert(F.end(), EndBlock);
   Builder.SetInsertPoint(EndBlock);
   return nullptr;
 }

@@ -332,7 +332,7 @@ bool X86HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
   auto InsertPoint = (*OrigBBs.rbegin())->getIterator();
   for (auto RI = OrigBBs.rbegin(), End = OrigBBs.rend(); RI != End; RI++) {
     BasicBlock *CloneBB = CloneBasicBlock(*RI, VMap, ".clone");
-    CurFn->getBasicBlockList().insertAfter(InsertPoint, CloneBB);
+    CurFn->insert(InsertPoint, CloneBB);
     VMap[*RI] = CloneBB;
     CloneBBs.push_back(CloneBB);
   }

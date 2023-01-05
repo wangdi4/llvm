@@ -11841,7 +11841,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of
   // the function empty.
-  NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
+  NFn->splice(NFn->begin(), Fn);
 
   // Everything including the routine name has been moved to the new routine.
   // Do the same with the debug information.

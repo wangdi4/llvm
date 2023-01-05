@@ -633,8 +633,8 @@ static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
       LMap[CurLoop]->moveToHeader(cast<BasicBlock>(VMap[BB]));
   }
 
-  F->getBasicBlockList().splice(Before->getIterator(), F->getBasicBlockList(),
-                                NewLoop->getHeader()->getIterator(), F->end());
+  F->splice(Before->getIterator(), F, NewLoop->getHeader()->getIterator(),
+            F->end());
 
   return NewLoop;
 }
