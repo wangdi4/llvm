@@ -736,15 +736,6 @@ public:
   /// \Returns \p ToIt.
   Function::iterator erase(Function::iterator FromIt, Function::iterator ToIt);
 
-private:
-  // These need access to the underlying BB list.
-  friend void BasicBlock::removeFromParent();
-  friend iplist<BasicBlock>::iterator BasicBlock::eraseFromParent();
-  template <class BB_t, class BB_i_t, class BI_t, class II_t>
-  friend class InstIterator;
-  friend class llvm::SymbolTableListTraits<llvm::BasicBlock>;
-  friend class llvm::ilist_node_with_parent<llvm::BasicBlock, llvm::Function>;
-
   /// Get the underlying elements of the Function... the basic block list is
   /// empty for external functions.
   ///
@@ -758,7 +749,6 @@ private:
     return &Function::BasicBlocks;
   }
 
-public:
   const BasicBlock       &getEntryBlock() const   { return front(); }
         BasicBlock       &getEntryBlock()         { return front(); }
 
