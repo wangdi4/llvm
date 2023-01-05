@@ -1133,9 +1133,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
-    auto MainLoopCM = IsVectorAlways || ForcedVF > 1 ?
-      createNoSLPCostModel(Plan, VF, BestUF) :
-      createCostModel(Plan, VF, BestUF);
+    auto MainLoopCM = createNoSLPCostModel(Plan, VF, BestUF);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
     // Peeling is not supported for non-normalized loops.
