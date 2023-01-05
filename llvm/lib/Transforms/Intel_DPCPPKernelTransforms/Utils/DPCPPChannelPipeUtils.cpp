@@ -149,14 +149,14 @@ void getSYCLPipeMetadata(GlobalVariable *StorageVar, ChannelPipeMD &PipeMD) {
   LLVM_DEBUG(dbgs() << "Extracting pipe metadata from: " << *StorageVar
                     << "\n");
 
-  // StorageVar is a struct of 3 integers: size, alignment and capacity
-  // (depth). Explore its initializer to find out these parameters (they are
-  // guaranteed to be constants).
+  // StorageVar is a struct whose first 3 members are integers: size, alignment
+  // and capacity (depth). Explore its initializer to find out these parameters
+  // (they are guaranteed to be constants).
   ConstantStruct *Initializer =
       cast<ConstantStruct>(StorageVar->getInitializer());
 
-  assert(Initializer->getNumOperands() == 3 &&
-         "Pipe storage initializer have to contain 3 integer values");
+  assert(Initializer->getNumOperands() >= 3 &&
+         "Pipe storage initializer have to contain at least 3 integer values");
   ConstantInt *Size = cast<ConstantInt>(Initializer->getOperand(0));
   ConstantInt *Align = cast<ConstantInt>(Initializer->getOperand(1));
   ConstantInt *Capacity = cast<ConstantInt>(Initializer->getOperand(2));
