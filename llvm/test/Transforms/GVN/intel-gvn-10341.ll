@@ -3,11 +3,7 @@
 ; The correctness of the transformation is covered by other GVN tests. The
 ; commit in this case is a cost model change only.
 
-<<<<<<< HEAD
-; RUN: opt < %s -verify-memoryssa -passes=gvn -S | FileCheck %s
-=======
 ; RUN: opt -passes="require<memoryssa>,gvn" < %s -S | FileCheck %s
->>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; Block 93 has the loads that we want to PRE. It will be split to ".split"
 ; and "86".

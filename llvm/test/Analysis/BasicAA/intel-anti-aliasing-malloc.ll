@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -aa-pipeline=basic-aa,tbaa -passes=instcombine,gvn %s -S | FileCheck %s
-=======
 ; RUN: opt -aa-pipeline="basic-aa,tbaa" -passes="instcombine,gvn" %s -S | FileCheck %s
->>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; CHECK-NOT: %5 = load i64, i64* %size, align 8, !tbaa !2
 

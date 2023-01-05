@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt -aa-pipeline=basic-aa -licm -S < %s | FileCheck %s
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -licm -S | FileCheck %s
-=======
 ; RUN: opt -aa-pipeline="basic-aa" -passes="loop-mssa(licm)" -S < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -passes=convert-to-subscript -S < %s | opt -aa-pipeline="basic-aa" -passes="loop-mssa(licm)" -S | FileCheck %s
->>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 ;
 ; struct matrix {
 ;   float *ptr;

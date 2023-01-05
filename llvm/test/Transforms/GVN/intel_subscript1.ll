@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -aa-pipeline=basic-aa -passes=gvn -S < %s 2>&1 | FileCheck %s
-=======
 ; RUN: opt -aa-pipeline="basic-aa" -passes="gvn" -S < %s 2>&1 | FileCheck %s
->>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 ; AA and GVN of memrefs from constant-index subscripts should work.
 ; %add36 should be propagated to the mul, in place of the load.
 

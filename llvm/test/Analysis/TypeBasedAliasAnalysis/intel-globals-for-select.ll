@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -aa-pipeline=tbaa -gvn -S < %s | FileCheck %s
-=======
 ; RUN: opt -aa-pipeline="tbaa" -passes="gvn" -S < %s | FileCheck %s
->>>>>>> a42a60ac617026fc2f3b5f8dd0b5fb8cc4bda333
 
 ; It is illegal for GVN to pre the load(%4) of @var_78 in if.end4 because
 ; @var_78 is updated by the store i64 %2, i64* (%1) in entry. This load(%4)
