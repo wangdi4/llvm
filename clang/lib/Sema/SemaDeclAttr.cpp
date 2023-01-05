@@ -2761,7 +2761,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (II->isStr("fuchsia")) {
-    Optional<unsigned> Min, Sub;
+    std::optional<unsigned> Min, Sub;
     if ((Min = Introduced.Version.getMinor()) ||
         (Sub = Introduced.Version.getSubminor())) {
       S.Diag(AL.getLoc(), diag::warn_availability_fuchsia_unavailable_minor);

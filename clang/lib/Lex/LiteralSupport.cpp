@@ -375,7 +375,7 @@ void clang::expandUCNs(SmallVectorImpl<char> &Buf, StringRef Input) {
       ++I;
       auto Delim = std::find(I, Input.end(), '}');
       assert(Delim != Input.end());
-      llvm::Optional<llvm::sys::unicode::LooseMatchingResult> Res =
+      std::optional<llvm::sys::unicode::LooseMatchingResult> Res =
           llvm::sys::unicode::nameToCodepointLooseMatching(
               StringRef(I, std::distance(I, Delim)));
       assert(Res);
@@ -504,7 +504,7 @@ static void DiagnoseInvalidUnicodeCharacterName(
 
   namespace u = llvm::sys::unicode;
 
-  llvm::Optional<u::LooseMatchingResult> Res =
+  std::optional<u::LooseMatchingResult> Res =
       u::nameToCodepointLooseMatching(Name);
   if (Res) {
     Diag(Diags, Features, Loc, TokBegin, TokRangeBegin, TokRangeEnd,
@@ -582,8 +582,7 @@ static bool ProcessNamedUCNEscape(const char *ThisTokBegin,
   }
   StringRef Name(ThisTokBuf, ClosingBrace - ThisTokBuf);
   ThisTokBuf = ClosingBrace + 1;
-  llvm::Optional<char32_t> Res =
-      llvm::sys::unicode::nameToCodepointStrict(Name);
+  std::optional<char32_t> Res = llvm::sys::unicode::nameToCodepointStrict(Name);
   if (!Res) {
     if (Diags)
       DiagnoseInvalidUnicodeCharacterName(Diags, Features, Loc, ThisTokBegin,
