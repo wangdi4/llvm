@@ -6,8 +6,8 @@
 ; CHECK: DO i1 = %ub.tmp, %loop.ub, 4   <DO_LOOP> <auto-vectorized>
 ; CHECK: DO i1 = %lb.tmp, 1023, 1   <DO_LOOP> {{.*}} <vector-remainder>
 ;
-; VECCHECK: DO i1 = 0, 2, 4 <DO_LOOP> <vector-peel>
-; VECCHECK: DO i1 = 3, %loop.ub, 8   <DO_LOOP> <auto-vectorized>
+; VECCHECK: DO i1 = 0, %loop.ub, 4 <DO_LOOP> <vector-peel>
+; VECCHECK: DO i1 = 3, %loop.ub13, 8   <DO_LOOP> <auto-vectorized>
 ; VECCHECK: DO i1 = {{.*}}, {{.*}}, 2  <DO_LOOP> {{.*}} <vector-remainder>
 ; VECCHECK: DO i1 = {{.*}}, 1023, 1  <DO_LOOP> {{.*}} <vector-remainder>
 ;

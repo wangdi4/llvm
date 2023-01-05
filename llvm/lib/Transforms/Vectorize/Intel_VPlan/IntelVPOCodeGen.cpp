@@ -5197,9 +5197,9 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     VPCmpInst *Cond = L->getLatchComparison();
     Value *TripCnt = VectorTripCount;
     if (Cond) {
-      VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
-                                 ? Cond->getOperand(0)
-                                 : Cond->getOperand(1);
+      VPValue *VPTripCount =
+          L->getLoopUpperBound(true /*AssumeNormalizedIV*/, true /*GetOrig*/)
+              .first;
       TripCnt = getScalarValue(VPTripCount, 0);
     } else {
       assert(ExactUB && "Expected exact UB");

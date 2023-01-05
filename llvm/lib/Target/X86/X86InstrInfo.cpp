@@ -3881,31 +3881,49 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     llvm_unreachable("Unknown 16-byte regclass");
   }
   case 32:
-    assert(X86::VR256XRegClass.hasSubClassEq(RC) && "Unknown 32-byte regclass");
-    // If stack is realigned we can use aligned stores.
-    if (IsStackAligned)
-      return Load ?
-        (HasVLX    ? X86::VMOVAPSZ256rm :
-         HasAVX512 ? X86::VMOVAPSZ256rm_NOVLX :
-                     X86::VMOVAPSYrm) :
-        (HasVLX    ? X86::VMOVAPSZ256mr :
-         HasAVX512 ? X86::VMOVAPSZ256mr_NOVLX :
-                     X86::VMOVAPSYmr);
-    else
-      return Load ?
-        (HasVLX    ? X86::VMOVUPSZ256rm :
-         HasAVX512 ? X86::VMOVUPSZ256rm_NOVLX :
-                     X86::VMOVUPSYrm) :
-        (HasVLX    ? X86::VMOVUPSZ256mr :
-         HasAVX512 ? X86::VMOVUPSZ256mr_NOVLX :
-                     X86::VMOVUPSYmr);
+#if INTEL_CUSTOMIZATION
+    if (X86::VR256XRegClass.hasSubClassEq(RC)) {
+      // If stack is realigned we can use aligned stores.
+      if (IsStackAligned)
+        return Load ?
+          (HasVLX    ? X86::VMOVAPSZ256rm :
+           HasAVX512 ? X86::VMOVAPSZ256rm_NOVLX :
+                       X86::VMOVAPSYrm) :
+          (HasVLX    ? X86::VMOVAPSZ256mr :
+           HasAVX512 ? X86::VMOVAPSZ256mr_NOVLX :
+                       X86::VMOVAPSYmr);
+      else
+        return Load ?
+          (HasVLX    ? X86::VMOVUPSZ256rm :
+           HasAVX512 ? X86::VMOVUPSZ256rm_NOVLX :
+                       X86::VMOVUPSYrm) :
+          (HasVLX    ? X86::VMOVUPSZ256mr :
+           HasAVX512 ? X86::VMOVUPSZ256mr_NOVLX :
+                       X86::VMOVUPSYmr);
+    }
+#if INTEL_FEATURE_XISA_COMMON
+    if (X86::XMMPAIRXRegClass.hasSubClassEq(RC))
+      return Load ? X86::PXMMPAIRLOAD : X86::PXMMPAIRSTORE;
+#endif // INTEL_FEATURE_XISA_COMMON
+    llvm_unreachable("Should be handled above!");
   case 64:
-    assert(X86::VR512RegClass.hasSubClassEq(RC) && "Unknown 64-byte regclass");
-    assert(STI.hasAVX512() && "Using 512-bit register requires AVX512");
-    if (IsStackAligned)
-      return Load ? X86::VMOVAPSZrm : X86::VMOVAPSZmr;
-    else
-      return Load ? X86::VMOVUPSZrm : X86::VMOVUPSZmr;
+    if (X86::VR512RegClass.hasSubClassEq(RC)) {
+       assert(STI.hasAVX512() && "Using 512-bit register requires AVX512");
+      if (IsStackAligned)
+        return Load ? X86::VMOVAPSZrm : X86::VMOVAPSZmr;
+      else
+        return Load ? X86::VMOVUPSZrm : X86::VMOVUPSZmr;
+    }
+#if INTEL_FEATURE_XISA_COMMON
+    if (X86::YMMPAIRXRegClass.hasSubClassEq(RC))
+      return Load ? X86::PYMMPAIRLOAD : X86::PYMMPAIRSTORE;
+    llvm_unreachable("Should be handled above!");
+  case 128:
+    if (X86::ZMMPAIRXRegClass.hasSubClassEq(RC))
+      return Load ? X86::PZMMPAIRLOAD : X86::PZMMPAIRSTORE;
+#endif // INTEL_FEATURE_XISA_COMMON
+    llvm_unreachable("Should be handled above!");
+#endif // INTEL_CUSTOMIZATION
   case 1024:
     assert(X86::TILERegClass.hasSubClassEq(RC) && "Unknown 1024-byte regclass");
     assert(STI.hasAMXTILE() && "Using 8*1024-bit register requires AMX-TILE");

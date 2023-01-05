@@ -3687,9 +3687,17 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   // Adjust the memory reference for the negative one stride case so that
   // the client can do a wide load/store.
-  if (IsNegOneStride)
-    MemRef->shift(getNestingLevelFromInsertPoint(), (int64_t)VF - 1);
-
+  if (IsNegOneStride) {
+    unsigned Level = getNestingLevelFromInsertPoint();
+    if (MemRef->hasIV(Level)) {
+      MemRef->shift(Level, (int64_t)VF - 1);
+    } else {
+      // If there is no IV then update the uppermost dimension subtracting
+      // (VF - 1). This is safe due to we have a unit-stride memref.
+      auto DimCE = MemRef->getDimensionIndex(1);
+      DimCE->addConstant(1L - (int64_t)VF, false /*IsMathAdd*/);
+    }
+  }
   // Set ref alignment using original alignment.
   MemRef->setAlignment(Alignment.value());
 
@@ -4660,12 +4668,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
       }
       bool ExactUB = L->exactUB();
-      VPCmpInst *Cond = L->getLatchComparison();
-      HLInst *TripInst = nullptr;
-      assert(Cond && "Latch comparison is expected.");
-      VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
-                                 ? Cond->getOperand(0)
-                                 : Cond->getOperand(1);
+      VPValue *VPTripCount =
+          L->getLoopUpperBound(true /*AssumeNormalizedIV*/, true /*GetOrig*/)
+              .first;
+      assert(VPTripCount && "No nulls are expected.");
       RegDDRef *TripCnt = getOrCreateScalarRef(VPTripCount, 0);
       int64_t TripCntConst, StartConst, StepConst;
       if (TripCnt->isIntConstant(&TripCntConst) &&
@@ -4682,14 +4688,14 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         RegDDRef *ConstOne =
             DDRefUtilities.createConstDDRef(TripCnt->getSrcType(), 1);
         if (IndFini->isLastValPreIncrement()) {
-          TripInst = HLNodeUtilities.createSub(TripCnt, ConstOne, "sub.tripcnt",
-                                               TripCnt->clone());
+          HLInst *TripInst = HLNodeUtilities.createSub(
+              TripCnt, ConstOne, "sub.tripcnt", TripCnt->clone());
           addInstUnmasked(TripInst);
           TripCnt = TripCnt->clone();
         }
         if (!ExactUB) {
-          TripInst = HLNodeUtilities.createAdd(TripCnt, ConstOne, "add.tripcnt",
-                                               TripCnt->clone());
+          HLInst *TripInst = HLNodeUtilities.createAdd(
+              TripCnt, ConstOne, "add.tripcnt", TripCnt->clone());
           addInstUnmasked(TripInst);
           TripCnt = TripCnt->clone();
         }
@@ -4711,47 +4717,32 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         // Using only LoopUB above will compute wrong last value since %fp.ind
         // was already updated after main vector loop.
 
-        // Capture loop IV's lower bound using VPlan CFG.
-        assert(VPLoopIVPhiMap.find(L) != VPLoopIVPhiMap.end() &&
-               "IV phi not found for loop.");
-        VPPHINode *IVPhi = const_cast<VPPHINode *>(VPLoopIVPhiMap[L]);
-        VPValue *VPIVLowerBound = L->isDefOutside(IVPhi->getOperand(0))
-                                      ? IVPhi->getOperand(0)
-                                      : IVPhi->getOperand(1);
-        // If induction-init's first operand is constant, then it is main loop
-        // IV with 0 start value (check CG for induction-init opcode).
-        if (auto *ConstLB = dyn_cast<VPConstant>(
-                cast<VPInductionInit>(VPIVLowerBound)->getOperand(0))) {
-          if (ConstLB->getConstant()->isZeroValue())
-            VPIVLowerBound = ConstLB;
-          else
-            assert(false && "Unexpected constant LB for IV.");
-        }
-        RegDDRef *IVLowerBound = getOrCreateScalarRef(VPIVLowerBound, 0);
-        // Lower bound temp's def@level would be explicitly when assigning it as
-        // HLLoop's LB. Make the temp consistent here since we're using it
-        // outside the loop.
-        IVLowerBound->makeConsistent({}, getNestingLevelFromInsertPoint());
-        int64_t IVLBConst;
-        bool IVLBIsZero =
-            IVLowerBound->isIntConstant(&IVLBConst) && IVLBConst == 0;
-        // LB subtraction is needed only if it is not 0 and last value is
-        // written back to start.
-        bool NeedsLBSubtraction =
-            !IVLBIsZero && Start->getSymbase() != ConstantSymbase;
-
-        // If types of step and trip count don't match, then an additional cast
-        // is needed.
+        // If types of step and trip count don't match, then an additional
+        // cast is needed.
         Type *StepType = Step->getDestType();
+        Instruction::CastOps CastOp = Instruction::BitCast;
         if (TripCnt->getDestType() != StepType) {
           auto *TCTyUndef = UndefValue::get(TripCnt->getDestType());
-          Instruction::CastOps CastOp = CastInst::getCastOpcode(
-              TCTyUndef, true /*SrcIsSigned*/, StepType, true /*DestIsSigned*/);
-          TripInst = HLNodeUtilities.createCastHLInst(StepType, CastOp, TripCnt,
-                                                      "cast.crd");
+          CastOp = CastInst::getCastOpcode(TCTyUndef, true /*SrcIsSigned*/,
+                                           StepType, true /*DestIsSigned*/);
+          HLInst *TripInst = HLNodeUtilities.createCastHLInst(
+              StepType, CastOp, TripCnt, "cast.crd");
           addInstUnmasked(TripInst);
           TripCnt = TripInst->getLvalDDRef()->clone();
-          if (NeedsLBSubtraction) {
+        }
+        // Capture loop IV's original lower bound.
+        VPValue *VPIVLowerBound = L->getOrigLowerBound();
+        bool LBIsZero = false;
+        if (auto *VPCI = dyn_cast<VPConstantInt>(VPIVLowerBound))
+          LBIsZero = VPCI->getConstantInt()->isZero();
+
+        if (!LBIsZero && Start->getSymbase() != ConstantSymbase) {
+          RegDDRef *IVLowerBound = getOrCreateScalarRef(VPIVLowerBound, 0);
+          // Lower bound temp's def@level would be explicitly when assigning it
+          // as HLLoop's LB. Make the temp consistent here since we're using it
+          // outside the loop.
+          IVLowerBound->makeConsistent({}, getNestingLevelFromInsertPoint());
+          if (IVLowerBound->getDestType() != StepType) {
             // LB will be same type as TC, cast since subtraction will be done
             // below.
             HLInst *IVLBCast = HLNodeUtilities.createCastHLInst(
@@ -4759,10 +4750,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
             addInstUnmasked(IVLBCast);
             IVLowerBound = IVLBCast->getLvalDDRef();
           }
-        }
-
-        // Compute actual TC of loop using lower bound subtraction, if needed.
-        if (NeedsLBSubtraction) {
+          // Compute actual TC of loop using lower bound subtraction, if
+          // needed.
           Instruction::BinaryOps SubOpc = StepType->isFloatingPointTy()
                                               ? Instruction::FSub
                                               : Instruction::Sub;
@@ -4771,7 +4760,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
           addInstUnmasked(SubIVLB);
           TripCnt = SubIVLB->getLvalDDRef()->clone();
         }
-
         RegDDRef *MulRef;
         if (Step->isIntConstant(&StepConst) && StepConst == 1) {
           MulRef = TripCnt;
@@ -8039,12 +8027,15 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
 
   // Set LB of loop if available. We adjust def@level since LB is defined
   // outside the loop.
-  RegDDRef *LBRef = getScalRefForVPVal(VectorIVInit, 0 /*Lane*/);
+  RegDDRef *LBRef =
+      getOrCreateScalarRef(VectorIVInit->getStartValueOperand(), 0 /*Lane*/);
   if (LBRef) {
     VecLoop->setLowerDDRef(LBRef);
     auto *LBCanonExpr = LBRef->getSingleCanonExpr();
-    if (!LBRef->isIntConstant())
+    if (!LBRef->isIntConstant()) {
+      VecLoop->addLiveInTemp(LBRef);
       LBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+    }
   }
 
   // TODO: Use PH induction-init-step to set stride? Currently we are assuming

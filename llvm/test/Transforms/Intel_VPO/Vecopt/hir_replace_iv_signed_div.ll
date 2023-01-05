@@ -25,11 +25,12 @@
 
 ; Unrolled masked remainder loop
 
-; CHECK: %.vec6 = %phi.temp + <i64 0, i64 1, i64 2, i64 3> <u 7;
+; CHECK: %.vec8 = <i64 0, i64 1, i64 2, i64 3> <u %.vec6;
 
 ; Verify that replacement of IV by lower is successful when CE has signed division by 100
 
-; CHECK: (<4 x i64>*)(%A)[%phi.temp] = (%t + %phi.temp + <i64 0, i64 1, i64 2, i64 3>)/100, Mask = @{%.vec6};
+; CHECK: [[DOTVEC0:%.*]] = %t + %phi.temp + <i64 0, i64 1, i64 2, i64 3> / 100
+; CHECK: (<4 x i64>*)(%A)[%phi.temp] = [[DOTVEC0]], Mask = @{[[DOTVEC6:%.*]]};
 
 
 define void @foo(i64 *%A, i64 %t) {

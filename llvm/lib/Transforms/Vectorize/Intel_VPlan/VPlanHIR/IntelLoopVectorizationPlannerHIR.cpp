@@ -152,7 +152,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                  !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
         return false;
       }
       // Specialization for handling sincos functions in CG is done based on
@@ -176,9 +176,10 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
-        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
+      LLVM_DEBUG(dbgs() << "LVP: unsupported reduction kind.\n");
       return false;
-
+    }
   // All checks passed.
   return true;
 }

@@ -30,7 +30,7 @@ define void @test2(i64* %array) {
 ; VECTOR-PEEL-NEXT:  The main loop is vectorized with vector factor 4. The vector cost is 292074(97358 x 3 + 0).
 ; VECTOR-PEEL-NEXT:  The remainder loop is scalar with estimated trip count 3. The scalar cost is 9(3 x 3).
 ; VECTOR-PEEL-NEXT:  Evaluators for VF=8
-; VECTOR-PEEL-NEXT:  The peel loop (dynamic) has estimated trip count 7 and it is vectorized with a mask. The vector cost is 12.
+; VECTOR-PEEL-NEXT:  The peel loop (dynamic) has estimated trip count 7 and it is vectorized with a mask. The vector cost is 14.
 ; VECTOR-PEEL-NEXT:  The main loop is vectorized with vector factor 8. The vector cost is 146034(48678 x 3 + 0).
 ; VECTOR-PEEL-NEXT:  The remainder loop is scalar with estimated trip count 7. The scalar cost is 21(7 x 3).
 ;
@@ -41,11 +41,11 @@ define void @test2(i64* %array) {
 ; MASKED-PEEL-REMAINDER-NEXT:  Evaluators for VF=4
 ; MASKED-PEEL-REMAINDER-NEXT:  The peel loop is scalar (dynamic) with estimated trip count 3. The scalar cost is 9(3 x 3).
 ; MASKED-PEEL-REMAINDER-NEXT:  The main loop is vectorized with vector factor 4. The vector cost is 292074(97358 x 3 + 0).
-; MASKED-PEEL-REMAINDER-NEXT:  The remainder loop has estimated trip count 3 and it is vectorized with a mask. The vector cost is 6.
+; MASKED-PEEL-REMAINDER-NEXT:  The remainder loop has estimated trip count 3 and it is vectorized with a mask. The vector cost is 8.
 ; MASKED-PEEL-REMAINDER-NEXT:  Evaluators for VF=8
-; MASKED-PEEL-REMAINDER-NEXT:  The peel loop (dynamic) has estimated trip count 7 and it is vectorized with a mask. The vector cost is 12.
+; MASKED-PEEL-REMAINDER-NEXT:  The peel loop (dynamic) has estimated trip count 7 and it is vectorized with a mask. The vector cost is 14.
 ; MASKED-PEEL-REMAINDER-NEXT:  The main loop is vectorized with vector factor 8. The vector cost is 146034(48678 x 3 + 0).
-; MASKED-PEEL-REMAINDER-NEXT:  The remainder loop has estimated trip count 7 and it is vectorized with a mask. The vector cost is 6.
+; MASKED-PEEL-REMAINDER-NEXT:  The remainder loop has estimated trip count 7 and it is vectorized with a mask. The vector cost is 8.
 ;
 entry:
   br label %preheader

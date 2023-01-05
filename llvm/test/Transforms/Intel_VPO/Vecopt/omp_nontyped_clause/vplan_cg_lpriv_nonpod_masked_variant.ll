@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
-; CHECK:  VPlannedBB16:
+; CHECK:  VPlannedBB18:
 ; CHECK-NEXT:    [[TMP20:%.*]] = bitcast <2 x i1> [[TMP12:%.*]] to i2
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP20]], i1 true)
 ; CHECK-NEXT:    [[TMP21:%.*]] = sub i2 1, [[CTLZ0]]

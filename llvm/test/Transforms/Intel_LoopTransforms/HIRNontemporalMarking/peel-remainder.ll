@@ -91,7 +91,7 @@ define void @example(i64* %dest) "target-features"="+avx512f" {
 ;     CHECK:           !nontemporal
 ;     CHECK:       + END LOOP
 ;     CHECK:          @llvm.x86.sse.sfence();
-;     CHECK:       + DO i64 i1 = %{{.*}}, 6400000, 8   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
+;     CHECK:       + DO i64 i1 =  0, %{{.*}}, 8   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
 ; CHECK-NOT:           !nontemporal
 ;     CHECK:       + END LOOP
 ; CHECK-NOT:          @llvm.x86.sse.sfence();

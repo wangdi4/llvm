@@ -1,5 +1,5 @@
-; RUN: opt -vplan-vec-scenario="n0;v2;m2" -vplan-enable-masked-variant -passes=vplan-vec -print-after=vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -disable-output %s 2>&1 | FileCheck %s --check-prefixes=CHECK,LLVM
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-create-masked-vplan -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -disable-output %s 2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
+; RUN: opt -passes="vplan-vec" -vplan-vec-scenario="n0;v2;m2" -vplan-enable-masked-variant -print-after=vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefixes=LLVM
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -disable-output %s 2>&1 | FileCheck %s --check-prefixes=HIR
 
 ; Incomming HIR
 ; <24>   BEGIN REGION { }
@@ -18,90 +18,89 @@
 ; <53>         @llvm.directive.region.exit(%2); [ DIR.OMP.END.SIMD() ]
 ; <24>   END REGION
 
-; CHECK: [DA: Div] [4 x %struct.point2d]* [[PRIV_ALLOCA:%.*]] = allocate-priv [4 x %struct.point2d]*
-; CHECK: [DA: Uni] private-nonpod-array-ctor [4 x %struct.point2d]* [[PRIV_ALLOCA]]
-; CHECK: [DA: Uni] private-last-value-nonpod-array-masked [4 x %struct.point2d]* [[PRIV_ALLOCA]] [4 x %struct.point2d]* %myPoint.lpriv i1 [[MASK:%.*]]
-; CHECK: [DA: Uni] private-nonpod-array-dtor [4 x %struct.point2d]* [[PRIV_ALLOCA]]
-
-; LLVM:      *** IR Dump After vpo::VPlanDriverPass on _Z3foov ***
+; LLVM:  define dso_local void @_Z3foov() {
 ; Ctor related loops
 ; LLVM:       array.nonpod.private.outer.loop24:
-; LLVM-NEXT:    [[TMP37:%.*]] = phi i64 [ 0, [[VPLANNEDBB21:%.*]] ], [ [[TMP43:%.*]], [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC26:%.*]] ]
-; LLVM-NEXT:    [[PRIV_EXTRACT28:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_1:%.*]], i64 [[TMP37]]
-; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP25:%.*]]
+; LLVM-NEXT:    [[TMP37:%.*]] = phi i64 [ 0, [[VPLANNEDBB210:%.*]] ], [ [[TMP43:%.*]], [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC260:%.*]] ]
+; LLVM-NEXT:    [[PRIV_EXTRACT280:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_10:%.*]], i64 [[TMP37]]
+; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP250:%.*]]
 ; LLVM:       array.nonpod.private.inner.loop25:
-; LLVM-NEXT:    [[TMP38:%.*]] = phi i64 [ 0, [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP24:%.*]] ], [ [[TMP41:%.*]], [[ARRAY_NONPOD_PRIVATE_INNER_LOOP25]] ]
-; LLVM-NEXT:    [[TMP39:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT28]], i64 0, i64 [[TMP38]]
+; LLVM-NEXT:    [[TMP38:%.*]] = phi i64 [ 0, %array.nonpod.private.outer.loop24 ], [ [[TMP41:%.*]], %array.nonpod.private.inner.loop25 ]
+; LLVM-NEXT:    [[TMP39:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT280]], i64 0, i64 [[TMP38]]
 ; LLVM-NEXT:    [[TMP40:%.*]] = call %struct.point2d* @_ZTS7point2d.omp.def_constr(%struct.point2d* [[TMP39]])
 ; LLVM-NEXT:    [[TMP41]] = add i64 [[TMP38]], 1
 ; LLVM-NEXT:    [[TMP42:%.*]] = icmp ult i64 [[TMP41]], 4
-; LLVM-NEXT:    br i1 [[TMP42]], label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP25]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC26]]
+; LLVM-NEXT:    br i1 [[TMP42]], label %array.nonpod.private.inner.loop25, label %array.nonpod.private.outer.loop.inc26
 ; LLVM:       array.nonpod.private.outer.loop.inc26:
 ; LLVM-NEXT:    [[TMP43]] = add i64 [[TMP37]], 1
 ; LLVM-NEXT:    [[TMP44:%.*]] = icmp ult i64 [[TMP37]], 2
-; LLVM-NEXT:    br i1 [[TMP44]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP24]], label [[ARRAY_NONPOD_PRIVATE_LOOP_EXIT27:%.*]]
+; LLVM-NEXT:    br i1 [[TMP44]], label %array.nonpod.private.outer.loop24, label %array.nonpod.private.loop.exit27
 ; LLVM:       array.nonpod.private.loop.exit27:
-; LLVM:         br label [[VPLANNEDBB29:%.*]]
+; LLVM:         [[TMP45:%.*]] = sub i64 1000, [[UNI_PHI190:%.*]]
+; LLVM:         br label [[VPLANNEDBB290:%.*]]
 
 ; Copy-assign related loop
 ; LLVM:       VPlannedBB47:
-; LLVM-NEXT:    [[TMP71:%.*]] = bitcast <2 x i1> [[TMP46:%.*]] to i2
-; LLVM-NEXT:    [[CTLZ:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP71]], i1 true)
-; LLVM-NEXT:    [[TMP72:%.*]] = sub i2 1, [[CTLZ]]
-; LLVM-NEXT:    [[PRIV_EXTRACT48:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_1]], i2 [[TMP72]]
-; LLVM-NEXT:    br label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP49:%.*]]
-; LLVM:       array.nonpod.last.private.loop49:
-; LLVM-NEXT:    [[TMP73:%.*]] = phi i64 [ 0, [[VPLANNEDBB47:%.*]] ], [ [[TMP76:%.*]], [[ARRAY_NONPOD_LAST_PRIVATE_LOOP49]] ]
-; LLVM-NEXT:    [[TMP74:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT48]], i64 0, i64 [[TMP73]]
-; LLVM-NEXT:    [[TMP75:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[MYPOINT_LPRIV:%.*]], i64 0, i64 [[TMP73]]
-; LLVM-NEXT:    call void @_ZTS7point2d.omp.copy_assign(%struct.point2d* [[TMP75]], %struct.point2d* [[TMP74]])
-; LLVM-NEXT:    [[TMP76]] = add i64 [[TMP73]], 1
-; LLVM-NEXT:    [[TMP77:%.*]] = icmp ult i64 [[TMP76]], 4
-; LLVM-NEXT:    br i1 [[TMP77]], label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP49]], label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP_EXIT50:%.*]]
-; LLVM:       array.nonpod.last.private.loop.exit50:
-; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP51:%.*]]
+; LLVM:         [[TMP70:%.*]] = bitcast <2 x i1> [[TMP47:%.*]] to i2
+; LLVM:         [[TMP71:%.*]] = icmp eq i2 [[TMP70]], 0
+; LLVM:         br i1 [[TMP71]], label [[VPLANNEDBB480:%.*]], label [[VPLANNEDBB490:%.*]]
+; LLVM:       VPlannedBB49:
+; LLVM-NEXT:    [[TMP72:%.*]] = bitcast <2 x i1> [[TMP47]] to i2
+; LLVM-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP72]], i1 true)
+; LLVM-NEXT:    [[TMP73:%.*]] = sub i2 1, [[CTLZ0]]
+; LLVM-NEXT:    [[PRIV_EXTRACT500:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_10]], i2 [[TMP73]]
+; LLVM-NEXT:    br label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP510:%.*]]
+; LLVM:       array.nonpod.last.private.loop51:
+; LLVM-NEXT:    [[TMP74:%.*]] = phi i64 [ 0, [[VPLANNEDBB490]] ], [ [[TMP77:%.*]], [[ARRAY_NONPOD_LAST_PRIVATE_LOOP510]] ]
+; LLVM-NEXT:    [[TMP75:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT500]], i64 0, i64 [[TMP74]]
+; LLVM-NEXT:    [[TMP76:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[MYPOINT_LPRIV0:%.*]], i64 0, i64 [[TMP74]]
+; LLVM-NEXT:    call void @_ZTS7point2d.omp.copy_assign(%struct.point2d* [[TMP76]], %struct.point2d* [[TMP75]])
+; LLVM-NEXT:    [[TMP77]] = add i64 [[TMP74]], 1
+; LLVM-NEXT:    [[TMP78:%.*]] = icmp ult i64 [[TMP77]], 4
+; LLVM-NEXT:    br i1 [[TMP78]], label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP510]], label [[ARRAY_NONPOD_LAST_PRIVATE_LOOP_EXIT520:%.*]]
+; LLVM:       array.nonpod.last.private.loop.exit52:
+; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP530:%.*]]
 
 ; Dtor related loops
-; LLVM:       array.nonpod.private.outer.loop51:
-; LLVM-NEXT:    [[TMP78:%.*]] = phi i64 [ 0, [[ARRAY_NONPOD_LAST_PRIVATE_LOOP_EXIT50]] ], [ [[TMP83:%.*]], [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC53:%.*]] ]
-; LLVM-NEXT:    [[PRIV_EXTRACT55:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_1]], i64 [[TMP78]]
-; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP52:%.*]]
-; LLVM:       array.nonpod.private.inner.loop52:
-; LLVM-NEXT:    [[TMP79:%.*]] = phi i64 [ 0, [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP51]] ], [ [[TMP81:%.*]], [[ARRAY_NONPOD_PRIVATE_INNER_LOOP52]] ]
-; LLVM-NEXT:    [[TMP80:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT55]], i64 0, i64 [[TMP79]]
-; LLVM-NEXT:    call void @_ZTS7point2d.omp.destr(%struct.point2d* [[TMP80]])
-; LLVM-NEXT:    [[TMP81]] = add i64 [[TMP79]], 1
-; LLVM-NEXT:    [[TMP82:%.*]] = icmp ult i64 [[TMP81]], 4
-; LLVM-NEXT:    br i1 [[TMP82]], label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP52]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC53]]
-; LLVM:       array.nonpod.private.outer.loop.inc53:
-; LLVM-NEXT:    [[TMP83]] = add i64 [[TMP78]], 1
-; LLVM-NEXT:    [[TMP84:%.*]] = icmp ult i64 [[TMP78]], 2
-; LLVM-NEXT:    br i1 [[TMP84]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP51]], label [[ARRAY_NONPOD_PRIVATE_LOOP_EXIT54:%.*]]
-; LLVM:       array.nonpod.private.loop.exit54:
-; LLVM-NEXT:    br label [[VPLANNEDBB46:%.*]]
-
+; LLVM:       array.nonpod.private.outer.loop53:
+; LLVM-NEXT:    [[TMP79:%.*]] = phi i64 [ 0, [[ARRAY_NONPOD_LAST_PRIVATE_LOOP_EXIT520]] ], [ [[TMP84:%.*]], [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC550:%.*]] ]
+; LLVM-NEXT:    [[PRIV_EXTRACT570:%.*]] = extractelement <2 x [4 x %struct.point2d]*> [[DOTINSERT_10]], i64 [[TMP79]]
+; LLVM-NEXT:    br label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP540:%.*]]
+; LLVM:       array.nonpod.private.inner.loop54:
+; LLVM-NEXT:    [[TMP80:%.*]] = phi i64 [ 0, [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP530]] ], [ [[TMP82:%.*]], [[ARRAY_NONPOD_PRIVATE_INNER_LOOP540]] ]
+; LLVM-NEXT:    [[TMP81:%.*]] = getelementptr [4 x %struct.point2d], [4 x %struct.point2d]* [[PRIV_EXTRACT570]], i64 0, i64 [[TMP80]]
+; LLVM-NEXT:    call void @_ZTS7point2d.omp.destr(%struct.point2d* [[TMP81]])
+; LLVM-NEXT:    [[TMP82]] = add i64 [[TMP80]], 1
+; LLVM-NEXT:    [[TMP83:%.*]] = icmp ult i64 [[TMP82]], 4
+; LLVM-NEXT:    br i1 [[TMP83]], label [[ARRAY_NONPOD_PRIVATE_INNER_LOOP540]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP_INC550]]
+; LLVM:       array.nonpod.private.outer.loop.inc55:
+; LLVM-NEXT:    [[TMP84]] = add i64 [[TMP79]], 1
+; LLVM-NEXT:    [[TMP85:%.*]] = icmp ult i64 [[TMP79]], 2
+; LLVM-NEXT:    br i1 [[TMP85]], label [[ARRAY_NONPOD_PRIVATE_OUTER_LOOP530]], label [[ARRAY_NONPOD_PRIVATE_LOOP_EXIT560:%.*]]
+; LLVM:       array.nonpod.private.loop.exit56:
+;
 ; HIR:  + DO i1 = 0, 1, 1   <DO_LOOP>
-; HIR:  |   %priv.extract45 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc44)[<i32 0, i32 1>]),  i1;
+; HIR:  |   %priv.extract42 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
 ; HIR:  |
 ; HIR:  |   + DO i2 = 0, 3, 1   <DO_LOOP>
-; HIR:  |   |   %call46 = @_ZTS7point2d.omp.def_constr(&((%struct.point2d*)(%priv.extract45)[i2]));
+; HIR:  |   |   %call51 = @_ZTS7point2d.omp.def_constr(&((%struct.point2d*)(%priv.extract50)[i2]));
 ; HIR:  |   + END LOOP
 ; HIR:  + END LOOP
 
-; HIR:  %bsfintmask = bitcast.<2 x i1>.i2(%.vec47);
+; HIR:  %bsfintmask = bitcast.<2 x i1>.i2(%.vec55);
 ; HIR:  %bsf = @llvm.ctlz.i2(%bsfintmask,  1);
 ; HIR:  %ext.lane = 1  -  %bsf;
-; HIR:  %priv.extract64 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc44)[<i32 0, i32 1>]),  %ext.lane;
+; HIR:  %priv.extract72 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc49)[<i32 0, i32 1>]),  %ext.lane;
 
 ; HIR:  + DO i1 = 0, 3, 1   <DO_LOOP>
-; HIR:  |   @_ZTS7point2d.omp.copy_assign(&((%struct.point2d*)(%myPoint.lpriv)[i1]),  &((%struct.point2d*)(%priv.extract64)[i1]));
+; HIR:  |   @_ZTS7point2d.omp.copy_assign(&((%struct.point2d*)(%myPoint.lpriv)[i1]),  &((%struct.point2d*)(%priv.extract72)[i1]));
 ; HIR:  + END LOOP
 
 ; HIR:  + DO i1 = 0, 1, 1   <DO_LOOP>
-; HIR:  |   %priv.extract65 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc44)[<i32 0, i32 1>]),  i1;
+; HIR:  |   %priv.extract73 = extractelement &((<2 x [4 x %struct.point2d]*>)(%priv.mem.bc49)[<i32 0, i32 1>]),  i1;
 ; HIR:  |
 ; HIR:  |   + DO i2 = 0, 3, 1   <DO_LOOP>
-; HIR:  |   |   @_ZTS7point2d.omp.destr(&((%struct.point2d*)(%priv.extract65)[i2]));
+; HIR:  |   |   @_ZTS7point2d.omp.destr(&((%struct.point2d*)(%priv.extract73)[i2]));
 ; HIR:  |   + END LOOP
 ; HIR:  + END LOOP
 

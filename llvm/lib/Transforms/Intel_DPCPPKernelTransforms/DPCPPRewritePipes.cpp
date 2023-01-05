@@ -20,7 +20,9 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Value.h"
 #include "llvm/PassRegistry.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
@@ -143,19 +145,29 @@ rewritePipeStorageVars(Module &M,
     // If you see any of the following asserts firing, then the time to replace
     // this hack with a proper solution has finally come.
 #ifndef NDEBUG
-    for (auto *U : StorageVar->users()) {
-      assert(isa<CastInst>(U) ||
-             cast<ConstantExpr>(U)->getOpcode() == Instruction::AddrSpaceCast);
-      for (auto *CastU : U->users()) {
-        CallInst *CI = cast<CallInst>(CastU);
+    std::function<bool(Value *, int)> ReplaceChecker = [&](Value *Value,
+                                                           int Depth) {
+      if (Depth == 0) {
+        return false;
+      }
+      if (auto *CI = dyn_cast<CallInst>(Value)) {
         Function *F = CI->getCalledFunction();
         assert(F && "Indirect call is not expected");
         assert(F->getName().find(CreatePipeFromPipeStorageWriteName) !=
                    StringRef::npos ||
                F->getName().find(CreatePipeFromPipeStorageReadName) !=
                    StringRef::npos);
+        return true;
       }
-    }
+      for (auto *U : Value->users()) {
+        if (!ReplaceChecker(U, Depth - 1)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    assert(ReplaceChecker(StorageVar, 5) &&
+           "The usage of pipe storage is not expected");
 #endif
 
     Constant *Bitcast =

@@ -12,17 +12,19 @@ define void @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = reduction-init i32 0 i32 live-in0
-; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = induction-init{add} i32 live-in1 i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = induction-init{add} i32 live-in2 i32 2
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = induction-init-step{add} i32 2
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 128 i32 live-in1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP1]], [[BB1]] ],  [ i32 [[VP_IV_NEXT:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI:%.*]] = phi  [ i32 [[VP0]], [[BB1]] ],  [ i32 [[VP5:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_2:%.*]] = phi  [ i32 [[VP3]], [[BB1]] ],  [ i32 [[VP6:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = icmp ult i32 [[VP_IV]] i32 128
+; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_IV]] i32 live-in1
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = icmp ult i32 [[VP_IV]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP7]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
@@ -37,7 +39,7 @@ define void @main() {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP5]] = phi  [ i32 [[VP_ADD]], [[BB4]] ],  [ i32 [[VP_ADD_PHI]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP6]] = phi  [ i32 [[VP_ADD_2]], [[BB4]] ],  [ i32 [[VP_ADD_PHI_2]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp ult i32 [[VP_IV_NEXT]] i32 128
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp ult i32 [[VP_IV_NEXT]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = all-zero-check i1 [[VP8]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP9]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:

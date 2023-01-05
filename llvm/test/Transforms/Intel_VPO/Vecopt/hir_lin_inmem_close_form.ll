@@ -14,8 +14,8 @@ declare void @llvm.directive.region.exit(token) #0
 
 define hidden void @_ZN9LAMMPS_NS21ImproperHarmonicIntel4evalILi0ELi1ELi0EfdEEviPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EE.DIR.OMP.PARALLEL.2(i32 %N) #1 {
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK:             + DO i1 = [[PHI_TEMP0:%.*]], [[LOOP_UB200:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
-; CHECK:             |   [[DOTVEC210:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[N0:%.*]];
+; CHECK:             + DO i1 = 0, [[LOOP_UB220:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:             |   [[DOTVEC230:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[DOTVEC180:%.*]];
 newFuncRoot:
   %n.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1

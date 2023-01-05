@@ -2137,6 +2137,34 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
             return VPLp->isLiveOut(I);
           return false;
         });
+    // Consider the following input with non-simd loop.
+    // DO i1 = 0, %N + -1, 1
+    //   %add = %add21  +  i1; <Safe Reduction>
+    //   ...
+    //   %add21 = %add; <Safe Reduction>
+    // END LOOP
+    //
+    // We will create the VPlan IR below. Here the %vp30972 is reduction
+    // exit, but it's not real liveout. The real live out is %vp24048. That
+    // discrepancy is resulted from HIR's incomplete temps matching. Both
+    // statements are marked in one "safe reduction" chain but we don't
+    // account this: even the chained statements are put into linked value list
+    // of reduction, we don't look through that list during importing. Bail out
+    // for now. TODO: implement the lookup and correct linking, see the test
+    // in Intel_LoopTransforms/HIROptReport/loop-unswitch.ll
+    //
+    // i32 %vp16330 = phi  [ i32 %add21, BB21 ],  [ i32 %vp30972, BB22 ]
+    // i32 %vp14746 = phi  [ i32 0, BB21 ],  [ i32 %vp23996, BB22 ]
+    // i32 %vp24048 = add i32 %vp16330 i32 %vp14746
+    // ...
+    // i32 %vp30972 = hir-copy i32 %vp24048 , OriginPhiId: -1
+    // i32 %vp23996 = add i32 %vp14746 i32 1
+    // i1 %vp30894 = icmp slt i32 %vp23996 i32 %vp31834
+    // br i1 %vp30894, BB22, BB23
+    // 
+    if (Red->getLoopExitInstr() && !VPLp->isLiveOut(Red->getLoopExitInstr()))
+      NumLiveOutInsts++; // at the moment we make reduction exit as liveout.
+
     if (NumLiveOutInsts > 1) {
       LLVM_DEBUG(dbgs() << "LVP: Reduction with multiple liveout instructions "
                            "is not supported.\n");
@@ -2202,7 +2230,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
       } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
         return false;
       }
     }
