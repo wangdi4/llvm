@@ -2,7 +2,7 @@
 ; %b is marked as noalias (restrict) argument and %arrayidx3
 ; is a copy of %b.
 ;
-; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="aa-eval" < %s -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; Run: opt < %s -convert-to-subscript -S | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-NOT:  NoAlias:      i32* %arrayidx3, i32* %b

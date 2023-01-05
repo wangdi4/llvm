@@ -1,4 +1,4 @@
-; RUN: opt < %s -addsub-reassoc -S | FileCheck %s
+; RUN: opt -passes="addsub-reassoc" < %s -S | FileCheck %s
 
 ; #1
 ; CHECK: [[Chain1_191:%.*]] = shl i32

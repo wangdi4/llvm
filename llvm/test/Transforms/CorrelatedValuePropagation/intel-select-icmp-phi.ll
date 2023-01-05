@@ -1,4 +1,4 @@
-; RUN: opt < %s --correlated-propagation -instcombine -S | FileCheck %s
+; RUN: opt -passes="correlated-propagation,instcombine" < %s -S | FileCheck %s
 
 define dso_local i32 @test_select_icmp_phi(i64 %a) local_unnamed_addr {
 ; CHECK-LABEL: @test_select_icmp_phi(

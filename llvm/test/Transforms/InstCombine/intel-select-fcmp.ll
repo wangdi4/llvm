@@ -1,4 +1,4 @@
-; RUN: opt -instcombine -S < %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S < %s | FileCheck %s
 
 ; This test verifies if instcombine can simplify rounding conversions
 ; (rounding float/double to nearest floor/ceil float/double) with a single

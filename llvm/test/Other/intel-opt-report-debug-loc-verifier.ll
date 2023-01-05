@@ -1,4 +1,4 @@
-; RUN: opt -S -verify < %s | FileCheck %s
+; RUN: opt -passes="require<verify>" -S < %s | FileCheck %s
 
 ; Check that embedded DILocations are allowed in "intel.optreport.debug_location".
 

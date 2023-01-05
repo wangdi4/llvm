@@ -1,4 +1,4 @@
-; RUN: opt -licm -disable-output < %s
+; RUN: opt -passes="loop-mssa(licm)" -disable-output < %s
 
 %struct.baz = type { i32, i32, i32, i8* }
 

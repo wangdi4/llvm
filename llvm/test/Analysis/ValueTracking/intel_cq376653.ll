@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 ; 
 ; This test checks to make sure that value tracking can tell that
 ; (n * (n [+-] 1)) is always non-negative.  It checks for a number

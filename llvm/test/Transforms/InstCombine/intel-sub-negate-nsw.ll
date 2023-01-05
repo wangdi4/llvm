@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Verify that nsw flag is retained on the add instruction formed by negating
 ; sub instruction.

@@ -1,4 +1,4 @@
-; RUN: opt < %s -addsub-reassoc -S | FileCheck %s
+; RUN: opt -passes="addsub-reassoc" < %s -S | FileCheck %s
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
 
 ; CHECK: [[Chain1_191:%.*]] = shl i32

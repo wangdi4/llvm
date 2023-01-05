@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -simplifycfg | FileCheck %s
+; RUN: opt -passes="simplifycfg" < %s -S | FileCheck %s
 
 ; Verify that in the presence of "pre_loopopt" attribute we do not combine loop
 ; exit condition %cmp1 with %cmp into an or condition to jump to common

@@ -1,4 +1,4 @@
-; RUN: opt -S -loop-load-elim < %s | FileCheck %s
+; RUN: opt -passes="loop-load-elim" -S < %s | FileCheck %s
 ;
 ; CMPLRLLVM-8894: LoopAccessAnalysis assumption that allocation size
 ; and type size are the same caused LoopLoadElimination pass to crash.

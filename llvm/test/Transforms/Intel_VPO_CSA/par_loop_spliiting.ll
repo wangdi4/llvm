@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt -vpo-paropt -csa-omp-paropt-loop-splitting -S %s| FileCheck %s
+; RUN: opt -passes="vpo-paropt" -csa-omp-paropt-loop-splitting -S %s| FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
 ; Check lowering of "omp parallel for" construct for CSA with paropt

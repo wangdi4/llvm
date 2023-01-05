@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; This test checks if the following transform is suppressed when the
 ; function has "pre_loopopt" attribute and the 'or' is inside a loop:

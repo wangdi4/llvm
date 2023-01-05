@@ -1,4 +1,4 @@
-; RUN: opt -loop-rotate %s -S | FileCheck %s
+; RUN: opt -passes="loop(loop-rotate)" %s -S | FileCheck %s
 ; CHECK-NOT: invoke{{.*}}baz
 ; CHECK-NOT: invoke{{.*}}pluto
 ; CHECK-NOT: invoke{{.*}}snork

@@ -2,7 +2,7 @@
 ; This test checks that comparison sizes are optimized and
 ; unnecessary sext/zext or other instructions are eliminated
 ;
-; RUN: opt < %s -instcombine -S -mtriple=x86_64-unknown-linux-gnu | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S -mtriple=x86_64-unknown-linux-gnu | FileCheck %s
 
 target datalayout = "n8:16:32:64"
 

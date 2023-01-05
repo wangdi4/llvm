@@ -1,7 +1,7 @@
 ; CMPLRLLVM-21338
 ; GVNHoist incorrectly hoists the load of %p above the null check.
 
-; RUN: opt -gvn-hoist -S < %s | FileCheck %s
+; RUN: opt -passes="gvn-hoist" -S < %s | FileCheck %s
 ; CHECK: entry:
 ; CHECK-NOT: load{{.*}}%p
 ; CHECK: if.then:

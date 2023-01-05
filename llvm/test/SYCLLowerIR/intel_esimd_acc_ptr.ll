@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_ESIMD_EMBARGO
 ; REQUIRES: intel_feature_esimd_embargo
 ;
-; RUN: opt -LowerESIMD -S < %s | FileCheck %s
+; RUN: opt -passes="LowerESIMD" -S < %s | FileCheck %s
 
 ; This test checks that LowerESIMD pass correctly interpretes the
 ; 'kernel_arg_accessor_ptr' metadata. Particularly, that it generates additional
