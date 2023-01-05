@@ -512,7 +512,7 @@ bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
 
   // Collect all the basic blocks that are used for loops
   DenseMap<BasicBlock*, Loop*> TotalLoops;
-  for (auto &BB : F.getBasicBlockList()) {
+  for (auto &BB : F) {
     Loop *Lp = LI->getLoopFor(&BB);
     if (Lp)
       TotalLoops.insert({&BB, Lp});

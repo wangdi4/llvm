@@ -628,7 +628,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);
-  NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
+  NFn->splice(NFn->begin(), Fn);
 
   // Everything including the routine name has been moved to the new routine.
   // Do the same with the debug information.

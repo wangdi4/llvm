@@ -6657,8 +6657,7 @@ orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
   // Walk all blocks in the function in their original order
   // and collect the blocks that are in BlocksSet into OrderedBlocks vector.
   Function *F = Blocks.front()->getParent();
-  Function::BasicBlockListType &BlocksList = F->getBasicBlockList();
-  for (BasicBlock &BB : BlocksList)
+  for (BasicBlock &BB : *F)
     if (BlocksSet.count(&BB))
       OrderedBlocks.push_back(&BB);
 
