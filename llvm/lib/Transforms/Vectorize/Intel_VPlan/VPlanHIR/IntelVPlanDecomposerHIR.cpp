@@ -2298,10 +2298,15 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
     const SCEVUnknown *Blob) {
   BlobUtils &BlUtils = RDDR.getBlobUtils();
   assert((BlUtils.isConstantDataBlob(Blob) ||
-          BlUtils.isConstantVectorBlob(Blob)) &&
-         "Expected a ConstantData/ConstantVector Blob.");
+          BlUtils.isConstantVectorBlob(Blob) ||
+          BlUtils.isConstantAggregateBlob(Blob, nullptr)) &&
+         "Expected a ConstantData/ConstantVector/ConstantAggregate Blob.");
   (void)BlUtils;
 
+  ConstantAggregate *AggrConst;
+  if (BlUtils.isConstantAggregateBlob(Blob, &AggrConst))
+    return Decomposer.Plan->getVPConstant(AggrConst);
+  
   ConstantFP *FPConst;
   if (BlUtils.isConstantFPBlob(Blob, &FPConst))
     return Decomposer.Plan->getVPConstant(FPConst);
@@ -2344,7 +2349,8 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   };
 
   if (RDDR.getBlobUtils().isConstantDataBlob(Blob) ||
-      RDDR.getBlobUtils().isConstantVectorBlob(Blob))
+      RDDR.getBlobUtils().isConstantVectorBlob(Blob) ||
+      RDDR.getBlobUtils().isConstantAggregateBlob(Blob, nullptr))
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
 
