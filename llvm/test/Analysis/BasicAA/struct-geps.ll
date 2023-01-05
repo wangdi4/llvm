@@ -46,25 +46,17 @@ define void @test_simple(ptr %st, i64 %i, i64 %j, i64 %k) {
 
 ; As the GEP is not inbounds, these pointers may alias due to overflow.
 ; CHECK-LABEL: test_not_inbounds
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Subscript conversion adds the inbounds semantic which is not compatible with
 ; this test.
 ; CHECK-GEP: MayAlias: i32* %x, i32* %y
 ; end INTEL_CUSTOMIZATION
-define void @test_not_inbounds(%struct* %st, i64 %i, i64 %j, i64 %k) {
-  %x = getelementptr %struct, %struct* %st, i64 %i, i32 0
-  %y = getelementptr %struct, %struct* %st, i64 %j, i32 1
-  load i32, i32* %x
-  load i32, i32* %y
-=======
 ; CHECK: MayAlias: i32* %x, i32* %y
 define void @test_not_inbounds(ptr %st, i64 %i, i64 %j, i64 %k) {
   %x = getelementptr %struct, ptr %st, i64 %i, i32 0
   %y = getelementptr %struct, ptr %st, i64 %j, i32 1
   load i32, ptr %x
   load i32, ptr %y
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
   ret void
 }
 

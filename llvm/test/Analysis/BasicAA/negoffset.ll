@@ -29,18 +29,9 @@ define void @arr() {
 ; CHECK-LABEL: Function: arg:
 ; CHECK-DAG: MayAlias: i32* %arg, i32* %p0
 ; CHECK-DAG: MayAlias: i32* %arg, i32* %p1
-<<<<<<< HEAD
 ; INTEL
 ; CHECK-SUBS-DAG: MayAlias: i32* %arg, i32* %p0
 ; CHECK-SUBS-DAG: MayAlias: i32* %arg, i32* %p1
-define void @arg(i32* %arg) {
-  %random = call i32* @random.i32(i32* %arg)
-  %p0 = getelementptr inbounds i32, i32* %random, i32 0
-  %p1 = getelementptr inbounds i32, i32* %random, i32 1
-  load i32, i32* %arg
-  load i32, i32* %p0
-  load i32, i32* %p1
-=======
 define void @arg(ptr %arg) {
   %random = call ptr @random.i32(ptr %arg)
   %p0 = getelementptr inbounds i32, ptr %random, i32 0
@@ -48,7 +39,6 @@ define void @arg(ptr %arg) {
   load i32, ptr %arg
   load i32, ptr %p0
   load i32, ptr %p1
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
   ret void
 }
 

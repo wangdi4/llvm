@@ -48,320 +48,6 @@ define void @caller_a(ptr %arg_a0,
 }
 
 ; CHECK: Function: caller_a: 16 pointers, 8 call sites
-<<<<<<< HEAD
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %loaded_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double** %indirect_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double** %indirect_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %arg_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %loaded_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %loaded_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %loaded_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %loaded_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a0
-; INTEL_CUSTOMIZATION
-; This check now produces NoAlias rather than MayAlias because the escape
-; analysis was updated in xmain
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a0
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %loaded_a0, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %loaded_a1, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a1
-; INTEL_CUSTOMIZATION
-; This check now produces NoAlias rather than MayAlias because the escape
-; analysis was updated in xmain
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a1
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a1
-; CHECK-NEXT: MayAlias:	double* %normal_ret_a0, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a0, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a0, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a1, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a1, double* %normal_ret_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_ret_a0, double* %noalias_ret_a1
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %noalias_ret_a0	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double* %noalias_ret_a1	<->  %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %noescape_alloca_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double** %indirect_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %loaded_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %arg_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_arg_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %escape_alloca_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noescape_alloca_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %noescape_alloca_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:  Ptr: double* %normal_ret_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a0	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: NoModRef:  Ptr: double* %noalias_ret_a1	<->  call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a0 = call double* @normal_returner() <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %normal_ret_a1 = call double* @normal_returner() <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a0 = call double* @noalias_returner() <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   %noalias_ret_a1 = call double* @noalias_returner() <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a0) <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   call void @nocap_callee(double* %noescape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   call void @callee(double* %escape_alloca_a1) <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a0) <->   call void @nocap_callee(double* %noescape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   %normal_ret_a0 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   %normal_ret_a1 = call double* @normal_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   %noalias_ret_a0 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   %noalias_ret_a1 = call double* @noalias_returner()
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   call void @callee(double* %escape_alloca_a0)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   call void @callee(double* %escape_alloca_a1)
-; CHECK-NEXT: Both ModRef:   call void @nocap_callee(double* %noescape_alloca_a1) <->   call void @nocap_callee(double* %noescape_alloca_a0)
-=======
 ; CHECK: MayAlias:	ptr* %indirect_a0, ptr* %indirect_a1
 ; CHECK: MayAlias:	ptr* %indirect_a0, double* %loaded_a0
 ; CHECK: MayAlias:	ptr* %indirect_a1, double* %loaded_a0
@@ -436,8 +122,12 @@ define void @caller_a(ptr %arg_a0,
 ; CHECK: MayAlias:	double* %arg_a1, double* %normal_ret_a0
 ; CHECK: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a0
 ; CHECK: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a0
-; CHECK: MayAlias:	double* %escape_alloca_a0, double* %normal_ret_a0
-; CHECK: MayAlias:	double* %escape_alloca_a1, double* %normal_ret_a0
+; INTEL_CUSTOMIZATION
+; This check now produces NoAlias rather than MayAlias because the escape
+; analysis was updated in xmain
+; CHECK: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a0
+; CHECK: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a0
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a0
 ; CHECK: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a0
 ; CHECK: MayAlias:	ptr* %indirect_a0, double* %normal_ret_a1
@@ -448,8 +138,12 @@ define void @caller_a(ptr %arg_a0,
 ; CHECK: MayAlias:	double* %arg_a1, double* %normal_ret_a1
 ; CHECK: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a1
 ; CHECK: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a1
-; CHECK: MayAlias:	double* %escape_alloca_a0, double* %normal_ret_a1
-; CHECK: MayAlias:	double* %escape_alloca_a1, double* %normal_ret_a1
+; INTEL_CUSTOMIZATION
+; This check now produces NoAlias rather than MayAlias because the escape
+; analysis was updated in xmain
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %normal_ret_a1
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %normal_ret_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	double* %noescape_alloca_a0, double* %normal_ret_a1
 ; CHECK: NoAlias:	double* %noescape_alloca_a1, double* %normal_ret_a1
 ; CHECK: MayAlias:	double* %normal_ret_a0, double* %normal_ret_a1
@@ -666,7 +360,6 @@ define void @caller_a(ptr %arg_a0,
 ; CHECK: Both ModRef:   call void @nocap_callee(ptr %noescape_alloca_a1) <->   call void @callee(ptr %escape_alloca_a0)
 ; CHECK: Both ModRef:   call void @nocap_callee(ptr %noescape_alloca_a1) <->   call void @callee(ptr %escape_alloca_a1)
 ; CHECK: Both ModRef:   call void @nocap_callee(ptr %noescape_alloca_a1) <->   call void @nocap_callee(ptr %noescape_alloca_a0)
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
 ; CHECK: ===== Alias Analysis Evaluator Report =====
 ; CHECK-NEXT:   120 Total Alias Queries Performed
 ; INTEL_CUSTOMIZATION
