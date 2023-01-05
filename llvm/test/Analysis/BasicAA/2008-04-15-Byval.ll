@@ -1,6 +1,6 @@
 ; RUN: opt < %s -O3 -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -O3 -S | FileCheck --check-prefix=CHECK-SUBS %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -O3 -S | FileCheck --check-prefix=CHECK-SUBS %s
 ; ModuleID = 'small2.c'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64-f80:128:128"
 target triple = "i386-apple-darwin8"
@@ -9,7 +9,7 @@ target triple = "i386-apple-darwin8"
 define void @foo(ptr byval(%struct.x) align 4  %X) nounwind  {
 ; CHECK: store i32 2, ptr %tmp1
 ; INTEL
-; CHECK-SUBS: store i32 2, i32* %0
+; CHECK-SUBS: store i32 2, ptr %0
 entry:
 	%tmp = getelementptr %struct.x, ptr %X, i32 0, i32 0		; <ptr> [#uses=1]
 	%tmp1 = getelementptr [4 x i32], ptr %tmp, i32 0, i32 3		; <ptr> [#uses=1]

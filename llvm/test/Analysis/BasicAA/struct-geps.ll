@@ -1,7 +1,7 @@
 ; INTEL
-; RUN: opt < %s -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-SUBS %s
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-SUBS %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -51,7 +51,6 @@ define void @test_simple(ptr %st, i64 %i, i64 %j, i64 %k) {
 ; this test.
 ; CHECK-GEP: MayAlias: i32* %x, i32* %y
 ; end INTEL_CUSTOMIZATION
-; CHECK: MayAlias: i32* %x, i32* %y
 define void @test_not_inbounds(ptr %st, i64 %i, i64 %j, i64 %k) {
   %x = getelementptr %struct, ptr %st, i64 %i, i32 0
   %y = getelementptr %struct, ptr %st, i64 %j, i32 1
@@ -112,43 +111,15 @@ define void @test_in_array(ptr %st, i64 %i, i64 %j, i64 %k, i64 %i1, i64 %j1, i6
 ; CHECK-SUBS-DAG: NoAlias: i32* %x, i32* %z
 ; CHECK-SUBS-DAG: NoAlias: i32* %y, i32* %z
 
-<<<<<<< HEAD
-; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, %struct* %y_12
-; CHECK-DAG: MayAlias: i32* %x, %struct* %y_12
-; CHECK-DAG: MayAlias: i32* %x, i80* %y_10
-
-; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i64* %y_8
-; CHECK-DAG: MayAlias: i64* %y_8, i32* %z
-; INTEL
-; CHECK-GEP-DAG: NoAlias: i32* %x, i64* %y_8
-; INTEL
-; CHECK-DAG: NoAlias: i32* %x, i64* %y_8
-
-; CHECK-DAG: MustAlias: i32* %y, %struct* %y_12
-; CHECK-DAG: MustAlias: i32* %y, i64* %y_8
-; CHECK-DAG: MustAlias: i32* %y, i80* %y_10
-
-define void @test_in_3d_array([1 x [1 x [1 x %struct]]]* %st, i64 %i, i64 %j, i64 %k, i64 %i1, i64 %j1, i64 %k1, i64 %i2, i64 %j2, i64 %k2, i64 %i3, i64 %j3, i64 %k3) {
-  %x = getelementptr inbounds [1 x [1 x [1 x %struct]]], [1 x [1 x [1 x %struct]]]* %st, i64 %i, i64 %i1, i64 %i2, i64 %i3, i32 0
-  %y = getelementptr inbounds [1 x [1 x [1 x %struct]]], [1 x [1 x [1 x %struct]]]* %st, i64 %j, i64 %j1, i64 %j2, i64 %j3, i32 1
-  %z = getelementptr inbounds [1 x [1 x [1 x %struct]]], [1 x [1 x [1 x %struct]]]* %st, i64 %k, i64 %k1, i64 %k2, i64 %k3, i32 2
-  %y_12 = bitcast i32* %y to %struct*
-  %y_10 = bitcast i32* %y to i80*
-  %y_8 = bitcast i32* %y to i64*
-  load [1 x [1 x [1 x %struct]]], [1 x [1 x [1 x %struct]]]* %st
-  load i32, i32* %x
-  load i32, i32* %y
-  load i32, i32* %z
-  load %struct, %struct* %y_12
-  load i80, i80* %y_10
-  load i64, i64* %y_8
-=======
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, %struct* %y
 ; CHECK-DAG: MayAlias: i32* %x, %struct* %y
 ; CHECK-DAG: MayAlias: i32* %x, i80* %y
 
 ; CHECK-DAG: MayAlias: [1 x [1 x [1 x %struct]]]* %st, i64* %y
 ; CHECK-DAG: MayAlias: i64* %y, i32* %z
+; INTEL
+; CHECK-GEP-DAG: NoAlias: i32* %x, i64* %y
+; INTEL
 ; CHECK-DAG: NoAlias: i32* %x, i64* %y
 
 ; CHECK-DAG: MustAlias: %struct* %y, i32* %y
@@ -166,7 +137,6 @@ define void @test_in_3d_array(ptr %st, i64 %i, i64 %j, i64 %k, i64 %i1, i64 %j1,
   load %struct, ptr %y
   load i80, ptr %y
   load i64, ptr %y
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
   ret void
 }
 

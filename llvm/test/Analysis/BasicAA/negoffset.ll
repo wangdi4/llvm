@@ -1,6 +1,6 @@
 ; INTEL
 ; Subscript and GEP aliasing diverges in @all_inbounds.
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-SUBS
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-SUBS
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
@@ -47,7 +47,7 @@ define void @arg(ptr %arg) {
 ; CHECK-DAG: MayAlias: i32* %random, i32* @gv
 ; CHECK-DAG: NoAlias:  i32* %p1, i32* @gv
 ; INTEL
-; CHECK-SUBS-DAG: MayAlias: i32* %p0, i32* @gv
+; CHECK-SUBS-DAG: MayAlias: i32* %random, i32* @gv
 ; CHECK-SUBS-DAG: NoAlias:  i32* %p1, i32* @gv
 define void @global() {
   %random = call ptr @random.i32(ptr @gv)
@@ -64,9 +64,9 @@ define void @global() {
 ; CHECK-DAG:  NoAlias:  i32* %alloca, i32* %p1
 ; CHECK-DAG:  MayAlias: i32* %f1, i32* %p1
 ; INTEL
-; CHECK-SUBS-DAG:  MayAlias: i32* %f0, i32* %p0
+; CHECK-SUBS-DAG:  MayAlias: i32* %alloca, i32* %p0
 ; CHECK-SUBS-DAG:  MayAlias: i32* %f1, i32* %p0
-; CHECK-SUBS-DAG:  NoAlias:  i32* %f0, i32* %p1
+; CHECK-SUBS-DAG:  NoAlias:  i32* %alloca, i32* %p1
 ; CHECK-SUBS-DAG:  MayAlias: i32* %f1, i32* %p1
 %struct = type { i32, i32, i32 }
 define void @struct() {
@@ -148,18 +148,12 @@ define void @complex2(i32 %i, i32 %j) {
 }
 
 ; CHECK-LABEL: Function: pointer_offset:
-<<<<<<< HEAD
-; CHECK-DAG: MayAlias: i32** %add.ptr, i32** %p1
-; CHECK-DAG: MayAlias: i32** %add.ptr, i32** %q2
-; INTEL
-; CHECK-SUBS-DAG: MayAlias: i32** %add.ptr, i32** %p1
-; CHECK-SUBS-DAG: MayAlias: i32** %add.ptr, i32** %q2
-%struct.X = type { i32*, i32* }
-=======
 ; CHECK-DAG: MayAlias: ptr* %add.ptr, ptr* %x
 ; CHECK-DAG: MayAlias: ptr* %add.ptr, ptr* %q2
+; INTEL
+; CHECK-SUBS-DAG: MayAlias: ptr* %add.ptr, ptr* %x
+; CHECK-SUBS-DAG: MayAlias: ptr* %add.ptr, ptr* %q2
 %struct.X = type { ptr, ptr }
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
 define i32 @pointer_offset(i32 signext %i, i32 signext %j, i32 zeroext %off) {
 entry:
   %i.addr = alloca i32
@@ -177,21 +171,13 @@ entry:
 }
 
 ; CHECK-LABEL: Function: one_size_unknown:
-<<<<<<< HEAD
-; CHECK: NoModRef:  Ptr: i8* %p.minus1	<->  call void @llvm.memset.p0i8.i32(i8* %p, i8 0, i32 %size, i1 false)
-; INTEL
-; CHECK-SUBS: NoModRef:  Ptr: i8* %p.minus1	<->  call void @llvm.memset.p0i8.i32(i8* %p, i8 0, i32 %size, i1 false)
-define void @one_size_unknown(i8* %p, i32 %size) {
-  %p.minus1 = getelementptr inbounds i8, i8* %p, i32 -1
-  call void @llvm.memset.p0i8.i32(i8* %p, i8 0, i32 %size, i1 false)
-  load i8, i8* %p.minus1
-=======
 ; CHECK: NoModRef:  Ptr: i8* %p.minus1	<->  call void @llvm.memset.p0.i32(ptr %p, i8 0, i32 %size, i1 false)
+; INTEL
+; CHECK-SUBS: NoModRef:  Ptr: i8* %p.minus1	<->  call void @llvm.memset.p0.i32(ptr %p, i8 0, i32 %size, i1 false)
 define void @one_size_unknown(ptr %p, i32 %size) {
   %p.minus1 = getelementptr inbounds i8, ptr %p, i32 -1
   call void @llvm.memset.p0.i32(ptr %p, i8 0, i32 %size, i1 false)
   load i8, ptr %p.minus1
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
   ret void
 }
 
@@ -201,14 +187,10 @@ define void @one_size_unknown(ptr %p, i32 %size) {
 ; %random = %alloc - 4 bytes is well defined, and results in %step == %alloca,
 ; leaving %p as an entirely inbounds gep pointing inside %alloca
 ; CHECK-LABEL: Function: all_inbounds:
-<<<<<<< HEAD
-; CHECK: MayAlias:  i32* %alloca, i8* %p0
-=======
 ; CHECK: MayAlias: i32* %alloca, i8* %random
->>>>>>> 303c308e452c703c3d47940383ded3b2d3eefd56
 ; CHECK: MayAlias:  i32* %alloca, i8* %p1
 ; INTEL
-; CHECK-SUBS: MayAlias: i32* %alloca, i8* %p0
+; CHECK-SUBS: MayAlias: i32* %alloca, i8* %random
 ; We diverge here. Fortran subscripts are always inbound.
 ; CHECK-SUBS: NoAlias:  i32* %alloca, i8* %p1
 define void @all_inbounds() {
