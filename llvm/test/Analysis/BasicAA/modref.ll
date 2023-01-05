@@ -48,31 +48,20 @@ define i8 @test2(ptr %P) {
 ; CHECK-NEXT:    call void @llvm.memset.p0.i8(ptr [[P]], i8 2, i8 127, i1 false)
 ; CHECK-NEXT:    ret i8 1
 ;
-<<<<<<< HEAD
 ; INTEL
 ; CHECK-SUBS-LABEL: @test2
-  %P2 = getelementptr i8, i8* %P, i32 127
-  store i8 1, i8* %P2  ;; Not dead across memset
-  call void @llvm.memset.p0i8.i8(i8* %P, i8 2, i8 127, i1 false)
-  %A = load i8, i8* %P2
-=======
   %P2 = getelementptr i8, ptr %P, i32 127
   store i8 1, ptr %P2  ;; Not dead across memset
   call void @llvm.memset.p0.i8(ptr %P, i8 2, i8 127, i1 false)
   %A = load i8, ptr %P2
->>>>>>> 3caf301a8be1ebeed466f998bf2b21497f6df760
   ret i8 %A
 ; INTEL
 ; CHECK-SUBS: ret i8 1
 }
 
-<<<<<<< HEAD
-define i8 @test2a(i8* %P) {
+define i8 @test2a(ptr %P) {
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-=======
-define i8 @test2a(ptr %P) {
->>>>>>> 3caf301a8be1ebeed466f998bf2b21497f6df760
 ; CHECK-LABEL: @test2a(
 ; CHECK-NEXT:    call void @llvm.memset.p0.i8(ptr [[P:%.*]], i8 2, i8 127, i1 false)
 ; CHECK-NEXT:    ret i8 2
@@ -86,13 +75,9 @@ define i8 @test2a(ptr %P) {
   ret i8 %A
 }
 
-<<<<<<< HEAD
-define void @test3(i8* %P, i8 %X) {
+define void @test3(ptr %P, i8 %X) {
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-=======
-define void @test3(ptr %P, i8 %X) {
->>>>>>> 3caf301a8be1ebeed466f998bf2b21497f6df760
 ; CHECK-LABEL: @test3(
 ; CHECK-NEXT:    [[P2:%.*]] = getelementptr i8, ptr [[P:%.*]], i32 2
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 1, ptr [[P]])
@@ -108,13 +93,9 @@ define void @test3(ptr %P, i8 %X) {
   ret void
 }
 
-<<<<<<< HEAD
-define void @test3a(i8* %P, i8 %X) {
+define void @test3a(ptr %P, i8 %X) {
 ; INTEL
 ; Explicit offset, not suitable for llvm.intel.subscript
-=======
-define void @test3a(ptr %P, i8 %X) {
->>>>>>> 3caf301a8be1ebeed466f998bf2b21497f6df760
 ; CHECK-LABEL: @test3a(
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 10, ptr [[P:%.*]])
 ; CHECK-NEXT:    ret void

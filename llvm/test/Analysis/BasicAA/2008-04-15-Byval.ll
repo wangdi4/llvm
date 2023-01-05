@@ -6,15 +6,10 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f3
 target triple = "i386-apple-darwin8"
 	%struct.x = type { [4 x i32] }
 
-<<<<<<< HEAD
-define void @foo(%struct.x* byval(%struct.x) align 4  %X) nounwind  {
-; CHECK: store i32 2, i32* %tmp1
-; INTEL
-; CHECK-SUBS: store i32 2, i32* %0
-=======
 define void @foo(ptr byval(%struct.x) align 4  %X) nounwind  {
 ; CHECK: store i32 2, ptr %tmp1
->>>>>>> 3caf301a8be1ebeed466f998bf2b21497f6df760
+; INTEL
+; CHECK-SUBS: store i32 2, i32* %0
 entry:
 	%tmp = getelementptr %struct.x, ptr %X, i32 0, i32 0		; <ptr> [#uses=1]
 	%tmp1 = getelementptr [4 x i32], ptr %tmp, i32 0, i32 3		; <ptr> [#uses=1]
