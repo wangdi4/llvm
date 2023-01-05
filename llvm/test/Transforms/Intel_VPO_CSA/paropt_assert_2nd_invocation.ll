@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt -vpo-paropt -S %s
+; RUN: opt -passes="vpo-paropt" -S %s
 ; REQUIRES: csa-registered-target
 ;
 ; Check that paropt does not assert on this module (see CMPLRLLVM-8058 for details).

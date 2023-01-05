@@ -4,7 +4,7 @@
 ; When the SCEVs are salvaged to update the debug MD, the SCEV for the phi
 ; should not be analyzed, as it is a SCEVUnknown with a null Value.
 
-; RUN: opt -debugify -loop-reduce -S < %s | FileCheck %s
+; RUN: opt -passes="debugify,function(loop-reduce)" -S < %s | FileCheck %s
 
 ; Function Attrs: nounwind
 define void @nopreheader(i8* %end) {

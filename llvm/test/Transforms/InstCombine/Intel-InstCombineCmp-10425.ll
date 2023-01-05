@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -instcombine | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; CMPLRLLVM-10425
 ;

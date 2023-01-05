@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars -enable-intel-advanced-opts=true -scalar-evolution-use-expensive-range-sharpening -S | FileCheck %s
+; RUN: opt -passes="loop(indvars)" < %s -enable-intel-advanced-opts=true -scalar-evolution-use-expensive-range-sharpening -S | FileCheck %s
 
 ; CMPLRLLVM-34056:
 ; %iv and %val1 have the same value.

@@ -1,4 +1,4 @@
-; RUN: opt < %s -iv-split -iv-split-loop-depth-threshold=2 -S | FileCheck %s
+; RUN: opt -passes="iv-split" < %s -iv-split-loop-depth-threshold=2 -S | FileCheck %s
 ;
 ; This test case checks IV: %indvars.iv45 of outer Loop: for.body.us is being
 ; spilled before inner Loop: for.body6.us and reloaded at inner Loop for use:

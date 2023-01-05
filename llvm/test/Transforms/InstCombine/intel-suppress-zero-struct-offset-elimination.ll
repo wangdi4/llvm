@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Verify that instcombine does not simplify %gep1 to this by eliminating zero
 ; struct offset with "pre_loopopt" attribute on the function-

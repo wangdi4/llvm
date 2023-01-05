@@ -1,4 +1,4 @@
-; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; RUN: opt -passes="simplifycfg" < %s -S | FileCheck %s
 ;
 ; CHECK:  %call = call i32 @_Z3foov(), !prof !1
 ; CHECK: !1 = !{!"branch_weights", i32 7}

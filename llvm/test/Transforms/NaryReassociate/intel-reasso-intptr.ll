@@ -1,4 +1,4 @@
-; RUN: opt -nary-reassociate -S %s | FileCheck %s
+; RUN: opt -passes="nary-reassociate" -S %s | FileCheck %s
 ;
 ; 24715: Reassociate is skipping inttoptr conversion and creating binary
 ; expressions with mixed int, pointer types.

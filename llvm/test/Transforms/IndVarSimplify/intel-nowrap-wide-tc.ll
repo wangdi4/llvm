@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt -passes="loop(indvars)" < %s -S | FileCheck %s
 
 ; Verify that the generated add operation for wide trip count has nsw/nuw flag.
 

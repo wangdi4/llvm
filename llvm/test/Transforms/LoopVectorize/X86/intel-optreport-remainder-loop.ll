@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-vectorize -S 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-vectorize" < %s -S 2>&1 | FileCheck %s
 ; Check that optreport metadata node is not propagated to remainder loop
 
 ; CHECK: vector.body:

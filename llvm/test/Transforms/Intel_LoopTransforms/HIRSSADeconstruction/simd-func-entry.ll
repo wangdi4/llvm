@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -print-after=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction" -print-after=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
 
 ; No VPlanDriverHIR in new PM
 ; opt -passes="hir-ssa-deconstruction,print" -disable-output < %s 2>&1 | FileCheck %s

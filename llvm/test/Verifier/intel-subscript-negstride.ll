@@ -1,4 +1,4 @@
-; RUN: opt -verify %s | FileCheck %s
+; RUN: opt -passes="require<verify>" %s | FileCheck %s
 ; CHECK-NOT: error
 
 ; CMPLRLLVM-31836: Verifier was not accepting llvm.intel.subscript calls with

@@ -1,7 +1,7 @@
 ; Tests that the two GVN limit options, will disable hoisting and GVN
 ; redundancy elimination.
 
-; RUN: opt -S -gvn-max-inst-x-bb=1 -gvn-hoist-max-inst-x-bb=1 -gvn-hoist -gvn %s | FileCheck %s
+; RUN: opt -passes="gvn-hoist,gvn" -S -gvn-max-inst-x-bb=1 -gvn-hoist-max-inst-x-bb=1 %s | FileCheck %s
 
 ; CHECK-LABEL: if.then
 ; CHECK: add nsw i32 %a, %b

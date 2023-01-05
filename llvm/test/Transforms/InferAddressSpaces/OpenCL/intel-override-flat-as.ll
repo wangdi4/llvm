@@ -1,5 +1,5 @@
-; RUN: opt -S -mtriple=x86_64-unknown-unknown -infer-address-spaces -override-flat-addr-space=4 %s | FileCheck %s --check-prefix=CHECK-OVERRIDE
-; RUN: opt -S -mtriple=x86_64-unknown-unknown -infer-address-spaces %s | FileCheck %s --check-prefix=CHECK-NOOVERRIDE
+; RUN: opt -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown -override-flat-addr-space=4 %s | FileCheck %s --check-prefix=CHECK-OVERRIDE
+; RUN: opt -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown %s | FileCheck %s --check-prefix=CHECK-NOOVERRIDE
 
 define i32 @foo(i32 addrspace(1)*) local_unnamed_addr #0 {
 entry:

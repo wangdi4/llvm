@@ -1,4 +1,4 @@
-; RUN: opt -S -indvars < %s | FileCheck %s
+; RUN: opt -passes="loop(indvars)" -S < %s | FileCheck %s
 ; The double-type phi is being passed to SCEV for analysis, which is not
 ; a valid type. indvars can still remove it without using SCEV.
 ; CHECK-NOT: phi double

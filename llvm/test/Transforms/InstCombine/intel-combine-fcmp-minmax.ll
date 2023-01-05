@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Both fcmp instructions should have nnan flag set
 define i1 @no_convert1 (float %a, float %b, float %c) {

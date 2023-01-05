@@ -1,5 +1,5 @@
-; RUN: opt -S -mtriple=x86_64-unknown-unknown -infer-address-spaces -override-flat-addr-space=4 -infer-as-rewrite-opencl-bis %s | FileCheck %s --check-prefix=CHECK-REWRITE
-; RUN: opt -S -mtriple=x86_64-unknown-unknown -infer-address-spaces -override-flat-addr-space=4 %s | FileCheck %s --check-prefix=CHECK-NOREWRITE
+; RUN: opt -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown -override-flat-addr-space=4 -infer-as-rewrite-opencl-bis %s | FileCheck %s --check-prefix=CHECK-REWRITE
+; RUN: opt -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown -override-flat-addr-space=4 %s | FileCheck %s --check-prefix=CHECK-NOREWRITE
 
 declare float @_Z5fractfPU3AS4f(float %x, float addrspace(4)* nocapture %iptr) #1
 

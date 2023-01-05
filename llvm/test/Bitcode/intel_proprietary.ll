@@ -1,4 +1,4 @@
-; RUN: not opt -verify -f -o - < %s 2>&1 | FileCheck %s
+; RUN: not opt -passes="require<verify>" -f -o - < %s 2>&1 | FileCheck %s
 
 ; This test verifies that an error is reported if any attempt is made to write
 ; IR or bitcode when the "Intel Proprietary" module flag is set.

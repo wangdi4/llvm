@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -loopopt-use-omp-region -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S | FileCheck %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -loopopt-use-omp-region -lcssa-verification -S | FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
 ; Check that paropt retains omp directives for parallel loops with one thread
