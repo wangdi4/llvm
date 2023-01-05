@@ -6323,6 +6323,7 @@ static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
                         << *CS << "\n");
       SplitCleanupPadPredecessors(Dst, ToSplit, ".termpad", NewPad, nullptr, DT,
                                   nullptr, nullptr, false);
+      assert(NewPad && "Unable to split catchswitch terminator.");
       // Now we have this:
       // catchswitch XXX unwind to %x.termpad
       // %x.termpad:
