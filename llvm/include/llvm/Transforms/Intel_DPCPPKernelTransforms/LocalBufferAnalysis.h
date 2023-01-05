@@ -13,78 +13,43 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
+class LocalBufferInfoImpl;
 
 // It handles actual analysis and results of local buffer analysis.
 class LocalBufferInfo {
+  std::unique_ptr<LocalBufferInfoImpl> Impl;
+
 public:
   /// A set of local values used by a function
-  typedef SmallPtrSet<llvm::GlobalValue *, 16> TUsedLocals;
+  using TUsedLocals = SmallPtrSet<GlobalVariable *, 16>;
 
   /// A mapping between function pointer and the set of local values the
   /// function uses directly.
-  typedef DenseMap<const llvm::Function *, TUsedLocals> TUsedLocalsMap;
+  using TUsedLocalsMap = DenseMap<const llvm::Function *, TUsedLocals>;
 
-  LocalBufferInfo(Module *M) { this->M = M; }
+  LocalBufferInfo(Module &M, CallGraph &CG);
+  LocalBufferInfo(LocalBufferInfo &&Other);
+  LocalBufferInfo &operator=(LocalBufferInfo &&Other);
+  ~LocalBufferInfo();
 
-  void analyzeModule(CallGraph *CG);
+  void print(raw_ostream &OS);
 
-  /// Returns the set of local values used directly by the given function
-  /// \param F a function for which should return the local values that
-  /// were used by it directly.
-  /// \returns the set of local values used directly by the given function.
-  const TUsedLocals &getDirectLocals(Function *F) { return LocalUsageMap[F]; }
+  /// Returns the map from function to the set of local values the function
+  /// uses directly.
+  TUsedLocalsMap &getDirectLocalsMap();
 
-  /// Returns the size of local buffer used directly by the given function.
-  /// \param F given function.
-  /// \returns the size of local buffer used directly by the given function.
-  size_t getDirectLocalsSize(Function *F) { return DirectLocalSizeMap[F]; }
+  /// Compute size of the combined local buffer and offset of each local
+  /// variable.
+  void computeSize();
 
   /// Returns the size of local buffer used by the given function.
   /// \param F given function.
-  /// \returns the size of local buffer used by the given function.
-  size_t getLocalsSize(Function *F) { return LocalSizeMap[F]; }
+  size_t getLocalsSize(Function *F) const;
 
-private:
-  /// Adds the given local value to the set of used locals of all functions
-  /// that are using the given user directly. It recursively searches the first
-  /// useres (and users of a users) that are functions.
-  /// \param LocalVal local value (which is represented by a global value
-  /// with address space 3).
-  /// \param U direct user of pLocalVal.
-  void updateLocalsMap(GlobalValue *LocalVal, User *U);
-
-  /// Goes over all local values in the module and over all their direct users
-  /// and maps between functions and the local values they use.
-  /// \param M the module which need to go over its local values.
-  void updateDirectLocals(Module &M);
-
-  /// calculate direct local sizes used by functions in the module.
-  void calculateDirectLocalsSize();
-
-  /// Iterate all functions in module by postorder traversal, and for each
-  /// function, add direct local sizes with the max size of local buffer needed
-  /// by all of callees.
-  void calculateLocalsSize(CallGraph *CG);
-
-  /// A mapping between function pointer and the local buffer size that the
-  /// function uses.
-  typedef DenseMap<Function *, size_t> TLocalSizeMap;
-
-  /// The llvm module this pass needs to update.
-  Module *M;
-
-  /// Map between function and the local values it uses directly.
-  TUsedLocalsMap LocalUsageMap;
-
-  /// Map between function and the local buffer size.
-  TLocalSizeMap LocalSizeMap;
-
-  /// Map between function and the local buffer size for local values used
-  /// directly by this function.
-  TLocalSizeMap DirectLocalSizeMap;
+  /// Returns offset of a local variable within the combined local buffer.
+  size_t getLocalGVToOffset(GlobalVariable *GV) const;
 };
 
 /// Provide information about the local values each function uses directly.
@@ -101,30 +66,14 @@ public:
   LocalBufferInfo run(Module &M, AnalysisManager<Module> &AM);
 };
 
-// Legacy wrapper pass to provide the LocalBufferInfo object.
-class LocalBufferAnalysisLegacy : public ModulePass {
-  std::unique_ptr<LocalBufferInfo> Result;
+/// Printer pass for LocalBufferAnalysis.
+class LocalBufferAnalysisPrinter
+    : public PassInfoMixin<LocalBufferAnalysisPrinter> {
+  raw_ostream &OS;
 
 public:
-  /// Pass identification, replacement for typeid
-  static char ID;
-
-  LocalBufferAnalysisLegacy();
-
-  llvm::StringRef getPassName() const override {
-    return "LocalBufferAnalysisLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    // Analysis pass preserve all
-    AU.setPreservesAll();
-  }
-
-  LocalBufferInfo &getResult() { return *Result; }
-  const LocalBufferInfo &getResult() const { return *Result; }
+  explicit LocalBufferAnalysisPrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 } // namespace llvm

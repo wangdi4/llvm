@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0x80 < %s -S | opt -inline -inline-report=0x80 -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0x80 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x80 -S 2>&1 | FileCheck %s
 
 ; This test checks that metadata corresponding to the inlining report was

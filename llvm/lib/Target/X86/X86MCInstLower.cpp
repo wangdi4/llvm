@@ -37,7 +37,6 @@
 #include "X86RegisterInfo.h"
 #include "X86ShuffleDecodeConstantPool.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -175,8 +174,8 @@ class X86MCInstLower {
 public:
   X86MCInstLower(const MachineFunction &MF, X86AsmPrinter &asmprinter);
 
-  Optional<MCOperand> LowerMachineOperand(const MachineInstr *MI,
-                                          const MachineOperand &MO) const;
+  std::optional<MCOperand> LowerMachineOperand(const MachineInstr *MI,
+                                               const MachineOperand &MO) const;
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;
 
   MCSymbol *GetSymbolFromOperand(const MachineOperand &MO) const;
@@ -538,7 +537,7 @@ static unsigned getRetOpcode(const X86Subtarget &Subtarget) {
   return Subtarget.is64Bit() ? X86::RET64 : X86::RET32;
 }
 
-Optional<MCOperand>
+std::optional<MCOperand>
 X86MCInstLower::LowerMachineOperand(const MachineInstr *MI,
                                     const MachineOperand &MO) const {
   switch (MO.getType()) {
@@ -548,7 +547,7 @@ X86MCInstLower::LowerMachineOperand(const MachineInstr *MI,
   case MachineOperand::MO_Register:
     // Ignore all implicit register operands.
     if (MO.isImplicit())
-      return None;
+      return std::nullopt;
     return MCOperand::createReg(MO.getReg());
   case MachineOperand::MO_Immediate:
     return MCOperand::createImm(MO.getImm());
@@ -567,7 +566,7 @@ X86MCInstLower::LowerMachineOperand(const MachineInstr *MI,
         MO, AsmPrinter.GetBlockAddressSymbol(MO.getBlockAddress()));
   case MachineOperand::MO_RegisterMask:
     // Ignore call clobbers.
-    return None;
+    return std::nullopt;
   }
 }
 
@@ -1474,14 +1473,17 @@ void X86AsmPrinter::LowerKCFI_CHECK(const MachineInstr &MI) {
   // and thus emitting potential call target gadgets at each indirect call
   // site, load a negated constant to a register and compare that to the
   // expected value at the call target.
+  const Register AddrReg = MI.getOperand(0).getReg();
   const uint32_t Type = MI.getOperand(1).getImm();
-  EmitAndCountInstruction(MCInstBuilder(X86::MOV32ri)
-                              .addReg(X86::R10D)
-                              .addImm(-MaskKCFIType(Type)));
+  // The check is immediately before the call. If the call target is in R10,
+  // we can clobber R11 for the check instead.
+  unsigned TempReg = AddrReg == X86::R10 ? X86::R11D : X86::R10D;
+  EmitAndCountInstruction(
+      MCInstBuilder(X86::MOV32ri).addReg(TempReg).addImm(-MaskKCFIType(Type)));
   EmitAndCountInstruction(MCInstBuilder(X86::ADD32rm)
                               .addReg(X86::NoRegister)
-                              .addReg(X86::R10D)
-                              .addReg(MI.getOperand(0).getReg())
+                              .addReg(TempReg)
+                              .addReg(AddrReg)
                               .addImm(1)
                               .addReg(X86::NoRegister)
                               .addImm(-(PrefixNops + 4))
@@ -1541,6 +1543,9 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
 
   unsigned MinSize = MI.getOperand(0).getImm();
   unsigned Opcode = MI.getOperand(1).getImm();
+  // Opcode PATCHABLE_OP is a special case: there is no instruction to wrap,
+  // simply emit a nop of size MinSize.
+  bool EmptyInst = (Opcode == TargetOpcode::PATCHABLE_OP);
 
   MCInst MCI;
   MCI.setOpcode(Opcode);
@@ -1549,9 +1554,11 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
       MCI.addOperand(*MaybeOperand);
 
   SmallString<256> Code;
-  SmallVector<MCFixup, 4> Fixups;
-  raw_svector_ostream VecOS(Code);
-  CodeEmitter->encodeInstruction(MCI, VecOS, Fixups, getSubtargetInfo());
+  if (!EmptyInst) {
+    SmallVector<MCFixup, 4> Fixups;
+    raw_svector_ostream VecOS(Code);
+    CodeEmitter->encodeInstruction(MCI, VecOS, Fixups, getSubtargetInfo());
+  }
 
   if (Code.size() < MinSize) {
     if (MinSize == 2 && Subtarget->is32Bit() &&
@@ -1577,8 +1584,8 @@ void X86AsmPrinter::LowerPATCHABLE_OP(const MachineInstr &MI,
       (void)NopSize;
     }
   }
-
-  OutStreamer->emitInstruction(MCI, getSubtargetInfo());
+  if (!EmptyInst)
+    OutStreamer->emitInstruction(MCI, getSubtargetInfo());
 }
 
 // Lower a stackmap of the form:
@@ -1687,7 +1694,7 @@ void X86AsmPrinter::LowerPATCHABLE_EVENT_CALL(const MachineInstr &MI,
   // First we emit the label and the jump.
   auto CurSled = OutContext.createTempSymbol("xray_event_sled_", true);
   OutStreamer->AddComment("# XRay Custom Event Log");
-  OutStreamer->emitCodeAlignment(2, &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(Align(2), &getSubtargetInfo());
   OutStreamer->emitLabel(CurSled);
 
   // Use a two-byte `jmp`. This version of JMP takes an 8-bit relative offset as
@@ -1783,7 +1790,7 @@ void X86AsmPrinter::LowerPATCHABLE_TYPED_EVENT_CALL(const MachineInstr &MI,
   // First we emit the label and the jump.
   auto CurSled = OutContext.createTempSymbol("xray_typed_event_sled_", true);
   OutStreamer->AddComment("# XRay Typed Event Log");
-  OutStreamer->emitCodeAlignment(2, &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(Align(2), &getSubtargetInfo());
   OutStreamer->emitLabel(CurSled);
 
   // Use a two-byte `jmp`. This version of JMP takes an 8-bit relative offset as
@@ -1885,7 +1892,7 @@ void X86AsmPrinter::LowerPATCHABLE_FUNCTION_ENTER(const MachineInstr &MI,
   //   call <relative offset, 32-bits>   // 5 bytes
   //
   auto CurSled = OutContext.createTempSymbol("xray_sled_", true);
-  OutStreamer->emitCodeAlignment(2, &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(Align(2), &getSubtargetInfo());
   OutStreamer->emitLabel(CurSled);
 
   // Use a two-byte `jmp`. This version of JMP takes an 8-bit relative offset as
@@ -1915,7 +1922,7 @@ void X86AsmPrinter::LowerPATCHABLE_RET(const MachineInstr &MI,
   //
   // This just makes sure that the alignment for the next instruction is 2.
   auto CurSled = OutContext.createTempSymbol("xray_sled_", true);
-  OutStreamer->emitCodeAlignment(2, &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(Align(2), &getSubtargetInfo());
   OutStreamer->emitLabel(CurSled);
   unsigned OpCode = MI.getOperand(0).getImm();
   MCInst Ret;
@@ -1939,7 +1946,7 @@ void X86AsmPrinter::LowerPATCHABLE_TAIL_CALL(const MachineInstr &MI,
   // the PATCHABLE_FUNCTION_ENTER case, followed by the lowering of the actual
   // tail call much like how we have it in PATCHABLE_RET.
   auto CurSled = OutContext.createTempSymbol("xray_sled_", true);
-  OutStreamer->emitCodeAlignment(2, &getSubtargetInfo());
+  OutStreamer->emitCodeAlignment(Align(2), &getSubtargetInfo());
   OutStreamer->emitLabel(CurSled);
   auto Target = OutContext.createTempSymbol();
 

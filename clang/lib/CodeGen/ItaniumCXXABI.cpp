@@ -40,10 +40,8 @@
 #include "CGVTables.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "CodeGenTypeCache.h"
 #include "TargetInfo.h"
-#if INTEL_COLLAB
-#include "CGOpenMPRuntime.h"
-#endif  // INTEL_COLLAB
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/StmtCXX.h"
@@ -55,6 +53,10 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ScopedPrinter.h"
+
+#if INTEL_COLLAB
+#include "CGOpenMPRuntime.h"
+#endif // INTEL_COLLAB
 
 using namespace clang;
 using namespace CodeGen;
@@ -453,11 +455,7 @@ public:
     ItaniumCXXABI(CGM, /*UseARMMethodPtrABI=*/true,
                   /*UseARMGuardVarABI=*/true) {}
 
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return (isa<CXXConstructorDecl>(GD.getDecl()) || (
-              isa<CXXDestructorDecl>(GD.getDecl()) &&
-              GD.getDtorType() != Dtor_Deleting));
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
 
   void EmitReturnFromThunk(CodeGenFunction &CGF, RValue RV,
                            QualType ResTy) override;
@@ -488,11 +486,7 @@ public:
       : ItaniumCXXABI(CGM) {}
 
 private:
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return isa<CXXConstructorDecl>(GD.getDecl()) ||
-           (isa<CXXDestructorDecl>(GD.getDecl()) &&
-            GD.getDtorType() != Dtor_Deleting);
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
 };
 
 class WebAssemblyCXXABI final : public ItaniumCXXABI {
@@ -506,11 +500,7 @@ public:
                                       llvm::Value *Exn) override;
 
 private:
-  bool HasThisReturn(GlobalDecl GD) const override {
-    return isa<CXXConstructorDecl>(GD.getDecl()) ||
-           (isa<CXXDestructorDecl>(GD.getDecl()) &&
-            GD.getDtorType() != Dtor_Deleting);
-  }
+  bool constructorsAndDestructorsReturnThis() const override { return true; }
   bool canCallMismatchedFunctionType() const override { return false; }
 };
 
@@ -1045,7 +1035,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     } else {
       const ASTContext &Context = getContext();
       CharUnits PointerWidth = Context.toCharUnitsFromBits(
-          Context.getTargetInfo().getPointerWidth(0));
+          Context.getTargetInfo().getPointerWidth(LangAS::Default));
       VTableOffset = Index * PointerWidth.getQuantity();
     }
 
@@ -1300,7 +1290,7 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
   llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(FTy, "__cxa_rethrow");
 
   if (isNoReturn)
-    CGF.EmitNoreturnRuntimeCallOrInvoke(Fn, None);
+    CGF.EmitNoreturnRuntimeCallOrInvoke(Fn, std::nullopt);
   else
     CGF.EmitRuntimeCallOrInvoke(Fn);
 }
@@ -1310,7 +1300,7 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
 
 #if INTEL_COLLAB
   llvm::FunctionType *FTy = llvm::FunctionType::get(
-      CGM.TargetInt8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
+      CGM.DefaultInt8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
 #else // INTEL_COLLAB
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
@@ -1339,8 +1329,8 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
   //                  void (*dest) (void *));
 
 #if INTEL_COLLAB
-  llvm::Type *Args[3] = {CGM.TargetInt8PtrTy, CGM.TargetInt8PtrTy,
-                         CGM.TargetInt8PtrTy};
+  llvm::Type *Args[3] = {CGM.DefaultInt8PtrTy, CGM.DefaultInt8PtrTy,
+                         CGM.DefaultInt8PtrTy};
 #else // INTEL_COLLAB
   llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.Int8PtrTy, CGM.Int8PtrTy };
 #endif  // INTEL_COLLAB
@@ -1393,14 +1383,14 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       Dtor = CGM.getAddrOfCXXStructor(GlobalDecl(DtorD, Dtor_Complete));
 #if INTEL_COLLAB
       Dtor = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          Dtor, CGM.TargetInt8PtrTy);
+          Dtor, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
       Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
     }
   }
 #if INTEL_COLLAB
-  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.TargetInt8PtrTy);
+  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
   if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
@@ -1416,7 +1406,7 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   //                      std::ptrdiff_t src2dst_offset);
 
 #if INTEL_COLLAB
-  llvm::Type *Int8PtrTy = CGF.TargetInt8PtrTy;
+  llvm::Type *Int8PtrTy = CGF.DefaultInt8PtrTy;
 #else // INTEL_COLLAB
   llvm::Type *Int8PtrTy = CGF.Int8PtrTy;
 #endif  // INTEL_COLLAB
@@ -1428,8 +1418,9 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
 
   // Mark the function as nounwind readonly.
-  llvm::Attribute::AttrKind FuncAttrs[] = { llvm::Attribute::NoUnwind,
-                                            llvm::Attribute::ReadOnly };
+  llvm::AttrBuilder FuncAttrs(CGF.getLLVMContext());
+  FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
+  FuncAttrs.addMemoryAttr(llvm::MemoryEffects::readOnly());
   llvm::AttributeList Attrs = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 
@@ -1968,10 +1959,10 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   if (VirtualPointerIndex)
 #if INTEL_COLLAB
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.TargetInt8PtrTy, VTT, VirtualPointerIndex);
+        CGF.DefaultInt8PtrTy, VTT, VirtualPointerIndex);
 
   // And load the address point from the VTT.
-  return CGF.Builder.CreateAlignedLoad(CGF.TargetInt8PtrTy, VTT,
+  return CGF.Builder.CreateAlignedLoad(CGF.DefaultInt8PtrTy, VTT,
                                        CGF.getPointerAlign());
 #else // INTEL_COLLAB
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
@@ -2018,7 +2009,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
   // values are read.
   unsigned PAlign = CGM.getItaniumVTableContext().isRelativeLayout()
                         ? 32
-                        : CGM.getTarget().getPointerAlign(0);
+                        : CGM.getTarget().getPointerAlign(LangAS::Default);
 
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, VTableType, llvm::GlobalValue::ExternalLinkage,
@@ -2073,7 +2064,9 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   if (CGF.ShouldEmitVTableTypeCheckedLoad(MethodDecl->getParent())) {
     VFunc = CGF.EmitVTableTypeCheckedLoad(
         MethodDecl->getParent(), VTable, TyPtr,
-        VTableIndex * CGM.getContext().getTargetInfo().getPointerWidth(0) / 8);
+        VTableIndex *
+            CGM.getContext().getTargetInfo().getPointerWidth(LangAS::Default) /
+            8);
   } else {
     CGF.EmitTypeMetadataCodeForVCall(MethodDecl->getParent(), VTable, Loc);
 
@@ -2231,7 +2224,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   if (VirtualAdjustment) {
 #if INTEL_COLLAB
     Address VTablePtrPtr =
-        CGF.Builder.CreateElementBitCast(V, CGF.TargetInt8PtrTy);
+        CGF.Builder.CreateElementBitCast(V, CGF.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
 #endif  // INTEL_COLLAB
@@ -2658,13 +2651,15 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     }
 
     // Create the guard variable with a zero-initializer.
-    // Just absorb linkage and visibility from the guarded variable.
+    // Just absorb linkage, visibility and dll storage class  from the guarded
+    // variable.
     guard = new llvm::GlobalVariable(CGM.getModule(), guardTy,
                                      false, var->getLinkage(),
                                      llvm::ConstantInt::get(guardTy, 0),
                                      guardName.str());
     guard->setDSOLocal(var->isDSOLocal());
     guard->setVisibility(var->getVisibility());
+    guard->setDLLStorageClass(var->getDLLStorageClass());
     // If the variable is thread-local, so is its guard variable.
     guard->setThreadLocalMode(var->getThreadLocalMode());
     guard->setAlignment(guardAlignment.getAsAlign());
@@ -2702,54 +2697,76 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   //         __cxa_guard_release (&obj_guard);
   //       }
   //     }
-
-  // Load the first byte of the guard variable.
-  llvm::LoadInst *LI =
-      Builder.CreateLoad(Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
-
-  // Itanium ABI:
-  //   An implementation supporting thread-safety on multiprocessor
-  //   systems must also guarantee that references to the initialized
-  //   object do not occur before the load of the initialization flag.
   //
-  // In LLVM, we do this by marking the load Acquire.
-  if (threadsafe)
-    LI->setAtomic(llvm::AtomicOrdering::Acquire);
+  // If threadsafe statics are enabled, but we don't have inline atomics, just
+  // call __cxa_guard_acquire unconditionally.  The "inline" check isn't
+  // actually inline, and the user might not expect calls to __atomic libcalls.
 
-  // For ARM, we should only check the first bit, rather than the entire byte:
-  //
-  // ARM C++ ABI 3.2.3.1:
-  //   To support the potential use of initialization guard variables
-  //   as semaphores that are the target of ARM SWP and LDREX/STREX
-  //   synchronizing instructions we define a static initialization
-  //   guard variable to be a 4-byte aligned, 4-byte word with the
-  //   following inline access protocol.
-  //     #define INITIALIZED 1
-  //     if ((obj_guard & INITIALIZED) != INITIALIZED) {
-  //       if (__cxa_guard_acquire(&obj_guard))
-  //         ...
-  //     }
-  //
-  // and similarly for ARM64:
-  //
-  // ARM64 C++ ABI 3.2.2:
-  //   This ABI instead only specifies the value bit 0 of the static guard
-  //   variable; all other bits are platform defined. Bit 0 shall be 0 when the
-  //   variable is not initialized and 1 when it is.
-  llvm::Value *V =
-      (UseARMGuardVarABI && !useInt8GuardVariable)
-          ? Builder.CreateAnd(LI, llvm::ConstantInt::get(CGM.Int8Ty, 1))
-          : LI;
-  llvm::Value *NeedsInit = Builder.CreateIsNull(V, "guard.uninitialized");
-
-  llvm::BasicBlock *InitCheckBlock = CGF.createBasicBlock("init.check");
+  unsigned MaxInlineWidthInBits = CGF.getTarget().getMaxAtomicInlineWidth();
   llvm::BasicBlock *EndBlock = CGF.createBasicBlock("init.end");
+  if (!threadsafe || MaxInlineWidthInBits) {
+    // Load the first byte of the guard variable.
+    llvm::LoadInst *LI =
+        Builder.CreateLoad(Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
 
-  // Check if the first byte of the guard variable is zero.
-  CGF.EmitCXXGuardedInitBranch(NeedsInit, InitCheckBlock, EndBlock,
-                               CodeGenFunction::GuardKind::VariableGuard, &D);
+    // Itanium ABI:
+    //   An implementation supporting thread-safety on multiprocessor
+    //   systems must also guarantee that references to the initialized
+    //   object do not occur before the load of the initialization flag.
+    //
+    // In LLVM, we do this by marking the load Acquire.
+    if (threadsafe)
+      LI->setAtomic(llvm::AtomicOrdering::Acquire);
 
-  CGF.EmitBlock(InitCheckBlock);
+    // For ARM, we should only check the first bit, rather than the entire byte:
+    //
+    // ARM C++ ABI 3.2.3.1:
+    //   To support the potential use of initialization guard variables
+    //   as semaphores that are the target of ARM SWP and LDREX/STREX
+    //   synchronizing instructions we define a static initialization
+    //   guard variable to be a 4-byte aligned, 4-byte word with the
+    //   following inline access protocol.
+    //     #define INITIALIZED 1
+    //     if ((obj_guard & INITIALIZED) != INITIALIZED) {
+    //       if (__cxa_guard_acquire(&obj_guard))
+    //         ...
+    //     }
+    //
+    // and similarly for ARM64:
+    //
+    // ARM64 C++ ABI 3.2.2:
+    //   This ABI instead only specifies the value bit 0 of the static guard
+    //   variable; all other bits are platform defined. Bit 0 shall be 0 when the
+    //   variable is not initialized and 1 when it is.
+    llvm::Value *V =
+        (UseARMGuardVarABI && !useInt8GuardVariable)
+            ? Builder.CreateAnd(LI, llvm::ConstantInt::get(CGM.Int8Ty, 1))
+            : LI;
+    llvm::Value *NeedsInit = Builder.CreateIsNull(V, "guard.uninitialized");
+
+    llvm::BasicBlock *InitCheckBlock = CGF.createBasicBlock("init.check");
+
+    // Check if the first byte of the guard variable is zero.
+    CGF.EmitCXXGuardedInitBranch(NeedsInit, InitCheckBlock, EndBlock,
+                                 CodeGenFunction::GuardKind::VariableGuard, &D);
+
+    CGF.EmitBlock(InitCheckBlock);
+  }
+
+  // The semantics of dynamic initialization of variables with static or thread
+  // storage duration depends on whether they are declared at block-scope. The
+  // initialization of such variables at block-scope can be aborted with an
+  // exception and later retried (per C++20 [stmt.dcl]p4), and recursive entry
+  // to their initialization has undefined behavior (also per C++20
+  // [stmt.dcl]p4). For such variables declared at non-block scope, exceptions
+  // lead to termination (per C++20 [except.terminate]p1), and recursive
+  // references to the variables are governed only by the lifetime rules (per
+  // C++20 [class.cdtor]p2), which means such references are perfectly fine as
+  // long as they avoid touching memory. As a result, block-scope variables must
+  // not be marked as initialized until after initialization completes (unless
+  // the mark is reverted following an exception), but non-block-scope variables
+  // must be marked prior to initialization so that recursive accesses during
+  // initialization do not restart initialization.
 
   // Variables used when coping with thread-safe statics and exceptions.
   if (threadsafe) {
@@ -2779,6 +2796,12 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #endif // INTEL_CUSTOMIZATION
 
     CGF.EmitBlock(InitBlock);
+  } else if (!D.isLocalVarDecl()) {
+    // For non-local variables, store 1 into the first byte of the guard
+    // variable before the object initialization begins so that references
+    // to the variable during initialization don't restart initialization.
+    Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
+                        Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
   }
 
   // Emit the initializer and add a global destructor if appropriate.
@@ -2799,9 +2822,10 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
                                 guardAddr.getPointer());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-  } else {
-    // Store 1 into the first byte of the guard variable after initialization is
-    // complete.
+  } else if (D.isLocalVarDecl()) {
+    // For local variables, store 1 into the first byte of the guard variable
+    // after the object initialization completes so that initialization is
+    // retried if initialization is interrupted by an exception.
     Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
                         Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
   }
@@ -3465,7 +3489,7 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     // RTTI, check if emitting vtables opportunistically need any adjustment.
 
 #if INTEL_COLLAB
-    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.TargetInt8PtrTy,
+    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.DefaultInt8PtrTy,
                                   /*isConstant=*/true,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   Name);
@@ -3499,7 +3523,7 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
 
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-      GV, CGM.TargetInt8PtrTy);
+      GV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
   return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
 #endif // INTEL_COLLAB
@@ -3887,12 +3911,9 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
+
   if (!VTable)
-#if INTEL_COLLAB
-    VTable = CGM.CreateRuntimeVariable(CGM.TargetInt8PtrTy, VTableName);
-#else  // INTEL_COLLAB
-    VTable = CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
-#endif  // INTEL_COLLAB
+    VTable = CGM.CreateRuntimeVariable(CGM.DefaultInt8PtrTy, VTableName);
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
@@ -3917,28 +3938,15 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     // The vtable address point is 8 bytes after its start:
     // 4 for the offset to top + 4 for the relative offset to rtti.
     llvm::Constant *Eight = llvm::ConstantInt::get(CGM.Int32Ty, 8);
-#if INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
-#else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
   } else {
     llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
-#if INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.TargetInt8PtrTy,
+    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.DefaultInt8PtrTy,
                                                           VTable, Two);
-#else // INTEL_COLLAB
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable,
-                                                          Two);
-#endif // INTEL_COLLAB
   }
-#if INTEL_COLLAB
-  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.TargetInt8PtrTy);
-#else // INTEL_COLLAB
-  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
+  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.DefaultInt8PtrTy);
 
   Fields.push_back(VTable);
 }
@@ -4013,7 +4021,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
 
 #if INTEL_COLLAB
     return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        OldGV, CGM.TargetInt8PtrTy);
+        OldGV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     return llvm::ConstantExpr::getBitCast(OldGV, CGM.Int8PtrTy);
 #endif // INTEL_COLLAB
@@ -4077,7 +4085,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     TypeNameField = llvm::ConstantExpr::getAdd(TypeNameField, flag);
 #if INTEL_COLLAB
     TypeNameField =
-        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.TargetInt8PtrTy);
+        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     TypeNameField =
         llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.Int8PtrTy);
@@ -4085,7 +4093,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   } else {
 #if INTEL_COLLAB
     TypeNameField = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        TypeName, CGM.TargetInt8PtrTy);
+        TypeName, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     TypeNameField = llvm::ConstantExpr::getBitCast(TypeName, CGM.Int8PtrTy);
 #endif // INTEL_COLLAB
@@ -4222,8 +4230,8 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   if (CGM.supportsCOMDAT() && GV->isWeakForLinker())
     GV->setComdat(M.getOrInsertComdat(GV->getName()));
 
-  CharUnits Align =
-      CGM.getContext().toCharUnitsFromBits(CGM.getTarget().getPointerAlign(0));
+  CharUnits Align = CGM.getContext().toCharUnitsFromBits(
+      CGM.getTarget().getPointerAlign(LangAS::Default));
   GV->setAlignment(Align.getAsAlign());
 
   // The Itanium ABI specifies that type_info objects must be globally
@@ -4262,7 +4270,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-      GV, CGM.TargetInt8PtrTy);
+      GV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
   return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
 #endif // INTEL_COLLAB
@@ -4411,7 +4419,8 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   // LLP64 platforms.
   QualType OffsetFlagsTy = CGM.getContext().LongTy;
   const TargetInfo &TI = CGM.getContext().getTargetInfo();
-  if (TI.getTriple().isOSCygMing() && TI.getPointerWidth(0) > TI.getLongWidth())
+  if (TI.getTriple().isOSCygMing() &&
+      TI.getPointerWidth(LangAS::Default) > TI.getLongWidth())
     OffsetFlagsTy = CGM.getContext().LongLongTy;
   llvm::Type *OffsetFlagsLTy =
       CGM.getTypes().ConvertType(OffsetFlagsTy);
@@ -5054,13 +5063,16 @@ void ItaniumCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 ///   void @__clang_call_terminate(i8* %exn) nounwind noreturn
 /// This code is used only in C++.
 static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
-  llvm::FunctionType *fnTy =
-    llvm::FunctionType::get(CGM.VoidTy, CGM.Int8PtrTy, /*isVarArg=*/false);
+  ASTContext &C = CGM.getContext();
+  const CGFunctionInfo &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
+      C.VoidTy, {C.getPointerType(C.CharTy)});
+  llvm::FunctionType *fnTy = CGM.getTypes().GetFunctionType(FI);
   llvm::FunctionCallee fnRef = CGM.CreateRuntimeFunction(
       fnTy, "__clang_call_terminate", llvm::AttributeList(), /*Local=*/true);
   llvm::Function *fn =
       cast<llvm::Function>(fnRef.getCallee()->stripPointerCasts());
   if (fn->empty()) {
+    CGM.SetLLVMFunctionAttributes(GlobalDecl(), FI, fn, /*IsThunk=*/false);
     fn->setDoesNotThrow();
     fn->setDoesNotReturn();
 

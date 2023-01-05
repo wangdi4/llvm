@@ -1,4 +1,4 @@
-; RUN: opt < %s -function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s
 
 ; This is a basic test for the Intel Function Splitting pass.
 ;

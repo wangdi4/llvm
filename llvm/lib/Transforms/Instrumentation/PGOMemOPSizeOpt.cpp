@@ -37,7 +37,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/Analysis/GlobalsModRef.h" // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -51,9 +50,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
-#include "llvm/InitializePasses.h" // INTEL
-#include "llvm/Pass.h" // INTEL
-#include "llvm/PassRegistry.h" // INTEL
 #include "llvm/ProfileData/InstrProf.h"
 #define INSTR_PROF_VALUE_PROF_MEMOP_API
 #include "llvm/ProfileData/InstrProfData.inc"
@@ -62,12 +58,19 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/Instrumentation.h" // INTEL
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
 #include <cstdint>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/PassRegistry.h"
+#include "llvm/Transforms/Instrumentation.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -313,9 +316,9 @@ bool MemOPSizeOpt::perform(MemOp MO) {
   uint64_t SavedRemainCount = SavedTotalCount;
   SmallVector<uint64_t, 16> SizeIds;
   SmallVector<uint64_t, 16> CaseCounts;
+  SmallDenseSet<uint64_t, 16> SeenSizeId;
   uint64_t MaxCount = 0;
   unsigned Version = 0;
-  int64_t LastV = -1;
   // Default case is in the front -- save the slot here.
   CaseCounts.push_back(0);
   SmallVector<InstrProfValueData, 24> RemainingVDs;
@@ -338,14 +341,11 @@ bool MemOPSizeOpt::perform(MemOp MO) {
       break;
     }
 
-    if (V == LastV) {
-      LLVM_DEBUG(dbgs() << "Invalid Profile Data in Function " << Func.getName()
-                        << ": Two consecutive, identical values in MemOp value"
-                           "counts.\n");
+    if (!SeenSizeId.insert(V).second) {
+      errs() << "Invalid Profile Data in Function " << Func.getName()
+             << ": Two identical values in MemOp value counts.\n";
       return false;
     }
-
-    LastV = V;
 
     SizeIds.push_back(V);
     CaseCounts.push_back(C);
@@ -447,7 +447,7 @@ bool MemOPSizeOpt::perform(MemOp MO) {
     assert(SizeType && "Expected integer type size argument.");
     ConstantInt *CaseSizeId = ConstantInt::get(SizeType, SizeId);
     NewMO.setLength(CaseSizeId);
-    CaseBB->getInstList().push_back(NewMO.I);
+    NewMO.I->insertAt(CaseBB, CaseBB->end());
     IRBuilder<> IRBCase(CaseBB);
     IRBCase.CreateBr(MergeBB);
     SI->addCase(CaseSizeId, CaseBB);
@@ -462,7 +462,8 @@ bool MemOPSizeOpt::perform(MemOp MO) {
   DTU.applyUpdates(Updates);
   Updates.clear();
 
-  setProfMetadata(Func.getParent(), SI, CaseCounts, MaxCount);
+  if (MaxCount)
+    setProfMetadata(Func.getParent(), SI, CaseCounts, MaxCount);
 
   LLVM_DEBUG(dbgs() << *BB << "\n");
   LLVM_DEBUG(dbgs() << *DefaultBB << "\n");

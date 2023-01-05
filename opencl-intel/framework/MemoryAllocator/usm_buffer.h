@@ -36,20 +36,21 @@ public:
   }
 
   void SetType(cl_unified_shared_memory_type_intel type) { m_type = type; }
-  cl_unified_shared_memory_type_intel GetType() const    { return m_type; }
+  cl_unified_shared_memory_type_intel GetType() const { return m_type; }
 
   void SetFlags(cl_mem_alloc_flags_intel flags) { m_flags = flags; }
-  cl_mem_alloc_flags_intel GetFlags() const     { return m_flags; }
+  cl_mem_alloc_flags_intel GetFlags() const { return m_flags; }
 
   void SetDevice(cl_device_id device) { m_device = device; }
-  cl_device_id GetDevice() const      { return m_device; }
+  cl_device_id GetDevice() const { return m_device; }
 
 private:
-  USMBuffer(const SharedPtr<Context> &context) : SharedBuffer(context),
-    m_device(nullptr), m_flags(0), m_type(CL_MEM_TYPE_UNKNOWN_INTEL) {}
+  USMBuffer(const SharedPtr<Context> &context)
+      : SharedBuffer(context), m_device(nullptr), m_flags(0),
+        m_type(CL_MEM_TYPE_UNKNOWN_INTEL) {}
 
-  cl_device_id                        m_device;
-  cl_mem_alloc_flags_intel            m_flags;
+  cl_device_id m_device;
+  cl_mem_alloc_flags_intel m_flags;
   cl_unified_shared_memory_type_intel m_type;
 };
 

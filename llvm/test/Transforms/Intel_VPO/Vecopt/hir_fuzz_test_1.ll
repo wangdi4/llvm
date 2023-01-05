@@ -17,7 +17,7 @@
 ;
 ;   return no;
 ; }
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -S  -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -S  -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:  %red.init = 0;

@@ -14,14 +14,6 @@
 ; RUN:          -filetype=obj
 ; RUN: lld-link /out:%t_wp3alias.exe /entry:main %t_wp3alias.bc %t_foo.obj /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
-; RUN:     /opt:noltonewpassmanager \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: llvm-as -o %t_wp3alias.bc %s
-; RUN: llc %p/Inputs/whole_program_alias_sub2.ll -o %t_foo.obj \
-; RUN:          -filetype=obj
-; RUN: lld-link /out:%t_wp3alias.exe /entry:main %t_wp3alias.bc %t_foo.obj /subsystem:console  \
-; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 

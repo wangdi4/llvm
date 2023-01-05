@@ -1,4 +1,3 @@
-; RUN: opt -instcombine -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=instcombine -S < %s 2>&1 | FileCheck %s
 
 ; Original code (with manually inserted stacksave/stackrestore):

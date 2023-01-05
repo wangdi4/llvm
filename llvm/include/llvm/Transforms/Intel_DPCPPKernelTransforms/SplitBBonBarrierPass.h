@@ -28,25 +28,11 @@ public:
 
   bool runImpl(Module &M);
 
+  static bool isRequired() { return true; }
+
 private:
   /// This is barrier utility class
   BarrierUtils Utils;
-};
-
-/// SplitBBonBarrierLegacy pass for legacy pass manager.
-class SplitBBonBarrierLegacy : public ModulePass {
-  SplitBBonBarrier Impl;
-
-public:
-  static char ID;
-
-  SplitBBonBarrierLegacy();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel SplitBBonBarrier";
-  }
-
-  bool runOnModule(Module &M) override;
 };
 
 } // namespace llvm

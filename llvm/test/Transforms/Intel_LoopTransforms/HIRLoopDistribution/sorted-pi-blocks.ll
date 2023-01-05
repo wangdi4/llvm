@@ -1,4 +1,3 @@
-; RUN: opt -hir-loop-distribute-max-mem=0 -hir-ssa-deconstruction -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-loop-distribute-max-mem=0 -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that instruction order is preserved after the loop distribution.

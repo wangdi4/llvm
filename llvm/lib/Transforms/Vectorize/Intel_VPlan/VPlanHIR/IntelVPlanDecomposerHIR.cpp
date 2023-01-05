@@ -25,6 +25,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
@@ -931,6 +933,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
+
+      if (Call->getIntrinsicID() == Intrinsic::assume)
+        Plan->getVPAC()->registerAssumption(
+            *cast<VPCallInstruction>(NewVPInst));
+
     } else if (isa<GetElementPtrInst>(LLVMInst)) {
       // Don't create an additional single operand no-op GEP here. Re-use the
       // subscript instruction that was already created during decomposition of
@@ -1386,15 +1393,18 @@ void VPDecomposerHIR::addFPInductionsForLoop(HLLoop *HLp) {
   assert(IndList && "List for auto-recognized induction descriptors missing.");
   // Add each FP IV into the list of auto-recognized inductions tracked by
   // decomposer.
-  for (auto FPIV : LoopFPIVs) {
+  for (const auto &FPIV : LoopFPIVs) {
     const HLInst *DefInst = FPIV.DefInst;
     const RegDDRef *StrideRef = FPIV.StrideRef;
     auto *BinOp = cast<VPInstruction>(getVPValueForNode(DefInst));
-    ConstantFP *ConstStep = nullptr;
+    ConstantFP *ConstScalStep = nullptr;
+    Constant *ConstVecStep = nullptr;
     VPValue *Step = nullptr;
     // Step can be constant or loop invariant external value.
-    if (StrideRef->isFPConstant(&ConstStep))
-      Step = getVPValueForConst(ConstStep);
+    if (StrideRef->isFPConstant(&ConstScalStep))
+      Step = getVPValueForConst(ConstScalStep);
+    else if (StrideRef->isFPVectorConstant(&ConstVecStep))
+      Step = getVPValueForConst(ConstVecStep);
     else
       Step = getVPExternalDefForDDRef(StrideRef);
     VPValue *Start = getVPExternalDefForDDRef(DefInst->getLvalDDRef());
@@ -1624,7 +1634,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // For using blocks we can reuse information available in the PhiToFix map,
   // since we know that Decomposer adds an empty PHI node only for an ambiguous
   // use of the Symbase
-  for (auto PhiMapIt : PhisToFix) {
+  for (const auto &PhiMapIt : PhisToFix) {
     unsigned Sym = PhiMapIt.first.second;
     assert(TrackedSymbases.count(Sym) && "Untracked symbase in PhisToFix.");
     SymbaseUsingBlocks[Sym].insert(PhiMapIt.first.first);
@@ -1667,9 +1677,9 @@ void VPDecomposerHIR::addIDFPhiNodes() {
       OS << "]\n";
     }
     OS << "\nSymbaseUsingBlocks:\n";
-    for (auto MapIt : SymbaseUsingBlocks) {
+    for (const auto &MapIt : SymbaseUsingBlocks) {
       OS << "Symbase " << MapIt.first << " -> [";
-      for (auto B : MapIt.second) {
+      for (const auto &B : MapIt.second) {
         OS << " " << B->getName() << " ";
       }
       OS << "]\n";
@@ -1698,7 +1708,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
     // NOTE: SymLiveInBlocks can be empty for cases when DDG is inaccurate and
     // we place a unnecessary PHI node
-    for (auto LIB : SymLiveInBlocks) {
+    for (const auto &LIB : SymLiveInBlocks) {
       LLVM_DEBUG(dbgs() << "VPDecomp: " << LIB->getName()
                         << " is a live-in block for the tracked symbase " << Sym
                         << "\n");
@@ -1783,7 +1793,7 @@ void VPDecomposerHIR::fixPhiNodes() {
   // accurate since there could be post-dominating VPInstructions updating the
   // same Symbase. This will however be handled by fixExternalUses transform at
   // end of decomposer.
-  for (auto PhiIt : PhisToFix) {
+  for (const auto &PhiIt : PhisToFix) {
     unsigned Sym = PhiIt.first.second;
     if (OutermostHLp->isLiveOut(Sym)) {
       VPPHINode *Phi = PhiIt.second.first;
@@ -1801,7 +1811,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   // 1. Make sure that all new PHI nodes added by decomposition are moved to the
   // top of the VPBB
-  for (auto PHIMapIt : PhiToSymbaseMap)
+  for (const auto &PHIMapIt : PhiToSymbaseMap)
     movePhiToFront(PHIMapIt.first);
 
   // 2. Set the incoming values of all tracked Symbases to their ExternalDef
@@ -1852,7 +1862,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   // TODO: validate correctness of the PHI nodes after fixing, also set their
   // master VPI's HIR to valid (VPPhi->HIR().getMaster()->HIR().setValid())
-  for (auto PhiMapIt : PhisToFix) {
+  for (const auto &PhiMapIt : PhisToFix) {
     VPPHINode *FixedPhi = PhiMapIt.second.first;
 
     // This fixed PHI node might have an empty/null incoming value from one of
@@ -2175,6 +2185,54 @@ void VPDecomposerHIR::fixExternalUses() {
   }
 }
 
+void VPDecomposerHIR::computeValidHIRAssumes() {
+  assert(ValidHIRAssumes.empty() && "already computed?");
+
+  // Before computing this set, first perform a quick check if there will be any
+  // candidates, by checking if any LLVM assumes are inside the HIR region. In
+  // most cases, there won't be any, and walking the HIR region is expensive, so
+  // avoid doing so unless we absolutely have to.
+  const HLRegion *ParentRegion = OutermostHLp->getParentRegion();
+  const bool AnyAssumesInParentRegion = llvm::any_of(
+      Plan->getVPAC()->getLLVMCache()->assumptions(),
+      [ParentRegion](const AssumptionCache::ResultElem &Assumption) {
+        if (const AssumeInst *AI = cast_or_null<AssumeInst>(Assumption.Assume))
+          return ParentRegion->containsBBlock(AI->getParent());
+        return false;
+      });
+
+  if (AnyAssumesInParentRegion) {
+    // We know there are LLVM assumes in the HIR region. Walk HLInsts in the
+    // region prior to the outermost loop, collecting calls to '@llvm.assume'
+    // which dominate the outermost loop. Later, when importing external
+    // assumptions, we will explicitly allow these, whereas all other external
+    // assumptions must be outside of and dominate the parent region.
+    struct Visitor final : HLNodeVisitorBase {
+      friend HLNodeVisitor<Visitor, /*Recursive:*/ true>;
+
+      Visitor(VPDecomposerHIR &D) : D(D) {}
+      VPDecomposerHIR &D;
+      bool ReachedOutermostLoop = false;
+
+      void visit(const HLNode *) {}
+      void postVisit(const HLNode *) {}
+
+      void visit(const HLInst *I) {
+        const auto *Assume = dyn_cast<AssumeInst>(I->getLLVMInstruction());
+        if (Assume && HLNodeUtils::strictlyDominates(I, D.OutermostHLp))
+          D.ValidHIRAssumes.insert(Assume);
+      };
+      void visit(const HLLoop *L) {
+        if (L == D.OutermostHLp)
+          ReachedOutermostLoop = true;
+      }
+      bool isDone() const { return ReachedOutermostLoop; }
+    };
+    Visitor V(*this);
+    HLNodeUtils::visit(V, ParentRegion);
+  }
+}
+
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
                                              VPBasicBlock *InsPointVPBB) {
@@ -2262,15 +2320,36 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
   llvm_unreachable("Unsupported non-integer HIR Constant.");
 }
 
+bool VPDecomposerHIR::isValidExternalAssume(AssumeInst *I,
+                                            const DominatorTree *DT) const {
+  // Check for valid assumes in the HIR region before the loop.
+  if (ValidHIRAssumes.contains(I))
+    return true;
+
+  // Any other external assumes must be valid at the entry point to our HIR
+  // region.
+  const auto *CtxI =
+      &*OutermostHLp->getParentRegion()->getEntryBBlock()->begin();
+  return llvm::isValidAssumeForContext(I, CtxI, DT);
+}
+
 // Create a VPValue for a standalone blob given its SCEV. A standalone blob is
 // unitary and doesn't need decomposition.
 VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     const SCEVUnknown *Blob) {
+  const auto ImportExternalAssumptions = [this](const VPValue *VPVal,
+                                                const Value *IRVal) {
+    return Decomposer.Plan->getVPAC()->importExternalAssumptions(Decomposer,
+                                                                 VPVal, IRVal);
+  };
 
   if (RDDR.getBlobUtils().isConstantDataBlob(Blob) ||
       RDDR.getBlobUtils().isConstantVectorBlob(Blob))
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
+
+  unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);
+  assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
 
   // If the RegDDRef is a standalone blob (including metadata), we use the
   // RegDDRef directly in the following steps since there is no BlobDDRef
@@ -2279,8 +2358,6 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   if (RDDR.isNonDecomposable())
     DDR = &RDDR;
   else {
-    unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);
-    assert(BlobIndex != InvalidBlobIndex && "SCEV is not a Blob");
     DDR = RDDR.getBlobDDRef(BlobIndex);
     assert(DDR != nullptr && "BlobDDRef not found!");
   }
@@ -2297,6 +2374,16 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // Single definition.
     Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
+
+    if (HLNodeUtils::isRegionInvariant(
+            Decomposer.OutermostHLp->getParentRegion(), RDDR.getBlobUtils(),
+            BlobIndex)) {
+      // Check for region invariance before importing assumptions: otherwise,
+      // it may be possible that some assignment to this blob occurred within
+      // the HIR region, invalidating said assumptions.
+      ImportExternalAssumptions(VPDefs.front(), Blob->getValue());
+    }
+
     return VPDefs.front();
   } else {
     // The operands of the PHI are not set right now since some of them

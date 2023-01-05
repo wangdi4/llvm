@@ -17,9 +17,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -554,6 +552,10 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     if (DI) {
       DIExpression *Expr =
           DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
+      // byval argument are passed by value on the stack. It is represented as a
+      // pointer. We need to dereference its pointer type.
+      if (auto A = dyn_cast<Argument>(V); A && A->hasByValAttr())
+        Expr = DIExpression::prepend(Expr, DIExpression::DerefBefore);
       DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
                         DI->getDebugLoc().get(), AddrAI->getNextNode());
     }
@@ -1172,6 +1174,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
       BaseGID = Utils.createGetBaseGlobalId(Dim, OldCall);
 
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    // Non-kernel function doesn't have NoBarrierPath metadata.
     if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
       OldCall->replaceAllUsesWith(BaseGID);
     } else {
@@ -1503,15 +1506,13 @@ void KernelBarrier::updateStructureStride(Module &M,
 
     auto PrivateSize = getCalculatedPrivateSize(Func, FuncToPrivSize);
 
-    // Need to check if NoBarrierPath Value exists, it is not guaranteed that
-    // KernelAnalysisPass is running in all scenarios.
     // CSSD100016517, CSSD100018743: workaround
     // Private memory is always considered to be non-uniform. I.e. it is not
     // shared by each WI per vector lane. If it is uniform (i.e. its content
     // doesn't depend on non-uniform values) the private memory query returns a
     // smaller value than actual private memory usage. This subtle is taken
     // into account in the query for the maximum work-group.
-    if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
+    if (KIMD.NoBarrierPath.get()) {
       KIMD.BarrierBufferSize.set(0);
       // If there are no barrier in the kernel, StrideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
@@ -1528,41 +1529,4 @@ void KernelBarrier::updateStructureStride(Module &M,
                       << ", PrivateMemorySize=" << KIMD.PrivateMemorySize.get()
                       << '\n');
   }
-}
-
-INITIALIZE_PASS_BEGIN(
-    KernelBarrierLegacy, DEBUG_TYPE,
-    "KernelBarrierLegacy Pass - Handle special values & replace "
-    "barrier/fiber with internal loop over WIs",
-    false, false)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
-INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper)
-INITIALIZE_PASS_END(
-    KernelBarrierLegacy, DEBUG_TYPE,
-    "KernelBarrierLegacy Pass - Handle special values & replace "
-    "barrier/fiber with internal loop over WIs",
-    false, false)
-
-char KernelBarrierLegacy::ID = 0;
-
-KernelBarrierLegacy::KernelBarrierLegacy(bool IsNativeDebug, bool UseTLSGlobals)
-    : ModulePass(ID), Impl(IsNativeDebug, UseTLSGlobals) {
-  initializeKernelBarrierLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool KernelBarrierLegacy::runOnModule(Module &M) {
-  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
-  auto *DPV = &getAnalysis<DataPerValueWrapper>().getDPV();
-  return Impl.runImpl(M, DPB, DPV);
-}
-
-void KernelBarrierLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<DataPerBarrierWrapper>();
-  AU.addRequired<DataPerValueWrapper>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-}
-
-ModulePass *llvm::createKernelBarrierLegacyPass(bool IsNativeDebug,
-                                                bool UseTLSGlobals) {
-  return new KernelBarrierLegacy(IsNativeDebug, UseTLSGlobals);
 }

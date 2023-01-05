@@ -3,7 +3,6 @@
 ; when size of any function exceeds max limit.
 ; anders-function-size-max-limit option is used to set max size to 2.
 
-; RUN: opt < %s -anders-aa -anders-function-size-max-limit=2 -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -anders-function-size-max-limit=2 -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Anders disabled...exceeded FunctionSizeMaxLimit

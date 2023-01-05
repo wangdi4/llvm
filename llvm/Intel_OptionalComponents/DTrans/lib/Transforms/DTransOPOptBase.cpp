@@ -996,8 +996,8 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   DTransSafetyInfo *TheDTInfo = DTInfo;
   auto InitializeFunctionCallInfoMapping = [TheDTInfo,
                                             &FunctionToCallInfoVec]() {
-    for (auto CInfoVec : TheDTInfo->call_info_entries())
-      for (auto CInfo : CInfoVec ) {
+    for (const auto &CInfoVec : TheDTInfo->call_info_entries())
+      for (auto *CInfo : CInfoVec ) {
         Function *F = CInfo->getInstruction()->getFunction();
         FunctionToCallInfoVec[F].push_back(CInfo);
       }

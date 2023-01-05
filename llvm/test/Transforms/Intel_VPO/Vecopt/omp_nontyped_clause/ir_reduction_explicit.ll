@@ -1,4 +1,4 @@
-;RUN: opt -vplan-vec -S %s | FileCheck %s --check-prefixes=CHECK
+;RUN: opt -passes=vplan-vec -S %s | FileCheck %s --check-prefixes=CHECK
 
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body

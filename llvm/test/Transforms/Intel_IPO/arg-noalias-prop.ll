@@ -1,4 +1,3 @@
-; RUN: opt -arg-noalias-prop -S %s | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes=arg-noalias-prop -S %s | FileCheck %s
 
 ; CHECK: define internal void @callback(i8* nocapture %ID, i32* noalias nocapture %A, i32* noalias nocapture %B)

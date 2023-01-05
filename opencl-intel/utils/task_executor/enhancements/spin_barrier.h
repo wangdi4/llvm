@@ -20,8 +20,9 @@
 #include "config.h"
 
 // Do not replace this include by doctest.h
-// This headers includes inside benchmark.h and used for benchmarking based on Celero
-// Using of both DocTest and Celero frameworks caused unexpected compilation errors.
+// This headers includes inside benchmark.h and used for benchmarking based on
+// Celero Using of both DocTest and Celero frameworks caused unexpected
+// compilation errors.
 #include "utils_assert.h"
 #include "utils_yield.h"
 
@@ -35,135 +36,135 @@
 namespace utils {
 
 //! Spin WHILE predicate returns true
-template <typename Predicate>
-void SpinWaitWhile(Predicate pred) {
-    int count = 0;
-    while (pred()) {
-        if (count < 100) {
-            tbb::detail::machine_pause(10);
-            ++count;
-        } else if (count < 200) {
-            utils::yield();
-            ++count;
-        } else {
-            std::this_thread::sleep_for(std::chrono::microseconds(count/100));
-            if (count < 10000) {
-                count += 100;
-            }
-        }
+template <typename Predicate> void SpinWaitWhile(Predicate pred) {
+  int count = 0;
+  while (pred()) {
+    if (count < 100) {
+      tbb::detail::machine_pause(10);
+      ++count;
+    } else if (count < 200) {
+      utils::yield();
+      ++count;
+    } else {
+      std::this_thread::sleep_for(std::chrono::microseconds(count / 100));
+      if (count < 10000) {
+        count += 100;
+      }
     }
-    std::atomic_thread_fence(std::memory_order_acquire);
+  }
+  std::atomic_thread_fence(std::memory_order_acquire);
 }
 
 //! Spin WHILE the condition is true.
 template <typename T, typename C>
-void SpinWaitWhileCondition(const std::atomic<T>& location, C comp) {
-    SpinWaitWhile([&] { return comp(location.load(std::memory_order_relaxed)); });
+void SpinWaitWhileCondition(const std::atomic<T> &location, C comp) {
+  SpinWaitWhile([&] { return comp(location.load(std::memory_order_relaxed)); });
 }
 
 //! Spin WHILE the value of the variable is equal to a given value
 /** T and U should be comparable types. */
 template <typename T, typename U>
-void SpinWaitWhileEq(const std::atomic<T>& location, const U value) {
-    SpinWaitWhileCondition(location, [&value](T t) { return t == value; });
+void SpinWaitWhileEq(const std::atomic<T> &location, const U value) {
+  SpinWaitWhileCondition(location, [&value](T t) { return t == value; });
 }
 
 //! Spin UNTIL the value of the variable is equal to a given value
 /** T and U should be comparable types. */
-template<typename T, typename U>
-void SpinWaitUntilEq(const std::atomic<T>& location, const U value) {
-    SpinWaitWhileCondition(location, [&value](T t) { return t != value; });
+template <typename T, typename U>
+void SpinWaitUntilEq(const std::atomic<T> &location, const U value) {
+  SpinWaitWhileCondition(location, [&value](T t) { return t != value; });
 }
 
 class WaitWhileEq {
 public:
-    //! Assignment not allowed
-    void operator=( const WaitWhileEq& ) = delete;
+  //! Assignment not allowed
+  void operator=(const WaitWhileEq &) = delete;
 
-    template<typename T, typename U>
-    void operator()( const std::atomic<T>& location, U value ) const {
-        SpinWaitWhileEq(location, value);
-    }
+  template <typename T, typename U>
+  void operator()(const std::atomic<T> &location, U value) const {
+    SpinWaitWhileEq(location, value);
+  }
 };
 
 class SpinBarrier {
 public:
-    using size_type = std::size_t;
-private:
-    std::atomic<size_type> myNumThreads;
-    std::atomic<size_type> myNumThreadsFinished; // reached the barrier in this epoch
-    // the number of times the barrier was opened
-    std::atomic<size_type> myEpoch;
-    // a throwaway barrier can be used only once, then wait() becomes a no-op
-    bool myThrowaway;
+  using size_type = std::size_t;
 
-    struct DummyCallback {
-        void operator() () const {}
-        template<typename T, typename U>
-        void operator()( const T&, U) const {}
-    };
+private:
+  std::atomic<size_type> myNumThreads;
+  std::atomic<size_type>
+      myNumThreadsFinished; // reached the barrier in this epoch
+  // the number of times the barrier was opened
+  std::atomic<size_type> myEpoch;
+  // a throwaway barrier can be used only once, then wait() becomes a no-op
+  bool myThrowaway;
+
+  struct DummyCallback {
+    void operator()() const {}
+    template <typename T, typename U> void operator()(const T &, U) const {}
+  };
 
 public:
-    SpinBarrier( const SpinBarrier& ) = delete;    // no copy ctor
-    SpinBarrier& operator=( const SpinBarrier& ) = delete; // no assignment
+  SpinBarrier(const SpinBarrier &) = delete;            // no copy ctor
+  SpinBarrier &operator=(const SpinBarrier &) = delete; // no assignment
 
-    SpinBarrier( size_type nthreads = 0, bool throwaway = false ) {
-        initialize(nthreads, throwaway);
+  SpinBarrier(size_type nthreads = 0, bool throwaway = false) {
+    initialize(nthreads, throwaway);
+  }
+
+  void initialize(size_type nthreads, bool throwaway = false) {
+    myNumThreads = nthreads;
+    myNumThreadsFinished = 0;
+    myEpoch = 0;
+    myThrowaway = throwaway;
+  }
+
+  // Returns whether this thread was the last to reach the barrier.
+  // onWaitCallback is called by a thread for waiting;
+  // onOpenBarrierCallback is called by the last thread before unblocking other
+  // threads.
+  template <typename WaitEq, typename Callback>
+  bool customWait(const WaitEq &onWaitCallback,
+                  const Callback &onOpenBarrierCallback) {
+    if (myThrowaway && myEpoch) {
+      return false;
     }
 
-    void initialize( size_type nthreads, bool throwaway = false ) {
-        myNumThreads = nthreads;
-        myNumThreadsFinished = 0;
-        myEpoch = 0;
-        myThrowaway = throwaway;
+    size_type epoch = myEpoch;
+    size_type numThreads = myNumThreads; // read it before the increment
+    int threadsLeft = static_cast<int>(numThreads - myNumThreadsFinished++ - 1);
+    ASSERT(threadsLeft >= 0, "Broken barrier");
+    if (threadsLeft > 0) {
+      /* this thread is not the last; wait until the epoch changes & return
+       * false */
+      onWaitCallback(myEpoch, epoch);
+      return false;
     }
+    /* This thread is the last one at the barrier in this epoch */
+    onOpenBarrierCallback();
+    /* reset the barrier, increment the epoch, and return true */
+    myNumThreadsFinished -= numThreads;
+    threadsLeft = static_cast<int>(myNumThreadsFinished);
+    ASSERT(threadsLeft == 0, "Broken barrier");
+    /* wakes up threads waiting to exit in this epoch */
+    epoch -= myEpoch++;
+    ASSERT(epoch == 0, "Broken barrier");
+    return true;
+  }
 
-    // Returns whether this thread was the last to reach the barrier.
-    // onWaitCallback is called by a thread for waiting;
-    // onOpenBarrierCallback is called by the last thread before unblocking other threads.
-    template<typename WaitEq, typename Callback>
-    bool customWait( const WaitEq& onWaitCallback, const Callback& onOpenBarrierCallback ) {
-        if (myThrowaway && myEpoch) {
-            return false;
-        }
+  // onOpenBarrierCallback is called by the last thread before unblocking other
+  // threads.
+  template <typename Callback>
+  bool wait(const Callback &onOpenBarrierCallback) {
+    return customWait(WaitWhileEq(), onOpenBarrierCallback);
+  }
 
-        size_type epoch = myEpoch;
-        size_type numThreads = myNumThreads; // read it before the increment
-        int threadsLeft = static_cast<int>(numThreads - myNumThreadsFinished++ - 1);
-        ASSERT(threadsLeft >= 0,"Broken barrier");
-        if (threadsLeft > 0) {
-            /* this thread is not the last; wait until the epoch changes & return false */
-            onWaitCallback(myEpoch, epoch);
-            return false;
-        }
-        /* This thread is the last one at the barrier in this epoch */
-        onOpenBarrierCallback();
-        /* reset the barrier, increment the epoch, and return true */
-        myNumThreadsFinished -= numThreads;
-        threadsLeft = static_cast<int>(myNumThreadsFinished);
-        ASSERT(threadsLeft == 0,"Broken barrier");
-        /* wakes up threads waiting to exit in this epoch */
-        epoch -= myEpoch++;
-        ASSERT(epoch == 0,"Broken barrier");
-        return true;
-    }
+  bool wait() { return wait(DummyCallback()); }
 
-    // onOpenBarrierCallback is called by the last thread before unblocking other threads.
-    template<typename Callback>
-    bool wait( const Callback& onOpenBarrierCallback ) {
-        return customWait(WaitWhileEq(), onOpenBarrierCallback);
-    }
-
-    bool wait() {
-        return wait(DummyCallback());
-    }
-
-    // Signal to the barrier, rather a semaphore functionality.
-    bool signalNoWait() {
-        return customWait(DummyCallback(), DummyCallback());
-    }
+  // Signal to the barrier, rather a semaphore functionality.
+  bool signalNoWait() { return customWait(DummyCallback(), DummyCallback()); }
 };
 
-} // utils
+} // namespace utils
 
 #endif // __TBB_test_common_spin_barrier_H

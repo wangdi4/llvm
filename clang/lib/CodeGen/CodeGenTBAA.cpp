@@ -32,10 +32,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenTBAA.h"
-#if INTEL_CUSTOMIZATION
-#include "CGRecordLayout.h"
-#include "CodeGenModule.h"
-#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
@@ -47,6 +43,11 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#if INTEL_CUSTOMIZATION
+#include "CGRecordLayout.h"
+#include "CodeGenModule.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -458,7 +459,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
     using TBAAStructField = llvm::MDBuilder::TBAAStructField;
     SmallVector<TBAAStructField, 4> Fields;
     if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
-      // Handle C++ base classes. Non-virtual bases can treated a a kind of
+      // Handle C++ base classes. Non-virtual bases can treated a kind of
       // field. Virtual bases are more complex and omitted, but avoid an
       // incomplete view for NewStructPathTBAA.
       if (CodeGenOpts.NewStructPathTBAA && CXXRD->getNumVBases() != 0)

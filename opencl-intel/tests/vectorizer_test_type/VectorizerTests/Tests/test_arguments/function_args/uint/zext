@@ -7,15 +7,15 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-zext (	__global const float *in,
-		__global float *out, __global const uint uintArg1)
+zext (  __global const float *in,
+    __global float *out, __global const uint uintArg1)
 {
-	int gid = get_global_id(0);
-	out[gid] = (long) uintArg1;
+  int gid = get_global_id(0);
+  out[gid] = (long) uintArg1;
 }

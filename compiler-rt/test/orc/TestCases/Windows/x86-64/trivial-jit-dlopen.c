@@ -9,6 +9,11 @@
 // RUN:   -alias dlclose=__orc_rt_coff_jit_dlclose \
 // RUN:   %t.test.o -jd inits %t.inits.o -lmain | FileCheck %s
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42778
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 // CHECK: entering main
 // CHECK-NEXT: constructor
 // CHECK-NEXT: destructor

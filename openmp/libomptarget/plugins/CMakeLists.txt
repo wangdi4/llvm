@@ -27,13 +27,6 @@
 #
 ##===----------------------------------------------------------------------===##
 
-# Temporarily disable warnings for use of deprecated declarations
-# util libomptarget supports c++17.
-check_cxx_compiler_flag("-Wno-deprecated-declarations" DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
-if (DEPRECATED_DECLARATIONS_FLAG_SUPPORT)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
-endif()
-
 add_subdirectory(common)
 
 # void build_generic_elf64(string tmachine, string tmachine_name, string tmachine_libname, string elf_machine_id);
@@ -102,8 +95,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         COMPONENT llvm-${tmachine_libname}-ompplugin
 # end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-      set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES 
-        INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
+    set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES
+      INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
+      CXX_VISIBILITY_PRESET protected)
 
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}

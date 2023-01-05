@@ -96,6 +96,10 @@ static cl::opt<bool> DoSpecialInterchange(OPT_SWITCH "-do-special-interchange",
                                           cl::desc(OPT_DESC
                                                    "do special interchange"));
 
+static cl::opt<size_t> LoopInterchangeOptReportDDEdgesLimit(
+    OPT_SWITCH "-optreport-ddedges-limit", cl::init(10), cl::Hidden,
+    cl::desc(OPT_DESC "Limit DD edges count in optreport"));
+
 static cl::opt<bool> PrintSpecialInterchangeLoopnestDetails(
     OPT_SWITCH "-print-special-interchange-loopnest-details", cl::init(false),
     cl::Hidden,
@@ -222,7 +226,7 @@ public:
       : HIRF(HIRF), HDDA(HDDA), HLA(HLA), HSRA(HSRA), HLS(HLS), HLR(HLR),
         AnyLoopInterchanged(false), OutmostNestingLevel(-1),
         InnermostNestingLevel(-1), InnermostLoop(nullptr),
-        OutermostLoop(nullptr) {}
+        OutermostLoop(nullptr), ORBuilder(HIRF.getORBuilder()) {}
 
   bool run(void);
 
@@ -252,6 +256,7 @@ protected:
   HLLoop *InnermostLoop;
   HLLoop *OutermostLoop;
   struct CollectCandidateLoops;
+  OptReportBuilder &ORBuilder;
 
   SmallVector<CandidateLoopPair, 12> CandidateLoops;
   SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
@@ -259,6 +264,7 @@ protected:
   SmallVector<const HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
+  SmallVector<const DDEdge *, 16> Edges;
 
   bool shouldInterchange(const HLLoop *);
   bool getPermutation(const HLLoop *, const HLLoop *);
@@ -276,7 +282,8 @@ protected:
                      unsigned SrcIndex);
   bool transformLoop(HLLoop *Loop);
 
-  void reportTransformation(OptReportBuilder &ORBuilder);
+  void reportLoopInterchangeNotDone(const HLLoop *Loop);
+  void reportTransformation();
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 
@@ -1303,7 +1310,6 @@ bool HIRLoopInterchange::run(void) {
     HLLoop *OutermostLp = Iter.first;
     InnermostLoop = Iter.second;
     InnermostNestingLevel = InnermostLoop->getNestingLevel();
-
     LLVM_DEBUG(dbgs() << "\nIn CandidateLoop:\n"; OutermostLp->dump());
 
     if (shouldInterchange(OutermostLp) &&
@@ -1373,6 +1379,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp,
     const HLLoop *BestLocalityLoop = LoopPermutation.back();
 
     if (!isBestLocalityInInnermost(OutermostLp, BestLocalityLoop)) {
+      reportLoopInterchangeNotDone(OutermostLp);
       CanInterchange = false;
     } else {
       // Find Nearby permutation
@@ -1607,7 +1614,7 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop,
   }
 
   DDUtils::computeDVsForPermuteWithSBs(DVs, Lp, InnermostNestingLevel, HDDA,
-                                       HSRA, false, &TempSBsToConsider);
+                                       HSRA, false, &TempSBsToConsider, &Edges);
 
   // If edges are selected,
   // there are dependencies to check out w.r.t to interchange order
@@ -1619,7 +1626,37 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop,
   return true;
 }
 
-void HIRLoopInterchange::reportTransformation(OptReportBuilder &ORBuilder) {
+void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
+  HLLoop *Lp = const_cast<HLLoop*>(Loop);
+  if (ORBuilder.getVerbosity() < OptReportVerbosity::Medium)
+    return;
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium, 25445u,
+                           "Data Dependencies");
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25446u);
+  // Guard the extra information under verbosity high to avoid building
+  // unnecessary strings
+  if (ORBuilder.getVerbosity() < OptReportVerbosity::High)
+    return;
+  for (size_t I = 0;
+       I < Edges.size() && I < LoopInterchangeOptReportDDEdgesLimit; I++) {
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25447u,
+                             Edges[I]->getOptReportStr());
+  }
+  // Print the message to suggest desirable loop interchange
+  std::ostringstream OS;
+  OS << "( ";
+  for (unsigned I = OutmostNestingLevel; I <= InnermostNestingLevel; ++I) {
+    OS << I << " ";
+  }
+  OS << ") --> ( ";
+  for (auto &I : LoopPermutation) {
+    OS << I->getNestingLevel() << " ";
+  }
+  OS << ")";
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25451u, OS.str().c_str());
+}
+
+void HIRLoopInterchange::reportTransformation() {
   // Do not do any string processing if OptReports are not needed.
   // "&& DebugFlag" should be deleted when lit-tests are rewritten to use opt
   // report info.
@@ -1670,10 +1707,7 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation,
                                       InnermostNestingLevel);
 
-  OptReportBuilder &ORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
-
-  reportTransformation(ORBuilder);
+  reportTransformation();
 
   Loop->getParentRegion()->setGenCode();
 

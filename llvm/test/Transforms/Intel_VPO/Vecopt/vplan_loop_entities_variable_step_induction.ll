@@ -1,6 +1,5 @@
 ; Test to check that VPInduction descriptor is constructed for an auto-recognized induction with variable step.
 
-; RUN: opt -vplan-vec -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 

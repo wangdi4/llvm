@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -dtrans-normalizeop -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-info -passes="module(dtrans-normalizeop),padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of the padding of function arguments
@@ -8,13 +7,13 @@
 ; CHECK: Function info(caller1):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
 ; CHECK: Function info(caller2):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -29,13 +28,13 @@
 ; CHECK: Function info(caller1):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
 ; CHECK: Function info(caller2):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
 
@@ -48,7 +47,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @2 = private constant [15 x i8] c"padded 4 bytes\00"
 @3 = private constant [16 x i8] c"padded 16 bytes\00"
 
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr)
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
 define internal i32 @callee(ptr nocapture readonly "intel_dtrans_func_index"="1" %ip, ptr nocapture readonly "intel_dtrans_func_index"="2" %fp) local_unnamed_addr #0 !intel.dtrans.func.type !6 {
@@ -66,8 +65,8 @@ define internal i32 @caller1() local_unnamed_addr #1 {
 entry:
   %arr = alloca [16 x i32]
   %arrayidx = getelementptr [16 x i32], ptr %arr, i64 0, i64 0
-  %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr ([15 x i8], ptr @2, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
-  %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null)
+  %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr getelementptr ([15 x i8], ptr @2, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
+  %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr getelementptr ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null)
   %call = call i32 @callee(ptr %t1, ptr %t3)
   ret i32 %call
 }
@@ -76,8 +75,8 @@ entry:
 define internal i32 @caller2() local_unnamed_addr #1 {
   %arr = alloca [16 x i32]
   %arrayidx = getelementptr [16 x i32], ptr %arr, i64 0, i64 0
-  %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr ([15 x i8], ptr @1, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
-  %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr ([16 x i8], ptr @3, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null)
+  %t1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arrayidx, ptr getelementptr ([15 x i8], ptr @1, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
+  %t3 = call ptr @llvm.ptr.annotation.p0.p0(ptr %arr, ptr getelementptr ([16 x i8], ptr @3, i64 0, i64 0), ptr getelementptr ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null)
   %call = call i32 @callee(ptr %t1, ptr %t3)
   ret i32 %call
 }

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=40 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-complete-unroll-loopnest-trip-threshold=40 2>&1 < %s | FileCheck %s
 
 ; Verify that we unroll both the inner loops in [8 x 8] matrix multiplication case.

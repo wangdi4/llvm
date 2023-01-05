@@ -1,5 +1,4 @@
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-cg -force-hir-cg %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 ; Crash in CG on following region
 ;          BEGIN REGION { }

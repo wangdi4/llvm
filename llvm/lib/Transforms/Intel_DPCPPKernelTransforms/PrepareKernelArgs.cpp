@@ -13,10 +13,8 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -34,58 +32,7 @@ namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
 
-class PrepareKernelArgsLegacy : public ModulePass {
-
-public:
-  /// Pass identification, replacement for typeid.
-  static char ID;
-
-  PrepareKernelArgsLegacy(bool UseTLSGlobals = false);
-
-  StringRef getPassName() const override { return "PrepareKernelArgsLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  PrepareKernelArgsPass Impl;
-  bool UseTLSGlobals;
-};
-
 } // namespace
-
-INITIALIZE_PASS_BEGIN(PrepareKernelArgsLegacy, DEBUG_TYPE,
-                      "Change the way arguments are passed to kernels", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(PrepareKernelArgsLegacy, DEBUG_TYPE,
-                    "Change the way arguments are passed to kernels", false,
-                    false)
-
-char PrepareKernelArgsLegacy::ID = 0;
-
-PrepareKernelArgsLegacy::PrepareKernelArgsLegacy(bool UseTLSGlobals)
-    : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-  initializePrepareKernelArgsLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool PrepareKernelArgsLegacy::runOnModule(Module &M) {
-  auto GetAC = [&](Function &F) {
-    return &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  };
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, UseTLSGlobals, GetAC, IAInfo);
-}
-
-ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
-  return new PrepareKernelArgsLegacy(UseTLSGlobals);
-}
 
 PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
@@ -284,19 +231,24 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     if (!UseTLSGlobals)
       assert(CallIt->getType() == IAInfo->getArgType(I) &&
              "Mismatch in arg found in function and expected arg type");
+    assert((I == ImplicitArgsUtils::IA_SLM_BUFFER ||
+            I == ImplicitArgsUtils::IA_WORK_GROUP_ID ||
+            I == ImplicitArgsUtils::IA_RUNTIME_HANDLE ||
+            I == ImplicitArgsUtils::IA_GLOBAL_BASE_ID ||
+            I == ImplicitArgsUtils::IA_BARRIER_BUFFER ||
+            I == ImplicitArgsUtils::IA_WORK_GROUP_INFO) &&
+           "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SLMSizeInBytes =
+      uint64_t SizeInBytes =
           KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
-      // TODO: when SLMSizeInBytes equal 0, we might want to set dummy
-      // address for debugging!
-      if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
+      if (SizeInBytes == 0) { // no need to create of pad this buffer.
         Arg = Constant::getNullValue(PointerType::get(I8Ty, 3));
       } else {
         // add stack padding before and after this alloca, to allow unmasked
         // wide loads inside the vectorizer.
         Type *SLMType =
-            ArrayType::get(I8Ty, SLMSizeInBytes + STACK_PADDING_BUFFER * 2);
+            ArrayType::get(I8Ty, SizeInBytes + STACK_PADDING_BUFFER * 2);
         const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
         // Set alignment of implicit local buffer to max alignment.
         // TODO: we should choose the min required alignment size
@@ -329,7 +281,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
              "Assuming that we are computing Local Sizes here");
       for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
         LocalSize.push_back(
-            IAInfo->GenerateGetEnqueuedLocalSize(WGInfo, Dim, Builder));
+            IAInfo->GenerateGetEnqueuedLocalSize(WGInfo, false, Dim, Builder));
 
       // Obtain values of NDRange Offsets for each dimension
       SmallVector<Value *, 4> GlobalOffsets;
@@ -359,10 +311,15 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       Arg = U;
     } break;
     case ImplicitArgsUtils::IA_BARRIER_BUFFER: {
+      const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
       // We obtain the number of bytes needed per item from the Metadata
       // which is set by the Barrier pass
       uint64_t SizeInBytes =
           KIMD.BarrierBufferSize.hasValue() ? KIMD.BarrierBufferSize.get() : 0;
+      if (SizeInBytes == 0) {
+        Arg = Constant::getNullValue(PointerType::get(I8Ty, AllocaAddrSpace));
+        break;
+      }
       // BarrierBufferSize := BytesNeededPerWI
       //                      * ((LocalSize(0) + VF - 1) / VF) * VF
       //                      * LocalSize(1) * LocalSize(2)
@@ -398,7 +355,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                                             /*HasNUW*/ true, /*HasNSW*/ true);
 
       // alloca i8, %BarrierBufferSize
-      const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
       // TODO: we should choose the min required alignment size
       AllocaInst *BarrierBuffer =
           new AllocaInst(I8Ty, AllocaAddrSpace, BarrierBufferSize,
@@ -423,14 +379,17 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Advance the ArgsBuffer offset based on the size
       CurrOffset += ImplicitArgProp.Size;
     } break;
-    default:
-      assert(false && "Unknown implicit argument");
     }
 
     if (UseTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
-      GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
-      Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
+      auto *C = dyn_cast<Constant>(Arg);
+      if (!(C && C->isNullValue() &&
+            (I == ImplicitArgsUtils::IA_SLM_BUFFER ||
+             I == ImplicitArgsUtils::IA_BARRIER_BUFFER))) {
+        GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
+        Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
+      }
     } else {
       assert(Arg && "No value was created for this implicit argument!");
       Arg->setName(ImplicitArgsUtils::getArgName(I));

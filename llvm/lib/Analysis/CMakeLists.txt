@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -19,7 +19,7 @@ if (DEFINED LLVM_HAVE_TF_AOT OR DEFINED LLVM_HAVE_TF_API)
   include(TensorFlowCompile)
   set(LLVM_INLINER_MODEL_PATH_DEFAULT "models/inliner-Oz")
 
-  set(LLVM_INLINER_MODEL_CURRENT_URL "<UNSPECIFIED>")
+  set(LLVM_INLINER_MODEL_CURRENT_URL "<UNSPECIFIED>" CACHE STRING "URL to download the LLVM inliner model")
 
   if (DEFINED LLVM_HAVE_TF_AOT)
     tf_find_and_compile(
@@ -104,8 +104,7 @@ add_llvm_component_library(LLVMAnalysis
   BranchProbabilityInfo.cpp
   CFG.cpp
   CFGPrinter.cpp
-  CFLAndersAliasAnalysis.cpp
-  CFLSteensAliasAnalysis.cpp
+  CFGSCCPrinter.cpp
   CGSCCPassManager.cpp
   CallGraph.cpp
   CallGraphSCCPass.cpp
@@ -179,6 +178,9 @@ add_llvm_component_library(LLVMAnalysis
   Intel_OptReport/OptReportPrintUtils.cpp
   Intel_OptReport/OptReportOptionsPass.cpp
   Intel_OptReport/OptReportSupport.cpp
+# INTEL_FEATURE_MARKERCOUNT
+  Intel_MarkerCountInfo.cpp
+# end INTEL_FEATURE_MARKERCOUNT
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   Directives.cpp
@@ -237,7 +239,6 @@ add_llvm_component_library(LLVMAnalysis
   StackSafetyAnalysis.cpp
   SyncDependenceAnalysis.cpp
   SyntheticCountsUtils.cpp
-  TFUtils.cpp
   TFLiteUtils.cpp
   TargetLibraryInfo.cpp
   TargetTransformInfo.cpp
@@ -266,6 +267,7 @@ add_llvm_component_library(LLVMAnalysis
   directives_gen
 # end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+  intel_svml_device_gen   #INTEL_CUSTOMIZATION
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_ADVANCED

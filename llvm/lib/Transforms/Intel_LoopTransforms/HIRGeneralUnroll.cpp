@@ -142,6 +142,12 @@ static cl::opt<bool> DisableReplaceByFirstIteration(
     cl::Hidden,
     cl::desc("Disable replace by first iteration in HIR General Unroll"));
 
+static cl::opt<unsigned> RemainderUnrollTripCountThreshold(
+    "hir-general-unroll-remainder-unroll-trip-count-threshold", cl::init(3),
+    cl::Hidden,
+    cl::desc(
+        "Max trip count of remainder loop which can be completely unrolled"));
+
 namespace {
 
 class HIRGeneralUnroll {
@@ -322,8 +328,13 @@ void HIRGeneralUnroll::processGeneralUnroll(
         continue;
       }
 
-      if (RemainderLoop->isConstTripLoop()) {
-        // TODO: Perform complete unroll
+      uint64_t TC;
+      if (RemainderLoop->isConstTripLoop(&TC)) {
+        if (RemainderLoop->isInnermost() &&
+            (TC <= RemainderUnrollTripCountThreshold)) {
+          HIRTransformUtils::completeUnroll(RemainderLoop);
+        }
+
       } else if (RemainderLoop->getLegalMaxTripCount() == 1) {
         // Replace the remainder loop with the first iteration when the unroll
         // factor is 2, because the remainder loop has at most one iteration

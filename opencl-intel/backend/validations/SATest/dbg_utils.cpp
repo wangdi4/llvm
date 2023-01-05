@@ -14,35 +14,35 @@
 
 // Include the platform-specific parts of this class.
 #ifdef _MSC_VER
-    #include <tchar.h>
-    #include <Windows.h>
-    #include <intrin.h>
+#include <Windows.h>
+#include <intrin.h>
+#include <tchar.h>
 #endif
 
-namespace Validation
-{
+namespace Validation {
 
-#if defined(i386) || defined(__i386__) || defined(__x86__) || defined(_M_IX86)\
- || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
+#if defined(i386) || defined(__i386__) || defined(__x86__) ||                  \
+    defined(_M_IX86) || defined(__x86_64__) || defined(_M_AMD64) ||            \
+    defined(_M_X64)
 
 /// GenINT3 - generate interrupt 3 (debug break)
 void GenINT3() {
-#if defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
-  #if defined(__GNUC__)
-    // GCC doesn't know cpuid would clobber ebx/rbx. Preserve it manually.
-    asm ("int $0x03");
-  #elif defined(_MSC_VER)
-    __debugbreak();
-  #endif
+#if defined(__x86_64__) || defined(_M_AMD64) || defined(_M_X64)
+#if defined(__GNUC__)
+  // GCC doesn't know cpuid would clobber ebx/rbx. Preserve it manually.
+  asm("int $0x03");
+#elif defined(_MSC_VER)
+  __debugbreak();
+#endif
 #elif defined(i386) || defined(__i386__) || defined(__x86__) || defined(_M_IX86)
-  #if defined(__GNUC__)
-    asm ("int 3");
-  #elif defined(_MSC_VER)
-    __asm {
+#if defined(__GNUC__)
+  asm("int 3");
+#elif defined(_MSC_VER)
+  __asm {
       int 3
-    }
-  #endif
+  }
+#endif
 #endif
 }
 #endif
-} // namespace
+} // namespace Validation

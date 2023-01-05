@@ -14,39 +14,40 @@
 
 #pragma once
 
-#include <cl_types.h>
-#include <cl_object.h>
 #include "queue_event.h"
+#include <cl_object.h>
+#include <cl_types.h>
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-    class UserEvent : public OclEvent
-    {
-    public:
-        PREPARE_SHARED_PTR(UserEvent)
+class UserEvent : public OclEvent {
+public:
+  PREPARE_SHARED_PTR(UserEvent)
 
-        static SharedPtr<UserEvent> Allocate(_cl_context_int* context)
-        {
-            return SharedPtr<UserEvent>(new UserEvent(context));
-        }
+  UserEvent(const UserEvent &) = delete;
+  UserEvent &operator=(const UserEvent &) = delete;
 
-        // OCLObject implementation
-        cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
-                            void *paramValue,
-                            size_t *szParamValueSizeRet) const override;
+  static SharedPtr<UserEvent> Allocate(_cl_context_int *context) {
+    return SharedPtr<UserEvent>(new UserEvent(context));
+  }
 
-        void        SetComplete(cl_int returnCode);
+  // OCLObject implementation
+  cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
+                      void *paramValue,
+                      size_t *szParamValueSizeRet) const override;
 
-        void NotifyInvisible() override;
+  void SetComplete(cl_int returnCode);
 
-      protected:
-        UserEvent( _cl_context_int* context );
+  void NotifyInvisible() override;
 
-        virtual ~UserEvent();        
+protected:
+  UserEvent(_cl_context_int *context);
 
-        // A UserEvent object cannot be copied
-        UserEvent(const UserEvent&);           // copy constructor
-        UserEvent& operator=(const UserEvent&);// assignment operator
-    };
+  virtual ~UserEvent();
+};
 
-}}}    // Intel::OpenCL::Framework
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

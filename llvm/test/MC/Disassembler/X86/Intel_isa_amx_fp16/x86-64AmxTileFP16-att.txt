@@ -1,5 +1,0 @@
-# REQUIRES: intel_feature_isa_amx_fp16
-# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
-
-# CHECK:      tdpfp16ps %tmm5, %tmm4, %tmm3
-0xc4,0xe2,0x53,0x5c,0xdc

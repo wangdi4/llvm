@@ -34,8 +34,8 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   error = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetDeviceIDs failed";
 
-  cl_context context = clCreateContext(nullptr, 1, &device, nullptr, nullptr,
-      &error);
+  cl_context context =
+      clCreateContext(nullptr, 1, &device, nullptr, nullptr, &error);
   ASSERT_EQ(CL_SUCCESS, error) << "clCreateContext failed";
 
   // This spv file is generated from
@@ -93,21 +93,23 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
     FAIL() << log << "\n";
   }
 
-  error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName,
-                                             nullptr);
-  ASSERT_EQ(CL_INVALID_VALUE, error) << "clGetDeviceFunctionPointerINTEL "
-    "must return CL_INVALID_VALUE if function_pointer_ret is nullptr";
+  error =
+      clGetDeviceFunctionPointerINTELPtr(device, program, funcName, nullptr);
+  ASSERT_EQ(CL_INVALID_VALUE, error)
+      << "clGetDeviceFunctionPointerINTEL "
+         "must return CL_INVALID_VALUE if function_pointer_ret is nullptr";
 
   error = clGetDeviceFunctionPointerINTELPtr(device, program, nullptr, &fp);
-  ASSERT_EQ(CL_INVALID_VALUE, error) << "clGetDeviceFunctionPointerINTEL "
-    "must return CL_INVALID_VALUE if function_name is nullptr";
+  ASSERT_EQ(CL_INVALID_VALUE, error)
+      << "clGetDeviceFunctionPointerINTEL "
+         "must return CL_INVALID_VALUE if function_name is nullptr";
 
   // TODO: check for CL_INVALID_DEVICE
 
   error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName, &fp);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetDeviceFunctionPointerINTEL failed";
   ASSERT_NE(0u, fp) << "clGetDeviceFunctionPointerINTEL must return a non-zero "
-    "value via function_pointer_ret on success";
+                       "value via function_pointer_ret on success";
 }
 
 #endif

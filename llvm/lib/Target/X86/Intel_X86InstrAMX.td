@@ -658,45 +658,6 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXELEMENT
 
-let Predicates = [HasAMXAVX512, In64BitMode] in {
-  let SchedRW = [WriteSystem] in {
-    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs TILEX:$dst),
-                         (ins ZMM16Tuples:$src),
-                         "tile16move\t{$src, $dst|$dst, $src}",
-                         []>, T8PD, EVEX, EVEX_V512;
-    def TILE16MOVEPseudo : PseudoI<(outs TILEX:$dst), (ins ZMM16TUPLES:$src),
-                                   []>;
-    let  usesCustomInserter = 1 in {
-      def PTILE16MOVE : PseudoI<(outs), (ins u8imm:$dst, ZMM16TUPLES:$src0),
-                                []>;
-    }
-  }
-
-  def : Pat<(int_x86_tile16move timm:$dst, VR512:$src0, VR512:$src1,
-                                VR512:$src2, VR512:$src3, VR512:$src4,
-                                VR512:$src5, VR512:$src6, VR512:$src7,
-                                VR512:$src8, VR512:$src9, VR512:$src10,
-                                VR512:$src11, VR512:$src12, VR512:$src13,
-                                VR512:$src14, VR512:$src15),
-            (PTILE16MOVE u8imm:$dst,
-             (REG_SEQUENCE ZMM16TUPLES, VR512:$src0, sub_z0,
-                                        VR512:$src1, sub_z1,
-                                        VR512:$src2, sub_z2,
-                                        VR512:$src3, sub_z3,
-                                        VR512:$src4, sub_z4,
-                                        VR512:$src5, sub_z5,
-                                        VR512:$src6, sub_z6,
-                                        VR512:$src7, sub_z7,
-                                        VR512:$src8, sub_z8,
-                                        VR512:$src9, sub_z9,
-                                        VR512:$src10, sub_z10,
-                                        VR512:$src11, sub_z11,
-                                        VR512:$src12, sub_z12,
-                                        VR512:$src13, sub_z13,
-                                        VR512:$src14, sub_z14,
-                                        VR512:$src15, sub_z15))>;
-} // HasAMXAVX512, In64BitMode
-
 multiclass m_tilemovrow {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
@@ -746,6 +707,47 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
   }
 }
 // end INTEL_FEATURE_ISA_AMX_FUTURE
+
+// INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+let Predicates = [HasAMXAVX512TILE16MOV, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs TILEX:$dst),
+                         (ins ZMM16Tuples:$src),
+                         "tile16move\t{$src, $dst|$dst, $src}",
+                         []>, T8PD, EVEX, EVEX_V512;
+    def TILE16MOVEPseudo : PseudoI<(outs TILEX:$dst), (ins ZMM16TUPLES:$src),
+                                   []>;
+    let  usesCustomInserter = 1 in {
+      def PTILE16MOVE : PseudoI<(outs), (ins u8imm:$dst, ZMM16TUPLES:$src0),
+                                []>;
+    }
+  }
+
+  def : Pat<(int_x86_tile16move timm:$dst, VR512:$src0, VR512:$src1,
+                                VR512:$src2, VR512:$src3, VR512:$src4,
+                                VR512:$src5, VR512:$src6, VR512:$src7,
+                                VR512:$src8, VR512:$src9, VR512:$src10,
+                                VR512:$src11, VR512:$src12, VR512:$src13,
+                                VR512:$src14, VR512:$src15),
+            (PTILE16MOVE u8imm:$dst,
+             (REG_SEQUENCE ZMM16TUPLES, VR512:$src0, sub_z0,
+                                        VR512:$src1, sub_z1,
+                                        VR512:$src2, sub_z2,
+                                        VR512:$src3, sub_z3,
+                                        VR512:$src4, sub_z4,
+                                        VR512:$src5, sub_z5,
+                                        VR512:$src6, sub_z6,
+                                        VR512:$src7, sub_z7,
+                                        VR512:$src8, sub_z8,
+                                        VR512:$src9, sub_z9,
+                                        VR512:$src10, sub_z10,
+                                        VR512:$src11, sub_z11,
+                                        VR512:$src12, sub_z12,
+                                        VR512:$src13, sub_z13,
+                                        VR512:$src14, sub_z14,
+                                        VR512:$src15, sub_z15))>;
+} // HasAMXAVX512TILE16MOV, In64BitMode
+// end INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 
 // INTEL_FEATURE_ISA_AMX_LNC
 //AMX-MEMORY
@@ -1276,28 +1278,6 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
 
 // end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
-// INTEL_FEATURE_ISA_AMX_FP16
-
-//AMX-FP16
-let Predicates = [HasAMXFP16, In64BitMode] in {
-  let SchedRW = [WriteSystem] in {
-    let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs TILE:$dst),
-                        (ins TILE:$src1, TILE:$src2, TILE:$src3),
-                        "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        []>, VEX_4V, T8XD;
-    }
-    let  usesCustomInserter = 1 in {
-      def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
-                               u8imm:$src2, u8imm:$src3),
-                               [(int_x86_tdpfp16ps timm:$src1,
-                                 timm:$src2, timm:$src3)]>;
-    }
-  }
-} // HasAMXTILE, HasAMXFP16
-
-// end INTEL_FEATURE_ISA_AMX_FP16
-
 #if INTEL_FEATURE_ISA_AMX_TILE2
 let Predicates = [HasAMXTILE2, In64BitMode] in {
     def TILEMOV : I<0x4b, MRMSrcReg, (outs TILE:$dst),
@@ -1521,9 +1501,9 @@ let Predicates = [HasAMXTF32, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 
-#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_AVX512
 multiclass m_tcvtrowd2ps {
-  let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
                     (ins TILEX:$src1, i32u8imm:$src2),
@@ -1534,12 +1514,12 @@ multiclass m_tcvtrowd2ps {
                   "tcvtrowd2ps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8XS, EVEX_4V, EVEX_V512;
     }
-  } // HasAMXAVX512CVTROW, In64BitMode
+  } // HasAMXAVX512, In64BitMode
 }
 
 defm TCVTROWD2PS : m_tcvtrowd2ps;
 
-let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+let Predicates = [HasAMXAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let  usesCustomInserter = 1 in {
       def PTCVTROWD2PSrri : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, i32u8imm:$src2),
@@ -1604,9 +1584,9 @@ let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
   }
 }
 
-multiclass AMXAVX512CVTROW_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
+multiclass AMXAVX512_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
                                 Prefix P1, Prefix P2> {
-  let Predicates = [HasAMXAVX512CVTROW, In64BitMode] in {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
     let OpPrefix = P1 in
       def rre : I<Opcode1, MRMSrcReg4VOp3, (outs VR512:$dst),
                   (ins TILEX:$src1, GR32:$src2),
@@ -1628,11 +1608,11 @@ multiclass AMXAVX512CVTROW_BASE<bits<8> Opcode1, bits<8> Opcode2, string Opstr,
   }
 }
 
-defm TCVTROWPS2PHH : AMXAVX512CVTROW_BASE<0x6d, 0x07, "tcvtrowps2phh", PS, PS>;
-defm TCVTROWPS2PHL : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2phl", PD, XD>;
-defm TCVTROWPS2PBF16H : AMXAVX512CVTROW_BASE<0x6d, 0x07, "tcvtrowps2pbf16h", XD, XD>;
-defm TCVTROWPS2PBF16L : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2pbf16l", XS, XS>;
-#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+defm TCVTROWPS2PHH : AMXAVX512_BASE<0x6d, 0x07, "tcvtrowps2phh", PS, PS>;
+defm TCVTROWPS2PHL : AMXAVX512_BASE<0x6d, 0x77, "tcvtrowps2phl", PD, XD>;
+defm TCVTROWPS2PBF16H : AMXAVX512_BASE<0x6d, 0x07, "tcvtrowps2pbf16h", XD, XD>;
+defm TCVTROWPS2PBF16L : AMXAVX512_BASE<0x6d, 0x77, "tcvtrowps2pbf16l", XS, XS>;
+#endif // INTEL_FEATURE_ISA_AMX_AVX512
 
 #if INTEL_FEATURE_ISA_AMX_SPARSE
 let Predicates = [HasAMXSPARSE, In64BitMode], Constraints = "$src1 = $dst" in
@@ -1728,10 +1708,6 @@ def TDPBF8PS : AMX_FP8_BASE<0x5c, "tdpbf8ps">, T8PD;
 def TDPBHF8PS : AMX_FP8_BASE<0xfd, "tdpbhf8ps">, T_MAP5XD;
 def TDPHBF8PS : AMX_FP8_BASE<0xfd, "tdphbf8ps">, T_MAP5XS;
 def TDPHF8PS : AMX_FP8_BASE<0xfd, "tdphf8ps">, T_MAP5PD;
-def TTDPBF8PS : AMX_FP8_BASE<0xfc, "ttdpbf8ps">, T_MAP5PS;
-def TTDPBHF8PS : AMX_FP8_BASE<0xfc, "ttdpbhf8ps">, T_MAP5XD;
-def TTDPHBF8PS : AMX_FP8_BASE<0xfc, "ttdphbf8ps">, T_MAP5XS;
-def TTDPHF8PS : AMX_FP8_BASE<0xfc, "ttdphf8ps">, T_MAP5PD;
 
 let usesCustomInserter = 1, Predicates = [HasAMXFP8, In64BitMode] in {
   // Pseudo instructions, using immediates instead of tile registers.
@@ -1740,6 +1716,45 @@ let usesCustomInserter = 1, Predicates = [HasAMXFP8, In64BitMode] in {
                            u8imm:$src2, u8imm:$src3),
                            [(int_x86_tdpbf8ps timm:$src1,
                              timm:$src2, timm:$src3)]>;
+  def PTDPBHF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_tdpbhf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+  def PTDPHBF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_tdphbf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+  def PTDPHF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_tdphf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
 }
-
 #endif // INTEL_FEATURE_ISA_AMX_FP8
+
+#if INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+def TTDPBF8PS : AMX_FP8_BASE<0xfc, "ttdpbf8ps">, T_MAP5PS;
+def TTDPBHF8PS : AMX_FP8_BASE<0xfc, "ttdpbhf8ps">, T_MAP5XD;
+def TTDPHBF8PS : AMX_FP8_BASE<0xfc, "ttdphbf8ps">, T_MAP5XS;
+def TTDPHF8PS : AMX_FP8_BASE<0xfc, "ttdphf8ps">, T_MAP5PD;
+
+let usesCustomInserter = 1, Predicates = [HasAMXFP8, In64BitMode] in {
+  // Pseudo instructions, using immediates instead of tile registers.
+  // To be translated to the actual instructions in X86ISelLowering.cpp
+  def PTTDPBF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_ttdpbf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+  def PTTDPBHF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_ttdpbhf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+  def PTTDPHBF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_ttdphbf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+  def PTTDPHF8PS : PseudoI<(outs), (ins u8imm:$src1,
+                           u8imm:$src2, u8imm:$src3),
+                           [(int_x86_ttdphf8ps timm:$src1,
+                             timm:$src2, timm:$src3)]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_FP8_FUTURE

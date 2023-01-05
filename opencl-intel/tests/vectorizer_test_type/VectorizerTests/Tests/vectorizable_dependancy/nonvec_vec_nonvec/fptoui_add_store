@@ -7,19 +7,19 @@
  * fptoui instruction.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 fptoui_add_store ( __global const float *in,
-		__global ushort *out)
+    __global ushort *out)
 {
-	int gid = get_global_id(0);
-	ushort arg1 = in[gid];
-	ushort arg2 = ((float) gid * 5.1654);
-	out[gid] = arg1 + arg2;
+  int gid = get_global_id(0);
+  ushort arg1 = in[gid];
+  ushort arg2 = ((float) gid * 5.1654);
+  out[gid] = arg1 + arg2;
 
 
 }

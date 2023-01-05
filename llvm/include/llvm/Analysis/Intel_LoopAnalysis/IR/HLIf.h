@@ -72,6 +72,9 @@ private:
   // Branch debug location.
   DebugLoc BranchDbgLoc;
 
+  // Tag applied to Ifs created for runtime DD.
+  unsigned MVTag;
+
 protected:
   HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
        RegDDRef *Ref2);
@@ -317,6 +320,10 @@ public:
   /// Inverts the predicate and swaps the then-path with else-path,
   /// changing lexical order, but preserving logic.
   void invertPredAndReverse();
+
+  /// Getter/Setter for MVTag set by Runtime DD multiversioning.
+  unsigned getMVTag() const { return MVTag; }
+  void setMVTag(unsigned Tag) { MVTag = Tag; }
 };
 
 } // End namespace loopopt

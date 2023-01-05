@@ -17,74 +17,50 @@
 #include <QString>
 #include <QTreeWidgetItem>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The Entry struct
  * @detailed This entry is very important part of all program architecture.
- * It can describe items in FileTree widget and FileTree widget send it to TabWidget to create
- * new tab. If you want create new file in SATest architecture and want to show it in this program
- * You must add in thi struct new type or buffer type.
+ * It can describe items in FileTree widget and FileTree widget send it to
+ * TabWidget to create new tab. If you want create new file in SATest
+ * architecture and want to show it in this program You must add in thi struct
+ * new type or buffer type.
  */
-struct Entry
-{
-    enum Type{
-        configuration,
-        cl,
-        neat,
-        ref,
-        in,
-        tst,
-        buffer,
-        kernel,
-        root
-    };
-    enum BufferType
-    {
-        inBuffer,
-        refBuffer,
-        neatBuffer
-    };
+struct Entry {
+  enum Type { configuration, cl, neat, ref, in, tst, buffer, kernel, root };
+  enum BufferType { inBuffer, refBuffer, neatBuffer };
 
-    Type type ;
-    BufferType buftype ;
-    QString path;
-    int kernelId ;
-    int bufferNum ;
-    /** @TODO rewrite this operator
-     *  At now monent we have a bug when we create new tab by clicking to buffer item in Filetree
-     *  and if we click to this buffer in KernelTab we don't set focus to BufferTab with this buffer
-     *  but create new BufferTab.
-     */
-    bool operator ==(Entry entry)
-    {
-        if(entry.type != this->type)
-            return false;
-        else
-        {
-            if(entry.type == buffer)
-            {
-                return (entry.bufferNum==this->bufferNum &&
-                        entry.kernelId == this->kernelId &&
-                        entry.buftype == this->buftype);
-            }
-            if(entry.type == kernel)
-            {
-                return entry.kernelId == this->kernelId;
-            }
-            else
-            {
-                return entry.path == this->path;
-            }
-        }
+  Type type;
+  BufferType buftype;
+  QString path;
+  int kernelId;
+  int bufferNum;
+  /** @TODO rewrite this operator
+   *  At now monent we have a bug when we create new tab by clicking to buffer
+   * item in Filetree and if we click to this buffer in KernelTab we don't set
+   * focus to BufferTab with this buffer but create new BufferTab.
+   */
+  bool operator==(Entry entry) {
+    if (entry.type != this->type)
+      return false;
+    else {
+      if (entry.type == buffer) {
+        return (entry.bufferNum == this->bufferNum &&
+                entry.kernelId == this->kernelId &&
+                entry.buftype == this->buftype);
+      }
+      if (entry.type == kernel) {
+        return entry.kernelId == this->kernelId;
+      } else {
+        return entry.path == this->path;
+      }
     }
+  }
 };
 
-
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // ENTRY_H

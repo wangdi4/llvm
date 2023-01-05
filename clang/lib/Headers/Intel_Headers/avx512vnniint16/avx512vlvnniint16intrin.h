@@ -26,6 +26,17 @@
                  __target__("avx512vl,avx512vnniint16"),                       \
                  __min_vector_width__(256)))
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
+
 #define _mm_dpwsud_epi32(__A, __B, __C)                                        \
   (__m128i) __builtin_ia32_vpdpwsud128((__v4si)__A, (__v4si)__B, (__v4si)__C)
 

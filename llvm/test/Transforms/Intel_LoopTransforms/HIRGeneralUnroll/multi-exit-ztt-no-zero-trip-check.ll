@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll" -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we can deduce that the trip count of this loop cannot be 2^32 due to

@@ -30,7 +30,7 @@
 ; CHECK:       [[SIZE_ADDR]].fpriv = alloca i64, align 8
 ; CHECK:       store i64 [[SIZE_ADDR1]].val, ptr [[SIZE_ADDR1]].fpriv, align 8
 ; CHECK:       store i64 [[SIZE_ADDR]].val, ptr [[SIZE_ADDR]].fpriv, align 8
-; CHECK:       call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, ptr addrspace(4) [[VLA_CAST]])
+; CHECK:       call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, ptr addrspace(4) [[VLA_CAST]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

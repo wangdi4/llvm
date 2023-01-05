@@ -13,6 +13,7 @@
 
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/Intel_OPAnalysisUtils.h"
@@ -156,6 +157,10 @@ static cl::opt<unsigned> IPManyRecCallsCloningMinRecCallsites(
 static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
                                                  cl::init(true),
                                                  cl::ReallyHidden);
+
+static cl::opt<bool>
+    EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
+                                   cl::init(false), cl::ReallyHidden);
 
 // Flag to set if we are doing LIT testing of just the splitting. In this
 // case, any other ip cloning will be skipped, and the compiler will attempt
@@ -438,9 +443,25 @@ static void GetPointerToArrayDims(Argument *Arg, unsigned &SizeInBytes,
 //   Callee:       call void @llvm.lifetime.end(i64 8, i8* %10) #9
 //
 // We also handle the opaque pointer case where there are no bitcasts.
+// In this case, the alloca may have an array type, while the store
+// has a scalar type.
 //
 static StoreInst *isStartAddressOfPackedArrayOnStack(AllocaInst *AI,
                                                      Value *PV) {
+
+  // Return the integer bit width of 'Ty' if it is an integer type
+  // or an array of integer types. If it is not, return 0.
+  auto IntegerBitWidth = [](Type *Ty) -> uint64_t {
+    uint64_t Result = 1;
+    while (auto ATy = dyn_cast<ArrayType>(Ty)) {
+      Result *= ATy->getNumElements();
+      Ty = ATy->getElementType();
+    }
+    if (auto ITy = dyn_cast<IntegerType>(Ty))
+      return Result * ITy->getBitWidth();
+    return 0;
+  };
+
   StoreInst *StInst = nullptr;
   for (User *U : AI->users()) {
 
@@ -484,9 +505,16 @@ static StoreInst *isStartAddressOfPackedArrayOnStack(AllocaInst *AI,
   if (!isa<Constant>(ValOp))
     return nullptr;
 
-  if (ValOp->getType() != AI->getAllocatedType())
-    return nullptr;
+  if (ValOp->getType() == AI->getAllocatedType())
+    return StInst;
 
+  // Handle the case where the alloca and store value are
+  // both integers of the same size.
+  uint64_t ValOpIntegerBitWidth = IntegerBitWidth(ValOp->getType());
+  if (ValOpIntegerBitWidth == 0)
+    return nullptr;
+  if (IntegerBitWidth(AI->getAllocatedType()) != ValOpIntegerBitWidth)
+    return nullptr;
   return StInst;
 }
 
@@ -554,6 +582,9 @@ static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
 //
 //  GlobAddr:     @t.CM_THREE
 //
+// We also handle the case where some GEP(X,0,0)s may be absent, which is
+// present when we have opaque pointers.
+//
 static GlobalVariable *
     isStartAddressOfGlobalArrayCopyOnStack(GetElementPtrInst *GEPI) {
   // First, check it is starting array address on stack
@@ -563,35 +594,39 @@ static GlobalVariable *
   if (!GEPI->hasAllZeroIndices())
     return nullptr;
 
-  const Value *AUse = nullptr;
   Type *GEPType = GEPI->getSourceElementType();
   if (GEPType != AI->getAllocatedType())
     return nullptr;
 
-  // Get another use of AllocaInst other than the one that
-  // is passed to Call
-  AUse = nullptr;
-  for (const User *U : AI->users()) {
+  // Get another use, AUseGEPI, of AllocaInst other than the one that
+  // is passed to Call, if it is present.
+  GetElementPtrInst *AUseGEPI = nullptr;
+  SmallVector<User *, 16> Worklist;
+  for (User *U : AI->users()) {
     // Ignore if it is the arg that is passed to call.
     if (U == GEPI)
       continue;
-    // More than one use is noticed
-    if (AUse)
-      return nullptr;
-    AUse = U;
+    if (auto XGEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!XGEPI->hasAllZeroIndices())
+        return nullptr;
+      if (GEPType != XGEPI->getSourceElementType())
+        return nullptr;
+      AUseGEPI = XGEPI;
+    } else {
+      Worklist.push_back(U);
+    }
   }
-  if (!AUse)
-    return nullptr;
-  const GetElementPtrInst *MemCpySrc = dyn_cast<GetElementPtrInst>(AUse);
-  if (!MemCpySrc)
-    return nullptr;
-  if (!MemCpySrc->hasAllZeroIndices())
-    return nullptr;
-  if (GEPType != MemCpySrc->getSourceElementType())
-    return nullptr;
-
+  // Gather up all of the users of AUseGEPI or of AI, when AUseGEPI is
+  // not present.
+  if (AUseGEPI) {
+    if (!Worklist.empty())
+      return nullptr;
+    for (User *U : AUseGEPI->users())
+      Worklist.push_back(U);
+  }
   GlobalVariable *GlobAddr = nullptr;
-  for (const User *U : AUse->users()) {
+  while (!Worklist.empty()) {
+    User *U = Worklist.pop_back_val();
     auto User = dyn_cast<CallInst>(U);
     if (!User)
       return nullptr;
@@ -605,25 +640,32 @@ static GlobalVariable *
       return nullptr;
 
     // Process Memcpy here
-    if (User->getArgOperand(0) != AUse)
-      return nullptr;
+    if (AUseGEPI) {
+      if (User->getArgOperand(0) != AUseGEPI)
+        return nullptr;
+    } else {
+      if (User->getArgOperand(0) != AI)
+        return nullptr;
+    }
     Value *Dst = User->getArgOperand(1);
-    auto *MemCpyDst = dyn_cast<GEPOperator>(Dst);
-    if (!MemCpyDst)
-      return nullptr;
-    if (!MemCpyDst->hasAllZeroIndices())
-      return nullptr;
-    if (GEPType != MemCpyDst->getSourceElementType())
-      return nullptr;
-    if (MemCpyDst->getNumIndices() != MemCpySrc->getNumIndices())
-      return nullptr;
+    if (AUseGEPI) {
+      auto *MemCpyDst = dyn_cast<GEPOperator>(Dst);
+      if (!MemCpyDst)
+        return nullptr;
+      if (!MemCpyDst->hasAllZeroIndices())
+        return nullptr;
+      if (GEPType != MemCpyDst->getSourceElementType())
+        return nullptr;
+      if (MemCpyDst->getNumIndices() != AUseGEPI->getNumIndices())
+        return nullptr;
+      Dst = MemCpyDst->getOperand(0);
+    }
     Value *MemCpySize = User->getArgOperand(2);
-
     // Make sure there is only one memcpy
     if (GlobAddr)
       return nullptr;
 
-    GlobAddr = isSpecializationGVCandidate(MemCpyDst->getOperand(0), GEPI);
+    GlobAddr = isSpecializationGVCandidate(Dst, GEPI);
     if (!GlobAddr)
       return nullptr;
 
@@ -649,6 +691,15 @@ static bool isSpecializationCloningSpecialConst(Value *V, PHINode *Arg) {
   Value *PropVal = nullptr;
   if (auto GEPI = dyn_cast<GetElementPtrInst>(V)) {
     PropVal = isStartAddressOfGlobalArrayCopyOnStack(GEPI);
+    if (!PropVal) {
+      if (!GEPI->hasAllZeroIndices())
+        return false;
+      Value *PV = GEPI->getPointerOperand();
+      if (auto AI = dyn_cast<AllocaInst>(PV))
+        PropVal = isStartAddressOfPackedArrayOnStack(AI, GEPI);
+      if (!PropVal)
+        return false;
+    }
   } else {
     Value *PV = Arg;
     Value *W = V;
@@ -984,7 +1035,7 @@ static bool isRecProAllocaIntArray(AllocaInst *AI, int *ArrayLengthOut) {
 //
 static bool isRecProLatchBlock(bool TestSimpleOnly, BasicBlock *BBLoopHeader,
                                BasicBlock *BBLatch, bool *IsSimple) {
-  if (!BBLoopHeader || !BBLoopHeader)
+  if (!BBLoopHeader || !BBLatch)
     return false;
   if (BBLoopHeader == BBLatch) {
     *IsSimple = true;
@@ -4699,6 +4750,138 @@ void Splitter::splitFunction() {
 // End of code for class Splitter
 
 //
+// Class which performs predicate optimization across a key path in the
+// call graph. The path will terminate with a base function 'BaseF',
+// which is called from a wrapper function at the call site 'WrapperCB'.
+// The wrapper function is called from a big loop function at the call
+// site 'BigLoopCB'. The big loop function must have a series of simple
+// loops that enclose 'WrapperCB'. The number of loops is saved in
+// 'SimpleLoopDepth'.
+//
+
+class PredicateOpt {
+public:
+  PredicateOpt(Function *BaseF)
+      : BaseF(BaseF), WrapperCB(nullptr), BigLoopCB(nullptr),
+        SimpleLoopDepth(0) {}
+  // Return 'true' if the desired predicate opt can be performed.
+  bool canDoPredicateOpt();
+  // Perform the desired predicate opt.
+  void doPredicateOpt();
+
+private:
+  // The base function.
+  Function *BaseF;
+  // The call site which calls 'BaseF' in the wrapper function.
+  CallBase *WrapperCB;
+  // The call site that calls the wrapper function and is enclosed
+  // within a series of simple loops.
+  CallBase *BigLoopCB;
+  // The number of loops within which 'BigLoopCB' is enclosed.
+  unsigned SimpleLoopDepth;
+  // A loop info cache to store loop infos for functions being evaluated.
+  InliningLoopInfoCache ILIC;
+  // Return 'true' if 'F' is a wrapper function.
+  bool isWrapper(Function &F);
+  // Return the number of simple loops enclosing 'CB'.
+  unsigned simpleLoopDepth(CallBase &CB);
+};
+
+//
+// Return 'true' if 'F' is a wrapper function. 'F' must have no more than
+// 3 basic blocks and only one call which is not an intrinsic.
+//
+bool PredicateOpt::isWrapper(Function &F) {
+  if (F.size() > 3)
+    return false;
+  CallBase *SingleCB = nullptr;
+  for (auto &I : instructions(F))
+    if (auto CB = dyn_cast<CallBase>(&I)) {
+      if (isa<IntrinsicInst>(CB))
+        continue;
+      if (SingleCB)
+        return false;
+      SingleCB = CB;
+    }
+  return SingleCB;
+}
+
+//
+// Return the number of simple loops enclosing 'CB'. A simple loop is
+// one which has a latch test with an integer comparison.
+//
+unsigned PredicateOpt::simpleLoopDepth(CallBase &CB) {
+
+  auto IsSimpleLoop = [](Loop *L) -> bool {
+    if (BasicBlock *BB = L->getLoopLatch())
+      if (auto BI = dyn_cast<BranchInst>(BB->getTerminator()))
+        if (BI->isConditional() && isa<ICmpInst>(BI->getCondition()))
+          return true;
+    return false;
+  };
+
+  unsigned Count = 0;
+  LoopInfo *LI = ILIC.getLI(CB.getCaller());
+  Loop *L = LI->getLoopFor(CB.getParent());
+  if (!L)
+    return 0;
+  if (IsSimpleLoop(L))
+    Count++;
+  while (L->getParentLoop()) {
+    L = L->getParentLoop();
+    if (IsSimpleLoop(L))
+      Count++;
+  }
+  return Count;
+}
+
+//
+// Return 'true' if the desired predicate opt can be performed.
+// NOTE: At this point, we are just checking if the hot path can be identified.
+// More code will be added to check additional conditions.
+//
+bool PredicateOpt::canDoPredicateOpt() {
+  unsigned LocalSimpleLoopDepth = 0;
+  CallBase *LocalWrapperCB = nullptr;
+  CallBase *LocalBigLoopCB = nullptr;
+  for (User *U0 : BaseF->users())
+    if (auto CB0 = dyn_cast<CallBase>(U0)) {
+      Function *F0 = CB0->getCaller();
+      if (isWrapper(*F0)) {
+        for (User *U1 : F0->users())
+          if (auto CB1 = dyn_cast<CallBase>(U1)) {
+            unsigned LD = simpleLoopDepth(*CB1);
+            if (LD > LocalSimpleLoopDepth) {
+              LocalSimpleLoopDepth = LD;
+              LocalWrapperCB = CB0;
+              LocalBigLoopCB = CB1;
+            }
+          }
+      }
+    }
+  SimpleLoopDepth = LocalSimpleLoopDepth;
+  WrapperCB = LocalWrapperCB;
+  BigLoopCB = LocalBigLoopCB;
+  return true;
+}
+
+//
+// Perform the predicate opt.
+// NOTE: Right now we simply emit a trace indicating the key elements
+// on the hot path. More code will be added to do the optimization.
+//
+void PredicateOpt::doPredicateOpt() {
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: Loop Depth = " << SimpleLoopDepth << "\n";
+    dbgs() << "  BaseF: " << BaseF->getName() << "\n";
+    dbgs() << "  WrapperF: " << WrapperCB->getCaller()->getName() << "\n";
+    dbgs() << "  BigLoopF: " << BigLoopCB->getCaller()->getName() << "\n";
+  });
+}
+
+// End of code for class PredicateOpt
+
+//
 // Create the clones required for the "many recursive calls" cloning. 'F'
 // is the Function being cloned. 'IfArgs' are the arguments feeding if-tests
 // that will be constant in the clone, 'SwitchArgs' are the arguments that
@@ -5489,7 +5672,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         SmallPtrSet<CallBase *, 16> BestCBs;
         if (isManyRecCallsCloneCandidate(F, IfArgs, SwitchArgs, BestCBs)) {
           CloneType = ManyRecCallsClone;
-          if (EnableManyRecCallsSplitting) {
+          if (EnableManyRecCallsPredicateOpt) {
+            LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
+                              << "predicate opt\n");
+            PredicateOpt MRCPO(&F);
+            if (MRCPO.canDoPredicateOpt())
+              MRCPO.doPredicateOpt();
+          } else if (EnableManyRecCallsSplitting) {
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
                               << "\n");
             Splitter MRCS(&F);

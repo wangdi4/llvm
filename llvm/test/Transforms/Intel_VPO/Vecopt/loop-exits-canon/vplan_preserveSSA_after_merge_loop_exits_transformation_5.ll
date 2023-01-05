@@ -4,7 +4,6 @@
 ; tranformation. We need to preserve SSA for all the live-outs. Hence, a SSA
 ; phi node is emitted for each live-out.
 
-; RUN: opt < %s -vplan-func-vec -disable-output -print-after-vplan-func-vec-loop-exit-canon | FileCheck %s
 ; RUN: opt < %s -passes="vplan-func-vec" -disable-output -print-after-vplan-func-vec-loop-exit-canon | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

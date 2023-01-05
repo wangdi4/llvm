@@ -19,6 +19,7 @@
 #include <llvm/Analysis/VectorUtils.h>
 
 #include <numeric>
+#include <optional>
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
@@ -275,7 +276,7 @@ Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
     int VF, VPlanPeelingCostModel &CM) {
   if (CandidateMemrefs.empty())
-    return None;
+    return std::nullopt;
 
   // Map every collected memref to {Peeling, Profit} pair.
   auto Map = map_range(
@@ -446,6 +447,22 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *DP);
   llvm_unreachable("Unsupported peeling variant");
+}
+
+MaybeAlign
+VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
+                                             const VPInstruction *CtxI) const {
+  assert(Val->getType()->isPointerTy() &&
+         "Can only get alignment for pointer values!");
+
+  // See if we can obtain the value's alignment from its known bits.
+  KnownBits KB = VPVT->getKnownBits(Val, CtxI);
+  if (!KB.isUnknown()) {
+    return Align{1ULL << KB.countMinTrailingZeros()};
+  }
+
+  // Otherwise, assume no known alignment
+  return std::nullopt;
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(

@@ -1,5 +1,20 @@
-/*===---- avx512dqintrin.h - AVX512DQ intrinsics ---------------------------===
+/*===---- avx512dqintrin.h - AVX512DQ intrinsics --------------------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2022 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -17,6 +32,14 @@
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512 __attribute__((__always_inline__, __nodebug__, __target__("avx512dq"), __min_vector_width__(512)))
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx512dq")))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 static __inline __mmask8 __DEFAULT_FN_ATTRS
 _knot_mask8(__mmask8 __M)

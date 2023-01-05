@@ -1,4 +1,3 @@
-; RUN: opt < %s -lower-subscript 2>&1 -S | FileCheck %s
 ; RUN: opt < %s -passes=lower-subscript -S 2>&1 | FileCheck %s
 
 ; CHECK: getelementptr inbounds i32, i32* %p, i32 1

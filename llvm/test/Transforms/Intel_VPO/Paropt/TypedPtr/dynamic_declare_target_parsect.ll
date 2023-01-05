@@ -1,4 +1,4 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; Test src:
@@ -18,7 +18,7 @@
 ; }
 
 ; Check that warning is emitted for the ignored construct.
-; CHECK: warning:{{.*}}'parallel sections' construct, in a declare target function, was ignored for calls from target regions.
+; CHECK: warning:{{.*}} do/for/loop construct, in a declare target function, was ignored for calls from target regions.
 
 ; Check that scheduling code for parallel-sections is not generated.
 ; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej(i32 0)

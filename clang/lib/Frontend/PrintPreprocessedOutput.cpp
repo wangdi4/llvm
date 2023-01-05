@@ -1003,6 +1003,12 @@ void clang::DoPrintPreprocessedInput(Preprocessor &PP, raw_ostream *OS,
       new UnknownPragmaHandler("#pragma omp", Callbacks,
                                /*RequireTokenExpansion=*/true));
   PP.AddPragmaHandler("omp", OpenMPHandler.get());
+#if INTEL_COLLAB
+  std::unique_ptr<UnknownPragmaHandler> OpenMPXHandler(
+      new UnknownPragmaHandler("#pragma ompx", Callbacks,
+                               /*RequireTokenExpansion=*/true));
+  PP.AddPragmaHandler("ompx", OpenMPXHandler.get());
+#endif // INTEL_COLLAB
 
   PP.addPPCallbacks(std::unique_ptr<PPCallbacks>(Callbacks));
 
@@ -1039,4 +1045,7 @@ void clang::DoPrintPreprocessedInput(Preprocessor &PP, raw_ostream *OS,
   PP.RemovePragmaHandler("GCC", GCCHandler.get());
   PP.RemovePragmaHandler("clang", ClangHandler.get());
   PP.RemovePragmaHandler("omp", OpenMPHandler.get());
+#if INTEL_COLLAB
+  PP.RemovePragmaHandler("ompx", OpenMPXHandler.get());
+#endif // INTEL_COLLAB
 }

@@ -31,7 +31,7 @@ public:
 
   // Constructor.
   VPMemRefTransform(VPlanVector &Plan)
-      : Plan(Plan), DA(*Plan.getVPlanDA()) {}
+      : Plan(Plan), DA(*Plan.getVPlanDA()), VF(0) {}
 
   /// Do appropriate transforms on SOA GEPs.
   void transformSOAGEPs(unsigned InVF);

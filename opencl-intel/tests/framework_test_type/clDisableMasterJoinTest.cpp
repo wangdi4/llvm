@@ -35,11 +35,11 @@ protected:
   cl_mem buffer_private;
   cl_program program_private;
 
-  // In test with disabling master join we allocate 1.5 MB for array, set private
-  // mem size 2MB via environment CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE. Default
-  // stack size is 1MB for windows x86 and x64. And there will be no stack
-  // overflow issue since master thread does not participate in kernel computations
-  // on O0 mode for Windows.
+  // In test with disabling master join we allocate 1.5 MB for array, set
+  // private mem size 2MB via environment CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE.
+  // Default stack size is 1MB for windows x86 and x64. And there will be no
+  // stack overflow issue since master thread does not participate in kernel
+  // computations on O0 mode for Windows.
   const std::string programSources =
       "__kernel void test(__global int* o)\n"
       "{\n"

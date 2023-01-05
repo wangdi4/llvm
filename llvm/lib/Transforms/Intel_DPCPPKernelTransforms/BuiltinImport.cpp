@@ -11,13 +11,10 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Linker/Linker.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -30,52 +27,10 @@ static cl::opt<std::string>
     OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::Hidden, cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
 
-namespace {
-
-/// Legacy BuiltinImport pass.
-class BuiltinImportLegacy : public ModulePass {
-  BuiltinImportPass Impl;
-
-public:
-  static char ID;
-
-  BuiltinImportLegacy(StringRef CPUPrefix = "")
-      : ModulePass(ID), Impl(CPUPrefix) {
-    initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "BuiltinImportLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char BuiltinImportLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(BuiltinImportLegacy, DEBUG_TYPE,
-                      "DPCPP builtin import pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(BuiltinImportLegacy, DEBUG_TYPE,
-                    "DPCPP builtin import pass", false, false)
-
-ModulePass *llvm::createBuiltinImportLegacyPass(StringRef CPUPrefix) {
-  return new BuiltinImportLegacy(CPUPrefix);
-}
-
 static Function *FindFunctionDef(const Function *F,
                                  ArrayRef<Module *> Modules) {
   assert(F && "Invalid function.");
-  for (auto M : Modules) {
+  for (auto *M : Modules) {
     assert(M && "Invalid module.");
 
     Function *Ret = M->getFunction(F->getName());
@@ -89,7 +44,7 @@ static Function *FindFunctionDef(const Function *F,
 static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
                                      ArrayRef<Module *> Modules) {
   assert(GV && "Invalid global variable.");
-  for (auto M : Modules) {
+  for (auto *M : Modules) {
     assert(M && "Invalid module.");
 
     auto Ret = M->getGlobalVariable(GV->getName());
@@ -102,9 +57,7 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
 }
 
 BuiltinImportPass::BuiltinImportPass(StringRef CPUPrefix)
-    : CPUPrefix(CPUPrefix) {
-  initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
-}
+    : CPUPrefix(CPUPrefix) {}
 
 static StringRef getCPUPrefixSSE(bool is64BitOS) {
   return is64BitOS ? "h8" : "n8";
@@ -365,7 +318,7 @@ static void unifyMinLegalVectorWidthAttr(Module &M) {
     CallGraphNode *CGN = CG[&F];
     WeaklyConnectedComponents.insert(&F);
     // Visit all functions called by F.
-    for (auto CallRecord : *CGN) {
+    for (const auto &CallRecord : *CGN) {
       Function *Callee = CallRecord.second->getFunction();
       if (!Callee)
         continue;
@@ -450,7 +403,7 @@ bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   // Lets clone rtl modules and filter out everything we don't need.
   SmallVector<std::unique_ptr<Module>, 2> ClonedRtlModules;
   ValueToValueMapTy VMap;
-  for (auto RTL : BuiltinModules)
+  for (auto *RTL : BuiltinModules)
     ClonedRtlModules.push_back(
         CloneModuleOnlyRequired(RTL, VMap, UsedFunctions, UsedGlobals));
 

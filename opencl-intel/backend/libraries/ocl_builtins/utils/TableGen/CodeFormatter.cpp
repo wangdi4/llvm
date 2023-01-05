@@ -15,34 +15,35 @@
 #include "CodeFormatter.h"
 #include <algorithm>
 
-namespace llvm{
+namespace llvm {
 
-CodeFormatter::~CodeFormatter(){
+CodeFormatter::~CodeFormatter() {}
+
+void CodeFormatter::indent() { ++m_indentLevel; }
+
+void CodeFormatter::unindent() {
+  m_indentLevel = std::max(0, m_indentLevel - 1);
 }
 
-void CodeFormatter::indent(){ ++m_indentLevel; }
-
-void CodeFormatter::unindent(){ m_indentLevel = std::max(0, m_indentLevel-1); }
-
-CodeFormatter::CodeFormatter (llvm::raw_ostream& s, int indent)
-: INDENT(indent), m_stream(s), m_shouldIndent(true){
+CodeFormatter::CodeFormatter(llvm::raw_ostream &s, int indent)
+    : INDENT(indent), m_stream(s), m_shouldIndent(true) {
   m_indentLevel = 0;
 }
 
-CodeFormatter& CodeFormatter::endl(){
+CodeFormatter &CodeFormatter::endl() {
   m_shouldIndent = true;
   m_stream << "\n";
   return *this;
 }
 
-void CodeFormatter::writeIndentation(){
+void CodeFormatter::writeIndentation() {
   int i = INDENT * m_indentLevel;
   assert(i < 20 && "indentation went wild");
-  while(m_shouldIndent && i>0){
+  while (m_shouldIndent && i > 0) {
     i--;
     m_stream << ' ';
   }
   m_shouldIndent = false;
 }
 
-}//end reflection
+} // namespace llvm

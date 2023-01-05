@@ -2,7 +2,6 @@
 ; We can find a matching store (@c)[0][i2] = %mul; for %add2453 = (@c)[0][i2]; in the sibling loop.
 ; When matching store's Rval is not a constant, we directly hoist out the sinked load inst
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-undo-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest -print-after=hir-undo-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>,hir-undo-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump After HIR Sinking For Perfect Loopnest ***

@@ -10,7 +10,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-/**************************************************************************************************
+/*******************************************************************************
  * clBuildProgram
  * -------------------
  * (1) get device ids
@@ -18,7 +18,7 @@
  * (3) create program with source
  * (4) build program
  * (5) build program again
- **************************************************************************************************/
+ ******************************************************************************/
 
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"

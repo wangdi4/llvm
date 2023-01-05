@@ -3,7 +3,7 @@
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-ONE
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -DTWO -fopenmp-simd -Wsource-uses-openmp \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o %t.ll -DTWO -fopenmp-simd -Wsource-uses-openmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s
 
@@ -52,6 +52,20 @@ void foo1()
     //CHECK-ONE-SAME: "QUAL.OMP.INCLUSIVE"(ptr [[RED]], i64 1)
     #pragma omp scan inclusive(red)
     out[i] = red;
+  }
+}
+
+// CHECK-ONE-LABEL: foo_one
+void foo_one(int* a, int n) {
+  //CHECK-ONE: DIR.OMP.SIMD
+  #pragma omp simd
+  for (int i = 0; i < n; i++) {
+    int k = a[i];
+    //CHECK-ONE: DIR.OMP.ORDERED{{.*}}"QUAL.OMP.ORDERED.SIMD"
+    #pragma omp ordered simd
+    {
+      a[k] = i * 2;
+    }
   }
 }
 #endif

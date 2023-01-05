@@ -30,6 +30,8 @@ public:
 
   bool runImpl(Module &M, RuntimeService &RTS);
 
+  static bool isRequired() { return true; }
+
 private:
   /// This module
   Module *M;
@@ -55,29 +57,6 @@ private:
   /// Helper for WI function call generation.
   /// Generates a call to WI function upon its name and dimension index
   CallInst *getWICall(Instruction *Before, StringRef FuncName, unsigned DimIdx);
-};
-
-class GroupBuiltinLegacy : public ModulePass {
-  GroupBuiltinPass Impl;
-
-public:
-  static char ID;
-
-  /// \brief C'tor
-  explicit GroupBuiltinLegacy();
-
-  /// \brief Provides name of pass
-  StringRef getPassName() const override {
-    return "GroupBuiltin";
-  }
-
-  /// \brief execute pass on given module
-  /// \param M module to optimize
-  /// \returns True if module was modified
-  bool runOnModule(Module &M) override;
-
-  /// \brief Inform about usage/mofication/dependency of this pass
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // namespace llvm

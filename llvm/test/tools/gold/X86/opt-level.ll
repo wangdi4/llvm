@@ -1,13 +1,13 @@
 ; RUN: llvm-as -o %t.bc %s
-; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps \
+; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:    -m elf_x86_64 --plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=O0 -r -o %t.o %t.bc
 ; RUN: llvm-dis < %t.o.0.4.opt.bc -o - | FileCheck --check-prefix=CHECK-O0 %s
-; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps \
+; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:    -m elf_x86_64 --plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=O1 -r -o %t.o %t.bc
 ; RUN: llvm-dis < %t.o.0.4.opt.bc -o - | FileCheck --check-prefix=CHECK-O1 %s
-; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps \
+; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext -plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:    -m elf_x86_64 --plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=O2 -r -o %t.o %t.bc
 ; RUN: llvm-dis < %t.o.0.4.opt.bc -o - | FileCheck --check-prefix=CHECK-O2 %s
@@ -44,7 +44,7 @@ end:
 define i1 @baz() {
   call void @foo()
   %c = call i32 @bar(i1 true)
-  %p = call i1 @llvm.type.test(i8* undef, metadata !"typeid1")
+  %p = call i1 @llvm.type.test(ptr undef, metadata !"typeid1")
   ret i1 %p
 }
 
@@ -55,4 +55,4 @@ define i1 @baz() {
 
 !0 = !{i32 0, !"typeid1"}
 
-declare i1 @llvm.type.test(i8* %ptr, metadata %bitset) nounwind readnone
+declare i1 @llvm.type.test(ptr %ptr, metadata %bitset) nounwind readnone

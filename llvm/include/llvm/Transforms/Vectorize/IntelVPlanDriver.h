@@ -43,7 +43,7 @@ private:
   DemandedBits *DB;
   BlockFrequencyInfo *BFI;
   ProfileSummaryInfo *PSI;
-  std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
+  LoopAccessInfoManager *LAIs;
   OptimizationRemarkEmitter *ORE;
   OptReportBuilder ORBuilder;
   FatalErrorHandlerTy FatalErrorHandler;
@@ -156,7 +156,7 @@ public:
   bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
                DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
                DemandedBits *DB,
-               std::function<const LoopAccessInfo &(Loop &)> GetLAA,
+               LoopAccessInfoManager *LAIs,
                OptimizationRemarkEmitter *ORE,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
@@ -215,8 +215,9 @@ public:
                AssumptionCache *AC, DominatorTree *DT,
                FatalErrorHandlerTy FatalErrorHandler);
 
-  VPlanDriverHIRImpl(bool LightWeightMode) :
-    VPlanDriverImpl(), LightWeightMode(LightWeightMode) {};
+  VPlanDriverHIRImpl(bool LightWeightMode)
+      : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr),
+        DDA(nullptr), SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode){};
 };
 
 class VPlanDriverHIRPass

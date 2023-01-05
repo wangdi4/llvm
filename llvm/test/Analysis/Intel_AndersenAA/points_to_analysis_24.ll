@@ -1,7 +1,6 @@
 ; This test verifies that anders-aa should be able to handle
 ; FNeg instruction without bailing out early.
 
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: foo:r  --> (0): <universal>

@@ -21,63 +21,60 @@ File Name:  BWOptions.cpp
 #include <sys/mman.h>
 #endif
 
-JITAllocator* JITAllocator::s_pInstance = NULL;
+JITAllocator *JITAllocator::s_pInstance = NULL;
 
-void JITAllocator::Init()
-{
-    assert(!s_pInstance);
-    s_pInstance = new JITAllocator();
+void JITAllocator::Init() {
+  assert(!s_pInstance);
+  s_pInstance = new JITAllocator();
 }
 
-void JITAllocator::Terminate()
-{
-    if( NULL != s_pInstance)
-    {
-        delete s_pInstance;
-        s_pInstance = NULL;
-    }
+void JITAllocator::Terminate() {
+  if (NULL != s_pInstance) {
+    delete s_pInstance;
+    s_pInstance = NULL;
+  }
 }
 
-JITAllocator* JITAllocator::GetInstance()
-{
-    assert(s_pInstance);
-    return s_pInstance;
+JITAllocator *JITAllocator::GetInstance() {
+  assert(s_pInstance);
+  return s_pInstance;
 }
 
-void* JITAllocator::AllocateExecutable(size_t size, size_t alignment)
-{
-    size_t required_size = (size % PAGE_SIZE == 0) ? size : ((size_t)(size/PAGE_SIZE) + 1)*PAGE_SIZE;
+void *JITAllocator::AllocateExecutable(size_t size, size_t alignment) {
+  size_t required_size = (size % PAGE_SIZE == 0)
+                             ? size
+                             : ((size_t)(size / PAGE_SIZE) + 1) * PAGE_SIZE;
 
-    size_t aligned_size =
-        required_size +    // required size
-        (alignment - 1) +  // for alignment
-        sizeof(void*) +    // for the free ptr
-        sizeof(size_t);    // to save the original size (for mprotect)
-    void* pMem = malloc(aligned_size);
-    if(NULL == pMem) return NULL;
+  size_t aligned_size =
+      required_size +   // required size
+      (alignment - 1) + // for alignment
+      sizeof(void *) +  // for the free ptr
+      sizeof(size_t);   // to save the original size (for mprotect)
+  void *pMem = malloc(aligned_size);
+  if (NULL == pMem)
+    return NULL;
 
-    char* pAligned = ((char*)pMem) + aligned_size - required_size;
-    pAligned = (char*)(((size_t)pAligned) & ~(alignment - 1));
-    ((void**)pAligned)[-1] = pMem;
-    void* pSize = (void*)(((char*)pAligned) - sizeof(void*));
-    ((size_t*)pSize)[-1] = required_size;
+  char *pAligned = ((char *)pMem) + aligned_size - required_size;
+  pAligned = (char *)(((size_t)pAligned) & ~(alignment - 1));
+  ((void **)pAligned)[-1] = pMem;
+  void *pSize = (void *)(((char *)pAligned) - sizeof(void *));
+  ((size_t *)pSize)[-1] = required_size;
 
 #if defined(__LP64__)
-    int ret = mprotect( (void*)pAligned, required_size, PROT_READ | PROT_WRITE | PROT_EXEC );
-    if (0 != ret)
-    {
-        free(pMem);
-        return NULL;
-    }
+  int ret = mprotect((void *)pAligned, required_size,
+                     PROT_READ | PROT_WRITE | PROT_EXEC);
+  if (0 != ret) {
+    free(pMem);
+    return NULL;
+  }
 #else
-    assert(false && "Not implemented");
+  assert(false && "Not implemented");
 #endif
 
-    return pAligned;
+  return pAligned;
 }
 
-void JITAllocator::FreeExecutable(void* ptr)
-{
+void JITAllocator::FreeExecutable(void *ptr) {
   void *pMem = ((void **)ptr)[-1];
 
 #if defined(__LP64__)
@@ -85,8 +82,8 @@ void JITAllocator::FreeExecutable(void* ptr)
   size_t size = ((size_t *)pSize)[-1];
   mprotect((void *)ptr, size, PROT_READ | PROT_WRITE);
 #else
-    assert(false && "Not implemented");
+  assert(false && "Not implemented");
 #endif
 
-    free(pMem);
+  free(pMem);
 }

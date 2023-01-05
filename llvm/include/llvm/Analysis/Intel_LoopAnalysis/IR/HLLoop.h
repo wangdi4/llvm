@@ -255,9 +255,6 @@ protected:
   /// Return true if the specified directive is attached to the loop.
   const HLInst *getDirective(int DirectiveID) const;
 
-  /// Returns underlying LLVM loop.
-  const Loop *getLLVMLoop() const { return OrigLoop; }
-
   /// Adds a pair of {level-factor} info specified in the blocking pragma for
   /// this loop.
   void addBlockingPragmaLevelAndFactor(int Level, RegDDRef *Factor) {
@@ -484,6 +481,9 @@ public:
     return const_cast<HLLoop *>(this)->getStrideDDRef();
   }
 
+  /// Returns underlying LLVM loop.
+  const Loop *getLLVMLoop() const { return OrigLoop; }
+
   /// Sets the underlying LLVM Loop.
   void setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
 
@@ -543,6 +543,10 @@ public:
   /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
   bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
+
+  /// Returns true if the trip count of the loop is likely to be <= \p
+  /// SmallTCThreshold. Default of 0 means using the default threshold.
+  bool hasLikelySmallTripCount(unsigned SmallTCThreshold = 0) const;
 
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
@@ -710,6 +714,13 @@ public:
   const_reverse_child_iterator child_rbegin() const { return post_rend(); }
   reverse_child_iterator child_rend() { return pre_rbegin(); }
   const_reverse_child_iterator child_rend() const { return pre_rbegin(); }
+
+  iterator_range<child_iterator> children() {
+    return make_range(child_begin(), child_end());
+  }
+  iterator_range<const_child_iterator> children() const {
+    return make_range(child_begin(), child_end());
+  }
 
   /// Children acess methods
 
@@ -1503,7 +1514,7 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
   }
 
   static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
-    return None;
+    return std::nullopt;
   }
 
   static OptReport getOrCreatePrevOptReport(loopopt::HLLoop &Loop,

@@ -29,8 +29,11 @@ namespace llvm {
 /// captured via QUAL.OMP.LIVEIN clauses.
 class VPOParoptGuardMemoryMotionPass
     : public PassInfoMixin<VPOParoptGuardMemoryMotionPass> {
+private:
+  bool RunForScans;
 public:
-  VPOParoptGuardMemoryMotionPass() = default;
+  VPOParoptGuardMemoryMotionPass(bool RunForScans = false) :
+    RunForScans(RunForScans) {}
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static bool isRequired() { return true; }

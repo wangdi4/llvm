@@ -50,6 +50,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -1046,7 +1048,7 @@ void HIRSSADeconstruction::processNonLoopRegionLiveouts() {
 
       for (auto UserIt = Inst.user_begin(), EndIt = Inst.user_end();
            UserIt != EndIt;) {
-
+        assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
         auto *UserInst = cast<Instruction>(*UserIt);
 
         Use &LiveoutUse = UserIt.getUse();
@@ -1168,7 +1170,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     splitNonLoopRegionExit(SplitPos);
 
   } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
-             (RegionEntryIntrin = findRegionEntryIntrinsic(RegionEntryBB))) {
+             (RegionEntryIntrin =
+                  vpo::VPOAnalysisUtils::getBeginDirective(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
     // starting at that instruction if-
     // 1) It is not the first bblock instruction, Or
@@ -1252,12 +1255,6 @@ bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
   this->RI = &RI;
   this->ScopedSE = &RI.getScopedSE();
   this->SCCF = &SCCF;
-
-#if INTEL_PRODUCT_RELEASE
-  // Set a flag to induce an error if anyone attempts to write the IR
-  // to a file after this pass has been run.
-  F.getParent()->setIntelProprietary();
-#endif // INTEL_PRODUCT_RELEASE
 
   deconstructSSAForRegions();
 

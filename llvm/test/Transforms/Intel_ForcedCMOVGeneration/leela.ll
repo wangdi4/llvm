@@ -29,7 +29,6 @@
 ;     return std::make_pair(color_libs[color], color_libs[!color]);
 ; }
 ;
-; RUN: opt < %s -forced-cmov-generation -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="forced-cmov-generation" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
 ; CHECK:  [[DUMMY:%[0-9]+]] = alloca i32
 ; CHECK:  [[ADDR:%[0-9]+]] = select i1 %cmp14, i32* %arrayidx.i35, i32* [[DUMMY]]

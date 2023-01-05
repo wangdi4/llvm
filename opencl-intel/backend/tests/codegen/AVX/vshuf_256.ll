@@ -28,7 +28,7 @@ define <8 x float> @test2(<8 x float> %A, <8 x float> %B) nounwind {
 ; CHECK: test3
 ; CHECK:  vshufps $9, %ymm0, %ymm0, %ymm0
    %C = shufflevector <8 x float> %A, <8 x float> undef, <8 x i32> < i32 1, i32 2, i32 11, i32 8, i32 5, i32 6, i32 15, i32 12 >
-	ret <8 x float> %C
+  ret <8 x float> %C
  }
 
  define <8 x i32> @test4(<8 x i32> %A, <8 x i32> %B) nounwind {

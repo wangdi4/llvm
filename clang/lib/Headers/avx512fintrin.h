@@ -56,6 +56,14 @@ typedef long long __m512i_u __attribute__((__vector_size__(64), __aligned__(1)))
 typedef unsigned char __mmask8;
 typedef unsigned short __mmask16;
 
+/* INTEL_CUSTOMIZATION */
+#ifdef __SSE2__
+typedef _Float16 __v32hf __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h __attribute__((__vector_size__(64), __aligned__(64)));
+typedef _Float16 __m512h_u __attribute__((__vector_size__(64), __aligned__(1)));
+#endif
+/* end INTEL_CUSTOMIZATION */
+
 /* Rounding mode macros.  */
 #define _MM_FROUND_TO_NEAREST_INT   0x00
 #define _MM_FROUND_TO_NEG_INF       0x01
@@ -184,14 +192,17 @@ typedef enum
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512 __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(512)))
 #define __DEFAULT_FN_ATTRS128 __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx512f")))
+
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX256P */
 #if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS128 __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 #endif
 /* end INTEL_FEATURE_ISA_AVX256P */
 /* end INTEL_CUSTOMIZATION */
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx512f")))
 
 /* Create vectors with repeated elements */
 
@@ -278,8 +289,8 @@ _mm512_maskz_broadcastq_epi64 (__mmask8 __M, __m128i __A)
 static __inline __m512 __DEFAULT_FN_ATTRS512
 _mm512_setzero_ps(void)
 {
-  return __extension__ (__m512){ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+  return __extension__ (__m512){ 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 }
 
 #define _mm512_setzero _mm512_setzero_ps

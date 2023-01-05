@@ -2,6 +2,8 @@
 // RUN: sycl-post-link %t.bc -spec-const=default -S -o %t-split1.txt
 // RUN: cat %t-split1_0.ll | FileCheck %s -check-prefixes=CHECK-IR
 // RUN: cat %t-split1_0.prop | FileCheck %s -check-prefixes=CHECK-PROP
+// Timeout tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41515
+// UNSUPPORTED: windows
 //
 //==----------- SYCL-2020-spec-const-ids-order.cpp -------------------------==//
 //

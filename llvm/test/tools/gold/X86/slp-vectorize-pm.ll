@@ -10,7 +10,7 @@
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O0 \
-; RUN:     --plugin-opt=save-temps \
+; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:     -shared \
 ; RUN:     -o %t2.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
@@ -21,7 +21,7 @@
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O1 \
-; RUN:     --plugin-opt=save-temps \
+; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:     -shared \
 ; RUN:     -o %t3.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O1-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O1-LPV
@@ -32,7 +32,7 @@
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O2 \
-; RUN:     --plugin-opt=save-temps \
+; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:     -shared \
 ; RUN:     -o %t4.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O2-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O2-LPV
@@ -43,7 +43,7 @@
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O3 \
-; RUN:     --plugin-opt=save-temps \
+; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:     -shared \
 ; RUN:     -o %t5.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O3-LPV
@@ -62,15 +62,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* %a) {
+define i32 @foo(ptr %a) {
 entry:
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %red.05 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %red.05
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 255

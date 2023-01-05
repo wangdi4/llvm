@@ -12,19 +12,14 @@
 
 #include "Generator.h"
 
-template<class T>
-class BoolGenerator: public Generator<T> {
+template <class T> class BoolGenerator : public Generator<T> {
 public:
-	BoolGenerator(int seed, vector<T> edgeCases) :
-		Generator<T> (seed, edgeCases) {
-	}
+  BoolGenerator(int seed, vector<T> edgeCases)
+      : Generator<T>(seed, edgeCases) {}
 
-	virtual ~BoolGenerator() {
-	}
+  virtual ~BoolGenerator() {}
 
-	virtual T getRandomNum() {
-		return (rand() % 2) != 0;
-	}
+  virtual T getRandomNum() { return (rand() % 2) != 0; }
 };
 
 #endif /* BOOLGENERATOR_H_ */

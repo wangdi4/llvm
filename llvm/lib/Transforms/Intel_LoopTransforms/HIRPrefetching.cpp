@@ -1,6 +1,6 @@
 //===----------- HIRPrefetching.cpp Implements Prefetching class ---------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -236,7 +236,7 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef,
     BlobUtils &BU = IndexCE->getBlobUtils();
 
     SmallVector<unsigned, 8> BlobIdxToRemove;
-    for (auto Blob : make_range(IndexCE->blob_begin(), IndexCE->blob_end())) {
+    for (auto &Blob : make_range(IndexCE->blob_begin(), IndexCE->blob_end())) {
       Constant *VecConst;
 
       if (BU.getBlob(Blob.Index)->getType()->isVectorTy()) {
@@ -904,7 +904,7 @@ bool HIRPrefetching::doPrefetching(
     }
   }
 
-  if (HasPragmaInfo) {
+  if (HasPragmaInfo || !SkipNonModifiedRegions) {
     Lp->getParentRegion()->setGenCode();
   }
 

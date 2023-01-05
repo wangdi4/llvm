@@ -1,7 +1,7 @@
 //|
 //| TEST: FrameworkTest.eventDependencies
 //|
-//| Purpose 
+//| Purpose
 //| -------
 //|
 //| Test regression for a bug uncovered by the events subtest of conformance
@@ -19,141 +19,165 @@
 //| No crash.
 //| Return true in case of SUCCESS.
 
-#include <CL/cl.h>
 #include "FrameworkTest.h"
+#include <CL/cl.h>
 
 #define TEST_SIZE 100
 #define TEST_COUNT 100000
 
 extern cl_device_type gDeviceType;
 
-bool EventDependenciesTest()
-{
-    printf("---------------------------------------\n");
-    printf("event dependencies test\n");
-    printf("---------------------------------------\n");
-    bool bResult = true;
-    cl_context context;
-    cl_command_queue cmd_queue;
-    cl_device_id device;
-    cl_platform_id platform;
-    cl_int err;
-    cl_command_queue_properties queue_properties;
+bool EventDependenciesTest() {
+  printf("---------------------------------------\n");
+  printf("event dependencies test\n");
+  printf("---------------------------------------\n");
+  bool bResult = true;
+  cl_context context;
+  cl_command_queue cmd_queue;
+  cl_device_id device;
+  cl_platform_id platform;
+  cl_int err;
+  cl_command_queue_properties queue_properties;
 
-    //init platform
-    err = clGetPlatformIDs(1,&platform,NULL);
-    bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
+  // init platform
+  err = clGetPlatformIDs(1, &platform, NULL);
+  bResult = SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
 
-    // init device
-    err     = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-    bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
+  // init device
+  err = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
+  bResult = SilentCheck("clGetDeviceIDs", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
 
-    // Check for OOO support
-    err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-    bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
+  // Check for OOO support
+  err = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES,
+                        sizeof(cl_command_queue_properties), &queue_properties,
+                        NULL);
+  bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",
+                        CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
 
-    if (!(queue_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE))
-    {
-        printf("OOO not supported, test passing vacuously\n");
-        return true;
-    }
-
-    // Create a context
-    context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
-    bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
-    if (!bResult)
-      return bResult;
-
-    // Create a command queue
-    cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
-                                   CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
-    cmd_queue =
-        clCreateCommandQueueWithProperties(context, device, props, &err);
-    bResult =
-        SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
-    if (!bResult)
-      return bResult;
-
-    const char *ocl_test_program =
-        "__kernel void k1(__global int* a, int b) {}";
-
-    cl_kernel  k1;
-    cl_event   events[TEST_COUNT + 1];
-    cl_program program;
-
-    int i, loop_count, event_count;
-    int max_count = TEST_SIZE;
-    
-    // Create a buffer
-    cl_mem data = clCreateBuffer(context, CL_MEM_READ_WRITE, TEST_SIZE*sizeof(cl_int), NULL, &err);
-    bResult     = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-    
-    // Zero init the values
-    cl_int *values = new cl_int[TEST_SIZE];
-    for (i = 0; i < (int)TEST_SIZE; i++)
-        values[i] = 0;
-    
-    // Build the kernels
-    program = clCreateProgramWithSource(context, 1, &ocl_test_program, NULL, &err);
-    bResult = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-
-    err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-    bResult = SilentCheck("clBuildProgram",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-    
-    k1      = clCreateKernel(program, "k1", &err);
-    bResult = SilentCheck("clCreateKernel: k1",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-        
-    err     = clSetKernelArg(k1, 0, sizeof(data), &data);
-    err    |= clSetKernelArg(k1, 1, sizeof(max_count), &max_count);
-    bResult = SilentCheck("clSetKernelArg: k1",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-    event_count = 0;
-
-    err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0, TEST_SIZE*sizeof(cl_int), values, 0, NULL, events + event_count);
-    bResult = SilentCheck("clEnqueueWriteBuffer",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-
-    // check that we issue an error in case that event refers to an element in event_wait_list
-    err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0, TEST_SIZE * sizeof(cl_int), values, 1, events + event_count, events + event_count);
-    bResult = SilentCheck("clEnqueueWriteBuffer", CL_INVALID_EVENT, err);
-    if (!bResult)
-        return bResult;
-
-    size_t global_size[1] = {TEST_SIZE};
-
-    printf("Starting iterations....\n");fflush(0);
-    for (loop_count=0; loop_count<TEST_COUNT; loop_count++) 
-    {
-        // Execute kernel 1
-        event_count++;
-        err = clEnqueueNDRangeKernel(cmd_queue, k1, 1, NULL, global_size, NULL, 1, events + event_count - 1, events + event_count);
-        bResult = SilentCheck("clEnqueueNDRangeKernel: k1",CL_SUCCESS,err);
-        if (!bResult)    return bResult;
-        if ( (loop_count % 10000) == 0 ) {printf(".");fflush(0);}
-    }
-    printf("\nCompleted\n");fflush(0);
-
-    err = clEnqueueReadBuffer(cmd_queue, data, CL_TRUE, 0, TEST_SIZE*sizeof(cl_int), values, 1, events + event_count, NULL);
-    bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
-    if (!bResult)    return bResult;
-
-    printf("----------> Test completed <----------------\n");fflush(0);
-    delete[] values;
-    for (i = 0; i<TEST_COUNT+1; i++) 
-    {
-        clReleaseEvent(events[i]);
-    }
-    clReleaseKernel(k1);
-    clReleaseProgram(program);
-    clReleaseMemObject(data);
-    clReleaseCommandQueue(cmd_queue);
-    clReleaseContext(context);
+  if (!(queue_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)) {
+    printf("OOO not supported, test passing vacuously\n");
     return true;
+  }
+
+  // Create a context
+  context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
+  bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  // Create a command queue
+  cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
+                                 CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+  cmd_queue = clCreateCommandQueueWithProperties(context, device, props, &err);
+  bResult = SilentCheck("clCreateCommandQueueWithProperties", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  const char *ocl_test_program = "__kernel void k1(__global int* a, int b) {}";
+
+  cl_kernel k1;
+  cl_event events[TEST_COUNT + 1];
+  cl_program program;
+
+  int i, loop_count, event_count;
+  int max_count = TEST_SIZE;
+
+  // Create a buffer
+  cl_mem data = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                               TEST_SIZE * sizeof(cl_int), NULL, &err);
+  bResult = SilentCheck("clCreateBuffer", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  // Zero init the values
+  cl_int *values = new cl_int[TEST_SIZE];
+  for (i = 0; i < (int)TEST_SIZE; i++)
+    values[i] = 0;
+
+  // Build the kernels
+  program =
+      clCreateProgramWithSource(context, 1, &ocl_test_program, NULL, &err);
+  bResult = SilentCheck("clCreateProgramWithSource", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  bResult = SilentCheck("clBuildProgram", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  k1 = clCreateKernel(program, "k1", &err);
+  bResult = SilentCheck("clCreateKernel: k1", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  err = clSetKernelArg(k1, 0, sizeof(data), &data);
+  err |= clSetKernelArg(k1, 1, sizeof(max_count), &max_count);
+  bResult = SilentCheck("clSetKernelArg: k1", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+  event_count = 0;
+
+  err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0,
+                             TEST_SIZE * sizeof(cl_int), values, 0, NULL,
+                             events + event_count);
+  bResult = SilentCheck("clEnqueueWriteBuffer", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  // check that we issue an error in case that event refers to an element in
+  // event_wait_list
+  err = clEnqueueWriteBuffer(cmd_queue, data, CL_FALSE, 0,
+                             TEST_SIZE * sizeof(cl_int), values, 1,
+                             events + event_count, events + event_count);
+  bResult = SilentCheck("clEnqueueWriteBuffer", CL_INVALID_EVENT, err);
+  if (!bResult)
+    return bResult;
+
+  size_t global_size[1] = {TEST_SIZE};
+
+  printf("Starting iterations....\n");
+  fflush(0);
+  for (loop_count = 0; loop_count < TEST_COUNT; loop_count++) {
+    // Execute kernel 1
+    event_count++;
+    err =
+        clEnqueueNDRangeKernel(cmd_queue, k1, 1, NULL, global_size, NULL, 1,
+                               events + event_count - 1, events + event_count);
+    bResult = SilentCheck("clEnqueueNDRangeKernel: k1", CL_SUCCESS, err);
+    if (!bResult)
+      return bResult;
+    if ((loop_count % 10000) == 0) {
+      printf(".");
+      fflush(0);
+    }
+  }
+  printf("\nCompleted\n");
+  fflush(0);
+
+  err = clEnqueueReadBuffer(cmd_queue, data, CL_TRUE, 0,
+                            TEST_SIZE * sizeof(cl_int), values, 1,
+                            events + event_count, NULL);
+  bResult = SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, err);
+  if (!bResult)
+    return bResult;
+
+  printf("----------> Test completed <----------------\n");
+  fflush(0);
+  delete[] values;
+  for (i = 0; i < TEST_COUNT + 1; i++) {
+    clReleaseEvent(events[i]);
+  }
+  clReleaseKernel(k1);
+  clReleaseProgram(program);
+  clReleaseMemObject(data);
+  clReleaseCommandQueue(cmd_queue);
+  clReleaseContext(context);
+  return true;
 }

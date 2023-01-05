@@ -17,38 +17,36 @@
 
 #include <assert.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-BackendConfiguration* BackendConfiguration::s_pInstance = nullptr;
+BackendConfiguration *BackendConfiguration::s_pInstance = nullptr;
 
-void BackendConfiguration::Init()
-{
-    assert(!s_pInstance);
-    s_pInstance = new BackendConfiguration();
+void BackendConfiguration::Init() {
+  assert(!s_pInstance);
+  s_pInstance = new BackendConfiguration();
 }
 
-void BackendConfiguration::Terminate()
-{
-    if( nullptr != s_pInstance)
-    {
-        delete s_pInstance;
-        s_pInstance = nullptr;
-    }
+void BackendConfiguration::Terminate() {
+  if (nullptr != s_pInstance) {
+    delete s_pInstance;
+    s_pInstance = nullptr;
+  }
 }
 
-const BackendConfiguration& BackendConfiguration::GetInstance()
-{
-    assert(s_pInstance);
-    return *s_pInstance;
+const BackendConfiguration &BackendConfiguration::GetInstance() {
+  assert(s_pInstance);
+  return *s_pInstance;
 }
 
-GlobalCompilerConfig BackendConfiguration::GetGlobalCompilerConfig( const ICLDevBackendOptions* pBackendOptions ) const
-{
-    GlobalCompilerConfig config;
-    config.LoadDefaults();
-    config.LoadConfig();
-    config.ApplyRuntimeOptions(pBackendOptions);
-    return config;
+GlobalCompilerConfig BackendConfiguration::GetGlobalCompilerConfig(
+    const ICLDevBackendOptions *pBackendOptions) const {
+  GlobalCompilerConfig config;
+  config.LoadDefaults();
+  config.LoadConfig();
+  config.ApplyRuntimeOptions(pBackendOptions);
+  return config;
 }
 
 std::unique_ptr<ICompilerConfig> BackendConfiguration::GetCPUCompilerConfig(
@@ -61,4 +59,6 @@ std::unique_ptr<ICompilerConfig> BackendConfiguration::GetCPUCompilerConfig(
     config->SkipBuiltins();
   return std::unique_ptr<ICompilerConfig>(config);
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

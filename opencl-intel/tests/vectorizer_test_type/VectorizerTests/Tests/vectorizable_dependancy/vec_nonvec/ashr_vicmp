@@ -6,26 +6,26 @@
  * produced by previous vectorizable ashr instruction.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 ashr_vicmp ( __global const float *in,
-		__global float2 *out)
+    __global float2 *out)
 {
-	int gid = get_global_id(0);
-	long2 arg1;
-	arg1.x = gid;
-	arg1.y = in[gid];
-	long2 arg2;
-	arg2.x = in[gid] * in[gid] * in[gid];
-	arg2.y = gid * gid * gid;
-	long2 arg3 = arg2 >> arg1;
-	long2 arg4 = arg1 >> arg2;
-	long2 arg5 = arg3 == arg4;
-	out[gid] = convert_float2(arg5);
+  int gid = get_global_id(0);
+  long2 arg1;
+  arg1.x = gid;
+  arg1.y = in[gid];
+  long2 arg2;
+  arg2.x = in[gid] * in[gid] * in[gid];
+  arg2.y = gid * gid * gid;
+  long2 arg3 = arg2 >> arg1;
+  long2 arg4 = arg1 >> arg2;
+  long2 arg5 = arg3 == arg4;
+  out[gid] = convert_float2(arg5);
 
 
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,6 +15,7 @@
 #include "Logger.h"
 #include "cl_secure_string_linux.h"
 #include "cl_shutdown.h"
+#include "cl_user_logger.h"
 
 #include <assert.h>
 #include <malloc.h>
@@ -25,82 +26,72 @@
 using namespace Intel::OpenCL::Utils;
 
 #ifndef DEVICE_NATIVE
-	// use only global handler - do not use local one
-	USE_SHUTDOWN_HANDLER(nullptr); 
+// use only global handler - do not use local one
+USE_SHUTDOWN_HANDLER(nullptr);
 #endif
 
-void Logger::RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
-{
-    Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
+void Logger::RegisterGlobalAtExitNotification(IAtExitCentralPoint *fn) {
+  Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-Logger::Logger()
-{
-    m_bIsActive = false;
-    memset(m_logHandlers, 0, sizeof(m_logHandlers));
+Logger::Logger() {
+  m_bIsActive = false;
+  memset(m_logHandlers, 0, sizeof(m_logHandlers));
 }
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger Dtor
 /////////////////////////////////////////////////////////////////////////////////////////
-Logger::~Logger()
-{
-
-}
+Logger::~Logger() {}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetInstance
 /////////////////////////////////////////////////////////////////////////////////////////
-struct LoggerSingletonHandler
-{
-    LoggerSingletonHandler()
-    {
-        pLogger = new Logger;
-    }
+struct LoggerSingletonHandler {
+  LoggerSingletonHandler() { pLogger = new Logger; }
 
-    ~LoggerSingletonHandler()
-    {
-        delete(pLogger);
-    }
+  ~LoggerSingletonHandler() {
+    delete (pLogger);
+    // Workaround. Set pLogger nullptr to mark pLogger is deleted.
+    // framework module(e.g., Kernel, DeviceKernel) uses log when call their
+    // destructors, however pLogger is deleted before the calls.
+    pLogger = nullptr;
+  }
 
-    // Pointer to a singleton object
-    static Logger*    pLogger;
+  // Delete assignment operator
+  LoggerSingletonHandler &operator=(const LoggerSingletonHandler &) = delete;
+  LoggerSingletonHandler &operator=(LoggerSingletonHandler &&) = delete;
+
+  // Pointer to a singleton object
+  static Logger *pLogger;
 };
 
-Logger* LoggerSingletonHandler::pLogger = nullptr;
+Logger *LoggerSingletonHandler::pLogger = nullptr;
 
-LoggerSingletonHandler    logger;
+LoggerSingletonHandler logger;
 
-Logger& Logger::GetInstance()
-{
-    return *LoggerSingletonHandler::pLogger;
-}
+Logger *Logger::GetInstance() { return LoggerSingletonHandler::pLogger; }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::AddLogHandler
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
-{
+cl_err_code Logger::AddLogHandler(LogHandler *logHandler) {
 
-    OclAutoMutex CS(&m_CS); // Lock the function
-    int    i;
-    for (i = 0; i < MAX_LOG_HANDLERS; i++)
-    {
-        if (m_logHandlers[i] == logHandler)
-        {
-            return CL_ERR_LOGGER_FAILED;
-        }
-        if (m_logHandlers[i] == nullptr)
-        {
-            m_logHandlers[i] = logHandler;
-            return CL_SUCCESS;
-        }
+  std::lock_guard<std::mutex> CS(m_CS); // Lock the function
+  int i;
+  for (i = 0; i < MAX_LOG_HANDLERS; i++) {
+    if (m_logHandlers[i] == logHandler) {
+      return CL_ERR_LOGGER_FAILED;
     }
-    return CL_ERR_LOGGER_FAILED;
+    if (m_logHandlers[i] == nullptr) {
+      m_logHandlers[i] = logHandler;
+      return CL_SUCCESS;
+    }
+  }
+  return CL_ERR_LOGGER_FAILED;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -116,25 +107,22 @@ const char *Logger::GetLogHandlerParams(const char * /*logHandler*/) {
 // Logger::Log
 /////////////////////////////////////////////////////////////////////////////////////////
 void Logger::Log(ELogLevel level, ELogConfigField config,
-                 const char* psClientName, const char* sourceFile,
-                 const char* functionName, __int32 sourceLine,
-                 const char* message,  va_list va)
-{
-    LogMessage logMessage(level, config, psClientName, sourceFile,
-                          functionName, sourceLine, message, va);
-    if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled() &&
-        (LL_ERROR == level || LL_CRITICAL == level))
-    {
-        g_pUserLogger->PrintError(logMessage.GetFormattedMessage());
-    }
+                 const char *psClientName, const char *sourceFile,
+                 const char *functionName, __int32 sourceLine,
+                 const char *message, va_list va) {
+  LogMessage logMessage(level, config, psClientName, sourceFile, functionName,
+                        sourceLine, message, va);
+  if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled() &&
+      (LL_ERROR == level || LL_CRITICAL == level)) {
+    FrameworkUserLogger::GetInstance()->PrintError(
+        logMessage.GetFormattedMessage());
+  }
 
-    for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
-    {
-        if (m_logHandlers[i] != nullptr)
-        {
-            m_logHandlers[i]->Log(logMessage);
-        }
+  for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++) {
+    if (m_logHandlers[i] != nullptr) {
+      m_logHandlers[i]->Log(logMessage);
     }
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -150,36 +138,34 @@ LoggerClient::LoggerClient(const char * /*clientHandle*/, ELogLevel loglevel) {
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Dtor
 /////////////////////////////////////////////////////////////////////////////////////////
-inline LoggerClient::~LoggerClient()
-{
-
-}
+inline LoggerClient::~LoggerClient() {}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void LoggerClient::Log(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, ...)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    va_list va;
-    va_start(va, message);
+void LoggerClient::Log(ELogLevel level, const char *sourceFile,
+                       const char *functionName, __int32 sourceLine,
+                       const char *message, ...) {
+  if (!Logger::GetInstance() || m_logLevel > level)
+    return;
+  va_list va;
+  va_start(va, message);
 
-    Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
+  Logger::GetInstance()->Log(level, m_eLogConfig, "", sourceFile, functionName,
+                             sourceLine, message, va);
 
-    va_end( va );
+  va_end(va);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient::LogArgList
 /////////////////////////////////////////////////////////////////////////////////////////
-void LoggerClient::LogArgList(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va)
-{
-    if (m_logLevel > level)
-    {
-        return;
-    }
-    Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
+void LoggerClient::LogArgList(ELogLevel level, const char *sourceFile,
+                              const char *functionName, __int32 sourceLine,
+                              const char *message, va_list va) {
+  if (!Logger::GetInstance() || m_logLevel > level)
+    return;
+
+  Logger::GetInstance()->Log(level, m_eLogConfig, "", sourceFile, functionName,
+                             sourceLine, message, va);
 }

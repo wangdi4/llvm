@@ -2,7 +2,7 @@
 ;
 ; Test to check that HIR CG does not crash on masked scalar div with scalar operand.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -disable-output -print-after=hir-vplan-vec %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s
 ;
 ; The incoming HIR contains uniform division, which is scalarized, and we
 ; crash on the that there is no DDRef generated for its operand. The current logic
@@ -37,7 +37,7 @@ define void @foo(i64* noalias %lp1, i64* noalias %lp2, i64 noundef %n1) {
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      [[DOTUNIFLOAD0]] = ([[LP10:%.*]])[0]
 ; CHECK-NEXT:        |   }
-; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = zext.<2 x i8>.<2 x i64>([[DOTUNIFLOAD0]])
+; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTUNIFLOAD0]]  &  255
 ; CHECK-NEXT:        |   [[TMP1:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC10]])
 ; CHECK-NEXT:        |   [[CMP30:%.*]] = [[TMP1]] != 0
 ; CHECK-NEXT:        |   [[DOTSCAL0:%.*]] = undef

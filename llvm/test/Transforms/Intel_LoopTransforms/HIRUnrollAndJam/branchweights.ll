@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -hir-cg -print-after=hir-cg -print-module-scope -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,hir-cg" -aa-pipeline="basic-aa" -S  <%s 2>&1 | FileCheck %s
 
 ; Verify branch_weights after U & J.

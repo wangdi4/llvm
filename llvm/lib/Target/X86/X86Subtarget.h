@@ -264,7 +264,8 @@ public:
     // We implicitly enable these when we have a write prefix supporting cache
     // level OR if we have prfchw, but don't already have a read prefetch from
     // 3dnow.
-    return hasSSE1() || (hasPRFCHW() && !hasThreeDNow()) || hasPREFETCHWT1();
+    return hasSSE1() || (hasPRFCHW() && !hasThreeDNow()) || hasPREFETCHWT1() ||
+           hasPREFETCHI();
   }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const override { return DSBSize > NoDSB; }
@@ -295,9 +296,10 @@ public:
   // because for many cases we don't have a better option.
   bool canExtendTo512DQ() const {
 #if INTEL_CUSTOMIZATION
-    return hasAVX512() &&
 #if INTEL_FEATURE_ISA_AVX256
-           !IsAVX256 &&
+    return X86SSELevel >= AVX512 && !IsAVX256 &&
+#else  // INTEL_FEATURE_ISA_AVX256
+    return hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256
            (!hasVLX() || getPreferVectorWidth() >= 512);
 #endif // INTEL_CUSTOMIZATION
@@ -310,9 +312,10 @@ public:
   // disable them in the legalizer.
   bool useAVX512Regs() const {
 #if INTEL_CUSTOMIZATION
-    return hasAVX512() &&
 #if INTEL_FEATURE_ISA_AVX256
-           !IsAVX256 &&
+    return X86SSELevel >= AVX512 && !IsAVX256 &&
+#else  // INTEL_FEATURE_ISA_AVX256
+    return hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256
            (canExtendTo512DQ() || RequiredVectorWidth > 256);
 #endif // INTEL_CUSTOMIZATION
@@ -323,6 +326,11 @@ public:
   }
 
   bool isXRaySupported() const override { return is64Bit(); }
+
+  /// Use clflush if we have SSE2 or we're on x86-64 (even if we asked for
+  /// no-sse2). There isn't any reason to disable it if the target processor
+  /// supports it.
+  bool hasCLFLUSH() const { return hasSSE2() || is64Bit(); }
 
   /// Use mfence if we have SSE2 or we're on x86-64 (even if we asked for
   /// no-sse2). There isn't any reason to disable it if the target processor
@@ -429,7 +437,8 @@ public:
   /// Classify a global function reference for the current subtarget.
   unsigned char classifyGlobalFunctionReference(const GlobalValue *GV,
                                                 const Module &M) const;
-  unsigned char classifyGlobalFunctionReference(const GlobalValue *GV) const;
+  unsigned char
+  classifyGlobalFunctionReference(const GlobalValue *GV) const override;
 
   /// Classify a blockaddress reference for the current subtarget according to
   /// how we should reference it in a non-pcrel context.

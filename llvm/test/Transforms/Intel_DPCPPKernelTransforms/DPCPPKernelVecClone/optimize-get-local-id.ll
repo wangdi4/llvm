@@ -5,9 +5,7 @@
 ; Check for default case i.e. max work group size < 2GB. Note that %trunc.user is removed from function,
 ; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
 ; replaced by %add.sext.
-; RUN: opt -dpcpp-kernel-set-vf -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes="dpcpp-kernel-set-vf,dpcpp-kernel-vec-clone" -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-set-vf -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=LT2GB
 ; RUN: opt -passes="dpcpp-kernel-set-vf,dpcpp-kernel-vec-clone" -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=LT2GB
 
 ; LT2GB-LABEL: @_ZGVeN16uu_foo
@@ -39,9 +37,7 @@
 ; LT2GB-NEXT: br label %simd.loop.latch
 
 ; Check for non-default case i.e. max work group size > 2GB.
-; RUN: opt -dpcpp-kernel-set-vf -dpcpp-kernel-vec-clone --dpcpp-less-than-two-gig-max-work-group-size=false -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY,DEBUGIFY2
 ; RUN: opt -passes="dpcpp-kernel-set-vf,dpcpp-kernel-vec-clone" --dpcpp-less-than-two-gig-max-work-group-size=false -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY,DEBUGIFY2
-; RUN: opt -dpcpp-kernel-set-vf -dpcpp-kernel-vec-clone --dpcpp-less-than-two-gig-max-work-group-size=false -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=GT2GB
 ; RUN: opt -passes="dpcpp-kernel-set-vf,dpcpp-kernel-vec-clone" --dpcpp-less-than-two-gig-max-work-group-size=false -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=GT2GB
 ; GT2GB-LABEL: @_ZGVeN16uu_foo
 

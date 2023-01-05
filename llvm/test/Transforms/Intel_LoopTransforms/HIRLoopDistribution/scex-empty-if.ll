@@ -1,4 +1,3 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,verify<hir>,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; The tests verifies that empty nodes be removed after scalar expansion.

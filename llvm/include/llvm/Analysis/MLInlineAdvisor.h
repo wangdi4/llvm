@@ -35,6 +35,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <optional>
 
 namespace llvm {
 class DiagnosticInfoOptimizationBase;
@@ -66,12 +67,12 @@ protected:
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
-            WholeProgramInfo *WPI = nullptr,
-            InlineCost **IC = nullptr) override;
+                WholeProgramInfo *WPI = nullptr) override;
 
-  std::unique_ptr<InlineAdvice>
-  getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                     WholeProgramInfo *WPI, InlineCost **IC, bool Advice) override;
+  std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
+                                                   InliningLoopInfoCache *ILIC,
+                                                   WholeProgramInfo *WPI,
+                                                   bool Advice) override;
 #endif // INTEL_CUSTOMIZATION
 
   virtual std::unique_ptr<MLInlineAdvice> getMandatoryAdviceImpl(CallBase &CB);
@@ -92,7 +93,10 @@ private:
   getSkipAdviceIfUnreachableCallsite(CallBase &CB);
   void print(raw_ostream &OS) const override;
 
-  mutable DenseMap<const Function *, FunctionPropertiesInfo> FPICache;
+  // Using std::map to benefit from its iterator / reference non-invalidating
+  // semantics, which make it easy to use `getCachedFPI` results from multiple
+  // calls without needing to copy to avoid invalidation effects.
+  mutable std::map<const Function *, FunctionPropertiesInfo> FPICache;
 
   LazyCallGraph &CG;
 
@@ -137,7 +141,7 @@ private:
   // Make a copy of the FPI of the caller right before inlining. If inlining
   // fails, we can just update the cache with that value.
   const FunctionPropertiesInfo PreInlineCallerFPI;
-  Optional<FunctionPropertiesUpdater> FPU;
+  std::optional<FunctionPropertiesUpdater> FPU;
 };
 
 } // namespace llvm

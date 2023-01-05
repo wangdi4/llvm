@@ -18,39 +18,29 @@
 #include "CL/cl_platform.h"
 #include <string>
 
-namespace Validation
-{
-    // @brief This is a base interface for the performance class visitor
-    class IPerformanceVisitor
-    {
-    public:
-        virtual ~IPerformanceVisitor() {}
-        
-        virtual void OnKernelSample(const std::string& kernel,  
-                                    unsigned int vectorSize,
-                                    cl_long buildTicks, 
-                                    double buildSDMean,
-                                    cl_long executionTicks,
-                                    double executionSDMean,
-                                    cl_long serializationTicks,
-                                    double serializationSDMean,
-                                    cl_long deserializationTicks,
-                                    double deserializationSDMean
-                            ) = 0;
-    };
+namespace Validation {
+// @brief This is a base interface for the performance class visitor
+class IPerformanceVisitor {
+public:
+  virtual ~IPerformanceVisitor() {}
 
+  virtual void
+  OnKernelSample(const std::string &kernel, unsigned int vectorSize,
+                 cl_long buildTicks, double buildSDMean, cl_long executionTicks,
+                 double executionSDMean, cl_long serializationTicks,
+                 double serializationSDMean, cl_long deserializationTicks,
+                 double deserializationSDMean) = 0;
+};
 
-  /// @brief This class enables test execution performance measurements.
-  /// The measurements consist of build time and execution time.
-  class IPerformance
-  {
-  public:
-    virtual ~IPerformance(void) {}
+/// @brief This class enables test execution performance measurements.
+/// The measurements consist of build time and execution time.
+class IPerformance {
+public:
+  virtual ~IPerformance(void) {}
 
-    /// @brief Visits the performance data
-    virtual void Visit(IPerformanceVisitor* pVisitor) const = 0;
-    
-  };
-}
+  /// @brief Visits the performance data
+  virtual void Visit(IPerformanceVisitor *pVisitor) const = 0;
+};
+} // namespace Validation
 
 #endif // I_PERFORMANCE_H

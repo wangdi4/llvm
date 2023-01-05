@@ -1,5 +1,7 @@
-;RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu  | FileCheck %s -check-prefix=X64
+;RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=X64
 ;RUN: llc < %s -mtriple=x86_64-windows  | FileCheck %s -check-prefix=X64Win
+;RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -opaque-pointers | FileCheck %s -check-prefix=X64
+;RUN: llc < %s -mtriple=x86_64-windows -opaque-pointers | FileCheck %s -check-prefix=X64Win
 
 @foo.lock2 = internal global i32 2, align 4
 @foo.lock3 = internal global i32 3, align 4

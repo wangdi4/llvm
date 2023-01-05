@@ -51,23 +51,23 @@ private:
   DirectionVector DV;
   DistanceVector DistVector;
   bool IsLoopIndepDepTemp;
+  bool FirstIterPeelingRemovesDep;
 
 public:
-  DDEdge() {
-    Src = Sink = nullptr;
-    IsLoopIndepDepTemp = false;
-  }
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DirectionVector &DirV,
-         const DistanceVector &DistV, bool IsLoopIndepDepTempIn = false)
-      : Src(SrcRef), Sink(SinkRef), DV(DirV), DistVector(DistV) {
-    IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
-  }
+         const DistanceVector &DistV, bool IsLoopIndepDepTemp = false,
+         bool FirstIterPeelingRemovesDep = false)
+      : Src(SrcRef), Sink(SinkRef), DV(DirV), DistVector(DistV),
+        IsLoopIndepDepTemp(IsLoopIndepDepTemp),
+        FirstIterPeelingRemovesDep(FirstIterPeelingRemovesDep) {}
 
   DepType getEdgeType() const;
 
   DDRef *getSrc() const { return Src; }
   DDRef *getSink() const { return Sink; }
   bool isLoopIndependentDepTemp() const { return IsLoopIndepDepTemp; }
+
+  bool firstIterPeelingRemovesDep() const { return FirstIterPeelingRemovesDep; }
 
   // Returns direction vector of the edge.
   const DirectionVector &getDV() const { return DV; }
@@ -284,6 +284,18 @@ public:
   unsigned getNumOutgoingEdges(const DDRef *Ref) const {
     return std::distance(outgoing_edges_begin(Ref), outgoing_edges_end(Ref));
   };
+
+  bool hasIncomingEdges(const DDRef *Ref) const {
+    return (incoming_edges_begin(Ref) != incoming_edges_end(Ref));
+  }
+
+  bool hasOutgoingEdges(const DDRef *Ref) const {
+    return (outgoing_edges_begin(Ref) != outgoing_edges_end(Ref));
+  }
+
+  bool hasIncomingOrOutgoingEdges(const DDRef *Ref) const {
+    return hasIncomingEdges(Ref) || hasOutgoingEdges(Ref);
+  }
 
   // Single edge going out of this DDRef.
   bool singleEdgeGoingOut(const DDRef *LRef);

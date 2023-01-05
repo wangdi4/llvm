@@ -260,50 +260,6 @@ OclBuiltinImpl mad_hi_igeneric = OclBuiltinImpl<mad_hi, mad_hi.Types, 0, [{
 
 
 /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max scalar
-OclBuiltinImpl max_iscalar = OclBuiltinImpl<max, [v1i8, v1i16, v1i32, v1i64,
-                                                 v1u8, v1u16, v1u32, v1u64], 0, [{
-    return ($Arg0VarName > $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
-  }]>;
-// max vector
-OclBuiltinImpl max_ivector = OclBuiltinImpl<max, [ v2i8,  v3i8,  v4i8,  v8i8,
-                                                  v2u8,  v3u8,  v4u8,  v8u8,
-                                                 v2i16, v3i16, v4i16,
-                                                 v2u16, v3u16, v4u16,
-                                                 v2i32, v3i32,
-                                                 v2u32, v3u32,
-                                                 v2i64, v3i64, v4i64, v16i64,
-                                                 v2u64, v3u64, v4u64, v16u64], 0, max_ivector_code>;
-
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if y < x, otherwise it returns x                  *
-\*****************************************************************/
-// min scalars
-OclBuiltinImpl min_iscalar = OclBuiltinImpl<min, [v1i8, v1i16, v1i32, v1i64,
-                                                 v1u8, v1u16, v1u32, v1u64], 0, [{
-        return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
-  }]>;
-// min vectors
-OclBuiltinImpl min_ivector = OclBuiltinImpl<min, [ v2i8,  v3i8,  v4i8,  v8i8,
-                                                  v2u8,  v3u8,  v4u8,  v8u8,
-                                                 v2i16, v3i16, v4i16,
-                                                 v2u16, v3u16, v4u16,
-                                                 v2i32, v3i32, 
-                                                 v2u32, v3u32, 
-                                                 v2i64, v3i64, v4i64, v16i64,
-                                                 v2u64, v3u64, v4u64, v16u64] , 0, min_ivector_code>;
-
-
-/*****************************************************************\
  * mul_hi                                                        *
  *   gentype mul_hi (gentype x , gentype y)                      *
  *   Returns the high half of the product of (x * y)             *

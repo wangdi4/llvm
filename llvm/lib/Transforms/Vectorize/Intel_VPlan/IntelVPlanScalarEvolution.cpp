@@ -15,6 +15,8 @@
 
 #include <llvm/Analysis/ScalarEvolutionExpressions.h>
 
+#include <optional>
+
 #define DEBUG_TYPE "vplan-scalar-evolution"
 
 using namespace llvm;
@@ -79,19 +81,19 @@ VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
 Optional<VPConstStepInduction>
 VPlanScalarEvolutionLLVM::asConstStepInduction(VPlanSCEV *Expr) const {
   if (!Expr)
-    return None;
+    return std::nullopt;
 
   const SCEV *ScevExpr = toSCEV(Expr);
   if (!isa<SCEVAddRecExpr>(ScevExpr))
-    return None;
+    return std::nullopt;
 
   auto *AddRec = cast<SCEVAddRecExpr>(ScevExpr);
   if (AddRec->getLoop() != MainLoop || !AddRec->isAffine())
-    return None;
+    return std::nullopt;
 
   auto *ConstStepExpr = dyn_cast<SCEVConstant>(AddRec->getOperand(1));
   if (!ConstStepExpr)
-    return None;
+    return std::nullopt;
 
   auto *Base = AddRec->getOperand(0);
   auto Step = ConstStepExpr->getAPInt().getSExtValue();

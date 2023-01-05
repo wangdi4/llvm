@@ -1,11 +1,10 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment runs correctly when alloca
 ; instruction is used as memory allocation.
 
 ; This is the same test case as argument_align_10.ll, but it checks for
 ; opaque pointers.
 
-; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(intel-argument-alignment)' -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; CHECK: Candidates for argument alignment: 1

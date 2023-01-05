@@ -3,7 +3,6 @@
 ; This test verifies that Field-reordering transformation applied
 ; correctly to GEP and calloc instructions related to %struct.test.
 
-;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields | FileCheck %s
 ;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK: calloc(i64 10, i64 40)

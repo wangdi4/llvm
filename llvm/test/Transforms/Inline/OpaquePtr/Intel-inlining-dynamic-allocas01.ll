@@ -1,14 +1,10 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -inline -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)'  -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost=false -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost=false -inline-report=0x87 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter'  -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost=false -inline-report=0x87 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
-target triple = "x86_64-unknown-linux-gnu"
-
-; Check that with -dtrans-inline-heuristics -intel-libirc-allowed that @foo,
-; which has a dynamic alloca, can be inlined.
+; Check that with -dtrans-inline-heuristics -intel-libirc-allowed that @foo, which has a dynamic
+; alloca, can be inlined.
 
 ; Checks for old pass manager with old inline report
 
@@ -29,6 +25,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEW: COMPILE FUNC: foo_
 ; CHECK-NEW: COMPILE FUNC: MAIN__
 ; CHECK-NEW: INLINE: foo_{{.*}}Inlining is profitable>>
+
+target triple = "x86_64-unknown-linux-gnu"
 
 @0 = internal unnamed_addr constant i32 2
 @1 = internal unnamed_addr constant i32 1000

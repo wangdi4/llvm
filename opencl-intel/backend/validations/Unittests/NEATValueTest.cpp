@@ -23,97 +23,96 @@ using namespace Validation;
 using namespace std;
 
 /// this test checks serialization of NEATValue structure into standard streams
-/// variable of type NEATValue is created and filled with reference data 
-/// then it is written to output stream. 
+/// variable of type NEATValue is created and filled with reference data
+/// then it is written to output stream.
 /// Next it is read from the same stream into new NEATValue variable
 /// Then checking we read the same as we written before
 TEST(NEATValue, SerializationCheck) {
-    
-    /// ACCURATE CHECK
-    {
-        stringstream ref_str(stringstream::in | stringstream::out);
-        NEATValue ref;
-        ref.SetAccurateVal<float> (1.0f);
-        ref_str << ref;                    
 
-        NEATValue val;       
-        ref_str >> val;
-        EXPECT_EQ(val.IsAcc(), true);
-        EXPECT_EQ(*val.GetAcc<float>(), 1.0f);
-    }
- 
-    /// UNKNOWN CHECK
-    {
-        stringstream ref_str(stringstream::in | stringstream::out);
-        NEATValue ref;
-        ref.SetStatus(NEATValue::UNKNOWN);
-        ref_str << ref;                    
+  /// ACCURATE CHECK
+  {
+    stringstream ref_str(stringstream::in | stringstream::out);
+    NEATValue ref;
+    ref.SetAccurateVal<float>(1.0f);
+    ref_str << ref;
 
-        NEATValue val;       
-        ref_str >> val;
-        EXPECT_EQ(val.IsUnknown(), true);
-    }
+    NEATValue val;
+    ref_str >> val;
+    EXPECT_EQ(val.IsAcc(), true);
+    EXPECT_EQ(*val.GetAcc<float>(), 1.0f);
+  }
 
-    /// ANY CHECK
-    {
-        stringstream ref_str(stringstream::in | stringstream::out);
-        NEATValue ref;
-        ref.SetStatus(NEATValue::ANY);
-        ref_str << ref;                    
+  /// UNKNOWN CHECK
+  {
+    stringstream ref_str(stringstream::in | stringstream::out);
+    NEATValue ref;
+    ref.SetStatus(NEATValue::UNKNOWN);
+    ref_str << ref;
 
-        NEATValue val;       
-        ref_str >> val;
-        EXPECT_EQ(val.IsAny(), true);
-    }
-    /// UNWRITTEN CHECK
-    {
-        stringstream ref_str(stringstream::in | stringstream::out);
-        NEATValue ref;
-        ref.SetStatus(NEATValue::UNWRITTEN);
-        ref_str << ref;                    
+    NEATValue val;
+    ref_str >> val;
+    EXPECT_EQ(val.IsUnknown(), true);
+  }
 
-        NEATValue val;       
-        ref_str >> val;
-        EXPECT_EQ(val.IsUnwritten(), true);
-    }
+  /// ANY CHECK
+  {
+    stringstream ref_str(stringstream::in | stringstream::out);
+    NEATValue ref;
+    ref.SetStatus(NEATValue::ANY);
+    ref_str << ref;
 
-    /// INTERVAL CHECK
-    {
-        stringstream ref_str(stringstream::in | stringstream::out);
-        NEATValue ref;
-        ref.SetIntervalVal<double>(1.0, 88.34);
-        ref_str << ref;                    
+    NEATValue val;
+    ref_str >> val;
+    EXPECT_EQ(val.IsAny(), true);
+  }
+  /// UNWRITTEN CHECK
+  {
+    stringstream ref_str(stringstream::in | stringstream::out);
+    NEATValue ref;
+    ref.SetStatus(NEATValue::UNWRITTEN);
+    ref_str << ref;
 
-        NEATValue val;       
-        ref_str >> val;
-        EXPECT_EQ(val.IsInterval(), true);
-        EXPECT_EQ(*val.GetMin<double>(), 1.0);
-        EXPECT_EQ(*val.GetMax<double>(), 88.34);
-    }
+    NEATValue val;
+    ref_str >> val;
+    EXPECT_EQ(val.IsUnwritten(), true);
+  }
 
+  /// INTERVAL CHECK
+  {
+    stringstream ref_str(stringstream::in | stringstream::out);
+    NEATValue ref;
+    ref.SetIntervalVal<double>(1.0, 88.34);
+    ref_str << ref;
 
+    NEATValue val;
+    ref_str >> val;
+    EXPECT_EQ(val.IsInterval(), true);
+    EXPECT_EQ(*val.GetMin<double>(), 1.0);
+    EXPECT_EQ(*val.GetMax<double>(), 88.34);
+  }
 }
 
 TEST(NEATValue, ExpandIntervalTest) {
-    double fmin = -32.4901;
-    double fmax = -12.345;
+  double fmin = -32.4901;
+  double fmax = -12.345;
 
-    double fmin_out = fmin, fmax_out = fmax;
-    IntervalError<float> error(3.0f);
+  double fmin_out = fmin, fmax_out = fmax;
+  IntervalError<float> error(3.0f);
 
-    IntervalError<float>::ExpandFPInterval(&fmin_out, &fmax_out, error);
-    NEATValue test_int((float)fmin_out, (float)fmax_out);
+  IntervalError<float>::ExpandFPInterval(&fmin_out, &fmax_out, error);
+  NEATValue test_int((float)fmin_out, (float)fmax_out);
 
-    bool res_int = TestIntExpanded<double>(fmin, fmax, test_int, error);
-    EXPECT_TRUE(res_int);
+  bool res_int = TestIntExpanded<double>(fmin, fmax, test_int, error);
+  EXPECT_TRUE(res_int);
 
-    double facc = 13.14873;
+  double facc = 13.14873;
 
-    double facc_min = facc, facc_max = facc;
+  double facc_min = facc, facc_max = facc;
 
-    IntervalError<float>::ExpandFPInterval(&facc_min, &facc_max, error);
-    NEATValue test_acc((float)facc_min, (float)facc_max);
+  IntervalError<float>::ExpandFPInterval(&facc_min, &facc_max, error);
+  NEATValue test_acc((float)facc_min, (float)facc_max);
 
-    bool res_acc = TestNeatAcc<double>(NEATValue(0.0f), test_acc, facc, error, 0, 0);
-    EXPECT_TRUE(res_acc);
+  bool res_acc =
+      TestNeatAcc<double>(NEATValue(0.0f), test_acc, facc, error, 0, 0);
+  EXPECT_TRUE(res_acc);
 }

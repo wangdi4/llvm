@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===-RTLs/generic-64bit/src/rtl.cpp - Target RTLs Implementation - C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -10,12 +27,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !INTEL_CUSTOMIZATION
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/DynamicLibrary.h"
+#endif // !INTEL_CUSTOMIZATION
+
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ffi.h>
+#if INTEL_CUSTOMIZATION
 #include <gelf.h>
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #include <limits>
 #include <unordered_set>
@@ -29,6 +53,11 @@
 #include "Debug.h"
 #include "omptargetplugin.h"
 
+#if !INTEL_CUSTOMIZATION
+using namespace llvm;
+using namespace llvm::sys;
+#endif // !INTEL_CUSTOMIZATION
+
 #ifndef TARGET_NAME
 #define TARGET_NAME Generic ELF - 64bit
 #endif
@@ -41,17 +70,24 @@
 #include "elf_common.h"
 
 #define NUMBER_OF_DEVICES 4
-#define OFFLOADSECTIONNAME "omp_offloading_entries"
+#define OFFLOAD_SECTION_NAME "omp_offloading_entries"
 
 /// Array of Dynamic libraries loaded for this target.
 struct DynLibTy {
   std::string FileName;
+#if INTEL_CUSTOMIZATION
   void* Handle;
+#else // INTEL_CUSTOMIZATION
+  std::unique_ptr<DynamicLibrary> DynLib;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
+#if !INTEL_CUSTOMIZATION
+  SmallVector<__tgt_offload_entry> Entries;
+#endif // !INTEL_CUSTOMIZATION
 };
 
 /// Class containing all the device information.
@@ -66,15 +102,26 @@ public:
 #endif // INTEL_COLLAB
 
   // Record entry point associated with device.
+#if INTEL_CUSTOMIZATION
   void createOffloadTable(int32_t DeviceId, __tgt_offload_entry *Begin,
                           __tgt_offload_entry *End) {
+#else // INTEL_CUSTOMIZATION
+  void createOffloadTable(int32_t DeviceId,
+                          SmallVector<__tgt_offload_entry> &&Entries) {
+#endif // INTEL_CUSTOMIZATION
     assert(DeviceId < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
     FuncGblEntries[DeviceId].emplace_back();
     FuncOrGblEntryTy &E = FuncGblEntries[DeviceId].back();
 
+#if INTEL_CUSTOMIZATION
     E.Table.EntriesBegin = Begin;
     E.Table.EntriesEnd = End;
+#else // INTEL_CUSTOMIZATION
+    E.Entries = Entries;
+    E.Table.EntriesBegin = E.Entries.begin();
+    E.Table.EntriesEnd = E.Entries.end();
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Return true if the entry is associated with device.
@@ -107,10 +154,15 @@ public:
   ~RTLDeviceInfoTy() {
     // Close dynamic libraries
     for (auto &Lib : DynLibs) {
+#if INTEL_CUSTOMIZATION
       if (Lib.Handle) {
         dlclose(Lib.Handle);
         remove(Lib.FileName.c_str());
       }
+#else // INTEL_CUSTOMIZATION
+      if (Lib.DynLib->isValid())
+        remove(Lib.FileName.c_str());
+#endif // INTEL_CUSTOMIZATION
     }
   }
 };
@@ -155,6 +207,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   assert(DeviceId >= 0 && DeviceId < NUMBER_OF_DEVICES && "bad dev id");
 
   size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
+#if INTEL_CUSTOMIZATION
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
   DP("Expecting to have %zd entries defined.\n", NumEntries);
 
@@ -193,7 +246,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     GElf_Shdr Hdr;
     gelf_getshdr(Section, &Hdr);
 
-    if (!strcmp(elf_strptr(E, Shstrndx, Hdr.sh_name), OFFLOADSECTIONNAME)) {
+    if (!strcmp(elf_strptr(E, Shstrndx, Hdr.sh_name), OFFLOAD_SECTION_NAME)) {
       EntriesOffset = Hdr.sh_addr;
       break;
     }
@@ -206,6 +259,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   }
 
   DP("Offset of entries section is (" DPxMOD ").\n", DPxPTR(EntriesOffset));
+#endif // INTEL_CUSTOMIZATION
 
   // load dynamic library and get the entry points. We use the dl library
   // to do the loading of the library, but we could do it directly to avoid the
@@ -216,6 +270,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   char TmpName[] = "/tmp/tmpfile_XXXXXX";
   int TmpFd = mkstemp(TmpName);
 
+#if INTEL_CUSTOMIZATION
   if (TmpFd == -1) {
     elf_end(E);
     return NULL;
@@ -267,6 +322,51 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   DeviceInfo.createOffloadTable(DeviceId, EntriesBegin, EntriesEnd);
 
   elf_end(E);
+#else // INTEL_CUSTOMIZATION
+  if (TmpFd == -1)
+    return nullptr;
+
+  FILE *Ftmp = fdopen(TmpFd, "wb");
+
+  if (!Ftmp)
+    return nullptr;
+
+  fwrite(Image->ImageStart, ImageSize, 1, Ftmp);
+  fclose(Ftmp);
+
+  std::string ErrMsg;
+  auto DynLib = std::make_unique<sys::DynamicLibrary>(
+      sys::DynamicLibrary::getPermanentLibrary(TmpName, &ErrMsg));
+  DynLibTy Lib = {TmpName, std::move(DynLib)};
+
+  if (!Lib.DynLib->isValid()) {
+    DP("Target library loading error: %s\n", ErrMsg.c_str());
+    return NULL;
+  }
+
+  __tgt_offload_entry *HostBegin = Image->EntriesBegin;
+  __tgt_offload_entry *HostEnd = Image->EntriesEnd;
+
+  // Create a new offloading entry list using the device symbol address.
+  SmallVector<__tgt_offload_entry> Entries;
+  for (__tgt_offload_entry *E = HostBegin; E != HostEnd; ++E) {
+    if (!E->addr)
+      return nullptr;
+
+    __tgt_offload_entry Entry = *E;
+
+    void *DevAddr = Lib.DynLib->getAddressOfSymbol(E->name);
+    Entry.addr = DevAddr;
+
+    DP("Entry point " DPxMOD " maps to global %s (" DPxMOD ")\n",
+       DPxPTR(E - HostBegin), E->name, DPxPTR(DevAddr));
+
+    Entries.emplace_back(Entry);
+  }
+
+  DeviceInfo.createOffloadTable(DeviceId, std::move(Entries));
+  DeviceInfo.DynLibs.emplace_back(std::move(Lib));
+#endif // INTEL_CUSTOMIZATION
 
   return DeviceInfo.getOffloadEntriesTable(DeviceId);
 }
@@ -425,6 +525,15 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
 int32_t __tgt_rtl_set_function_ptr_map(
     int32_t ID, uint64_t Size, const __omp_offloading_fptr_map_t *FnPtrs) {
   return OFFLOAD_SUCCESS;
+}
+
+void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HstPtr,
+                                void *HstBase, int32_t AllocOpt) {
+  void *TgtPtr = __tgt_rtl_data_alloc(ID, Size, HstPtr, TARGET_ALLOC_DEFAULT);
+  // Handle new map type forcing zero initialization
+  if (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER)
+    (void)memset(TgtPtr, 0, Size);
+  return TgtPtr;
 }
 #endif // INTEL_COLLAB
 #ifdef __cplusplus

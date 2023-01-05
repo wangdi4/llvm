@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates -debug-only=dtrans-transpose-profitability 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates -debug-only=dtrans-transpose-profitability 2>&1 | FileCheck %s
 
 ; Ensure that enough indirectly indexed references in a particular dimension

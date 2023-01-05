@@ -1,5 +1,4 @@
 ; RUN: llvm-profdata merge %S/Inputs/intel-profx-zero-metadata.proftext -o %t.profdata
-; RUN: opt < %s -S -pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 ; RUN: opt < %s -S -passes=pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 
 ; Test that the call to @foo gets a intel_profx metadata that shows it has an

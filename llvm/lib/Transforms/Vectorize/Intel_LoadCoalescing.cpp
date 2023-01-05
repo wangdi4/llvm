@@ -32,6 +32,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Vectorize.h"
+#include <optional>
 
 #define DEBUG_TYPE "load-coalescing"
 
@@ -117,7 +118,7 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
     if (VectorType *GroupMemVecType = dyn_cast<VectorType>(GroupMemType))
       ShuffleCost +=
           *TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
-                               GroupTy, llvm::None, TTI::TCK_RecipThroughput,
+                               GroupTy, std::nullopt, TTI::TCK_RecipThroughput,
                                CoalescedLoadScalarOffset, GroupMemVecType)
                .getValue();
     else
@@ -440,8 +441,10 @@ bool Scheduler::trySchedule(const MemInstGroup &G) {
         scheduleReadyInstruction(ReadyBI);
       }
     }
-    (void)MaxAttempts;
-    assert(MaxAttempts-- != 0 && "Infinite loop");
+    if (MaxAttempts-- == 0) {
+      assert(false && "Infinite loop");
+      return false;
+    }
   }
   LLVM_DEBUG(dbgs() << "LC: trySchedule(Group " << G.getId()
                     << ") Succeeded!\n");

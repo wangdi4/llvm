@@ -16,43 +16,47 @@
 #define I_RUNNER_FACTORY_H
 
 #include "IProgram.h"
+#include "IProgramConfiguration.h"
 #include "IProgramRunner.h"
 #include "IRunConfiguration.h"
 #include "IRunResultComparator.h"
-#include "IProgramConfiguration.h"
 
 #include <string>
 
-namespace Validation
-{
-  /// @brief This class is a factory of program, program runner and reference runner
-  class IRunnerFactory
-  {
-  public:
-    virtual ~IRunnerFactory(void) {}
+namespace Validation {
+/// @brief This class is a factory of program, program runner and reference
+/// runner
+class IRunnerFactory {
+public:
+  virtual ~IRunnerFactory(void) {}
 
-    /// @brief Creates new program
-    virtual IProgram* CreateProgram(IProgramConfiguration* programConfig,
-                                    IRunConfiguration* pRunConfiguration) = 0;
+  /// @brief Creates new program
+  virtual IProgram *CreateProgram(IProgramConfiguration *programConfig,
+                                  IRunConfiguration *pRunConfiguration) = 0;
 
-    /// @brief Creates new program configuration
-    virtual IProgramConfiguration* CreateProgramConfiguration(const std::string& configFile, const std::string& baseDir) = 0;
+  /// @brief Creates new program configuration
+  virtual IProgramConfiguration *
+  CreateProgramConfiguration(const std::string &configFile,
+                             const std::string &baseDir) = 0;
 
-    /// @brief Creates new program configuration
-    virtual IRunConfiguration* CreateRunConfiguration() = 0;
+  /// @brief Creates new program configuration
+  virtual IRunConfiguration *CreateRunConfiguration() = 0;
 
-    /// @brief Creates new program runner
-    virtual IProgramRunner* CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration) = 0;
+  /// @brief Creates new program runner
+  virtual IProgramRunner *
+  CreateProgramRunner(const IRunComponentConfiguration *pRunConfiguration) = 0;
 
-    /// @brief Creates new reference runner
-    virtual IProgramRunner* CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration) = 0;
+  /// @brief Creates new reference runner
+  virtual IProgramRunner *CreateReferenceRunner(
+      const IRunComponentConfiguration *pRunConfiguration) = 0;
 
-    /// @brief Creates new run results comparator
-    // TODO: Once RunResult object will be re-designed, change IRunConfiguration to IRunComponentConfiguration.
-    virtual IRunResultComparator* CreateComparator(IProgramConfiguration* pProgramConfiguration,
-                                                   IRunConfiguration* pRunConfiguration) = 0;
-
-  };
-}
+  /// @brief Creates new run results comparator
+  // TODO: Once RunResult object will be re-designed, change IRunConfiguration
+  // to IRunComponentConfiguration.
+  virtual IRunResultComparator *
+  CreateComparator(IProgramConfiguration *pProgramConfiguration,
+                   IRunConfiguration *pRunConfiguration) = 0;
+};
+} // namespace Validation
 
 #endif // I_RUNNER_FACTORY_H

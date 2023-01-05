@@ -1,6 +1,5 @@
-#pragma OPENCL EXTENSION cl_intel_subgroups:enable
-__kernel void test() {
-}
+#pragma OPENCL EXTENSION cl_intel_subgroups : enable
+__kernel void test() {}
 
 void func() {
   get_sub_group_size();

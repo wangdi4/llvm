@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -print-anders-constraints -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>'  -print-anders-constraints -disable-output  2>&1 | FileCheck %s
 ; Test for a bug (CQ377893) in Andersens analysis that caused runtime failure
 ; because some special direct calls are treated as indirect calls.

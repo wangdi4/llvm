@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-convert-vplan-mask %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-convert-vplan-mask %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-convert-vplan-mask %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-convert-vplan-mask %s -S | FileCheck %s
 

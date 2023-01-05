@@ -1,21 +1,4 @@
 //===-- llvm/CodeGen/FinalizeISel.cpp ---------------------------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -33,12 +16,6 @@
 
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-#include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/Support/CommandLine.h"
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
@@ -46,18 +23,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "finalize-isel"
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-cl::opt<bool>
-    MarkPrologEpilog("mark-prolog-epilog",
-                     cl::desc("Emit marker count at prolog and epilog"),
-                     cl::init(false));
-cl::opt<bool> MarkLoopHeader("mark-loop-header",
-                             cl::desc("Emit marker count at loop header"),
-                             cl::init(false));
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 namespace {
   class FinalizeISel : public MachineFunctionPass {
@@ -69,14 +34,6 @@ namespace {
     bool runOnMachineFunction(MachineFunction &MF) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-      if (MarkLoopHeader) {
-        AU.addRequired<MachineLoopInfo>();
-        AU.addPreserved<MachineLoopInfo>();
-      }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
       MachineFunctionPass::getAnalysisUsage(AU);
     }
   };
@@ -114,25 +71,6 @@ bool FinalizeISel::runOnMachineFunction(MachineFunction &MF) {
   }
 
   TLI->finalizeLowering(MF);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Insert marker count at prolog, epilog and loop header.
-  if (MarkLoopHeader || MarkPrologEpilog) {
-    for (MachineBasicBlock &MBB : MF) {
-      if (MarkLoopHeader) {
-        MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
-        if (MLI->isLoopHeader(&MBB))
-          MBB.getMarkerCount().addKinds(MCK::LoopHeader);
-      }
-      if (MBB.isEntryBlock() && MarkPrologEpilog)
-        MBB.getMarkerCount().addKinds(MCK::Prolog);
-      if (MBB.isReturnBlock() && MarkPrologEpilog)
-        MBB.getMarkerCount().addKinds(MCK::Epilog);
-    }
-  }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
   return Changed;
 }

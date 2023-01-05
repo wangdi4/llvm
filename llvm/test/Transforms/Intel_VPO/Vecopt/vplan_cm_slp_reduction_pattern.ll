@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -enable-intel-advanced-opts -mcpu=core-avx2 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -enable-intel-advanced-opts -mcpu=core-avx2 -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: intel_feature_sw_advanced
 ; The input HIR coming into the vectorizer looks like the following:
 ;   DO i1 = 0, %n + -1, 1   <DO_LOOP>

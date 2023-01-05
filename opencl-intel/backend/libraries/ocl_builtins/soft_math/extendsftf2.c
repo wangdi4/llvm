@@ -29,5 +29,6 @@
 #define DST_QUAD
 #include "fp_extend_impl.inc"
 
-__attribute__((weak))
-long double __extendsftf2(float a) { return __extendXfYf2__(a); }
+__attribute__((weak)) long double __extendsftf2(float a) {
+  return __extendXfYf2__(a);
+}

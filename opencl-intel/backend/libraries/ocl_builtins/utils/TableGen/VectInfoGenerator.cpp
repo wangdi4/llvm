@@ -37,12 +37,8 @@ OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
 VFInfo getVectorVariant(unsigned int V, const std::string &BaseName,
                         const std::string &Alias) {
-  return VFInfo::get(VectEntry::isaClass,
-                     VectEntry::isMasked,
-                     V,
-                     VectEntry::vectorKindEncode,
-                     BaseName,
-                     Alias);
+  return VFInfo::get(VectEntry::isaClass, VectEntry::isMasked, V,
+                     VectEntry::vectorKindEncode, BaseName, Alias);
 }
 
 template <class T>
@@ -331,7 +327,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
   llvm::SMDiagnostic errDiagnostic;
   std::unique_ptr<llvm::Module> pModule =
       llvm::parseIRFile("protos.ll", errDiagnostic, context);
-  remove("protos.ll");
+  int err = remove("protos.ll");
+  (void)err;
+  assert(!err && "failed to remove file \"protos.ll\"");
 
   // Restore the duplicate functions.
   std::vector<Function *> funcs;

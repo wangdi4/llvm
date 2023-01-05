@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s | FileCheck %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s | FileCheck %s
 
@@ -74,8 +72,4 @@ entry:
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} alloca
 ; DEBUGIFY-NOT: WARNING

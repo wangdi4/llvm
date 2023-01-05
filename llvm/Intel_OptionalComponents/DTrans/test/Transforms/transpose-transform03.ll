@@ -3,7 +3,8 @@
 ; case where the result of a subscript call gets put into a
 ; PHINode. (CMPLRLLVM-27761)
 
-; RUN: opt < %s -S -dtrans-transpose 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -S -passes=dtrans-transpose 2>&1 | FileCheck %s
 
 ; This case should be transformed to swap the first and last strides.

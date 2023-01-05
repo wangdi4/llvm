@@ -1,6 +1,5 @@
 ; Check that only indirect prefetch A and B will not be indirect prefetched
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
 ;
 ; Source code:

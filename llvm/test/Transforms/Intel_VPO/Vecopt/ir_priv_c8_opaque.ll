@@ -2,7 +2,7 @@
 ; Test to check that we allow using a recurrency in a load instruction that is in
 ; operands chain of unconditional last private.
 ;
-; RUN: opt -opaque-pointers -vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -S %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -113,9 +113,9 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[MM_VECTORGEP10]] = getelementptr inbounds i8, <4 x ptr> [[VEC_PHI6]], <4 x i64> <i64 128, i64 128, i64 128, i64 128>
 ; CHECK-NEXT:   [[MM_VECTORGEP10_EXTRACT0]] = extractelement <4 x ptr> [[MM_VECTORGEP10]], i32 0
 ; CHECK-NEXT:   [[MM_VECTORGEP:%.*]]11 = getelementptr inbounds ptr, <4 x ptr> [[VEC_PHI6]], <4 x i64> <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:   [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[VEC_PHI]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:   [[WIDE_MASKED_GATHER12:%.*]] = call <4 x ptr> @llvm.masked.gather.v4p0.v4p0(<4 x ptr> [[VEC_PHI6]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x ptr> undef)
-; CHECK-NEXT:   [[WIDE_MASKED_GATHER13:%.*]] = call <4 x i16> @llvm.masked.gather.v4i16.v4p0(<4 x ptr> [[WIDE_MASKED_GATHER12]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i16> undef)
+; CHECK-NEXT:   [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[VEC_PHI]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
+; CHECK-NEXT:   [[WIDE_MASKED_GATHER12:%.*]] = call <4 x ptr> @llvm.masked.gather.v4p0.v4p0(<4 x ptr> [[VEC_PHI6]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x ptr> poison)
+; CHECK-NEXT:   [[WIDE_MASKED_GATHER13:%.*]] = call <4 x i16> @llvm.masked.gather.v4i16.v4p0(<4 x ptr> [[WIDE_MASKED_GATHER12]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i16> poison)
 ; CHECK-NEXT:   %0 = add nuw nsw <4 x i32> [[VEC_PHI8]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:   %1 = add nuw nsw i32 [[UNI_PHI7]], 4
 ; CHECK-NEXT:   %2 = icmp uge i32 %1, 100

@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function @good is recognized as a recursive progression clone
@@ -116,7 +115,7 @@
 ; CHECK-NOT: call void @good
 
 ; Check the generated attributes
-; CHECK: attributes #0 = { nounwind readnone speculatable }
+; CHECK: attributes #0 = { nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
 ; CHECK: attributes #1 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 ; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
 

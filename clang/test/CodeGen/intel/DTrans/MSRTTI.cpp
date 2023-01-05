@@ -18,8 +18,8 @@ static Arr<long> Arr2;
 // OPQ: %rtti.TypeDescriptor10 = type { ptr, ptr, [11 x i8] }
 
 // CHECK: !intel.dtrans.types = !{![[ARRINTTY:[0-9]+]], ![[BASETY:[0-9]+]], ![[ARRLONGTY:[0-9]+]], ![[TD13:[0-9]+]], ![[TD10:[0-9]+]]}
-// CHECK: ![[INT:[0-9]+]] = !{i32 0, i32 0}
 // CHECK: ![[CHARPTR:[0-9]+]] = !{i8 0, i32 1}
+// CHECK: ![[INT:[0-9]+]] = !{i32 0, i32 0}
 // CHECK: ![[ARRINTTY]] = !{!"S", %"struct..?AU?$Arr@H@@.Arr" zeroinitializer, i32 1, ![[BASE_REF:[0-9]+]]}
 // CHECK: ![[BASE_REF]] = !{%"struct..?AUBase@@.Base" zeroinitializer, i32 0}
 // CHECK: ![[BASETY]] = !{!"S", %"struct..?AUBase@@.Base" zeroinitializer, i32 1, ![[BASE_VTBL:[0-9]+]]}

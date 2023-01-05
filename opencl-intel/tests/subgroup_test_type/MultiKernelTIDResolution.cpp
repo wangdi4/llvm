@@ -16,18 +16,19 @@
 
 TEST_P(SGEmulationTest, MultiKernelTIDResolution) {
 
-  const char *kernel = "size_t foo() {"
-                       "  return get_local_id(0);"
-                       "}"
-                       "__kernel void basic(__global unsigned long* local_id) {"
-                       "  size_t lid = foo();"
-                       "  local_id[lid] = lid;"
-                       "}"
-                       "__kernel void basic1(__global unsigned long* local_id) {"
-                       "  size_t lid = foo();"
-                       "  sub_group_barrier(CLK_LOCAL_MEM_FENCE);"
-                       "  local_id[lid] = lid;"
-                       "}";
+  const char *kernel =
+      "size_t foo() {"
+      "  return get_local_id(0);"
+      "}"
+      "__kernel void basic(__global unsigned long* local_id) {"
+      "  size_t lid = foo();"
+      "  local_id[lid] = lid;"
+      "}"
+      "__kernel void basic1(__global unsigned long* local_id) {"
+      "  size_t lid = foo();"
+      "  sub_group_barrier(CLK_LOCAL_MEM_FENCE);"
+      "  local_id[lid] = lid;"
+      "}";
   const size_t kernel_size = strlen(kernel);
   cl_int iRet = CL_SUCCESS;
 
@@ -35,8 +36,7 @@ TEST_P(SGEmulationTest, MultiKernelTIDResolution) {
       clCreateProgramWithSource(m_context, 1, &kernel, &kernel_size, &iRet);
   ASSERT_OCL_SUCCESS(iRet, " clCreateProgramWithSource");
 
-  iRet =
-      clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
+  iRet = clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
   if (CL_SUCCESS != iRet) {
     std::string log;
     ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));

@@ -1,5 +1,3 @@
-; RUN: opt -S -dpcpp-barrier-copy-instruction-threshold=3 -dpcpp-kernel-reduce-cross-barrier-values -adce %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -S -dpcpp-barrier-copy-instruction-threshold=3 -dpcpp-kernel-reduce-cross-barrier-values -adce %s | FileCheck %s
 ; RUN: opt -S -dpcpp-barrier-copy-instruction-threshold=3 -passes="dpcpp-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -S -dpcpp-barrier-copy-instruction-threshold=3 -passes="dpcpp-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
 ; TODO: Remove -adce pass when this pass can eliminate dead instructions.

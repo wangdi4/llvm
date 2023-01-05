@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4 -hir-details-no-verbose-indent -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -hir-details-no-verbose-indent -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check dynamic peeling in VPlan HIR path for the case a[i] = a[i] + 1.
@@ -46,7 +45,7 @@
 ; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  4
 ; CHECK-NEXT:        [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
 ; CHECK-NEXT:        [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
-; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]]  + <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
 ; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>

@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021 Intel Corporation
+# Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -83,7 +83,11 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
         HIRIfReversal.cpp
+        HIRTempArrayTranspose.cpp
         HIRMinMaxBlobToSelectPass.cpp
+        HIRLoopPeeling.cpp
+        HIRLowerSmallMemsetMemcpy.cpp
+        HIRNormalizeCasts.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp

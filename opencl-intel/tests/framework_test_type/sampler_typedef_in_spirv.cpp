@@ -10,8 +10,8 @@
 
 extern cl_device_type gDeviceType;
 
-// The test is temporary disabled until https://git-amr-2.devtools.intel.com/gerrit/#/c/181490/
-// is merged.
+// The test is temporary disabled until
+// https://git-amr-2.devtools.intel.com/gerrit/#/c/181490/ is merged.
 class DISABLED_CheckSamplerTypedefInSPIRV : public ::testing::Test {
 protected:
   cl_platform_id m_platform;

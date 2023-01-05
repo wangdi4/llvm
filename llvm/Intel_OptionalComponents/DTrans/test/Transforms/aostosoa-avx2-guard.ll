@@ -1,5 +1,4 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes='dtrans-aostosoa,require<dtransanalysis>' 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

@@ -17,7 +17,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
@@ -118,40 +117,6 @@ class WIRelatedValuePrinter : public PassInfoMixin<WIRelatedValuePrinter> {
 public:
   explicit WIRelatedValuePrinter(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-};
-
-/// WIRelatedValueWrapper pass for legacy pass manager.
-class WIRelatedValueWrapper : public ModulePass {
-  std::unique_ptr<WIRelatedValue> WRV;
-
-public:
-  static char ID;
-
-  WIRelatedValueWrapper();
-
-  StringRef getPassName() const override {
-    return "Intel Kernel WIRelatedValue Analysis";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  /// Inform about usage/modification/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Analysis pass preserve all.
-    AU.setPreservesAll();
-  }
-
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info regarding the module into.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M) const override {
-    WRV->print(OS, M);
-  }
-
-  void releaseMemory() override { WRV.reset(); }
-
-  WIRelatedValue &getWRV() { return *WRV; }
-  const WIRelatedValue &getWRV() const { return *WRV; }
 };
 
 } // namespace llvm

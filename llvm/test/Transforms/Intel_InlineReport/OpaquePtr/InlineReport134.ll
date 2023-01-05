@@ -1,7 +1,4 @@
-; RUN: opt -opaque-pointers -inline -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S -inline-report=0xf847 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S -inline-report=0xf847 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xf8c6 < %s -S | opt -inline -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S -inline-report=0xf8c6 | opt -inlinereportemitter -inline-report=0xf8c6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8c6 < %s -S | opt -inline -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S -inline-report=0xf8c6 | opt -passes='inlinereportemitter' -inline-report=0xef8c6 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; CHECK-CL-NOT: call {{.*}} @IsLocaleTreeInstantiated
 ; CHECK-CL-NOT: call {{.*}} @AcquireLocaleSplayTree

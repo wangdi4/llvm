@@ -1,9 +1,6 @@
-; RUN: opt < %s -slp-vectorizer -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake -slp-threshold=1000 | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -mtriple=x86_64 -mcpu=skylake -slp-threshold=1000 -S | FileCheck %s
 
 ; This checks that undoMultiNodeReordering() works correctly with siblings nodes.
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 @idx = local_unnamed_addr global i64 4, align 4
 @src = common global [64 x i64] zeroinitializer, align 1

@@ -1,26 +1,21 @@
 ; Test to check that users of local buffers in scatter intrinsics are llvm::Constant and not llvm::ConstantExpr.
 
-; RUN: opt -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -opaque-pointers -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
 ; RUN: opt -opaque-pointers -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 
 ; CHECK-LABEL: void @foo
+
 ; NONOPAQUE: [[GEP:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; NONOPAQUE: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[GEP]] to i32 addrspace(4)* addrspace(3)*
-; NONOPAQUE: [[A_LOCAL_PTR:%.*]] = load i32 addrspace(4)* addrspace(3)*, i32 addrspace(4)* addrspace(3)** [[GEP_ASC]], align 8
-; NONOPAQUE: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[A_LOCAL_PTR]], i64 0
-; NONOPAQUE-NEXT: [[INSERT_1:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_0]], i32 addrspace(4)* addrspace(3)* [[A_LOCAL_PTR]], i64 1
+; NONOPAQUE-NEXT: [[BC:%.*]] = bitcast i8 addrspace(3)* %0 to i32 addrspace(4)* addrspace(3)*
+; NONOPAQUE: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[BC]], i64 0
+; NONOPAQUE-NEXT: [[INSERT_1:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_0]], i32 addrspace(4)* addrspace(3)* [[BC]], i64 1
 ; NONOPAQUE-NEXT: call void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*> {{%.*}}, <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
+
 ; OPAQUE: [[GEP:%.*]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; OPAQUE: [[GEP_ASC:%.*]] = addrspacecast ptr addrspace(3) [[GEP]] to ptr
-; OPAQUE: [[A_LOCAL_PTR:%.*]] = load ptr addrspace(3), ptr [[GEP_ASC]], align 8
-; OPAQUE: [[INSERT_0:%.*]] = insertelement <2 x ptr addrspace(3)> undef, ptr addrspace(3) [[A_LOCAL_PTR]], i64 0
-; OPAQUE-NEXT: [[INSERT_1:%.*]] = insertelement <2 x ptr addrspace(3)> [[INSERT_0]], ptr addrspace(3) [[A_LOCAL_PTR]], i64 1
+; OPAQUE: [[INSERT_0:%.*]] = insertelement <2 x ptr addrspace(3)> undef, ptr addrspace(3) [[GEP]], i64 0
+; OPAQUE-NEXT: [[INSERT_1:%.*]] = insertelement <2 x ptr addrspace(3)> [[INSERT_0]], ptr addrspace(3) [[GEP]], i64 1
 ; OPAQUE-NEXT: call void @llvm.masked.scatter.v2p4.v2p3(<2 x ptr addrspace(4)> {{%.*}}, <2 x ptr addrspace(3)> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
 
 
@@ -40,6 +35,10 @@ entry:
 
 ; Function Attrs: nounwind
 declare void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*>, <2 x i32 addrspace(4)* addrspace(3)*>, i32 immarg, <2 x i1>)
+
+!sycl.kernels = !{!0}
+
+!0 = !{void ()* @foo}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

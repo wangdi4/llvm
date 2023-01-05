@@ -39,6 +39,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 
+#include "IntelVPAssumptionCache.h"
 #include "IntelVPBasicBlock.h"
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanAlignmentAnalysis.h"
@@ -63,6 +64,7 @@
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
@@ -142,24 +144,22 @@ struct TripCountInfo;
 class VPAnalysesFactoryBase {
 private:
   DominatorTree *DT = nullptr;
-  AssumptionCache *AC = nullptr;
   const DataLayout *DL = nullptr;
 
 protected:
   virtual ~VPAnalysesFactoryBase() {}
 
 public:
-  VPAnalysesFactoryBase(DominatorTree *DT, AssumptionCache *AC,
-                        const DataLayout *DL)
-      : DT(DT), AC(AC), DL(DL) {}
+  VPAnalysesFactoryBase(DominatorTree *DT, const DataLayout *DL)
+      : DT(DT), DL(DL) {}
 
   virtual std::unique_ptr<VPlanScalarEvolution> createVPSE() = 0;
 
   virtual std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) = 0;
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) = 0;
 
   DominatorTree *getDominatorTree() { return DT; }
-  AssumptionCache *getAssumptionCache() { return AC; }
   const DataLayout *getDataLayout() { return DL; }
 };
 
@@ -170,8 +170,8 @@ private:
 
 public:
   VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
-                    AssumptionCache *AC, const DataLayout *DL)
-      : VPAnalysesFactoryBase(DT, AC, DL), SE(SE), Lp(Lp) {}
+                    const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, DL), SE(SE), Lp(Lp) {}
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
     auto &Context = Lp->getHeader()->getContext();
@@ -180,10 +180,11 @@ public:
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) override {
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) override {
     auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
     return std::make_unique<VPlanValueTrackingLLVM>(
-        *VPSELLVM, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+        *VPSELLVM, *getDataLayout(), VPAC, getDominatorTree(), VPDT);
   }
 
   const Loop *getLoop() { return Lp; }
@@ -195,17 +196,18 @@ private:
 
 public:
   VPAnalysesFactoryHIR(loopopt::HLLoop *HLp, DominatorTree *DT,
-                       AssumptionCache *AC, const DataLayout *DL)
-      : VPAnalysesFactoryBase(DT, AC, DL), HLp(HLp) {}
+                       const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, DL), HLp(HLp) {}
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
     return std::make_unique<VPlanScalarEvolutionHIR>(HLp);
   }
 
   std::unique_ptr<VPlanValueTracking>
-  createVPVT(VPlanScalarEvolution *VPSE) override {
-    return std::make_unique<VPlanValueTrackingHIR>(
-        HLp, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  createVPVT(VPlanScalarEvolution *VPSE, VPAssumptionCache *VPAC,
+             const VPDominatorTree *VPDT) override {
+    return std::make_unique<VPlanValueTrackingHIR>(HLp, *getDataLayout(), VPAC,
+                                                   getDominatorTree(), VPDT);
   }
 
   loopopt::HLLoop *getLoop() { return HLp; }
@@ -494,6 +496,7 @@ class VPInstruction : public VPUser,
       case VPInstruction::HIRCopy:
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
+      case VPInstruction::ReductionFinalArr:
       case VPInstruction::TreeConflict:
       case VPInstruction::RunningInclusiveReduction:
       case VPInstruction::RunningExclusiveReduction: {
@@ -598,10 +601,12 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
+    ReductionInitArr, // Custom initialization of array reductions.
     ReductionFinal,
-    ReductionFinalUdr, // Custom finalization of UDR. Lowered as sequence of
-                       // calls to combiner function.
+    ReductionFinalUdr,    // Custom finalization of UDR. Lowered as sequence of
+                          // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
+    ReductionFinalArr,    // Custom finalization of array reductions.
     AllocatePrivate,
     Subscript,
     Blend,
@@ -651,8 +656,12 @@ public:
     PrivateFinalArray,
     PrivateFinalArrayMasked,
     PrivateLastValueNonPOD,
-    CompressStore, // generate llvm.masked.compressstore intrinsic, for
-                   // unit stride stores
+    PrivateArrayNonPODCtor,
+    PrivateArrayNonPODDtor,
+    PrivateLastValueArrayNonPOD,
+    PrivateLastValueArrayNonPODMasked,
+    CompressStore,     // generate llvm.masked.compressstore intrinsic, for
+                       // unit stride stores
     CompressStoreNonu, // generate vcompress intrinsic and masked scatter
                        // mask for scatter: (-1 >> popcnt(exec_mask))
     ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
@@ -661,12 +670,13 @@ public:
                     // gather: (-1 >> popcnt(exec_mask))
     CompressExpandIndexInit,  // placeholder for initial value of index
     CompressExpandIndexFinal, // placeholder for the final value of index
-    CompressExpandIndex,     // calculate vector of indexes for non-unit stride
-                             // compress/expand
+    CompressExpandIndex,      // calculate vector of indexes for non-unit stride
+                              // compress/expand
+
     CompressExpandIndexInc, // compress/expand index increment
                             // operands: index, stride, mask
                             // generate: index += stride * pocnt(mask);
-    CompressExpandMask, // generate mask for nonu load/store
+    CompressExpandMask,     // generate mask for nonu load/store
     PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
@@ -691,7 +701,11 @@ public:
                                //           vx0 + x,
                                //           x];
                                // }
-    ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
+    RunningInclusiveUDS,       // Represents running inclusive reduction for
+                               // user defined scan.
+    RunningExclusiveUDS,       // Represents running exclusive reduction for
+                               // user defined scan.
+    ExtractLastVectorLane,     // Extract a scalar from the last active lane.
     TransformLibraryCall,      // Transformed library call whose scalar
                                // signature does not match its vectorized
                                // signature. (e.g. sincos)
@@ -783,12 +797,6 @@ public:
   }
 
   unsigned getOpcode() const { return Opcode; }
-  // FIXME: Temporary workaround for TTI problems that make the cost
-  // modeling incorrect. The getCMType() returns nullptr in case the underlying
-  // instruction is not set and this makes the cost of this instruction
-  // undefined (i.e. 0). Non-null return value causes calculation by TTI with
-  // incorrect result.
-  virtual Type *getCMType() const override;
 
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
@@ -1044,19 +1052,18 @@ private:
   }
 };
 
-/// Concrete class to represent last value calculation for masked and non-masked
-/// private nonPODs in VPlan.
+/// Concrete class to represent nonPOD ArrayType private in VPlan.
 template <unsigned InstOpcode>
-class VPPrivateLastValueNonPODTemplInst : public VPInstruction {
+class VPPrivateNonPODInstImpl : public VPInstruction {
 public:
-  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
-  /// private object copyassign function pointer.
-  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                                    Function *CopyAssign)
-      : VPInstruction(InstOpcode, BaseTy, Operands), CopyAssign(CopyAssign) {}
+  /// Create VPPrivateNonPODInstImpl with its BaseType, operands and
+  /// private object [ctor|dtor] function pointer.
+  VPPrivateNonPODInstImpl(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                          Function *Fn)
+      : VPInstruction(InstOpcode, BaseTy, Operands), Fn(Fn) {}
 
-  /// Return the copyassign function stored by this instruction
-  Function *getCopyAssign() const { return CopyAssign; }
+  /// Return the function pointer stored by this instruction
+  Function *getFn() const { return Fn; }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
@@ -1070,12 +1077,37 @@ public:
 protected:
   virtual VPInstruction *cloneImpl() const final {
     SmallVector<VPValue *, 3> Ops(operands());
-    return new VPPrivateLastValueNonPODTemplInst<InstOpcode>(getType(), Ops,
-                                                             getCopyAssign());
+    return new VPPrivateNonPODInstImpl<InstOpcode>(getType(), Ops, getFn());
   }
 
 private:
-  Function *CopyAssign = nullptr;
+  Function *Fn = nullptr;
+};
+
+using VPPrivateNonPODArrayCtorInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateArrayNonPODCtor>;
+using VPPrivateNonPODArrayDtorInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateArrayNonPODDtor>;
+using VPPrivateLastValueNonPODArrayCopyAssignInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateLastValueArrayNonPOD>;
+using VPPrivateLastValueNonPODArrayCopyAssignMaskedInst =
+    VPPrivateNonPODInstImpl<VPInstruction::PrivateLastValueArrayNonPODMasked>;
+
+/// Concrete class to represent last value calculation for masked and non-masked
+/// private nonPODs in VPlan.
+template <unsigned InstOpcode>
+class VPPrivateLastValueNonPODTemplInst
+    : public VPPrivateNonPODInstImpl<InstOpcode> {
+public:
+  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
+  /// private object copyassign function pointer.
+  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                    Function *Fn)
+      : VPPrivateNonPODInstImpl<InstOpcode>(BaseTy, Operands, Fn) {}
+  /// Return the copyassign function stored by this instruction
+  Function *getCopyAssign() const {
+    return VPPrivateNonPODInstImpl<InstOpcode>::getFn();
+  }
 };
 
 using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<
@@ -1384,7 +1416,7 @@ public:
   /// Return Optional index for a given basic block \p Block.
   Optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
     int Idx = getBlockIndex(BB);
-    return Idx != -1 ? Optional<unsigned>(Idx) : None;
+    return Idx != -1 ? Optional<unsigned>(Idx) : std::nullopt;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1465,7 +1497,7 @@ public:
     assert(!getNumOperands() &&
            "GEP instruction already has operands before base pointer.");
     addOperand(Ptr);
-    for (auto Idx : IdxList)
+    for (const auto &Idx : IdxList)
       addOperand(Idx);
     assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
                ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
@@ -1854,7 +1886,7 @@ public:
       << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
     if (!MDs.empty()) {
       O << "    NonDbgMDs -\n";
-      for (auto MDPair : MDs) {
+      for (const auto &MDPair : MDs) {
         O << "      ";
         MDPair.second->print(O);
         O << "\n";
@@ -1937,6 +1969,32 @@ protected:
   }
 };
 
+/// Lightweight value struct that mimics the structure of an OperandBundleUse,
+/// and provides access to the VPValues corresponding to the bundle's inputs.
+/// These are computed on-demand from VPCallInstructions using the underlying
+/// call inst and operand bundle info.
+struct VPOperandBundle {
+  StringRef Tag;
+  struct InputsTy {
+    VPInstruction::const_operand_range Ops;
+
+    auto begin() const { return Ops.begin(); }
+    auto end() const { return Ops.end(); }
+    size_t size() const { return Ops.end() - Ops.begin(); }
+
+    VPValue *operator[](unsigned I) {
+      assert(I < size() && "index out of range!");
+      return *(Ops.begin() + I);
+    }
+    const VPValue *operator[](unsigned I) const {
+      return const_cast<InputsTy &>(*this)[I];
+    }
+  } Inputs;
+
+  // For parity with 'OperandBundleUse'
+  StringRef getTagName() const { return Tag; }
+};
+
 /// Concrete class to represent Call instruction in VPlan.
 class VPCallInstruction : public VPInstruction {
 private:
@@ -1946,7 +2004,7 @@ private:
     unsigned VF = 0;
     std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
-    Optional<StringRef> VectorLibraryFn = None;
+    Optional<StringRef> VectorLibraryFn = std::nullopt;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
     // Specifies if masked version of a vector variant should be used to
@@ -2097,7 +2155,7 @@ public:
   /// nullptr for indirect calls.
   Function *getCalledFunction() const {
     if (auto *Func = dyn_cast<VPConstant>(getCalledValue()))
-      return cast<Function>(Func->getConstant());
+      return dyn_cast<Function>(Func->getConstant());
 
     // Indirect call.
     return nullptr;
@@ -2189,7 +2247,7 @@ public:
 
     VecProperties.MatchedVecVariant.reset();
     VecProperties.MatchedVecVariantIndex = 0;
-    VecProperties.VectorLibraryFn = None;
+    VecProperties.VectorLibraryFn = std::nullopt;
     VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
     VecProperties.PumpFactor = 1;
     VecProperties.UseMaskedForUnmasked = 0;
@@ -2334,6 +2392,91 @@ public:
     return VecProperties.getSerializationReason();
   }
 
+private:
+  /// \brief Get a VPOperandBundle corresponding to the given underlying \b BOI.
+  ///
+  /// The values for a given operand bundle span a range in the underlying
+  /// call's operand vector, e.g:
+  ///
+  /// [i1 true, i64* %p, i64 32, '@llvm.assume']
+  ///           ^^^^^^^^^^^^^^^
+  ///                  |
+  ///                  +----------- "align"(i64* %p, i64 32)
+  ///
+  /// From this, we compute a VPOperandBundle which spans the equivalent range
+  /// in this VPCallInstruction's operand vector.
+  VPOperandBundle
+  getVPOperandBundleFromInfo(const CallBase::BundleOpInfo &BOI) const {
+    const auto *Begin = op_begin() + BOI.Begin;
+    const auto *End = op_begin() + BOI.End;
+
+    assert(bundle_op_begin() <= Begin && Begin < bundle_op_end() &&
+           "begin iterator out-of-range?");
+    assert(Begin < End && End <= bundle_op_end() &&
+           "end iterator out-of-range?");
+
+    return VPOperandBundle{BOI.Tag->getKey(), {llvm::make_range(Begin, End)}};
+  }
+
+public:
+  /// Gets the number of operand bundles attached to the underlying call, if one
+  /// exists, otherwise zero.
+  unsigned getNumOperandBundles() const {
+    const CallInst *CI = getUnderlyingCallInst();
+    return CI ? CI->getNumOperandBundles() : 0;
+  }
+
+  /// Gets the number of operands contained in operand bundles attached to the
+  /// underlying call, if one exists, otherwise zero.
+  unsigned getNumTotalBundleOperands() const {
+    const CallInst *CI = getUnderlyingCallInst();
+    return CI ? CI->getNumTotalBundleOperands() : 0;
+  }
+
+  /// Returns if there are any operand bundles attached this call.
+  bool hasOperandBundles() const { return getNumOperandBundles() > 0; }
+
+  /// Returns a list of VPValue operand bundles corresponding to the underlying
+  /// operand bundles attached to this call, if any.
+  void getOperandBundles(SmallVectorImpl<VPOperandBundle> &Bundles) const {
+    if (!hasOperandBundles())
+      return;
+
+    const auto *CI = getUnderlyingCallInst();
+    assert(CI && "No underlying call inst, but has operand bundles?");
+
+    // Walk each bundles op's info, and mark the range of the operand vector
+    // spanned by the bundle.
+    for (const CallBase::BundleOpInfo &Bundle : CI->bundle_op_infos())
+      Bundles.push_back(getVPOperandBundleFromInfo(Bundle));
+  }
+
+  /// Returns a VPOperandBundle for the underlying operand bundle at the given
+  /// \p Index.
+  VPOperandBundle getOperandBundleAt(unsigned Index) const {
+    const CallInst *CI = getUnderlyingCallInst();
+    assert(CI && "can't get operand bundles with no underlying call!");
+    assert(Index < CI->getNumOperandBundles() && "index out of range!");
+
+    return getVPOperandBundleFromInfo(*(CI->bundle_op_info_begin() + Index));
+  }
+
+  /// Returns the VPOperandBundle with the given \p Tag, if one is present.
+  /// Asserts if more than one is present.
+  Optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
+    if (const CallInst *CI = getUnderlyingCallInst()) {
+      assert(CI->countOperandBundlesOfType(Tag) < 2 &&
+             "more than one tag present!");
+
+      for (unsigned I = 0; I < getNumOperandBundles(); ++I) {
+        VPOperandBundle B = getOperandBundleAt(I);
+        if (B.Tag == Tag)
+          return B;
+      }
+    }
+    return std::nullopt;
+  }
+
   /// Call argument list size.
   unsigned getNumArgOperands() const {
     assert(getNumOperands() != 0 && "Invalid VPCallInstruction.");
@@ -2346,6 +2489,23 @@ public:
   }
   const_operand_range arg_operands(void) const {
     return make_range(op_begin(), op_end() - 1);
+  }
+
+  operand_iterator bundle_op_begin() {
+    return op_begin() + (getNumArgOperands() - getNumTotalBundleOperands());
+  }
+  const_operand_iterator bundle_op_begin() const {
+    return op_begin() + (getNumArgOperands() - getNumTotalBundleOperands());
+  }
+  operand_iterator bundle_op_end() { return op_end() - 1; }
+  const_operand_iterator bundle_op_end() const { return op_end() - 1; }
+
+  /// Call bundle operand ranges
+  operand_range bundle_operands(void) {
+    return make_range(bundle_op_begin(), bundle_op_end());
+  }
+  const_operand_range bundle_operands(void) const {
+    return make_range(bundle_op_begin(), bundle_op_end());
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2459,6 +2619,8 @@ public:
   VPValue *getEndVal() const { return EndVal; }
   void setIsMainLoopIV(bool V) { IsMainLoopIV = V; }
   bool isMainLoopIV() const { return IsMainLoopIV; }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
+  bool getIsLinearIV() const { return IsLinearIV; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printDetails(raw_ostream &O) const {
@@ -2480,6 +2642,7 @@ protected:
     auto *IndTmp = new VPInductionInit(getOperand(0), getOperand(1), StartVal,
                                        EndVal, getBinOpcode());
     IndTmp->setIsMainLoopIV(IsMainLoopIV);
+    IndTmp->setIsLinearIV(IsLinearIV);
     return IndTmp;
   }
 
@@ -2488,6 +2651,7 @@ private:
   VPValue *StartVal;
   VPValue *EndVal;
   bool IsMainLoopIV = false;
+  bool IsLinearIV = false;
 };
 
 // VPInstruction to initialize vector for induction step.
@@ -2497,7 +2661,7 @@ private:
 // Other binary operations are not induction-compatible.
 class VPInductionInitStep : public VPInstruction {
 public:
-  VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
+  VPInductionInitStep(VPValue *Step, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionInitStep, Step->getType(),
                       {Step}),
         BinOpcode(Opcode) {}
@@ -2514,7 +2678,7 @@ public:
   static inline bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
-  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+  unsigned getBinOpcode() const { return BinOpcode; }
 
 protected:
   // Clones VPInductionInitStep.
@@ -2525,7 +2689,7 @@ protected:
   }
 
 private:
-  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  unsigned BinOpcode = VPInduction::UnknownOpcode;
   bool IsMainLoopIV = false;
 };
 
@@ -2547,7 +2711,7 @@ public:
 
   /// Constructor to calculate using close-form (start+step*rounded_tc). The
   /// rounded trip count is known at code generation.
-  VPInductionFinal(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opcode)
+  VPInductionFinal(VPValue *Start, VPValue *Step, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionFinal, Start->getType(),
                       {Start, Step}),
         BinOpcode(Opcode) {}
@@ -2583,7 +2747,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+  unsigned getBinOpcode() const { return BinOpcode; }
 
   /// Return true if start value is used in induction last value calculation.
   bool usesStartValue() const { return false; }
@@ -2608,7 +2772,7 @@ protected:
 private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
-  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  unsigned BinOpcode = VPInduction::UnknownOpcode;
 };
 
 // VPInstruction for reduction initialization.
@@ -2804,6 +2968,7 @@ public:
     case Instruction::Mul:
       return Intrinsic::vector_reduce_mul;
     case Instruction::FMul:
+    case Instruction::FDiv:
       return Intrinsic::vector_reduce_fmul;
     case Instruction::And:
       return Intrinsic::vector_reduce_and;
@@ -2907,6 +3072,113 @@ public:
   }
 };
 
+/// Concrete class to represent last value calculation for array reductions in
+/// VPlan.
+class VPReductionFinalArray : public VPInstruction {
+public:
+  VPReductionFinalArray(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        unsigned BinOp)
+      : VPInstruction(VPInstruction::ReductionFinalArr, BaseTy, Operands),
+        BinOpcode(BinOp) {}
+
+  unsigned getBinOpcode() const { return BinOpcode; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ReductionFinalArr;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPReductionFinalArray(getType(), Ops, getBinOpcode());
+  }
+
+private:
+  unsigned BinOpcode;
+};
+
+class VPRunningUDSBase : public VPInstruction {
+protected:
+  VPRunningUDSBase(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                   Function *Combiner, Function *Initializer, Function *Ctor,
+                   Function *Dtor, unsigned OpCode)
+      : VPInstruction(OpCode, BaseTy, Operands), Combiner(Combiner),
+        Initializer(Initializer), Ctor(Ctor), Dtor(Ctor) {}
+
+public:
+  Function *getCombiner() const { return Combiner; }
+  Function *getInitializer() const { return Initializer; }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+
+protected:
+  Function *Combiner;
+  Function *Initializer;
+  Function *Ctor;
+  Function *Dtor;
+};
+
+/// Calculates the value of running inclusive user defined scan.
+/// Operands are:
+/// * private memory pointer;
+/// * original uds memory for accumulating the value.
+class VPRunningInclusiveUDS : public VPRunningUDSBase {
+public:
+  VPRunningInclusiveUDS(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        Function *Combiner, Function *Initializer,
+                        Function *Ctor, Function *Dtor)
+      : VPRunningUDSBase(BaseTy, Operands, Combiner, Initializer, Ctor, Dtor,
+                         VPInstruction::RunningInclusiveUDS) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast.
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::RunningInclusiveUDS;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const override {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new VPRunningInclusiveUDS(getType(), Ops, getCombiner(),
+                                     getInitializer(), getCtor(), getDtor());
+  }
+};
+
+/// Calculates the value of running exclusive user defined scan.
+/// Operands are:
+/// * private memory pointer;
+/// * original uds memory for accumulating the value;
+/// * temporary memory for calculation.
+class VPRunningExclusiveUDS : public VPRunningUDSBase {
+public:
+  VPRunningExclusiveUDS(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                        Function *Combiner, Function *Initializer,
+                        Function *Ctor, Function *Dtor)
+      : VPRunningUDSBase(BaseTy, Operands, Combiner, Initializer, Ctor, Dtor,
+                         VPInstruction::RunningExclusiveUDS) {}
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast.
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::RunningExclusiveUDS;
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const override {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPRunningExclusiveUDS(getType(), Ops, getCombiner(),
+                                     getInitializer(), getCtor(), getDtor());
+  }
+};
+
 /// Calculates the value of running inclusive reduction using the binary
 /// operation opcode.
 class VPRunningInclusiveReduction : public VPInstruction {
@@ -2925,6 +3197,20 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::RunningInclusiveReduction;
+  }
+
+  bool isMinMax() const {
+    switch (BinOpcode) {
+    case VPInstruction::UMin:
+    case VPInstruction::SMin:
+    case VPInstruction::UMax:
+    case VPInstruction::SMax:
+    case VPInstruction::FMax:
+    case VPInstruction::FMin:
+      return true;
+    default:
+      return false;
+    }
   }
 
 protected:
@@ -5059,6 +5345,12 @@ public:
     VPVT = std::move(A);
   }
 
+  /// Getter for Assumption Cache
+  VPAssumptionCache *getVPAC() { return PlanAC.get(); }
+  const VPAssumptionCache *getVPAC() const { return PlanAC.get(); }
+
+  void setVPAC(std::unique_ptr<VPAssumptionCache> A) { PlanAC = std::move(A); }
+
   void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysisBase> VPSVA) {
     VPlanSVA = std::move(VPSVA);
   }
@@ -5178,6 +5470,9 @@ private:
 
   /// Post-Dominator Tree for the Plan.
   std::unique_ptr<VPPostDominatorTree> PlanPDT;
+
+  /// Assumption Cache for the Plan.
+  std::unique_ptr<VPAssumptionCache> PlanAC;
 
   // We need to force full linearization for certain cases. Currently this
   // happens for cases where while-loop canonicalization or merge loop exits
@@ -5326,7 +5621,7 @@ class VPlanPrinter {
                 const Twine &Label);
 
 public:
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P), Depth(0) {}
   void dump(bool CFGOnly = false);
 };
 
@@ -5562,6 +5857,9 @@ inline vpinst_iterator vpinst_end(VPlan *F) { return vpinst_iterator(*F, true); 
 inline vpinst_range vpinstructions(VPlan *F) {
   return vpinst_range(vpinst_begin(F), vpinst_end(F));
 }
+inline vpinst_range vpinstructions(VPlan &F) {
+  return vpinstructions(&F);
+}
 
 using const_vpinst_iterator =
     InstIterator<const VPlan::VPBasicBlockListTy, VPlan::const_iterator,
@@ -5577,6 +5875,9 @@ inline const_vpinst_iterator vpinst_end(const VPlan *F) {
 inline const_vpinst_range vpinstructions(const VPlan *F) {
   return const_vpinst_range(vpinst_begin(F), vpinst_end(F));
 }
+inline const_vpinst_range vpinstructions(const VPlan &F) {
+  return vpinstructions(&F);
+}
 
 template <class DivergenceAnalysis>
 inline decltype(auto) vplan_da_shapes(const VPlan *P,
@@ -5586,7 +5887,34 @@ inline decltype(auto) vplan_da_shapes(const VPlan *P,
   });
 }
 
+using vp_gep_type_iterator =
+    llvm::generic_gep_type_iterator<VPUser::const_operand_iterator>;
+
+inline vp_gep_type_iterator gep_type_begin(const VPUser *U) {
+  return llvm::generic_gep_type_begin<VPUser, vp_gep_type_iterator,
+                                      VPGEPInstruction>(U);
+}
+inline vp_gep_type_iterator gep_type_end(const VPUser *U) {
+  return llvm::generic_gep_type_end<VPUser, vp_gep_type_iterator>(U);
+}
+inline vp_gep_type_iterator gep_type_begin(const VPUser &U) {
+  return llvm::generic_gep_type_begin<VPUser, vp_gep_type_iterator,
+                                      VPGEPInstruction>(&U);
+}
+inline vp_gep_type_iterator gep_type_end(const VPUser &U) {
+  return llvm::generic_gep_type_end<VPUser, vp_gep_type_iterator>(&U);
+}
+
 } // namespace vpo
+
+// This template specialization to support generic_gep_type_iterator for
+// VPGEPInstruction.
+template <>
+inline Constant *GEPTypeIterTraits<vpo::VPValue>::getConstant(vpo::VPValue *V) {
+  if (auto *C = dyn_cast<vpo::VPConstant>(V))
+    return C->getConstant();
+  return nullptr;
+}
 
 // The following template specializations are implemented to support GraphTraits
 // for VPlan.

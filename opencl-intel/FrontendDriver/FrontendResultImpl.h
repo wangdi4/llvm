@@ -31,7 +31,7 @@ public:
   const char *GetErrorLog() const override { return m_log.c_str(); }
   void Release() override { delete this; }
 
-// OCLFEBinaryResult
+  // OCLFEBinaryResult
   OCLFEBinaryResult() : m_type(IR_TYPE_UNKNOWN) {}
   llvm::SmallVectorImpl<char> &getIRBufferRef() { return m_IRBuffer; }
   std::string &getLogRef() { return m_log; }
@@ -46,7 +46,7 @@ private:
   std::string m_log;
   std::string m_IRName;
   Intel::OpenCL::ClangFE::IR_TYPE m_type;
-  int m_result;
+  int m_result = 0;
 };
 
 } // namespace ClangFE

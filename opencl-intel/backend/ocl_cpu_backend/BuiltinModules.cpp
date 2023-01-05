@@ -18,7 +18,9 @@
 
 using namespace llvm;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
 BuiltinModules::BuiltinModules(
     SmallVector<std::unique_ptr<Module>, 2> builtinsModules) {
@@ -34,7 +36,8 @@ BuiltinModules::~BuiltinModules() {
 BuiltinLibrary::BuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
     : m_cpuId(cpuId), m_pRtlBuffer(nullptr), m_pRtlBufferSvmlShared(nullptr) {}
 
-BuiltinLibrary::~BuiltinLibrary()
-{ }
+BuiltinLibrary::~BuiltinLibrary() {}
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

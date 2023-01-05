@@ -1,6 +1,4 @@
-; RUN: opt -instcombine %s -S | FileCheck %s
 ; RUN: opt -passes=instcombine %s -S | FileCheck %s
-; RUN: opt -instcombine %s -opaque-pointers -S | FileCheck %s
 ; RUN: opt -passes=instcombine %s -opaque-pointers -S | FileCheck %s
 
 ; ModuleID = 'test.cpp'

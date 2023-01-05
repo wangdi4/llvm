@@ -1,4 +1,3 @@
-; RUN: opt < %s -intel-loop-attrs -force-intel-must-progress -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-loop-attrs)' -force-intel-must-progress -S 2>&1 | FileCheck %s
 
 ; This test case checks that all the loops in @foo weren't marked

@@ -327,6 +327,13 @@ bool ClassInfo::checkMemInterfacePointer(Value *V, Argument *Obj) {
     Visited.insert(BC);
     V = BC->getOperand(0);
   }
+  // Ignore normalized GEPs.
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+    if (GEP->getNumIndices() != 2 || !GEP->hasAllZeroIndices())
+      return false;
+    Visited.insert(GEP);
+    V = GEP->getPointerOperand();
+  }
   if (auto *Arg = dyn_cast<Argument>(V)) {
     DTransType *DTy = getDTransType(V);
     if (auto *PTy = dyn_cast_or_null<DTransPointerType>(DTy))
@@ -358,7 +365,10 @@ const Value *ClassInfo::computeMultiplier(const Value *V, int64_t *MulPtr) {
       auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
       if (!ConstVal)
         return nullptr;
-      *MulPtr = *MulPtr * ((int64_t)1 << ConstVal->getLimitedValue());
+      uint64_t ShiftAmount = ConstVal->getLimitedValue();
+      if (ConstVal->isNegative() || ShiftAmount >= 64)
+        return nullptr;
+      *MulPtr = *MulPtr * ((int64_t)1 << ShiftAmount);
       Visited.insert(BO);
     } else if (OpC == Instruction::Mul) {
       auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
@@ -1294,11 +1304,22 @@ const Value *ClassInfo::checkFree(dtrans::FreeCallInfo *FInfo,
   const CallBase *DummyFreeCall = nullptr;
   BasicBlock *FreeCallBlock = CallI->getParent();
   for (auto *U : PtrArg->users()) {
-    if (U == CallI || isa<ReturnInst>(U))
+    // Bitcasts are removed with opaque pointers before passing
+    // argument to "free" call. Due to this, PtrArg has more users.
+    if (U == CallI || isa<ReturnInst>(U) || isa<GetElementPtrInst>(U))
       continue;
     DummyFreeCall = dyn_cast<CallBase>(U);
-    if (!DummyFreeCall ||
-        !DTransAllocCollector::isDummyFuncWithThisAndInt8PtrArgs(
+    if (!DummyFreeCall)
+      return nullptr;
+    auto *CalledF = dtrans::getCalledFunction(*DummyFreeCall);
+    if (!CalledF)
+      return nullptr;
+    // Ignore here if PtrArg is used by Destructor call.
+    // Not adding DummyFreeCall to Visited here so that verification
+    // of Destructor call is expected to be done at callsites.
+    if (InitialFuncKind[CalledF] == Destructor)
+      continue;
+    if (!DTransAllocCollector::isDummyFuncWithThisAndInt8PtrArgs(
             DummyFreeCall, GetTLI(*CallI->getFunction()),
             DTInfo.getTypeMetadataReader()))
       return nullptr;
@@ -3711,6 +3732,9 @@ StoreInst *ClassInfo::getFlagFieldStoreInstInCtor() {
 
     if (!G || !isa<StructType>(G->getSourceElementType()) ||
         G->getNumIndices() != 2)
+      continue;
+    // Makes sure the field is accessed from "this" pointer.
+    if (G->getPointerOperand() != CtorF->getArg(0))
       continue;
     int32_t GIdx = cast<ConstantInt>(G->getOperand(2))->getLimitedValue();
     if (GIdx != FFI)

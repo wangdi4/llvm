@@ -1,4 +1,3 @@
-; RUN: opt < %s -opaque-pointers -intel-loop-attrs -force-intel-prefer-func-level-region -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(intel-loop-attrs)' -force-intel-prefer-func-level-region -S 2>&1 | FileCheck %s
 
 ; This test case checks that the attribute "prefer-function-level-region"

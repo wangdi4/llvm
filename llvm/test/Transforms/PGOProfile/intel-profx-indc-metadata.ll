@@ -1,5 +1,4 @@
 ; RUN: llvm-profdata merge %S/Inputs/intel-profx-indc-metadata.proftext -o %t.profdata
-; RUN: opt < %s -S -pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 ; RUN: opt < %s -S -passes=pgo-instr-use -pgo-test-profile-file=%t.profdata | FileCheck %s
 
 ; Test that intel_profx metadata is placed on an indirect call

@@ -6,18 +6,18 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-vicmp (	__global const float *in,
-		__global float *out)
+vicmp (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	// ulong2 tmp = (ulong2) (ARG0, ARG0);
-	ulong2 tmp = (ulong2) (5, 2.07);
-	long2 res = (ULONG2_VEC1 == tmp);
-	out[gid] = res.x + res.y;
+  int gid = get_global_id(0);
+  // ulong2 tmp = (ulong2) (ARG0, ARG0);
+  ulong2 tmp = (ulong2) (5, 2.07);
+  long2 res = (ULONG2_VEC1 == tmp);
+  out[gid] = res.x + res.y;
 }

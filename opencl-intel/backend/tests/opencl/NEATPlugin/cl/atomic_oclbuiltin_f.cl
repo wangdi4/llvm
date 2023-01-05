@@ -17,16 +17,20 @@ File Name:  atomics_builtin_f.cl
 
 \*****************************************************************************/
 
-__kernel void atomic_xchg__globalfloat(__global float* buf_in, __global float* buf_out0, __global float* buf_out1) {
-    float val = buf_in[0];
+__kernel void atomic_xchg__globalfloat(__global float *buf_in,
+                                       __global float *buf_out0,
+                                       __global float *buf_out1) {
+  float val = buf_in[0];
 
-    __global float* p = ((__global float*) &buf_out0[0]);
-    buf_out1[0] = atomic_xchg(p, val);
+  __global float *p = ((__global float *)&buf_out0[0]);
+  buf_out1[0] = atomic_xchg(p, val);
 }
 
-__kernel void atomic_xchg__localfloat(__local float* buf_in, __local float* buf_out0, __local float* buf_out1) {
-    float val = buf_in[0];
+__kernel void atomic_xchg__localfloat(__local float *buf_in,
+                                      __local float *buf_out0,
+                                      __local float *buf_out1) {
+  float val = buf_in[0];
 
-    __local float* p = ((__local float*) &buf_out0[0]);
-    buf_out1[0] = atomic_xchg(p, val);
+  __local float *p = ((__local float *)&buf_out0[0]);
+  buf_out1[0] = atomic_xchg(p, val);
 }

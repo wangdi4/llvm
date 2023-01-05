@@ -15,65 +15,64 @@
 #ifndef __DGHELPER_H__
 #define __DGHELPER_H__
 
-#include "llvm/Support/raw_ostream.h"
 #include "DataGenerator.h"
+#include "llvm/Support/raw_ostream.h"
 #include <BufferContainerList.h>
 
 // this file contains helper function for DataGenerator
 
-namespace Validation
-{
+namespace Validation {
 
 uint64_t SetSeed(uint64_t seed);
 uint64_t GetCurrentSeed(void);
 void UpdateCurrentSeed(void);
 
-#define SET_BUFFER_CONTAINER\
-    size_t size = sizeof(T);\
-    switch(dataTypeVal) {\
-        case U8:\
-        case I8:\
-            if ( size != sizeof(uint8_t)) {\
-                throw Exception::InvalidArgument(\
-                "[DataGenerator::GenerateRandomVectors] wrong data type\n");\
-            }\
-            break;\
-        case U16:\
-        case I16:\
-        case F16:\
-            if ( size != sizeof(uint16_t)) {\
-                throw Exception::InvalidArgument(\
-                "[DataGenerator::GenerateRandomVectors] wrong data type\n");\
-            }\
-            break;\
-        case U32:\
-        case I32:\
-        case F32:\
-            if ( size != sizeof(uint32_t)) {\
-                throw Exception::InvalidArgument(\
-                "[DataGenerator::GenerateRandomVectors] wrong data type\n");\
-            }\
-            break;\
-        case I64:\
-        case U64:\
-        case F64:\
-            if ( size != sizeof(uint64_t)) {\
-                throw Exception::InvalidArgument(\
-                "[DataGenerator::GenerateRandomVectors] wrong data type\n");\
-            }\
-            break;\
-        default:\
-            throw Exception::InvalidArgument(\
-            "[DataGenerator::GenerateRandomVectors] Unsupported data format");\
-            break;\
-    }\
-    DataGenerator::BufferContainerFillMethod bcfm;\
-    DataGenerator::BufferContainerListFillMethod bclfm;\
-    BufferContainerList list;\
-    DataTypeValWrapper dataType;\
-    VectorWidthWrapper vecWidth;\
-    vecWidth.SetValue(VectorWidth(vecW));\
-    dataType.SetValue(dataTypeVal);
+#define SET_BUFFER_CONTAINER                                                   \
+  size_t size = sizeof(T);                                                     \
+  switch (dataTypeVal) {                                                       \
+  case U8:                                                                     \
+  case I8:                                                                     \
+    if (size != sizeof(uint8_t)) {                                             \
+      throw Exception::InvalidArgument(                                        \
+          "[DataGenerator::GenerateRandomVectors] wrong data type\n");         \
+    }                                                                          \
+    break;                                                                     \
+  case U16:                                                                    \
+  case I16:                                                                    \
+  case F16:                                                                    \
+    if (size != sizeof(uint16_t)) {                                            \
+      throw Exception::InvalidArgument(                                        \
+          "[DataGenerator::GenerateRandomVectors] wrong data type\n");         \
+    }                                                                          \
+    break;                                                                     \
+  case U32:                                                                    \
+  case I32:                                                                    \
+  case F32:                                                                    \
+    if (size != sizeof(uint32_t)) {                                            \
+      throw Exception::InvalidArgument(                                        \
+          "[DataGenerator::GenerateRandomVectors] wrong data type\n");         \
+    }                                                                          \
+    break;                                                                     \
+  case I64:                                                                    \
+  case U64:                                                                    \
+  case F64:                                                                    \
+    if (size != sizeof(uint64_t)) {                                            \
+      throw Exception::InvalidArgument(                                        \
+          "[DataGenerator::GenerateRandomVectors] wrong data type\n");         \
+    }                                                                          \
+    break;                                                                     \
+  default:                                                                     \
+    throw Exception::InvalidArgument(                                          \
+        "[DataGenerator::GenerateRandomVectors] Unsupported data format");     \
+    break;                                                                     \
+  }                                                                            \
+  DataGenerator::BufferContainerFillMethod bcfm;                               \
+  DataGenerator::BufferContainerListFillMethod bclfm;                          \
+  BufferContainerList list;                                                    \
+  DataTypeValWrapper dataType;                                                 \
+  VectorWidthWrapper vecWidth;                                                 \
+  vecWidth.SetValue(VectorWidth(vecW));                                        \
+  dataType.SetValue(dataTypeVal);
 
 #define GET_BUFFER_CONTAINER                                                   \
   DataGenerator::SetBufferContainerListFillMethod(bclfm, bcfm);                \
@@ -121,20 +120,19 @@ void UpdateCurrentSeed(void);
 
 template <typename T>
 static uint64_t GenerateRandomVectors(DataTypeVal dataTypeVal, const T *arr,
-                                      VectorWidth vecW, const uint32_t n)
-{
-    uint64_t seed = 0;
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                      VectorWidth vecW, const uint32_t n) {
+  uint64_t seed = 0;
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRandomVectors] zero data pointer\n");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomMethod(bcfm,dataType,vecWidth,n);
+  DataGenerator::SetRandomMethod(bcfm, dataType, vecWidth, n);
 
-    GET_BUFFER_CONTAINER
+  GET_BUFFER_CONTAINER
 
-    return seed;
+  return seed;
 }
 
 /// @brief Static function to generate a number of random vectors and
@@ -157,21 +155,21 @@ static uint64_t GenerateRandomVectors(DataTypeVal dataTypeVal, const T *arr,
 /// generated data is higher 12 and lower 1000
 template <typename T>
 static uint64_t GenerateRangedVectors(DataTypeVal dataTypeVal, const T *arr,
-                                      VectorWidth vecW,
-                                      const uint32_t n, T low, T high)
-{
-    uint64_t seed = 0;
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                      VectorWidth vecW, const uint32_t n, T low,
+                                      T high) {
+  uint64_t seed = 0;
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRangedVectors] zero data pointer");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomFromRangeMethod(bcfm,dataType,vecWidth,n,low,high);
+  DataGenerator::SetRandomFromRangeMethod(bcfm, dataType, vecWidth, n, low,
+                                          high);
 
-    GET_BUFFER_CONTAINER
+  GET_BUFFER_CONTAINER
 
-    return seed;
+  return seed;
 }
 /// @brief Static function to generate a number of random vectors
 /// of special values: NaNs, INFs and
@@ -193,21 +191,20 @@ static uint64_t GenerateRangedVectors(DataTypeVal dataTypeVal, const T *arr,
 /// about 64 values (16*8*0.5) are special values
 template <typename T>
 static uint64_t GenerateSpecialVectors(DataTypeVal dataTypeVal, const T *arr,
-                                       VectorWidth vecW,
-                                       const uint32_t n, float prob)
-{
-    uint64_t seed = 0;
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                       VectorWidth vecW, const uint32_t n,
+                                       float prob) {
+  uint64_t seed = 0;
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateSpecialVectors] zero data pointer");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetSpecialValuesMethod(bcfm,dataType,vecWidth,n,prob);
+  DataGenerator::SetSpecialValuesMethod(bcfm, dataType, vecWidth, n, prob);
 
-    GET_BUFFER_CONTAINER
+  GET_BUFFER_CONTAINER
 
-    return seed;
+  return seed;
 }
 /// @brief Static function to generate a number of random vectors with
 /// predefined  seed
@@ -226,18 +223,17 @@ static uint64_t GenerateSpecialVectors(DataTypeVal dataTypeVal, const T *arr,
 /// array arr is filled by unsigned 32-bit data, 16 vectors of 8 element
 template <typename T>
 static void GenerateRandomVectorsSeed(DataTypeVal dataTypeVal, const T *arr,
-                                      VectorWidth vecW,
-                                      const uint32_t n, uint64_t seed)
-{
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                      VectorWidth vecW, const uint32_t n,
+                                      uint64_t seed) {
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRandomVectors] zero data pointer");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomMethod(bcfm,dataType,vecWidth,n);
+  DataGenerator::SetRandomMethod(bcfm, dataType, vecWidth, n);
 
-    GET_BUFFER_CONTAINER_SEED(seed)
+  GET_BUFFER_CONTAINER_SEED(seed)
 }
 /// @brief Static function to generate a number of random vectors with
 /// predefined  seed
@@ -261,19 +257,18 @@ static void GenerateRandomVectorsSeed(DataTypeVal dataTypeVal, const T *arr,
 
 template <typename T>
 static void GenerateRangedVectorsSeed(DataTypeVal dataTypeVal, const T *arr,
-                                      VectorWidth vecW,
-                                      const uint32_t n, T low, T high,
-                                      uint64_t seed)
-{
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                      VectorWidth vecW, const uint32_t n, T low,
+                                      T high, uint64_t seed) {
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRandomVectors] zero data pointer");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomFromRangeMethod(bcfm,dataType,vecWidth,n,low,high);
+  DataGenerator::SetRandomFromRangeMethod(bcfm, dataType, vecWidth, n, low,
+                                          high);
 
-    GET_BUFFER_CONTAINER_SEED(seed)
+  GET_BUFFER_CONTAINER_SEED(seed)
 }
 /// @brief Static function to generate a number of random vectors with
 /// predefined  seed
@@ -297,54 +292,54 @@ static void GenerateRangedVectorsSeed(DataTypeVal dataTypeVal, const T *arr,
 
 template <typename T>
 static void GenerateSpecialVectorsSeed(DataTypeVal dataTypeVal, const T *arr,
-                                           VectorWidth vecW,
-                                           const uint32_t n, float prob,
-                                           uint64_t seed)
-{
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                       VectorWidth vecW, const uint32_t n,
+                                       float prob, uint64_t seed) {
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateSpecialVectors] zero data pointer");
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetSpecialValuesMethod(bcfm,dataType,vecWidth,n,prob);
+  DataGenerator::SetSpecialValuesMethod(bcfm, dataType, vecWidth, n, prob);
 
-    GET_BUFFER_CONTAINER_SEED(seed)
+  GET_BUFFER_CONTAINER_SEED(seed)
 }
 
 // for testing
 uint64_t GetUpdateConst(void);
 
-
 bool GetSeedFlag(void);
 
 // this function performs as like as GenerateRangedVectors, but
-// after every call this function updates currentSeed value by a predefined constant
+// after every call this function updates currentSeed value by a predefined
+// constant
 template <typename T>
 static void GenerateRangedVectorsAutoSeed(DataTypeVal dataTypeVal, const T *arr,
-                                          VectorWidth vecW,
-                                          const uint32_t n, T low, T high)
-{
-    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                          VectorWidth vecW, const uint32_t n,
+                                          T low, T high) {
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRandomVectors] zero data pointer");
 
-    if(!GetSeedFlag())
-        llvm::errs()<<"[GenerateRangedVectorsAutoSeed WARNING] seed is not set. Default value is used.\n";
+  if (!GetSeedFlag())
+    llvm::errs() << "[GenerateRangedVectorsAutoSeed WARNING] seed is not set. "
+                    "Default value is used.\n";
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomFromRangeMethod(bcfm,dataType,vecWidth,n,low,high);
+  DataGenerator::SetRandomFromRangeMethod(bcfm, dataType, vecWidth, n, low,
+                                          high);
 
-    GET_BUFFER_CONTAINER_SEED(GetCurrentSeed())
+  GET_BUFFER_CONTAINER_SEED(GetCurrentSeed())
 
-    UpdateCurrentSeed();
+  UpdateCurrentSeed();
 }
 
-// this function performs as like as GenerateRandomVectors, but produces float or double values with
-// separately generated exponent and mantissa. Comparing with GenerateRandomVectors, it makes
-// the more representable sampling of values with small mantissa, also
-// after every call this function updates currentSeed value by a predefined constant
+// this function performs as like as GenerateRandomVectors, but produces float
+// or double values with separately generated exponent and mantissa. Comparing
+// with GenerateRandomVectors, it makes the more representable sampling of
+// values with small mantissa, also after every call this function updates
+// currentSeed value by a predefined constant
 void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const double *arr,
                                    VectorWidth vecW, const uint32_t n);
 void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const float *arr,
@@ -352,28 +347,27 @@ void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const float *arr,
 
 template <typename T>
 void GenerateRandomVectorsAutoSeed(DataTypeVal dataTypeVal, const T *arr,
-                                   VectorWidth vecW, const uint32_t n)
-{    if(arr == NULL)
-        throw Exception::InvalidArgument(
+                                   VectorWidth vecW, const uint32_t n) {
+  if (arr == NULL)
+    throw Exception::InvalidArgument(
         "[DataGenerator::GenerateRandomVectors] zero data pointer\n");
 
-    if(!GetSeedFlag())
-        llvm::errs()<<"[GenerateRandomVectorsAutoSeed WARNING] seed is not set. Default value is used.\n";
+  if (!GetSeedFlag())
+    llvm::errs() << "[GenerateRandomVectorsAutoSeed WARNING] seed is not set. "
+                    "Default value is used.\n";
 
-    SET_BUFFER_CONTAINER
+  SET_BUFFER_CONTAINER
 
-    DataGenerator::SetRandomMethod(bcfm,dataType,vecWidth,n);
+  DataGenerator::SetRandomMethod(bcfm, dataType, vecWidth, n);
 
-    GET_BUFFER_CONTAINER_SEED(GetCurrentSeed())
+  GET_BUFFER_CONTAINER_SEED(GetCurrentSeed())
 
-    UpdateCurrentSeed();
+  UpdateCurrentSeed();
 }
-
 
 #undef SET_BUFFER_CONTAINER
 #undef GET_BUFFER_CONTAINER
 #undef GET_BUFFER_CONTAINER_SEED
 
-}
+} // namespace Validation
 #endif // __DGHELPER_H__
-

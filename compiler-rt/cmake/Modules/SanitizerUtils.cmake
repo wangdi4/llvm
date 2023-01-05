@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 include(CompilerRTUtils)
 
 set(SANITIZER_GEN_DYNAMIC_LIST
@@ -44,7 +61,11 @@ macro(add_sanitizer_rt_symbols name)
       SOURCES ${SANITIZER_GEN_DYNAMIC_LIST} ${ARG_EXTRA})
     get_compiler_rt_install_dir(${arch} install_dir)
     install(FILES $<TARGET_FILE:${target_name}>.syms
-            DESTINATION ${install_dir})
+            DESTINATION ${install_dir}
+# INTEL_CUSTOMIZATION
+            COMPONENT sanitizer-rt-symbols
+# end INTEL_CUSTOMIZATION
+           )
     if(ARG_PARENT_TARGET)
       add_dependencies(${ARG_PARENT_TARGET} ${target_name}-symbols)
     endif()

@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -219,7 +219,9 @@ private:
   const HLNode *SkipNode;
 };
 
-IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite) : IsWrite(IsWrite) {
+IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite,
+                     bool IsContiguous) : IsWrite(IsWrite),
+                     IsContiguous(IsContiguous) {
   // Allow dummy IVSegments based on empty groups.
   if (Group.empty()) {
     BaseCE = nullptr;
@@ -236,7 +238,8 @@ IVSegment::IVSegment(const RefGroupTy &Group, bool IsWrite) : IsWrite(IsWrite) {
 
 IVSegment::IVSegment(IVSegment &&Segment)
     : Lower(std::move(Segment.Lower)), Upper(std::move(Segment.Upper)),
-      BaseCE(std::move(Segment.BaseCE)), IsWrite(std::move(Segment.IsWrite)) {
+      BaseCE(std::move(Segment.BaseCE)), IsWrite(std::move(Segment.IsWrite)),
+      IsContiguous(std::move(Segment.IsContiguous)) {
 
   Segment.Lower = nullptr;
   Segment.Upper = nullptr;
@@ -417,6 +420,104 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
   return UnsortedGroups.empty();
 }
 
+// Return true if the input group of RegDDRefs are accessing the memory
+// contiguously within the input loop. For example, assume the group contains
+// the following RegDDRefs:
+//
+//   (%A)[4 * i1 + sext.i32.i64(%t)]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+//   (%A)[4 * i1 + sext.i32.i64(%t) + 3]
+//
+// The IV coefficient for the innermost loop (i1) is 4. The group have 4
+// entries, all the entries have the same base canon expr, the RegDDRefs
+// are accessing entries from 0 to 3, and the distance between each RegDDRef
+// is 1. This means that the entries in the group represents an access to
+// the memory that is contiguous.
+static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
+                                             const HLLoop *InnermostLoop) {
+
+  if (Group.empty())
+    return false;
+
+  assert(InnermostLoop && "Analyzing group without innermost loop");
+  assert(InnermostLoop->isInnermost() &&
+         "Input loop is not the innermost loop");
+
+  // This is restricted for groups with more than 1 entry
+  if (Group.size() == 1)
+    return false;
+
+  RegDDRef *FirstRef = Group.front();
+  bool IsLoad = FirstRef->isRval();
+  auto &DDRU = FirstRef->getDDRefUtils();
+  auto &CEU = FirstRef->getCanonExprUtils();
+  auto Level = InnermostLoop->getNestingLevel();
+  uint64_t LoadStoreSize = CEU.getTypeSizeInBytes(FirstRef->getDestType());
+
+  // The IV coefficient will be the expected number of contiguous access
+  const CanonExpr *CE = FirstRef->getDimensionIndex(1);
+  unsigned IVBlobIndex;
+  int64_t ExpectedContiguousAccessMatches;
+  CE->getIVCoeff(Level, &IVBlobIndex, &ExpectedContiguousAccessMatches);
+  if (IVBlobIndex != InvalidBlobIndex)
+    return false;
+
+  if (ExpectedContiguousAccessMatches < 2)
+    return false;
+
+  RegDDRef *PrevRef = FirstRef;
+  int64_t NumContiguousAccessMatches = 1;
+  for (unsigned I = 1, E = Group.size(); I < E; I++) {
+    RegDDRef *Ref = Group[I];
+
+    // All members of the group must have the same number of dimensions and the
+    // same base CE.
+    assert(FirstRef->getNumDimensions() == Ref->getNumDimensions() &&
+           "Number of dimensions are different");
+    assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
+           "Base canon expr are different");
+
+    // We are going to trace only the Refs that are loads or stores if they
+    // match the first entry.
+    // NOTE: Perhaps we can expand this in the future to check both cases in
+    // one group.
+    if (Ref->isRval() != IsLoad)
+      continue;
+
+    int64_t DistanceInBytes = 0;
+    if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
+      return false;
+
+    if (DistanceInBytes == 0)
+      continue;
+
+    if ((uint64_t) DistanceInBytes != LoadStoreSize)
+      return false;
+
+    NumContiguousAccessMatches++;
+
+    // Number of entries found must be at least the same as the expected number
+    // of entries.
+    //
+    // NOTE: Perhaps this condition can be relaxed in the future to enable gaps.
+    // For example, assume that the only RegDDRefs in the group are:
+    //
+    //   (%A)[4 * i1 + sext.i32.i64(%t)]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+    //
+    // In this case, the coefficient is 4 but we only found 3 entries. There is
+    // a gap of 1.
+    if (NumContiguousAccessMatches == ExpectedContiguousAccessMatches)
+      return true;
+
+    PrevRef = Ref;
+  }
+
+  return false;
+}
+
 RuntimeDDResult
 IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
                               const HLLoop *InnermostLoop) const {
@@ -468,7 +569,7 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // usually result in gather/scatter generation.
       // For Loop Interchange we treat them as profitable.
       if (!DisableCostModel && OuterLoop == InnermostLoop &&
-          (!(IVConstCoeff == 1 ||
+          (!(IVConstCoeff == 1 || IsContiguous ||
              // -1 is allowed for memcpy recognition
              (IVConstCoeff == -1 && OuterLoop->getNumChildren() <= 2)) ||
            IVBlobIndex != InvalidBlobIndex)) {
@@ -1479,7 +1580,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Populate DelinearizedGroupIndices with indexes where
     // DelinearizedGroups[I] is not empty.
-    for (auto Group : enumerate(DelinearizedGroups)) {
+    for (auto &Group : enumerate(DelinearizedGroups)) {
       if (!Group.value().empty()) {
         Context.DelinearizedGroupIndices.push_back(Group.index());
       }
@@ -1547,7 +1648,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
-    IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup);
+    bool IsContiguousGroup =
+        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop);
+    IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
+                            IsContiguousGroup);
 
     // Check every segment for the applicability
     Ret = IVSegments.back().isSegmentSupported(Loop, InnermostLoop);
@@ -1771,6 +1875,9 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   auto IVType = Context.Loop->getIVType();
   unsigned TestIdx = 0;
 
+  // Use same symbase for all refs of the alloca and the fake ref on the call so
+  // HIRDeadStoreElimination does not eliminate them.
+  unsigned TestArraySB = DRU.getNewSymbase();
   // Create stores of region addresses to the temporary alloca.
   // ex.:
   //   (%dd)[0].0 = &(%A)[%lower]
@@ -1779,8 +1886,8 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef =
-        DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy,
+                                         TestArrayBlobIndex, 0, TestArraySB);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1796,9 +1903,9 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   }
 
   AttrBuilder AB(LLVMContext);
-  AB.addAttribute(Attribute::Speculatable)
-      .addAttribute(Attribute::ReadOnly)
-      .addAttribute(Attribute::ArgMemOnly);
+  AB.addAttribute(Attribute::Speculatable);
+  AB.addMemoryAttr(llvm::MemoryEffects::readOnly());
+  AB.addMemoryAttr(llvm::MemoryEffects::argMemOnly());
 
   AttributeList Attrs =
       AttributeList::get(LLVMContext, AttributeList::FunctionIndex, AB);
@@ -1807,16 +1914,22 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef =
-      DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy,
+                                        TestArrayBlobIndex, 0, TestArraySB);
+
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
   ArrayRef->setBitCastDestVecOrElemType(Type::getInt8Ty(LLVMContext));
+
+  auto *FakeRvalRef = ArrayRef->clone();
+  FakeRvalRef->setAddressOf(false);
 
   RegDDRef *SegementSizeRef =
       DRU.createConstDDRef(IntPtrType, Context.SegmentList.size());
 
   HLInst *Call = HNU.createCall(RtddIndep, {ArrayRef, SegementSizeRef});
+  Call->addFakeRvalDDRef(FakeRvalRef);
+
   Nodes.push_back(*Call);
 
   RegDDRef *ZeroRef = DRU.createConstDDRef(IntPtrType, 0);
@@ -2001,6 +2114,10 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
     // (Add live-in for the Max Lval, and make Rval consistent).
     HLNodeUtils::insertBefore(NoAliasLoop, UBLoad);
     HLNodeUtils::insertBefore(NoAliasLoop, UBMax);
+
+    // Load ref can become non-linear if base ptr is defined at outer level.
+    UBLoad->getRvalDDRef()->makeConsistent();
+
     NoAliasLoop->addLiveInTemp(UBMax->getLvalDDRef()->getSymbase());
     UBMax->getRvalDDRef()->makeConsistent({UBLoad->getLvalDDRef()});
 
@@ -2025,6 +2142,7 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;
   HLIf *MemcheckIf = createMasterCondition(Context, Nodes, NewLiveinSymbases);
+  MemcheckIf->setMVTag(NoAliasLoop->getNumber());
 
   HLNodeUtils::insertBefore(NoAliasLoop, &Nodes);
   HLNodeUtils::insertBefore(NoAliasLoop, MemcheckIf);
@@ -2091,7 +2209,7 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
 
   // The splited group should have the same ScopeId as its original group.
   // Thus, we need to merge the split group back to the original group.
-  for (auto Idx : SplitedGroupsOriginalIndices) {
+  for (auto &Idx : SplitedGroupsOriginalIndices) {
     unsigned GroupId = Idx.first;
     unsigned OriginalId = Idx.second;
     Groups[OriginalId].append(Groups[GroupId].begin(), Groups[GroupId].end());

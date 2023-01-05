@@ -21,6 +21,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
@@ -1248,26 +1249,12 @@ void HIRTransformUtils::mergeZtt(HLLoop *Loop,
   }
 }
 
-bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region, HLLoop *Lp,
-                                               HIRDDAnalysis &HDDA,
-                                               HIRLoopStatistics &HLS) {
-  assert(Lp && "Lp* can't be null\n");
-  if (Lp->getParentRegion() != &Region) {
-    LLVM_DEBUG(dbgs() << "Expect Loop be in the region provided\n";);
-    return false;
-  }
-
-  HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
-                              HLS);
-  return DSE.run(Region, Lp, /* IsRegion */ false);
-}
-
 bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region,
                                                HIRDDAnalysis &HDDA,
                                                HIRLoopStatistics &HLS) {
   HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
                               HLS);
-  return DSE.run(Region, nullptr, /* IsRegion */ true);
+  return DSE.run(Region);
 }
 
 typedef DDRefGathererLambda<RegDDRef> MemRefGatherer;
@@ -1323,7 +1310,7 @@ bool HIRTransformUtils::doIdentityMatrixSubstitution(
   return true;
 }
 
-struct ConstantPropagater final : public HLNodeVisitorBase {
+struct ConstantAndCopyPropagater final : public HLNodeVisitorBase {
 private:
   unsigned NumPropagated;
   unsigned NumFolded;
@@ -1347,19 +1334,19 @@ private:
   DenseMap<unsigned, RegDDRef *> IndexToRefMap;
 
   // Maps a loop to the set of seen symbases. Used to remove temp SBs
-  // that may get folded away from constant propagation.
+  // that may get folded away from constant or copy propagation.
   DenseMap<HLLoop *, SmallSet<unsigned, 16>> LoopTempDefs;
 
-  // Add a constant definition to IndexToRefMap
-  void addConstPropDef(RegDDRef *LRef, RegDDRef *RRef);
+  // Add a constant/copy definition to IndexToRefMap
+  void addConstOrCopyPropDef(RegDDRef *LRef, RegDDRef *RRef);
 
   // Erase an index from the Map
-  void removeConstPropIndex(unsigned Index, HLInst *Curr = nullptr);
+  void removeConstOrCopyPropIndex(unsigned Index, HLInst *Curr = nullptr);
 
   std::pair<bool, HLInst *> constantFold(HLInst *Inst);
 
   // Propagate constant values to any blobs in the Ref
-  void propagateConstUse(RegDDRef *Ref);
+  void propagateConstOrCopyUse(RegDDRef *Ref);
 
   // Return true if CurrLoopOrRegion needs to be invalidated.
   bool checkInvalidated() { return InvalidatedNodes.count(CurrLoopOrRegion); }
@@ -1409,11 +1396,12 @@ private:
   }
 
 public:
+  ConstantAndCopyPropagater(HLNode *Node
 #if INTEL_FEATURE_SW_DTRANS
-  ConstantPropagater(DTransImmutableInfo *DTII, HLNode *Node)
-#else  // INTEL_FEATURE_SW_DTRANS
-  ConstantPropagater(HLNode *Node)
+                            ,
+                            DTransImmutableInfo *DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+                            )
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
         NumInstsRemoved(0),
 #if INTEL_FEATURE_SW_DTRANS
@@ -1540,7 +1528,7 @@ public:
   HLDDNode *visit(HLDDNode *Node) {
     HLDDNode *ReplacedNode = nullptr;
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
-      propagateConstUse(Ref);
+      propagateConstOrCopyUse(Ref);
 
       // Try to replace constant array
 #if INTEL_FEATURE_SW_DTRANS
@@ -1574,12 +1562,12 @@ public:
 
     if (IsLvalTerminalRef) {
       if (LvalRef->isSelfBlob()) {
-        removeConstPropIndex(LvalRef->getSelfBlobIndex(), Inst);
+        removeConstOrCopyPropIndex(LvalRef->getSelfBlobIndex(), Inst);
       } else {
         unsigned Index =
             LvalRef->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
         if (Index != InvalidBlobIndex) {
-          removeConstPropIndex(Index, Inst);
+          removeConstOrCopyPropIndex(Index, Inst);
         }
       }
     }
@@ -1604,9 +1592,10 @@ public:
 
     addTempDef(LvalSB);
   }
-}; // end ConstantPropagater
+}; // end ConstantAndCopyPropagater
 
-void ConstantPropagater::removeConstPropIndex(unsigned Index, HLInst *Curr) {
+void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(unsigned Index,
+                                                           HLInst *Curr) {
   assert(Curr && "Constant Def Inst must be valid!\n");
 
   auto *Ref = IndexToRefMap[Index];
@@ -1624,7 +1613,8 @@ void ConstantPropagater::removeConstPropIndex(unsigned Index, HLInst *Curr) {
   IndexToRefMap.erase(Index);
 }
 
-void ConstantPropagater::addConstPropDef(RegDDRef *LRef, RegDDRef *RRef) {
+void ConstantAndCopyPropagater::addConstOrCopyPropDef(RegDDRef *LRef,
+                                                      RegDDRef *RRef) {
   unsigned Index;
   if (LRef->isSelfBlob()) {
     Index = LRef->getSelfBlobIndex();
@@ -1640,21 +1630,33 @@ void ConstantPropagater::addConstPropDef(RegDDRef *LRef, RegDDRef *RRef) {
 
 // Attempts to fold the instruction, and checks candidate for future
 // propagation.
-std::pair<bool, HLInst *> ConstantPropagater::constantFold(HLInst *Inst) {
-  auto isRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
-  bool HasConstTerm = std::any_of(Inst->rval_op_ddref_begin(),
-                                  Inst->rval_op_ddref_end(), isRefConst);
-
-  if (!HasConstTerm) {
-    return std::make_pair(false, nullptr);
-  }
+std::pair<bool, HLInst *>
+ConstantAndCopyPropagater::constantFold(HLInst *Inst) {
 
   // Copy insts aren't folded but can be propagation candidates
   if (Inst->isCopyInst()) {
     RegDDRef *RvalRef = Inst->getRvalDDRef();
     if (RvalRef->isFoldableConstant()) {
-      addConstPropDef(Inst->getLvalDDRef(), RvalRef);
+      addConstOrCopyPropDef(Inst->getLvalDDRef(), RvalRef);
+
+    } else if (auto *CurLoop = dyn_cast<HLLoop>(CurrLoopOrRegion)) {
+
+      // Start with linear at level rvals so we don't have to worry about
+      // invalidating candidates if rval is redefined.
+      // TODO: Extend to propagate self AddressOf refs.
+      if (RvalRef->isTerminalRef() &&
+          RvalRef->isLinearAtLevel(CurLoop->getNestingLevel())) {
+        addConstOrCopyPropDef(Inst->getLvalDDRef(), RvalRef);
+      }
     }
+    return std::make_pair(false, nullptr);
+  }
+
+  auto isRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
+  bool HasConstTerm = std::any_of(Inst->rval_op_ddref_begin(),
+                                  Inst->rval_op_ddref_end(), isRefConst);
+
+  if (!HasConstTerm) {
     return std::make_pair(false, nullptr);
   }
 
@@ -1676,14 +1678,14 @@ std::pair<bool, HLInst *> ConstantPropagater::constantFold(HLInst *Inst) {
 
     // Add candidate for future propagation
     if (LvalRef->isTerminalRef() && (NewRvalRef->isFoldableConstant())) {
-      addConstPropDef(LvalRef, NewRvalRef);
+      addConstOrCopyPropDef(LvalRef, NewRvalRef);
     }
   }
 
   return Result;
 }
 
-void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
+void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
   bool IsLvalTerminalRef = false;
 
   // Bailout for Lval Selfblobs and skip any Lval TerminalRefs defined as
@@ -1705,7 +1707,7 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
     }
 
     unsigned DefIndex = Pair.first;
-    RegDDRef *ConstRef = Pair.second;
+    RegDDRef *ConstOrCopyRef = Pair.second;
 
     // Skip constant blob definition
     if (IsLvalTerminalRef &&
@@ -1713,7 +1715,7 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
       continue;
     }
 
-    if (!HLNodeUtils::strictlyDominates(ConstRef->getHLDDNode(),
+    if (!HLNodeUtils::strictlyDominates(ConstOrCopyRef->getHLDDNode(),
                                         Ref->getHLDDNode())) {
       // Invalidate entry so substitution cannot be performed and original
       // definition will not be eliminated
@@ -1723,32 +1725,58 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
 
     int64_t IntVal;
     // We can just update the CE for int constant
-    if (ConstRef->isIntConstant(&IntVal)) {
+    if (ConstOrCopyRef->isIntConstant(&IntVal)) {
       Ref->replaceTempBlobByConstant(DefIndex, IntVal);
-    } else if (Ref->isSelfBlob()) {
+
+    } else if (ConstOrCopyRef->isFoldableConstant()) {
       Ref->replaceSelfBlobByConstBlob(
-          ConstRef->getSingleCanonExpr()->getSingleBlobIndex());
+          ConstOrCopyRef->getSingleCanonExpr()->getSingleBlobIndex());
     } else {
-      llvm_unreachable("Could not replace ref!");
+
+      unsigned NumDims = Ref->getNumDimensions();
+      for (unsigned I = 1; I <= NumDims; ++I) {
+        auto *IndexCE = Ref->getDimensionIndex(I);
+
+        if (IndexCE->containsStandAloneBlob(DefIndex)) {
+          auto *ReplaceByCE = ConstOrCopyRef->getSingleCanonExpr();
+
+          if (CanonExprUtils::canReplaceStandAloneBlobByCanonExpr(
+                  IndexCE, DefIndex, ReplaceByCE)) {
+            CanonExprUtils::replaceStandAloneBlobByCanonExpr(IndexCE, DefIndex,
+                                                             ReplaceByCE);
+          }
+        }
+      }
+
+      Ref->makeConsistent(ConstOrCopyRef);
+
+      // If we could not replace copy in the use, invalidate the entry so we
+      // don't eliminate the definition.
+      if (Ref->usesTempBlob(DefIndex)) {
+        Pair.second = nullptr;
+        continue;
+      }
     }
+
     NumPropagated++;
   }
 }
 
+bool HIRTransformUtils::doConstantAndCopyPropagation(HLNode *Node
 #if INTEL_FEATURE_SW_DTRANS
-bool HIRTransformUtils::doConstantPropagation(HLNode *Node,
-                                              DTransImmutableInfo *DTII) {
-#else  // INTEL_FEATURE_SW_DTRANS
-bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
+                                                     ,
+                                                     DTransImmutableInfo *DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+) {
   if (DisableConstantPropagation) {
     return false;
   }
+  ConstantAndCopyPropagater CP(Node
 #if INTEL_FEATURE_SW_DTRANS
-  ConstantPropagater CP(DTII, Node);
-#else  // INTEL_FEATURE_SW_DTRANS
-  ConstantPropagater CP(Node);
+                               ,
+                               DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+  );
   LLVM_DEBUG(dbgs() << "Before constprop\n"; Node->dump(););
   HLNodeUtils::visit(CP, Node);
   LLVM_DEBUG(dbgs() << "After constprop\n"; Node->dump(); CP.dumpStatistics(););
@@ -1757,27 +1785,23 @@ bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
 
 std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
                                                               bool Invalidate) {
-  bool LLVMConstFolded = false;
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
 
   if (isa<BinaryOperator>(LLVMInst)) {
-    RegDDRef *RHS, *LHS, *Result;
-    LHS = Inst->getOperandDDRef(1);
-    RHS = Inst->getOperandDDRef(2);
-    Result = nullptr;
+    auto *LHS = Inst->getOperandDDRef(1);
+    auto *RHS = Inst->getOperandDDRef(2);
+    RegDDRef *Result = nullptr;
+    bool LLVMConstFolded = false;
     bool Negate = false;
     unsigned OpC = LLVMInst->getOpcode();
 
     ConstantFP *ConstR, *ConstL;
-    Constant *ConstResult;
     // Use LLVM Framework to compute new equivalent constant ref
     if (RHS->isFPConstant(&ConstR) && LHS->isFPConstant(&ConstL)) {
-      ConstResult = ConstantFoldBinaryOpOperands(
+      auto *ConstResult = ConstantFoldBinaryOpOperands(
           OpC, ConstL, ConstR, Inst->getHLNodeUtils().getDataLayout());
-      if (ConstResult) {
-        Result = RHS->getDDRefUtils().createConstDDRef(ConstResult);
-        LLVMConstFolded = true;
-      }
+      Result = RHS->getDDRefUtils().createConstDDRef(ConstResult);
+      LLVMConstFolded = true;
     }
 
     if (!LLVMConstFolded) {
@@ -1879,6 +1903,24 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
 
     HLNodeUtils::replace(Inst, NewInst);
     return std::make_pair(true, NewInst);
+
+  } else if (auto *Cast = dyn_cast<CastInst>(LLVMInst)) {
+    auto *Rval = Inst->getRvalDDRef();
+
+    ConstantFP *Const;
+    if (Rval->isFPConstant(&Const)) {
+      auto &HNU = Inst->getHLNodeUtils();
+      auto *CastedConst = ConstantFoldCastOperand(
+          LLVMInst->getOpcode(), Const, Cast->getDestTy(), HNU.getDataLayout());
+
+      auto *NewRval = Rval->getDDRefUtils().createConstDDRef(CastedConst);
+
+      HLInst *NewInst =
+          HNU.createCopyInst(NewRval, "", Inst->removeLvalDDRef());
+
+      HLNodeUtils::replace(Inst, NewInst);
+      return std::make_pair(true, NewInst);
+    }
   }
 
   return std::make_pair(false, nullptr);

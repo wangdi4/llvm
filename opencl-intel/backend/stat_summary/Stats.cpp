@@ -14,17 +14,17 @@
 
 #include "Stats.h"
 
-#include "llvm/Support/Path.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Path.h"
 
-
-const string &WorkloadInfo::getWorkloadID (const string &location,
-    const string &name) {
+const string &WorkloadInfo::getWorkloadID(const string &location,
+                                          const string &name) {
 
   string *id = new string();
-  assert (id && "No space for new workload ID");
+  assert(id && "No space for new workload ID");
 
-  id->assign(std::string(llvm::sys::path::parent_path(llvm::StringRef(location.c_str()))));
+  id->assign(std::string(
+      llvm::sys::path::parent_path(llvm::StringRef(location.c_str()))));
 
   if (id->size() == 0 || *id->rbegin() != '/')
     id->append("/");
@@ -33,10 +33,8 @@ const string &WorkloadInfo::getWorkloadID (const string &location,
   return *id;
 }
 
-
 void StatValueMapC::dumpStatValueMapHead(stringstream &str,
-    const StatValueMap &statNames)
-{
+                                         const StatValueMap &statNames) {
   for (StatValueMap::const_iterator it = statNames.begin();
        it != statNames.end(); it++) {
     str << it->first << ",";
@@ -45,9 +43,9 @@ void StatValueMapC::dumpStatValueMapHead(stringstream &str,
   str << "Total";
 }
 
-void StatValueMapC::dumpStatValueMapValue (stringstream &str,
-    const StatValueMap &statNames, const StatValueMap &values)
-{
+void StatValueMapC::dumpStatValueMapValue(stringstream &str,
+                                          const StatValueMap &statNames,
+                                          const StatValueMap &values) {
   unsigned sum = 0;
 
   for (StatValueMap::const_iterator it = statNames.begin();
@@ -65,8 +63,7 @@ void StatValueMapC::dumpStatValueMapValue (stringstream &str,
 }
 
 void ModuleStats::dumpStats(stringstream &str, const StatValueMap &names,
-    unsigned levels) const
-{
+                            unsigned levels) const {
   // dump module summary stats and workload info
   str << "2," << moduleName << ",";
   StatValueMapC::dumpStatValueMapValue(str, names, moduleStats);
@@ -84,10 +81,10 @@ void ModuleStats::dumpStats(stringstream &str, const StatValueMap &names,
 }
 
 void WorkloadInfo::dumpStats(stringstream &str, const StatValueMap &names,
-    unsigned levels) const
-{
+                             unsigned levels) const {
   // dump worload sums
-  string s = std::string(llvm::sys::path::filename(llvm::StringRef(id.c_str())));
+  string s =
+      std::string(llvm::sys::path::filename(llvm::StringRef(id.c_str())));
 
   str << "1," << s << ",";
   StatValueMapC::dumpStatValueMapValue(str, names, workloadStats);
@@ -96,13 +93,12 @@ void WorkloadInfo::dumpStats(stringstream &str, const StatValueMap &names,
   if (levels > 1) {
     // dump stats for each module
     for (unsigned int i = 0; i < statList.size(); i++) {
-      statList[i]->dumpStats(str, names, levels-1);
+      statList[i]->dumpStats(str, names, levels - 1);
     }
   }
 }
 
-void ExperimentInfo::dumpStats(stringstream &str, unsigned levels)
-{
+void ExperimentInfo::dumpStats(stringstream &str, unsigned levels) {
   // dump header line
   str << ",,";
   StatValueMapC::dumpStatValueMapHead(str, allStats);
@@ -112,7 +108,7 @@ void ExperimentInfo::dumpStats(stringstream &str, unsigned levels)
     // dump stats of each workload
     for (WorkloadMap::const_iterator it = workloads.begin();
          it != workloads.end(); it++) {
-      it->second.dumpStats(str, allStats, levels-1);
+      it->second.dumpStats(str, allStats, levels - 1);
     }
   }
 
@@ -121,4 +117,3 @@ void ExperimentInfo::dumpStats(stringstream &str, unsigned levels)
   StatValueMapC::dumpStatValueMapValue(str, allStats, allStats);
   str << "\n";
 }
-

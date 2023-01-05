@@ -1,20 +1,20 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
+; RUN: opt < %s -S -passes=vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
 ; RUN:     -vec-threshold=50 -vplan-build-vect-candidates=1\
 ; RUN:     2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=50 -debug \
 ; RUN:     2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
-; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
+; RUN: opt < %s -S -passes=vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
 ; RUN:     -vec-threshold=0 -vplan-build-vect-candidates=1 \
 ; RUN:     2>&1 | FileCheck %s --check-prefix=VEC-ALWAYS
 
 ; REQUIRES: asserts
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt < %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vec-threshold=0 -debug \
 ; RUN:     2>&1 | FileCheck %s --check-prefix=VEC-ALWAYS
 

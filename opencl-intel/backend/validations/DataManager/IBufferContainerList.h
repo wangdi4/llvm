@@ -15,41 +15,39 @@
 #ifndef __IBUFFER_CONTAINER_LIST_H__
 #define __IBUFFER_CONTAINER_LIST_H__
 
+#include <cstddef> // for std::size_t
 #include <vector>
-#include <cstddef>              // for std::size_t
 
-#include "IContainer.h"
 #include "IBufferContainer.h"
+#include "IContainer.h"
 
-namespace Validation
-{
+namespace Validation {
 
-    /// @brief Interface to a BufferContainerList object
-    /// this object stores collection of BufferContainer objects
-    class IBufferContainerList : public IContainer
-    {
-    public:
-        /// @brief Factory method, which creates empty BufferContainer object and puts it into BufferContainerList container.
-        /// @return Pointer to created BufferContainer object interface.
-        virtual IBufferContainer* CreateBufferContainer() = 0;
-        // Methods to iterate over buffers
-        // TODO: implement C++-style iterator for BufferContainer
-        /// @brief Method to get the number of BufferContainers
-        /// @return number of BufferContainer objects
-        virtual std::size_t GetBufferContainerCount() const = 0;
-        /// @brief Method to get particular buffer by index.
-        /// @param [IN] id Buffer index. Id have to lay inside range [0, GetMemoryObjectCount() - 1]
-        /// @return Pointer to the buffer's interface.
-        virtual IBufferContainer* GetBufferContainer(std::size_t id) const = 0;
-        /// @brief Method to get data version read from data file.
-        /// @return read data version unsigned int.
-        virtual uint32_t GetDataVersion() = 0;
-        /// @brief Method to set data version read from data file.
-        /// @param [IN] inDataVersion, unsigned int.
-        virtual void SetDataVersion(uint32_t const inDataVersion) = 0;
+/// @brief Interface to a BufferContainerList object
+/// this object stores collection of BufferContainer objects
+class IBufferContainerList : public IContainer {
+public:
+  /// @brief Factory method, which creates empty BufferContainer object and puts
+  /// it into BufferContainerList container.
+  /// @return Pointer to created BufferContainer object interface.
+  virtual IBufferContainer *CreateBufferContainer() = 0;
+  // Methods to iterate over buffers
+  // TODO: implement C++-style iterator for BufferContainer
+  /// @brief Method to get the number of BufferContainers
+  /// @return number of BufferContainer objects
+  virtual std::size_t GetBufferContainerCount() const = 0;
+  /// @brief Method to get particular buffer by index.
+  /// @param [IN] id Buffer index. Id have to lay inside range [0,
+  /// GetMemoryObjectCount() - 1]
+  /// @return Pointer to the buffer's interface.
+  virtual IBufferContainer *GetBufferContainer(std::size_t id) const = 0;
+  /// @brief Method to get data version read from data file.
+  /// @return read data version unsigned int.
+  virtual uint32_t GetDataVersion() = 0;
+  /// @brief Method to set data version read from data file.
+  /// @param [IN] inDataVersion, unsigned int.
+  virtual void SetDataVersion(uint32_t const inDataVersion) = 0;
+};
 
-    };
-
-}
+} // namespace Validation
 #endif // __IBUFFER_CONTAINER_LIST_H__
-

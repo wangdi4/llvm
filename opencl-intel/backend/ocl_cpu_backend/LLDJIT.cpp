@@ -63,7 +63,8 @@ LLDJIT::createJIT(std::unique_ptr<Module> M, std::string *ErrorStr,
                   std::unique_ptr<TargetMachine> TM) {
 
   // Try to register the program as a source of symbols to resolve against.
-  sys::DynamicLibrary::LoadLibraryPermanently(nullptr, nullptr);
+  if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, nullptr))
+    throw Exceptions::CompilerException("Error loading library Permanently");
 
   return std::unique_ptr<LLDJIT>(new LLDJIT(std::move(M), std::move(TM)));
 }
@@ -270,8 +271,7 @@ std::string LLDJIT::emitObject(Module *M) {
   raw_svector_ostream ObjStream(ObjBufferSV);
 
   TM->addPassesToEmitFile(PM, ObjStream,
-                          /*raw_pwrite_stream*/ nullptr,
-                          CGFT_ObjectFile,
+                          /*raw_pwrite_stream*/ nullptr, CGFT_ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.
@@ -368,7 +368,8 @@ void LLDJIT::LoadDLL() {
   OwnedTempFiles.emplace_back(std::move(PDBFile));
 
   assert(!DLLHandle);
-  HMODULE dllHandle = LoadLibraryA(DLLPath.c_str());
+  HMODULE dllHandle =
+      LoadLibraryExA(DLLPath.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
   if (!dllHandle)
     throw Exceptions::CompilerException("LoadLibrary(" + DLLPath +
                                         ") failed: " + getLastErrorMessage());
@@ -905,8 +906,8 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
 void LLDJIT::TmpFile::close() {
   OS().close();
   if (std::error_code EC = OS().error())
-    report_fatal_error(Twine("IO failure on file " + FileName() + ": " +
-                       EC.message()));
+    report_fatal_error(
+        Twine("IO failure on file " + FileName() + ": " + EC.message()));
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,

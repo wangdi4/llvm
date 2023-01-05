@@ -721,8 +721,8 @@ void DTransOptBase::initializeFunctionCallInfoMapping() {
 
   resetFunctionCallInfoMapping();
 
-  for (auto CInfoVec : DTInfo->call_info_entries())
-    for (auto CInfo : CInfoVec) {
+  for (const auto &CInfoVec : DTInfo->call_info_entries())
+    for (auto *CInfo : CInfoVec) {
       Function *F = CInfo->getInstruction()->getParent()->getParent();
       FunctionToCallInfoVec[F].push_back(CInfo);
     }

@@ -1,4 +1,3 @@
-; RUN: opt -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; This test checks that vf is set to 1 if max_wg_dimensions is 0 and

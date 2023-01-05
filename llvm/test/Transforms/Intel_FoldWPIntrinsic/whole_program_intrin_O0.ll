@@ -4,7 +4,6 @@
 ; into false since the optimization levele is O0. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.
 
-; RUN: opt < %s -xmain-opt-level=0 -intel-fold-wp-intrinsic -whole-program-assume -S 2>&1 | FileCheck %s
 
 ; RUN: opt < %s -xmain-opt-level=0 -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -S 2>&1 | FileCheck %s
 

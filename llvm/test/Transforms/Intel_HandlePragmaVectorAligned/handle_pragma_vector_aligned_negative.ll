@@ -1,4 +1,3 @@
-; RUN: opt -S -handle-pragma-vector-aligned < %s | FileCheck %s
 ; RUN: opt -S -passes=handle-pragma-vector-aligned < %s | FileCheck %s
 
 ; Tests in this file are not supposed to trigger generation of any

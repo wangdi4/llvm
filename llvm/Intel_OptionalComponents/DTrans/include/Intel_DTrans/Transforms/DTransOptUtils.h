@@ -1,6 +1,6 @@
 //===- DTransOptUtils.h - Common utility functions for DTrans transforms -===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -93,14 +93,15 @@ bool findValueMultipleOfSizeInst(
     User *U, unsigned Idx, uint64_t Size,
     SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
 
-// Helper function to reset the 'align' argument on load/store users of the GEP
-// used to access an element contained within a structure to a default
+// Helper function to reset the 'align' argument on load/store users of the
+// pointer used to access an element contained within a structure to a default
 // alignment (For packed structures, the default will be 1, otherwise it will be
-// set to the natural alignment for the type. This is necessary because some
+// set to the natural alignment for the type). This is necessary because some
 // accesses may have been computed as using a higher alignment based on layout
 // of the structure prior to changes made to the structure elements by DTrans.
-void resetLoadStoreAlignment(GEPOperator *GEP, const DataLayout &DL,
-                             bool IsPacked);
+// Note: 'Ptr' may be a GEPOperator or a GlobalVariable (in the case that the
+// structure field being accessed is the first element)
+void resetLoadStoreAlignment(Value *Ptr, const DataLayout &DL, bool IsPacked);
 
 // Returns 'true' if function, \p F, represents the program's main entry
 // routine.

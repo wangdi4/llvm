@@ -46,6 +46,7 @@
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/Target/TargetIntrinsicInfo.h"
 #include "llvm/Target/TargetMachine.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -474,7 +475,7 @@ static void printCFIRegister(unsigned DwarfReg, raw_ostream &OS,
     return;
   }
 
-  if (Optional<unsigned> Reg = TRI->getLLVMRegNum(DwarfReg, true))
+  if (std::optional<unsigned> Reg = TRI->getLLVMRegNum(DwarfReg, true))
     OS << printReg(*Reg, TRI);
   else
     OS << "<badreg>";
@@ -487,7 +488,7 @@ static void printIRBlockReference(raw_ostream &OS, const BasicBlock &BB,
     printLLVMNameWithoutPrefix(OS, BB.getName());
     return;
   }
-  Optional<int> Slot;
+  std::optional<int> Slot;
   if (const Function *F = BB.getParent()) {
     if (F == MST.getCurrentFunction()) {
       Slot = MST.getLocalSlot(&BB);
@@ -548,7 +549,7 @@ static void printFrameIndex(raw_ostream& OS, int FrameIndex, bool IsFixed,
 void MachineOperand::printSubRegIdx(raw_ostream &OS, uint64_t Index,
                                     const TargetRegisterInfo *TRI) {
   OS << "%subreg.";
-  if (TRI)
+  if (TRI && Index != 0 && Index < TRI->getNumSubRegIndices())
     OS << TRI->getSubRegIndexName(Index);
   else
     OS << Index;
@@ -765,7 +766,7 @@ void MachineOperand::print(raw_ostream &OS, LLT TypeToPrint,
                            const TargetIntrinsicInfo *IntrinsicInfo) const {
   tryToGetTargetInfo(*this, TRI, IntrinsicInfo);
   ModuleSlotTracker DummyMST(nullptr);
-  print(OS, DummyMST, TypeToPrint, None, /*PrintDef=*/false,
+  print(OS, DummyMST, TypeToPrint, std::nullopt, /*PrintDef=*/false,
         /*IsStandalone=*/true,
         /*ShouldPrintRegisterTies=*/true,
         /*TiedOperandIdx=*/0, TRI, IntrinsicInfo);

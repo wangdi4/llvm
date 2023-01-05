@@ -9,9 +9,6 @@
 ; ----------------------------------------------------
 ; RUN: opt %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -verify %s -S > %t1.ll
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S > %t2.ll
-; RUN: diff %t1.ll %t2.ll
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S > %t3.ll
 ; RUN: diff %t1.ll %t3.ll

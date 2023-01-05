@@ -1,15 +1,12 @@
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -agginliner -inline -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
-
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -debug-only=agginliner -disable-output 2>&1 | FileCheck %s
 
 ; Check the trace results for the HugeMallocGlobalPointersHeuristic aggressive
 ; inlining heuristic.
 ; This test case is similar to intel_agg_inline05.ll, but is derived from
 ; the IR generated on Windows rather than Linux.
 
-; CHECK: AggInl: Setting NoRecurse on: __local_stdio_printf_options
 ; CHECK: AggInl: Setting NoRecurse on: __local_stdio_scanf_options
+; CHECK: AggInl: Setting NoRecurse on: __local_stdio_printf_options
 ; CHECK: AggInl: HugeMallocGlobalPointersHeuristic
 ; CHECK: AggInl: LBM_allocateGrid malloc routine found
 ; CHECK-LABEL: AggInl:  All CallSites marked for inline after propagation

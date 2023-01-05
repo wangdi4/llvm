@@ -1,4 +1,21 @@
 //===- ObjCARCAPElim.cpp - ObjC ARC Optimization --------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -29,11 +46,14 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/ObjCARC.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::objcarc;
@@ -147,6 +167,7 @@ bool runImpl(Module &M) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Autorelease pool elimination.
 class ObjCARCAPElim : public ModulePass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -158,8 +179,11 @@ public:
     initializeObjCARCAPElimPass(*PassRegistry::getPassRegistry());
   }
 };
+#endif // INTEL_CUSTOMIZATION
+
 } // namespace
 
+#if INTEL_CUSTOMIZATION
 char ObjCARCAPElim::ID = 0;
 INITIALIZE_PASS(ObjCARCAPElim, "objc-arc-apelim",
                 "ObjC ARC autorelease pool elimination", false, false)
@@ -175,6 +199,7 @@ bool ObjCARCAPElim::runOnModule(Module &M) {
     return false;
   return runImpl(M);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses ObjCARCAPElimPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M))

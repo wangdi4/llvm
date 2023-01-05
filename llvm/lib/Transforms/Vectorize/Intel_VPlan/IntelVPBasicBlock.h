@@ -165,6 +165,8 @@ public:
   inline const_iterator end() const { return Instructions.end(); }
   iterator terminator();
   const_iterator terminator() const;
+  iterator firstNonPhi();
+  const_iterator firstNonPhi() const;
 
   inline reverse_iterator rbegin() { return Instructions.rbegin(); }
   inline const_reverse_iterator rbegin() const { return Instructions.rbegin(); }
@@ -378,6 +380,9 @@ public:
 
   VPBranchInst *getTerminator();
   const VPBranchInst *getTerminator() const;
+
+  VPInstruction *getFirstNonPhi();
+  const VPInstruction *getFirstNonPhi() const;
 
   BlockFrequency getFrequency() const { return BlockFreq; }
   void setFrequency(BlockFrequency Freq) { BlockFreq = Freq; }

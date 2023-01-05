@@ -53,9 +53,9 @@ public:
   bool CheckLinkOptions(const char *szOptions, char *szUnrecognizedOptions,
                         size_t uiUnrecognizedOptionsSize) override;
 
-  void GetSpecConstInfo(
-      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
-      IOCLFESpecConstInfo **pSpecConstInfo) override;
+  std::unique_ptr<IOCLFESpecConstInfo> GetSpecConstInfo(
+      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc)
+      override;
 
   void Release() override { delete this; }
 
@@ -66,6 +66,6 @@ protected:
   CLANG_DEV_INFO m_sDeviceInfo;
   Intel::OpenCL::Utils::BasicCLConfigWrapper m_config;
 };
-}
-}
-}
+} // namespace ClangFE
+} // namespace OpenCL
+} // namespace Intel

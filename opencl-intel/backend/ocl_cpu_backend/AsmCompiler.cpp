@@ -101,8 +101,8 @@ int AsmCompiler::compileAsmToObjectFile(std::unique_ptr<MemoryBuffer> BufferPtr,
   std::unique_ptr<MCRegisterInfo> MRI(TheTarget->createMCRegInfo(TripleName));
   assert(MRI && "Unable to create target register info!");
 
-  std::unique_ptr<MCAsmInfo> MAI(TheTarget->createMCAsmInfo(*MRI, TripleName,
-                                                            MCOptions));
+  std::unique_ptr<MCAsmInfo> MAI(
+      TheTarget->createMCAsmInfo(*MRI, TripleName, MCOptions));
   assert(MAI && "Unable to create target asm info!");
 
   MAI->setRelaxELFRelocations(true);
@@ -118,7 +118,7 @@ int AsmCompiler::compileAsmToObjectFile(std::unique_ptr<MemoryBuffer> BufferPtr,
   MCContext Ctx(TheTriple, MAI.get(), MRI.get(), STI.get(), &SrcMgr);
   bool PIC = true;
   std::unique_ptr<MCObjectFileInfo> MOFI(
-    TheTarget->createMCObjectFileInfo(Ctx, PIC));
+      TheTarget->createMCObjectFileInfo(Ctx, PIC));
   Ctx.setObjectFileInfo(MOFI.get());
 
   Ctx.setGenDwarfForAssembly(false);

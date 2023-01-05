@@ -30,7 +30,6 @@
 #include "clang/Driver/Options.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/Host.h"
 
@@ -86,21 +85,20 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                           "sapphire_rapids", "sapphirerapids")
               .CaseLower("alderlake", "alderlake")
               .CaseLower("rocketlake", "rocketlake")
-#if INTEL_FEATURE_CPU_RPL
               .CaseLower("raptorlake", "raptorlake")
-#endif // INTEL_FEATURE_CPU_RPL
-#if INTEL_FEATURE_CPU_GNR
+              .CaseLower("meteorlake", "meteorlake")
               .CaseLower("graniterapids", "graniterapids")
-#endif // INTEL_FEATURE_CPU_GNR
+              .CaseLower("sierraforest", "sierraforest")
+              .CaseLower("grandridge", "grandridge")
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_MTL
-              .CaseLower("meteorlake", "meteorlake")
-#endif // INTEL_FEATURE_CPU_MTL
 #if INTEL_FEATURE_CPU_EMR
               .CaseLower("emeraldrapids", "emeraldrapids")
 #endif // INTEL_FEATURE_CPU_EMR
+#if INTEL_FEATURE_CPU_RYL
+              .CaseLower("royal", "royal")
+#endif // INTEL_FEATURE_CPU_RYL
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
@@ -118,6 +116,26 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
       CPU = Arch;
   }
   return std::string(CPU);
+}
+
+std::string x86::getCPUForIntelOnly(const Driver &D, StringRef Arch,
+                                    const llvm::Triple &Triple,
+                                    const llvm::opt::Arg *A) {
+  // Prevent any non-Intel targets from being allowed.
+  SmallVector<StringRef, 18> NonIntelTargets = {
+      "k8",        "athlon64",      "athlon-fx",    "opteron",
+      "k8-sse3",   "athlon64-sse3", "opteron-sse3", "amdfam10",
+      "barcelona", "btver1",        "btver2",       "bdver1",
+      "bdver2",    "bdver3",        "bdver4",       "znver1",
+      "znver2",    "znver3"};
+  if (std::find(NonIntelTargets.begin(), NonIntelTargets.end(), Arch) !=
+      NonIntelTargets.end()) {
+    D.Diag(clang::diag::err_drv_unsupported_option_argument)
+        << A->getSpelling() << Arch;
+    return "";
+  }
+  return getCPUForIntel(Arch, Triple,
+                        A->getOption().matches(options::OPT__SLASH_arch));
 }
 
 bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
@@ -148,7 +166,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (A->getOption().matches(options::OPT_x)) {
       // -x<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      std::string CPU = getCPUForIntel(Arch, Triple);
+      std::string CPU = getCPUForIntelOnly(D, Arch, Triple, A);
       if (!CPU.empty())
         return CPU;
     }
@@ -161,9 +179,6 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
 
     // FIXME: Reject attempts to use -march=native unless the target matches
     // the host.
-    //
-    // FIXME: We should also incorporate the detected target features for use
-    // with -native.
     CPU = llvm::sys::getHostCPUName();
     if (!CPU.empty() && CPU != "generic")
       return std::string(CPU);
@@ -176,7 +191,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (A->getOption().matches(options::OPT__SLASH_Qx)) {
       // /Qx<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
-      std::string CPU = getCPUForIntel(Arch, Triple);
+      std::string CPU = getCPUForIntelOnly(D, Arch, Triple, A);
       if (!CPU.empty()) {
         A->claim();
         return CPU;
@@ -208,7 +223,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     if (CPU.empty()) {
 #if INTEL_CUSTOMIZATION
       // Handle 'other' /arch variations that are allowed for icx/Intel
-      std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
+      std::string IntelCPU = getCPUForIntelOnly(D, A->getValue(), Triple, A);
       if (!IntelCPU.empty()) {
         A->claim();
         return IntelCPU;
@@ -431,7 +446,7 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       Features.push_back("+harden-sls-ijmp");
     } else if (Scope != "none") {
       D.Diag(diag::err_drv_unsupported_option_argument)
-          << A->getOption().getName() << Scope;
+          << A->getSpelling() << Scope;
     }
   }
 }

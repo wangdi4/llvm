@@ -24,27 +24,31 @@
 
 namespace utils {
 
-inline void ReportError( const char* filename, int line, const char* expression, const char * message ) { // INTEL
-    print_call_stack();
-    REPORT_FATAL_ERROR("%s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
+inline void ReportError(const char *filename, int line, const char *expression,
+                        const char *message) { // INTEL
+  print_call_stack();
+  REPORT_FATAL_ERROR("%s:%d, assertion %s: %s\n", filename, line, expression,
+                     message ? message : "failed");
 
-    fflush(stdout); fflush(stderr);
+  fflush(stdout);
+  fflush(stderr);
 
 #if _MSC_VER && _DEBUG
-    if(1 == _CrtDbgReport(_CRT_ASSERT, filename, line, NULL, "%s\r\n%s", expression, message?message:""))
-        _CrtDbgBreak();
+  if (1 == _CrtDbgReport(_CRT_ASSERT, filename, line, NULL, "%s\r\n%s",
+                         expression, message ? message : ""))
+    _CrtDbgBreak();
 #else
-    abort();
+  abort();
 #endif
 }
 
 //! Compile-time error if x and y have different types
-template<typename T>
-void AssertSameType( const T& /*x*/, const T& /*y*/ ) {}
+template <typename T> void AssertSameType(const T & /*x*/, const T & /*y*/) {}
 
-} // utils
+} // namespace utils
 
-#define ASSERT_CUSTOM(p,message,file,line)  ((p)?(void)0:utils::ReportError(file,line,#p,message))
-#define ASSERT(p,message)                   ASSERT_CUSTOM(p,message,__FILE__,__LINE__)
+#define ASSERT_CUSTOM(p, message, file, line)                                  \
+  ((p) ? (void)0 : utils::ReportError(file, line, #p, message))
+#define ASSERT(p, message) ASSERT_CUSTOM(p, message, __FILE__, __LINE__)
 
 #endif // __TBB_test_common_utils_assert_H

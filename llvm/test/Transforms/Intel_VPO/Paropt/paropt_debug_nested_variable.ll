@@ -1,4 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes="vpo-paropt" -S %s | FileCheck %s
 ;
 ; Variable "V" inside the KERNEL basic block should get two variables created,
 ; one for the TARGET region and one for the TEAMS region. These two variables

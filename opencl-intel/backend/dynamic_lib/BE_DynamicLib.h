@@ -14,39 +14,41 @@
 
 #pragma once
 
-#include <stdexcept>
 #include "cl_device_api.h"
 #include "cl_dynamic_lib.h"
+#include <stdexcept>
 
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-namespace Exceptions{
-class DynamicLibException: public std::runtime_error
-{
+namespace Exceptions {
+class DynamicLibException : public std::runtime_error {
 public:
-  virtual ~DynamicLibException() throw(){}
-  DynamicLibException(std::string dllname) : runtime_error(dllname){
-  }
+  virtual ~DynamicLibException() throw() {}
+  DynamicLibException(std::string dllname) : runtime_error(dllname) {}
 };
 
-}//namespace Exceptions
+} // namespace Exceptions
 
 namespace Utils {
 
-class BE_DynamicLib : public Intel::OpenCL::Utils::OclDynamicLib
-{
+class BE_DynamicLib : public Intel::OpenCL::Utils::OclDynamicLib {
 public:
   BE_DynamicLib(void);
   ~BE_DynamicLib(void);
 
   // Loads a dynamically link library into process address space
   // Input
-  //		pLibName	- A pointer to null terminated string that describes library file name
-  void Load(const char* pLibName);
+  //    pLibName  - A pointer to null terminated string that
+  // describes library file name
+  void Load(const char *pLibName);
 
   // Returns the pointer to exported function within a loaded module
-  ptrdiff_t GetFuncPtr(const char* funcName);
+  ptrdiff_t GetFuncPtr(const char *funcName);
 };
 
-}}}}
+} // namespace Utils
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

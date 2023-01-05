@@ -14,22 +14,19 @@
 
 #include "ConfigTab.h"
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
-ConfigTab::ConfigTab(ConfigManager* cfg)
-{
-    this->cfg = cfg;
-    type=Tab::Configuration;
-    layout = new QFormLayout(this);
-    dirs = new QTextEdit(this);
-    layout->addRow(new QLabel("Include Dirs"),dirs);
-    compFlags = new QLineEdit(this);
-    layout->addRow(new QLabel("Compilation flags"),compFlags);
-    this->setLayout(layout);
+ConfigTab::ConfigTab(ConfigManager *cfg) {
+  this->cfg = cfg;
+  type = Tab::Configuration;
+  layout = new QFormLayout(this);
+  dirs = new QTextEdit(this);
+  layout->addRow(new QLabel("Include Dirs"), dirs);
+  compFlags = new QLineEdit(this);
+  layout->addRow(new QLabel("Compilation flags"), compFlags);
+  this->setLayout(layout);
 }
 
-}
-}
+} // namespace GUI
+} // namespace Validation

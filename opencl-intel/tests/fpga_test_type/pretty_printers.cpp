@@ -70,9 +70,8 @@ std::string ErrToStr(cl_int error) {
     CASE(CL_INVALID_DEVICE_PARTITION_COUNT);
     CASE(CL_INVALID_PIPE_SIZE);
     CASE(CL_INVALID_DEVICE_QUEUE);
-    default:
-      return "Unknown error code!";
+  default:
+    return "Unknown error code!";
   }
 #undef CASE
 }
-

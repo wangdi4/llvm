@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check that duplicate values in target entry's map bundles are renamed before

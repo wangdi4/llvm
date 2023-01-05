@@ -14,40 +14,43 @@
 
 #include "ObjectCodeCache.h"
 #include "BitCodeContainer.h"
-#include "ObjectCodeContainer.h"
 #include "Compiler.h"
+#include "ObjectCodeContainer.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-ObjectCodeCache::ObjectCodeCache(llvm::Module* pModule, const char* pObject, size_t ObjectSize):
-  m_pObjectBuffer(nullptr),
-  m_isObjectAvailable(false) {
+ObjectCodeCache::ObjectCodeCache(llvm::Module *pModule, const char *pObject,
+                                 size_t ObjectSize)
+    : m_pObjectBuffer(nullptr), m_isObjectAvailable(false) {
 
-  if(pObject && pModule) {
-    llvm::StringRef data = llvm::StringRef((const char*)pObject, ObjectSize);
+  if (pObject && pModule) {
+    llvm::StringRef data = llvm::StringRef((const char *)pObject, ObjectSize);
     m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(data).release());
 
     m_isObjectAvailable = true;
   }
 }
 
-ObjectCodeCache::~ObjectCodeCache() {
-}
+ObjectCodeCache::~ObjectCodeCache() {}
 
 void ObjectCodeCache::notifyObjectCompiled(const llvm::Module * /*pModule*/,
                                            llvm::MemoryBufferRef pBuffer) {
 
-  assert(!m_isObjectAvailable && "We do not expect a second Module to save its object");
+  assert(!m_isObjectAvailable &&
+         "We do not expect a second Module to save its object");
 
   // A module has been compiled and the resulting object is in a MemoryBuffer
 
-  m_pObjectBuffer.reset(llvm::MemoryBuffer::getMemBufferCopy(pBuffer.getBuffer()).release());
+  m_pObjectBuffer.reset(
+      llvm::MemoryBuffer::getMemBufferCopy(pBuffer.getBuffer()).release());
 
   m_isObjectAvailable = true;
 }
 
-std::unique_ptr<llvm::MemoryBuffer> ObjectCodeCache::getObject(
-    const llvm::Module* /*pModule*/) {
+std::unique_ptr<llvm::MemoryBuffer>
+ObjectCodeCache::getObject(const llvm::Module * /*pModule*/) {
   if (m_isObjectAvailable) {
     assert(m_pObjectBuffer.get() && "Mapped Object is null");
     return std::unique_ptr<llvm::MemoryBuffer>(std::move(m_pObjectBuffer));
@@ -56,4 +59,6 @@ std::unique_ptr<llvm::MemoryBuffer> ObjectCodeCache::getObject(
   return nullptr;
 }
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

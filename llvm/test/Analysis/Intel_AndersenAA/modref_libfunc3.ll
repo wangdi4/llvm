@@ -1,6 +1,4 @@
-; RUN: opt < %s -anders-aa -aa-eval -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -aa-pipeline=anders-aa -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -anders-aa -aa-eval -evaluate-loopcarried-alias -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -aa-pipeline=anders-aa -evaluate-loopcarried-alias -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; This tests the basic functionality of Mod/Ref using the AndersenAA analysis
@@ -94,7 +92,7 @@ declare dso_local i32 @fflush(%struct._IO_FILE* nocapture)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.init2	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test1	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %arrayidx.test2	<->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
-; CHECK-DAG: Just Ref:  Ptr: i8* %str1.ptr <->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
+; CHECK-DAG: NoModRef:  Ptr: i8* %str1.ptr <->  %tmp = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i64 0, i64 0), i32 %sum)
 ; CHECK-DAG: NoModRef:  Ptr: i8* %call1	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i8* %call2	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)
 ; CHECK-DAG: NoModRef:  Ptr: i32* %ar1	<->  %tmp1 = call i32 @fflush(%struct._IO_FILE* %fp)

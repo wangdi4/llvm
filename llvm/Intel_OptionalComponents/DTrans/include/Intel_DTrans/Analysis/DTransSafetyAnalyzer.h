@@ -232,15 +232,15 @@ public:
   // Create an entry in the CallInfoMap about a memset call.
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR) {
+                        const dtrans::MemfuncRegion &MR) {
     return CIM.createMemfuncCallInfo(I, MK, MR);
   }
 
   // Create an entry in the CallInfoMap about a memcpy/memmove call.
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR1,
-                        dtrans::MemfuncRegion &MR2) {
+                        const dtrans::MemfuncRegion &MR1,
+                        const dtrans::MemfuncRegion &MR2) {
     return CIM.createMemfuncCallInfo(I, MK, MR1, MR2);
   }
 
@@ -291,6 +291,14 @@ public:
   bool hasPtrToIntOrFloatReturnType(Function *F);
 
   bool isPtrToIntOrFloat(dtrans::FieldInfo &FI);
+
+  // Interface routine to get possible targets of given function pointer 'FP'.
+  // It computes all possible targets of 'FP' using the field single value
+  // analysis and adds valid targets to 'Targets' vector. Returns' false' if
+  // there are any unknown/invalid targets.
+  //
+  bool GetFuncPointerPossibleTargets(Value *FP, std::vector<Value *> &Targets,
+                                     CallBase *, bool);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -31,14 +31,12 @@
 #include "llvm/Transforms/IPO/PartialInlining.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -68,8 +66,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"     // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"   // INTEL
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -79,6 +75,12 @@
 #include <memory>
 #include <tuple>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
@@ -190,11 +192,6 @@ static cl::opt<bool> ForceRunLTOPartialInline(
 static cl::opt<bool> ForceEnableSpecialCasesPartialInline(
     "force-enable-special-cases-partial-inline", cl::init(false), cl::Hidden,
     cl::desc("Force partial inliner to handle special cases"));
-
-static cl::opt<bool> ForceInlineReportAfterPartialInline(
-    "force-print-inline-report-after-partial-inline", cl::init(false),
-    cl::Hidden,
-    cl::desc("Force printing of the inlining report after partial inlining"));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -1752,8 +1749,9 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 #if INTEL_CUSTOMIZATION
     getInlineReport()->beginUpdate(CB);
     getInlineReport()->setReasonIsInlined(CB, InlrPreferPartialInline);
-    InlineResult IRR = InlineFunction(*CB, IFI, getInlineReport(),
-        nullptr, nullptr, true,
+    InlineResult IRR = InlineFunction(
+        *CB, IFI, getInlineReport(), nullptr, /*MergeAttributes=*/false,
+        nullptr, true,
         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first : nullptr));
     if (!IRR.isSuccess()) {
       InlineReason Reason = IRR.getIntelInlReason();
@@ -1820,25 +1818,11 @@ bool PartialInlinerImpl::run(Module &M) {
     if (CurrFunc->use_empty())
       continue;
 
-    bool Recursive = false;
-    for (User *U : CurrFunc->users())
-      if (Instruction *I = dyn_cast<Instruction>(U))
-        if (I->getParent()->getParent() == CurrFunc) {
-          Recursive = true;
-          break;
-        }
-    if (Recursive)
-      continue;
-
     std::pair<bool, Function *> Result = unswitchFunction(*CurrFunc);
     if (Result.second)
       Worklist.push_back(Result.second);
     Changed |= Result.first;
   }
-#if INTEL_CUSTOMIZATION
-  if (ForceInlineReportAfterPartialInline)
-    getInlineReport()->testAndPrint(nullptr);
-#endif // INTEL_CUSTOMIZATION
   return Changed;
 }
 

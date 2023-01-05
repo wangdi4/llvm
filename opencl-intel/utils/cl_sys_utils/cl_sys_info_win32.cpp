@@ -26,115 +26,102 @@ using namespace Intel::OpenCL::Utils;
 #include <bitset>
 #include <vector>
 
-#include <windows.h>
-#include <powrprof.h>
 #include <assert.h>
+#include <powrprof.h>
+#include <windows.h>
 
 #include "llvm/ADT/Triple.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/Path.h"
 
 using namespace llvm;
 using namespace llvm::sys;
 
-unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
-{
-	static unsigned long long vsize = 0;
-	if ( 0 == vsize )
-	{
-		MEMORYSTATUSEX	memStatus;
+unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
+  static unsigned long long vsize = 0;
+  if (0 == vsize) {
+    MEMORYSTATUSEX memStatus;
 
-		memStatus.dwLength = sizeof(MEMORYSTATUSEX);
-		if ( !GlobalMemoryStatusEx(&memStatus) )
-		{
-			return 0;
-		}
-		vsize = min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
-	}
-	return vsize;
+    memStatus.dwLength = sizeof(MEMORYSTATUSEX);
+    if (!GlobalMemoryStatusEx(&memStatus)) {
+      return 0;
+    }
+    vsize = min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
+  }
+  return vsize;
 }
 
-unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
-{
-	static unsigned long long psize = 0;
+unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize() {
+  static unsigned long long psize = 0;
 
-	if ( 0 == psize )
-	{
-		MEMORYSTATUSEX	memStatus;
+  if (0 == psize) {
+    MEMORYSTATUSEX memStatus;
 
-		memStatus.dwLength = sizeof(MEMORYSTATUSEX);
-		if ( !GlobalMemoryStatusEx(&memStatus) )
-		{
-			return 0;
-		}
-		psize = memStatus.ullTotalPhys;
-	}
-	return psize;
+    memStatus.dwLength = sizeof(MEMORYSTATUSEX);
+    if (!GlobalMemoryStatusEx(&memStatus)) {
+      return 0;
+    }
+    psize = memStatus.ullTotalPhys;
+  }
+  return psize;
 }
 
-unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
-{
-	static unsigned long long freq = 0;
-	int cpuInfo[4] = {-1};
-	char buffer[sizeof(cpuInfo)*3 + 1];
-	char* pBuffer = buffer;
+unsigned long long Intel::OpenCL::Utils::MaxClockFrequency() {
+  static unsigned long long freq = 0;
+  int cpuInfo[4] = {-1};
+  char buffer[sizeof(cpuInfo) * 3 + 1];
+  char *pBuffer = buffer;
 
-	if ( freq )
-	{
-		return freq;
-	}
-	memset(buffer, 0, sizeof(cpuInfo)*3 + 1);
-	for (unsigned int i = 0x80000002; i <= 0x80000004; i++)
-	{
-		__cpuid(cpuInfo, i);
-		MEMCPY_S(pBuffer, sizeof(cpuInfo)*3 + 1, cpuInfo, sizeof(cpuInfo));
-		pBuffer = pBuffer + sizeof(cpuInfo);
-	}
+  if (freq) {
+    return freq;
+  }
+  memset(buffer, 0, sizeof(cpuInfo) * 3 + 1);
+  for (unsigned int i = 0x80000002; i <= 0x80000004; i++) {
+    __cpuid(cpuInfo, i);
+    MEMCPY_S(pBuffer, sizeof(cpuInfo) * 3 + 1, cpuInfo, sizeof(cpuInfo));
+    pBuffer = pBuffer + sizeof(cpuInfo);
+  }
 
-	size_t buffLen = strlen(buffer);
-	long long mul = 0;
-	double freqDouble = 0;
-	assert(buffLen >= 3 && "Insufficient length of a buffer");
-	if ((buffer[buffLen-1] == 'z') && (buffer[buffLen-2] == 'H') && ((buffer[buffLen-3] == 'M') || (buffer[buffLen-3] == 'G') || (buffer[buffLen-3] == 'T')))
-	{
-		switch (buffer[buffLen-3])
-		{
-		case 'M':
-			mul = 1;
-			break;
-		case 'G':
-			mul = 1000;
-			break;
-		case 'T':
-			mul = 1000000;
-			break;
-		}
+  size_t buffLen = strlen(buffer);
+  long long mul = 0;
+  double freqDouble = 0;
+  assert(buffLen >= 3 && "Insufficient length of a buffer");
+  if ((buffer[buffLen - 1] == 'z') && (buffer[buffLen - 2] == 'H') &&
+      ((buffer[buffLen - 3] == 'M') || (buffer[buffLen - 3] == 'G') ||
+       (buffer[buffLen - 3] == 'T'))) {
+    switch (buffer[buffLen - 3]) {
+    case 'M':
+      mul = 1;
+      break;
+    case 'G':
+      mul = 1000;
+      break;
+    case 'T':
+      mul = 1000000;
+      break;
+    }
 
-		int i = (int)buffLen - 1;
-		while (i >= 0)
-		{
-			if (buffer[i] == ' ')
-			{
-				freqDouble = strtod(&(buffer[i]), nullptr);
-				break;
-			}
-			i--;
-		}
+    int i = (int)buffLen - 1;
+    while (i >= 0) {
+      if (buffer[i] == ' ') {
+        freqDouble = strtod(&(buffer[i]), nullptr);
+        break;
+      }
+      i--;
+    }
+  }
 
-	}
-
-	// We return ClockFreq in MHz
-	freq = (unsigned long long)(freqDouble * mul);
-	return freq;
+  // We return ClockFreq in MHz
+  freq = (unsigned long long)(freqDouble * mul);
+  return freq;
 }
 
-unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
-{
-	LARGE_INTEGER freq;
+unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution() {
+  LARGE_INTEGER freq;
 
-	QueryPerformanceFrequency(&freq);
+  QueryPerformanceFrequency(&freq);
 
-	return (unsigned long long)(1e9/freq.QuadPart);
+  return (unsigned long long)(1e9 / freq.QuadPart);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -142,82 +129,72 @@ unsigned long long Intel::OpenCL::Utils::ProfilingTimerResolution()
 /////////////////////////////////////////////////////////////////////////////////////////
 static double timerRes = (double)ProfilingTimerResolution();
 
-unsigned long long Intel::OpenCL::Utils::HostTime()
-{
-	//Generates the rdtsc instruction, which returns the processor time stamp. 
-	//The processor time stamp records the number of clock cycles since the last reset.
-	LARGE_INTEGER tiks;
+unsigned long long Intel::OpenCL::Utils::HostTime() {
+  // Generates the rdtsc instruction, which returns the processor time stamp.
+  // The processor time stamp records the number of clock cycles since the last
+  // reset.
+  LARGE_INTEGER tiks;
 
-	QueryPerformanceCounter(&tiks);
+  QueryPerformanceCounter(&tiks);
 
-	//Convert from ticks to nano second
-	return (unsigned long long)(tiks.QuadPart * timerRes);
+  // Convert from ticks to nano second
+  return (unsigned long long)(tiks.QuadPart * timerRes);
 }
 
-unsigned long long Intel::OpenCL::Utils::AccurateHostTime()
-{
-    static int iIsRdtscpSupported = -1;
-    if (-1 == iIsRdtscpSupported)
-    {
-        int cpuInfo[4];
-        __cpuid(cpuInfo, 0x80000001);
-        iIsRdtscpSupported = (1 == ((cpuInfo[3] >> 27) & 0x1)) ? 1 : 0;
-    }
-    if (iIsRdtscpSupported)
-    {
-        unsigned int uiAux;
-        return __rdtscp(&uiAux);
-    }
-    else
-    {
-        return HostTime();
-    }
+unsigned long long Intel::OpenCL::Utils::AccurateHostTime() {
+  static int iIsRdtscpSupported = -1;
+  if (-1 == iIsRdtscpSupported) {
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 0x80000001);
+    iIsRdtscpSupported = (1 == ((cpuInfo[3] >> 27) & 0x1)) ? 1 : 0;
+  }
+  if (iIsRdtscpSupported) {
+    unsigned int uiAux;
+    return __rdtscp(&uiAux);
+  } else {
+    return HostTime();
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////
-void Intel::OpenCL::Utils::GetProcessName(char* pProcName, size_t strLen)
-{
-	assert(strLen <= MAXUINT32);
-	GetModuleFileName((HMODULE)nullptr, pProcName, (DWORD)strLen);
+void Intel::OpenCL::Utils::GetProcessName(char *pProcName, size_t strLen) {
+  assert(strLen <= MAXUINT32);
+  GetModuleFileName((HMODULE) nullptr, pProcName, (DWORD)strLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // CurrentProcessId
 /////////////////////////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetProcessId()
-{
-	return GetCurrentProcessId();
+unsigned int Intel::OpenCL::Utils::GetProcessId() {
+  return GetCurrentProcessId();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Current Module Directory Name
 /////////////////////////////////////////////////////////////////////////////////////////
-void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen)
-{
-	HMODULE hModule = nullptr;
-	GetModuleHandleExA(
-		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-		(LPCSTR)addr,
-		&hModule);
+void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void *addr,
+                                                 char *szModuleDir,
+                                                 size_t strLen) {
+  HMODULE hModule = nullptr;
+  GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)addr,
+                     &hModule);
 
-	GetModuleFileNameA(hModule, szModuleDir, (DWORD)strLen);
-	char* pLastDelimiter = strrchr(szModuleDir, '\\');
-	if ( nullptr != pLastDelimiter )
-	{
-		*(pLastDelimiter+1) = 0;
-	} else
-	{
-		szModuleDir[0] = 0;
-	}
+  GetModuleFileNameA(hModule, szModuleDir, (DWORD)strLen);
+  char *pLastDelimiter = strrchr(szModuleDir, '\\');
+  if (nullptr != pLastDelimiter) {
+    *(pLastDelimiter + 1) = 0;
+  } else {
+    szModuleDir[0] = 0;
+  }
 }
 
 std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
   char ModuleName[MAX_PATH];
   GetModuleDirectory(ModuleName, MAX_PATH);
   std::string BaseLibDir =
-    std::string(path::parent_path(path::parent_path(ModuleName)));
+      std::string(path::parent_path(path::parent_path(ModuleName)));
 
   SmallString<128> P(BaseLibDir);
   llvm::Triple T(llvm::sys::getDefaultTargetTriple());
@@ -229,122 +206,114 @@ std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Specific module full path name intended for loaded library full path.
-// On Win32 - it asks for the module handle then calls GetModuleFileNameA method.  (modulePtr must be address of method belongs to the loaded library)
-// On Linux - it investigates the loaded library path from /proc/self/maps. (modulePtr must be address of method belongs to the loaded library)
+// On Win32 - it asks for the module handle then calls GetModuleFileNameA
+// method.  (modulePtr must be address of method belongs to the loaded library)
+// On Linux - it investigates the loaded library path from /proc/self/maps.
+// (modulePtr must be address of method belongs to the loaded library)
 ////////////////////////////////////////////////////////////////////
-int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
-{
-	HMODULE hModule = nullptr;
-	GetModuleHandleExA(
-		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-		(LPCSTR)modulePtr,
-		&hModule);
-	return GetModuleFileNameA(hModule, fileName, (DWORD)(strLen-1));
+int Intel::OpenCL::Utils::GetModulePathName(const void *modulePtr,
+                                            char *fileName, size_t strLen) {
+  HMODULE hModule = nullptr;
+  GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)modulePtr,
+                     &hModule);
+  return GetModuleFileNameA(hModule, fileName, (DWORD)(strLen - 1));
 }
-
 
 // Retrieve processor information
 static BOOL GetProcessorInfo(LOGICAL_PROCESSOR_RELATIONSHIP type,
-                             std::vector<unsigned char> &bytes, DWORD &size)
-{
-    size = 0;
+                             std::vector<unsigned char> &bytes, DWORD &size) {
+  size = 0;
 
-    // Ask for buffer size first
-    BOOL status = GetLogicalProcessorInformationEx(type, NULL, &size);
+  // Ask for buffer size first
+  BOOL status = GetLogicalProcessorInformationEx(type, NULL, &size);
 
-    assert((!status && size) && "Failed to get required buffer size!");
+  assert((!status && size) && "Failed to get required buffer size!");
 
-    // Alloc the memory
-    bytes.resize(size);
+  // Alloc the memory
+  bytes.resize(size);
 
-    // Fill allocated buffer with information
-    status = GetLogicalProcessorInformationEx(type,
-        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)bytes.data(), &size);
-    assert(status && "Failed to get Logical Processor Info!");
+  // Fill allocated buffer with information
+  status = GetLogicalProcessorInformationEx(
+      type, (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)bytes.data(), &size);
+  assert(status && "Failed to get Logical Processor Info!");
 
-    return status;
+  return status;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of logical processors in the current group.
 ////////////////////////////////////////////////////////////////////
-unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
-{
-    DWORD size;
-    std::vector<unsigned char> bytes;
-    BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
-    if (!status)
-        return 0;
+unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors() {
+  DWORD size;
+  std::vector<unsigned char> bytes;
+  BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
+  if (!status)
+    return 0;
 
-    // Parse the info
-    unsigned long cpuCount = 0;
-    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
-    while (ptr < ptrEnd) {
-        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
-            (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
-        for (int i = 0; i < lpi->Processor.GroupCount; ++i) {
-            std::bitset<64> bits(lpi->Processor.GroupMask[i].Mask);
-            cpuCount += bits.count();
-        }
-        ptr += lpi->Size;
+  // Parse the info
+  unsigned long cpuCount = 0;
+  unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+  while (ptr < ptrEnd) {
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+    for (int i = 0; i < lpi->Processor.GroupCount; ++i) {
+      std::bitset<64> bits(lpi->Processor.GroupMask[i].Mask);
+      cpuCount += bits.count();
     }
+    ptr += lpi->Size;
+  }
 
-    return cpuCount;
+  return cpuCount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of physical cpus (sockets) configured.
 ////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
-{
-    static unsigned int numCpuSockets = 0;
-    if (0 == numCpuSockets)
-    {
-        DWORD size;
-        std::vector<unsigned char> bytes;
-        BOOL status = GetProcessorInfo(RelationProcessorPackage, bytes, size);
-        if (!status)
-            return 1;
+unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets() {
+  static unsigned int numCpuSockets = 0;
+  if (0 == numCpuSockets) {
+    DWORD size;
+    std::vector<unsigned char> bytes;
+    BOOL status = GetProcessorInfo(RelationProcessorPackage, bytes, size);
+    if (!status)
+      return 1;
 
-        unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
-        while (ptr < ptrEnd)
-        {
-            PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
-                (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
-            numCpuSockets++;
-            ptr += lpi->Size;
-        }
+    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+    while (ptr < ptrEnd) {
+      PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+          (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+      numCpuSockets++;
+      ptr += lpi->Size;
     }
-    assert(numCpuSockets != 0 && "Number of sockets should not be 0");
-    return numCpuSockets;
+  }
+  assert(numCpuSockets != 0 && "Number of sockets should not be 0");
+  return numCpuSockets;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return whether cpu is using hyper-threading
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
-{
-    static int hyperThreadingEnabled = -1;
-    if (-1 == hyperThreadingEnabled)
-    {
-        DWORD size;
-        std::vector<unsigned char> bytes;
-        BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
-        if (!status)
-            return false;
+bool Intel::OpenCL::Utils::IsHyperThreadingEnabled() {
+  static int hyperThreadingEnabled = -1;
+  if (-1 == hyperThreadingEnabled) {
+    DWORD size;
+    std::vector<unsigned char> bytes;
+    BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
+    if (!status)
+      return false;
 
-        unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
-        while (ptr < ptrEnd) {
-            PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
-                (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
-            if (lpi->Processor.GroupCount >= 1) {
-                std::bitset<64> bits(lpi->Processor.GroupMask[0].Mask);
-                hyperThreadingEnabled = (bits.count() == 2) ? 1 : 0;
-                break;
-            }
-        }
+    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+    while (ptr < ptrEnd) {
+      PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+          (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+      if (lpi->Processor.GroupCount >= 1) {
+        std::bitset<64> bits(lpi->Processor.GroupMask[0].Mask);
+        hyperThreadingEnabled = (bits.count() == 2) ? 1 : 0;
+        break;
+      }
     }
-    return 1 == hyperThreadingEnabled;
+  }
+  return 1 == hyperThreadingEnabled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -373,39 +342,35 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode() {
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return an index representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index)
-{
-    // TODO: This function need to be implemented after
-    // subdevice is supported on windows.
-    return false;
+bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
+    unsigned long node, std::vector<cl_uint> &index) {
+  // TODO: This function need to be implemented after
+  // subdevice is supported on windows.
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
-{
-    GROUP_AFFINITY procMask;
-    if (0 == GetNumaNodeProcessorMaskEx((unsigned char)node, &procMask))
-    {
-        return false;
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
+    unsigned long node, affinityMask_t *pMask, unsigned int *nodeSize) {
+  GROUP_AFFINITY procMask;
+  if (0 == GetNumaNodeProcessorMaskEx((unsigned char)node, &procMask)) {
+    return false;
+  }
+  *pMask = procMask.Mask;
+  unsigned int node_size = 0;
+  unsigned long long mask = *pMask;
+  while (0 != mask) {
+    if (mask & 0x1) {
+      ++node_size;
     }
-    *pMask = procMask.Mask;
-    unsigned int node_size = 0;
-    unsigned long long mask = *pMask;
-    while (0 != mask)
-    {
-        if (mask & 0x1)
-        {
-            ++node_size;
-        }
-        mask >>= 1;
-    }
-    if (nullptr != nodeSize)
-    {
-        *nodeSize = node_size;
-    }
-    return true;
+    mask >>= 1;
+  }
+  if (nullptr != nodeSize) {
+    *nodeSize = node_size;
+  }
+  return true;
 }
 
 std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
@@ -415,25 +380,23 @@ std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the ID of the CPU the current thread is running on
 ////////////////////////////////////////////////////////////////////
-unsigned int Intel::OpenCL::Utils::GetCpuId()
-{
-    return GetCurrentProcessorNumber();
+unsigned int Intel::OpenCL::Utils::GetCpuId() {
+  return GetCurrentProcessorNumber();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the full path to the module that is about to be loaded
 ////////////////////////////////////////////////////////////////////
-const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleName)
-{
-	static _declspec(thread) char sModulePath[MAX_PATH];
-	
-	GetModuleDirectory(sModulePath, MAX_PATH);
-	sprintf_s(sModulePath, MAX_PATH, "%s%s", sModulePath, moduleName);
+const char *
+Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char *moduleName) {
+  static _declspec(thread) char sModulePath[MAX_PATH];
 
-	return sModulePath;
+  GetModuleDirectory(sModulePath, MAX_PATH);
+  sprintf_s(sModulePath, MAX_PATH, "%s%s", sModulePath, moduleName);
+
+  return sModulePath;
 }
 
-unsigned int Intel::OpenCL::Utils::GetThreadId()
-{
-    return GetCurrentThreadId();
+unsigned int Intel::OpenCL::Utils::GetThreadId() {
+  return GetCurrentThreadId();
 }

@@ -4,9 +4,7 @@
 ; SCEV before: {{{(320152 + %p1),+,1600000}<nw><%b1>,+,16000}<nw><%b2>,+,160}<nw><%b3>
 ; SCEV after: {{{(203688000 + %p1),+,80000}<nw><%b1>,+,800}<nw><%b2>,+,8}<nw><%b3>
 
-; RUN: opt < %s -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

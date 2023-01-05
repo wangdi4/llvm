@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,51 +17,51 @@
 
 #include "frontend_api.h"
 #include <BE_DynamicLib.h>
-#include <Exception.h>
 #include <CommonOCLBuilder.h>
+#include <Exception.h>
 
-namespace Validation{
+namespace Validation {
 
 //
-//Description: Simplifies the OCL source building process
+// Description: Simplifies the OCL source building process
 //
 class OCLBuilder {
 public:
   //
-  //returns a singleton instance of this.
-  static OCLBuilder& Instance();
+  // returns a singleton instance of this.
+  static OCLBuilder &Instance();
 
-  //Sets the name of the library, from which the compiler will be loaded
-  OCLBuilder& withLibrary(const char* lib);
+  OCLBuilder &createCompiler();
 
-  //Sets the build options
-  OCLBuilder& withBuildOptions(const char* options);
+  // Sets the build options
+  OCLBuilder &withBuildOptions(const char *options);
 
-  //sets the OCL source to be compiled
-  OCLBuilder& withSource(const char* src);
+  // sets the OCL source to be compiled
+  OCLBuilder &withSource(const char *src);
 
-  OCLBuilder& withExtensions(const char* extentions);
+  OCLBuilder &withExtensions(const char *extentions);
 
-  OCLBuilder& withFP64Support(bool );
-  OCLBuilder& withImageSupport(bool );
+  OCLBuilder &withFP16Support(bool);
+  OCLBuilder &withFP64Support(bool);
+  OCLBuilder &withImageSupport(bool);
   OCLBuilder &withFpgaEmulator(bool);
-  //cleanup function
+  // cleanup function
   void close();
 
-  //Compiles the (previously given) source file with the compiler loaded from
+  // Compiles the (previously given) source file with the compiler loaded from
   //(the previously given) library.
-  //Returns value: IOCLFEBinaryResult, which contains the binary result in its
-  //bytecode form, with some metadeta on it (size in bytes etc.)
-  Intel::OpenCL::ClangFE::IOCLFEBinaryResult* build();
+  // Returns value: IOCLFEBinaryResult, which contains the binary result in its
+  // bytecode form, with some metadeta on it (size in bytes etc.)
+  Intel::OpenCL::ClangFE::IOCLFEBinaryResult *build();
 
 private:
   OCLBuilder();
-  OCLBuilder(OCLBuilder const&);
-  OCLBuilder& operator=(OCLBuilder const&);
+  OCLBuilder(OCLBuilder const &);
+  OCLBuilder &operator=(OCLBuilder const &);
 
-  Intel::OpenCL::Utils::CommonOCLBuilder& m_CommonBuilder;
+  Intel::OpenCL::Utils::CommonOCLBuilder &m_CommonBuilder;
 };
 
-}
+} // namespace Validation
 
 #endif //__OCL_BUILDER_H__

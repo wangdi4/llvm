@@ -1,10 +1,10 @@
 ; This test verifies that private-variables escaping into the unknown functions
 ; are not safe for data-layout transformations.
 
-; RUN: opt -S -vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; HIR-run.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant-hir=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-enable-masked-variant-hir=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
 ; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts

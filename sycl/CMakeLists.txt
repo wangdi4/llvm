@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -44,9 +44,13 @@ include(SYCLUtils)
 
 # The change in SYCL_MAJOR_VERSION must be accompanied with the same update in
 # llvm/clang/lib/Driver/CMakeLists.txt.
+#
+# See doc/developer/ABIPolicyGuide.md for the meaning when in the middle of
+# development cycle.
 set(SYCL_MAJOR_VERSION 6)
-set(SYCL_MINOR_VERSION 0)
+set(SYCL_MINOR_VERSION 1)
 set(SYCL_PATCH_VERSION 0)
+
 set(SYCL_DEV_ABI_VERSION 0)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
@@ -176,6 +180,9 @@ file(COPY ${OpenCL_INCLUDE_DIR}/CL
 install(DIRECTORY ${OpenCL_INCLUDE_DIR}/CL
         DESTINATION ${SYCL_INCLUDE_DIR}/sycl
         COMPONENT OpenCL-Headers)
+
+# Option to enable online kernel fusion via a JIT compiler
+option(SYCL_ENABLE_KERNEL_FUSION "Enable kernel fusion via JIT compiler" OFF)
 
 # Needed for feature_test.hpp
 if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
@@ -333,9 +340,6 @@ add_custom_target( sycl-toolchain
           sycl-compiler
           sycl-ls
           ${XPTIFW_LIBS}
-# INTEL_CUSTOMIZATION
-          sycl-config-file
-# end INTEL_CUSTOMIZATION
 )
 
 # Check if opencl-aot tool is enabled.
@@ -386,7 +390,7 @@ if(SYCL_INCLUDE_TESTS)
       message(FATAL_ERROR
         "Can't build SYCL tests without LLVM_INCLUDE_TESTS enabled.")
   endif()
-  if(EXISTS ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include/gtest/gtest.h)
+  if(EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
     add_subdirectory(unittests)
     list(APPEND SYCL_TEST_DEPS SYCLUnitTests)
   endif()
@@ -464,6 +468,11 @@ endif(INTEL_CUSTOMIZATION)
 if("lld" IN_LIST LLVM_ENABLE_PROJECTS)
   add_dependencies(sycl-toolchain lld)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS lld)
+endif()
+
+if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl-toolchain libspirv-builtins)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins)
 endif()
 
 # Build and install lld as part of the sycl-toolchain if available

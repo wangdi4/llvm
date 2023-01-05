@@ -28,6 +28,15 @@ Xmain
    GapAnalysis/index
    Tools/index
 
+.. INTEL_FEATURE_MARKERCOUNT
+
+.. toctree::
+   :hidden:
+
+   MarkerCount/index
+
+.. end INTEL_FEATURE_MARKERCOUNT
+
 .. INTEL_FEATURE_SW_DTRANS
 
 .. toctree::

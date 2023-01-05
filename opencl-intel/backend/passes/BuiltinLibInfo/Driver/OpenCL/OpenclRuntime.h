@@ -17,8 +17,8 @@
 
 #include "RuntimeServices.h"
 #include <map>
-#include <string>
 #include <set>
+#include <string>
 
 namespace intel {
 
@@ -31,7 +31,6 @@ namespace intel {
 
 class OpenclRuntime : public RuntimeServices {
 public:
-
   /// @brief Constructor which get arbitraty table as input
   OpenclRuntime(ArrayRef<Module *> runtimeModuleList,
                 const char **scalarSelects);
@@ -72,7 +71,8 @@ public:
   /// @param inp_name Function name to look for
   virtual bool isSyncFunc(const std::string &func_name) const override;
 
-  /// @brief Checks if function is a 'faked function', (i.e., if the given name is
+  /// @brief Checks if function is a 'faked function', (i.e., if the given name
+  /// is
   //  has a definition in the builtin-runtime module, or is it just a
   //  synthesized name for internal usage.
   virtual bool isFakedFunction(StringRef fname) const override;
@@ -89,9 +89,10 @@ public:
   virtual bool needSpecialCaseResolving(const std::string &funcName) const;
 
   /// @brief returns true the function needs to be replaced with fake function
-  ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano   
+  ///   used by OCLBuiltinPreVectorizationPass - currently disabled in Volcano
   /// @param funcName Function name to check
-  virtual bool needPreVectorizationFakeFunction(const std::string &funcName) const = 0;
+  virtual bool
+  needPreVectorizationFakeFunction(const std::string &funcName) const = 0;
 
   /// @brief returns true the function is a scalar select builtin used by
   ///  OCLBuiltinPreVectorizationPass - currently disabled in Volcano
@@ -115,7 +116,7 @@ public:
   /// @return the width of the input parameters incase of dot, 0 otherwise
   virtual unsigned isInlineDot(const std::string &funcName) const;
 
-  /// @brief returns true if the function is a masked version that support 
+  /// @brief returns true if the function is a masked version that support
   ///  i1 vector as first parameter
   /// @param func_name Function name to check
   /// @return true if function is masked version
@@ -131,7 +132,8 @@ public:
 
   virtual unsigned getNumJitDimensions() const;
 
-  /// @brief retrun name of builtin to retrieve base global id for this work group.
+  /// @brief retrun name of builtin to retrieve base global id for this work
+  /// group.
   virtual const char *getBaseGIDName() const;
 
   /// @brief returns true if this name of atomic built-in.
@@ -145,7 +147,7 @@ public:
   virtual bool isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
                                      bool &isSigned) const;
 
-  /// @brief returns true if func_name is safe to speculative execute, and hence 
+  /// @brief returns true if func_name is safe to speculative execute, and hence
   ///        can be hoisted even if it is under control flow
   /// @param func_name name of the function.
   virtual bool isSafeToSpeculativeExecute(const std::string &func_name) const;
@@ -168,13 +170,15 @@ public:
 
   // @brief return true if this name of stream built-in.
   virtual bool isStreamFunc(const std::string &funcName) const = 0;
-protected:
 
-  /// @brief returns true if func_name is synchronization function with side effects.
+protected:
+  /// @brief returns true if func_name is synchronization function with side
+  /// effects.
   /// @param func_name name of the function.
   virtual bool isSyncWithSideEffect(const std::string &func_name) const;
 
-  /// @brief returns true if func_name is synchronization function with no side effects.
+  /// @brief returns true if func_name is synchronization function with no side
+  /// effects.
   /// @param func_name name of the function.
   virtual bool isSyncWithNoSideEffect(const std::string &func_name) const;
 
@@ -194,9 +198,9 @@ protected:
   /// @param func_name name of the function.
   virtual bool isSafeLLVMIntrinsic(const std::string &func_name) const;
 
-  /// @brief returns true iff whenever there is a vector argument to 
-  ///        a vectorizeable scalar built-in it should be spread for 
-  ///        the packertized version 
+  /// @brief returns true iff whenever there is a vector argument to
+  ///        a vectorizeable scalar built-in it should be spread for
+  ///        the packertized version
   ///        foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
   virtual bool alwaysSpreadVectorParams() const override { return true; }
 
@@ -229,15 +233,13 @@ protected:
   unsigned m_packetizationWidth;
 
 private:
-  
-  
   /// @brief holds mapping bettwen dot builtin name and operand width
   std::map<std::string, unsigned> m_dotOpWidth;
-  
+
   /// @brief initate the dot map
   void initDotMap();
 };
 
-} // Namespace
+} // namespace intel
 
 #endif // __OpenclRuntime_H_

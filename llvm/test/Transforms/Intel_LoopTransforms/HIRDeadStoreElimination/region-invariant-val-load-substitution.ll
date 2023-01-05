@@ -1,9 +1,9 @@
-; RUN: opt -hir-ssa-deconstruction -hir-create-function-level-region -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that we eliminate the first store to (%A)[0] by forward
-; substituting the intermediate load with its RHS which is region
-; invariant.
+; Verify that we eliminate the first store to (%A)[0] by replacing it
+; and the intermediate load with %temp;
+
+; TODO: improve copy propagation to handle region invariants.
 
 ; CHECK: Before
 
@@ -24,6 +24,7 @@
 
 ; CHECK: modified
 
+; CHECK: %temp = %t
 ; CHECK: if (%cond != 0)
 ; CHECK: {
 ; CHECK:    (%B)[0] = 1;
@@ -32,7 +33,7 @@
 ; CHECK: {
 ; CHECK:    (%B)[0] = 2;
 ; CHECK: }
-; CHECK: %ld = %t;
+; CHECK: %ld = %temp;
 ; CHECK: (%A)[0] = 5;
 
 

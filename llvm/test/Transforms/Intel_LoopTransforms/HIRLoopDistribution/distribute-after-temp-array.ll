@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -disable-hir-store-result-into-temp-array=false -hir-store-result-into-temp-array -hir-loop-distribute-loopnest -S -print-after-all -disable-output -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-opt-predicate,print<hir>,hir-store-result-into-temp-array,print<hir>,hir-loop-distribute-loopnest,print<hir>" -S -aa-pipeline="basic-aa" -disable-output -disable-hir-store-result-into-temp-array=false -disable-hir-pragma-bailout < %s 2>&1 | FileCheck %s
 
 ; *** IR Dump After HIR Temp Cleanup ***

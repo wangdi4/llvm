@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -debug-only=hir-loop-interchange,hir-locality-analysis -hir-ssa-deconstruction -hir-loop-interchange -disable-output   < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange,hir-locality-analysis -disable-output < %s 2>&1 | FileCheck %s
 
 ; TODO: Interchanged: ( 1 2 3 ) --> ( 2 3 1 )

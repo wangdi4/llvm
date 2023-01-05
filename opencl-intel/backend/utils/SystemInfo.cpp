@@ -19,53 +19,47 @@
 #include <Windows.h>
 #include <codecvt>
 #else
-#include <unistd.h>
 #include <linux/limits.h>
+#include <unistd.h>
 #define MAX_PATH PATH_MAX
 #endif
 
-#include <time.h>
-#include <fstream>
+#include <assert.h>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <sstream>
-#include <time.h>
-#include <assert.h>
 #include <string.h>
-
+#include <time.h>
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace std;
 
-SystemInfo::SystemInfo(void)
-{
-}
+SystemInfo::SystemInfo(void) {}
 
-SystemInfo::~SystemInfo(void) 
-{
-}
+SystemInfo::~SystemInfo(void) {}
 
-unsigned long long SystemInfo::HostTime()
-{
-#if defined (_WIN32)
-  
+unsigned long long SystemInfo::HostTime() {
+#if defined(_WIN32)
+
   LARGE_INTEGER freqInfo;
 
-  QueryPerformanceFrequency( &freqInfo);
+  QueryPerformanceFrequency(&freqInfo);
 
-  static double freq = 1e9/((unsigned long long) freqInfo.QuadPart);
-  
-  //Generates the rdtsc instruction, which returns the processor time stamp. 
-  //The processor time stamp records the number of clock cycles since the last reset.
+  static double freq = 1e9 / ((unsigned long long)freqInfo.QuadPart);
+
+  // Generates the rdtsc instruction, which returns the processor time stamp.
+  // The processor time stamp records the number of clock cycles since the last
+  // reset.
   LARGE_INTEGER ticks;
 
-  QueryPerformanceCounter( &ticks);
+  QueryPerformanceCounter(&ticks);
 
-  //Convert from ticks to nano second
+  // Convert from ticks to nano second
   return (unsigned long long)(ticks.QuadPart * freq);
 #else
   struct timespec tp;
-  clock_gettime( CLOCK_MONOTONIC, &tp);
+  clock_gettime(CLOCK_MONOTONIC, &tp);
   return (unsigned long long)(tp.tv_sec * 1000000000 + tp.tv_nsec);
 #endif
 }
@@ -81,7 +75,7 @@ std::string SystemInfo::GetExecutableFilename() {
   // Remove .exe from the name.
   if (!name.empty())
     name = llvm::sys::path::stem(llvm::StringRef(name)).str();
-#else // WIN32
+#else  // WIN32
   char buf[PATH_MAX];
   ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
   if (-1 != len) {

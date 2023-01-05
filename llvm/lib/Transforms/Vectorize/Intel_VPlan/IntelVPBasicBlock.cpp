@@ -836,6 +836,26 @@ const VPBranchInst *VPBasicBlock::getTerminator() const {
   return const_cast<VPBasicBlock *>(this)->getTerminator();
 }
 
+VPBasicBlock::iterator VPBasicBlock::firstNonPhi() {
+  iterator It = begin();
+  while (It != end() && isa<VPPHINode>(It))
+    It++;
+  return It;
+}
+
+VPBasicBlock::const_iterator VPBasicBlock::firstNonPhi() const {
+  return const_cast<VPBasicBlock *>(this)->firstNonPhi();
+}
+
+VPInstruction *VPBasicBlock::getFirstNonPhi() {
+  auto It = firstNonPhi();
+  return cast<VPInstruction>(It);
+}
+
+const VPInstruction *VPBasicBlock::getFirstNonPhi() const {
+  return const_cast<VPBasicBlock *>(this)->getFirstNonPhi();
+}
+
 VPBasicBlock *VPBasicBlock::getVPUserParent(VPUser *User) {
   return cast<VPBranchInst>(User)->getParent();
 }

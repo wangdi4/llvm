@@ -79,6 +79,7 @@ class VPValue {
   friend class VPLoopEntityList;
   friend class IndirectCallCodeGenerator;
   friend class VPLiveInOutCreator;
+  friend class VPlanValueTrackingImpl;
 
 private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
@@ -178,9 +179,6 @@ public:
   // FIXME: To be replaced by a proper VPType.
   Type *getType() const { return BaseTy; }
 
-  // FIXME: Remove this when the cost model issues are resolved (see comments
-  // for VPInstruction::getCMType())
-  virtual Type *getCMType() const { return nullptr; }
   // If \p BaseName starts with "vp.", set it as new name. Otherwise, prepend
   // with "vp." and set the result as new name.
   void setName(const Twine &BaseName) {
@@ -500,6 +498,12 @@ public:
     assert(isConstantInt() &&
            "SExt value cannot be obtained for non-constant integers.");
     return cast<ConstantInt>(getUnderlyingValue())->getSExtValue();
+  }
+
+  Align getAlignValue() const {
+    assert(isConstantInt() &&
+           "Align value cannot be obtained for non-constant integers.");
+    return cast<ConstantInt>(getUnderlyingValue())->getAlignValue();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -31,11 +31,6 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"
-#include "llvm/Analysis/Intel_WP.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -47,6 +42,12 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

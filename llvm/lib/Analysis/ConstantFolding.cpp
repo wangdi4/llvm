@@ -52,7 +52,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h" // INTEL
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstrTypes.h"
@@ -77,6 +76,10 @@
 #include <cfenv>
 #include <cmath>
 #include <cstdint>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -855,7 +858,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
 /// If array indices are not pointer-sized integers, explicitly cast them so
 /// that they aren't implicitly casted by the getelementptr.
 Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
-                         Type *ResultTy, Optional<unsigned> InRangeIndex,
+                         Type *ResultTy, std::optional<unsigned> InRangeIndex,
                          const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *IntIdxTy = DL.getIndexType(ResultTy);
   Type *IntIdxScalarTy = IntIdxTy->getScalarType();
@@ -1022,8 +1025,8 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 
   // Preserve the inrange index from the innermost GEP if possible. We must
   // have calculated the same indices up to and including the inrange index.
-  Optional<unsigned> InRangeIndex;
-  if (Optional<unsigned> LastIRIndex = InnermostGEP->getInRangeIndex())
+  std::optional<unsigned> InRangeIndex;
+  if (std::optional<unsigned> LastIRIndex = InnermostGEP->getInRangeIndex())
     if (SrcElemTy == InnermostGEP->getSourceElementType() &&
         NewIdxs.size() > *LastIRIndex) {
       InRangeIndex = LastIRIndex;
@@ -1727,6 +1730,7 @@ bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   case Intrinsic::trunc:
   case Intrinsic::nearbyint:
   case Intrinsic::rint:
+  case Intrinsic::canonicalize:
   // Constrained intrinsics can be folded if FP environment is known
   // to compiler.
   case Intrinsic::experimental_constrained_fma:
@@ -2011,8 +2015,8 @@ static bool getConstIntOrUndef(Value *Op, const APInt *&C) {
 /// \param St Exception flags raised during constant evaluation.
 static bool mayFoldConstrained(ConstrainedFPIntrinsic *CI,
                                APFloat::opStatus St) {
-  Optional<RoundingMode> ORM = CI->getRoundingMode();
-  Optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
+  std::optional<RoundingMode> ORM = CI->getRoundingMode();
+  std::optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
 
   // If the operation does not change exception status flags, it is safe
   // to fold.
@@ -2037,7 +2041,7 @@ static bool mayFoldConstrained(ConstrainedFPIntrinsic *CI,
 /// Returns the rounding mode that should be used for constant evaluation.
 static RoundingMode
 getEvaluationRoundingMode(const ConstrainedFPIntrinsic *CI) {
-  Optional<RoundingMode> ORM = CI->getRoundingMode();
+  std::optional<RoundingMode> ORM = CI->getRoundingMode();
   if (!ORM || *ORM == RoundingMode::Dynamic)
     // Even if the rounding mode is unknown, try evaluating the operation.
     // If it does not raise inexact exception, rounding was not applied,
@@ -2045,6 +2049,39 @@ getEvaluationRoundingMode(const ConstrainedFPIntrinsic *CI) {
     // other FP exceptions are raised, it does not depend on rounding mode.
     return RoundingMode::NearestTiesToEven;
   return *ORM;
+}
+
+/// Try to constant fold llvm.canonicalize for the given caller and value.
+static Constant *constantFoldCanonicalize(const Type *Ty, const CallBase *CI,
+                                          const APFloat &Src) {
+  // Zero, positive and negative, is always OK to fold.
+  if (Src.isZero())
+    return ConstantFP::get(CI->getContext(), Src);
+
+  if (!Ty->isIEEELikeFPTy())
+    return nullptr;
+
+  // Zero is always canonical and the sign must be preserved.
+  //
+  // Denorms and nans may have special encodings, but it should be OK to fold a
+  // totally average number.
+  if (Src.isNormal() || Src.isInfinity())
+    return ConstantFP::get(CI->getContext(), Src);
+
+  if (Src.isDenormal() && CI->getParent() && CI->getFunction()) {
+    DenormalMode DenormMode =
+        CI->getFunction()->getDenormalMode(Src.getSemantics());
+    if (DenormMode == DenormalMode::getIEEE())
+      return nullptr;
+
+    bool IsPositive = !Src.isNegative() ||
+                      DenormMode.Input == DenormalMode::PositiveZero ||
+                      DenormMode.Output == DenormalMode::PositiveZero;
+    return ConstantFP::get(CI->getContext(),
+                           APFloat::getZero(Src.getSemantics(), !IsPositive));
+  }
+
+  return nullptr;
 }
 
 static Constant *ConstantFoldScalarCall1(StringRef Name,
@@ -2068,6 +2105,13 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
   if (IntrinsicID == Intrinsic::ssa_copy && Operands[0]->isManifestConstant())
     return Operands[0];
 #endif // INTEL_CUSTOMIZATION
+
+  if (isa<PoisonValue>(Operands[0])) {
+    // TODO: All of these operations should probably propagate poison.
+    if (IntrinsicID == Intrinsic::canonicalize)
+      return PoisonValue::get(Ty);
+  }
+
   if (isa<UndefValue>(Operands[0])) {
     // cosine(arg) is between -1 and 1. cosine(invalid arg) is NaN.
     // ctpop() is between 0 and bitwidth, pick 0 for undef.
@@ -2075,7 +2119,8 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
     if (IntrinsicID == Intrinsic::cos ||
         IntrinsicID == Intrinsic::ctpop ||
         IntrinsicID == Intrinsic::fptoui_sat ||
-        IntrinsicID == Intrinsic::fptosi_sat)
+        IntrinsicID == Intrinsic::fptosi_sat ||
+        IntrinsicID == Intrinsic::canonicalize)
       return Constant::getNullValue(Ty);
     if (IntrinsicID == Intrinsic::bswap ||
         IntrinsicID == Intrinsic::bitreverse ||
@@ -2143,6 +2188,9 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       return ConstantInt::get(Ty, Int);
     }
 
+    if (IntrinsicID == Intrinsic::canonicalize)
+      return constantFoldCanonicalize(Ty, Call, U);
+
     if (!Ty->isHalfTy() && !Ty->isFloatTy() && !Ty->isDoubleTy())
       return nullptr;
 
@@ -2199,7 +2247,7 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
     // Rounding operations (floor, trunc, ceil, round and nearbyint) do not
     // raise FP exceptions, unless the argument is signaling NaN.
 
-    Optional<APFloat::roundingMode> RM;
+    std::optional<APFloat::roundingMode> RM;
     switch (IntrinsicID) {
     default:
       break;
@@ -2230,12 +2278,12 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
         APFloat::opStatus St = U.roundToIntegral(*RM);
         if (IntrinsicID == Intrinsic::experimental_constrained_rint &&
             St == APFloat::opInexact) {
-          Optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
+          std::optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
           if (EB && *EB == fp::ebStrict)
             return nullptr;
         }
       } else if (U.isSignaling()) {
-        Optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
+        std::optional<fp::ExceptionBehavior> EB = CI->getExceptionBehavior();
         if (EB && *EB != fp::ebIgnore)
           return nullptr;
         U = APFloat::getQNaN(U.getSemantics());

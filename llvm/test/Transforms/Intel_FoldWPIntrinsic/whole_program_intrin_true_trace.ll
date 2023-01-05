@@ -1,11 +1,10 @@
-; REQUIRES: assert, intel_feature_sw_dtrans
+; REQUIRES: asserts, intel_feature_sw_dtrans
 
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was converted correctly
 ; into true since there is whole program safe. Also, the debug trace was
 ; printed correctly. This test is the same as whole_program_intrin_true.ll.
 
 
-; RUN: opt < %s -intel-fold-wp-intrinsic -whole-program-assume -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()

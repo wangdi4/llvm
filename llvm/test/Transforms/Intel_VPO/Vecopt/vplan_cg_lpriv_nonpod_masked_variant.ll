@@ -14,7 +14,7 @@
 ;  return x.a;
 ; }
 
-; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
-; CHECK:  VPlannedBB16:
+; CHECK:  VPlannedBB18:
 ; CHECK-NEXT:    [[TMP20:%.*]] = bitcast <2 x i1> [[TMP12:%.*]] to i2
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP20]], i1 true)
 ; CHECK-NEXT:    [[TMP21:%.*]] = sub i2 1, [[CTLZ0]]

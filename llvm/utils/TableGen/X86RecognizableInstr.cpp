@@ -674,6 +674,18 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate);
     break;
 #endif
+  case X86Local::MRMDestMem4VOp3CC:
+    // Operand 1 is a register operand in the Reg/Opcode field.
+    // Operand 2 is a register operand in the R/M field.
+    // Operand 3 is VEX.vvvv
+    // Operand 4 is condition code.
+    assert(numPhysicalOperands == 4 &&
+           "Unexpected number of operands for MRMDestMem4VOp3CC");
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(memory)
+    HANDLE_OPERAND(vvvvRegister)
+    HANDLE_OPERAND(opcodeModifier)
+    break;
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB:
     // Operand 1 is a memory operand (possibly SIB-extended)
@@ -897,7 +909,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 #define MAP(from, to)                     \
   case X86Local::MRM_##from:
 
-  llvm::Optional<OpcodeType> opcodeType;
+  std::optional<OpcodeType> opcodeType;
   switch (OpMap) {
   default: llvm_unreachable("Invalid map!");
   case X86Local::OB:        opcodeType = ONEBYTE;       break;
@@ -946,6 +958,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMem4VOp3: // INTEL
+  case X86Local::MRMDestMem4VOp3CC:
   case X86Local::MRMDestMemFSIB:
   case X86Local::MRMSrcMem:
   case X86Local::MRMSrcMemFSIB:
@@ -998,7 +1011,8 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 
   if (Form == X86Local::AddRegFrm || Form == X86Local::MRMSrcRegCC ||
       Form == X86Local::MRMSrcMemCC || Form == X86Local::MRMXrCC ||
-      Form == X86Local::MRMXmCC || Form == X86Local::AddCCFrm) {
+      Form == X86Local::MRMXmCC || Form == X86Local::AddCCFrm ||
+      Form == X86Local::MRMDestMem4VOp3CC) {
     uint8_t Count = Form == X86Local::AddRegFrm ? 8 : 16;
     assert(((opcodeToSet % Count) == 0) && "ADDREG_FRM opcode not aligned");
 
@@ -1178,6 +1192,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   TYPE("TILEQuad",            TYPE_TMM_QUAD)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  TYPE("XMMPairX",            TYPE_XMM_PAIR)
+  TYPE("YMMPairX",            TYPE_YMM_PAIR)
+  TYPE("ZMMPairX",            TYPE_ZMM_PAIR)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
@@ -1282,6 +1301,11 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_RM)
+  ENCODING("YMMPairX",        ENCODING_RM)
+  ENCODING("ZMMPairX",        ENCODING_RM)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
@@ -1349,6 +1373,11 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   ENCODING("TILEQuad",        ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_REG)
+  ENCODING("YMMPairX",        ENCODING_REG)
+  ENCODING("ZMMPairX",        ENCODING_REG)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
@@ -1392,6 +1421,11 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("TILEPair",        ENCODING_VVVV)
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_XISA_COMMON
+  ENCODING("XMMPairX",        ENCODING_VVVV)
+  ENCODING("YMMPairX",        ENCODING_VVVV)
+  ENCODING("ZMMPairX",        ENCODING_VVVV)
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");

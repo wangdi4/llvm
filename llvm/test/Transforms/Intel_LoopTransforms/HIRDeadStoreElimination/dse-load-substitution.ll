@@ -1,8 +1,10 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that we eliminate the first two stores to (%A)[0] by forward
 ; substituting the intermediate load with the second store's RHS.
+
+; Load becomes a copy and the copy's rval is propagated to the use in the add
+; instruction by the copy propagation utility.
 
 ; Print Before-
 
@@ -18,8 +20,7 @@
 
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:      + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK-NEXT: |   %ld = i1;
-; CHECK:      |   %t.02 = %t.02  +  %ld;
+; CHECK-NEXT: |   %t.02 = %t.02  +  i1;
 ; CHECK:      |   (%A)[0] = 5;
 ; CHECK:      + END LOOP
 

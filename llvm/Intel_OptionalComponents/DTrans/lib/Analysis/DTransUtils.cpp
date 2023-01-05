@@ -206,7 +206,8 @@ bool dtrans::isValueMultipleOfSize(const Value *Val, uint64_t Size) {
                                           PatternMatch::m_Value(RHS)))) {
     uint64_t Shift = 0;
     if (isValueConstant(RHS, &Shift))
-      return (uint64_t(1) << Shift) % Size == 0;
+      if (Shift < 64 && !(cast<ConstantInt>(RHS)->isNegative()))
+        return (uint64_t(1) << Shift) % Size == 0;
     return false;
   }
   // Handle sext and zext
@@ -983,7 +984,7 @@ bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
     return false;
 
   // If all entries are nullptr then we don't have any information
-  for (auto Pair : ArrayWithConstEntriesMap)
+  for (const auto &Pair : ArrayWithConstEntriesMap)
     if (Pair.second)
       return true;
 
@@ -1002,7 +1003,7 @@ void dtrans::FieldInfo::generateArraysWithConstInmmutableData() {
   assert(ArrayWithConstEntriesMap.empty() &&
          "Incorrect arrays with constant entries data collection");
 
-  for (auto Pair : ArrayConstEntries)
+  for (const auto &Pair : ArrayConstEntries)
     if (Pair.second)
       ArrayWithConstEntriesMap.insert({Pair.first, Pair.second});
 }
@@ -1253,7 +1254,7 @@ dtrans::FreeCallInfo *CallInfoManager::createFreeCallInfo(Instruction *I,
 dtrans::MemfuncCallInfo *
 CallInfoManager::createMemfuncCallInfo(Instruction *I,
                                        dtrans::MemfuncCallInfo::MemfuncKind MK,
-                                       dtrans::MemfuncRegion &MR) {
+                                       const dtrans::MemfuncRegion &MR) {
   dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
   addCallInfo(I, Info);
   return Info;
@@ -1261,7 +1262,7 @@ CallInfoManager::createMemfuncCallInfo(Instruction *I,
 
 dtrans::MemfuncCallInfo *CallInfoManager::createMemfuncCallInfo(
     Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
+    const dtrans::MemfuncRegion &MR1, const dtrans::MemfuncRegion &MR2) {
   dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
   addCallInfo(I, Info);
   return Info;
@@ -1303,8 +1304,8 @@ void CallInfoManager::replaceCallInfoInstruction(dtrans::CallInfo *Info,
 }
 
 void CallInfoManager::reset() {
-  for (auto Info : CallInfoMap)
-    for (auto CallInfo : Info.second)
+  for (const auto &Info : CallInfoMap)
+    for (const auto &CallInfo : Info.second)
       destructCallInfo(CallInfo);
   CallInfoMap.clear();
 }
@@ -2257,6 +2258,11 @@ bool dtrans::traceNonConstantValue(Value *InVal, uint64_t ElementSize,
   if (!match(AddOp, m_Shl(m_Value(ShlOp), m_ConstantInt(ShlC))) &&
       !match(AddOp, m_Mul(m_Value(ShlOp), m_ConstantInt(MulC))) &&
       !match(AddOp, m_Mul(m_ConstantInt(MulC), m_Value(ShlOp))))
+    return false;
+
+  // A left shift by a negative value will be undefined behavior, so should
+  // return that the size is unknown.
+  if (ShlC && ShlC->isNegative())
     return false;
 
   // Second operand of the shl or mul expected to be function argument.

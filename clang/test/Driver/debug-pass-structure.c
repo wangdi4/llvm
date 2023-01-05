@@ -1,6 +1,6 @@
 // Test that we print pass structure with new and legacy PM.
 // INTEL_CUSTOMIZATION
-// RUN: %clang -fexperimental-new-pass-manager -fdebug-pass-structure -fintegrated-as -O3 -S -emit-llvm %s -o /dev/null 2>&1 | FileCheck %s --strict-whitespace
+// RUN: %clang -fdebug-pass-structure -fintegrated-as -O3 -S -emit-llvm %s -o /dev/null 2>&1 | FileCheck %s --strict-whitespace
 // end INTEL_CUSTOMIZATION
 // REQUIRES: asserts
 

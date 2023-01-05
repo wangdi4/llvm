@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-info -passes="padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
 
 ; Checks padding propagation for GetElementPtr
@@ -11,7 +10,7 @@
 ; CHECK-NEXT: Arguments' Padding:
 ; CHECK-NEXT: ptr %p : -1
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr @0, ptr @.str, i32 2, ptr null) :: 16
+; CHECK-NEXT: %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %p, ptr @0, ptr @.str, i32 2, ptr null) :: 16
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
 ; CHECK: Function info(foo):
@@ -20,7 +19,7 @@
 ; CHECK-NEXT: Arguments' Padding:
 ; CHECK-NEXT: ptr %p : -1
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr @0, ptr @.str, i32 2, ptr null) :: 16
+; CHECK-NEXT: %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %p, ptr @0, ptr @.str, i32 2, ptr null) :: 16
 ; CHECK-NEXT: %add.ptr = getelementptr inbounds i32, ptr %t0, i64 1 :: 16
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
@@ -31,12 +30,12 @@ target triple = "x86_64-unknown-linux-gnu"
 @0 = private unnamed_addr constant [16 x i8] c"padded 16 bytes\00"
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr) #0
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
 define internal nonnull "intel_dtrans_func_index"="1" ptr @foo(ptr readnone "intel_dtrans_func_index"="2" %p) local_unnamed_addr #1 !intel.dtrans.func.type !6 {
 bb:
-  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
+  %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %p, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([6 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
   %add.ptr = getelementptr inbounds i32, ptr %t0, i64 1
   ret ptr %add.ptr
 }

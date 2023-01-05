@@ -449,7 +449,7 @@ define i32 @mul_pow2_m1(i32 %arg) {
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 3, i64 3>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 7, i64 7, i64 7, i64 7>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I64 = mul <8 x i64> undef, <i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15, i64 15>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 3, i32 3>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 7, i32 7, i32 7, i32 7>
@@ -729,7 +729,7 @@ define i32 @mul_pow2_p1(i32 %arg) {
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = mul i64 undef, undef
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = mul <2 x i64> undef, <i64 5, i64 5>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I64 = mul <4 x i64> undef, <i64 9, i64 9, i64 9, i64 9>
-; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
+; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V8I64 = mul <8 x i64> undef, <i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17, i64 17>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = mul i32 undef, undef
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I32 = mul <2 x i32> undef, <i32 5, i32 5>
 ; AVX512DQ-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I32 = mul <4 x i32> undef, <i32 9, i32 9, i32 9, i32 9>

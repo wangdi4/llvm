@@ -14,8 +14,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -131,7 +129,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
   }
 
   // Update vector length information according to the call graph.
-  for (auto It : SGSizes) {
+  for (const auto &It : SGSizes) {
     Function *F = It.first;
     StringRef VarsStr;
     DenseSet<unsigned> ExistingVars;
@@ -178,42 +176,4 @@ PreservedAnalyses SGSizeCollectorPass::run(Module &M, ModuleAnalysisManager &) {
   PA.preserve<CallGraphAnalysis>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
-}
-
-// For legacy pass manager
-namespace {
-class SGSizeCollectorLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SGSizeCollectorLegacy(VFISAKind ISA = VFISAKind::SSE);
-
-  llvm::StringRef getPassName() const override {
-    return "SGSizeCollectorLegacy pass";
-  }
-
-protected:
-  bool runOnModule(Module &M) override;
-
-private:
-  VFISAKind ISA;
-};
-} // namespace
-
-SGSizeCollectorLegacy::SGSizeCollectorLegacy(VFISAKind ISA)
-    : ModulePass(ID), ISA(ISA) {
-  initializeSGSizeCollectorLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool SGSizeCollectorLegacy::runOnModule(Module &M) {
-  return SGSizeCollectorPass(ISA).runImpl(M);
-}
-
-char SGSizeCollectorLegacy::ID = 0;
-
-INITIALIZE_PASS(SGSizeCollectorLegacy, "dpcpp-kernel-sg-size-collector",
-                "Collecting subgroup size information", false, false)
-
-ModulePass *llvm::createSGSizeCollectorLegacyPass(VFISAKind ISA) {
-  return new SGSizeCollectorLegacy(ISA);
 }

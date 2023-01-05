@@ -14,8 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: DTransSafetyInfo: Type metadata reader did not find structure type metadata or errors were detected in the metadata
 
 %union.anon = type { %struct.anon, [8 x i8] }
-%struct.anon = type { void (i32, i32, i32, i32, float)* }
-%struct.IconImage = type { i32, i32, i32*, i8*, i32 }
+%struct.anon = type { ptr }
+%struct.IconImage = type { i32, i32, ptr, ptr, i32 }
 
 ; In the metadata descriptions below, there are conflicting descriptors for
 ; %struct.anon.

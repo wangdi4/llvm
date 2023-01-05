@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -debug-only=hir-loop-fusion  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-fusion -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that we bail out loop fusion for two loop nests to avoid

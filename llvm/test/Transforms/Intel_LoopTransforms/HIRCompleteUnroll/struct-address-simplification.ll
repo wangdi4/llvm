@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that there is a GEP savings of 1 due to addition of i1 and the trailing offset 1 for (%ptr)[i1].1. There are no savings for (%ptr)[i1].0.

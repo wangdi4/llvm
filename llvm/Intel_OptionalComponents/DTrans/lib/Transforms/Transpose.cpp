@@ -24,6 +24,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include <cmath>
 #include <numeric>
 
 using namespace llvm;
@@ -96,13 +97,14 @@ public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
                      SmallVector<uint64_t, 4> &ArrayLength,
                      uint64_t ElementSize, llvm::Type *ElementType,
+                     dtrans::TransposeTLIType GetTLI,
                      DopeVectorInfo *DVI = nullptr,
-                     Optional<uint64_t> NestedFieldNum = None)
+                     Optional<uint64_t> NestedFieldNum = std::nullopt)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), IsGlobalDV(DVI),
+        ElementType(ElementType), GetTLI(GetTLI), IsGlobalDV(DVI),
         NestedFieldNumber(NestedFieldNum), IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
@@ -213,7 +215,7 @@ public:
     if (!CollectPairs(GV, Pairs)) {
       IsValid = false;
     } else {
-      for (auto Pair : Pairs) {
+      for (const auto &Pair : Pairs) {
         Value *Base = Pair.first;
         User *U = Pair.second;
         // Now check the users of the pointer address for safety
@@ -354,7 +356,8 @@ public:
       return false;
 
     // Collect the use of the dope vector pointer.
-    std::unique_ptr<DopeVectorAnalyzer> DVA(new DopeVectorAnalyzer(DVObject));
+    std::unique_ptr<DopeVectorAnalyzer> DVA(
+        new DopeVectorAnalyzer(DVObject, nullptr, GetTLI));
     DVA->analyze(/*ForCreation = */ true);
     DEBUG_WITH_TYPE(DEBUG_DOPE_VECTORS, {
       dbgs() << "Analysis of potential dope vector:\n";
@@ -483,7 +486,7 @@ public:
     std::advance(Args, ArgPos);
     Argument *FormalArg = &(*Args);
 
-    DopeVectorAnalyzer DVA(FormalArg);
+    DopeVectorAnalyzer DVA(FormalArg, nullptr, GetTLI);
     DVA.analyze(/*ForCreation = */ false);
     if (!DVA.analyzeDopeVectorUseInFunction(F, &DVSubscriptCalls))
       return false;
@@ -901,6 +904,8 @@ private:
   // Element type in the array
   llvm::Type *ElementType;
 
+  dtrans::TransposeTLIType GetTLI;
+
   // 'true' if the candidate is represented by a global dope vector
   bool IsGlobalDV;
 
@@ -1185,6 +1190,50 @@ private:
   // - Variable uses zero initializer or has no initializer
   void IdentifyCandidates(Module &M) {
 
+    auto TestString = [](const StringRef &Name, unsigned StartIndex,
+                        unsigned Size, const char MatchString[]) -> bool {
+      return Name.substr(StartIndex, Size).equals(MatchString);
+    };
+
+    auto GetElemTypeSize = [&TestString](const DataLayout &DL,
+                                         LLVMContext &C,
+                                         DopeVectorInfo *DVI,
+                                         llvm::Type *&ElemType,
+                                         uint64_t &ElemSize) -> bool {
+      // For the typed pointer case, 'ElemType' should not be nullptr.
+      if (ElemType) {
+        if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
+          return false;
+        ElemSize = DL.getTypeStoreSize(ElemType);
+        return true;
+      }
+      // For the opaque pointer case, we will not have the pointer type in
+      // the IR, use the struct name to get it. Handle a few important cases
+      // for now.
+      unsigned StartIndex = 0;
+      unsigned Size = 0;
+      bool IsPointer = false;
+      const StringRef &Name = DVI->getLLVMStructType()->getStructName();
+      if (FindDVTypeName(Name, StartIndex, Size, IsPointer) && IsPointer) {
+        if (TestString(Name, StartIndex, Size, "i32")) {
+          ElemType = llvm::Type::getInt32Ty(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+        if (TestString(Name, StartIndex, Size, "float")) {
+          ElemType = llvm::Type::getFloatTy(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+        if (TestString(Name, StartIndex, Size, "double")) {
+          ElemType = llvm::Type::getDoubleTy(C);
+          ElemSize = DL.getTypeStoreSize(ElemType);
+          return true;
+        }
+      }
+      return false;
+    };
+
     // Return 'true' if 'DVI' with the given 'ArrayRank' and 'ElemType'
     // is a good candidate for transpose because:
     //   (1) Its lower bounds are all 1.
@@ -1193,15 +1242,15 @@ private:
     // When we return 'true', set the dimensions of the array in
     // 'ArrayLength', and set the 'ElemSize'.
     //
-    auto IsGoodCandidate = [](DopeVectorInfo *DVI, const DataLayout &DL,
-                              uint32_t ArrayRank, llvm::Type *ElemType,
-                              SmallVector<uint64_t, 4> &ArrayLength,
-                              uint64_t &ElemSize) -> bool {
+    auto IsGoodCandidate =
+        [&GetElemTypeSize](
+            DopeVectorInfo *DVI, const DataLayout &DL, LLVMContext &C,
+            uint32_t ArrayRank, llvm::Type *&ElemType,
+            SmallVector<uint64_t, 4> &ArrayLength, uint64_t &ElemSize) -> bool {
       if (ArrayRank <= 1 || ArrayRank >= FortranMaxRank)
         return false;
-      if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
+      if (!GetElemTypeSize(DL, C, DVI, ElemType, ElemSize))
         return false;
-      ElemSize = DL.getTypeStoreSize(ElemType);
       for (uint32_t I = 0; I < ArrayRank; ++I) {
         auto Extent = DVI->getDopeVectorField(DV_ExtentBase, I);
         if (!Extent)
@@ -1245,7 +1294,7 @@ private:
                                   const DataLayout &DL) -> bool {
       uint32_t ArrayRank = 0;
       llvm::Type *ElemType = nullptr;
-
+      LLVMContext &C = GV->getParent()->getContext();
       if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
         return false;
       // In the future, it may be possible to transform some of the nested
@@ -1269,11 +1318,11 @@ private:
             continue;
           SmallVector<uint64_t, 4> NVArrayLength;
           uint64_t NVElemSize = 0;
-          if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
+          if (!IsGoodCandidate(NestDVI, DL, C, NVArrayRank, NVElemType,
                                NVArrayLength, NVElemSize))
             continue;
           TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
-                                       NVElemSize, NVElemType, NestDVI,
+                                       NVElemSize, NVElemType, GetTLI, NestDVI,
                                        NestDVI->getFieldNum());
           Candidates.push_back(Candidate);
         }
@@ -1282,10 +1331,11 @@ private:
       DopeVectorInfo *DVI = GlobDV.getGlobalDopeVectorInfo();
       SmallVector<uint64_t, 4> ArrayLength;
       uint64_t ElemSize = 0;
-      if (!IsGoodCandidate(DVI, DL, ArrayRank, ElemType, ArrayLength, ElemSize))
+      if (!IsGoodCandidate(DVI, DL, C, ArrayRank,
+                           ElemType, ArrayLength, ElemSize))
         return true;
       TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
-                                   ElemType, DVI);
+                                   ElemType, GetTLI, DVI);
       Candidates.push_back(Candidate);
       return true;
     };
@@ -1334,8 +1384,8 @@ private:
             (ElemType->isIntegerTy() || ElemType->isFloatingPointTy())) {
           LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
           uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
-          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
-                                       ElemType);
+          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength,
+                                       ElemSize, ElemType, GetTLI);
           Candidates.push_back(Candidate);
         }
       }

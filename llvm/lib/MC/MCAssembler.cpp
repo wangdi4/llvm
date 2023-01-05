@@ -45,9 +45,6 @@
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSymbol.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/MC/Intel_MCTrace.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Casting.h"
@@ -60,6 +57,10 @@
 #include <cstdint>
 #include <tuple>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/MC/Intel_MCTrace.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -1124,7 +1125,9 @@ bool MCAssembler::relaxTraceLine(MCAsmLayout &Layout, MCTraceLineFragment &TF) {
   uint64_t OldSize = TF.getContents().size();
   assert(OldSize <= 8 && "The longest line record is LN4 + PC4");
   int64_t DeltaPC;
-  TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  bool Abs = TF.getDeltaPC()->evaluateKnownAbsolute(DeltaPC, Layout);
+  assert(Abs && "We created a delta PC with an invalid expression");
+  (void)Abs;
   assert(isUInt<32>(DeltaPC) && "Unsupported delta PC");
   SmallVectorImpl<char> &Data = TF.getContents();
   Data.clear();

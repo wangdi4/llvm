@@ -19,29 +19,27 @@
 
 namespace llvm {
 
-    class InterpreterPluggable;
-    struct ExecutionContext;
-    class Instruction;
+class InterpreterPluggable;
+struct ExecutionContext;
+class Instruction;
 
-    /// interface to LLVM interpreter plugin
-    class InterpreterPlugIn
-    {
-    public:
-        /// event before function call
-        virtual void handlePreFunctionRun(
-            std::vector<ExecutionContext>& ECStack,
-            llvm::InterpreterPluggable& Interp) = 0;
+/// interface to LLVM interpreter plugin
+class InterpreterPlugIn {
+public:
+  /// event before function call
+  virtual void handlePreFunctionRun(std::vector<ExecutionContext> &ECStack,
+                                    llvm::InterpreterPluggable &Interp) = 0;
 
-        /// event after function call
-        virtual void handlePostFunctionRun() = 0;
+  /// event after function call
+  virtual void handlePostFunctionRun() = 0;
 
-        /// event before instruction execution
-        virtual void handlePreInstExecution(Instruction& ) = 0;
+  /// event before instruction execution
+  virtual void handlePreInstExecution(Instruction &) = 0;
 
-        /// event after instruction execution
-        virtual void handlePostInstExecution(Instruction& ) = 0;
-        virtual ~InterpreterPlugIn() {}
-    };
+  /// event after instruction execution
+  virtual void handlePostInstExecution(Instruction &) = 0;
+  virtual ~InterpreterPlugIn() {}
+};
 
 } // namespace llvm
 

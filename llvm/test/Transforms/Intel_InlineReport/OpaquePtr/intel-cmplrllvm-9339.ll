@@ -1,8 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -enable-new-pm=0 -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -enable-new-pm=0 -inline -inline-report=0x186 -S | opt -inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-OLD %s
 ; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0x186 -S | opt -passes=inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-NEW %s
 
 ; Check that @I241872, which before inlining, has two calls to itself, is

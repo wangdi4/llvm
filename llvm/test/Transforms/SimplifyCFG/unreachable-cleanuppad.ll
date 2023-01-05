@@ -1,6 +1,6 @@
-; RUN: opt -simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S < %s | FileCheck %s
+; RUN: opt -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -S < %s | FileCheck %s
 ; INTEL
-; RUN: opt -S < %s -convert-to-subscript | opt -simplifycfg -S | FileCheck %s
+; RUN: opt -S < %s -convert-to-subscript | opt -passes=simplifycfg -S | FileCheck %s
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i686-pc-win32"
 

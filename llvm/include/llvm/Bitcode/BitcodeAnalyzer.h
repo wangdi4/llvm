@@ -1,5 +1,23 @@
 //===- llvm/Bitcode/BitcodeAnalyzer.h - Bitcode analyzer --------*- C++ -*-===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -14,11 +32,11 @@
 #define LLVM_BITCODE_BITCODEANALYZER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/Support/Error.h"
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -52,8 +70,8 @@ struct BCDumpOptions {
 class BitcodeAnalyzer {
   BitstreamCursor Stream;
   BitstreamBlockInfo BlockInfo;
-  CurStreamTypeType CurStreamType;
-  Optional<BitstreamCursor> BlockInfoStream;
+  CurStreamTypeType CurStreamType = UnknownBitstream; // INTEL
+  std::optional<BitstreamCursor> BlockInfoStream;
   unsigned NumTopBlocks = 0;
 
   struct PerRecordStats {
@@ -85,18 +103,20 @@ class BitcodeAnalyzer {
   std::map<unsigned, PerBlockIDStats> BlockIDStats;
 
 public:
-  BitcodeAnalyzer(StringRef Buffer, Optional<StringRef> BlockInfoBuffer = None);
+  BitcodeAnalyzer(StringRef Buffer,
+                  std::optional<StringRef> BlockInfoBuffer = std::nullopt);
   /// Analyze the bitcode file.
-  Error analyze(Optional<BCDumpOptions> O = None,
-                Optional<StringRef> CheckHash = None);
+  Error analyze(std::optional<BCDumpOptions> O = std::nullopt,
+                std::optional<StringRef> CheckHash = std::nullopt);
   /// Print stats about the bitcode file.
-  void printStats(BCDumpOptions O, Optional<StringRef> Filename = None);
+  void printStats(BCDumpOptions O,
+                  std::optional<StringRef> Filename = std::nullopt);
 
 private:
   /// Read a block, updating statistics, etc.
   Error parseBlock(unsigned BlockID, unsigned IndentLevel,
-                   Optional<BCDumpOptions> O = None,
-                   Optional<StringRef> CheckHash = None);
+                   std::optional<BCDumpOptions> O = std::nullopt,
+                   std::optional<StringRef> CheckHash = std::nullopt);
 
   Error decodeMetadataStringsBlob(StringRef Indent, ArrayRef<uint64_t> Record,
                                   StringRef Blob, raw_ostream &OS);

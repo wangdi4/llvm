@@ -149,7 +149,10 @@ WholeProgramInfo::WholeProgramInfo(Module *M,
   //                     debugging transformations that require internalization,
   //                     for example: devirtualization.
   WholeProgramHidden = true;
-
+  
+  IsLibIRCAllowedEverywhere = false;
+  MainDefSeen = false;
+  
   // Another important term:
   // WholeProgramRead: All symbols were resolved by the linker.
 
@@ -161,6 +164,10 @@ WholeProgramInfo::WholeProgramInfo(Module *M,
   unsigned E = static_cast<unsigned>(EE);
   for (unsigned I = 0; I < E; ++I)
     IsAdvancedOptEnabled[I] = true;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  UnresolvedCallsCount = 0;
+#endif
 }
 
 WholeProgramInfo::~WholeProgramInfo() {}
@@ -975,7 +982,7 @@ Function *WholeProgramInfo::getMainFunction() {
 
   Function *Main = nullptr;
 
-  for (auto Name : WPUtils->getMainNames()) {
+  for (const auto &Name : WPUtils->getMainNames()) {
     Main = M->getFunction(Name);
 
     if (Main)

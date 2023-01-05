@@ -275,7 +275,7 @@ class VPExternalValues {
 
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
-  VPExternalValues(const VPExternalValues &X) = delete;
+  VPExternalValues(const VPExternalValues &) = delete;
 
   ~VPExternalValues() {
     // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.

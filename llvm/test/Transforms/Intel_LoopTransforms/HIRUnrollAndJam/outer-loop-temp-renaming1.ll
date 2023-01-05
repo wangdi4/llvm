@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-lmm -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-lmm,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that unroll & jam renames %s.020 for different unrolled iterations.

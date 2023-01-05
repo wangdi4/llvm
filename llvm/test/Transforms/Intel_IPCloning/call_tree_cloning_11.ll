@@ -11,7 +11,6 @@
 ;
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
 
 
 ;*** IR Dump After IP Cloning ***; ModuleID = 'ld-temp.o'

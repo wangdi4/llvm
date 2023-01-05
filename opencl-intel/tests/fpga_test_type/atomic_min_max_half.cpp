@@ -98,7 +98,7 @@ static const std::vector<std::string> program_sources = {
       r_cmp[tid] = src_a[tid];                                               \n\
       r_old[tid] = atomic_max(&(r_cmp[tid]), src_b[tid]);                    \n\
     }                                                                        \n\
-	",
+  ",
     "#pragma OPENCL EXTENSION cl_khr_fp16 : enable                           \n\
     __kernel void test_atomic_min_h(__global half *src_a,                    \n\
                                     __global half *src_b,                    \n\

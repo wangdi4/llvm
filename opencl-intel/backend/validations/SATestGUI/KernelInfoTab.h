@@ -14,45 +14,46 @@
 
 #ifndef KERNELINFOTAB_H
 #define KERNELINFOTAB_H
-#include <QWidget>
-#include "Tab.h"
-#include "Kernel.h"
 #include "Entry.h"
+#include "Kernel.h"
+#include "Tab.h"
 #include <QFormLayout>
+#include <QHash>
 #include <QLabel>
-#include <QVBoxLayout>
 #include <QListWidget>
 #include <QListWidgetItem>
-#include <QHash>
+#include <QVBoxLayout>
+#include <QWidget>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 /**
  * @brief The KernelInfoTab class
- * @detailed Tab, which show information about kernel - names of buffer files, list of buffers, etc
- * @TODO add list widgets to ref and neat buffers and information from kernelInfo struct.
+ * @detailed Tab, which show information about kernel - names of buffer files,
+ * list of buffers, etc
+ * @TODO add list widgets to ref and neat buffers and information from
+ * kernelInfo struct.
  */
-class KernelInfoTab : public Tab
-{
-        Q_OBJECT
+class KernelInfoTab : public Tab {
+  Q_OBJECT
 public:
-    KernelInfoTab(Kernel* kernel,int kernelId, QWidget *parent=0);
+  KernelInfoTab(Kernel *kernel, int kernelId, QWidget *parent = 0);
 signals:
-    /**
-     * @brief viewBuffer emmits when we clicked to selected buffer in list of buffers
-     */
-    void viewBuffer(Entry);
+  /**
+   * @brief viewBuffer emmits when we clicked to selected buffer in list of
+   * buffers
+   */
+  void viewBuffer(Entry);
+
 private:
-    int kernelId;
-    QFormLayout* layout;
-    QListWidget *inBuffers, *outBuffers, *refBuffers;
-    QHash<QListWidgetItem*, int> inBuffersEntries;
+  int kernelId;
+  QFormLayout *layout;
+  QListWidget *inBuffers, *outBuffers, *refBuffers;
+  QHash<QListWidgetItem *, int> inBuffersEntries;
 private slots:
-    void bufferSelected(QListWidgetItem*);
+  void bufferSelected(QListWidgetItem *);
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // KERNELINFOTAB_H

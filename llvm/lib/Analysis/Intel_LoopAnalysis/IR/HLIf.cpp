@@ -32,7 +32,7 @@ void HLIf::initialize() {
 
 HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
            RegDDRef *Ref2)
-    : HLDDNode(HNU, HLNode::HLIfVal), UnswitchDisabled(false) {
+    : HLDDNode(HNU, HLNode::HLIfVal), UnswitchDisabled(false), MVTag(0) {
   assert((isPredicateTrueOrFalse(FirstPred) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
   assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
@@ -59,7 +59,7 @@ HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
 HLIf::HLIf(const HLIf &HLIfObj)
     : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates),
       UnswitchDisabled(HLIfObj.UnswitchDisabled),
-      BranchDbgLoc(HLIfObj.BranchDbgLoc) {
+      BranchDbgLoc(HLIfObj.BranchDbgLoc), MVTag(HLIfObj.MVTag) {
   const RegDDRef *Ref;
   ElseBegin = Children.end();
   initialize();
@@ -146,6 +146,10 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
 
   if (isUnswitchDisabled()) {
     OS << " <no_unswitch>";
+  }
+
+  if (getMVTag()) {
+    OS << "  <MVTag: " << getMVTag() << ">";
   }
 #endif // !INTEL_PRODUCT_RELEASE
 }

@@ -24,13 +24,13 @@
 class TestAutorunProfilerAPI : public OCLFPGABaseFixture {};
 
 TEST_F(TestAutorunProfilerAPI, Basic) {
-  cl_int (*get_profile_data_device) (cl_device_id, cl_program, cl_bool, cl_bool,
-                                     cl_bool, size_t, void *, size_t *,
-                                     cl_int *);
+  cl_int (*get_profile_data_device)(cl_device_id, cl_program, cl_bool, cl_bool,
+                                    cl_bool, size_t, void *, size_t *,
+                                    cl_int *);
   get_profile_data_device =
-    (cl_int (*) (cl_device_id, cl_program, cl_bool, cl_bool, cl_bool, size_t,
+      (cl_int(*)(cl_device_id, cl_program, cl_bool, cl_bool, cl_bool, size_t,
                  void *, size_t *, cl_int *))
-        clGetExtensionFunctionAddress("clGetProfileDataDeviceIntelFPGA");
+          clGetExtensionFunctionAddress("clGetProfileDataDeviceIntelFPGA");
   ASSERT_NE(nullptr, get_profile_data_device)
       << " clGetExtensionFunctionAddress(\"clGetProfileDataDeviceIntelFPGA\") "
          "failed";
@@ -62,4 +62,3 @@ TEST_F(TestAutorunProfilerAPI, Basic) {
       << " clGetProfileDataDeviceIntelFPGA returns unexpected result: "
       << ErrToStr(error);
 }
-

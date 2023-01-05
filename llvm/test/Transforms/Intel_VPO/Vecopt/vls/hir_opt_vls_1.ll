@@ -17,9 +17,7 @@
 ; three loads with stride 3.
 ;
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=hir-vplan-vec  < %s 2>&1  | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=hir-vplan-vec -opaque-pointers < %s 2>&1  | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output -opaque-pointers < %s 2>&1 | FileCheck %s
 
 ; CHECK: DO i1 = 0, 99, 4

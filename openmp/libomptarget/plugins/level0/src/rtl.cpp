@@ -15,7 +15,7 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -36,6 +36,7 @@
 #include <limits>
 #include <list>
 #include <mutex>
+#include <map>
 #include <set>
 #include <string>
 #include <sstream>
@@ -54,13 +55,13 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
+#if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
+#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
-#ifdef _WIN32
-#include "intel_win_dlfcn.h"
-#endif
 
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 /// Host runtime routines being used
 extern "C" {
@@ -85,6 +86,12 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define LEVEL0_STAGING_BUFFER_SIZE (1 << 14)
 /// Default staging buffer count
 #define LEVEL0_STAGING_BUFFER_COUNT 64
+
+#ifndef EXTRACT_BITS
+// MSB=63, LSB=0
+#define EXTRACT_BITS(I64, HIGH, LOW)                                           \
+  (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
+#endif
 
 // Subdevice utilities
 // Device encoding (MSB=63, LSB=0)
@@ -111,6 +118,7 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
       : (Kind == TARGET_ALLOC_SHARED ? "shared memory"                         \
       : (Kind == TARGET_ALLOC_DEVICE ? "device memory" : "unknown memory")))
 
+#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define LEVEL0_KERNEL_BEGIN(ID)
@@ -138,6 +146,7 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
     }                                                                          \
   } while (0)
 #endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -167,6 +176,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4600, // ADLS
     }
   },
+#if INTEL_CUSTOMIZATION
   {
     DeviceArch_XeHP, {
       0x0200, // ATS
@@ -180,8 +190,10 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4F00, 0x5600 // DG2/ATS-M
     }
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
+#if INTEL_CUSTOMIZATION
 /// Interop support
 namespace L0Interop {
   // Library needed to convert interop object into a sycl interop object
@@ -262,6 +274,7 @@ namespace L0Interop {
     // Use this when command queue needs to be accessed as
     // the targetsync field in interop will be changed if preferred type is sycl.
     ze_command_queue_handle_t CommandQueue;
+    ze_command_list_handle_t ImmCmdList;
   };
 
   /// Dump implementation-defined properties
@@ -272,70 +285,86 @@ namespace L0Interop {
          IprTypeDescs[I]);
   }
 
-  struct SyclWrapperTY{
+  struct SyclWrapperTy {
+    bool WrapApiValid = false;
+    typedef void(init_sycl_interop_ty)(void *);
+    typedef void*(get_sycl_interop_ty)(void *);
+    typedef void(create_sycl_interop_ty)(omp_interop_t);
+    typedef void(delete_sycl_interop_ty)(omp_interop_t);
+    typedef void(delete_all_sycl_interop_ty)();
+    typedef int32_t (flush_queue_sycl_ty)(omp_interop_t);
+    typedef int32_t (append_barrier_sycl_ty)(omp_interop_t);
 
-     bool WrapApiValid;
-     typedef void *(get_sycl_interop_ty)(void*);
-     typedef void  (create_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_all_sycl_interop_ty)();
+    init_sycl_interop_ty *init_sycl_interop = nullptr;
+    get_sycl_interop_ty *get_sycl_interop = nullptr;
+    create_sycl_interop_ty *create_sycl_interop = nullptr;
+    delete_sycl_interop_ty *delete_sycl_interop = nullptr;
+    delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
+    flush_queue_sycl_ty        *flush_queue_sycl        = nullptr;
+    append_barrier_sycl_ty     *append_barrier_sycl     = nullptr;
 
-     get_sycl_interop_ty        *get_sycl_interop        = nullptr;
-     create_sycl_interop_ty     *create_sycl_interop     = nullptr;
-     delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
-     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
-
-  }SyclWrapper;
+    std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
+  } SyclWrapper;
 
   /// Wrap interop object as a SYCl object
   static void wrapInteropSycl(__tgt_interop * Interop) {
+    static std::once_flag Flag{};
 
-     static std::once_flag Flag{};
-     std::call_once(Flag, []() {
-       SyclWrapper.WrapApiValid = true;
-       void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
-       if (!dynlib_handle) {
-          // Library does not exist or cannot be found.
-          const char *ErrorStr = dlerror();
-          if (!ErrorStr)
-            ErrorStr = "";
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
-             ErrorStr);
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       DP("loaded library '%s': \n", L0Interop::SyclWrapName);
-       if(!(*((void **)&SyclWrapper.get_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_get_interop"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.create_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_create_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_all_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-     });
+    std::call_once(Flag, [&Interop]() {
+      std::string ErrMsg;
+      auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
+          llvm::sys::DynamicLibrary::getPermanentLibrary(
+              L0Interop::SyclWrapName, &ErrMsg));
 
-     if (!SyclWrapper.WrapApiValid) {
-       DP("SyclWrapper API is invalid\n");
-       return;
-     }
+      if (!DynLib->isValid()) {
+        DP("Unable to load library '%s': %s!\n",
+           L0Interop::SyclWrapName, ErrMsg.c_str());
+        return;
+      }
 
-     // Call to replace L0 info with Sycl info.
-     SyclWrapper.create_sycl_interop(Interop);
+      DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
+
+      if (!(*((void **)&SyclWrapper.init_sycl_interop) =
+                DynLib->getAddressOfSymbol("__tgt_sycl_init_interop")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.get_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.create_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_create_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_interop_wrapper")))
+        return;
+
+      if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_delete_all_interop_wrapper")))
+        return;
+      if(!(*((void **)&SyclWrapper.flush_queue_sycl) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_flush_queue_wrapper")))
+          return;
+      if(!(*((void **)&SyclWrapper.append_barrier_sycl) =
+          DynLib->getAddressOfSymbol("__tgt_sycl_append_barrier_wrapper")))
+          return;
+
+      SyclWrapper.WrapApiValid = true;
+      SyclWrapper.LibHandle = std::move(DynLib);
+      SyclWrapper.init_sycl_interop(Interop);
+    });
+
+    if (!SyclWrapper.WrapApiValid) {
+      DP("SyclWrapper API is invalid\n");
+      return;
+    }
+
+    // Call to replace L0 info with Sycl info.
+    SyclWrapper.create_sycl_interop(Interop);
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Tentative enumerators used with ompx_get_device_info() and the data type
 /// ompx_devinfo_name, char[N],
@@ -352,6 +381,7 @@ namespace L0Interop {
 /// ompx_devinfo_global_mem_size, size_t
 /// ompx_devinfo_global_mem_cache_size, size_t
 /// ompx_devinfo_max_clock_frequency, uint32_t
+/// ompx_devinfo_plugin_name, char[N]
 /// We always need same definition in omp.h.
 enum {
   ompx_devinfo_name = 0,
@@ -367,7 +397,8 @@ enum {
   ompx_devinfo_local_mem_size,
   ompx_devinfo_global_mem_size,
   ompx_devinfo_global_mem_cache_size,
-  ompx_devinfo_max_clock_frequency
+  ompx_devinfo_max_clock_frequency,
+  ompx_devinfo_plugin_name
 };
 
 /// Staging buffer
@@ -436,6 +467,7 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
 /// Command batch manager
 class CommandBatchTy {
   struct MemCopyTy {
@@ -491,6 +523,7 @@ public:
 
   bool isActive() { return State > 0; }
 };
+#endif // INTEL_CUSTOMIZATION
 
 struct KernelBatchTy {
   uint32_t MaxCommands = 0;
@@ -780,14 +813,22 @@ class TLSTy {
   /// Link copy command queues for each device
   std::map<int32_t, ze_command_queue_handle_t> LinkCopyCmdQueues;
 
+  /// Immediate command list for each device
+  std::map<int32_t, ze_command_list_handle_t> ImmCmdLists;
+
+  /// Immediate copy command list for each device
+  std::map<int32_t, ze_command_list_handle_t> ImmCopyCmdLists;
+
   /// Run profile for each device
   std::map<int32_t, RTLProfileTy *> Profiles;
 
   /// Staging buffer
   StagingBufferTy StagingBuffer;
 
+#if INTEL_CUSTOMIZATION
   /// Batch manager
   CommandBatchTy CommandBatch;
+#endif // INTEL_CUSTOMIZATION
 
   /// Subdevice encoding
   int64_t SubDeviceCode = 0;
@@ -808,6 +849,10 @@ public:
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
     for (auto CmdQueue : LinkCopyCmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+    for (auto &CmdList : ImmCmdLists)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
+    for (auto &CmdList : ImmCopyCmdLists)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
     for (auto Profile : Profiles)
       delete Profile.second;
   }
@@ -841,6 +886,14 @@ public:
         (LinkCopyCmdQueues.count(ID) > 0) ? LinkCopyCmdQueues.at(ID) : nullptr;
   }
 
+  ze_command_list_handle_t getImmCmdList(int32_t ID) {
+    return (ImmCmdLists.count(ID) > 0) ? ImmCmdLists.at(ID) : nullptr;
+  }
+
+  ze_command_list_handle_t getImmCopyCmdList(int32_t ID) {
+    return (ImmCopyCmdLists.count(ID) > 0) ? ImmCopyCmdLists.at(ID) : nullptr;
+  }
+
   RTLProfileTy *getProfile(int32_t ID) {
     return (Profiles.count(ID) > 0) ? Profiles.at(ID) : nullptr;
   }
@@ -849,7 +902,9 @@ public:
 
   StagingBufferTy &getStagingBuffer() { return StagingBuffer; }
 
+#if INTEL_CUSTOMIZATION
   CommandBatchTy &getCommandBatch() { return CommandBatch; }
+#endif // INTEL_CUSTOMIZATION
 
   void setCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
     CmdLists[ID] = CmdList;
@@ -877,6 +932,14 @@ public:
 
   void setLinkCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
     LinkCopyCmdQueues[ID] = CmdQueue;
+  }
+
+  void setImmCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    ImmCmdLists[ID] = CmdList;
+  }
+
+  void setImmCopyCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    ImmCopyCmdLists[ID] = CmdList;
   }
 
   void setProfile(int32_t ID, RTLProfileTy *Profile) {
@@ -964,6 +1027,7 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
 struct DynamicMemHeapTy {
   /// Base address memory is allocated from
   uintptr_t AllocBase = 0;
@@ -1007,6 +1071,7 @@ struct ProgramDataTy {
   void *DynamicMemPool = nullptr;
   int TeamsThreadLimit = 0;
 };
+#endif // INTEL_CUSTOMIZATION
 
 /// Level Zero program that can contain multiple modules.
 class LevelZeroProgramTy {
@@ -1031,7 +1096,7 @@ class LevelZeroProgramTy {
   int32_t DeviceId = 0;
 
   /// Target table
-  __tgt_target_table Table;
+  __tgt_target_table Table{nullptr, nullptr};
 
   /// Target entries
   std::vector<__tgt_offload_entry> Entries;
@@ -1048,11 +1113,13 @@ class LevelZeroProgramTy {
   /// Kernel info added by compiler
   std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
 
+#if INTEL_CUSTOMIZATION
   /// Program data copied to device
   ProgramDataTy PGMData;
 
   /// Cached address of the program data on device
   void *PGMDataPtr = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// Module that contains global data including device RTL
   ze_module_handle_t GlobalModule = nullptr;
@@ -1113,6 +1180,7 @@ public:
   /// Build kernels from all modules.
   int32_t buildKernels();
 
+#if INTEL_CUSTOMIZATION
   /// Initialize program data on device.
   int32_t initProgramData();
 
@@ -1121,6 +1189,7 @@ public:
 
   /// Initialize dynamic memory pool for device.
   void *initDynamicMemPool();
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the pointer to the offload table.
   __tgt_target_table *getTablePtr() { return &Table; }
@@ -1278,8 +1347,9 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t UseMultipleComputeQueues : 1;
   uint64_t ShowBuildLog : 1;
-  uint64_t UseImmCmdList : 1;
-  uint64_t Reserved : 53;
+  uint64_t UseInteropImmCmdList : 1;
+  uint64_t NoSYCLFlush : 1;
+  uint64_t Reserved : 52;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1291,8 +1361,23 @@ struct RTLFlagsTy {
       UseImageOptions(1),
       UseMultipleComputeQueues(0),
       ShowBuildLog(0),
-      UseImmCmdList(0),
+      UseInteropImmCmdList(0),
+      NoSYCLFlush(0),
       Reserved(0) {}
+};
+
+/// Loop descriptor
+struct TgtLoopDescTy {
+  int64_t Lb = 0;     // The lower bound of the i-th loop
+  int64_t Ub = 0;     // The upper bound of the i-th loop
+  int64_t Stride = 0; // The stride of the i-th loop
+};
+
+struct TgtNDRangeDescTy {
+  int32_t NumLoops = 0;       // Number of loops/dimensions
+  int32_t DistributeDim = 0;  // Dimensions lower than this one
+                              // must end up in one WG
+  TgtLoopDescTy Levels[3];    // Up to 3 loops
 };
 
 /// Kernel properties.
@@ -1301,7 +1386,49 @@ struct KernelPropertiesTy {
   uint32_t Width = 0;
   uint32_t SIMDWidth = 0;
   uint32_t MaxThreadGroupSize = 0;
-  ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
+
+  /// Cached input parameters used in the previous launch
+  TgtNDRangeDescTy LoopDesc;
+  int32_t NumTeams = -1;
+  int32_t ThreadLimit = -1;
+
+  /// Cached parameters used in the previous launch
+  ze_kernel_indirect_access_flags_t IndirectAccessFlags = UINT32_MAX;
+  uint32_t GroupSizes[3] = {0, 0, 0};
+  ze_group_count_t GroupCounts{0, 0, 0};
+
+  std::mutex Mtx;
+
+  static constexpr TgtNDRangeDescTy LoopDescInit = {};
+
+  /// Check if we can reuse group parameters.
+  bool reuseGroupParams(
+      const TgtNDRangeDescTy *LoopDescPtr, const int32_t _NumTeams,
+      const int32_t _ThreadLimit, uint32_t *_GroupSizes,
+      ze_group_count_t &_GroupCounts) {
+    if (!LoopDescPtr && memcmp(&LoopDescInit, &LoopDesc, sizeof(LoopDesc)))
+      return false;
+    if (LoopDescPtr && memcmp(LoopDescPtr, &LoopDesc, sizeof(LoopDesc)))
+      return false;
+    if (_NumTeams != NumTeams || _ThreadLimit != ThreadLimit)
+      return false;
+    // Found matching input parameters.
+    std::copy_n(GroupSizes, 3, _GroupSizes);
+    _GroupCounts = GroupCounts;
+    return true;
+  }
+
+  /// Update cached group parameters.
+  void cacheGroupParams(
+      const TgtNDRangeDescTy *LoopDescPtr, const int32_t _NumTeams,
+      const int32_t _ThreadLimit, const uint32_t *_GroupSizes,
+      const ze_group_count_t &_GroupCounts) {
+    LoopDesc = LoopDescPtr ? *LoopDescPtr : LoopDescInit;
+    NumTeams = _NumTeams;
+    ThreadLimit = _ThreadLimit;
+    std::copy_n(_GroupSizes, 3, GroupSizes);
+    GroupCounts = _GroupCounts;
+  }
 };
 
 /// Common event pool used in the plugin. This event pool assumes all evnets
@@ -1446,6 +1573,7 @@ struct RTLOptionTy {
   /// Global num teams obtained from host runtime
   uint32_t NumTeams = 0;
 
+#if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = (1 << 20);
 
@@ -1453,6 +1581,7 @@ struct RTLOptionTy {
   /// 0: atomic_add with no free()
   /// 1: pool-based allocator with free() support
   uint32_t KernelDynamicMemoryMethod = 1;
+#endif // INTEL_CUSTOMIZATION
 
   /// Staging buffer size
   size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
@@ -1460,9 +1589,11 @@ struct RTLOptionTy {
   /// Staging buffer count
   size_t StagingBufferCount = LEVEL0_STAGING_BUFFER_COUNT;
 
+#if INTEL_CUSTOMIZATION
   /// Command batch support
   int32_t CommandBatchLevel = 0;
   int32_t CommandBatchCount = INT32_MAX;
+#endif // INTEL_CUSTOMIZATION
 
   /// Copy engine option
   /// 0: disabled, 1: main, 2: link, 3: all (default)
@@ -1518,6 +1649,10 @@ struct RTLOptionTy {
   uint32_t ForcedLocalSizes[3] = {0, 0, 0};
   uint32_t ForcedGlobalSizes[3] = {0, 0, 0};
 #endif // INTEL_INTERNAL_BUILD
+
+  /// Enable/disable using immediate command lists
+  /// 0: Disable, 1: Compute, 2: Copy, 3: All
+  uint32_t UseImmCmdList = 0;
 
   // Compilation options for IGC
   // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
@@ -1767,12 +1902,14 @@ struct RTLOptionTy {
       }
     }
 
+#if INTEL_CUSTOMIZATION
     // Target image dump
     if ((Env = readEnvVar("LIBOMPTARGET_DUMP_TARGET_IMAGE",
                           "LIBOMPTARGET_SAVE_TEMPS"))) {
       if (parseBool(Env) == 1)
         Flags.DumpTargetImage = 1;
     }
+#endif // INTEL_CUSTOMIZATION
 
     // Global default target memory that overrides device-specific default
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM"))) {
@@ -1819,6 +1956,7 @@ struct RTLOptionTy {
         ForcedKernelWidth = Value;
     }
 
+#if INTEL_CUSTOMIZATION
     // Dynamic memory size
     // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>[,<Method>]
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
@@ -1859,6 +1997,7 @@ struct RTLOptionTy {
         KernelDynamicMemorySize = Size << 20;
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
@@ -1902,6 +2041,7 @@ struct RTLOptionTy {
       StagingBufferSize = SizeInKB << 10;
     }
 
+#if INTEL_CUSTOMIZATION
     // LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Type>[,<Count>]
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH"))) {
       std::string Value(Env);
@@ -1932,6 +2072,7 @@ struct RTLOptionTy {
         DP("Disabled command batching due to unknown input \"%s\".\n", Env);
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
     // LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES=<Bool>
     if ((Env =
@@ -1971,13 +2112,40 @@ struct RTLOptionTy {
         DP("Using default value: %f\n", ThinThreadsThreshold);
       }
     }
-    // LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Bool>
+    // LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Value>
+    // <Value> := <Bool> | all | compute | copy
     if ((Env =
         readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST"))) {
       int32_t Value = parseBool(Env);
-      if (Value >= 0 && Value <= 1)
-        Flags.UseImmCmdList = Value;
+      if (Value >= 0 && Value <= 1) {
+        UseImmCmdList = Value;
+      } else {
+        std::string Val(Env);
+        if (Val == "all" || Val == "ALL")
+          UseImmCmdList = 3;
+        else if (Val == "compute" || Val == "COMPUTE")
+          UseImmCmdList = 1;
+        else if (Val == "copy" || Val == "COPY")
+          UseImmCmdList = 2;
+      }
     }
+
+    // LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST=<Value>
+    if ((Env =
+        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.UseInteropImmCmdList = Value;
+    }
+
+    // LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH=<Bool>
+    if ((Env =
+        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.NoSYCLFlush = Value;
+    }
+
   }
 
   /// Read environment variable value with optional deprecated name
@@ -2130,7 +2298,7 @@ class MemAllocatorTy {
           NumUsedSlots++;
           return reinterpret_cast<void *>(Base + Slot * ChunkSize);
         }
-        for (auto I = 0; I < NumSlots; I++) {
+        for (uint32_t I = 0; I < NumSlots; I++) {
           if (UsedSlots[I])
             continue;
           UsedSlots[I] = true;
@@ -2185,6 +2353,10 @@ class MemAllocatorTy {
     std::unordered_map<void *, BlockTy *> PtrToBlock;
     /// Simple stats counting miss/hit in each bucket.
     std::vector<std::pair<uint64_t, uint64_t>> BucketStats;
+    /// Need to zero-initialize after L0 allocation
+    bool ZeroInit = false;
+    /// Zero-initialized values to be copied to device
+    std::vector<char> ZeroInitValue;
 
     /// Get bucket ID from the specified allocation size.
     uint32_t getBucketId(size_t Size) {
@@ -2291,6 +2463,24 @@ class MemAllocatorTy {
          DPxPTR(Allocator->Device), AllocMin, AllocMax, PoolSizeMax);
     }
 
+    // Used for small memory pool with fixed parameters
+    MemPoolTy(MemAllocatorTy *_Allocator) {
+      AllocKind = TARGET_ALLOC_DEVICE;
+      Allocator = _Allocator;
+      AllocMax = AllocMin;
+      BlockCapacity = AllocUnit / AllocMax;
+      PoolSize = 0;
+      PoolSizeMax = (1 << 20); // this should be sufficiently large
+      Buckets.resize(1);
+      BucketStats.resize(1, {0, 0});
+      BucketParams.emplace_back(AllocMax, AllocUnit);
+      ZeroInit = true;
+      ZeroInitValue.resize(AllocUnit, 0);
+      DP("Initialized zero-initialized reduction counter pool for device "
+         DPxMOD ": AllocMin = %zu, AllocMax = %zu, PoolSizeMax = %zu\n",
+         DPxPTR(Allocator->Device), AllocMin, AllocMax, PoolSizeMax);
+    }
+
     void printUsage() {
       auto PrintNum = [](uint64_t Num) {
         if (Num > 1e9)
@@ -2368,6 +2558,21 @@ class MemAllocatorTy {
         auto ChunkSize = BucketParams[BucketId].first;
         auto BlockSize = BucketParams[BucketId].second;
         void *Base = Allocator->allocL0(BlockSize, 0, AllocKind);
+
+        if (ZeroInit) {
+          if (Allocator->CmdList && Allocator->CmdQueue) {
+            CALL_ZE_RET_NULL(zeCommandListAppendMemoryCopy, Allocator->CmdList,
+                             Base, ZeroInitValue.data(), BlockSize, nullptr, 0,
+                             nullptr);
+            CALL_ZE_RET_NULL(zeCommandListClose, Allocator->CmdList);
+            CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists,
+                             Allocator->CmdQueue, 1, &Allocator->CmdList,
+                             nullptr);
+            CALL_ZE_RET_NULL(zeCommandListReset, Allocator->CmdList);
+          } else {
+            DP("Failed to zero-initialize pool memory\n");
+          }
+        }
 
         BlockTy *Block = new BlockTy(Base, BlockSize, ChunkSize);
         Blocks.push_back(Block);
@@ -2483,6 +2688,10 @@ class MemAllocatorTy {
   ze_context_handle_t Context = nullptr;
   /// L0 device to use
   ze_device_handle_t Device = nullptr;
+  /// L0 command list when copying is needed
+  ze_command_list_handle_t CmdList = nullptr;
+  /// L0 command queue when copying is needed
+  ze_command_queue_handle_t CmdQueue = nullptr;
   /// Cached max alloc size supported by device
   uint64_t MaxAllocSize = 0;
   /// Map from allocation kind to memory statistics
@@ -2491,6 +2700,8 @@ class MemAllocatorTy {
   std::map<int32_t, MemPoolTy> Pools;
   /// Memory pool dedicated to reduction scratch space
   std::unique_ptr<MemPoolTy> ReductionPool;
+  /// Memory pool dedicated to reduction counters
+  std::unique_ptr<MemPoolTy> CounterPool;
   /// Allocation information map
   MemAllocInfoMapTy AllocInfo;
   /// RTL-owned memory that needs to be freed automatically
@@ -2503,11 +2714,14 @@ public:
 
   /// Construct with L0 context, device, RTL option
   MemAllocatorTy(ze_context_handle_t _Context, ze_device_handle_t _Device,
-                 RTLOptionTy &Option, bool _SupportsLargeMem,
-                 bool IsHostMem = false) {
-    SupportsLargeMem = _SupportsLargeMem;
+                 ze_command_list_handle_t _CmdList,
+                 ze_command_queue_handle_t _CmdQueue, RTLOptionTy &Option,
+                 bool _SupportsLargeMem, bool IsHostMem) {
     Context = _Context;
     Device = _Device;
+    CmdList = _CmdList;
+    CmdQueue = _CmdQueue;
+    SupportsLargeMem = _SupportsLargeMem;
 
     ze_device_properties_t P{ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
     CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &P);
@@ -2533,6 +2747,7 @@ public:
                         std::tuple<>{});
       }
       ReductionPool = std::make_unique<MemPoolTy>(this, Option);
+      CounterPool = std::make_unique<MemPoolTy>(this);
     }
   }
 
@@ -2544,6 +2759,11 @@ public:
     // Release resources used in the pool
     Pools.clear();
     ReductionPool.reset(nullptr);
+    CounterPool.reset(nullptr);
+    if (CmdList)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList);
+    if (CmdQueue)
+      CALL_ZE_RET_VOID(zeCommandQueueDestroy, CmdQueue);
     // Report memory usage if requested
     if (DebugLevel > 0) {
       for (auto &Stat : Stats) {
@@ -2609,7 +2829,7 @@ public:
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
               bool UserAlloc, bool Owned, uint32_t MemAdvice,
-              int32_t DedicatedPool) {
+              int32_t AllocOpt) {
     assert((Kind == TARGET_ALLOC_DEVICE || Kind == TARGET_ALLOC_HOST ||
             Kind == TARGET_ALLOC_SHARED) &&
             "Unknown memory kind while allocating target memory");
@@ -2622,16 +2842,22 @@ public:
     size_t AllocSize = Size + Offset;
     void *Mem = nullptr;
     void *AllocBase = nullptr;
+    bool UseScratchPool = (AllocOpt == ALLOC_OPT_REDUCTION_SCRATCH);
+    bool UseZeroInitPool = (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER);
+    bool UseDedicatedPool = UseScratchPool || UseZeroInitPool;
 
-    if ((Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) || DedicatedPool) {
+    if ((Pools.count(Kind) > 0 && MemAdvice == UINT32_MAX) ||
+        UseDedicatedPool) {
       // Pool is enabled for the allocation kind, and we do not use any memory
       // advice. We should avoid using pool if there is any meaningful memory
       // advice not to affect sibling allocation in the same block.
       if (Align > 0)
         AllocSize += (Align - 1);
       size_t PoolAllocSize = 0;
-      if (DedicatedPool)
+      if (UseScratchPool)
         AllocBase = ReductionPool->alloc(AllocSize, PoolAllocSize);
+      else if (UseZeroInitPool)
+        AllocBase = CounterPool->alloc(AllocSize, PoolAllocSize);
       else
         AllocBase = Pools[Kind].alloc(AllocSize, PoolAllocSize);
       if (AllocBase) {
@@ -2643,8 +2869,9 @@ public:
         log(Size, PoolAllocSize, Kind, true /* Pool */);
         if (Owned)
           MemOwned.push_back(AllocBase);
-        if (DedicatedPool) {
-          DP("Allocated %zu bytes from reduction scratch pool\n", Size);
+        if (UseDedicatedPool) {
+          DP("Allocated %zu bytes from %s pool\n", Size,
+             UseScratchPool ? "scratch" : "zero-initialized");
         }
         return Mem;
       }
@@ -2656,11 +2883,12 @@ public:
       AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc, MemAdvice);
       if (Owned)
         MemOwned.push_back(AllocBase);
-      if (DedicatedPool) {
-        DP("Allocated %zu bytes from L0 for reduction scratch space\n", Size);
+      if (UseDedicatedPool) {
+        // We do not want this happen in general.
+        DP("Allocated %zu bytes from L0 for %s pool\n", Size,
+           UseScratchPool ? "scratch" : "zero-initialized");
       }
     }
-
     return Mem;
   }
 
@@ -2678,8 +2906,11 @@ public:
       assert(Pools.count(Info.Kind) > 0 && "Inconsistent memory information\n");
       size_t DeallocSize = Pools[Info.Kind].dealloc(Info.Base);
       if (DeallocSize == 0) {
-        // Try cached scratch pool
+        // Try reduction scratch pool
         DeallocSize = ReductionPool->dealloc(Info.Base);
+        // Try reduction counter pool
+        if (DeallocSize == 0)
+          DeallocSize = CounterPool->dealloc(Info.Base);
         if (DeallocSize == 0) {
           DP("Error: Cannot return memory " DPxMOD " to pool\n", DPxPTR(Ptr));
           return OFFLOAD_FAIL;
@@ -2820,11 +3051,15 @@ struct RTLDeviceInfoTy {
   std::vector<std::vector<ze_module_handle_t>> GlobalModules;
 
   /// Internally defined/used kernel properties
-  std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
-      KernelProperties;
+  std::unordered_map<ze_kernel_handle_t, KernelPropertiesTy> KernelProperties;
 
+  /// Common indirect access flags for devices
+  std::vector<ze_kernel_indirect_access_flags_t> IndirectAccessFlags;
+
+#if INTEL_CUSTOMIZATION
   /// Number of active kernel launches for each device
   std::vector<uint32_t> NumActiveKernels;
+#endif // INTEL_CUSTOMIZATION
 
   /// Whether each device is initialized
   std::vector<bool> Initialized;
@@ -2835,11 +3070,16 @@ struct RTLDeviceInfoTy {
   /// For kernel preparation
   std::unique_ptr<std::mutex[]> KernelMutexes;
 
+  /// Global RTL mutex
+  std::mutex RTLMutex;
+
   /// Memory allocator for each L0 devices
   std::map<ze_device_handle_t, MemAllocatorTy> MemAllocator;
 
+#if INTEL_CUSTOMIZATION
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// function addresses for registering and unregistering host pointer
   /// and testing if a host malloced pointer is registered
@@ -3018,6 +3258,36 @@ struct RTLDeviceInfoTy {
     return CmdQueue;
   }
 
+  ze_command_list_handle_t getImmCmdList(int32_t DeviceId) {
+#if INTEL_CUSTOMIZATION
+    // Using per-thread Imm command list does not work as expected at least
+    // within pure OpenMP (verified with NEOReadDebugKeys=1 EventWaitOnHost=1).
+    // This may not be that important now since what matters most is per-interop
+    // SYCL immediate command list.
+#if 0
+    auto *TLS = getTLS();
+    auto CmdList = TLS->getImmCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createImmCmdList(DeviceId);
+      TLS->setImmCmdList(DeviceId, CmdList);
+    }
+    return CmdList;
+#endif
+#endif // INTEL_CUSTOMIZATION
+    /// Keep using the shared Imm command list within OpenMP
+    return ImmCmdLists[DeviceId];
+  }
+
+  ze_command_list_handle_t getImmCopyCmdList(int32_t DeviceId) {
+    auto *TLS = getTLS();
+    auto CmdList = TLS->getImmCopyCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createImmCopyCmdList(DeviceId);
+      TLS->setImmCopyCmdList(DeviceId, CmdList);
+    }
+    return CmdList;
+  }
+
   RTLProfileTy *getProfile(int32_t DeviceId) {
     if (!Option.Flags.EnableProfile)
       return nullptr;
@@ -3038,72 +3308,115 @@ struct RTLDeviceInfoTy {
     getTLS()->setSubDeviceCode(Code);
   }
 
- //  Prototype for Register and unRegister functions from zex_driver.h
- //
- //  ze_result_t ZE_APICALL
- //  zexDriverImportExternalPointer(
- //    ze_driver_handle_t hDriver,
- //    void *ptr,
- //    size_t size
- //  );
- //
- //  ze_result_t ZE_APICALL
- //  zexDriverReleaseImportedPointer(
- //    ze_driver_handle_t hDriver,
- //    void *ptr
- //  );
- //
- // ze_result_t ZE_APICALL
- // zexDriverGetHostPointerBaseAddress(
- //   ze_driver_handle_t hDriver,
- //   void *ptr,
- //   void **baseAddress
- // );
+  // Prototype for Register and unRegister functions from zex_driver.h
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverImportExternalPointer(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr,
+  //   size_t size
+  // );
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverReleaseImportedPointer(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr
+  // );
+  //
+  // ze_result_t ZE_APICALL
+  // zexDriverGetHostPointerBaseAddress(
+  //   ze_driver_handle_t hDriver,
+  //   void *ptr,
+  //   void **baseAddress
+  // );
 
-   bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
-      if (RegisterHostPointer) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
-        auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
-        DP("Registering Host Pointer: " DPxMOD " Size  %zu\n", DPxPTR(Ptr), Size);
-        return  (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+    if (RegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+      auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+      DP("Registering Host Pointer: " DPxMOD " Size %zu\n", DPxPTR(Ptr), Size);
+        return (Fn(Driver, Ptr, Size) == ZE_RESULT_SUCCESS);
+    }
+    return false;
+  }
+
+  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+    if (UnRegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
+      auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+      DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
+      ze_result_t RC = Fn(Driver, Ptr);
+      if (RC == ZE_RESULT_SUCCESS)
+        return true;
+    }
+    DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
+    return false;
+  }
+
+  bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
+    if (GetHostPointerBaseAddress) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
+      auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
+      void *BaseAddress = NULL;
+      ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
+      if (RC == ZE_RESULT_SUCCESS) {
+        DP("Host Pointer: " DPxMOD " is registered with BaseAddress: " DPxMOD
+           "\n", DPxPTR(Ptr),DPxPTR(BaseAddress));
+        return true;
       }
-      return false;
-   }
+    }
+    return false;
+  }
 
-   bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
-      if (UnRegisterHostPointer) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
-        auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
-        DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
-        ze_result_t RC = Fn(Driver, Ptr);
-        if ( RC == ZE_RESULT_SUCCESS)
-           return true;
-      }
-      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
-      return false;
-   }
+  // Return kernel properties for the specified kernel. Empty properties will be
+  // created and returned if one does not exist.
+  KernelPropertiesTy &getKernelProperties(ze_kernel_handle_t Kernel) {
+    std::lock_guard<std::mutex> Lock(RTLMutex);
+    return KernelProperties[Kernel];
+  }
 
-   bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
-      if (GetHostPointerBaseAddress) {
-        using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
-        auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
-        void *BaseAddress = NULL;
-        ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
-        if ( RC == ZE_RESULT_SUCCESS) {
-          DP("Host Pointer: " DPxMOD " is registered with BaseAddress : " DPxMOD " \n",
-                         DPxPTR(Ptr),DPxPTR(BaseAddress));
-          return true;
-        }
-      }
-      return false;
-   }
+  /// Create an immediate command list
+  ze_command_list_handle_t createImmCmdList(int32_t DeviceId, uint32_t Ordinal,
+                                            uint32_t Index) {
+    ze_command_queue_desc_t Desc {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, Ordinal, Index,
+      0 /* Flags */, ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+      ZE_COMMAND_QUEUE_PRIORITY_NORMAL
+    };
+    ze_command_list_handle_t CmdList = nullptr;
+    CALL_ZE_RET_NULL(zeCommandListCreateImmediate, Context, Devices[DeviceId],
+                     &Desc, &CmdList);
+    DP("Created an immediate command list " DPxMOD " (Ordinal: %" PRIu32
+       ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList), Ordinal,
+       Index, DeviceIdStr[DeviceId].c_str());
+    return CmdList;
+  }
 
+  /// Create an immediate command list for computing
+  ze_command_list_handle_t createImmCmdList(int32_t DeviceId) {
+    return createImmCmdList(DeviceId, ComputeOrdinals[DeviceId].first,
+                            ComputeIndices[DeviceId]);
+  }
+
+  /// Create an immediate command list for copying
+  ze_command_list_handle_t createImmCopyCmdList(int32_t DeviceId) {
+    uint32_t Ordinal = CopyOrdinals[DeviceId].first;
+    if (Ordinal == UINT32_MAX)
+      Ordinal = LinkCopyOrdinals[DeviceId].first;
+    if (Ordinal == UINT32_MAX)
+      Ordinal = ComputeOrdinals[DeviceId].first;
+    return createImmCmdList(DeviceId, Ordinal, /*Index*/0);
+  }
+
+#if INTEL_CUSTOMIZATION
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
+#endif // INTEL_CUSTOMIZATION
 
-  /// Get kernel indirect access flags
-  ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
-      ze_kernel_handle_t Kernel, uint32_t DeviceId);
+  /// Set kernel indirect access flags for kernel invocation
+  int32_t setKernelIndirectAccessFlags(ze_kernel_handle_t Kernel,
+                                       KernelPropertiesTy &KernelPR,
+                                       uint32_t DeviceId);
 
   /// Enqueue copy command
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
@@ -3133,7 +3446,8 @@ struct RTLDeviceInfoTy {
   /// Data alloc
   void *dataAlloc(int32_t DeviceId, size_t Size, size_t Align, int32_t Kind,
                   intptr_t Offset, bool UserAlloc, bool Owned = false,
-                  uint32_t MemAdvice = UINT32_MAX, int32_t DedicatedPool = 0);
+                  uint32_t MemAdvice = UINT32_MAX,
+                  int32_t AllocOpt = ALLOC_OPT_NONE);
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
@@ -3144,20 +3458,6 @@ struct RTLDeviceInfoTy {
   /// Initialize immediate command lists
   void initImmCmdList(int32_t DeviceId);
 };
-
-/// Loop descriptor
-typedef struct {
-  int64_t Lb;     // The lower bound of the i-th loop
-  int64_t Ub;     // The upper bound of the i-th loop
-  int64_t Stride; // The stride of the i-th loop
-} TgtLoopDescTy;
-
-typedef struct {
-  int32_t NumLoops;        // Number of loops/dimensions
-  int32_t DistributeDim;   // Dimensions lower than this one
-                           // must end up in one WG
-  TgtLoopDescTy Levels[3]; // Up to 3 loops
-} TgtNDRangeDescTy;
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
 
@@ -3281,46 +3581,46 @@ static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device,
     const char *FileName, const char *Flags, ze_module_format_t Format) {
   // Resolve full path using the location of the plugin
-  std::string fullPath;
+  std::string FullPath;
 #ifdef _WIN32
-  char rtlPath[_MAX_PATH];
-  HMODULE rtlModule = nullptr;
+  char RTLPath[_MAX_PATH];
+  HMODULE RTLModule = nullptr;
   if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCSTR) &DebugLevel, &rtlModule)) {
+                          (LPCSTR) &DebugLevel, &RTLModule)) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  if (!GetModuleFileNameA(rtlModule, rtlPath, sizeof(rtlPath))) {
+  if (!GetModuleFileNameA(RTLModule, RTLPath, sizeof(RTLPath))) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  fullPath = rtlPath;
+  FullPath = RTLPath;
 #else // !defined(_WIN32)
-  Dl_info rtlInfo;
-  if (!dladdr(&DebugLevel, &rtlInfo)) {
+  Dl_info RTLInfo;
+  if (!dladdr(&DebugLevel, &RTLInfo)) {
     DP("Error: module creation failed -- cannot resolve full path\n");
     return nullptr;
   }
-  fullPath = rtlInfo.dli_fname;
+  FullPath = RTLInfo.dli_fname;
 #endif // !defined(_WIN32)
-  size_t split = fullPath.find_last_of("/\\");
-  fullPath.replace(split + 1, std::string::npos, FileName);
+  size_t Split = FullPath.find_last_of("/\\");
+  FullPath.replace(Split + 1, std::string::npos, FileName);
 
   // Now read from the full path
-  std::ifstream ifs(fullPath.c_str(), std::ios::binary);
+  std::ifstream IFS(FullPath.c_str(), std::ios::binary);
   // Ignore files that are not supported.
-  if (!ifs.good())
+  if (!IFS.good())
     return nullptr;
-  ifs.seekg(0, ifs.end);
-  size_t size = static_cast<size_t>(ifs.tellg());
-  ifs.seekg(0);
-  std::vector<char> image(size);
-  if (!ifs.read(image.data(), size)) {
-    DP("Error: module creation failed -- cannot read %s\n", fullPath.c_str());
+  IFS.seekg(0, IFS.end);
+  size_t Size = static_cast<size_t>(IFS.tellg());
+  IFS.seekg(0);
+  std::vector<char> Image(Size);
+  if (!IFS.read(image.data(), Size)) {
+    DP("Error: module creation failed -- cannot read %s\n", FullPath.c_str());
     return nullptr;
   }
-  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags,
+  return createModule(Context, Device, Size, (uint8_t *)Image.data(), Flags,
                       Format);
 }
 #endif // ENABLE_LIBDEVICE_LINKING
@@ -3340,7 +3640,10 @@ ATTRIBUTE(constructor(101)) void init() {
   TLSList = new std::list<TLSTy *>();
 }
 
-ATTRIBUTE(destructor(101)) void deinit() {
+/// RTL calls this function as early as possible (not as RTL destructor) to
+/// avoid finalization issues in various circumstances (e.g., tracing tool).
+/// We use the entry __tgt_rtl_unregister_lib.
+static void deinit() {
   DP("Deinit Level0 plugin!\n");
   closeRTL();
   delete TLSList;
@@ -3391,10 +3694,12 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
 static bool isDiscrete(uint32_t L0DeviceId) {
   switch (L0DeviceId & 0xFF00) {
   case 0x4900: // DG1
+#if INTEL_CUSTOMIZATION
   case 0x0200: // ATS SDV
   case 0x0B00: // PVC
   case 0x4F00: // DG2/ATS-M
   case 0x5600: // DG2/ATS-M
+#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;
@@ -3420,21 +3725,19 @@ static void closeRTL() {
   if (DeviceInfo->NumDevices == 0)
     return;
 
-  for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
-    if (!DeviceInfo->Initialized[i])
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
+    if (!DeviceInfo->Initialized[I])
       continue;
+#if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, I);
     }
-    DeviceInfo->Mutexes[i].lock();
+#endif // INTEL_CUSTOMIZATION
+    if (DeviceInfo->Option.UseImmCmdList > 0)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[I]);
 
-    if (DeviceInfo->Option.Flags.UseImmCmdList)
-      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[i]);
-
-    DeviceInfo->Programs[i].clear();
-
-    DeviceInfo->Mutexes[i].unlock();
+    DeviceInfo->Programs[I].clear();
   }
 
   DeviceInfo->MemAllocator.clear();
@@ -3602,6 +3905,15 @@ static int32_t appendDeviceProperties(
   DeviceInfo->DeviceArchs.push_back(getDeviceArch(properties.deviceId));
   DeviceInfo->AllocKinds.push_back(getAllocKinds(properties.deviceId));
 
+  // Set common indirect access flags for the device
+  auto &AllocKind = DeviceInfo->AllocKinds.back();
+  ze_kernel_indirect_access_flags_t Flags = (AllocKind == TARGET_ALLOC_DEVICE)
+      ? ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE
+      : ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
+    Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  DeviceInfo->IndirectAccessFlags.push_back(Flags);
+
   CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
   DeviceInfo->ComputeProperties.push_back(computeProperties);
 
@@ -3644,22 +3956,27 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ScopedTimerTy Timer(DeviceId, "DataWrite (Host to Device)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-  if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+  if (TgtPtrType == ZE_MEMORY_TYPE_SHARED ||
+      TgtPtrType == ZE_MEMORY_TYPE_HOST) {
+    std::copy_n(
+        static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
+  } else {
     void *SrcPtr = HstPtr;
-    if (DiscreteDevice &&
+    if (DeviceInfo->isDiscreteDevice(DeviceId) &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
@@ -3671,9 +3988,6 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size, &Timer) !=
         OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
-  } else {
-    std::copy_n(
-        static_cast<char *>(HstPtr), Size, static_cast<char *>(TgtPtr));
   }
   DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
      DPxPTR(HstPtr), DPxPTR(TgtPtr));
@@ -3688,22 +4002,27 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ScopedTimerTy Timer(DeviceId, "DataRead (Device to Host)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  auto DiscreteDevice = DeviceInfo->isDiscreteDevice(DeviceId);
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
-  if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
+  if (TgtPtrType == ZE_MEMORY_TYPE_HOST ||
+      TgtPtrType == ZE_MEMORY_TYPE_SHARED) {
+    std::copy_n(
+        static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
+  } else {
     void *DstPtr = HstPtr;
-    if (DiscreteDevice &&
+    if (DeviceInfo->isDiscreteDevice(DeviceId) &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
@@ -3716,9 +4035,6 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     if (DstPtr != HstPtr)
       std::copy_n(
           static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
-  } else {
-    std::copy_n(
-        static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
   }
   DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
      DPxPTR(TgtPtr), DPxPTR(HstPtr));
@@ -3762,19 +4078,23 @@ static uint64_t computeThreadsNeeded(
 
 static int32_t decideLoopKernelGroupArguments(
     int32_t DeviceId, uint32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
-    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
-    ze_group_count_t &GroupCounts) {
+    ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   auto &ComputePR = DeviceInfo->ComputeProperties[DeviceId];
   uint32_t MaxGroupSize = ComputePR.maxTotalGroupSize;
-  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelPR.SIMDWidth);
   DP("Preferred team size is multiple of %" PRIu32 "\n", KernelPR.Width);
 
   // Set correct max group size if the kernel was compiled with explicit SIMD
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
+  // Adjust number of threads if requested
+  if (HalfNumThreads)
+    NumThreadsPerEU /= 2;
+
   if (KernelPR.SIMDWidth == 1) {
-    MaxGroupSize = DevicePR.numEUsPerSubslice * DevicePR.numThreadsPerEU;
+    MaxGroupSize = DevicePR.numEUsPerSubslice * NumThreadsPerEU;
   }
 
   if (KernelPR.MaxThreadGroupSize < MaxGroupSize) {
@@ -3915,7 +4235,6 @@ static int32_t decideLoopKernelGroupArguments(
         uint32_t NumEUsPerSubslice = DevicePR.numEUsPerSubslice;
         uint32_t NumSubslices =
             DevicePR.numSlices * DevicePR.numSubslicesPerSlice;
-        uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
         uint64_t TotalThreads =
             uint64_t(NumThreadsPerEU) * NumEUsPerSubslice * NumSubslices;
         TotalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
@@ -3966,8 +4285,8 @@ static int32_t decideLoopKernelGroupArguments(
 
 static void decideKernelGroupArguments(
     int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
-    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
-    ze_group_count_t &GroupCounts) {
+    ze_kernel_handle_t Kernel, const KernelPropertiesTy &KernelPR,
+    uint32_t *GroupSizes, ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   if (!KInfo) {
@@ -3982,13 +4301,15 @@ static void decideKernelGroupArguments(
   uint32_t NumThreadsPerEU = DevicePR.numThreadsPerEU;
   bool MaxGroupSizeForced = false;
   bool MaxGroupCountForced = false;
+  // Adjust number of threads if requested
+  if (HalfNumThreads)
+    NumThreadsPerEU /= 2;
 
   // Dump input data for the occupancy calculation to ease triaging.
   DPI("NumEUsPerSubslice: %" PRIu32 "\n", NumEUsPerSubslice);
   DPI("NumSubslices: %" PRIu32 "\n", NumSubslices);
   DPI("NumThreadsPerEU: %" PRIu32 "\n", NumThreadsPerEU);
   DPI("TotalEUs: %" PRIu32 "\n", NumEUsPerSubslice * NumSubslices);
-  auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
   uint32_t KernelWidth = KernelPR.Width;
   uint32_t SIMDWidth = KernelPR.SIMDWidth;
   DP("Assumed kernel SIMD width is %" PRIu32 "\n", SIMDWidth);
@@ -4191,20 +4512,57 @@ static int32_t runTargetTeamRegion(
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
-  ScopedTimerTy KernelTimer(SubId, "Kernel ",
-                            DeviceInfo->KernelProperties[RootId][Kernel].Name);
+
+  auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
+
+  ScopedTimerTy KernelTimer(SubId, "Kernel ", KernelPR.Name);
+
+  // Protect from kernel preparation to submission as kernels are shared.
+  std::unique_lock<std::mutex> KernelLock(KernelPR.Mtx);
 
   // Decide group sizes and counts
   uint32_t GroupSizes[3];
   ze_group_count_t GroupCounts;
-  if (LoopDesc) {
-    auto RC = decideLoopKernelGroupArguments(SubId, (uint32_t)ThreadLimit,
-        (TgtNDRangeDescTy *)LoopDesc, Kernel, GroupSizes, GroupCounts);
-    if (RC != OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
-  } else {
-    decideKernelGroupArguments(SubId, (uint32_t )NumTeams,
-        (uint32_t)ThreadLimit, Kernel, GroupSizes, GroupCounts);
+
+  // Check if we can reuse previous group parameters
+  bool GroupParamsReused = KernelPR.reuseGroupParams(
+      (TgtNDRangeDescTy *)LoopDesc, NumTeams, ThreadLimit, GroupSizes,
+      GroupCounts);
+
+  if (!GroupParamsReused) {
+    // Detect if we need to reduce available HW threads. We need this adjustment
+    // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
+    static std::once_flag OnceFlag;
+    static bool ZeDebugEnabled = false;
+    std::call_once(OnceFlag, []() {
+      const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
+      if (EnvVal && std::atoi(EnvVal) == 1)
+        ZeDebugEnabled = true;
+    });
+    bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
+    bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
+    if (HalfNumThreads) {
+      DP("Using half of the reported HW threads due to "
+         "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+    }
+    if (LoopDesc) {
+      auto RC = decideLoopKernelGroupArguments(
+          SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
+          KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
+      if (RC != OFFLOAD_SUCCESS)
+        return OFFLOAD_FAIL;
+      // L0 has implemented heuristics to batch WG-submission. However, L0
+      // is not able apply this optimization if number of WG's is not a multiple
+      // of 8. This could result in  3x performance for small work-items.
+      if (GroupCounts.groupCountX > 8)
+        GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
+    } else {
+      decideKernelGroupArguments(SubId, (uint32_t)NumTeams,
+                                 (uint32_t)ThreadLimit, Kernel, KernelPR,
+                                 GroupSizes, GroupCounts, HalfNumThreads);
+    }
+    KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
+                              ThreadLimit, GroupSizes, GroupCounts);
   }
 
 #if INTEL_INTERNAL_BUILD
@@ -4216,6 +4574,7 @@ static int32_t runTargetTeamRegion(
   DP("Number of teams = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
+#if INTEL_CUSTOMIZATION
   if (OMPT_ENABLED) {
     // Push current work size
     size_t FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
@@ -4223,9 +4582,7 @@ static int32_t runTargetTeamRegion(
     size_t FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
     OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
   }
-
-  // Protect from kernel preparation to submission as kernels are shared.
-  std::unique_lock<std::mutex> KernelLock(DeviceInfo->KernelMutexes[RootId]);
+#endif // INTEL_CUSTOMIZATION
 
   // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
@@ -4235,6 +4592,7 @@ static int32_t runTargetTeamRegion(
       CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, Kernel, I, Size, TgtArgs[I]);
       DP("Kernel ByVal argument %" PRId32
          " was set successfully for device %s.\n", I, SubIdStr);
+      (void)SubIdStr; // silence warning
     } else if (TgtOffsets[I] == (std::numeric_limits<ptrdiff_t>::max)()) {
       // Offset equal to MAX(ptrdiff_t) means that the argument
       // must be passed as literal, and the offset should be ignored.
@@ -4251,31 +4609,33 @@ static int32_t runTargetTeamRegion(
     }
   }
 
-  auto Flags = DeviceInfo->getKernelIndirectAccessFlags(Kernel, RootId);
-  // Kernel dynamic memory is also indirect access
-  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
-    Flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-  CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, Flags);
-  DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(Flags));
+  DeviceInfo->setKernelIndirectAccessFlags(Kernel, KernelPR, RootId);
 
-  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
-                   GroupSizes[2]);
+  if (!GroupParamsReused) {
+    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, Kernel, GroupSizes[0], GroupSizes[1],
+                     GroupSizes[2]);
+  }
 
-  if (DeviceInfo->Option.CommandBatchLevel > 0) {
+  auto &Option = DeviceInfo->Option;
+
+#if INTEL_CUSTOMIZATION
+  if (Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueLaunchKernel(SubId, Kernel, &GroupCounts, KernelLock);
   }
+#endif // INTEL_CUSTOMIZATION
 
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
+  bool UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList) {
-    CmdList = DeviceInfo->ImmCmdLists[SubId];
+  if (UseImmCmdList) {
+    CmdList = DeviceInfo->getImmCmdList(SubId);
     // Command queue is not used with immediate command list
   } else {
     CmdList = DeviceInfo->getCmdList(SubId);
-    if (DeviceInfo->Option.Flags.UseMultipleComputeQueues && OnRoot)
+    if (Option.Flags.UseMultipleComputeQueues && OnRoot)
       CmdQueue = DeviceInfo->getCCSCmdQueue(RootId);
     else
       CmdQueue = DeviceInfo->getCmdQueue(SubId);
@@ -4289,38 +4649,43 @@ static int32_t runTargetTeamRegion(
     DP("Appended kernel " DPxMOD " to command list " DPxMOD "\n",
        DPxPTR(Kernel), DPxPTR(BatchQueue.CmdList));
     BatchQueue.run(DeviceInfo->Mutexes[RootId]);
-  } else if (DeviceInfo->Option.Flags.UseImmCmdList) {
+  } else if (UseImmCmdList) {
     // Kernel batching with immediate command list is handled first by the
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
     auto Event = DeviceInfo->EventPool.getEvent();
-    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList,
-                     Kernel, &GroupCounts, Event, 0, nullptr);
+    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel,
+                         DeviceInfo->Mutexes[SubId], CmdList, Kernel,
+                         &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    if (DeviceInfo->Option.Flags.EnableProfile)
+    if (Option.Flags.EnableProfile)
       KernelTimer.updateDeviceTime(Event);
     DeviceInfo->EventPool.releaseEvent(Event);
   } else {
     ze_event_handle_t Event = nullptr;
-    if (DeviceInfo->Option.Flags.EnableProfile)
+    if (Option.Flags.EnableProfile)
       Event = DeviceInfo->EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                      &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+#if INTEL_CUSTOMIZATION
     LEVEL0_KERNEL_BEGIN(RootId);
+#endif // INTEL_CUSTOMIZATION
     CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
                          DeviceInfo->Mutexes[SubId], CmdQueue, 1, &CmdList,
                          nullptr);
     DP("Submitted kernel " DPxMOD " to device %s\n", DPxPTR(Kernel), SubIdStr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-    if (DeviceInfo->Option.Flags.EnableProfile) {
+    if (Option.Flags.EnableProfile) {
       KernelTimer.updateDeviceTime(Event);
       DeviceInfo->EventPool.releaseEvent(Event);
     }
+#if INTEL_CUSTOMIZATION
     LEVEL0_KERNEL_END(RootId);
+#endif // INTEL_CUSTOMIZATION
   }
 
   DP("Executed kernel entry " DPxMOD " on device %s\n", DPxPTR(TgtEntryPtr),
@@ -4329,6 +4694,7 @@ static int32_t runTargetTeamRegion(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t CommandBatchTy::begin(int32_t ID) {
   if (State < 0 || (DeviceId >= 0 && ID != DeviceId)) {
     DP("Invalid command batching state\n");
@@ -4410,7 +4776,7 @@ int32_t CommandBatchTy::commit(bool Always) {
     if (Kernel) {
       double DeviceTime = Profile->getEventTime(KernelEvent);
       std::string KernelName = "Kernel ";
-      KernelName += DeviceInfo->KernelProperties[DeviceId][Kernel].Name;
+      KernelName += DeviceInfo->getKernelProperties(Kernel).Name;
       if (NumCopyTo > 0 || NumCopyFrom > 0) {
         // Batch includes copy and kernel launch
         BatchTime -= DeviceTime;
@@ -4537,55 +4903,68 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
 
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
-/// Get kernel indirect access flags
-ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
-    ze_kernel_handle_t Kernel, uint32_t DeviceId) {
-  // Kernel-dependent flags
-  auto KernelFlags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
+/// Set kernel indirect access flags for kernel invocation
+int32_t RTLDeviceInfoTy::setKernelIndirectAccessFlags(
+    ze_kernel_handle_t Kernel, KernelPropertiesTy &KernelPR,
+    uint32_t DeviceId) {
+  auto &PrevFlags = KernelPR.IndirectAccessFlags;
 
-  // Tracking of individually "map" variables is disabled.
-  // Unconditionally set indirect memory access, may be an overkill
-  // for now.  Future level0 would auto detect which memory is
-  // needs to be resident
-  KernelFlags |= (AllocKinds[DeviceId] == TARGET_ALLOC_DEVICE) ?
-                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE :
-                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  ze_kernel_indirect_access_flags_t Flags = 0;
+  Flags |= MemAllocator.at(nullptr).getIndirectFlags();
+  Flags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
 
-  // Other flags due to users' memory allocation
-  KernelFlags |= MemAllocator.at(nullptr).getIndirectFlags();
-  KernelFlags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
+  if (PrevFlags != Flags) {
+    // Combine with common access flags
+    auto FinalFlags = IndirectAccessFlags[DeviceId] | Flags;
+    CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, Kernel, FinalFlags);
+    DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(FinalFlags));
+    PrevFlags = Flags;
+  }
 
-  return KernelFlags;
+  return OFFLOAD_SUCCESS;
 }
 
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
     int32_t DeviceId, void *Dst, const void *Src, size_t Size,
     ScopedTimerTy *Timer, bool Locked) {
-  auto CmdList = getLinkCopyCmdList(DeviceId);
-  auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
-
+  bool UseImm = (Option.UseImmCmdList >= 2);
+  ze_command_list_handle_t CmdList = nullptr;
+  ze_command_queue_handle_t CmdQueue = nullptr;
   ze_event_handle_t Event = nullptr;
-  if (Timer && Option.Flags.EnableProfile) {
-    Event = EventPool.getEvent();
-  }
 
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
-                   Event, 0, nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-  if (Locked) {
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                     nullptr);
+  if (UseImm) {
+    CmdList = getImmCopyCmdList(DeviceId);
+    Event = EventPool.getEvent();
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                     Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists, Mutexes[DeviceId],
-                         CmdQueue, 1, &CmdList, nullptr);
+    CmdList = getLinkCopyCmdList(DeviceId);
+    CmdQueue = getLinkCopyCmdQueue(DeviceId);
+
+    if (Timer && Option.Flags.EnableProfile)
+      Event = EventPool.getEvent();
+
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                     Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+    if (Locked) {
+      CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                       nullptr);
+    } else {
+      CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists, Mutexes[DeviceId],
+                           CmdQueue, 1, &CmdList, nullptr);
+    }
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
   }
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
 
   if (Event) {
-    Timer->updateDeviceTime(Event);
+    if (Timer)
+      Timer->updateDeviceTime(Event);
     EventPool.releaseEvent(Event);
   }
 
@@ -4660,15 +5039,19 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
 void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
                                  int32_t Kind, intptr_t Offset, bool UserAlloc,
                                  bool Owned, uint32_t MemAdvice,
-                                 int32_t DedicatedPool) {
+                                 int32_t AllocOpt) {
   ScopedTimerTy TM(DeviceId, "DataAlloc");
   DeviceId = getInternalDeviceId(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
+  bool UseDedicatedPool = (AllocOpt == ALLOC_OPT_REDUCTION_SCRATCH) ||
+      (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER);
   if (Kind == TARGET_ALLOC_DEFAULT) {
     if (UserAlloc)
       Kind = (Option.TargetAllocKind == TARGET_ALLOC_DEFAULT) ?
              TARGET_ALLOC_DEVICE : Option.TargetAllocKind;
-    else if (DedicatedPool)
+    else if (AllocOpt == ALLOC_OPT_HOST_MEM)
+      Kind = TARGET_ALLOC_HOST;
+    else if (UseDedicatedPool)
       Kind = TARGET_ALLOC_DEVICE;
     else
       Kind = AllocKinds[DeviceId];
@@ -4676,7 +5059,7 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
   auto &Allocator = (Kind == TARGET_ALLOC_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
   return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned,
-                         MemAdvice, DedicatedPool);
+                         MemAdvice, AllocOpt);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
@@ -4708,14 +5091,14 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
       if (ClearAdvice != UINT32_MAX) {
         auto CmdList = getLinkCopyCmdList(DeviceId);
         auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
-        CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
+        CALL_ZE_RET_FAIL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
                          Info->Size,
                          static_cast<ze_memory_advice_t>(ClearAdvice));
-        CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
-        CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
+        CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+        CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
                          &CmdList, nullptr);
-        CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-        CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+        CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+        CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
       }
     }
   }
@@ -4734,19 +5117,13 @@ bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
 void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   auto &Batch = BatchCmdQueues[DeviceId];
   Batch.MaxCommands = MaxKernels;
-  Batch.UseImmCmdList = Option.Flags.UseImmCmdList;
+  Batch.UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
   if (Batch.CmdList != nullptr)
     return;
 
   // Requires initialization
   if (Batch.UseImmCmdList) {
-    ze_command_queue_desc_t QueueDesc = {
-      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-      ComputeOrdinals[DeviceId].first, 0, 0,
-      ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-    };
-    CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                     &QueueDesc, &Batch.CmdList);
+    Batch.CmdList = createImmCmdList(DeviceId);
 
     // Event pool with a single event needs to be initialized
     ze_event_pool_desc_t PoolDesc = {
@@ -4779,31 +5156,11 @@ void RTLDeviceInfoTy::endKernelBatch(int32_t DeviceId) {
 
 void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
   // Initialize immediate command list
-  ze_command_queue_desc_t QueueDesc = {
-    ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-    ComputeOrdinals[DeviceId].first, ComputeIndices[DeviceId], 0,
-    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-  };
-  ze_command_list_handle_t CmdList;
-  CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                   &QueueDesc, &CmdList);
-  ImmCmdLists[DeviceId] = CmdList;
-  DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
-     ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList),
-     QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[DeviceId].c_str());
+  ImmCmdLists[DeviceId] = createImmCmdList(DeviceId);
   // For subdevices
-  for (auto &SubLevel : SubDeviceIds[DeviceId]) {
-    for (auto SubId : SubLevel) {
-      QueueDesc.ordinal = ComputeOrdinals[SubId].first;
-      QueueDesc.index = ComputeIndices[SubId];
-      CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[SubId],
-                       &QueueDesc, &CmdList);
-      ImmCmdLists[SubId] = CmdList;
-      DP("Created an IMM command list " DPxMOD " (Ordinal: %" PRIu32
-         ", Index: %" PRIu32 ") for internal device %s.\n", DPxPTR(CmdList),
-         QueueDesc.ordinal, QueueDesc.index, DeviceIdStr[SubId].c_str());
-    }
-  }
+  for (auto &SubLevel : SubDeviceIds[DeviceId])
+    for (auto SubId : SubLevel)
+      ImmCmdLists[SubId] = createImmCmdList(SubId);
 }
 
 /// Return the internal device ID for the specified subdevice
@@ -4948,18 +5305,21 @@ int32_t RTLDeviceInfoTy::findDevices() {
   DP("Found %" PRIu32 " root devices, %" PRIu32 " total devices.\n",
      NumRootDevices, NumDevices);
   DP("List of devices (DeviceID[.SubID[.CCSID]])\n");
-  for (auto &Str : DeviceIdStr)
+  for (auto &Str : DeviceIdStr) {
     DP("-- %s\n", Str.c_str());
+    (void)Str; // silence warning
+  }
 
   if (DebugLevel > 0)
     reportDeviceInfo();
 
   // Prepare space for internal data
   Programs.resize(NumDevices);
-  KernelProperties.resize(NumDevices);
   Initialized.resize(NumDevices);
   Context = createContext(Driver);
+#if INTEL_CUSTOMIZATION
   NumActiveKernels.resize(NumRootDevices, 0);
+#endif // INTEL_CUSTOMIZATION
   BatchCmdQueues.resize(NumRootDevices);
   ImmCmdLists.resize(NumDevices);
   GlobalModules.resize(NumDevices);
@@ -4976,8 +5336,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
   CALL_ZE_RET_ZERO(zeDriverGetApiVersion, Driver, &DriverAPIVersion);
   DP("Driver API version is %" PRIx32 "\n", DriverAPIVersion);
 
+#if INTEL_CUSTOMIZATION
   // Supported interop properties
   L0Interop::printInteropProperties();
+#endif // INTEL_CUSTOMIZATION
 
   // Check driver extensions.
   uint32_t NumExtensions = 0;
@@ -4989,32 +5351,36 @@ int32_t RTLDeviceInfoTy::findDevices() {
     CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
                      &NumExtensions, Extensions.data());
     DP("Found driver extensions:\n");
-    for (auto &E : Extensions)
+    for (auto &E : Extensions) {
       DP("-- %s\n", E.name);
+      (void)E; // silence warning
+    }
   }
 
-  // Look up GITS notification function
   ze_result_t Rc;
+#if INTEL_CUSTOMIZATION
+  // Look up GITS notification function
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
   if (Rc != ZE_RESULT_SUCCESS)
     GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // Look up Driver Import and Release  External Pointer
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverImportExternalPointer", &RegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
-     RegisterHostPointer = nullptr;
+    RegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
   if (Rc != ZE_RESULT_SUCCESS)
-     UnRegisterHostPointer = nullptr;
+    UnRegisterHostPointer = nullptr;
 
   CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
           "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
   if (Rc != ZE_RESULT_SUCCESS)
-     GetHostPointerBaseAddress  = nullptr;
+    GetHostPointerBaseAddress  = nullptr;
 
   return NumRootDevices;
 }
@@ -5045,6 +5411,7 @@ void RTLDeviceInfoTy::reportDeviceInfo() {
     DP("-- Global memory size (bytes)   : %" PRIu64 "\n", MPR.totalSize);
     DP("-- Cache size (bytes)           : %" PRIu64 "\n", MCPR.cacheSize);
     DP("-- Max clock frequency (MHz)    : %" PRIu32 "\n", DPR.coreClockRate);
+    (void)CPR; (void)MPR; (void)MCPR; (void)NumEUs; // silence warning
   }
 }
 
@@ -5052,10 +5419,23 @@ void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
   auto Device = Devices[DeviceId];
   bool SupportsLargeMem = DriverAPIVersion >= ZE_API_VERSION_1_1;
   if (MemAllocator.count(Device) == 0) {
+    uint32_t Ordinal = ComputeOrdinals[DeviceId].first;
+    auto &IdStr = DeviceIdStr[DeviceId];
+    // Use synchronous compute queue to simplify implementation as we do
+    // not expect large traffic from small memory pool
+    auto CmdList = createCmdList(Context, Device, Ordinal, IdStr);
+    ze_command_queue_handle_t CmdQueue = nullptr;
+    ze_command_queue_desc_t QDesc {
+      ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr, Ordinal, 0, 0,
+      ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL
+    };
+    CALL_ZE_RET_VOID(zeCommandQueueCreate, Context, Device, &QDesc, &CmdQueue);
     MemAllocator.emplace(std::piecewise_construct,
                          std::forward_as_tuple(Device),
-                         std::forward_as_tuple(Context, Device, Option,
-                                               SupportsLargeMem));
+                         std::forward_as_tuple(Context, Device, CmdList,
+                                               CmdQueue, Option,
+                                               SupportsLargeMem,
+                                               false/* IsHostMem */));
   }
   if (MemAllocator.count(nullptr) == 0) {
     // Also initialize host memory allocator if it is not initialized already
@@ -5063,10 +5443,12 @@ void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
     // devices.
     MemAllocator.emplace(std::piecewise_construct,
                          std::forward_as_tuple(nullptr),
-                         std::forward_as_tuple(Context, Device, Option,
-                                               SupportsLargeMem, true));
+                         std::forward_as_tuple(Context, Device, nullptr,
+                                               nullptr, Option,
+                                               SupportsLargeMem,
+                                               true/* IsHostMem */));
   }
-  if (DeviceId < NumRootDevices && SubDeviceIds[DeviceId].size() > 0) {
+  if (DeviceId < (int32_t)NumRootDevices && SubDeviceIds[DeviceId].size() > 0) {
     for (auto SubId : SubDeviceIds[DeviceId][0])
       initMemAllocator(SubId);
   }
@@ -5095,10 +5477,12 @@ int32_t LevelZeroProgramTy::addModule(
     return OFFLOAD_SUCCESS;
 
   std::string BuildOptions(CommonBuildOptions);
+#if INTEL_CUSTOMIZATION
   // Add required flag to enable dynamic linking. We can do this only if the
   // module does not contain any kernels or globals.
   // FIXME: module build with "-library-compilation" does not work on iGPU now.
   // Keep the device check until XDEPS-3954 is resolved.
+#endif // INTEL_CUSTOMIZATION
   if (IsLibModule)
     BuildOptions += " -library-compilation ";
 
@@ -5794,7 +6178,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     }
   }
 
-  for (auto I = 0; I < NumEntries; I++) {
+  for (size_t I = 0; I < NumEntries; I++) {
     auto Size = Image->EntriesBegin[I].size;
     auto *Name = Image->EntriesBegin[I].name;
 
@@ -5843,6 +6227,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     std::string KernelName(Name);
     auto K = ModuleKernels.find(KernelName);
     if (K == ModuleKernels.end()) {
+#if INTEL_CUSTOMIZATION
       if (Image->EntriesBegin[I].flags & OMP_DECLARE_TARGET_FPTR) {
         // Return device function ptr for entires marked as
         // OMP_DECLARE_TARGET_FPTR and inherit flags from the host entry.
@@ -5851,7 +6236,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
         DP("Returning device function pointer " DPxMOD
            " for host function pointer " DPxMOD "\n",
            DPxPTR(Entries[I].addr), DPxPTR(Image->EntriesBegin[I].addr));
-      } else {
+      } else
+#endif // INTEL_CUSTOMIZATION
+      {
         // If a kernel was deleted by optimizations (e.g. DCE), then
         // zeCreateKernel will fail. We expect that such a kernel
         // will never be actually invoked.
@@ -5870,9 +6257,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
       return OFFLOAD_FAIL;
     }
 
-    // Retrieve kernel properties
-    auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
-    KernelProperties.Name = Name;
+    // Retrieve and cache kernel properties.
+    auto &KernelPR = DeviceInfo->getKernelProperties(Kernels[I]);
+    KernelPR.Name = Name;
     ze_kernel_properties_t KP{ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, nullptr};
 #ifndef _WIN32
     // TODO: enable on Windows when this becomes buildable
@@ -5883,32 +6270,33 @@ int32_t LevelZeroProgramTy::buildKernels() {
 #endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
     if (DeviceInfo->Option.ForcedKernelWidth > 0) {
-      KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
+      KernelPR.Width = DeviceInfo->Option.ForcedKernelWidth;
     } else {
-      KernelProperties.SIMDWidth = KP.maxSubgroupSize;
-      KernelProperties.Width = KP.maxSubgroupSize;
+      KernelPR.SIMDWidth = KP.maxSubgroupSize;
+      KernelPR.Width = KP.maxSubgroupSize;
       // Here we try to match OpenCL kernel property
       // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
 #ifndef _WIN32
       if (KP.pNext)
-        KernelProperties.Width = KPrefGRPSize.preferredMultiple;
+        KernelPR.Width = KPrefGRPSize.preferredMultiple;
 #endif
       if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
+#if INTEL_CUSTOMIZATION
         // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
-        KernelProperties.Width =
-            (std::max)(KernelProperties.Width, 2 * KernelProperties.SIMDWidth);
+#endif // INTEL_CUSTOMIZATION
+        KernelPR.Width = (std::max)(KernelPR.Width, 2 * KernelPR.SIMDWidth);
       }
     }
-    DP("Kernel %" PRIu32 ": Entry = " DPxMOD ", Name = %s, "
+    DP("Kernel %zu: Entry = " DPxMOD ", Name = %s, "
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,
        DPxPTR(Image->EntriesBegin[I].addr), Image->EntriesBegin[I].name,
        KP.numKernelArgs, DPxPTR(Kernels[I]));
 #if 0
     // Enable this with 0.95.55 Level Zero.
-    KernelProperties.MaxThreadGroupSize =
+    KernelPR.MaxThreadGroupSize =
         kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
 #else
-    KernelProperties.MaxThreadGroupSize =
+    KernelPR.MaxThreadGroupSize =
         (std::numeric_limits<uint32_t>::max)();
 #endif
   }
@@ -5920,6 +6308,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 /// High-level description of new dynamic memory allocator.
 /// We use a list of heaps each of which can serve 6 different allocation sizes
 /// and list of block descriptors that store the state of each blocks in the
@@ -6079,6 +6468,7 @@ int32_t LevelZeroProgramTy::resetProgramData() {
                                     sizeof(PGMData), nullptr /* Timer */,
                                     true /* Locked */);
 }
+#endif // INTEL_CUSTOMIZATION
 
 ///
 /// Common plugin interface
@@ -6114,10 +6504,11 @@ int32_t __tgt_rtl_number_of_devices() {
   if (NumDevices <= 0)
     return 0;
 
-  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP)
+  if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP) {
     DP("Returning %" PRIu32 " top-level devices\n", NumDevices);
-  else
+  } else {
     DP("Returning %" PRIu32 " devices including sub-devices\n", NumDevices);
+  }
 
   return NumDevices;
 }
@@ -6132,12 +6523,14 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->initMemAllocator(DeviceId);
 
+#if INTEL_CUSTOMIZATION
   // Create command queue early to address performance regression reported in
   // CMPLRLIBS-33758.
+#endif // INTEL_CUSTOMIZATION
   auto Q = DeviceInfo->getCmdQueue(DeviceId);
   (void)Q;
 
-  if (DeviceInfo->Option.Flags.UseImmCmdList)
+  if (DeviceInfo->Option.UseImmCmdList > 0)
     DeviceInfo->initImmCmdList(DeviceId);
 
   for (auto &SubIds : DeviceInfo->SubDeviceIds[DeviceId])
@@ -6146,10 +6539,12 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->Initialized[DeviceId] = true;
 
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
                 DeviceInfo->DeviceProperties[DeviceId].name,
                 DeviceInfo->Devices[DeviceId],
                 omptLookupEntries, OmptDocument);
+#endif // INTEL_CUSTOMIZATION
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -6164,6 +6559,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
 
   DP("Expecting to have %zu entries defined\n", NumEntries);
+  (void)NumEntries; // silence warning
 
   auto &Option = DeviceInfo->Option;
   std::string CompilationOptions(Option.CompilationOptions + " " +
@@ -6192,21 +6588,15 @@ __tgt_target_table *__tgt_rtl_load_binary(
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
   RC = Program.initProgramData();
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   auto *Table = Program.getTablePtr();
 
-  // Handle subdevice clause
-  if ((uint32_t)DeviceId < DeviceInfo->NumRootDevices) {
-    for (auto &SubIdList : DeviceInfo->SubDeviceIds[DeviceId])
-      for (auto SubId : SubIdList)
-        // Use root module while copying kernel properties from root.
-        DeviceInfo->KernelProperties[SubId] =
-            DeviceInfo->KernelProperties[DeviceId];
-  }
-
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
                 "" /* filename */,
                 -1 /* offset_in_file */,
@@ -6215,6 +6605,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
                 Table->EntriesBegin /* host_addr */,
                 nullptr /* device_addr */,
                 0 /* module_id */);
+#endif // INTEL_CUSTOMIZATION
 
   return Table;
 }
@@ -6260,9 +6651,11 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
                                 void *DstPtr, int64_t Size) {
+#if INTEL_CUSTOMIZATION
   // TODO: D2D copy with copy engine is slower than using the default queue as
   // reported in CMPLRLIBS-33721. Use the default queue for now until we find
   // different result.
+#endif // INTEL_CUSTOMIZATION
   auto cmdList = DeviceInfo->getCmdList(DstId);
   auto cmdQueue = DeviceInfo->getCmdQueue(DstId);
 
@@ -6279,11 +6672,13 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
+#if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
     if (Batch.isActive())
       return Batch.enqueueMemFree(DeviceId, TgtPtr);
   }
+#endif // INTEL_CUSTOMIZATION
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
@@ -6323,21 +6718,18 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
 int32_t __tgt_rtl_supports_empty_images() { return 1; }
 
-#ifdef _WIN32
 EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
   static std::once_flag Flag;
   std::call_once(Flag, deinit);
   return OFFLOAD_SUCCESS;
 }
-#endif // _WIN32
-
 
 ///
 /// Extended plugin interface
 ///
 
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase, int32_t DedicatedPool) {
+                                void *HstBase, int32_t AllocOpt) {
   intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   int64_t AllocSize = Size;
   if (Offset < 0) {
@@ -6354,7 +6746,7 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
   }
   return DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, TARGET_ALLOC_DEFAULT,
                                Offset, false/* UserAlloc */, false/* Owned */,
-                               UINT32_MAX/* MemAdvice */, DedicatedPool);
+                               UINT32_MAX/* MemAdvice */, AllocOpt);
 }
 
 void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
@@ -6451,11 +6843,12 @@ void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
 
 int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
   // Unsupported subdevice request is ignored
-  if (!isValidSubDevice(DeviceIds))
+  if (!isValidSubDevice(DeviceIds)) {
     DP("Warning: Invalid subdevice encoding " DPxMOD " is ignored\n",
        DPxPTR(DeviceIds));
-  else
+  } else {
     DeviceInfo->setSubDeviceCode(DeviceIds);
+  }
   return OFFLOAD_SUCCESS;
 }
 
@@ -6489,6 +6882,7 @@ int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   return ret;
 }
 
+#if INTEL_CUSTOMIZATION
 __tgt_interop *__tgt_rtl_create_interop(
     int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
     int32_t *PreferIDs) {
@@ -6508,9 +6902,27 @@ __tgt_interop *__tgt_rtl_create_interop(
 
   ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
     auto L0 = static_cast<L0Interop::Property *>(ret->RTLProperty);
-    L0->CommandQueue = static_cast<ze_command_queue_handle_t>(ret->TargetSync);
+    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+      ze_command_queue_desc_t QueueDesc = {
+        ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, 
+        nullptr,
+        getComputeOrdinal(DeviceInfo->Devices[DeviceId]).first,
+        DeviceInfo->ComputeIndices[DeviceId], 
+        0,
+        ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, 
+        ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+      };
+      ze_command_list_handle_t CmdList;
+      CALL_ZE_EXIT_FAIL(zeCommandListCreateImmediate, DeviceInfo->Context,
+                        DeviceInfo->Devices[DeviceId], &QueueDesc, &CmdList);
+      ret->TargetSync = CmdList;
+      L0->ImmCmdList = CmdList;
+    } else {
+      ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
+      L0->CommandQueue = 
+          static_cast<ze_command_queue_handle_t>(ret->TargetSync);
+    }
   }
 
   // Currently we only support prefer-type level0 and sycl
@@ -6533,17 +6945,27 @@ __tgt_interop *__tgt_rtl_create_interop(
 }
 
 int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
-  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
-      Interop->FrId != L0Interop::FrId) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId) {
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
 
+  // Call  sycl wrapper delete if it was a sycl object
+  if (Interop->FrId == 4)
+    L0Interop::SyclWrapper.delete_sycl_interop(Interop);
+
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    auto cmdQueue = L0->CommandQueue;
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
+    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+      auto immCmdList = L0->ImmCmdList;
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0,
+                       nullptr);
+      CALL_ZE_RET_FAIL(zeCommandListDestroy, immCmdList);
+    } else {
+      auto cmdQueue = L0->CommandQueue;
+      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+      CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
+    }
   }
 
   delete L0;
@@ -6553,17 +6975,21 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
 }
 
 int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
-  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
-      Interop->FrId != L0Interop::FrId) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId){
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+      auto immCmdList = L0->ImmCmdList;
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
+    } else {
+      auto cmdQueue = L0->CommandQueue;
+      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    }
   }
-
   return OFFLOAD_SUCCESS;
 }
 
@@ -6586,7 +7012,8 @@ int32_t __tgt_rtl_get_interop_property_value(
   switch (Ipr) {
   case L0Interop::device_num_eus:
     if (ValueType == OMP_IPR_VALUE_INT)
-      *static_cast<intptr_t *>(Value) = DeviceProperties.numEUsPerSubslice *
+      *static_cast<intptr_t *>(Value) =
+          static_cast<intptr_t>(DeviceProperties.numEUsPerSubslice) *
           DeviceProperties.numSubslicesPerSlice *
           DeviceProperties.numSlices;
     else
@@ -6672,6 +7099,7 @@ const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId, int32_t RetCode) {
   // TODO: decide implementation-defined return code.
   return nullptr;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_get_num_sub_devices(int32_t DeviceId, int32_t Level) {
   int32_t ret = 0;
@@ -6702,6 +7130,7 @@ int32_t __tgt_rtl_is_accessible_addr_range(int32_t DeviceId, const void *Ptr,
     return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_notify_indirect_access(int32_t DeviceId, const void *Ptr,
                                          size_t Offset) {
   using FnTy = void(*)(void *, uint32_t, size_t *);
@@ -6714,6 +7143,7 @@ int32_t __tgt_rtl_notify_indirect_access(int32_t DeviceId, const void *Ptr,
   }
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_is_private_arg_on_host(
     int32_t DeviceId, const void *TgtEntryPtr, uint32_t Idx) {
@@ -6733,6 +7163,7 @@ int32_t __tgt_rtl_is_private_arg_on_host(
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_command_batch_begin(int32_t DeviceId, int32_t BatchLevel) {
   // Do not try command batching in these cases
   // -- Integrated devices
@@ -6756,6 +7187,7 @@ int32_t __tgt_rtl_command_batch_end(int32_t DeviceId, int32_t BatchLevel) {
 
   return getTLS()->getCommandBatch().end();
 }
+#endif // INTEL_CUSTOMIZATION
 
 void __tgt_rtl_kernel_batch_begin(int32_t DeviceId, uint32_t MaxKernels) {
   DeviceInfo->beginKernelBatch(DeviceId, MaxKernels);
@@ -6765,6 +7197,7 @@ void __tgt_rtl_kernel_batch_end(int32_t DeviceId) {
   DeviceInfo->endKernelBatch(DeviceId);
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_set_function_ptr_map(
     int32_t DeviceId, uint64_t Size,
     const __omp_offloading_fptr_map_t *FnPtrs) {
@@ -6860,6 +7293,7 @@ void *__tgt_rtl_alloc_per_hw_thread_scratch(
 void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
                                   size_t InfoSize, void *InfoValue,
@@ -6869,11 +7303,12 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   auto &MemProp = DeviceInfo->MemoryProperties[DeviceId];
   auto &CacheProp = DeviceInfo->CacheProperties[DeviceId];
   auto &IDStr = DeviceInfo->DeviceIdStr[DeviceId];
-  void *InfoSrc = nullptr;
+  const void *InfoSrc = nullptr;
   size_t SizeRet = 0;
   int32_t TileID = 0;
   int32_t CCSID = 0;
   uint32_t NumEUs = 0;
+  const char *PlugInName = GETNAME(level_zero);
 
   auto IDStrToSubID = [&IDStr](uint32_t Level) {
     std::vector<int32_t> IDs;
@@ -6951,6 +7386,10 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
     InfoSrc = &DeviceProp.coreClockRate;
     SizeRet = sizeof(uint32_t);
     break;
+  case ompx_devinfo_plugin_name:
+    InfoSrc = PlugInName;
+    SizeRet = strlen(PlugInName) + 1;
+    break;
   default:
     DP("Unknown device info requested\n");
     return OFFLOAD_FAIL;
@@ -6963,7 +7402,7 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
       DP("Cannot copy device info due to insufficient output buffer\n");
       return OFFLOAD_FAIL;
     }
-    std::copy_n(static_cast<char *>(InfoSrc), SizeRet,
+    std::copy_n(static_cast<const char *>(InfoSrc), SizeRet,
                 static_cast<char *>(InfoValue));
   } else {
     return OFFLOAD_FAIL;
@@ -7046,4 +7485,69 @@ int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
 
   return OFFLOAD_SUCCESS;
 }
-#endif // INTEL_CUSTOMIZATION
+
+int32_t __tgt_rtl_flush_queue (__tgt_interop *Interop)
+{
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+
+   // We only need to flush SYCL objects
+   // and only if immediate command list are not being used
+   // and the user didn't disable SYCL flushes
+   if ( !DeviceInfo->Option.Flags.UseInteropImmCmdList &&
+        !DeviceInfo->Option.Flags.NoSYCLFlush &&
+	 Interop->FrId == 4 && Interop->TargetSync  ) {
+     return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
+   }
+
+   return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_sync_barrier (__tgt_interop *Interop)
+{
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+
+   // We can syncronize both L0 & SYCL objects with the same ze command
+   if (Interop->TargetSync) {
+     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+     auto cmdQueue = L0->CommandQueue;
+     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+   }
+
+   return OFFLOAD_SUCCESS;
+}
+ 
+int32_t __tgt_rtl_async_barrier (__tgt_interop *Interop)
+{
+   if (!Interop) {
+     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+     return OFFLOAD_FAIL;
+   }
+   // use a SYCL barrier for SYCL objects unless immediate command lists
+   // are being used
+   if ( !DeviceInfo->Option.Flags.UseInteropImmCmdList && Interop->FrId == 4 &&
+	Interop->TargetSync )
+     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
+   else {
+     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+     if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+       auto immCmdList = L0->ImmCmdList;
+       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
+     } else {
+       auto cmdQueue = L0->CommandQueue;
+       ze_command_list_handle_t CmdList = DeviceInfo->getCmdList(Interop->DeviceNum);
+       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
+       CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+       CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists,cmdQueue, 1, &CmdList, nullptr);
+       CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+     }
+   }
+   return OFFLOAD_FAIL;
+}
+
+#endif // INTEL_COLLAB

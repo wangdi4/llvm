@@ -1,4 +1,3 @@
-; RUN: opt < %s -dope-vector-local-const-prop=false -opaque-pointers -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 ; RUN: opt < %s -dope-vector-local-const-prop=false -opaque-pointers -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN

@@ -1,12 +1,10 @@
-; This test checks that the Andersen's analysis identifies that %struct.A and
-; %struct.A.01 are similar structures, but the indirect call convention runs
-; when the limit of targets is reached. The goal of this test is to make sure
-; that the targets with the same type as @fptr (@sub_fun and @mult_fun) are
-; converted into a direct call, and the fallback case is generated since
-; @add_fun is a similar type. The limit for direct calls is set to 2, therefore
-; there will be 2 direct calls.
+; This test verifies that the targets with the same type as @fptr (@sub_fun
+; and @mult_fun) are converted into a direct call, and the fallback case is
+; generated since type of @add_fun is same as @fptr if pointers are treated
+; as opaque pointers. @add_fun is considered as potential target function
+; but is not added as possible target since the type of @add_fun is
+; not same as @fptr.
 
-; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -anders-aa -indirectcallconv %s | FileCheck %s
 ; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -110,7 +110,7 @@ llvm::getReplayInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                   WholeProgramInfo *WPI, InlineCost **IC) {
+                                   WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   assert(HasReplayRemarks);
 
@@ -120,14 +120,8 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   // Decision not made by replay system
   if (!hasInlineAdvice(*CB.getFunction())) {
     // If there's a registered original advisor, return its decision
-#if INTEL_CUSTOMIZATION
-    if (OriginalAdvisor) {
-      auto UP = OriginalAdvisor->getAdvice(CB, ILIC, WPI, IC);
-      if (IC)
-        *IC = UP->getInlineCost();
-      return UP;
-    }
-#endif // INTEL_CUSTOMIZATION
+    if (OriginalAdvisor)
+      return OriginalAdvisor->getAdvice(CB, ILIC, WPI);
 
     // If no decision is made above, return non-decision
     return {};
@@ -144,60 +138,42 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
     if (InlineSitesFromRemarks[Combined]) {
       LLVM_DEBUG(dbgs() << "Replay Inliner: Inlined " << Callee << " @ "
                         << CallSiteLoc << "\n");
-#if INTEL_CUSTOMIZATION
-      auto UP = std::make_unique<DefaultInlineAdvice>(
+      return std::make_unique<DefaultInlineAdvice>(
           this, CB, llvm::InlineCost::getAlways("previously inlined"), ORE,
           EmitRemarks);
-      if (IC)
-        *IC = UP->getInlineCost();
-      return UP;
-#endif // INTEL_CUSTOMIZATION
     } else {
       LLVM_DEBUG(dbgs() << "Replay Inliner: Not Inlined " << Callee << " @ "
                         << CallSiteLoc << "\n");
 #if INTEL_CUSTOMIZATION
       // A negative inline is conveyed by "nothing found in replay"
-      auto UP = std::make_unique<DefaultInlineAdvice>(
+      return std::make_unique<DefaultInlineAdvice>(
           this, CB, llvm::InlineCost::getNever("nothing found in replay"), ORE,
           EmitRemarks);
-      if (IC)
-        *IC = UP->getInlineCost();
-      return UP;
 #endif // INTEL_CUSTOMIZATION
     }
   }
 
   // Fallback decisions
-#if INTEL_CUSTOMIZATION
   if (ReplaySettings.ReplayFallback ==
-      ReplayInlinerSettings::Fallback::AlwaysInline) {
-    auto UP = std::make_unique<DefaultInlineAdvice>(
+      ReplayInlinerSettings::Fallback::AlwaysInline)
+    return std::make_unique<DefaultInlineAdvice>(
         this, CB, llvm::InlineCost::getAlways("AlwaysInline Fallback"), ORE,
         EmitRemarks);
-    if (IC)
-      *IC = UP->getInlineCost();
-    return UP;
-  } else if (ReplaySettings.ReplayFallback ==
-           ReplayInlinerSettings::Fallback::NeverInline) {
+  else if (ReplaySettings.ReplayFallback ==
+           ReplayInlinerSettings::Fallback::NeverInline)
+#if INTEL_CUSTOMIZATION
     // A negative inline is conveyed by "nothing found in replay"
-    auto UP = std::make_unique<DefaultInlineAdvice>(
+    return std::make_unique<DefaultInlineAdvice>(
         this, CB, llvm::InlineCost::getNever("nothing found in replay"), ORE,
         EmitRemarks);
-    if (IC)
-      *IC = UP->getInlineCost();
-    return UP;
-  } else {
+  else {
+#endif // INTEL_CUSTOMIZATION
     assert(ReplaySettings.ReplayFallback ==
            ReplayInlinerSettings::Fallback::Original);
     // If there's a registered original advisor, return its decision
-    if (OriginalAdvisor) {
-      auto UP = OriginalAdvisor->getAdvice(CB, ILIC, WPI, IC);
-      if (IC)
-        *IC = UP->getInlineCost();
-      return UP;
-    }
+    if (OriginalAdvisor)
+      return OriginalAdvisor->getAdvice(CB, ILIC, WPI);
   }
-#endif // INTEL_CUSTOMIZATION
 
   // If no decision is made above, return non-decision
   return {};

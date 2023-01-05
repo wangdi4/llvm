@@ -8,7 +8,7 @@
 ;     for(volatile int i = 0; i < 2; ++i) A[i] = i;
 ;   }
 
-; RUN: not opt -S -vplan-vec -transform-warning -vplan-simd-assert-default < %s 2>&1 | FileCheck %s
+; RUN: not opt -S -passes=vplan-vec,transform-warning -vplan-simd-assert-default < %s 2>&1 | FileCheck %s
 ; CHECK: error: {{.*}}: loop not vectorized:
 
 source_filename = "simd_assert.c"

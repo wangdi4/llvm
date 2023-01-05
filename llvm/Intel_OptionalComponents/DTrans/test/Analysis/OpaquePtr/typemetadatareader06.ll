@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -opaque-pointers -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
 
 ; This test checks that the DTrans type metadata reader detects missing

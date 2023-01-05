@@ -1,5 +1,4 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -enable-new-pm=0 -dpcpp-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
 
 ; CHECK: warning: Large channel may lead to memory allocation failure:

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S -vplan-vec -debug-only=VPlanHCFGBuilder -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -debug-only=VPlanHCFGBuilder -disable-output < %s 2>&1 | FileCheck %s
 
 ;float fp_inc;
 ;void fp_iv_loop(float init, float * __restrict__ A, int N) {

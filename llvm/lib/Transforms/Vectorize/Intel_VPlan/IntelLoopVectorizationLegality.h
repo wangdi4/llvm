@@ -38,7 +38,7 @@ class Function;
 namespace vpo {
 class VPOVectorizationLegality;
 extern bool ForceComplexTyReductionVec;
-extern bool ForceInscanReductionVec;
+extern bool ForceUDSReductionVec;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -61,14 +61,9 @@ public:
     // Loop entities framework does not support array reductions idiom. Bailout
     // to prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
     ArrayReduction,
-    // Loop entities framework does not support nonPOD [last]privates array.
-    // Bailout to prevent incorrect vector code generatiion.
-    // TODO: CMPLRLLVM-30686.
-    ArrayLastprivateNonPod,
-    ArrayPrivateNonPod,
     ArrayPrivate,
     UnsupportedReductionOp,
-    InscanReduction,
+    UDSReduction,
     VectorCondLastPrivate, // need CG implementation
   };
 
@@ -83,16 +78,12 @@ public:
       return "F90 dope vector reductions are not supported.\n";
     case BailoutReason::ArrayReduction:
       return "Cannot handle array reductions.\n";
-    case BailoutReason::ArrayLastprivateNonPod:
-      return "Cannot handle nonPOD array lastprivates.\n";
-    case BailoutReason::ArrayPrivateNonPod:
-      return "Cannot handle nonPOD array privates.\n";
     case BailoutReason::ArrayPrivate:
       return "Cannot handle array privates yet.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
-    case BailoutReason::InscanReduction:
-      return "Inscan reduction is not supported.\n";
+    case BailoutReason::UDSReduction:
+      return "UDS reduction is not supported.\n";
     case BailoutReason::VectorCondLastPrivate:
       return "Conditional lastprivate of a vector type is not supported.\n";
     }
@@ -106,9 +97,7 @@ public:
   }
 
   /// Return true if requested to vectorize a loop with inscan reduction.
-  static bool forceInscanReductionVec() {
-    return ForceInscanReductionVec;
-  }
+  static bool forceUDSReductionVec() { return ForceUDSReductionVec; }
 
 protected:
   VectorizationLegalityBase() = default;
@@ -171,34 +160,9 @@ private:
       }
     };
 
-    assert(
-        (std::count_if(WRLp->getChildren().begin(), WRLp->getChildren().end(),
-                       [](const WRegionNode *WRNode) {
-                         return isa<WRNScanNode>(WRNode);
-                       }) <= 1) &&
-        "Not more than one scan region is expected!");
-    DenseMap<uint64_t, InscanReductionKind> InscanReductionMap;
-    // Locate the scan region if present.
-    WRNScanNode *WRScan = nullptr;
-    for (auto WRNode : WRLp->getChildren())
-      if (WRNScanNode *WRSc = dyn_cast<WRNScanNode>(WRNode)) {
-        WRScan = WRSc;
-        break;
-      }
-    if (WRScan) {
-      for (const InclusiveItem *Item : WRScan->getInclusive().items()) {
-        InscanReductionMap.insert(
-            {Item->getInscanIdx(), InscanReductionKind::Inclusive});
-      }
-      for (const ExclusiveItem *Item : WRScan->getExclusive().items()) {
-        InscanReductionMap.insert(
-            {Item->getInscanIdx(), InscanReductionKind::Exclusive});
-      }
-    }
-
     for (ReductionItem *Item : WRLp->getRed().items())
       if (!IsSupportedReduction(Item) ||
-          !visitReduction(Item, InscanReductionMap))
+          !visitReduction(Item, WRLp))
         return false;
     return true;
   }
@@ -274,8 +238,6 @@ private:
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      if (isa<ArrayType>(Type) || NumElements)
-        return bailout(BailoutReason::ArrayPrivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
                      nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
                      Item->getIsF90NonPod());
@@ -302,8 +264,6 @@ private:
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      if (isa<ArrayType>(Type) || NumElements)
-        return bailout(BailoutReason::ArrayLastprivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
                      Item->getCopyAssign(), PrivateKindTy::Last,
                      Item->getIsF90NonPod());
@@ -342,18 +302,16 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
-    addLinear(Val, Type, PointeeTy, Step);
+    bool IsIV = Item->getIsIV();
+    addLinear(Val, Type, PointeeTy, Step, IsIV);
   }
 
   /// Register explicit reduction variable
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item,
-                      DenseMap<uint64_t, InscanReductionKind> &InscanMap) {
+                      const WRNVecLoopNode *WRLp) {
     if (!forceComplexTyReductionVec() && Item->getIsComplex())
       return bailout(BailoutReason::ComplexTyReduction);
-
-    if (!forceInscanReductionVec() && Item->getIsInscan())
-      return bailout(BailoutReason::InscanReduction);
 
     Type *Type = nullptr;
     Value *NumElements = nullptr;
@@ -361,21 +319,54 @@ private:
         VPOParoptUtils::getItemInfo(Item);
     assert(Type && "Missed OMP clause item type!");
 
-    if (isa<ArrayType>(Type) || NumElements)
+    Type = adjustTypeIfArray(Type, NumElements);
+    // Bailout for unknown array size.
+    if (!Type)
       return bailout(BailoutReason::ArrayReduction);
+
+    // Other temporary bailouts for array reductions.
+    if (auto *ArrTy = dyn_cast<ArrayType>(Type)) {
+      // Prototype supported only for POD type arrays.
+      Type = ArrTy->getElementType();
+      if (!Type->isSingleValueType())
+        return bailout(BailoutReason::ArrayReduction);
+
+      // VPEntities framework can only handle single-element allocas. This check
+      // works for both LLVM-IR and HIR.
+      if (cast<AllocaInst>(Item->getOrig())->isArrayAllocation())
+        return bailout(BailoutReason::ArrayReduction);
+    }
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
-    // Capture functions for init/finalization for UDRs.
+
+    if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
+        Item->getIsInscan())
+      return bailout(BailoutReason::UDSReduction);
+
     if (Kind == RecurKind::Udr) {
+      // Check for UDR and inscan flags, that would make this UDS.
+      Optional<InscanReductionKind> InscanRedKind = std::nullopt;
+      if (Item->getIsInscan()) {
+        InscanRedKind =
+            isa<InclusiveItem>(
+                WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp,
+                                                                        Item))
+                ? InscanReductionKind::Inclusive
+                : InscanReductionKind::Exclusive;
+      }
+      // Capture functions for init/finalization for UDRs.
       addReduction(Val, Item->getCombiner(), Item->getInitializer(),
-                   Item->getConstructor(), Item->getDestructor());
+                   Item->getConstructor(), Item->getDestructor(),
+                   InscanRedKind);
     } else if (Item->getIsInscan()) {
-      assert(InscanMap.count(Item->getInscanIdx()) &&
-             "The inscan item must be present in the separating pragma");
-      addReduction(Val, Kind, InscanMap[Item->getInscanIdx()]);
+      // Add an ordinary inscan reduction.
+      addReduction(Val, Kind, isa<InclusiveItem>(
+          WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp, Item)) ?
+                   InscanReductionKind::Inclusive :
+                   InscanReductionKind::Exclusive);
     } else
-      addReduction(Val, Kind, None);
+      addReduction(Val, Kind, std::nullopt);
     return true;
   }
 
@@ -395,9 +386,10 @@ private:
                                                            IsF90);
   }
 
-  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step) {
+  void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step,
+                 bool IsIV) {
     return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, PointeeType,
-                                                      Step);
+                                                      Step, IsIV);
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
@@ -407,9 +399,10 @@ private:
   }
 
   void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
+                    Function *Constr, Function *Destr,
+                    Optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
-        V, Combiner, Initializer, Constr, Destr);
+        V, Combiner, Initializer, Constr, Destr, InscanRedKind);
   }
 };
 
@@ -468,7 +461,7 @@ public:
   using LinearListTy =
       MapVector<Value *,
                 std::tuple<Type * /*EltType*/, Type * /* EltPointeeTy */,
-                           Value * /*Step*/>>;
+                           Value * /*Step*/, bool /*IsIV*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -675,10 +668,10 @@ private:
 
   /// Add linear value to Linears map
   void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
-                 Value *StepValue) {
+                 Value *StepValue, bool IsIV) {
     assert(TheLoop->isLoopInvariant(StepValue) &&
            "Unexpected step value in linear clause");
-    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue);
+    Linears[LinearVal] = std::make_tuple(EltTy, EltPointeeTy, StepValue, IsIV);
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
@@ -688,13 +681,15 @@ private:
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
   void addReduction(Value *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
-    UserDefinedReductions.emplace_back(
-        std::make_unique<UDRDescrTy>(V, Combiner, Initializer, Constr, Destr));
+                    Function *Constr, Function *Destr,
+                    Optional<InscanReductionKind> InscanRedKind) {
+    UserDefinedReductions.emplace_back(std::make_unique<UDRDescrTy>(
+        V, Combiner, Initializer, Constr, Destr, InscanRedKind));
   }
 
   /// Parsing Min/Max reduction patterns.
-  void parseMinMaxReduction(Value *V, RecurKind Kind);
+  void parseMinMaxReduction(Value *V, RecurKind Kind,
+                            Optional<InscanReductionKind> InscanRedKind);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
                            Optional<InscanReductionKind> InscanRedKind);

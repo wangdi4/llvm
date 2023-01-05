@@ -7,16 +7,16 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_isunordered ( __global const float *in,
-		__global float8 *out, __global const float8 float8Arg1)
+    __global float8 *out, __global const float8 float8Arg1)
 {
-	int gid = get_global_id(0);
-	out[gid] = convert_float8(isunordered(float8Arg1, FLOAT8_VEC1));
+  int gid = get_global_id(0);
+  out[gid] = convert_float8(isunordered(float8Arg1, FLOAT8_VEC1));
 }

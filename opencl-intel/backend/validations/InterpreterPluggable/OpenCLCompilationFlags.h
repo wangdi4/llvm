@@ -24,7 +24,6 @@ namespace Validation {
 class CompilationFlags {
 
 public:
-
   static unsigned getCLVersionFromMetadata(llvm::Module *M);
   static unsigned getCLVersionFromFlags(const std::string &Flags);
 
@@ -32,6 +31,6 @@ public:
   static bool hasUniformWGSizeFlag(const std::string &Flags);
 };
 
-}
+} // namespace Validation
 
 #endif

@@ -1,4 +1,4 @@
-; RUN: opt -mattr=+avx512f,+avx512vl -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec  -disable-output -debug-only=parvec-analysis -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -hir-details-no-verbose-indent < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>'  -disable-output -debug-only=parvec-analysis -hir-details-no-verbose-indent < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we recognize compress idiom when the increment and store are
 ; not under an if. This can happen if the HIR framework fails to build an if and uses
@@ -13,8 +13,7 @@
 ; CHECK-NEXT:       CEStore: (%neighptr)[%n2.036] = %tjval;
 ; CHECK-NEXT:         CELdStIndex: %n2.036
 ;
-; CHECK-LABEL:    *** IR Dump After HIRVecDirInsertPass ***
-; CHECK-NEXT:     Function: foo
+; CHECK:          Function: foo
 ;
 ; CHECK:          BEGIN REGION { }
 ; CHECK-NEXT:           %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
@@ -38,8 +37,7 @@
 ; CHECK:                @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; CHECK-NEXT:     END REGION
 ;
-; CHECK-LABEL:    *** IR Dump After vpo::VPlanDriverHIRPass ***
-; CHECK-NEXT:     Function: foo
+; CHECK:          Function: foo
 ;
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           %insert = insertelement zeroinitializer,  %n.037,  0;

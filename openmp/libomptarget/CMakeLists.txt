@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -108,7 +108,30 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
+# OMPT support for libomptarget
+# Follow host OMPT support and check if host support has been requested.
+# LIBOMP_HAVE_OMPT_SUPPORT indicates whether host OMPT support has been implemented.
+# LIBOMP_OMPT_SUPPORT indicates whether host OMPT support has been requested (default is ON).
+# LIBOMPTARGET_OMPT_SUPPORT indicates whether target OMPT support has been requested (default is ON). 
+set(OMPT_TARGET_DEFAULT FALSE)
+if ((LIBOMP_HAVE_OMPT_SUPPORT) AND (LIBOMP_OMPT_SUPPORT) AND (NOT WIN32))
+  set (OMPT_TARGET_DEFAULT TRUE)
+endif()
+set(LIBOMPTARGET_OMPT_SUPPORT ${OMPT_TARGET_DEFAULT} CACHE BOOL "OMPT-target-support?")
+if ((OMPT_TARGET_DEFAULT) AND (LIBOMPTARGET_OMPT_SUPPORT))
+  add_definitions(-DOMPT_SUPPORT=1)
+  message(STATUS "OMPT target enabled")
+else()
+  message(STATUS "OMPT target disabled")
+endif()
+
+if (NOT INTEL_CUSTOMIZATION)
+pythonize_bool(LIBOMPTARGET_OMPT_SUPPORT)
+endif(NOT INTEL_CUSTOMIZATION)
+
 set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+message(STATUS "OpenMP tools dir in libomptarget: ${LIBOMP_OMP_TOOLS_INCLUDE_DIR}")
+include_directories(${LIBOMP_OMP_TOOLS_INCLUDE_DIR})
 
 if (INTEL_CUSTOMIZATION)
   if (OPENMP_STANDALONE_BUILD)
@@ -166,7 +189,9 @@ if (INTEL_CUSTOMIZATION)
     get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
     set(LIBOMP_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${LIBOMP_LIB_BASENAME})
     add_custom_target(libomptarget-libiomp-file
-      BYPRODUCTS ${LIBOMP_LIB_FILE}
+      DEPENDS ${LIBOMP_LIB_FILE})
+
+    add_custom_command(OUTPUT ${LIBOMP_LIB_FILE}
       DEPENDS ${LIBOMP_LIB}
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${LIBOMP_LIB}" ${LIBOMP_LIB_FILE}
@@ -238,9 +263,9 @@ add_subdirectory(plugins)
 if(INTEL_CUSTOMIZATION)
 add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
+add_subdirectory(plugins-nextgen)
 add_subdirectory(DeviceRTL)
 endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.
-add_subdirectory(test)

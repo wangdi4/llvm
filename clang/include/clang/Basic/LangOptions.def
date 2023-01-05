@@ -132,6 +132,9 @@ LANGOPT(
 LANGOPT(
     OpenMPDeclareTargetGlobalDefaultMap	, 1, 0,
     "Specify defaultmap for Global variable with declare target attribute")
+LANGOPT(
+    OpenMPUseHostUSMForImpicitReductionMap, 1, 0,
+    "Set USM map type for implicit reduction map")
 
 LANGOPT(KeepImportTemps        , 1, 0,
         "Keep temporary files needed for #import processing")
@@ -209,6 +212,7 @@ LANGOPT(NoBuiltin         , 1, 0, "disable builtin functions")
 LANGOPT(NoMathBuiltin     , 1, 0, "disable math builtin functions")
 LANGOPT(GNUAsm            , 1, 1, "GNU-style inline assembly")
 LANGOPT(Coroutines        , 1, 0, "C++20 coroutines")
+LANGOPT(CoroAlignedAllocation, 1, 0, "prefer Aligned Allocation according to P2014 Option 2")
 LANGOPT(DllExportInlines  , 1, 1, "dllexported classes dllexport inline methods")
 LANGOPT(RelaxedTemplateTemplateArgs, 1, 0, "C++17 relaxed matching of template template arguments")
 LANGOPT(ExperimentalLibrary, 1, 0, "enable unstable and experimental library features")
@@ -291,7 +295,6 @@ LANGOPT(OpenCLGenericAddressSpace, 1, 0, "OpenCL generic keyword")
 LANGOPT(OpenCLPipes              , 1, 0, "OpenCL pipes language constructs and built-ins")
 LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
 LANGOPT(NativeHalfArgsAndReturns, 1, 0, "Native half args and returns")
-LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")
 LANGOPT(CUDA              , 1, 0, "CUDA")
 LANGOPT(HIP               , 1, 0, "HIP")
 LANGOPT(OpenMP            , 32, 0, "OpenMP support and version of OpenMP (31, 40 or 45)")
@@ -361,6 +364,7 @@ LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vecto
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(SYCLStdLayoutKernelParams, 1, 0, "Enable standard layout requirement for SYCL kernel parameters")
 LANGOPT(SYCLUnnamedLambda , 1, 0, "Allow unnamed lambda SYCL kernels")
+LANGOPT(SYCLForceInlineKernelLambda , 1, 0, "Force inline SYCL kernel lambdas in entry point")
 LANGOPT(SYCLESIMDForceStatelessMem, 1, 0, "Make accessors use USM memory in ESIMD kernels")
 ENUM_LANGOPT(SYCLVersion  , SYCLMajorVersion, 2, SYCL_None, "Version of the SYCL standard used")
 LANGOPT(DeclareSPIRVBuiltins, 1, 0, "Declare SPIR-V builtin functions")
@@ -374,6 +378,8 @@ LANGOPT(
 LANGOPT(SYCLDisableRangeRounding, 1, 0, "Disable parallel for range rounding")
 LANGOPT(SYCLEnableIntHeaderDiags, 1, 0, "Enable diagnostics that require the "
         "SYCL integration header")
+LANGOPT(SYCLAllowVirtualFunctions, 1, 0,
+        "Allow virtual functions calls in code for SYCL device")
 
 LANGOPT(HIPUseNewLaunchAPI, 1, 0, "Use new kernel launching API for HIP")
 
@@ -531,7 +537,10 @@ LANGOPT(PaddingOnUnsignedFixedPoint, 1, 0,
 LANGOPT(RegisterStaticDestructors, 1, 1, "Register C++ static destructors")
 
 LANGOPT(MatrixTypes, 1, 0, "Enable or disable the builtin matrix type")
-LANGOPT(StrictFlexArrays, 2, 0, "Rely on strict definition of flexible arrays")
+
+ENUM_LANGOPT(StrictFlexArraysLevel, StrictFlexArraysLevelKind, 2,
+             StrictFlexArraysLevelKind::Default,
+             "Rely on strict definition of flexible arrays")
 
 COMPATIBLE_VALUE_LANGOPT(MaxTokens, 32, 0, "Max number of tokens per TU or 0")
 
@@ -567,6 +576,11 @@ VALUE_LANGOPT(FuchsiaAPILevel, 32, 0, "Fuchsia API level")
 // supports all operations (like division or float-to-integer conversion)
 // on large _BitInts.
 BENIGN_VALUE_LANGOPT(MaxBitIntWidth, 32, 128, "Maximum width of a _BitInt")
+
+LANGOPT(IncrementalExtensions, 1, 0, " True if we want to process statements"
+        "on the global scope, ignore EOF token and continue later on (thus "
+        "avoid tearing the Lexer and etc. down). Controlled by "
+        "-fincremental-extensions.")
 
 #undef LANGOPT
 #undef COMPATIBLE_LANGOPT

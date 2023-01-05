@@ -364,6 +364,10 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
           !getDepend().empty() || getDepArray()) &&
          "taskwait construct cannot have a nowait clause without a depend "
          "clause.");
+
+  // Assert if a construct has multiple Detach clauses.
+  if (canHaveDetach())
+    assert(getDetach().size() < 2 && "There should be only 1 Detach clause.");
 }
 
 // Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -549,6 +553,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
+
+  if (canHaveDetach())
+    PrintedSomething |= getDetach().print(OS, Depth, Verbosity);
 
   if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
@@ -960,12 +967,14 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
-    if (ClauseInfo.getIsArraySection())
-      // TODO: OPAQUEPOINTER: Need typed use_device_addr/has_device_addr
-      // to handle array sections?
+    if (ClauseInfo.getIsArraySection()) {
+      // With opaque pointers, the frontend should convert a
+      // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
-        if (isa<PointerType>(PtrTy->getPointerElementType()))
+        if (!PtrTy->isOpaquePointerTy() &&
+            isa<PointerType>(PtrTy->getNonOpaquePointerElementType()))
           IsPointerToPointer = true;
+    }
   } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
@@ -1000,7 +1009,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
               ClauseID == QUAL_OMP_SHARED ||
               ClauseID == QUAL_OMP_USE_DEVICE_PTR ||
-              ClauseID == QUAL_OMP_USE_DEVICE_ADDR) &&
+              ClauseID == QUAL_OMP_USE_DEVICE_ADDR ||
+              ClauseID == QUAL_OMP_DETACH) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");
@@ -1344,13 +1354,13 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
     DI->setIsIn(IsIn);
     DI->setIsByRef(ClauseInfo.getIsByRef());
     if (IsArraySection)
-      DI->setArraySectionOffset(Args[3]);
+      DI->setArraySectionOffsetFromIR(Args[3]);
 
     // FIXME: ArraySectionInfo should be removed, when we switch
     //        to TYPED clauses completely.
     ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
     ArrSecInfo.setSize(DI->getNumElements());
-    ArrSecInfo.setOffset(DI->getArraySectionOffset());
+    ArrSecInfo.setOffset(DI->getArraySectionOffsetFromIR());
     ArrSecInfo.setElementType(DI->getOrigItemElementTypeFromIR());
 
     // FIXME: set this based on PTR_TO_PTR modifier.
@@ -1504,6 +1514,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsUnsigned(IsUnsigned);
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
+    RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
     if (InscanIdx) {
       RI->setIsInscan(true);
@@ -1522,9 +1533,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       // combiner and initializer at the end.
 
       RI->setIsTyped(true);
-      RI->setOrigItemElementTypeFromIR(Args[1]->getType());
+      Type *Arg1Ty = Args[1]->getType();
+      if (RI->getIsPointerToPointer()) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        RI->setOrigItemElementTypeFromIR(PointerType::get(Arg1Ty, AS));
+        RI->setPointeeElementTypeFromIR(Arg1Ty);
+      } else {
+        RI->setOrigItemElementTypeFromIR(Arg1Ty);
+      }
       RI->setNumElements(Args[2]);
-      RI->setArraySectionOffset(Args[3]);
+      RI->setArraySectionOffsetFromIR(Args[3]);
 
       if (ReductionKind == ReductionItem::WRNReductionUdr) {
         assert(NumArgs == 8 &&
@@ -1560,9 +1579,8 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         RI->setInitializer(
             dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
       }
+      ArrSecInfo.populateArraySectionDims(Args, NumArgs);
     }
-
-    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
@@ -1617,7 +1635,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         } else
 #endif // INTEL_CUSTOMIZATION
         RI->setNumElements(Args[I + 2]);
-        RI->setArraySectionOffset(
+        RI->setArraySectionOffsetFromIR(
             Constant::getNullValue(Type::getInt32Ty(Ctxt)));
         I += 2;
       }
@@ -1802,6 +1820,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(), IsIn);
     break;
   }
+  case QUAL_OMP_DETACH: {
+    assert(ClauseInfo.getIsTyped() &&
+           "Expected TYPED arguments with the Detach clause.");
+    extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo, getShared());
+    break;
+  }
   case QUAL_OMP_DEPARRAY:
     assert(NumArgs == 2 && "Expected 2 operands in DEPARRAY qual");
     setDepArrayNumDeps(Args[0]);
@@ -1850,6 +1874,23 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_IS_DEVICE_PTR: {
     extractQualOpndList<IsDevicePtrClause>(Args, NumArgs, ClauseInfo,
                                            getIsDevicePtr());
+    break;
+  }
+  case QUAL_OMP_NEED_DEVICE_PTR: {
+    NeedDevicePtrSet *NDP;
+    if (ClauseInfo.getIsPointerToPointer())
+      NDP = &getNeedDevicePtrToPtr();
+    else
+      NDP = &getNeedDevicePtr();
+
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      assert(isa<ConstantInt>(V) &&
+           "Non-constant argument in need_device_ptr clause.");
+      ConstantInt *CI = cast<ConstantInt>(V);
+      unsigned N = CI->getZExtValue();
+      NDP->insert(N);
+    }
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR:
@@ -2556,6 +2597,15 @@ bool WRegionNode::canHaveDepend() const {
   return false;
 }
 
+bool WRegionNode::canHaveDetach() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveDepSrcSink() const {
   unsigned SubClassID = getWRegionKindID();
   // Only WRNOrderedNode can have a 'depend(src)' or 'depend(sink : vec)'
@@ -2697,6 +2747,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNTarget:
+  case WRNTargetData:
   case WRNTile:
   case WRNGuardMemMotion:
     return true;
@@ -2912,6 +2963,33 @@ void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
     return;
   }
   OS << Num << "\n";
+}
+
+// Auxiliary function to print a set of uint in a WRN dump.
+// If the set is empty:
+//    Verbosity == 0: don't printing anything
+//    Verbosity >= 1: print "Title: UNSPECIFIED"
+void vpo::printSetOfUint(StringRef Title,
+                         const SmallSetVector<unsigned, 8> &Set,
+                         formatted_raw_ostream &OS, int Indent,
+                         unsigned Verbosity) {
+  if (Verbosity==0 && Set.empty())
+    return;
+
+  OS.indent(Indent) << Title << ": ";
+  if (Set.empty()) {
+    OS << "UNSPECIFIED\n";
+    return;
+  }
+  bool First = true;
+  for (unsigned N : Set) {
+    if (First)
+      First = false;
+    else
+      OS << ", ";
+    OS << N;
+  }
+  OS << "\n";
 }
 
 // Auxiliary function to print a boolean in a WRN dump

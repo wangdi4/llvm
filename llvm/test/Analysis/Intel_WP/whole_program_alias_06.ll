@@ -2,7 +2,6 @@
 ; This test checks that the alias @aliasfunc, which aliases @add and @sub, was
 ; resolved since both functions are internal.
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 0

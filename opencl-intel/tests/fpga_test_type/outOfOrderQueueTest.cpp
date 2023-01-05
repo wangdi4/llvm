@@ -60,7 +60,7 @@ protected:
   clSetKernelArgMemPointerINTEL_fn m_clSetKernelArgMemPointerINTEL;
 };
 
-// Small reproducer for CMPLRLLVM-33706, fpga device only
+// Small reproducer, fpga device only
 // Test if there are wrong dependencies for OOO queue. Runtime Command
 // NDRangeKernelCommand is enqueued and then barrier command is enqueued
 // to wait for runtime command finish. Set kernel execution time as long as

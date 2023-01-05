@@ -42,6 +42,7 @@
 #include <cassert>
 #include <climits>
 #include <map>                                // INTEL
+#include <optional>
 
 namespace llvm {
 class AssumptionCache;
@@ -148,94 +149,98 @@ namespace InlineReportTypes {
 /// in InlineCost.cpp.
 ///
 typedef enum {
-   InlrFirst, // Just a marker placed before the first inlining reason
-   InlrNoReason,
-   InlrAlwaysInlineRecursive,
-   InlrAlwaysInline,
-   InlrInlineList,
-   InlrHotProfile,
-   InlrHotCallsite,
-   InlrHotCallee,
-   InlrRecProClone,
-   InlrHasExtractedRecursiveCall,
-   InlrSingleLocalCall,
-   InlrSingleBasicBlock,
-   InlrSingleBasicBlockWithTest,
-   InlrSingleBasicBlockWithStructTest,
-   InlrEmptyFunction,
-   InlrDoubleLocalCall,
-   InlrDoubleNonLocalCall,
-   InlrVectorBonus,
-   InlrAggInline,
-   InlrDTransInline,
-   InlrForFusion,
-   InlrDeeplyNestedIfs,
-   InlrAddressComputations,
-   InlrStackComputations,
-   InlrPreferPartialInline,
-   InlrPassedDummyArgs,
-   InlrArrayStructArgs,
-   InlrPreferTileChoice,
-   InlrManyRecursiveCallsSplitting,
-   InlrHasSmallAppBudget,
-   InlrExposesLocalArrays,
-   InlrUnderTBBParallelFor,
-   InlrProfitable,
-   InlrLast, // Just a marker placed after the last inlining reason
-   NinlrFirst, // Just a marker placed before the first non-inlining reason
-   NinlrNoReason,
-   NinlrNoinlineList,
-   NinlrColdCC,
-   NinlrColdProfile,
-   NinlrColdCallsite,
-   NinlrColdCallee,
-   NinlrDeleted,
-   NinlrDuplicateCall,
-   NinlrDynamicAlloca,
-   NinlrExtern,
-   NinlrIndirect,
-   NinlrIndirectBranch,
-   NinlrBlockAddress,
-   NinlrCallsLocalEscape,
-   NinlrCallsBranchFunnel,
-   NinlrNeverInline,
-   NinlrIntrinsic,
-   NinlrOuterInlining,
-   NinlrRecursive,
-   NinlrReturnsTwice,
-   NinlrTooMuchStack,
-   NinlrVarargs,
-   NinlrMismatchedAttributes,
-   NinlrMismatchedGC,
-   NinlrMismatchedPersonality,
-   NinlrNoinlineAttribute,
-   NinlrNoinlineCallsite,
-   NinlrNoReturn,
-   NinlrOptNone,
-   NinlrMayBeOverriden,
-   NinlrNotPossible,
-   NinlrNotAlwaysInline,
-   NinlrNewlyCreated,
-   NinlrNotProfitable,
-   NinlrOpBundles,
-   NinlrMSVCEH,
-   NinlrSEH,
-   NinlrPreferCloning,
-   NinlrNullPtrMismatch,
-   NinlrPreferMultiversioning,
-   NinlrPreferSOAToAOS,
-   NinlrStackComputations,
-   NinlrSwitchComputations,
-   NinlrDelayInlineDecision,
-   NinlrPreferPartialInline,
-   NinlrCalleeHasExceptionHandling,
-   NinlrIsCrossLanguage,
-   NinlrNotMandatory,
-   NinlrUnsplitCoroutineCall,
-   NinlrByvalArgsWithoutAllocaAS,
-   NinlrMultiversionedCallsite,
-   NinlrDelayInlineDecisionLTO,   // Delay inlining during LTO
-   NinlrLast // Just a marker placed after the last non-inlining reason
+  InlrFirst, // Just a marker placed before the first inlining reason
+  InlrNoReason,
+  InlrAlwaysInlineRecursive,
+  InlrAlwaysInline,
+  InlrInlineList,
+  InlrHotProfile,
+  InlrHotCallsite,
+  InlrHotCallee,
+  InlrRecProClone,
+  InlrHasExtractedRecursiveCall,
+  InlrSingleLocalCall,
+  InlrSingleBasicBlock,
+  InlrSingleBasicBlockWithTest,
+  InlrSingleBasicBlockWithStructTest,
+  InlrEmptyFunction,
+  InlrDoubleLocalCall,
+  InlrDoubleNonLocalCall,
+  InlrVectorBonus,
+  InlrAggInline,
+  InlrDTransInline,
+  InlrForFusion,
+  InlrDeeplyNestedIfs,
+  InlrAddressComputations,
+  InlrStackComputations,
+  InlrPreferPartialInline,
+  InlrPassedDummyArgs,
+  InlrArrayStructArgs,
+  InlrPreferTileChoice,
+  InlrManyRecursiveCallsSplitting,
+  InlrHasSmallAppBudget,
+  InlrExposesLocalArrays,
+  InlrUnderTBBParallelFor,
+  InlrProfitable,
+  InlrLast,   // Just a marker placed after the last inlining reason
+  NinlrFirst, // Just a marker placed before the first non-inlining reason
+  NinlrNoReason,
+  NinlrNoinlineList,
+  NinlrColdCC,
+  NinlrColdProfile,
+  NinlrColdCallsite,
+  NinlrColdCallee,
+  NinlrDeleted,
+  NinlrDuplicateCall,
+  NinlrDynamicAlloca,
+  NinlrExtern,
+  NinlrIndirect,
+  NinlrIndirectBranch,
+  NinlrBlockAddress,
+  NinlrCallsLocalEscape,
+  NinlrCallsBranchFunnel,
+  NinlrNeverInline,
+  NinlrIntrinsic,
+  NinlrOuterInlining,
+  NinlrRecursive,
+  NinlrReturnsTwice,
+  NinlrTooMuchStack,
+  NinlrVarargs,
+  NinlrMismatchedAttributes,
+  NinlrMismatchedGC,
+  NinlrMismatchedPersonality,
+  NinlrNoinlineAttribute,
+  NinlrNoinlineCallsite,
+  NinlrNoReturn,
+  NinlrOptNone,
+  NinlrMayBeOverriden,
+  NinlrNotPossible,
+  NinlrNotAlwaysInline,
+  NinlrNewlyCreated,
+  NinlrNotProfitable,
+  NinlrOpBundles,
+  NinlrMSVCEH,
+  NinlrSEH,
+  NinlrPreferCloning,
+  NinlrNullPtrMismatch,
+  NinlrPreferMultiversioning,
+  NinlrPreferSOAToAOS,
+  NinlrStackComputations,
+  NinlrSwitchComputations,
+  NinlrDelayInlineDecision,
+  NinlrPreferPartialInline,
+  NinlrCalleeHasExceptionHandling,
+  NinlrIsCrossLanguage,
+  NinlrNotMandatory,
+  NinlrUnsplitCoroutineCall,
+  NinlrByvalArgsWithoutAllocaAS,
+  NinlrMultiversionedCallsite,
+  NinlrDelayInlineDecisionLTO, // Delay inlining during LTO
+  NinlrDeletedZeroLengthMemFunc,
+  NinlrDeletedZeroLengthWrite,
+  NinlrDeletedIndCallConv,
+  NinlrDeletedDeadCode,
+  NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
 // A vector of reasons why a given callsite was or was not inlined.
@@ -267,11 +272,14 @@ class InlineCost {
   /// The adjusted threshold against which this cost was computed.
   int Threshold = 0;
 
+  /// The amount of StaticBonus that has been applied.
+  int StaticBonusApplied = 0;
+
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
 
   /// The cost-benefit pair computed by cost-benefit analysis.
-  Optional<CostBenefitPair> CostBenefit = None;
+  Optional<CostBenefitPair> CostBenefit = std::nullopt;
 
 #if INTEL_CUSTOMIZATION
   bool IsRecommended = false;
@@ -290,15 +298,16 @@ class InlineCost {
 #endif // INTEL_CUSTOMIZATION
 
   // Trivial constructor, interesting logic in the factory functions below.
-
 #if INTEL_CUSTOMIZATION
-  InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
-    Optional<CostBenefitPair> CostBenefit = None,
+  InlineCost(int Cost, int Threshold, int StaticBonusApplied,
+    const char* Reason = nullptr,
+    Optional<CostBenefitPair> CostBenefit = std::nullopt,
     bool IsRecommended = false,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
     int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
-    Cost(Cost), Threshold(Threshold), Reason(Reason),
+    Cost(Cost), Threshold(Threshold), StaticBonusApplied(StaticBonusApplied),
+    Reason(Reason),
     CostBenefit(CostBenefit),
     IsRecommended(IsRecommended), IntelReason(IntelReason),
     EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
@@ -309,50 +318,57 @@ class InlineCost {
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  static InlineCost get(int Cost, int Threshold) {
+  static InlineCost get(int Cost, int Threshold, int StaticBonus = 0) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold);
+    return InlineCost(Cost, Threshold, StaticBonus);
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost get(int Cost, int Threshold, const char* Reason,
-    bool IsRecommended, InlineReportTypes::InlineReason IntelReason,
-    int EarlyExitCost, int EarlyExitThreshold) {
+  static InlineCost get(int Cost, int Threshold, const char *Reason,
+                        bool IsRecommended,
+                        InlineReportTypes::InlineReason IntelReason,
+                        int EarlyExitCost, int EarlyExitThreshold,
+                        int StaticBonus = 0) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason, None, IsRecommended, IntelReason,
-                      EarlyExitCost, EarlyExitThreshold);
+    return InlineCost(Cost, Threshold, StaticBonus, Reason, std::nullopt,
+                      IsRecommended, IntelReason, EarlyExitCost,
+                      EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
-  static InlineCost getAlways(const char *Reason,
-                              Optional<CostBenefitPair> CostBenefit = None) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, CostBenefit,   // INTEL
-                      true, InlineReportTypes::InlrAlwaysInline); // INTEL
+  static InlineCost
+  getAlways(const char *Reason,
+            Optional<CostBenefitPair> CostBenefit = std::nullopt) {
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, // INTEL
+                      true, InlineReportTypes::InlrAlwaysInline);  // INTEL
   }
-  static InlineCost getNever(const char *Reason,
-                             Optional<CostBenefitPair> CostBenefit = None) {
-    return InlineCost(NeverInlineCost, 0, Reason, CostBenefit,     // INTEL
+  static InlineCost
+  getNever(const char *Reason,
+           Optional<CostBenefitPair> CostBenefit = std::nullopt) {
+    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit,  // INTEL
                       false, InlineReportTypes::NinlrNeverInline); // INTEL
   }
 #if INTEL_CUSTOMIZATION
-  static InlineCost getAlways(const char* Reason,
+  static InlineCost getAlways(const char *Reason,
                               InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, None, true, IntelReason);
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,
+                      IntelReason);
   }
-  static InlineCost getNever(const char* Reason,
+  static InlineCost getNever(const char *Reason,
                              InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(NeverInlineCost, 0, Reason, None, false, IntelReason);
+    return InlineCost(NeverInlineCost, 0, 0, Reason, std::nullopt, false,
+                      IntelReason);
   }
   static InlineCost getAlways(const char *Reason,
                               Optional<CostBenefitPair> CostBenefit,
                               InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, CostBenefit, true,
+    return InlineCost(AlwaysInlineCost, 0, 0, Reason, CostBenefit, true,
                       IntelReason);
   }
   static InlineCost getNever(const char *Reason,
                              Optional<CostBenefitPair> CostBenefit,
                              InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(NeverInlineCost, 0, Reason, CostBenefit, false,
+    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit, false,
                       IntelReason);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -375,6 +391,12 @@ public:
   int getThreshold() const {
     assert(isVariable() && "Invalid access of InlineCost");
     return Threshold;
+  }
+
+  /// Get the amount of StaticBonus applied.
+  int getStaticBonusApplied() const {
+    assert(isVariable() && "Invalid access of InlineCost");
+    return StaticBonusApplied;
   }
 
   /// Get the cost-benefit pair which was computed by cost-benefit analysis
@@ -504,13 +526,13 @@ struct InlineParams {
   Optional<int> ColdCallSiteThreshold;
 
   /// Compute inline cost even when the cost has exceeded the threshold.
-  Optional<bool> ComputeFullInlineCost;
+  std::optional<bool> ComputeFullInlineCost;
 
   /// Indicate whether we should allow inline deferral.
-  Optional<bool> EnableDeferral;
+  std::optional<bool> EnableDeferral;
 
   /// Indicate whether we allow inlining for recursive call.
-  Optional<bool> AllowRecursiveCall = false;
+  std::optional<bool> AllowRecursiveCall = false;
 };
 
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
@@ -589,8 +611,8 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
 /// because of user directives, and the inlining is viable. Returns
 /// InlineResult::failure() if the inlining may never happen because of user
 /// directives or incompatibilities detectable without needing callee traversal.
-/// Otherwise returns None, meaning that inlining should be decided based on
-/// other criteria (e.g. cost modeling).
+/// Otherwise returns std::nullopt, meaning that inlining should be decided
+/// based on other criteria (e.g. cost modeling).
 Optional<InlineResult> getAttributeBasedInliningDecision(
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
@@ -601,7 +623,7 @@ Optional<InlineResult> getAttributeBasedInliningDecision(
 /// Contrary to getInlineCost, which makes a threshold-based final evaluation of
 /// should/shouldn't inline, captured in InlineResult, getInliningCostEstimate
 /// returns:
-/// - None, if the inlining cannot happen (is illegal)
+/// - std::nullopt, if the inlining cannot happen (is illegal)
 /// - an integer, representing the cost.
 Optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,

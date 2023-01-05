@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -vplan-force-vf=4 \
 ; RUN:     -vplan-enable-peeling-hir -vplan-enable-general-peeling-hir \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \

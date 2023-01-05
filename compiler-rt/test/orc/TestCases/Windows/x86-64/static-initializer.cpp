@@ -1,6 +1,11 @@
 // RUN: %clang_cl -MD -c -o %t %s
 // RUN: %llvm_jitlink %t
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42778
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 extern "C" __declspec(dllimport) void llvm_jitlink_setTestResultOverride(
     long Value);
 

@@ -1,10 +1,6 @@
-; RUN: opt -dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
 
-; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -S %s | FileCheck %s --check-prefixes=CHECK,OPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s | FileCheck %s --check-prefixes=CHECK,OPAQUE
 

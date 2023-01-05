@@ -31,6 +31,9 @@
 #include "clang/Driver/Multilib.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Option/Arg.h"
+#include "llvm/Option/ArgList.h"
 #include "llvm/Support/CodeGen.h"
 
 namespace clang {
@@ -126,8 +129,14 @@ ParsePICArgs(const ToolChain &ToolChain, const llvm::opt::ArgList &Args);
 unsigned ParseFunctionAlignment(const ToolChain &TC,
                                 const llvm::opt::ArgList &Args);
 
-unsigned ParseDebugDefaultVersion(const ToolChain &TC,
-                                  const llvm::opt::ArgList &Args);
+// Extract the integer N from a string spelled "-dwarf-N", returning 0
+// on mismatch. The StringRef input (rather than an Arg) allows
+// for use by the "-Xassembler" option parser.
+unsigned DwarfVersionNum(StringRef ArgValue);
+// Find a DWARF format version option.
+// This function is a complementary for DwarfVersionNum().
+const llvm::opt::Arg *getDwarfNArg(const llvm::opt::ArgList &Args);
+unsigned getDwarfVersion(const ToolChain &TC, const llvm::opt::ArgList &Args);
 
 void AddAssemblerKPIC(const ToolChain &ToolChain,
                       const llvm::opt::ArgList &Args,
@@ -176,6 +185,7 @@ bool isDependentLibAdded(const llvm::opt::ArgList &Args, StringRef Lib);
 #if INTEL_CUSTOMIZATION
 bool isUseSeparateSections(const Driver &D, const llvm::Triple &Triple);
 #endif // INTEL_CUSTOMIZATION
+bool isDependentLibAdded(const llvm::opt::ArgList &Args, StringRef Lib);
 
 /// \p EnvVar is split by system delimiter for environment variables.
 /// If \p ArgName is "-I", "-L", or an empty string, each entry from \p EnvVar
@@ -193,6 +203,11 @@ void AddTargetFeature(const llvm::opt::ArgList &Args,
 
 std::string getCPUName(const Driver &D, const llvm::opt::ArgList &Args,
                        const llvm::Triple &T, bool FromAs = false);
+
+void getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
+                       const llvm::opt::ArgList &Args,
+                       llvm::opt::ArgStringList &CmdArgs, bool ForAS,
+                       bool IsAux = false);
 
 /// Iterate \p Args and convert -mxxx to +xxx and -mno-xxx to -xxx and
 /// append it to \p Features.
@@ -219,7 +234,15 @@ void addMultilibFlag(bool Enabled, const char *const Flag,
                      Multilib::flags_list &Flags);
 
 void addX86AlignBranchArgs(const Driver &D, const llvm::opt::ArgList &Args,
-                           llvm::opt::ArgStringList &CmdArgs, bool IsLTO);
+                           llvm::opt::ArgStringList &CmdArgs, bool IsLTO,
+                           const StringRef PluginOptPrefix = "");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+void addMarkerCountArgs(const Driver &D, const llvm::opt::ArgList &Args,
+                        llvm::opt::ArgStringList &CmdArgs, bool IsLTO,
+                        const StringRef PluginOptPrefix = "");
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
 void checkAMDGPUCodeObjectVersion(const Driver &D,
                                   const llvm::opt::ArgList &Args);
@@ -232,7 +255,8 @@ bool haveAMDGPUCodeObjectVersionArgument(const Driver &D,
 
 void addMachineOutlinerArgs(const Driver &D, const llvm::opt::ArgList &Args,
                             llvm::opt::ArgStringList &CmdArgs,
-                            const llvm::Triple &Triple, bool IsLTO);
+                            const llvm::Triple &Triple, bool IsLTO,
+                            const StringRef PluginOptPrefix = "");
 
 void addOpenMPDeviceRTL(const Driver &D, const llvm::opt::ArgList &DriverArgs,
                         llvm::opt::ArgStringList &CC1Args,

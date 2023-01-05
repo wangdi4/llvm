@@ -3,7 +3,7 @@
 ; values. Shuffles generated to extract subvectors must be placed close to source
 ; to avoid generation of invalid IR.
 
-; RUN: opt -vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -S < %s 2>&1 | FileCheck %s
 
 declare <8 x i16> @_Z3minDv8_tS_(<8 x i16>) local_unnamed_addr
 

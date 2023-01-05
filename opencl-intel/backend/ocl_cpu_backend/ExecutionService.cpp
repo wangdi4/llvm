@@ -15,18 +15,18 @@
 #include "ExecutionService.h"
 #include <assert.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
-{
-    // obtain Device Command Manager
-    assert(pOptions && "pOptions are NULL");
+ExecutionService::ExecutionService(const ICLDevBackendOptions *pOptions) {
+  // obtain Device Command Manager
+  assert(pOptions && "pOptions are NULL");
 }
 
-size_t ExecutionService::GetTargetMachineDescriptionSize() const
-{
-    assert(false && "NotImplemented");
-    return 0;
+size_t ExecutionService::GetTargetMachineDescriptionSize() const {
+  assert(false && "NotImplemented");
+  return 0;
 }
 
 cl_dev_err_code
@@ -38,9 +38,8 @@ ExecutionService::GetTargetMachineDescription(void * /*pTargetDescription*/,
   return CL_DEV_NOT_SUPPORTED;
 }
 
-void ExecutionService::Release()
-{
-    delete this;
-}
+void ExecutionService::Release() { delete this; }
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

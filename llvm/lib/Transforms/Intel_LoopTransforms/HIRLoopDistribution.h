@@ -52,6 +52,7 @@ enum class DistHeuristics : unsigned char {
   BreakScalarRec    // Break recurrence among scalars. Requires scalar expansion
 };
 
+typedef SmallVector<DDRef *, 8> DDRefList;
 typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
 typedef SmallVector<PiBlock *, 4> PiBlockList;
 typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
@@ -61,65 +62,91 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
 class ScalarExpansion {
 public:
   struct Candidate {
-    struct DstNode {
+    struct UseCand {
       DDRef *Ref;
-      HLNode *FirstNode;
+      unsigned ChunkIdx;
       bool IsTempRedefined;
 
       // Instruction that should be cloned to be recomputable.
-      const HLInst *DepInstForRecompute;
+      const HLInst *DepInst;
     };
 
     bool SafeToRecompute = true;
+    bool IsLiveIn;
+    bool IsLiveOut;
 
-    SmallVector<RegDDRef *, 8> SrcRefs;
-    SmallVector<DstNode, 8> DstRefs;
+    SmallDenseMap<HLLoop *, HLNode *> LoopDefInsertNode;
+    SmallDenseMap<HLLoop *, HLNode *> LoopUseInsertNode;
 
-    unsigned getSymbase() const { return SrcRefs.front()->getSymbase(); }
+    // Map all prior chunk's defs to each use. Defs are referenced
+    // later to determine the correct place to load TmpUses.
+    SmallDenseMap<DDRef *, DDRefList> SCEXDefsForUse;
+
+    DDRefList TmpDefs;
+    SmallVector<UseCand, 8> TmpUses;
+
+    unsigned getSymbase() const { return TmpDefs.front()->getSymbase(); }
 
     bool isTempRequired() const {
-      return SrcRefs.size() != 1 || !SafeToRecompute;
+      return TmpDefs.size() != 1 || !SafeToRecompute;
     }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     LLVM_DUMP_METHOD void dump() {
-      SrcRefs.front()->dump();
+      TmpDefs.front()->dump();
 
       dbgs() << " (sb:" << getSymbase();
+      dbgs() << ") (In/Out " << IsLiveIn;
+      dbgs() << "/" << IsLiveOut;
       dbgs() << ") (";
-      for (auto SrcRef : enumerate(SrcRefs)) {
-        dbgs() << SrcRef.value()->getHLDDNode()->getNumber();
-        if (SrcRef.index() != SrcRefs.size() - 1) {
+      for (auto &TmpDef : enumerate(TmpDefs)) {
+        dbgs() << TmpDef.value()->getHLDDNode()->getNumber();
+        if (TmpDef.index() != TmpDefs.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") -> (";
-      for (auto DstRef : enumerate(DstRefs)) {
-        dbgs() << DstRef.value().Ref->getHLDDNode()->getNumber();
-        if (DstRef.index() != DstRefs.size() - 1) {
+      for (auto &TmpUse : enumerate(TmpUses)) {
+        dbgs() << TmpUse.value().Ref->getHLDDNode()->getNumber();
+        if (TmpUse.index() != TmpUses.size() - 1) {
           dbgs() << ",";
         }
       }
-      dbgs() << ") SafeToRecompute: " << SafeToRecompute;
+      dbgs() << ") Recompute: " << SafeToRecompute << "\n";
+      for (auto &Entry : enumerate(SCEXDefsForUse)) {
+        dbgs() << " ( ";
+
+        for (auto &Def : Entry.value().second) {
+          dbgs() << Def->getHLDDNode()->getNumber();
+          dbgs() << " ";
+        }
+        dbgs() << "-> ";
+        dbgs() << Entry.value().first->getHLDDNode()->getNumber();
+        dbgs() << " )";
+      }
     }
 #endif
   };
 
 private:
-  unsigned Level;
+  HLLoop *Loop;
+  HLNodeUtils &HNU;
   bool HasDistributePoint;
   bool HasBadCandidate;
 
   SmallVector<Candidate, 8> Candidates;
+  SparseBitVector<> ModifiedBases;
 
   // <Symbase, Loop number>
   using SymbaseLoopSetTy = SmallSet<std::pair<unsigned, unsigned>, 8>;
 
 public:
-  ScalarExpansion(unsigned Level, bool HasDistributePoint,
+  ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
                   ArrayRef<HLDDNodeList> Chunks);
 
-  ArrayRef<Candidate> getCandidates() const { return Candidates; }
+  // After scalar expansion, scalar temps is need to be replaced with Array Temp
+  void replaceWithArrayTemps(unsigned OrigLoopLevel,
+                             SmallSet<unsigned, 12> &TempArraySB);
 
   bool isTempRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
@@ -129,6 +156,8 @@ public:
   bool isScalarExpansionRequired() const {
     return !Candidates.empty();
   }
+
+  void computeInsertNodes();
 
   unsigned getNumTempsRequired() const {
     return std::count_if(Candidates.begin(), Candidates.end(),
@@ -150,16 +179,32 @@ private:
   // Find the instruction that defines \p RVal.
   bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
 
-  // Check if \p SrcRef is safe to recompute in loop with \p ChunkIdx rather
+  // Check if \p TmpDef is safe to recompute in loop with \p ChunkIdx rather
   // than use a temp.
-  bool isSafeToRecompute(const RegDDRef *SrcRef, unsigned ChunkIdx,
+  bool isSafeToRecompute(const RegDDRef *TmpDef, unsigned ChunkIdx,
                          const SymbaseLoopSetTy &SymbaseLoopSet,
                          const SparseBitVector<> &ModifiedSymbases,
                          const HLInst *&DepInst);
 
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
+  bool shouldLoadUnconditionally(Candidate &Cand, DDRef *TmpUse);
+
+  template <bool IsDef> void getInsertNodeForTmpDefsUses(Candidate &Cand);
+
   bool isScalarExpansionCandidate(const DDRef *Ref) const;
+
+  // Create TEMP[i] = temp and insert
+  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                                 unsigned OrigLoopLevel);
+
+  // Insert an assignment TEMP[i] = temp after DDNode
+  void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                            RegDDRef *TmpArrayRef, HLDDNode *TempRefDDNode);
+
+  // Create an assignment  temp = TEMP[i]
+  void createTempArrayLoad(RegDDRef *TempArrayRef, HLNode *Node,
+                           Candidate::UseCand &TmpUse);
 
   static bool isTempRequiredPredicate(const Candidate &C) {
     return C.isTempRequired();
@@ -191,11 +236,8 @@ private:
   HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
-  unsigned AllocaBlobIdx;
-  unsigned LoopLevel;
-  HLRegion *RegionNode;
   HLLoop *NewLoops[MaxDistributedLoop];
-  SmallVector<unsigned, 12> TempArraySB;
+  SmallSet<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 
@@ -238,25 +280,8 @@ private:
 
   void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-                      const ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
+                      ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
                       bool ForDirective);
-
-  // Create TEMP[i] = temp and insert
-  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef);
-
-  // Insert an assignment TEMP[i] = temp after DDNode
-  void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                            RegDDRef *TmpArrayRef, HLDDNode *TempRefDDNode);
-
-  // Create an assignment  temp = TEMP[i]
-  // TempRefined if true means temp is refined in the sink loop
-  // Insertion of assignment needs special handling
-  void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef,
-                           HLNode *Node, bool TempRefined);
-
-  // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemp(unsigned LoopCount,
-                            ArrayRef<ScalarExpansion::Candidate> Candidates);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2

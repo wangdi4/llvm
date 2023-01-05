@@ -2,7 +2,6 @@
 ; correctly to a structure that has a field which is a pointer to another
 ; structure type that is being transformed by reorder fields.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfieldsop | FileCheck %s
 ;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 ; CHECK-DAG: %__DFR_struct.test01 = type { i64, i64, ptr, i32, i32, i32, i16 }

@@ -538,7 +538,7 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
   Res = BottomI;
 
   // Check if it's legal to omit generation of top "zero".
-  if (!GenTopZero && TopI->isCommutative()) {
+  if (!GenTopZero && TopI && TopI->isCommutative()) {
     // Reconnect operand #1 of TopI to appropriate location and remove TopI.
     if (PrevI != nullptr)
       PrevI->setOperand(0, TopI->getOperand(1));
@@ -547,6 +547,7 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
 
     TopI->eraseFromParent();
   } else {
+    assert(TopI && "TopI cannot be null");
     // Set operand #0 of TopI to "zero".
     TopI->setOperand(0, getIdentityValue(TopI->getType(), TopI->getOpcode()));
   }
@@ -805,7 +806,7 @@ Optional<int64_t> AddSubReassociate::findLoadDistance(Value *V1, Value *V2,
     for (int I = I1->getNumOperands() - 1; I >= 0; --I)
       Stack.emplace_back(I1->getOperand(I), I2->getOperand(I), Depth);
   }
-  return None;
+  return std::nullopt;
 }
 
 // Returns the sum of the absolute distances of SortedLeaves and G2.
@@ -965,7 +966,7 @@ bool AddSubReassociate::memCanonicalizeGroup(Group &G,
 // defined via stack of aliases. Need to find some way to untie this knot,
 // likely via redesigning data structures for intermediate representation.
 template <typename T>
-LLVM_DUMP_METHOD void dumpHistTableElem(const T TableElem) {
+LLVM_DUMP_METHOD void dumpHistTableElem(const T &TableElem) {
   // Fisrt print a value (leaf) of interest.
   auto *V = cast<Value>(TableElem.first);
   dbgs().indent(2);
@@ -1143,7 +1144,7 @@ void AddSubReassociate::buildMaxReuseGroups(
       // be fine since current cluster size is limited to 16).
       for (size_t I = 0; I < CandidateTreesNum - GroupWidth + 1; ++I) {
         size_t FoundTreeNum = 0;
-        Optional<OpcodeData> GroupOpcode = None;
+        Optional<OpcodeData> GroupOpcode = std::nullopt;
         for (size_t J = I; J < CandidateTreesNum && FoundTreeNum < GroupWidth;
              ++J) {
           Tree *CandidateTree = CandidateTrees[J].first;

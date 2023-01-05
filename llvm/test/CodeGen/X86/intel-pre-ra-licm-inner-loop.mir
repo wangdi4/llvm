@@ -231,7 +231,7 @@ body:             |
     JMP_1 %bb.4
 
   ; CHECK: vbroadcastsd    %xmm0, %ymm1
-  ; CHECK-NEXT: xorl    %eax, %eax
+  ; CHECK-NEXT: xorl    %r11d, %r11d
   bb.4.for.body3.us.preheader:
     successors: %bb.5(0x80000000)
 

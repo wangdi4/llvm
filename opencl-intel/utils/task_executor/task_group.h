@@ -122,11 +122,11 @@ protected:
   F m_func;
 };
 
- /**
+/**
  * Implements ITaskGroup and executing a functor by wrapping it with a task that
  * is run in task_group. This class is used for grouping tasks executing the
  * commands themselves in OOO command list.
-  */
+ */
 class SpawningTaskGroup : public TaskGroupBase {
 public:
   PREPARE_SHARED_PTR(SpawningTaskGroup)

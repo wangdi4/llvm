@@ -1,7 +1,6 @@
 ; Check handling of upconverting a linear (variable %i) to ensure stride calculation
 ; is inserted correctly.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo
@@ -10,7 +9,7 @@
 ; CHECK-SAME: DIR.OMP.SIMD
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 2
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i.addr)
+; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(i32* %i.addr, i32 0, i32 1)
 ; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
 ; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul

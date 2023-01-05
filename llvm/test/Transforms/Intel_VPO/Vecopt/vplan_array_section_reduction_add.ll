@@ -2,12 +2,10 @@
 ; (using array sections) identified in incoming IR.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
 ; Note that the test represents two nested loop and SIMD region applies to the outer loop.
 ; Here outer loop vectorization is enabled for reason to not bailout too early.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 
@@ -16,7 +14,7 @@
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @foo
-; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 0) ]
+; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 23) ]
 
 ; HIR: Cannot handle array reductions.
 ; HIR: VD: Not vectorizing: Cannot prove legality.
@@ -33,7 +31,7 @@ DIR.OMP.SIMD.1:
   br label %DIR.OMP.SIMD.170
 
 DIR.OMP.SIMD.170:                                 ; preds = %DIR.OMP.SIMD.1
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 0) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"([100 x i32]* %a.red, i64 0, i64 100, i64 23) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.170, %omp.inner.for.inc

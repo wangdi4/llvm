@@ -29,5 +29,6 @@
 #define DST_SINGLE
 #include "fp_trunc_impl.inc"
 
-__attribute__((weak))
-float __trunctfsf2(long double a) { return __truncXfYf2__(a); }
+__attribute__((weak)) float __trunctfsf2(long double a) {
+  return __truncXfYf2__(a);
+}

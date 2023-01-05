@@ -20,28 +20,28 @@
 #*
 #*****************************************************************************
 
-#================= CallKernel implementation (with and without barriers) ===================
+#================= CallKernel implementation (with and without barriers) =======
 .text
 #-------------------------------------------------------------------------------
 # Calling convention for X86-64 Linux cdecl:
 # RDI := params_size (param#1)
 # RSI := pParameters (param#2)
 # RDX := pEntryPoint (param#3)
-#------------------------------------------------------------------------------- 
+#-------------------------------------------------------------------------------
 
 .globl CallKernel
 CallKernel:
-	push      %rbx
-	mov       %rsp,   %rbx
-	mov       %rdi,   %rcx
-	sub       %rcx,   %rsp
-	and       $-128,  %rsp
-	lea       (%rsp), %rdi
-	rep movsb
-	call     *%rdx
-	mov       %rbx,   %rsp
-	pop       %rbx
-	ret
+  push      %rbx
+  mov       %rsp,   %rbx
+  mov       %rdi,   %rcx
+  sub       %rcx,   %rsp
+  and       $-128,  %rsp
+  lea       (%rsp), %rdi
+  rep movsb
+  call     *%rdx
+  mov       %rbx,   %rsp
+  pop       %rbx
+  ret
 
 #================= Utilities ===================
 .equ ARG1_U64,%rdi
@@ -78,7 +78,7 @@ CallKernel:
 #        popq    %rbx
 #        ret
 # end of hw_cpuid()
-   
+
 .equ ARG1,%rdi
 
 .text
@@ -92,7 +92,7 @@ CallKernel:
 #------------------------------------------------------------------------------
 .globl hw_xgetbv
 hw_xgetbv:
-        mov		$0, %rcx
+        mov    $0, %rcx
         # XGETBV return result in EDX:EAX
         .byte 15
         .byte 1
@@ -100,7 +100,7 @@ hw_xgetbv:
         mov     %rax, 0(ARG1)
         mov     %rdx, 8(ARG1)
         ret
-	
+
 .macro EMIT_VZEROUPPER
         .ascii "\xC5\xF8\x77"
 .endm

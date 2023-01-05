@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -32,7 +32,6 @@
 #ifndef LLVM_PASSES_PASSBUILDER_H
 #define LLVM_PASSES_PASSBUILDER_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/OptimizationLevel.h"
@@ -93,6 +92,9 @@ public:
   /// false.
   bool MergeFunctions;
 
+  /// Tuning option to override the default inliner threshold.
+  int InlinerThreshold;
+
   // Experimental option to eagerly invalidate more analyses. This has the
   // potential to decrease max memory usage in exchange for more compile time.
   // This may affect codegen due to either passes using analyses only when
@@ -119,7 +121,7 @@ public:
 class PassBuilder {
   TargetMachine *TM;
   PipelineTuningOptions PTO;
-  Optional<PGOOptions> PGOOpt;
+  std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks *PIC;
 
 public:
@@ -146,7 +148,7 @@ public:
 
   explicit PassBuilder(TargetMachine *TM = nullptr,
                        PipelineTuningOptions PTO = PipelineTuningOptions(),
-                       Optional<PGOOptions> PGOOpt = None,
+                       std::optional<PGOOptions> PGOOpt = std::nullopt,
                        PassInstrumentationCallbacks *PIC = nullptr);
 
   /// Cross register the analysis managers through their proxies.
@@ -435,10 +437,13 @@ public:
 
   /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
   /// simplifying load instructions into bitcast instructions that could
-  /// produce an upcasting. If DTrans is disabled then the simplification
-  /// will always be true.
-  void addInstCombinePass(FunctionPassManager &FPM,
-                          bool EnableUpCasting) const;
+  /// produce an upcasting. If DTrans is disabled then the simplification will
+  /// always be true.
+  /// If EnableCanonicalizeSwap is true, then it will allow GEP of GEP
+  /// instructions to be restructured to enable placement of constant indices at
+  /// the end.
+  void addInstCombinePass(FunctionPassManager &FPM, bool EnableUpCasting,
+                          bool EnableCanonicalizeSwap) const;
 
   /// Add the information related to whole program utils
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
@@ -668,7 +673,7 @@ private:
   void addVectorPasses(OptimizationLevel Level, FunctionPassManager &FPM,
                        bool IsFullLTO);
 
-  static Optional<std::vector<PipelineElement>>
+  static std::optional<std::vector<PipelineElement>>
   parsePipelineText(StringRef Text);
 
   Error parseModulePass(ModulePassManager &MPM, const PipelineElement &E);

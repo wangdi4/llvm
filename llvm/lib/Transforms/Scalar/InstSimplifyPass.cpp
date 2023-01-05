@@ -28,16 +28,19 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

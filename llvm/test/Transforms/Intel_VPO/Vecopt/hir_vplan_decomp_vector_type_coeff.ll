@@ -17,7 +17,6 @@
 ; In above example %cond is of type <8 x i1> and predicates's RHS is a
 ; zeroinitializer of type <8 x i1>
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg < %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg < %s -disable-output 2>&1 | FileCheck %s
 
 

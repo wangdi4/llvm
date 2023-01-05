@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <sycl/aspects.hpp>
 #include <sycl/detail/defines.hpp>
 #include <sycl/detail/export.hpp>
 #include <sycl/detail/iostream_proxy.hpp>
@@ -33,15 +34,9 @@
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 
-namespace ext {
-namespace intel {
-namespace esimd {
-namespace detail {
+namespace ext::intel::esimd::detail {
 class WrapperElementTypeProxy;
-} // namespace detail
-} // namespace esimd
-} // namespace intel
-} // namespace ext
+} // namespace ext::intel::esimd::detail
 
 namespace detail {
 
@@ -77,7 +72,7 @@ inline __SYCL_CONSTEXPR_HALF uint16_t float2Half(const float &Val) {
     // Tie to even.
     else if (roundBits == halfway)
       Frac16 += Frac16 & 1;
-  } else if (__builtin_expect(Exp32Diff > -24, 0)) {
+  } else if (__builtin_expect(Exp32Diff > -25, 0)) {
     // subnormals
     Frac16 = (Frac32 | (uint32_t(1) << 23)) >> (-Exp32Diff - 1);
   }
@@ -271,7 +266,11 @@ using Vec8StorageT = half_vec<8>;
 using Vec16StorageT = half_vec<16>;
 #endif
 
+#ifndef __SYCL_DEVICE_ONLY__
 class half {
+#else
+class [[__sycl_detail__::__uses_aspects__(aspect::fp16)]] half {
+#endif
 public:
   half() = default;
   constexpr half(const half &) = default;

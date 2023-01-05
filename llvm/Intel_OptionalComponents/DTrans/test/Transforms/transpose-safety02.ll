@@ -1,7 +1,8 @@
 ; This test verifies the safety analysis for the construction of dope vectors
 ; for cases supported by the transpose transformation.
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; In this case a dope vector is being created to represent the entire array.

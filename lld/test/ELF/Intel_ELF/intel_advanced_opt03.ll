@@ -1,14 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt %s -o %t.bc
-; RUN: not ld.lld --lto-O2 -e main \
-; RUN:    -plugin-opt=legacy-pass-manager \
-; RUN:    -plugin-opt=fintel-advanced-optim \
-; RUN:    -plugin-opt=-intel-libirc-allowed \
-; RUN:    -mllvm -whole-program-advanced-opt-trace \
-; RUN:    -mllvm -print-after-all \
-; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
-; RUN:    2>&1 | FileCheck %s
 
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \

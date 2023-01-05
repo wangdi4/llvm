@@ -16,20 +16,18 @@
 #define ENVVAR_H
 #include <QString>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 /**
  * @brief The EnvVar struct
- * @detailed This struct contains information about user pecific enviroment variables
+ * @detailed This struct contains information about user pecific enviroment
+ * variables
  */
-struct EnvVar
-{
-    QString name;
-    QString value;
+struct EnvVar {
+  QString name;
+  QString value;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // ENVVAR_H

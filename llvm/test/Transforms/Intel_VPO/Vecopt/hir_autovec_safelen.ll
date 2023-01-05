@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=parvec-analysis -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec -disable-output -mattr=avx2 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>' -debug-only=parvec-analysis -disable-output -mattr=avx2 < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check for vectorization safe length in auto vectorization. Loop is

@@ -38,24 +38,21 @@ knowledge of the CeCILL license and that you accept its terms.
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 #include "oclparam.h"
-#define ID     (0)
-#define IU     (1)
-#define IV     (2)
-#define IP     (3)
-#define ExtraLayer    (2)
+#define ID (0)
+#define IU (1)
+#define IV (2)
+#define IP (3)
+#define ExtraLayer (2)
 #define ExtraLayerTot (2 * 2)
-inline void
-idx2d(long *x, long *y, const long nx)
-{
-  long i1d = get_global_id(0) + (get_global_size(1) - 1) * (get_global_id(1) + (get_global_size(2) - 1) * get_global_id(2));
+inline void idx2d(long *x, long *y, const long nx) {
+  long i1d =
+      get_global_id(0) +
+      (get_global_size(1) - 1) *
+          (get_global_id(1) + (get_global_size(2) - 1) * get_global_id(2));
   *y = i1d / nx;
   *x = i1d - *y * nx;
 }
-inline double
-Square(const double x)
-{
-  return x * x;
-}
+inline double Square(const double x) { return x * x; }
 /*
  * Here are defined a couple of placeholders of mathematical functions
  * waiting for AMD to provide them as part of the OpenCL language. The
@@ -74,50 +71,36 @@ Square(const double x)
 #define Fabs fabs
 #define Sqrt sqrt
 #else
-inline double
-Max(const double a, const double b)
-{
-  return (a > b) ? a : b;
-}
-inline double
-Min(const double a, const double b)
-{
-  return (a < b) ? a : b;
-}
-inline double
-Fabs(const double a)
-{
-  return (a > 0) ? a : -a;
-}
-inline double
-Sqrt(const double a)
-{
+inline double Max(const double a, const double b) { return (a > b) ? a : b; }
+inline double Min(const double a, const double b) { return (a < b) ? a : b; }
+inline double Fabs(const double a) { return (a > 0) ? a : -a; }
+inline double Sqrt(const double a) {
   double v = 0;
   double vn = 0;
-  float x0 = (float) a;
-  double error = (double) 1.e-8;
-  double prec = (double) 1.;
+  float x0 = (float)a;
+  double error = (double)1.e-8;
+  double prec = (double)1.;
   // initial value: to speedup the process we take the float approximation
   x0 = sqrt(x0);
-  vn = (double) x0;
+  vn = (double)x0;
   prec = Fabs((v - vn) / vn);
-  if (prec > error)  {
-    v = (double) 0.5 * (vn + a / vn);
+  if (prec > error) {
+    v = (double)0.5 * (vn + a / vn);
     prec = Fabs((v - vn) / vn);
-    if (prec > error)  {
-      v = (double) 0.5 * (vn + a / vn);
+    if (prec > error) {
+      v = (double)0.5 * (vn + a / vn);
       prec = Fabs((v - vn) / vn);
-      if (prec > error)  {
-	v = (double) 0.5 * (vn + a / vn);
-	prec = Fabs((v - vn) / vn);
-	if (prec > error)  {
-	  v = (double) 0.5 * (vn + a / vn);
-	  prec = Fabs((v - vn) / vn);
-	  if (prec > error)  {
-	    v = (double) 0.5 * (vn + a / vn);
-	    prec = Fabs((v - vn) / vn);
-	  }
-	}
+      if (prec > error) {
+        v = (double)0.5 * (vn + a / vn);
+        prec = Fabs((v - vn) / vn);
+        if (prec > error) {
+          v = (double)0.5 * (vn + a / vn);
+          prec = Fabs((v - vn) / vn);
+          if (prec > error) {
+            v = (double)0.5 * (vn + a / vn);
+            prec = Fabs((v - vn) / vn);
+          }
+        }
       }
     }
   }
@@ -127,10 +110,10 @@ Sqrt(const double a)
 /*
  * End math functions
  */
-#define one (double) 1.0
-#define two (double) 2.0
-#define demi (double) 0.5
-#define zero (double) 0.0
+#define one (double)1.0
+#define two (double)2.0
+#define demi (double)0.5
+#define zero (double)0.0
 // const double one = 1.0;
 // const double two = 2.0;
 // const double demi = 0.5;
@@ -138,24 +121,16 @@ Sqrt(const double a)
 // #define IHVW(i,v) ((i) + (v) * Hnxyt)
 // #define IHU(i, j, v)  ((i) + Hnxt * ((j) + Hnyt * (v)))
 // #define IHV(i, j, v)  ((i) + Hnxt * ((j) + Hnyt * (v)))
-inline size_t
-IHVW(int i, int v, int Hnxyt)
-{
-  return (i) + (v) * Hnxyt;
-}
-inline size_t
-IHU(int i, int j, int v, int Hnxt, int Hnyt)
-{
+inline size_t IHVW(int i, int v, int Hnxyt) { return (i) + (v)*Hnxyt; }
+inline size_t IHU(int i, int j, int v, int Hnxt, int Hnyt) {
   return (i) + (Hnxt * ((j) + Hnyt * (v)));
 }
-inline size_t
-IHV(int i, int j, int v, int Hnxt, int Hnyt)
-{
+inline size_t IHV(int i, int j, int v, int Hnxt, int Hnyt) {
   return (i) + (Hnxt * ((j) + Hnyt * (v)));
 }
-__kernel void
-Loop1KcuCmpflx(__global double *qgdnv, __global double *flux, const long narray, const long Hnxyt, const double Hgamma)
-{
+__kernel void Loop1KcuCmpflx(__global double *qgdnv, __global double *flux,
+                             const long narray, const long Hnxyt,
+                             const double Hgamma) {
   double entho = 0, ekin = 0, etot = 0;
   long i = get_global_id(0);
   if (i >= narray)
@@ -172,13 +147,14 @@ Loop1KcuCmpflx(__global double *qgdnv, __global double *flux, const long narray,
   // Transverse momentum 1
   flux[idxIV] = flux[idxID] * qgdnv[idxIV];
   // Total energy
-  ekin = demi * qgdnv[idxID] * ((qgdnv[idxIU] * qgdnv[idxIU]) + (qgdnv[idxIV] * qgdnv[idxIV]));
+  ekin = demi * qgdnv[idxID] *
+         ((qgdnv[idxIU] * qgdnv[idxIU]) + (qgdnv[idxIV] * qgdnv[idxIV]));
   etot = qgdnv[idxIP] * entho + ekin;
   flux[idxIP] = qgdnv[idxIU] * (etot + qgdnv[idxIP]);
 }
-__kernel void
-Loop2KcuCmpflx(__global double *qgdnv, __global double *flux, const long narray, const long Hnxyt, const long Hnvar)
-{
+__kernel void Loop2KcuCmpflx(__global double *qgdnv, __global double *flux,
+                             const long narray, const long Hnxyt,
+                             const long Hnvar) {
   long IN, i = get_global_id(0);
   if (i >= narray)
     return;
@@ -187,10 +163,10 @@ Loop2KcuCmpflx(__global double *qgdnv, __global double *flux, const long narray,
     flux[idxIN] = flux[idxIN] * qgdnv[idxIN];
   }
 }
-__kernel void
-LoopKQEforRow(const long j, __global double *uold, __global double *q, __global double *e, const double Hsmallr,
-              const long Hnxt, const long Hnyt, const long Hnxyt, const long n)
-{
+__kernel void LoopKQEforRow(const long j, __global double *uold,
+                            __global double *q, __global double *e,
+                            const double Hsmallr, const long Hnxt,
+                            const long Hnyt, const long Hnxyt, const long n) {
   double eken;
   long i = get_global_id(0);
   if (i >= n)
@@ -210,10 +186,9 @@ LoopKQEforRow(const long j, __global double *uold, __global double *q, __global 
   q[idxIP] = uold[idxuIP] / q[idxID] - eken;
   e[i] = q[idxIP];
 }
-__kernel void
-LoopKcourant(__global double *q, __global double *courant, const double Hsmallc, __global const double *c,
-             const long Hnxyt, const long n)
-{
+__kernel void LoopKcourant(__global double *q, __global double *courant,
+                           const double Hsmallc, __global const double *c,
+                           const long Hnxyt, const long n) {
   double cournox, cournoy, courantl;
   long i = get_global_id(0);
   if (i >= n)
@@ -228,11 +203,10 @@ LoopKcourant(__global double *q, __global double *courant, const double Hsmallc,
   courantl = Max(cournox, Max(cournoy, Hsmallc));
   courant[i] = Max(courant[i], courantl);
 }
-__kernel void
-Loop1KcuGather(__global double *uold,
-               __global double *u,
-               const long rowcol, const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop1KcuGather(__global double *uold, __global double *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt) {
   long i = get_global_id(0);
   if (i < Himin)
     return;
@@ -247,11 +221,10 @@ Loop1KcuGather(__global double *uold,
   u[idxIV] = uold[IHU(i, rowcol, IV, Hnxt, Hnyt)];
   u[idxIP] = uold[IHU(i, rowcol, IP, Hnxt, Hnyt)];
 }
-__kernel void
-Loop2KcuGather(__global double *uold,
-               __global double *u,
-               const long rowcol, const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop2KcuGather(__global double *uold, __global double *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt) {
   long i = get_global_id(0);
   if (i < Himin)
     return;
@@ -266,12 +239,11 @@ Loop2KcuGather(__global double *uold,
   u[idxIU] = uold[IHU(rowcol, i, IV, Hnxt, Hnyt)];
   u[idxIP] = uold[IHU(rowcol, i, IP, Hnxt, Hnyt)];
 }
-__kernel void
-Loop3KcuGather(__global double *uold,
-               __global double *u,
-               const long rowcol,
-               const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt, const long Hnvar)
-{
+__kernel void Loop3KcuGather(__global double *uold, __global double *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const long Hnvar) {
   long i = get_global_id(0);
   long ivar;
   if (i < Himin)
@@ -282,12 +254,11 @@ Loop3KcuGather(__global double *uold,
     u[IHVW(i, ivar, Hnxyt)] = uold[IHU(i, rowcol, ivar, Hnxt, Hnyt)];
   }
 }
-__kernel void
-Loop4KcuGather(__global double *uold,
-               __global double *u,
-               const long rowcol,
-               const long Hnxt, const long Himin, const long Himax, const long Hnyt, const long Hnxyt, const long Hnvar)
-{
+__kernel void Loop4KcuGather(__global double *uold, __global double *u,
+                             const long rowcol, const long Hnxt,
+                             const long Himin, const long Himax,
+                             const long Hnyt, const long Hnxyt,
+                             const long Hnvar) {
   long i = get_global_id(0);
   long ivar;
   if (i < Himin)
@@ -300,12 +271,11 @@ Loop4KcuGather(__global double *uold,
     u[IHVW(i, ivar, Hnxyt)] = uold[IHU(rowcol, i, ivar, Hnxt, Hnyt)];
   }
 }
-__kernel void
-Loop1KcuUpdate(const long rowcol, const double dtdx,
-               __global double *uold,
-               __global double *u,
-               __global double *flux, const long Himin, const long Himax, const long Hnxt, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop1KcuUpdate(const long rowcol, const double dtdx,
+                             __global double *uold, __global double *u,
+                             __global double *flux, const long Himin,
+                             const long Himax, const long Hnxt, const long Hnyt,
+                             const long Hnxyt) {
   long i = get_global_id(0);
   if (i < (Himin + ExtraLayer))
     return;
@@ -315,18 +285,25 @@ Loop1KcuUpdate(const long rowcol, const double dtdx,
   size_t idxIP = IHVW(i, IP, Hnxyt);
   size_t idxIU = IHVW(i, IU, Hnxyt);
   size_t idxIV = IHVW(i, IV, Hnxyt);
-  uold[IHU(i, rowcol, ID, Hnxt, Hnyt)] = u[idxID] + (flux[IHVW(i - 2, ID, Hnxyt)] - flux[IHVW(i - 1, ID, Hnxyt)]) * dtdx;
-  uold[IHU(i, rowcol, IU, Hnxt, Hnyt)] = u[idxIU] + (flux[IHVW(i - 2, IU, Hnxyt)] - flux[IHVW(i - 1, IU, Hnxyt)]) * dtdx;
-  uold[IHU(i, rowcol, IV, Hnxt, Hnyt)] = u[idxIV] + (flux[IHVW(i - 2, IV, Hnxyt)] - flux[IHVW(i - 1, IV, Hnxyt)]) * dtdx;
-  uold[IHU(i, rowcol, IP, Hnxt, Hnyt)] = u[idxIP] + (flux[IHVW(i - 2, IP, Hnxyt)] - flux[IHVW(i - 1, IP, Hnxyt)]) * dtdx;
+  uold[IHU(i, rowcol, ID, Hnxt, Hnyt)] =
+      u[idxID] +
+      (flux[IHVW(i - 2, ID, Hnxyt)] - flux[IHVW(i - 1, ID, Hnxyt)]) * dtdx;
+  uold[IHU(i, rowcol, IU, Hnxt, Hnyt)] =
+      u[idxIU] +
+      (flux[IHVW(i - 2, IU, Hnxyt)] - flux[IHVW(i - 1, IU, Hnxyt)]) * dtdx;
+  uold[IHU(i, rowcol, IV, Hnxt, Hnyt)] =
+      u[idxIV] +
+      (flux[IHVW(i - 2, IV, Hnxyt)] - flux[IHVW(i - 1, IV, Hnxyt)]) * dtdx;
+  uold[IHU(i, rowcol, IP, Hnxt, Hnyt)] =
+      u[idxIP] +
+      (flux[IHVW(i - 2, IP, Hnxyt)] - flux[IHVW(i - 1, IP, Hnxyt)]) * dtdx;
 }
-__kernel void
-Loop2KcuUpdate(const long rowcol, const double dtdx,
-               __global double *uold,
-               __global double *u,
-               __global double *flux,
-               const long Himin, const long Himax, const long Hnvar, const long Hnxt, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop2KcuUpdate(const long rowcol, const double dtdx,
+                             __global double *uold, __global double *u,
+                             __global double *flux, const long Himin,
+                             const long Himax, const long Hnvar,
+                             const long Hnxt, const long Hnyt,
+                             const long Hnxyt) {
   long i = get_global_id(0);
   long ivar;
   if (i < (Himin + ExtraLayer))
@@ -335,36 +312,40 @@ Loop2KcuUpdate(const long rowcol, const double dtdx,
     return;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     uold[IHU(i, rowcol, ivar, Hnxt, Hnyt)] =
-      u[IHVW(i, ivar, Hnxyt)] + (flux[IHVW(i - 2, ivar, Hnxyt)] - flux[IHVW(i - 1, ivar, Hnxyt)]) * dtdx;
+        u[IHVW(i, ivar, Hnxyt)] +
+        (flux[IHVW(i - 2, ivar, Hnxyt)] - flux[IHVW(i - 1, ivar, Hnxyt)]) *
+            dtdx;
   }
 }
-__kernel void
-Loop3KcuUpdate(const long rowcol, const double dtdx,
-               __global double *uold,
-               __global double *u,
-               __global double *flux, const long Hjmin, const long Hjmax, const long Hnxt, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop3KcuUpdate(const long rowcol, const double dtdx,
+                             __global double *uold, __global double *u,
+                             __global double *flux, const long Hjmin,
+                             const long Hjmax, const long Hnxt, const long Hnyt,
+                             const long Hnxyt) {
   long j = get_global_id(0);
   if (j < (Hjmin + ExtraLayer))
     return;
   if (j >= (Hjmax - ExtraLayer))
     return;
   uold[IHU(rowcol, j, ID, Hnxt, Hnyt)] =
-    u[IHVW(j, ID, Hnxyt)] + (flux[IHVW(j - 2, ID, Hnxyt)] - flux[IHVW(j - 1, ID, Hnxyt)]) * dtdx;
+      u[IHVW(j, ID, Hnxyt)] +
+      (flux[IHVW(j - 2, ID, Hnxyt)] - flux[IHVW(j - 1, ID, Hnxyt)]) * dtdx;
   uold[IHU(rowcol, j, IP, Hnxt, Hnyt)] =
-    u[IHVW(j, IP, Hnxyt)] + (flux[IHVW(j - 2, IP, Hnxyt)] - flux[IHVW(j - 1, IP, Hnxyt)]) * dtdx;
+      u[IHVW(j, IP, Hnxyt)] +
+      (flux[IHVW(j - 2, IP, Hnxyt)] - flux[IHVW(j - 1, IP, Hnxyt)]) * dtdx;
   uold[IHU(rowcol, j, IV, Hnxt, Hnyt)] =
-    u[IHVW(j, IU, Hnxyt)] + (flux[IHVW(j - 2, IU, Hnxyt)] - flux[IHVW(j - 1, IU, Hnxyt)]) * dtdx;
+      u[IHVW(j, IU, Hnxyt)] +
+      (flux[IHVW(j - 2, IU, Hnxyt)] - flux[IHVW(j - 1, IU, Hnxyt)]) * dtdx;
   uold[IHU(rowcol, j, IU, Hnxt, Hnyt)] =
-    u[IHVW(j, IV, Hnxyt)] + (flux[IHVW(j - 2, IV, Hnxyt)] - flux[IHVW(j - 1, IV, Hnxyt)]) * dtdx;
+      u[IHVW(j, IV, Hnxyt)] +
+      (flux[IHVW(j - 2, IV, Hnxyt)] - flux[IHVW(j - 1, IV, Hnxyt)]) * dtdx;
 }
-__kernel void
-Loop4KcuUpdate(const long rowcol, const double dtdx,
-               __global double *uold,
-               __global double *u,
-               __global double *flux,
-               const long Hjmin, const long Hjmax, const long Hnvar, const long Hnxt, const long Hnyt, const long Hnxyt)
-{
+__kernel void Loop4KcuUpdate(const long rowcol, const double dtdx,
+                             __global double *uold, __global double *u,
+                             __global double *flux, const long Hjmin,
+                             const long Hjmax, const long Hnvar,
+                             const long Hnxt, const long Hnyt,
+                             const long Hnxyt) {
   long j = get_global_id(0);
   long ivar;
   if (j < (Hjmin + ExtraLayer))
@@ -373,13 +354,14 @@ Loop4KcuUpdate(const long rowcol, const double dtdx,
     return;
   for (ivar = IP + 1; ivar < Hnvar; ivar++) {
     uold[IHU(rowcol, j, ivar, Hnxt, Hnyt)] =
-      u[IHVW(j, ivar, Hnxyt)] + (flux[IHVW(j - 2, ivar, Hnxyt)] - flux[IHVW(j - 1, ivar, Hnxyt)]) * dtdx;
+        u[IHVW(j, ivar, Hnxyt)] +
+        (flux[IHVW(j - 2, ivar, Hnxyt)] - flux[IHVW(j - 1, ivar, Hnxyt)]) *
+            dtdx;
   }
 }
-__kernel void
-Loop1KcuConstoprim(const long n,
-                   __global double *u, __global double *q, __global double *e, const long Hnxyt, const double Hsmallr)
-{
+__kernel void Loop1KcuConstoprim(const long n, __global double *u,
+                                 __global double *q, __global double *e,
+                                 const long Hnxyt, const double Hsmallr) {
   double eken;
   long i = get_global_id(0);
   if (i >= n)
@@ -395,9 +377,9 @@ Loop1KcuConstoprim(const long n,
   q[idxIP] = u[idxIP] / q[idxID] - eken;
   e[i] = q[idxIP];
 }
-__kernel void
-Loop2KcuConstoprim(const long n, __global double *u, __global double *q, const long Hnxyt, const long Hnvar)
-{
+__kernel void Loop2KcuConstoprim(const long n, __global double *u,
+                                 __global double *q, const long Hnxyt,
+                                 const long Hnvar) {
   long IN;
   long i = get_global_id(0);
   if (i >= n)
@@ -407,11 +389,10 @@ Loop2KcuConstoprim(const long n, __global double *u, __global double *q, const l
     q[idxIN] = u[idxIN] / q[idxIN];
   }
 }
-__kernel void
-LoopEOS(__global double *q, __global double *eint,
-        __global double *c,
-        const long offsetIP, const long offsetID, const long imin, const long imax, const double Hsmallc, const double Hgamma)
-{
+__kernel void LoopEOS(__global double *q, __global double *eint,
+                      __global double *c, const long offsetIP,
+                      const long offsetID, const long imin, const long imax,
+                      const double Hsmallc, const double Hgamma) {
   double smallp;
   __global double *p = &q[offsetIP];
   __global double *rho = &q[offsetID];
@@ -422,13 +403,14 @@ LoopEOS(__global double *q, __global double *eint,
     return;
   smallp = Square(Hsmallc) / Hgamma;
   p[k] = (Hgamma - one) * rho[k] * eint[k];
-  p[k] = Max(p[k], (double) (rho[k] * smallp));
+  p[k] = Max(p[k], (double)(rho[k] * smallp));
   c[k] = Sqrt(Hgamma * p[k] / rho[k]);
 }
-__kernel void
-Loop1KcuMakeBoundary(const long i, const long i0, const double sign, const long Hjmin,
-                     const long n, const long Hnxt, const long Hnyt, const long Hnvar, __global double *uold)
-{
+__kernel void Loop1KcuMakeBoundary(const long i, const long i0,
+                                   const double sign, const long Hjmin,
+                                   const long n, const long Hnxt,
+                                   const long Hnyt, const long Hnvar,
+                                   __global double *uold) {
   long j, ivar;
   double vsign = sign;
   idx2d(&j, &ivar, n);
@@ -438,12 +420,14 @@ Loop1KcuMakeBoundary(const long i, const long i0, const double sign, const long 
   if (ivar == IU)
     vsign = -1.0;
   j += (Hjmin + ExtraLayer);
-  uold[IHV(i, j, ivar, Hnxt, Hnyt)] = uold[IHV(i0, j, ivar, Hnxt, Hnyt)] * vsign;
+  uold[IHV(i, j, ivar, Hnxt, Hnyt)] =
+      uold[IHV(i0, j, ivar, Hnxt, Hnyt)] * vsign;
 }
-__kernel void
-Loop2KcuMakeBoundary(const long j, const long j0, const double sign, const long Himin,
-                     const long n, const long Hnxt, const long Hnyt, const long Hnvar, __global double *uold)
-{
+__kernel void Loop2KcuMakeBoundary(const long j, const long j0,
+                                   const double sign, const long Himin,
+                                   const long n, const long Hnxt,
+                                   const long Hnyt, const long Hnvar,
+                                   __global double *uold) {
   long i, ivar;
   double vsign = sign;
   idx2d(&i, &ivar, n);
@@ -453,12 +437,13 @@ Loop2KcuMakeBoundary(const long j, const long j0, const double sign, const long 
   if (ivar == IV)
     vsign = -1.0;
   i += (Himin + ExtraLayer);
-  uold[IHV(i, j, ivar, Hnxt, Hnyt)] = uold[IHV(i, j0, ivar, Hnxt, Hnyt)] * vsign;
+  uold[IHV(i, j, ivar, Hnxt, Hnyt)] =
+      uold[IHV(i, j0, ivar, Hnxt, Hnyt)] * vsign;
 }
-__kernel void
-Loop1KcuQleftright(const long bmax, const long Hnvar, const long Hnxyt,
-                   __global double *qxm, __global double *qxp, __global double *qleft, __global double *qright)
-{
+__kernel void Loop1KcuQleftright(const long bmax, const long Hnvar,
+                                 const long Hnxyt, __global double *qxm,
+                                 __global double *qxp, __global double *qleft,
+                                 __global double *qright) {
   long nvar;
   long i = get_global_id(0);
   if (i >= bmax)
@@ -510,7 +495,8 @@ typedef struct _Args {
   long Hnxyt;
 } Args_t;
 // memoire sur le device qui va contenir les arguments de riemann
-// on les transmets en bloc en une fois et les differents kernels pourront y acceder.
+// on les transmets en bloc en une fois et les differents kernels pourront y
+// acceder.
 //__constant Args_t K;
 /*
    pour contourner les limitations d'OpenCL, nous allons utiliser 4
@@ -520,15 +506,12 @@ typedef struct _Args {
    intermediaires qui auraient pu etre des scalaires, mais l'objectif
    est de rester (pour l'instant) au plus pres du code d'origine.
 */
-__kernel void
-Init1KcuRiemann(__global Args_t * K,
-                __global double *qleft,
-                __global double *qright,
-                __global double *qgdnv,
-                __global double *rl,
-                __global double *ul,
-                __global double *pl, __global double *cl, __global double *wl, __global double *rr, __global double *ur)
-{
+__kernel void Init1KcuRiemann(__global Args_t *K, __global double *qleft,
+                              __global double *qright, __global double *qgdnv,
+                              __global double *rl, __global double *ul,
+                              __global double *pl, __global double *cl,
+                              __global double *wl, __global double *rr,
+                              __global double *ur) {
   long tid = get_global_id(0);
   if (tid != 0)
     return;
@@ -543,15 +526,12 @@ Init1KcuRiemann(__global Args_t * K,
   K->rr = rr;
   K->ur = ur;
 }
-__kernel void
-Init2KcuRiemann(__global Args_t * K,
-                __global double *pr,
-                __global double *cr,
-                __global double *wr,
-                __global double *ro,
-                __global double *uo,
-                __global double *po, __global double *co, __global double *wo, __global double *rstar, __global double *ustar)
-{
+__kernel void Init2KcuRiemann(__global Args_t *K, __global double *pr,
+                              __global double *cr, __global double *wr,
+                              __global double *ro, __global double *uo,
+                              __global double *po, __global double *co,
+                              __global double *wo, __global double *rstar,
+                              __global double *ustar) {
   long tid = get_global_id(0);
   if (tid != 0)
     return;
@@ -566,16 +546,12 @@ Init2KcuRiemann(__global Args_t * K,
   K->rstar = rstar;
   K->ustar = ustar;
 }
-__kernel void
-Init3KcuRiemann(__global Args_t * K,
-                __global double *pstar,
-                __global double *cstar,
-                __global long *sgnm,
-                __global double *spin,
-                __global double *spout,
-                __global double *ushock,
-                __global double *frac, __global double *scr, __global double *delp, __global double *pold)
-{
+__kernel void Init3KcuRiemann(__global Args_t *K, __global double *pstar,
+                              __global double *cstar, __global long *sgnm,
+                              __global double *spin, __global double *spout,
+                              __global double *ushock, __global double *frac,
+                              __global double *scr, __global double *delp,
+                              __global double *pold) {
   long tid = get_global_id(0);
   if (tid != 0)
     return;
@@ -590,19 +566,18 @@ Init3KcuRiemann(__global Args_t * K,
   K->pold = pold;
   K->sgnm = sgnm;
 }
-__kernel void
-Init4KcuRiemann(__global Args_t * K, __global long *ind, __global long *ind2)
-{
+__kernel void Init4KcuRiemann(__global Args_t *K, __global long *ind,
+                              __global long *ind2) {
   long tid = get_global_id(0);
   if (tid != 0)
     return;
   K->ind = ind;
   K->ind2 = ind2;
 }
-__kernel void
-LoopKcuSlope(__global double *q, __global double *dq,
-             const long Hnvar, const long Hnxyt, const double slope_type, const long ijmin, const long ijmax)
-{
+__kernel void LoopKcuSlope(__global double *q, __global double *dq,
+                           const long Hnvar, const long Hnxyt,
+                           const double slope_type, const long ijmin,
+                           const long ijmax) {
   long n;
   double dlft, drgt, dcen, dsgn, slop, dlim;
   long ihvwin, ihvwimn, ihvwipn;
@@ -619,20 +594,20 @@ LoopKcuSlope(__global double *q, __global double *dq,
   dlft = slope_type * (q[ihvwin] - q[ihvwimn]);
   drgt = slope_type * (q[ihvwipn] - q[ihvwin]);
   dcen = demi * (dlft + drgt) / slope_type;
-  dsgn = (dcen > 0) ? (double) 1.0 : (double) -1.0;     // sign(one, dcen);
-  slop = (double) Min(Fabs(dlft), Fabs(drgt));
+  dsgn = (dcen > 0) ? (double)1.0 : (double)-1.0; // sign(one, dcen);
+  slop = (double)Min(Fabs(dlft), Fabs(drgt));
   dlim = ((dlft * drgt) <= zero) ? zero : slop;
   //         if ((dlft * drgt) <= zero) {
   //             dlim = zero;
   //         }
-  dq[ihvwin] = dsgn * (double) Min(dlim, Fabs(dcen));
+  dq[ihvwin] = dsgn * (double)Min(dlim, Fabs(dcen));
 }
-__kernel void
-Loop1KcuTrace(__global double *q, __global double *dq, __global double *c,
-              __global double *qxm, __global double *qxp,
-              const double dtdx, const long Hnxyt,
-              const long imin, const long imax, const double zeror, const double zerol, const double project)
-{
+__kernel void Loop1KcuTrace(__global double *q, __global double *dq,
+                            __global double *c, __global double *qxm,
+                            __global double *qxp, const double dtdx,
+                            const long Hnxyt, const long imin, const long imax,
+                            const double zeror, const double zerol,
+                            const double project) {
   double cc, csq, r, u, v, p;
   double dr, du, dv, dp;
   double alpham, alphap, alpha0r, alpha0v;
@@ -705,12 +680,12 @@ Loop1KcuTrace(__global double *q, __global double *dq, __global double *c,
   qxm[idxIV] = v + (azv1left);
   qxm[idxIP] = p + (apleft + amleft) * csq;
 }
-__kernel void
-Loop2KcuTrace(__global double *q, __global double *dq,
-              __global double *qxm, __global double *qxp,
-              const double dtdx, const long Hnvar, const long Hnxyt,
-              const long imin, const long imax, const double zeror, const double zerol, const double project)
-{
+__kernel void Loop2KcuTrace(__global double *q, __global double *dq,
+                            __global double *qxm, __global double *qxp,
+                            const double dtdx, const long Hnvar,
+                            const long Hnxyt, const long imin, const long imax,
+                            const double zeror, const double zerol,
+                            const double project) {
   long IN;
   double u, a;
   double da;
@@ -747,14 +722,10 @@ Loop2KcuTrace(__global double *q, __global double *dq,
     qxm[idxIN] = a + acmpleft;
   }
 }
-__kernel void
-reduceMaxDble(__global double *buffer,
-	      __const long length,
-	      __global double *result,
-	      __local double *scratch)
-{
+__kernel void reduceMaxDble(__global double *buffer, __const long length,
+                            __global double *result, __local double *scratch) {
   int global_index = get_global_id(0);
-  int local_index  = get_local_id(0);
+  int local_index = get_local_id(0);
   double accumulator = -DBL_MAX;
   // Pass 1
   // Loop sequentially over chunks of input vector
@@ -762,7 +733,7 @@ reduceMaxDble(__global double *buffer,
   while (global_index < length) {
     double element = buffer[global_index];
     accumulator = fmax(accumulator, element);
-    global_index += get_local_size(0);  // to favor coalescing
+    global_index += get_local_size(0); // to favor coalescing
   }
   // Pass 2
   // Perform parallel reduction
@@ -780,27 +751,24 @@ reduceMaxDble(__global double *buffer,
     result[get_group_id(0)] = scratch[0];
   }
 }
-__kernel void
-KernelMemset(__global double *a, int v, long lobj)
-{
+__kernel void KernelMemset(__global double *a, int v, long lobj) {
   size_t gid = get_global_id(0);
   if (gid >= lobj)
     return;
-  double dv = (double) 0.0 + (double) v;
+  double dv = (double)0.0 + (double)v;
   a[gid] = dv;
 }
-__kernel void
-KernelMemsetV4(__global int4 * a, int v, long lobj)
-{
+__kernel void KernelMemsetV4(__global int4 *a, int v, long lobj) {
   size_t gid = get_global_id(0) * 4;
   if (gid >= lobj)
     return;
-  a[gid] = (int4) v;
+  a[gid] = (int4)v;
 }
-__kernel void
-Loop1KcuRiemann(__global double *qleft, __global double *qright, __global double *sgnm, __global double *qgdnv, long Hnxyt,
-                long Knarray, double Hsmallc, double Hgamma, double Hsmallr, long Hniter_riemann)
-{
+__kernel void Loop1KcuRiemann(__global double *qleft, __global double *qright,
+                              __global double *sgnm, __global double *qgdnv,
+                              long Hnxyt, long Knarray, double Hsmallc,
+                              double Hgamma, double Hsmallr,
+                              long Hniter_riemann) {
   double smallp, gamma6, ql, qr, usr, usl, wwl, wwr, smallpp;
   long iter;
   long tid = get_local_id(0);
@@ -829,21 +797,22 @@ Loop1KcuRiemann(__global double *qleft, __global double *qright, __global double
   double Krli = Max(qleft[idxID], Hsmallr);
   double Kuli = qleft[idxIU];
   // opencl explose au dela de cette ligne si le code n'est pas en commentaire
-  double Kpli = Max(qleft[idxIP], (double) (Krli * smallp));
+  double Kpli = Max(qleft[idxIP], (double)(Krli * smallp));
   double Krri = Max(qright[idxID], Hsmallr);
   double Kuri = qright[idxIU];
-  double Kpri = Max(qright[idxIP], (double) (Krri * smallp));
+  double Kpri = Max(qright[idxIP], (double)(Krri * smallp));
   // Lagrangian sound speed
   double Kcli = Hgamma * Kpli * Krli;
   double Kcri = Hgamma * Kpri * Krri;
   // First guess
   double Kwli = Sqrt(Kcli);
   double Kwri = Sqrt(Kcri);
-  double Kpstari = ((Kwri * Kpli + Kwli * Kpri) + Kwli * Kwri * (Kuli - Kuri)) / (Kwli + Kwri);
+  double Kpstari = ((Kwri * Kpli + Kwli * Kpri) + Kwli * Kwri * (Kuli - Kuri)) /
+                   (Kwli + Kwri);
   Kpstari = Max(Kpstari, 0.0);
   double Kpoldi = Kpstari;
   // ind est un masque de traitement pour le newton
-  long Kindi = 1;               // toutes les cellules sont a traiter
+  long Kindi = 1; // toutes les cellules sont a traiter
   ulS = Kuli;
   plS = Kpli;
   clS = Kcli;
@@ -881,7 +850,8 @@ Loop1KcuRiemann(__global double *qleft, __global double *qright, __global double
   Kpstari = Kpoldi;
   Kwli = Sqrt(Kcli * (one + gamma6 * (Kpstari - Kpli) / Kpli));
   Kwri = Sqrt(Kcri * (one + gamma6 * (Kpstari - Kpri) / Kpri));
-  double Kustari = demi * (Kuli + (Kpli - Kpstari) / Kwli + Kuri - (Kpri - Kpstari) / Kwri);
+  double Kustari =
+      demi * (Kuli + (Kpli - Kpstari) / Kwli + Kuri - (Kpri - Kpstari) / Kwri);
   sgnm[i] = (Kustari > 0) ? 1 : -1;
   if (sgnm[i] == 1) {
     Kroi = Krli;
@@ -905,9 +875,10 @@ Loop1KcuRiemann(__global double *qleft, __global double *qright, __global double
     Kspini = Kushocki;
     Kspouti = Kushocki;
   }
-  double Kscri = Max((double) (Kspouti - Kspini), (double) (Hsmallc + Fabs(Kspouti + Kspini)));
+  double Kscri = Max((double)(Kspouti - Kspini),
+                     (double)(Hsmallc + Fabs(Kspouti + Kspini)));
   double Kfraci = (one + (Kspouti + Kspini) / Kscri) * demi;
-  Kfraci = Max(zero, (double) (Min(one, Kfraci)));
+  Kfraci = Max(zero, (double)(Min(one, Kfraci)));
   qgdnv[idxID] = Kfraci * Krstari + (one - Kfraci) * Kroi;
   qgdnv[idxIU] = Kfraci * Kustari + (one - Kfraci) * Kuoi;
   qgdnv[idxIP] = Kfraci * Kpstari + (one - Kfraci) * Kpoi;
@@ -927,10 +898,10 @@ Loop1KcuRiemann(__global double *qleft, __global double *qright, __global double
     qgdnv[idxIV] = qright[idxIV];
   }
 }
-__kernel void
-Loop10KcuRiemann(__global Args_t * K, __global double *qleft, __global double *qright, __global double *sgnm,
-                 __global double *qgdnv, long Knarray, long Knvar, long KHnxyt)
-{
+__kernel void Loop10KcuRiemann(__global Args_t *K, __global double *qleft,
+                               __global double *qright, __global double *sgnm,
+                               __global double *qgdnv, long Knarray, long Knvar,
+                               long KHnxyt) {
   long invar;
   long i = get_global_id(0);
   long Hnxyt = KHnxyt;
@@ -946,6 +917,6 @@ Loop10KcuRiemann(__global Args_t * K, __global double *qleft, __global double *q
     }
   }
 }
-//EOF
+// EOF
 #ifdef NOTDEF
-#endif //NOTDEF
+#endif // NOTDEF

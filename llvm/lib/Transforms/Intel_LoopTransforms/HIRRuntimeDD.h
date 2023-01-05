@@ -107,8 +107,11 @@ class IVSegment {
 
   bool IsWrite;
 
+  // The segment represents contiguous access into a memory space.
+  bool IsContiguous;
+
 public:
-  IVSegment(const RefGroupTy &Group, bool IsWrite);
+  IVSegment(const RefGroupTy &Group, bool IsWrite, bool IsContiguous = false);
   IVSegment(const IVSegment &) = delete;
   IVSegment(IVSegment &&Segment);
 

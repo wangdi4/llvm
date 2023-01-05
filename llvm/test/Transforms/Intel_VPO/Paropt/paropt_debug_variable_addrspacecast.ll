@@ -1,4 +1,5 @@
-; RUN: opt -S -switch-to-offload -vpo-paropt %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -S -switch-to-offload -vpo-paropt %s | FileCheck %s
+; RUN: opt -S -switch-to-offload -passes="vpo-paropt" %s | FileCheck %s
 ;
 ; Variable "V" has an llvm.dbg.declare, but the addrspace casted version of "V"
 ; is passed into the kernel. When the kernel is outlined, an llvm.dbg.declare

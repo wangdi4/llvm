@@ -268,7 +268,8 @@ TEST(DemangleTest, AsyncGropuCpy) {
   FunctionDescriptor fd =
       demangle("_Z21async_work_group_copyPU3AS3Dv2_cPU3AS1KS_mm");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("async_work_group_copy(__local char2 *, const __global char2 *, ulong, ulong)"),
+  ASSERT_EQ(std::string("async_work_group_copy(__local char2 *, const __global "
+                        "char2 *, ulong, ulong)"),
             fd.toString());
 }
 
@@ -279,11 +280,11 @@ TEST(MangleTest, clk_event) {
 }
 
 TEST(DemangleTest, block) {
-  char const* names[] = {
-      "_Z14enqueue_kernelU13block_pointerFvvE",
-      "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvPU3AS3vzEjz",
-      "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventPS1_U13block_pointerFvPU3AS3vzEjz"
-  };
+  char const *names[] = {"_Z14enqueue_kernelU13block_pointerFvvE",
+                         "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_"
+                         "clkeventPU3AS4S1_U13block_pointerFvPU3AS3vzEjz",
+                         "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_"
+                         "clkeventPS1_U13block_pointerFvPU3AS3vzEjz"};
 
   for (char const *name : names) {
     FunctionDescriptor fd1 = demangle(name);
@@ -548,40 +549,44 @@ TEST(DemangleTest, doubleDup6) {
   FunctionDescriptor fd =
       demangle("_Z3fooDv2_iDv2_jDv2_cDv2_hDv4_fDv8_dS_S0_S1_S2_S3_S4_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(int2, uint2, char2, uchar2, float4, double8, int2, uint2, char2, uchar2, float4, double8)"),
+  ASSERT_EQ(std::string("foo(int2, uint2, char2, uchar2, float4, double8, "
+                        "int2, uint2, char2, uchar2, float4, double8)"),
             fd.toString());
 }
 
 TEST(DemangleTest, doubleDup7) {
   FunctionDescriptor fd = demangle("_Z3fooPDv4_fS_S1_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(__private float4 *, float4, __private float4 *)"), fd.toString());
+  ASSERT_EQ(std::string("foo(__private float4 *, float4, __private float4 *)"),
+            fd.toString());
 }
 
 TEST(DemangleTest, doubleDup8) {
   FunctionDescriptor fd =
-      demangle("_Z3fooPiPjPcPhPfPdS0_S2_S4_S6_S8_SA_Dv4_iDv4_jDv4_cDv4_hDv4_fDv4_dSB_SC_SD_SE_SF_SG_");
+      demangle("_Z3fooPiPjPcPhPfPdS0_S2_S4_S6_S8_SA_Dv4_iDv4_jDv4_cDv4_hDv4_"
+               "fDv4_dSB_SC_SD_SE_SF_SG_");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(
-    std::string("foo(__private int *, __private uint *, __private char *, "
-                "__private uchar *, __private float *, __private double *, "
-                "__private int *, __private uint *, __private char *, "
-                "__private uchar *, __private float *, __private double *, "
-                "int4, uint4, char4, uchar4, float4, double4, "
-                "int4, uint4, char4, uchar4, float4, double4)"),
-    fd.toString());
+      std::string("foo(__private int *, __private uint *, __private char *, "
+                  "__private uchar *, __private float *, __private double *, "
+                  "__private int *, __private uint *, __private char *, "
+                  "__private uchar *, __private float *, __private double *, "
+                  "int4, uint4, char4, uchar4, float4, double4, "
+                  "int4, uint4, char4, uchar4, float4, double4)"),
+      fd.toString());
 }
 
 TEST(DemangleTest, doubleDup9) {
   FunctionDescriptor fd = demangle("_Z3fooP4sFooS1_S_");
   ASSERT_FALSE(fd.isNull());
-  ASSERT_EQ(std::string("foo(__private sFoo *, __private sFoo *, sFoo)"), fd.toString());
+  ASSERT_EQ(std::string("foo(__private sFoo *, __private sFoo *, sFoo)"),
+            fd.toString());
 }
 
 // Check that all (more than one) CVR-qualifiers is demangled correctly
 TEST(DemangleTest, CVRQualifiers) {
-  const char *orig =
-      "_Z37atomic_compare_exchange_weak_explicitPU3AS3rVKU7_AtomiciPii12memory_orderS3_";
+  const char *orig = "_Z37atomic_compare_exchange_weak_explicitPU3AS3rVKU7_"
+                     "AtomiciPii12memory_orderS3_";
   FunctionDescriptor fd = demangle(orig);
   ASSERT_FALSE(fd.isNull());
   ASSERT_TRUE(fd.toString().find("const volatile restrict") !=
@@ -596,8 +601,8 @@ TEST(DemangleTest, SPIR12Pointers) {
   ASSERT_FALSE(fdPointer.isNull());
   ASSERT_TRUE(fdPointer.toString().find("const") != std::string::npos);
 
-  const char *origAtomic =
-      "_Z37atomic_compare_exchange_weak_explicitPVU3AS3U7_AtomiciPii12memory_orderS3_";
+  const char *origAtomic = "_Z37atomic_compare_exchange_weak_explicitPVU3AS3U7_"
+                           "AtomiciPii12memory_orderS3_";
   FunctionDescriptor fdAtomic = demangle(origAtomic);
   ASSERT_FALSE(fdAtomic.isNull());
   ASSERT_TRUE(fdAtomic.toString().find("volatile") != std::string::npos);
@@ -710,7 +715,7 @@ TEST(MemoryLeaks, StructTy) {
   EXPECT_TRUE(dyn_cast<UserDefinedType>(fd.Parameters[0].get()));
 }
 
-} // end namespace test
+} // namespace tests
 } // end namespace namemangling
 
 int main(int argc, char **argv) {

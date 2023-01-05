@@ -37,11 +37,7 @@ template <typename F> void TaskGroup::ExecuteFunc(const F &f) {
 
 // SpawningTaskGroup methods:
 
-template<typename F>
-void SpawningTaskGroup::Spawn(const F& f)
-{
-  run(f);
-}
+template <typename F> void SpawningTaskGroup::Spawn(const F &f) { run(f); }
 
 } // namespace TaskExecutor
 } // namespace OpenCL

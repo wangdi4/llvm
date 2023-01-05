@@ -30,6 +30,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -270,7 +271,7 @@ void FastCallEnabler::convert(Function *F) {
   bool HasProfile = false;
   uint64_t DirectCallExecCount = 0;
   uint64_t OrigExecCount = 0;
-  Optional<Function::ProfileCount> ExecCount = F->getEntryCount();
+  std::optional<Function::ProfileCount> ExecCount = F->getEntryCount();
   if (ExecCount.has_value()) {
     HasProfile = true;
     OrigExecCount = ExecCount->getCount();

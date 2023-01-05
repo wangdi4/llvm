@@ -1,5 +1,5 @@
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-peel-rem-strip=0 -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -mattr=+avx512vl -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-peel-rem-strip=0 -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
+; RUN: opt -disable-output -mattr=+avx512vl -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -mattr=+avx512vl -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s --check-prefix=DOLOOPCHECK
 ;
 ; LIT test to check that we do not vectorize remainder loops with call to sqrt
 ; intrinsic when the only use(s) of the call result occur in a FDIV instruction
@@ -38,7 +38,7 @@ for.body:                                         ; preds = %for.body.preheader,
   store double %div, double* %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
-  br i1 %exitcond.not, label %for.end.loopexit, label %for.body
+  br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !9
 
 for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
@@ -46,6 +46,8 @@ for.end.loopexit:                                 ; preds = %for.body
 for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
+!9 = distinct !{!9, !10}
+!10 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
 
 ; DOLOOPCHECK:         Function: vecrem1
 ; DOLOOPCHECK:              BEGIN REGION
@@ -75,7 +77,7 @@ for.body:                                         ; preds = %for.body.preheader,
   store double %1, double* %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
-  br i1 %exitcond.not, label %for.end.loopexit, label %for.body
+  br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !11
 
 for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
@@ -83,7 +85,8 @@ for.end.loopexit:                                 ; preds = %for.body
 for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
-
+!11 = distinct !{!11, !12}
+!12 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
 ; DOLOOPCHECK:         Function: vecrem2
 ; DOLOOPCHECK:              BEGIN REGION
 ; DOLOOPCHECK-COUNT-2:            DO i1 =
@@ -113,7 +116,7 @@ for.body:                                         ; preds = %for.body.preheader,
   store double %div, double* %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
-  br i1 %exitcond.not, label %for.end.loopexit, label %for.body
+  br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !13
 
 for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
@@ -121,6 +124,8 @@ for.end.loopexit:                                 ; preds = %for.body
 for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
+!13 = distinct !{!13, !14}
+!14 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
 
 declare double @llvm.sqrt.f64(double)
 attributes #0 = { "imf-accuracy-bits"="14" "imf-accuracy-bits-sqrt"="14" }

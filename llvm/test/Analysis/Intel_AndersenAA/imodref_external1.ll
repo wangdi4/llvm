@@ -1,4 +1,3 @@
-; RUN: opt < %s -basic-aa -anders-aa -gvn -S | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
 
 ; Test where external global could be modified by call to verify mod/ref set

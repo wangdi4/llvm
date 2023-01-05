@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 -disable-output -hir-opt-predicate -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" < %s -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that loop unswitching completely removes the loopnest in the true case of the if (%n > 10).

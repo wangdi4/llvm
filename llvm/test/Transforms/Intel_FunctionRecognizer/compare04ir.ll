@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,intel_feature_sw_dtrans
-; RUN: opt < %s -enable-dtrans -functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
 
 ; Check that @arc_compare is not recognized as a qsort compare, because it

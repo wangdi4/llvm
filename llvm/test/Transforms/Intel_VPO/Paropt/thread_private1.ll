@@ -1,8 +1,8 @@
-; RUN: opt -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
 ; RUN: opt -passes=vpo-paropt-tpv -S %s | FileCheck %s
 
 ; Verify that vpo-paropt-tpv works with bisect limit 0:
-; RUN: opt -vpo-paropt-tpv -S -opt-bisect-limit=0 %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -S -opt-bisect-limit=0 %s | FileCheck %s
 ; RUN: opt -passes=vpo-paropt-tpv -S -opt-bisect-limit=0 %s | FileCheck %s
 
 ; The compiler is expected to emit the call __kmpc_threadprivate_cached.

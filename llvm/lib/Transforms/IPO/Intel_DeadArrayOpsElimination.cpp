@@ -81,6 +81,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -212,7 +213,7 @@ void DeadArrayOpsElimImpl::parseOption() {
     SmallVector<StringRef, 8> ListCandidates;
     OptRef.split(ListCandidates, ';');
 
-    for (auto UserCand : ListCandidates) {
+    for (const auto &UserCand : ListCandidates) {
 
       SmallVector<StringRef, 2> CandItem;
       UserCand.split(CandItem, ',');
@@ -483,7 +484,7 @@ void CandidateInfo::fixQsortCallsites() {
                            Attrs.getRetAttrs(), NewArgAttrs);
 
     CallInst *NewCB;
-    NewCB = CallInst::Create(NFTy, NewSortFn, NewArgs, None, "", CB);
+    NewCB = CallInst::Create(NFTy, NewSortFn, NewArgs, std::nullopt, "", CB);
     NewCB->setTailCallKind(CB->getTailCallKind());
     NewCB->setCallingConv(CB->getCallingConv());
     NewCB->setDebugLoc(CB->getDebugLoc());

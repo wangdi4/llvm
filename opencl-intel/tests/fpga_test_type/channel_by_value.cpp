@@ -86,13 +86,21 @@ TEST_F(TestChannelByValue, Simple) {
     int a = 0, b = 0;
     switch (x) {
     case 0:
-      a = 0; b = 0; break;
+      a = 0;
+      b = 0;
+      break;
     case 1:
-      a = 1; b = 0; break;
+      a = 1;
+      b = 0;
+      break;
     case 2:
-      a = 1; b = 1; break;
+      a = 1;
+      b = 1;
+      break;
     case 3:
-      a = 1; b = 2; break;
+      a = 1;
+      b = 2;
+      break;
     }
 
     input_data[i].s[0] = a;
@@ -119,15 +127,18 @@ TEST_F(TestChannelByValue, Simple) {
   ASSERT_TRUE(enqueueTask("host_reader", input_buffer, numElements))
       << "enqueueTask failed";
   ASSERT_TRUE(enqueueTask("host_writer", output_buffer1, output_buffer2,
-                          halfNumElements)) << "enqueueTask failed";
+                          halfNumElements))
+      << "enqueueTask failed";
   ASSERT_TRUE(enqueueTask("producer", numElements)) << "enqueueTask failed";
 
   cl_int output_data1[halfNumElements];
   ASSERT_TRUE(readBuffer<cl_int>("host_writer", output_buffer1, halfNumElements,
-                                 output_data1)) << "readBuffer failed";
+                                 output_data1))
+      << "readBuffer failed";
   cl_int output_data2[halfNumElements];
   ASSERT_TRUE(readBuffer<cl_int>("host_writer", output_buffer2, halfNumElements,
-                                 output_data2)) << "readBuffer failed";
+                                 output_data2))
+      << "readBuffer failed";
 
   for (cl_int i = 0; i < halfNumElements; ++i) {
     cl_int reference = i % 2 == 0 ? 1 : 2;
@@ -241,13 +252,21 @@ TEST_F(TestChannelByValue, O0Regression) {
     int a = 0, b = 0;
     switch (x) {
     case 0:
-      a = 0; b = 0; break;
+      a = 0;
+      b = 0;
+      break;
     case 1:
-      a = 1; b = 0; break;
+      a = 1;
+      b = 0;
+      break;
     case 2:
-      a = 1; b = 1; break;
+      a = 1;
+      b = 1;
+      break;
     case 3:
-      a = 1; b = 2; break;
+      a = 1;
+      b = 2;
+      break;
     }
 
     input_data[i].s[0] = a;
@@ -274,15 +293,18 @@ TEST_F(TestChannelByValue, O0Regression) {
   ASSERT_TRUE(enqueueTask("host_reader", input_buffer, numElements))
       << "enqueueTask failed";
   ASSERT_TRUE(enqueueTask("host_writer", output_buffer1, output_buffer2,
-                          halfNumElements)) << "enqueueTask failed";
+                          halfNumElements))
+      << "enqueueTask failed";
   ASSERT_TRUE(enqueueTask("producer", numElements)) << "enqueueTask failed";
 
   cl_int output_data1[halfNumElements];
   ASSERT_TRUE(readBuffer<cl_int>("host_writer", output_buffer1, halfNumElements,
-                                 output_data1)) << "readBuffer failed";
+                                 output_data1))
+      << "readBuffer failed";
   cl_int output_data2[halfNumElements];
   ASSERT_TRUE(readBuffer<cl_int>("host_writer", output_buffer2, halfNumElements,
-                                 output_data2)) << "readBuffer failed";
+                                 output_data2))
+      << "readBuffer failed";
 
   for (cl_int i = 0; i < halfNumElements; ++i) {
     cl_int reference = i % 2 == 0 ? 1 : 2;
@@ -296,4 +318,3 @@ TEST_F(TestChannelByValue, O0Regression) {
         << "invalid value of " << i << "-th element of data2 array";
   }
 }
-

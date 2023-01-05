@@ -178,6 +178,9 @@ def SDTFPRoundOp  : SDTypeProfile<1, 1, [   // fpround
 def SDTFPExtendOp  : SDTypeProfile<1, 1, [  // fpextend
   SDTCisFP<0>, SDTCisFP<1>, SDTCisOpSmallerThanOp<1, 0>, SDTCisSameNumEltsAs<0, 1>
 ]>;
+def SDIsFPClassOp : SDTypeProfile<1, 2, [   // is_fpclass
+  SDTCisInt<0>, SDTCisFP<1>, SDTCisInt<2>, SDTCisSameNumEltsAs<0, 1>
+]>;
 def SDTIntToFPOp : SDTypeProfile<1, 1, [    // [su]int_to_fp
   SDTCisFP<0>, SDTCisInt<1>, SDTCisSameNumEltsAs<0, 1>
 ]>;
@@ -487,6 +490,11 @@ def vecreduce_umax  : SDNode<"ISD::VECREDUCE_UMAX", SDTVecReduce>;
 def vecreduce_smin  : SDNode<"ISD::VECREDUCE_SMIN", SDTVecReduce>;
 def vecreduce_umin  : SDNode<"ISD::VECREDUCE_UMIN", SDTVecReduce>;
 def vecreduce_fadd  : SDNode<"ISD::VECREDUCE_FADD", SDTFPVecReduce>;
+#if INTEL_CUSTOMIZATION
+  def vecreduce_and  : SDNode<"ISD::VECREDUCE_AND", SDTVecReduce>;
+  def vecreduce_or   : SDNode<"ISD::VECREDUCE_OR", SDTVecReduce>;
+  def vecreduce_xor  : SDNode<"ISD::VECREDUCE_XOR", SDTVecReduce>;
+#endif // INTEL_CUSTOMIZATION
 
 def fadd       : SDNode<"ISD::FADD"       , SDTFPBinOp, [SDNPCommutative]>;
 def fsub       : SDNode<"ISD::FSUB"       , SDTFPBinOp>;
@@ -538,6 +546,8 @@ def llrint     : SDNode<"ISD::LLRINT"     , SDTFPToIntOp>;
 def fpround    : SDNode<"ISD::FP_ROUND"   , SDTFPRoundOp>;
 def fpextend   : SDNode<"ISD::FP_EXTEND"  , SDTFPExtendOp>;
 def fcopysign  : SDNode<"ISD::FCOPYSIGN"  , SDTFPSignOp>;
+
+def is_fpclass : SDNode<"ISD::IS_FPCLASS" , SDIsFPClassOp>;
 
 def sint_to_fp : SDNode<"ISD::SINT_TO_FP" , SDTIntToFPOp>;
 def uint_to_fp : SDNode<"ISD::UINT_TO_FP" , SDTIntToFPOp>;
@@ -874,7 +884,7 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   // If this empty, accept any address space.
   list<int> AddressSpaces = ?;
 
-  // cast<MemSDNode>(N)->getAlignment() >=
+  // cast<MemSDNode>(N)->getAlign() >=
   // If this is empty, accept any alignment.
   int MinAlignment = ?;
 
@@ -1354,7 +1364,7 @@ def nontemporalstore : PatFrag<(ops node:$val, node:$ptr),
 def alignednontemporalstore : PatFrag<(ops node:$val, node:$ptr),
                                       (nontemporalstore node:$val, node:$ptr), [{
   StoreSDNode *St = cast<StoreSDNode>(N);
-  return St->getAlignment() >= St->getMemoryVT().getStoreSize();
+  return St->getAlign() >= St->getMemoryVT().getStoreSize();
 }]>;
 
 def unalignednontemporalstore : PatFrag<(ops node:$val, node:$ptr),
@@ -1372,7 +1382,7 @@ def nontemporalload : PatFrag<(ops node:$ptr),
 def alignednontemporalload : PatFrag<(ops node:$ptr),
                                       (nontemporalload node:$ptr), [{
   LoadSDNode *Ld = cast<LoadSDNode>(N);
-  return Ld->getAlignment() >= Ld->getMemoryVT().getStoreSize();
+  return Ld->getAlign() >= Ld->getMemoryVT().getStoreSize();
 }]>;
 
 // setcc convenience fragments.

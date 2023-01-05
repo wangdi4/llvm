@@ -1,5 +1,4 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
-; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-barrier-wi-analysis %s -S -o - | FileCheck %s
 ;; XFAIL: *
 
 ;;*****************************************************************************

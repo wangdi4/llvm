@@ -3,7 +3,6 @@
 ; This is same as intel-global-opt-stdout-1.ll except BitCasts are not
 ; involved while modifying "nabout".
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -globalopt -whole-program-assume -S | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,globalopt' -whole-program-assume -S | FileCheck %s
 
 ; CHECK-DAG: %l1 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8

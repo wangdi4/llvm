@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 //AVX2
 /// STYLE NOTE: Comments at same line of code are arranged to start at column 85 at the output final file
 
@@ -355,20 +367,20 @@ OclBuiltinImpl transpose_scatter_int4x8_avx2 = OclBuiltinImpl<__ocl_transpose_sc
 
 // ****************************************************************************
 //                                 int2x8
-// ****************************************************************************  
+// ****************************************************************************
 OclBuiltinImpl transpose_load_int2x8_avx2 = OclBuiltinImpl<__ocl_load_transpose2x8, [v2i32],  0, [{
 
     const __private int* tmpLoadAdd = (const __private int*)$Arg0VarName;
-    int8 Arg0 = vload8(0, tmpLoadAdd);                                              
-    int8 Arg1 = vload8(1, tmpLoadAdd);  
-    
- 
-    uint8 firstArray = {0, 2, 4, 6, 8, 10, 12, 14}; 	
+    int8 Arg0 = vload8(0, tmpLoadAdd);
+    int8 Arg1 = vload8(1, tmpLoadAdd);
+
+
+    uint8 firstArray = {0, 2, 4, 6, 8, 10, 12, 14};
     uint8 secondArray = {1, 3, 5, 7, 9, 11, 13, 15};
     *$Arg1VarName = __ocl_helper_shuffle2(Arg0, Arg1, firstArray);
     *$Arg2VarName = __ocl_helper_shuffle2(Arg0, Arg1, secondArray);
-    
-    
+
+
   }]>;
 
 OclBuiltinImpl transpose_masked_load_int2x8_avx = OclBuiltinImpl<__ocl_masked_load_transpose2x8, [v2i32], 0, [{
@@ -376,7 +388,7 @@ OclBuiltinImpl transpose_masked_load_int2x8_avx = OclBuiltinImpl<__ocl_masked_lo
     __ocl_masked_load_int_2x8($Arg0VarName, xy, $Arg3VarName);
     __ocl_load_transpose_$Arg0BaseType_2x8(xy, $Arg1VarName, $Arg2VarName);
   }]>;
-  
+
 // ****************************************************************************
 //                                 float4x4
 // ****************************************************************************

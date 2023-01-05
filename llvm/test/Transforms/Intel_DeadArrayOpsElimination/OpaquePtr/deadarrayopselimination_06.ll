@@ -8,7 +8,6 @@
 ; through "baz" call.
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s -S -opaque-pointers -deadarrayopselimination -debug-only=deadarrayopselimination -disable-output -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -opaque-pointers -passes='module(deadarrayopselimination)' -debug-only=deadarrayopselimination -disable-output -whole-program-assume 2>&1 | FileCheck %s
 
 ; CHECK: DeadArrayOpsElimi: Considering qsort function: s_qsort

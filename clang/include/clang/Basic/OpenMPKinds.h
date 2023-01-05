@@ -161,6 +161,20 @@ enum OpenMPAtomicDefaultMemOrderClauseKind {
   OMPC_ATOMIC_DEFAULT_MEM_ORDER_unknown
 };
 
+/// OpenMP attributes for 'at' clause.
+enum OpenMPAtClauseKind {
+#define OPENMP_AT_KIND(Name) OMPC_AT_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_AT_unknown
+};
+
+/// OpenMP attributes for 'severity' clause.
+enum OpenMPSeverityClauseKind {
+#define OPENMP_SEVERITY_KIND(Name) OMPC_SEVERITY_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_SEVERITY_unknown
+};
+
 /// OpenMP device type for 'device_type' clause.
 enum OpenMPDeviceType {
 #define OPENMP_DEVICE_TYPE_KIND(Name) \
@@ -181,6 +195,14 @@ enum OpenMPOrderClauseKind {
 #define OPENMP_ORDER_KIND(Name) OMPC_ORDER_##Name,
 #include "clang/Basic/OpenMPKinds.def"
   OMPC_ORDER_unknown,
+};
+
+/// OpenMP modifiers for 'order' clause.
+enum OpenMPOrderClauseModifier {
+  OMPC_ORDER_MODIFIER_unknown = OMPC_ORDER_unknown,
+#define OPENMP_ORDER_MODIFIER(Name) OMPC_ORDER_MODIFIER_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_ORDER_MODIFIER_last
 };
 
 /// Scheduling data for loop-based OpenMP directives.
@@ -237,6 +259,17 @@ enum OpenMPBindClauseKind {
 /// These use the 'ompx' prefix instead of 'omp'.
 bool isOpenMPExtensionDirective(OpenMPDirectiveKind DKind);
 #endif // INTEL_COLLAB
+enum OpenMPGrainsizeClauseModifier {
+#define OPENMP_GRAINSIZE_MODIFIER(Name) OMPC_GRAINSIZE_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_GRAINSIZE_unknown
+};
+
+enum OpenMPNumTasksClauseModifier {
+#define OPENMP_NUMTASKS_MODIFIER(Name) OMPC_NUMTASKS_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_NUMTASKS_unknown
+};
 
 /// Contains 'interop' data for 'append_args' and 'init' clauses.
 class Expr;
@@ -365,6 +398,13 @@ bool isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind);
 void getOpenMPCaptureRegions(
     llvm::SmallVectorImpl<OpenMPDirectiveKind> &CaptureRegions,
     OpenMPDirectiveKind DKind);
+
+/// Checks if the specified directive is a combined construct for which
+/// the first construct is a parallel construct.
+/// \param DKind Specified directive.
+/// \return true - if the above condition is met for this directive
+/// otherwise - false.
+bool isOpenMPCombinedParallelADirective(OpenMPDirectiveKind DKind);
 }
 
 #endif

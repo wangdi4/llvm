@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2018 Intel Corporation.
+// Copyright 2009-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,14 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "common_clang.h"
-#include "Compile.h"
 #include "FrontendDriver.h"
+#include "Compile.h"
 #include "GetKernelArgInfo.h"
 #include "Link.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
-#include "fe_driver_main.h"
+#include "cl_logger.h"
+#include "common_clang.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>
@@ -37,36 +37,7 @@
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
-
-#if defined(_WIN32)
-#define DLL_EXPORT _declspec(dllexport)
-#else
-#define DLL_EXPORT
-#endif
-
 using namespace Intel::OpenCL::FECompilerAPI;
-
-DECLARE_LOGGER_CLIENT;
-
-void ClangCompilerTerminate() { llvm::llvm_shutdown(); }
-
-static volatile bool lazyClangCompilerInit =
-    true; // the flag must be 'volatile' to prevent caching in a CPU register
-static llvm::sys::Mutex lazyClangCompilerInitMutex;
-
-bool ClangCompilerInitialize() {
-  bool clangLoadSuccessful = true;
-  if (lazyClangCompilerInit) {
-    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
-
-    if (lazyClangCompilerInit) {
-      clangLoadSuccessful = LoadCommonClang();
-      atexit(ClangCompilerTerminate);
-      lazyClangCompilerInit = false;
-    }
-  }
-  return clangLoadSuccessful;
-}
 
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
@@ -76,6 +47,7 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 
   m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
   m_sDeviceInfo.bImageSupport = pDevInfo->bImageSupport;
+  m_sDeviceInfo.bHalfSupport = pDevInfo->bHalfSupport;
   m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
   m_sDeviceInfo.bEnableSourceLevelProfiling =
       pDevInfo->bEnableSourceLevelProfiling;
@@ -94,7 +66,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
   assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   int result = ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
-      .Compile(pBinaryResult);
+                   .Compile(pBinaryResult);
 
   if (result != CL_SUCCESS ||
       !ClangFECompilerParseSPIRVTask::isSPIRV((*pBinaryResult)->GetIR(),
@@ -115,7 +87,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
                                          nullptr};
 
   result = ClangFECompilerParseSPIRVTask(&SPIRVProgDesc, m_sDeviceInfo)
-      .ParseSPIRV(pBinaryResult);
+               .ParseSPIRV(pBinaryResult);
 
   // SPIR-V binary is not needed anymore, clear it.
   // NOTE: After pSPIRVResult removing SPIRVProgDesc will be invalid.
@@ -176,29 +148,14 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
                                                   uiUnrecognizedOptionsSize);
 }
 
-void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
-                                      IOCLFESpecConstInfo **pSpecConstInfo) {
-  ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
-      .getSpecConstInfo(pSpecConstInfo);
+std::unique_ptr<IOCLFESpecConstInfo>
+ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc) {
+  return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
+      .getSpecConstInfo();
 }
 
-namespace Intel {
-namespace OpenCL {
-namespace Utils {
-FrameworkUserLogger *g_pUserLogger = nullptr;
-}
-}
-}
-
-extern "C" DLL_EXPORT int
-CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
-                       IOCLFECompiler **pFECompiler) {
-  // Lazy initialization
-  if (!ClangCompilerInitialize())
-  {
-    return CL_COMPILER_NOT_AVAILABLE;
-  }
-
+int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
+                           IOCLFECompiler **pFECompiler) {
   assert(nullptr != pFECompiler && "Front-end compiler can't be null");
   assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
 
@@ -206,7 +163,10 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
     *pFECompiler = new ClangFECompiler(pDeviceInfo);
     return CL_SUCCESS;
   } catch (std::bad_alloc &) {
+    DECLARE_LOGGER_CLIENT;
+    INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
     LogErrorA("%S", "Can't allocate compiler instance");
+    RELEASE_LOGGER_CLIENT
     return CL_OUT_OF_HOST_MEMORY;
   }
 }

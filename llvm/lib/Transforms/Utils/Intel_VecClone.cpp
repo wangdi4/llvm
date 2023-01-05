@@ -173,7 +173,7 @@ extern bool Usei1MaskForSimdFunctions;
 
 // Support for future opaque pointers. Will become the only option in future.
 static cl::opt<bool>
-    EmitTypedOMP("vec-clone-typed-omp", cl::init(false), cl::Hidden,
+    EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
 
 VecClone::VecClone() : ModulePass(ID) {
@@ -205,7 +205,13 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   LLVM_DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
-  Type *CharacteristicType = calcCharacteristicType(F, V);
+  Type *CharacteristicType = nullptr;
+  // IGC requires device versions of Intel math functions to have
+  // masks of i32 elements
+  if (llvm::isSVMLDeviceScalarFunctionName(F.getName()))
+    CharacteristicType = IntegerType::getInt32Ty(F.getContext());
+  else
+    CharacteristicType = calcCharacteristicType(F, V);
 
   const auto *VKIt = V.getParameters().begin();
   SmallVector<Type*, 4> ParmTypes;
@@ -213,7 +219,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
             ParmEnd = OrigFunctionType->param_end();
        ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     Type *ParmType = *ParmIt;
-    if (VKIt->isVector()) {
+    if (VKIt->isVector() || VKIt->isLinearVal()) {
       if (ParmType->isIntOrIntVectorTy(1)) {
         // Promote an `i1` or `<N x i1>` argument to `i8` or `<N x i8>` to
         // avoid a GEP into `<VF x i1>` when accessing elements.
@@ -243,7 +249,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // trying to clone the function again in case the pass is called more than
   // once.
   AttributeMask AB;
-  for (auto Attr : getVectorVariantAttributes(F)) {
+  for (const auto &Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
 
@@ -317,8 +323,11 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // getOrInsertVectorVariantFunction() because it's possible that the function
   // is only declared and we won't make it here. The declared only function
   // will be created from VPlan calling getOrInsertVectorVariantFunction().
-  Clone->removeFnAttr(Attribute::ReadOnly);
-  Clone->removeFnAttr(Attribute::ArgMemOnly);
+  Clone->setAttributes(
+      Clone->getAttributes().addFnAttribute(
+            Clone->getContext(),
+            Attribute::getWithMemoryEffects(Clone->getContext(),
+                                      MemoryEffects::unknown())));
 
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
@@ -405,12 +414,20 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
-                                            const DataLayout &DL, Argument *Arg,
-                                            Type *ElemType, Instruction *VecArg,
-                                            BasicBlock *EntryBlock,
-                                            BasicBlock *LoopLatch,
-                                            PHINode *Phi) {
+static AssumeInst *insertAlignmentAssumption(IRBuilder<> &Builder,
+                                             Value *AlignedVal, Align ArgAlign,
+                                             const DataLayout &DL) {
+  CallInst *Assume =
+      Builder.CreateAlignmentAssumption(DL, AlignedVal, ArgAlign.value());
+  Assume->setMetadata("intel.vecclone.align.assume",
+                      MDNode::get(Builder.getContext(), {}));
+  return cast<AssumeInst>(Assume);
+}
+
+void VecCloneImpl::updateVectorArgumentUses(
+    Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
+    Type *ElemType, Instruction *VecArg, MaybeAlign ArgAlign,
+    BasicBlock *EntryBlock, BasicBlock *LoopLatch, PHINode *Phi) {
 
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
@@ -441,11 +458,19 @@ void VecCloneImpl::updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                          IncommingBB->getTerminator());
     }
     assert(VecGep && "Expect VecGep to be a non-null value.");
+
     Type *LoadTy = VecGep->getResultElementType();
-    LoadInst *ArgElemLoad = new LoadInst(
-        LoadTy, VecGep, "vec." + Arg->getName() + ".elem", false /*volatile*/,
-        Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
+    LoadInst *ArgElemLoad =
+        new LoadInst(LoadTy, VecGep, "vec." + Arg->getName() + ".elem",
+                     false /*volatile*/, DL.getABITypeAlign(LoadTy));
     ArgElemLoad->insertAfter(VecGep);
+
+    if (ArgAlign) {
+      // If the argument had specified alignment, insert an assumption on the
+      // element load to propagate this to downstream uses.
+      IRBuilder<> Builder(ArgElemLoad->getNextNode());
+      insertAlignmentAssumption(Builder, ArgElemLoad, *ArgAlign, DL);
+    }
 
     Value *ArgValue = ArgElemLoad;
     Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
@@ -483,13 +508,13 @@ Instruction *VecCloneImpl::widenVectorArguments(
   Instruction *Mask = nullptr;
   ArrayRef<VFParameter> Parms = V.getParameters();
 
-  for (auto ArgIt : enumerate(Clone->args())) {
+  for (const auto &ArgIt : enumerate(Clone->args())) {
     Argument *Arg = &ArgIt.value();
 
     VFParameter Parm = Parms[ArgIt.index()];
 
     // If the original parameter isn't vector, we should not widen it.
-    if (!Parm.isVector())
+    if (!Parm.isVector() && !Parm.isLinearVal())
       continue;
 
     // This function is run after the arguments have been already widened!
@@ -571,13 +596,15 @@ Instruction *VecCloneImpl::widenVectorArguments(
       return VecAlloca;
 
     // Store the vector argument into the new VF-widened alloca.
-    Value *ArgValue = cast<Value>(Arg);
-    StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
-                                     DL.getABITypeAlign(ArgValue->getType()));
+    StoreInst *Store = new StoreInst(Arg, VecAlloca, false /*volatile*/,
+                                     DL.getABITypeAlign(Arg->getType()));
     Store->insertBefore(EntryBlock->getTerminator());
 
-    updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArg,
-                             EntryBlock, LoopHeader, Phi);
+    // Don't RAUW linear val arguments because they need to be handled in
+    // processLinearArgs().
+    if (!Parm.isLinearVal())
+      updateVectorArgumentUses(Clone, OrigFn, DL, Arg, ElemType, VecArg,
+                               Parm.Alignment, EntryBlock, LoopHeader, Phi);
   }
 
   return nullptr;
@@ -842,13 +869,22 @@ static void emitDebugForParameter(Value *ArgValue, AllocaInst *Alloca,
 
 // Emits store and load of \p ArgValue and replaces all uses of \p ArgValue with
 // the load.
-static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+static LoadInst *emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+                                           MaybeAlign ArgAlign,
                                            BasicBlock *LoopPreHeader) {
   // Emit the load in the simd.loop.preheader block.
   IRBuilder<> Builder(&*LoopPreHeader->begin());
   LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
                                       "load." + ArgValue->getName());
   ArgValue->replaceAllUsesWith(Load);
+
+  if (ArgAlign) {
+    // If the argument is aligned, we need to insert an alignment assumption on
+    // the loaded value, so this alignment gets propagated downstream.
+    insertAlignmentAssumption(Builder, Load, *ArgAlign,
+                              Load->getModule()->getDataLayout());
+  }
+
   // After updating the uses of the function argument with its stack variable,
   // we emit the store.
   Builder.SetInsertPoint(Alloca->getNextNode());
@@ -868,8 +904,8 @@ static LoadInst* emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 // the loop. This approach helps simplify the implementation because
 // we don't have to distinguish between opt levels.
 static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
-                                 BasicBlock *LoopPreHeader, Value* &ArgVal,
-                                 Value* &ArgMemory) {
+                                 BasicBlock *LoopPreHeader, MaybeAlign ArgAlign,
+                                 Value *&ArgVal, Value *&ArgMemory) {
   ArgVal = &Arg;
   ArgMemory = &Arg;
   // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
@@ -878,7 +914,7 @@ static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
     AllocaInst *ArgAlloca = Builder.CreateAlloca(Arg.getType(), nullptr,
                                                  "alloca." + Arg.getName());
     ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
-                                       LoopPreHeader);
+                                       ArgAlign, LoopPreHeader);
     ArgMemory = ArgAlloca;
   }
 }
@@ -888,10 +924,12 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
                                       BasicBlock *LoopPreHeader) {
   ArrayRef<VFParameter> Parms = V.getParameters();
   for (Argument &Arg : Clone->args()) {
-    if (Parms[Arg.getArgNo()].isUniform()) {
+    const VFParameter Parm = Parms[Arg.getArgNo()];
+    if (Parm.isUniform()) {
       Value *ArgVal;
       Value *ArgMemory;
-      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                           ArgVal, ArgMemory);
       UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
     }
   }
@@ -906,7 +944,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
 
   for (Argument &Arg : Clone->args()) {
     const VFParameter Parm = Parms[Arg.getArgNo()];
-    if (Parm.isLinear()) {
+    if (Parm.isLinear() || Parm.isLinearRef()) {
       Value *StrideVal = nullptr;
       Value *ArgVal = nullptr;
       Value *ArgMemory = nullptr;
@@ -925,6 +963,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
           }
           StrideVal = ConstantInt::get(Phi->getType(), Stride);
         } else {
+          assert(!Parm.isLinearRef() &&
+                 "linear ref modifier should be pointer");
           assert(Arg.getType()->isIntegerTy() &&
                  "Expected integer type for arg");
           // For integer types with constant stride, the value of the stride
@@ -933,14 +973,16 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
               GeneralUtils::getConstantValue(Arg.getType(),
               Clone->getContext(), Stride);
         }
-        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                             ArgVal, ArgMemory);
         LinearMemory[ArgMemory] = StrideVal;
       } else if (Parm.isVariableStride()) {
         // Get the stride value from the argument holding it.
         int StrideArgPos = Parm.getStrideArgumentPosition();
         Argument *StrideArg = Clone->getArg(StrideArgPos);
         StrideVal = UniformMemory[StrideArg].second;
-        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, ArgVal, ArgMemory);
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                             ArgVal, ArgMemory);
         LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
       } else {
         llvm_unreachable("Unsupported linear modifier");
@@ -952,9 +994,230 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       // new instructions for the stride and updating users.
       for (auto &U:  make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
+
+        if (Parm.isAligned()) {
+          // Skip the alignment assumption we added
+          auto *Assume = dyn_cast<AssumeInst>(User);
+          if (Assume && Assume->hasMetadata("intel.vecclone.align.assume"))
+            continue;
+        }
+
         Value *StrideInst =
             generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
         User->setOperand(U.getOperandNo(), StrideInst);
+      }
+    } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
+      // The following example shows the before/after LLVM of the linear uval
+      // modifier transformation. The basic idea is that the stride calculation
+      // must be added to the value loaded from the reference (pointer) arg.
+      // In order to do this for all optimization levels, we keep track of any
+      // loads from either the arg directly or through aliases (store/load of
+      // the arg). In this example, %0 is the value for which stride must be
+      // applied. For the val reference modifier, the arg is passed via vector,
+      // but all values can be recreated from the value loaded from the pointer
+      // at lane 0 using the stride. After that is done, both uval/val follow
+      // the same code path.
+      //
+      // Input LLVM for #pragma omp declare simd linear(val(k):2)
+      //
+      // simd.loop.preheader:
+      //   br label %simd.loop.header
+      //
+      // simd.loop.header:
+      //   %index = phi i32 [ 0, %simd.loop.preheader ],
+      //                    [ %indvar, %simd.loop.latch ]
+      //   %0 = load i64, i64* %x, align 8, !tbaa !4
+      //   %add = add nsw i64 %0, 1
+      //   %ret.cast.gep = getelementptr i64, i64* %ret.cast, i32 %index
+      //   store i64 %add, i64* %ret.cast.gep, align 8
+      //   br label %simd.loop.latch
+      //
+      // Output LLVM:
+      //
+      // entry:
+      //   %alloca.x = alloca i64*, align 8
+      //   store i64* %x, i64** %alloca.x, align 8
+      //   br label %simd.loop.preheader
+      //
+      // simd.loop.preheader:
+      //   %load.x = load i64*, i64** %alloca.x, align 8
+      //   br label %simd.loop.header
+      //
+      // simd.loop.header:
+      //   %index = phi i32 [ 0, %simd.loop.preheader ],
+      //                    [ %indvar, %simd.loop.latch ]
+      //   %0 = load i64, i64* %load.x, align 8, !tbaa !4
+      //   %phi.cast = zext i32 %index to i64
+      //   %stride.mul = mul i64 2, %phi.cast (stride on pragma is 2)
+      //   %stride.add = add i64 %0, %stride.mul
+      //   %add = add nsw i64 %stride.add, 1
+      //   %ret.cast.gep = getelementptr i64, i64* %ret.cast, i32 %index
+      //   store i64 %add, i64* %ret.cast.gep, align 8
+      //   br label %simd.loop.latch
+
+      // Note: for unoptimized incoming LLVM, there will be an additional
+      // level of pointer dereferencing because the arg (a pointer) will be
+      // stored/loaded to/from local memory. Thus, the first load will result
+      // in a pointer, essentially an alias to the original arg. The second
+      // load will be used to access the actual value, which is then used to
+      // apply the stride.
+
+      Value *ArgMemory = nullptr;
+      Value *ScalarArg = nullptr;
+      if (Parm.isLinearVal()) {
+        IRBuilder<> Builder(&*EntryBlock->begin());
+        Instruction *PreHeaderInsertPt = &*LoopPreHeader->begin();
+        // Linear reference val arguments are passed as vector, so extract the
+        // base ptr (elem 0) and create local memory for it. Then, replace all
+        // users of Arg with the load from this memory. Since this is a special
+        // case for linear arguments, we don't use getOrCreateArgMemory() for
+        // two reasons.
+        //
+        // 1) We don't want to clobber the extract that was just created since
+        //    it will use Arg.
+        // 2) We can't use RAUW because the argument has been widened and RAUW
+        //    will complain. See comment below.
+        auto *BasePtrExtract =
+            Builder.CreateExtractElement(&Arg, (uint64_t)0,
+                                         Arg.getName() + ".ext");
+        auto *ArgElemType = cast<VectorType>(Arg.getType())->getElementType();
+        ArgMemory =
+            Builder.CreateAlloca(ArgElemType, nullptr,
+                                 "alloca." + Arg.getName() + ".scalar");
+        Builder.CreateStore(BasePtrExtract, ArgMemory);
+        Builder.SetInsertPoint(PreHeaderInsertPt);
+        ScalarArg = Builder.CreateLoad(
+            cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
+                             "load." + ArgMemory->getName());
+        for (auto &U:  make_early_inc_range(Arg.uses())) {
+          auto *User = cast<Instruction>(U.getUser());
+          // Replace uses of Arg with the extracted base ptr. Be careful not to
+          // replace the newly created extract instruction. We only want to
+          // replace the uses in the loop.
+          if (User->getParent() != EntryBlock) {
+            // Note: we can't update users with RAUW because the argument has
+            // become vector and RAUW will complain if the value replaced has a
+            // different type than the new value. i.e., once the argument is
+            // widened in the function signature, it's type is reflected in all
+            // uses.
+            User->setOperand(U.getOperandNo(), ScalarArg);
+          }
+        }
+      } else {
+        Value *ArgVal = nullptr;
+        getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                             ArgVal, ArgMemory);
+        ScalarArg = ArgVal; // the load from the new arg memory
+      }
+
+      // For both uval/val modifiers, ScalarArg is now the pointer argument
+      // that is used for finding the loaded values for which stride is applied.
+
+      SmallVector<Value*, 4> ArgLocalMem;
+      SmallVector<LoadInst*, 4> ArgValLoads;
+      // Determine whether the argument is stored through local memory. If
+      // so, then record the local memory used for the arg. Later, we'll
+      // find the associated loads from this memory to find aliases for the
+      // arg. If a value is loaded directly from the arg, then record that
+      // this is a direct load from the arg.
+      for (auto *U : ScalarArg->users()) {
+        auto *User = cast<Instruction>(U);
+        // Unoptimized case where the incoming LLVM has a store of the argument
+        // (pointer) is made to local memory. Note that at this point we have
+        // created a new alloca/store/load for the arg and that load has now
+        // replaced the original parameter. E.g.
+        // Incoming LLVM: store i64* %x, i64** %x.addr, align 8
+        // As of this point: store i64* %load.x, i64** %x.addr, align 8
+        // %x.addr will be recorded in ArgLocalMem and was the original alloca
+        // for the arg. However, by always handling args through memory (even
+        // for optimized incoming LLVM) this allows VecClone to work the same
+        // across all opt levels because RAUW can simply be done on any
+        // existing memory and all LLVM can be handled basically the same.
+        // However, here we have the additional requirement of finding the load
+        // that will yield the value on which the stride needs to be applied. We
+        // have two cases for that:
+        // 1) There is an additional store/load through memory to get the
+        //    arg pointer to load the value from.
+        // 2) The arg pointer is loaded from directly.
+        if (auto *StoreUser = dyn_cast<StoreInst>(User)) {
+          // Case 1
+          // Don't include any possible store in the entry block because for
+          // Val ref modifiers, there will be an extract of elem 0 from the
+          // original arg and stored to local memory. We're only interested
+          // in the stores that are made within the loop.
+          if (StoreUser->getParent() != EntryBlock)
+            ArgLocalMem.push_back(StoreUser->getPointerOperand());
+        }
+        // Case 2 - Value is loaded directly from the argument.
+        // E.g., %0 = load i64, i64* %load.x, align 8
+        if (auto *ArgValLoad = dyn_cast<LoadInst>(User))
+          ArgValLoads.push_back(ArgValLoad);
+      }
+
+      // Find the aliases for the pointer args and the loads from those
+      // aliases. Aliases in this context refers to the loaded pointer from
+      // local memory. E.g., if %load.x is the arg pointer
+      // store i64* %load.x, i64** %x.addr, align 8
+      // %0 = load i64*, i64** %x.addr, align 8
+      // %1 = load i64, i64* %0
+      // %0 is the alias for the arg pointer because it goes through %x.addr
+      // %1 is the value loaded from the arg and stride must be applied here
+      for (auto *ArgMem : ArgLocalMem) {
+        for (auto *ArgMemU : ArgMem->users()) {
+          auto *ArgMemUser = cast<Instruction>(ArgMemU);
+          if (isa<LoadInst>(ArgMemUser)) {
+            for (auto *ArgLoadU : ArgMemUser->users()) {
+              auto *ArgLoadUser = cast<Instruction>(ArgLoadU);
+              if (auto *ArgLoad = dyn_cast<LoadInst>(ArgLoadUser))
+                ArgValLoads.push_back(ArgLoad);
+            }
+          }
+        }
+      }
+
+      // At this point ArgValLoads contains all the Values for which stride
+      // needs to be applied.
+
+      // Get the constant or variable stride value
+      Value *StrideVal = nullptr;
+      if (Parm.isConstantStrideLinear()) {
+        int Stride = Parm.getStride();
+        StrideVal =
+            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
+                                           Stride);
+        LinearMemory[ArgMemory] = StrideVal;
+      } else if (Parm.isVariableStride()) {
+        // Get the stride value from the argument holding it.
+        int StrideArgPos = Parm.getStrideArgumentPosition();
+        Argument *StrideArg = Clone->getArg(StrideArgPos);
+        StrideVal = UniformMemory[StrideArg].second;
+        // TODO: temporarily just set stride to constant 0 because there is an
+        // importing bug in VPlan that needs to be fixed for both HIR and LLVM.
+        // Since VecClone adds the instructions for stride calculation in this
+        // function, VPlan doesn't need to have a correct value set to generate
+        // correct code. However, once the linear processing moves to VPlan,
+        // this will need to be fixed. All that needs to be done here is to
+        // remove TempStrideVal and replace with the value coming from
+        // UniformMemory.
+        Value *TempStrideVal =
+            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
+                                           0);
+        // Uncomment this line of code and remove the line after it once
+        // importing bugs are fixed.
+        //LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
+        LinearMemory[ArgMemory] = TempStrideVal;
+      } else {
+        llvm_unreachable("Unsupported linear modifier");
+      }
+      // Generate stride instruction and update users of the load.
+      for (auto *ArgValLoad : ArgValLoads) {
+        for (auto &U:  make_early_inc_range(ArgValLoad->uses())) {
+          auto *User = cast<Instruction>(U.getUser());
+          Value *StrideInst =
+              generateStrideForArgument(Clone, ArgValLoad, User, StrideVal,
+                                        Phi);
+          User->setOperand(U.getOperandNo(), StrideInst);
+        }
       }
     }
   }
@@ -1043,7 +1306,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
   SmallVector<llvm::OperandBundleDef, 4> OpndBundles;
   OpndBundles.emplace_back(
-      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)), None);
+      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)),
+      std::nullopt);
 
   auto Clause = [](OMP_CLAUSES ClauseId, auto &&... Mods) -> std::string {
     std::initializer_list<StringRef> Modifiers = {Mods...};
@@ -1084,14 +1348,14 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
                            Builder.getInt32(V.getVF()));
 
   // Mark linear memory for the SIMD directives
-  for (auto LinearMem : LinearMemory) {
+  for (const auto &LinearMem : LinearMemory) {
     Type *LinearTy = getMemoryType(LinearMem.first);
     AddTypedClause(QUAL_OMP_LINEAR, LinearMem.first, LinearTy,
                    LinearMem.second);
   }
   
   // Mark uniform memory for the SIMD directives
-  for (auto UniformMem : UniformMemory) {
+  for (const auto &UniformMem : UniformMemory) {
     // The alloca for the arg.
     Value *ArgMemory = UniformMem.second.first;
     Type *UniformTy = getMemoryType(ArgMemory);
@@ -1109,8 +1373,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   // Create simd.begin.region block which indicates the begining of the WRN
   // region.
   CallInst *SIMDBeginCall = CallInst::Create(
-      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry), None,
-      OpndBundles, "entry.region");
+      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry),
+      std::nullopt, OpndBundles, "entry.region");
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;
@@ -1295,65 +1559,12 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<OptReportOptionsPass>(); // INTEL
 }
 
-#if INTEL_CUSTOMIZATION
-void VecCloneImpl::filterUnsupportedVectorVariants(
-    Module &M, SmallVector<Function *, 8> &FuncDiagList,
-    OptReportBuilder *ORBuilder) {
-  // Traverse both definitions and declarations to not pick the unsupported
-  // vector variant when vectorizing.
-  for (auto &F : M) {
-    if (F.hasFnAttribute("vector-variants")) {
-      Attribute Attr = F.getFnAttribute("vector-variants");
-      StringRef VariantsStr = Attr.getValueAsString();
-      SmallVector<StringRef, 8> Variants;
-      VariantsStr.split(Variants, ',');
-
-      SmallVector<StringRef, 8> SupportedVariants;
-      llvm::copy_if(Variants, std::back_inserter(SupportedVariants),
-                    [](StringRef Variant) {
-                      assert(Variant.find_first_of("_ZGV") == 0 &&
-                             "Expect vector variant mangling!");
-                      // Drop "_ZGV".
-                      StringRef Encoding =
-                      Variant.drop_front(StringRef("_ZGV").size());
-                      // Extract encoding.
-                      size_t EncodingEnd = Encoding.find_first_of('_');
-                      assert(EncodingEnd != Encoding.npos &&
-                             "Unexpected end of vector variant.");
-                      Encoding = Encoding.take_front(EncodingEnd);
-                      bool Unsupported = Encoding.contains('R') ||
-                                         Encoding.contains('U') ||
-                                         Encoding.contains('L');
-                      return !Unsupported;
-                    });
-
-      if (ORBuilder && (Variants.size() != SupportedVariants.size()))
-        FuncDiagList.push_back(&F);
-
-      // Replace existing vector variants with supported ones.
-      if (!SupportedVariants.empty()) {
-        AttributeList AL = F.getAttributes();
-        AL = AL.addFnAttribute(F.getContext(), "vector-variants",
-                               llvm::join(SupportedVariants, ","));
-        F.setAttributes(AL);
-      } else {
-        F.removeFnAttr("vector-variants");
-      }
-    }
-  }
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
                            LoopOptLimiter Limiter) {
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
 #if INTEL_CUSTOMIZATION
-  // This filtering can be removed once R/U/L encodings are supported.
-  SmallVector<Function *, 8> FuncDiagList;
-  filterUnsupportedVectorVariants(M, FuncDiagList, ORBuilder);
-
   // Language specific hook
   languageSpecificInitializations(M);
 #endif // INTEL_CUSTOMIZATION
@@ -1361,7 +1572,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
 
-  for (auto VarIt : FunctionsToVectorize) {
+  for (const auto &VarIt : FunctionsToVectorize) {
     Function& F = *(VarIt.first);
 
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))
@@ -1478,18 +1689,6 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
   } // End of function cloning for all variants
-
-#if INTEL_CUSTOMIZATION
- // Issue the diagnostics post-cloning to avoid duplicating them.
- if (ORBuilder)
-   for (auto *F : FuncDiagList) {
-       (*ORBuilder)(*F).addRemark(
-         OptReportVerbosity::Medium,
-         "'omp declare' vector variants with linear reference/ref()/uval()/" \
-         "val() or linear step passed as another argument were skipped " \
-         "as unsupported.");
-}
-#endif // INTEL_CUSTOMIZATION
 
   //FIXME: return false if all functions were skipped or IR was not modified.
   return true; // LLVM IR has been modified

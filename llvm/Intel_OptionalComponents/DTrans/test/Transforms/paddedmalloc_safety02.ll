@@ -6,7 +6,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Test that identifies if the DTrans padded malloc optimization identified
 ; a malloc function but there is no search loop.
 
-; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-paddedmalloc -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }

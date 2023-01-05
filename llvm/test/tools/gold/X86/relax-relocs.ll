@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.o
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:    --plugin-opt=save-temps \
+; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers \
 ; RUN:    -shared %t.o -o %t.so
 ; RUN: llvm-readobj -r %t.so.lto.o | FileCheck %s
 
@@ -12,6 +12,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @foo = external global i32
 define i32 @bar() {
-  %t = load i32, i32* @foo
+  %t = load i32, ptr @foo
   ret i32 %t
 }

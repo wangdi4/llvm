@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -dtransanalysis -whole-program-assume -intel-libirc-allowed -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -passes="require<dtransanalysis>" -whole-program-assume -intel-libirc-allowed -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

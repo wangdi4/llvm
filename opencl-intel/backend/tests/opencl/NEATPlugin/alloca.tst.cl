@@ -1,5 +1,4 @@
-struct str1
-{
+struct str1 {
   int a;
   float b;
   double c;
@@ -8,11 +7,8 @@ struct str1
   double8 f[10];
 };
 
-__kernel
-void allocaTest(__global float * input,
-            __global float * output,
-             const uint buffer_size)
-{
+__kernel void allocaTest(__global float *input, __global float *output,
+                         const uint buffer_size) {
   float tmp = input[get_global_id(0)];
   int tmpint;
   double tmpdouble;

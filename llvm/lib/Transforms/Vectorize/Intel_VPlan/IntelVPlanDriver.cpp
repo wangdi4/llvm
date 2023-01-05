@@ -16,10 +16,11 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPAlignAssumeCleanup.h"
 #include "IntelVPMemRefTransform.h"
-#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPTransformLibraryCalls.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
@@ -300,7 +301,10 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
                    VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem ||
                    VPInst.getOpcode() ==
                        VPInstruction::PrivateLastValueNonPODMasked ||
-                   VPInst.getOpcode() == VPInstruction::PrivateFinalArrayMasked;
+                   VPInst.getOpcode() ==
+                       VPInstruction::PrivateFinalArrayMasked ||
+                   VPInst.getOpcode() ==
+                       VPInstruction::PrivateLastValueArrayNonPODMasked;
           }),
       [](VPInstruction &VPInst) { return &VPInst; });
 
@@ -329,7 +333,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
       // assertion checks before VPBBFalse can be generated.
       LLVM_FALLTHROUGH;
     }
-    case VPInstruction::PrivateLastValueNonPODMasked: {
+    case VPInstruction::PrivateLastValueNonPODMasked:
+    case VPInstruction::PrivateLastValueArrayNonPODMasked: {
       VPBBFalse = VPBlockUtils::splitBlock(
           VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
       break;
@@ -359,7 +364,9 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(1));
     } else if (VPInst->getOpcode() ==
                    VPInstruction::PrivateLastValueNonPODMasked ||
-               VPInst->getOpcode() == VPInstruction::PrivateFinalArrayMasked) {
+               VPInst->getOpcode() == VPInstruction::PrivateFinalArrayMasked ||
+               VPInst->getOpcode() ==
+                   VPInstruction::PrivateLastValueArrayNonPODMasked) {
       CmpInst = cast<VPCmpInst>(VPInst->getOperand(2));
     } else {
       // The index operand of the VPPrivateFinalCond is initialized with -1,
@@ -435,18 +442,20 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE,
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, &SE,
                               CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
 
-  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL);
+  VPAnalysesFactory VPAF(SE, Lp, DT, DL);
   populateVPlanAnalyses(LVP, VPAF);
 
 #else
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
+
+  LVP.runPeepholeBeforePredicator();
 
   if (EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
@@ -476,6 +485,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
+
+  VPAlignAssumeCleanup Cleanup(*Plan);
+  Cleanup.transform();
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
@@ -578,7 +590,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
                     << "\n");
 
-  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
+  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
                       &VLSA, Plan, ORBuilder, isOmpSIMDLoop, FatalErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
@@ -612,8 +624,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     // VPlanOptReportBuilder framework.
     unsigned GatherCount = 0;
     unsigned ScatterCount = 0;
-    for (auto Block : VCodeGen.getMainLoop()->getBlocks())
-      if (auto BB = dyn_cast<BasicBlock>(Block))
+    for (const auto &Block : VCodeGen.getMainLoop()->getBlocks())
+      if (const auto &BB = dyn_cast<BasicBlock>(Block))
         for (auto &Inst : *BB)
           if (auto IntrinInst = dyn_cast<IntrinsicInst>(&Inst)) {
             Intrinsic::ID ID = IntrinInst->getIntrinsicID();
@@ -795,7 +807,7 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
   }
 
   bool ModifiedFunc = false;
-  for (auto It : LoopsToVectorize) {
+  for (const auto &It : LoopsToVectorize) {
     Loop *Lp = LI->getLoopFor(It.first);
     LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
     LLVM_DEBUG(It.second->dump());
@@ -1069,7 +1081,8 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
     if (!Plan.getVPSE())
       Plan.setVPSE(VPAF.createVPSE());
     if (!Plan.getVPVT())
-      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
+      Plan.setVPVT(
+          VPAF.createVPVT(Plan.getVPSE(), Plan.getVPAC(), Plan.getDT()));
   }
 }
 
@@ -1201,7 +1214,8 @@ static std::string getDescription(const Function &F) {
 
 bool VPlanDriver::skipFunction(const Function &F) const {
   OptPassGate &Gate = F.getContext().getOptPassGate();
-  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+  if (Gate.isEnabled() &&
+      !Gate.shouldRunPass(this->getPassName(), getDescription(F)))
     return true;
 
   bool IsOmpSimdKernel = (F.getMetadata("omp_simd_kernel") != nullptr);
@@ -1228,17 +1242,14 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
   auto ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
-  auto *LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    return LAA->getInfo(&L);
-  };
+  auto LAIs = &getAnalysis<LoopAccessLegacyAnalysis>().getLAIs();
   auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
-  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
+  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR,
                       TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
@@ -1260,15 +1271,9 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
-  auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
-  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI, *SE,
-                                      *TLI, *TTI, BFI, nullptr /* BPI */,
-                                      nullptr /* MemorySSA */};
-    return LAM.getResult<LoopAccessAnalysis>(L, AR);
-  };
+  LoopAccessInfoManager *LAIs = &AM.getResult<LoopAccessAnalysis>(F);
 
-  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
+  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
                     TLI, BFI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
@@ -1281,7 +1286,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
 bool VPlanDriverImpl::runImpl(
     Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
-    std::function<const LoopAccessInfo &(Loop &)> GetLAA,
+    LoopAccessInfoManager *LAIs,
     OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
     WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
     BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
@@ -1298,7 +1303,7 @@ bool VPlanDriverImpl::runImpl(
   this->AC = AC;
   this->AA = AA;
   this->DB = DB;
-  this->GetLAA = &GetLAA;
+  this->LAIs = LAIs;
   this->ORE = ORE;
   this->TTI = TTI;
   this->TLI = TLI;
@@ -1515,8 +1520,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI, Lp);
 
   HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
-                                  &VLSA, LightWeightMode);
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, getDT(), &HIRVecLegal,
+                                  DDA, &VLSA, LightWeightMode);
 
   // Send explicit data from WRLoop to the Legality and check whether we can
   // handle it.
@@ -1547,7 +1552,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                          "loopopt vplan-vec\n");
     return false;
   }
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *getAC())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1556,13 +1561,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
-  VPAnalysesFactoryHIR VPAF(Lp, getDT(), getAC(), DL);
+  VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
   populateVPlanAnalyses(LVP, VPAF);
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
   if (VPlanConstrStressTest)
     return false;
+
+  LVP.runPeepholeBeforePredicator();
 
   if (EnableMaskedVariantHIR && EnableMaskedVariant)
     generateMaskedModeVPlans(&LVP, &VPAF);
@@ -1613,6 +1620,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
+
+  VPAlignAssumeCleanup Cleanup(*Plan);
+  Cleanup.transform();
 
   bool TreeConflictsLowered = false;
 
@@ -1692,7 +1702,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, isOmpSIMDLoop, MCFGI);
+                           PeelArrayRef, isOmpSIMDLoop, MCFGI,
+                           LVP.getLoopDescrs());
     bool LoopIsHandled =
         (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
          LVP.canLowerVPlan(*Plan, VF));
@@ -1841,7 +1852,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   LoopVectorizationRequirements Requirements;
   LoopVectorizeHints Hints(Lp, true, *ORE);
-  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, *LAIs, LI, ORE,
                                 &Requirements, &Hints, DB, AC, BFI, PSI);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
@@ -1852,7 +1863,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
     return false;
 
   // Bail out if any runtime checks are needed
-  auto LAI = &(*GetLAA)(*Lp);
+  auto LAI = &LAIs->getInfo(*Lp);
   if (LAI->getNumRuntimePointerChecks())
     return false;
 

@@ -1,6 +1,4 @@
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization -dpcpp-kernel-vector-variant-lowering -dpcpp-kernel-sg-size-collector -dpcpp-kernel-sg-size-collector-indirect -dpcpp-kernel-vec-clone -dpcpp-kernel-vector-variant-fillin -dpcpp-kernel-update-call-attrs -S | FileCheck %s
 ; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization -passes="dpcpp-kernel-vector-variant-lowering,dpcpp-kernel-sg-size-collector,dpcpp-kernel-sg-size-collector-indirect,dpcpp-kernel-vec-clone,dpcpp-kernel-vector-variant-fillin,dpcpp-kernel-update-call-attrs" -S | FileCheck %s
-; RUN: opt %s -enable-debugify -disable-output -dpcpp-enable-direct-function-call-vectorization -dpcpp-kernel-vector-variant-lowering -dpcpp-kernel-sg-size-collector -dpcpp-kernel-sg-size-collector-indirect -dpcpp-kernel-vec-clone -dpcpp-kernel-vector-variant-fillin -dpcpp-kernel-update-call-attrs -S 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -enable-debugify -disable-output -dpcpp-enable-direct-function-call-vectorization -passes="dpcpp-kernel-vector-variant-lowering,dpcpp-kernel-sg-size-collector,dpcpp-kernel-sg-size-collector-indirect,dpcpp-kernel-vec-clone,dpcpp-kernel-vector-variant-fillin,dpcpp-kernel-update-call-attrs" -S 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 define void @test(i32 addrspace(1)* noalias %a) !kernel_has_sub_groups !12 !recommended_vector_length !13 {

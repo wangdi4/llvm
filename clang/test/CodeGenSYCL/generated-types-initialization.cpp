@@ -1,9 +1,4 @@
-// INTEL_CUSTOMIZATION
-// In upstream the test uses -fno-sycl-force-inline-kernel-lambda flag to
-// preserve kernel lambda call. Remove this customization and use this flag
-// here as well once the implementation of flag reaches xmain.
-// RUN: %clang_cc1 -fsycl-is-device -internal-isystem %S/Inputs -triple spir64-unknown-unknown -disable-llvm-passes -opaque-pointers -emit-llvm %s -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -fno-sycl-force-inline-kernel-lambda -fsycl-is-device -internal-isystem %S/Inputs -triple spir64-unknown-unknown -disable-llvm-passes -opaque-pointers -emit-llvm %s -o - | FileCheck %s
 
 // This test checks that compiler generates correct code when kernel arguments
 // are structs that contain pointers but not decomposed.

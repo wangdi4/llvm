@@ -1,7 +1,6 @@
 ; Test Complete Unrolling of simple loop.
 ; A[i] = B[i], unrolled 4 times
 
-; RUN: opt -hir-post-vec-complete-unroll -hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 

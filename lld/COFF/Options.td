@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -304,6 +304,7 @@ def lldmap : F<"lldmap">;
 def lldmap_file : P_priv<"lldmap">;
 def map : F<"map">;
 def map_file : P_priv<"map">;
+def map_info : P<"mapinfo", "Include the specified information in a map file">;
 def show_timing : F<"time">;
 def summary : F<"summary">;
 
@@ -315,6 +316,9 @@ def intel_debug_mem : F<"intel-debug=mem">;
 // Option for keeping the information related to LLVM in
 // case LLD is embedded in the compiler
 def intel_embedded_linker : F<"intel-embedded-linker">;
+
+// Option for fintel-preserve-value-names
+def intel_preserve_value_names : F<"fintel-preserve-value-names">;
 #endif // INTEL_CUSTOMIZATION
 
 //==============================================================================
@@ -323,18 +327,21 @@ def intel_embedded_linker : F<"intel-embedded-linker">;
 
 def ignoreidl : F<"ignoreidl">;
 def ltcg : F<"ltcg">;
+def assemblydebug : F<"assemblydebug">;
 def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
 def editandcontinue : F<"editandcontinue">;
 def fastfail : F<"fastfail">;
 def kernel : F<"kernel">;
 def pdbcompress : F<"pdbcompress">;
+def emitpogophaseinfo : F<"emitpogophaseinfo">;
 
 def delay : P_priv<"delay">;
 def errorreport : P_priv<"errorreport">;
 def idlout : P_priv<"idlout">;
 def ilk : P_priv<"ilk">;
 def ltcg_opt : P_priv<"ltcg">;
+def assemblydebug_opt : P_priv<"assemblydebug">;
 def ltcgout : P_priv<"ltcgout">;
 def maxilksize : P_priv<"maxilksize">;
 def tlbid : P_priv<"tlbid">;
@@ -375,8 +382,6 @@ class IntelLLDWarnMessageArgs<string name> : P_priv<name> {
   OptionGroup Group = intelLLDWarnMessageGroup;
 }
 
-def assemblydebug : IntelLLDWarnMessage<"assemblydebug">;
-def assemblydebug_args : IntelLLDWarnMessageArgs<"assemblydebug">;
 def assemblymodule : IntelLLDWarnMessageArgs<"assemblymodule">;
 def assemblyresource : IntelLLDWarnMessageArgs<"assemblyresource">;
 def clrimagetype : IntelLLDWarnMessageArgs<"clrimagetype">;
@@ -388,7 +393,6 @@ def delaysign : IntelLLDWarnMessage<"delaysign">;
 def delaysign_args : IntelLLDWarnMessageArgs<"delaysign">;
 def keycontainer : IntelLLDWarnMessageArgs<"keycontainer">;
 def keyfile : IntelLLDWarnMessageArgs<"keyfile">;
-def mapinfo : IntelLLDWarnMessageArgs<"mapinfo">;
 def midl : IntelLLDWarnMessageArgs<"midl">;
 def noassembly : IntelLLDWarnMessage<"noassembly">;
 def release : IntelLLDWarnMessage<"release">;

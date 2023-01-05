@@ -42,7 +42,24 @@
 #include <cstdint>
 #include <iterator>
 
+#if INTEL_CUSTOMIZATION
+#include <type_traits>
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
+
+#if INTEL_CUSTOMIZATION
+// Traits that get specialized by the user to specify how to obtain an LLVM
+// Constant from a given value. This is used by generic_gep_type_iterator to
+// obtain a Constant from the current operand.
+template <typename T> struct GEPTypeIterTraits {
+  static Constant *getConstant(T *);
+};
+template <>
+inline Constant *GEPTypeIterTraits<llvm::Value>::getConstant(llvm::Value *V) {
+  return dyn_cast<Constant>(V);
+}
+#endif // INTEL_CUSTOMIZATION
 
 template <typename ItTy = User::const_op_iterator>
 class generic_gep_type_iterator {
@@ -55,6 +72,22 @@ class generic_gep_type_iterator {
 #endif // INTEL_CUSTOMIZATION
 
   generic_gep_type_iterator() = default;
+
+#if INTEL_CUSTOMIZATION
+  // The (non-const) type of values obtained by dereferencing the inner
+  // iterator. In the LLVM case, this is Value, though it depends on the
+  // underlying IR the iterator was obtained from; for example, in VPlan-IR,
+  // this is VPValue.
+  using NonConstValTy =
+      std::remove_const_t<std::remove_reference_t<decltype(**OpIt)>>;
+
+  // Get the constant corresponding to the current operand. This is specialized
+  // according to the underlying IR, as different implementations must specify
+  // how to extract a Constant from the current operand.
+  Constant *getConstantOperand() const {
+    return llvm::GEPTypeIterTraits<NonConstValTy>::getConstant(getOperand());
+  }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   using iterator_category = std::forward_iterator_tag;
@@ -91,10 +124,14 @@ public:
   Type *getIndexedType() const {
     if (auto *T = CurTy.dyn_cast<Type *>())
       return T;
-    return CurTy.get<StructType *>()->getTypeAtIndex(getOperand());
+#if INTEL_CUSTOMIZATION
+    return CurTy.get<StructType *>()->getTypeAtIndex(getConstantOperand());
   }
 
-  Value *getOperand() const { return const_cast<Value *>(&**OpIt); }
+  NonConstValTy *getOperand() const {
+    return const_cast<NonConstValTy *>(&**OpIt);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   generic_gep_type_iterator &operator++() { // Preincrement
     Type *Ty = getIndexedType();
@@ -154,27 +191,37 @@ public:
 
   using gep_type_iterator = generic_gep_type_iterator<>;
 
-  inline gep_type_iterator gep_type_begin(const User *GEP) {
-    auto *GEPOp = cast<GEPOperator>(GEP);
-    return gep_type_iterator::begin(
-        GEPOp->getSourceElementType(),
-        GEP->op_begin() + 1);
+#if INTEL_CUSTOMIZATION
+  /// Generic method to get a GEP begin iterator for a given user type. This can
+  /// be called directly, but users should generally prefer the non-templated
+  /// `gep_type_begin` interface.
+  template <typename UserTy, typename ItTy, typename GEPTy>
+  auto generic_gep_type_begin(const UserTy *U) -> ItTy {
+    auto *GEP = cast<GEPTy>(U);
+    return ItTy::begin(GEP->getSourceElementType(), U->op_begin() + 1);
   }
 
-  inline gep_type_iterator gep_type_end(const User *GEP) {
-    return gep_type_iterator::end(GEP->op_end());
+  /// Generic method to get a GEP end iterator for a given user type. This can
+  /// be called directly, but users should generally prefer the non-templated
+  /// `gep_type_end` interface.
+  template <typename UserTy, typename ItTy>
+  auto generic_gep_type_end(const UserTy *U) -> ItTy {
+    return ItTy::end(U->op_end());
   }
 
-  inline gep_type_iterator gep_type_begin(const User &GEP) {
-    auto &GEPOp = cast<GEPOperator>(GEP);
-    return gep_type_iterator::begin(
-        GEPOp.getSourceElementType(),
-        GEP.op_begin() + 1);
+  inline gep_type_iterator gep_type_begin(const User *U) {
+    return generic_gep_type_begin<User, gep_type_iterator, GEPOperator>(U);
   }
-
-  inline gep_type_iterator gep_type_end(const User &GEP) {
-    return gep_type_iterator::end(GEP.op_end());
+  inline gep_type_iterator gep_type_end(const User *U) {
+    return generic_gep_type_end<User, gep_type_iterator>(U);
   }
+  inline gep_type_iterator gep_type_begin(const User &U) {
+    return generic_gep_type_begin<User, gep_type_iterator, GEPOperator>(&U);
+  }
+  inline gep_type_iterator gep_type_end(const User &U) {
+    return generic_gep_type_end<User, gep_type_iterator>(&U);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   template<typename T>
   inline generic_gep_type_iterator<const T *>

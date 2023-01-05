@@ -1,4 +1,3 @@
-; RUN: opt -cleanup-fakeloads -S < %s | FileCheck %s
 ; RUN: opt -passes=cleanup-fakeloads -S < %s | FileCheck %s
 
 %struct.S = type { [4 x i32], [4 x i32] }

@@ -25,14 +25,18 @@
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"         // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManagerImpl.h"
+#include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -110,7 +114,7 @@ bool LoopAnalysisManagerFunctionProxy::Result::invalidate(
   // cache and so we walk the preorder list in reverse to form a valid
   // postorder.
   for (Loop *L : reverse(PreOrderLoops)) {
-    Optional<PreservedAnalyses> InnerPA;
+    std::optional<PreservedAnalyses> InnerPA;
 
     // Check to see whether the preserved set needs to be adjusted based on
     // function-level analysis invalidation triggering deferred invalidation

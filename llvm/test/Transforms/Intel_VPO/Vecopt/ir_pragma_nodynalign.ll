@@ -3,7 +3,6 @@
 ; peeling does not depend on the corresponding switch, -vplan-enable-peeling.
 
 ; RUN: opt %s -disable-output -passes="vplan-vec" -vplan-enable-peeling=1 -mattr=+avx2 -debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
-; RUN: opt %s -disable-output -vplan-vec -vplan-enable-peeling=1 -mattr=+avx2 -debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

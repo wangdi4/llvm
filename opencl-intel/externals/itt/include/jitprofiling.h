@@ -140,11 +140,11 @@
  *          VTune will use source file of the first code region and map
  *          performance metrics incorrectly.
  *          * If you register a second code region with the same source file as
- *          for the first region and the same method ID, then source file will be
- *          discarded but, VTune maps metrics to source file correctly.
+ *          for the first region and the same method ID, then source file will
+ * be discarded but, VTune maps metrics to source file correctly.
  *          * If you register a second code region with a null source file and
- *          the same method ID, then provided line number info will be associated
- *          with the source file of the first code region.
+ *          the same method ID, then provided line number info will be
+ * associated with the source file of the first code region.
  *
  * **Explore inline functions** including multi-level hierarchy of
  * nested inlines to see how performance metrics are distributed through them.
@@ -212,60 +212,60 @@
  * @enum iJIT_jvm_event
  * @brief Enumerator for the types of notifications
  */
-typedef enum iJIT_jvm_event
-{
-    iJVM_EVENT_TYPE_SHUTDOWN = 2,               /**< Send to shutdown the agent.
-                                                 * Use NULL for event data. */
+typedef enum iJIT_jvm_event {
+  iJVM_EVENT_TYPE_SHUTDOWN = 2, /**< Send to shutdown the agent.
+                                 * Use NULL for event data. */
 
-    iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED = 13,  /**< Send when a dynamic code is
-                                                 * JIT compiled and loaded into
-                                                 * memory by the JIT engine but
-                                                 * before the code is executed.
-                                                 * Use iJIT_Method_Load as event
-                                                 * data. */
-/** @cond exclude_from_documentation */
-    iJVM_EVENT_TYPE_METHOD_UNLOAD_START,    /**< Send when a compiled dynamic
-                                             * code is being unloaded from memory.
-                                             * Use iJIT_Method_Load as event data.*/
-/** @endcond */
+  iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED = 13, /**< Send when a dynamic code is
+                                              * JIT compiled and loaded into
+                                              * memory by the JIT engine but
+                                              * before the code is executed.
+                                              * Use iJIT_Method_Load as event
+                                              * data. */
+  /** @cond exclude_from_documentation */
+  iJVM_EVENT_TYPE_METHOD_UNLOAD_START, /**< Send when a compiled dynamic
+                                        * code is being unloaded from memory.
+                                        * Use iJIT_Method_Load as event data.*/
+                                       /** @endcond */
 
-    iJVM_EVENT_TYPE_METHOD_UPDATE,   /**< Send to provide a new content for
-                                      * an early reported dynamic code.
-                                      * The previous content will be invalidate
-                                      * starting from time of the notification.
-                                      * Use iJIT_Method_Load as event data but
-                                      * required fields are following:
-                                      * - method_id    identify the code to update.
-                                      * - method_load_address    specify start address
-                                      *                          within identified code range
-                                      *                          where update should be started.
-                                      * - method_size            specify length of updated code
-                                      *                          range. */
+  iJVM_EVENT_TYPE_METHOD_UPDATE, /**< Send to provide a new content for
+                                  * an early reported dynamic code.
+                                  * The previous content will be invalidate
+                                  * starting from time of the notification.
+                                  * Use iJIT_Method_Load as event data but
+                                  * required fields are following:
+                                  * - method_id    identify the code to update.
+                                  * - method_load_address    specify start
+                                  * address within identified code range where
+                                  * update should be started.
+                                  * - method_size            specify length of
+                                  * updated code range. */
 
-    iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED, /**< Send when an inline dynamic
-                                                  * code is JIT compiled and loaded
-                                                  * into memory by the JIT engine
-                                                  * but before the parent code region
-                                                  * is started executing.
-                                                  * Use iJIT_Method_Load as event data.*/
+  iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED, /**< Send when an inline dynamic
+                                                * code is JIT compiled and
+                                                * loaded into memory by the JIT
+                                                * engine but before the parent
+                                                * code region is started
+                                                * executing. Use
+                                                * iJIT_Method_Load as event
+                                                * data.*/
 
-/** @cond exclude_from_documentation */
-    /* Legacy stuff. Do not use it. */
-    iJVM_EVENT_TYPE_ENTER_NIDS = 19,
-    iJVM_EVENT_TYPE_LEAVE_NIDS
-/** @endcond */
+  /** @cond exclude_from_documentation */
+  /* Legacy stuff. Do not use it. */
+  iJVM_EVENT_TYPE_ENTER_NIDS = 19,
+  iJVM_EVENT_TYPE_LEAVE_NIDS
+  /** @endcond */
 
 } iJIT_JVM_EVENT;
 
 /** @cond exclude_from_documentation */
 /* Legacy stuff. Do not use it. */
-typedef enum _iJIT_ModeFlags
-{
-    iJIT_NO_NOTIFICATIONS          = 0x0000,
-    iJIT_BE_NOTIFY_ON_LOAD         = 0x0001,
-    iJIT_BE_NOTIFY_ON_UNLOAD       = 0x0002,
-    iJIT_BE_NOTIFY_ON_METHOD_ENTRY = 0x0004,
-    iJIT_BE_NOTIFY_ON_METHOD_EXIT  = 0x0008
+typedef enum _iJIT_ModeFlags {
+  iJIT_NO_NOTIFICATIONS = 0x0000,
+  iJIT_BE_NOTIFY_ON_LOAD = 0x0001,
+  iJIT_BE_NOTIFY_ON_UNLOAD = 0x0002,
+  iJIT_BE_NOTIFY_ON_METHOD_ENTRY = 0x0004,
+  iJIT_BE_NOTIFY_ON_METHOD_EXIT = 0x0008
 
 } iJIT_ModeFlags;
 /** @endcond */
@@ -274,41 +274,37 @@ typedef enum _iJIT_ModeFlags
  * @enum _iJIT_IsProfilingActiveFlags
  * @brief Enumerator for the agent's mode
  */
-typedef enum _iJIT_IsProfilingActiveFlags
-{
-    iJIT_NOTHING_RUNNING           = 0x0000,    /**< The agent is not running.
-                                                 * iJIT_NotifyEvent calls will
-                                                 * not be processed. */
-    iJIT_SAMPLING_ON               = 0x0001,    /**< The agent is running and
-                                                 * ready to process notifications. */
+typedef enum _iJIT_IsProfilingActiveFlags {
+  iJIT_NOTHING_RUNNING = 0x0000, /**< The agent is not running.
+                                  * iJIT_NotifyEvent calls will
+                                  * not be processed. */
+  iJIT_SAMPLING_ON = 0x0001,     /**< The agent is running and
+                                  * ready to process notifications. */
 
-/** @cond exclude_from_documentation */
-    /* Legacy. Call Graph is running */
-    iJIT_CALLGRAPH_ON              = 0x0002
-/** @endcond */
+  /** @cond exclude_from_documentation */
+  /* Legacy. Call Graph is running */
+  iJIT_CALLGRAPH_ON = 0x0002
+  /** @endcond */
 
 } iJIT_IsProfilingActiveFlags;
 
 /** @cond exclude_from_documentation */
 /* Legacy stuff. Do not use it. */
-typedef enum _iJDEnvironmentType
-{
-    iJDE_JittingAPI = 2
+typedef enum _iJDEnvironmentType {
+  iJDE_JittingAPI = 2
 
 } iJDEnvironmentType;
 
-typedef struct _iJIT_Method_Id
-{
-    unsigned int method_id;
+typedef struct _iJIT_Method_Id {
+  unsigned int method_id;
 
 } *piJIT_Method_Id, iJIT_Method_Id;
 
-typedef struct _iJIT_Method_NIDS
-{
-    unsigned int method_id;     /**< Unique method ID */
-    unsigned int stack_id;      /**< NOTE: no need to fill this field,
-                                 * it's filled by VTune */
-    char*  method_name;         /**< Method name (just the method, without the class) */
+typedef struct _iJIT_Method_NIDS {
+  unsigned int method_id; /**< Unique method ID */
+  unsigned int stack_id;  /**< NOTE: no need to fill this field,
+                           * it's filled by VTune */
+  char *method_name; /**< Method name (just the method, without the class) */
 
 } *piJIT_Method_NIDS, iJIT_Method_NIDS;
 /** @endcond */
@@ -338,108 +334,106 @@ typedef struct _iJIT_Method_NIDS
  *      18-21           30
  * @endcode
  */
-typedef struct _LineNumberInfo
-{
-    unsigned int Offset;     /**< Offset from the begining of the code region. */
-    unsigned int LineNumber; /**< Matching source line number offset (from beginning of source file). */
+typedef struct _LineNumberInfo {
+  unsigned int Offset;     /**< Offset from the begining of the code region. */
+  unsigned int LineNumber; /**< Matching source line number offset (from
+                              beginning of source file). */
 
 } *pLineNumberInfo, LineNumberInfo;
 
 /**
  *  Description of JIT-compiled method.
  */
-typedef struct _iJIT_Method_Load
-{
-    unsigned int method_id; /**< Unique method ID.
-                             *  Method ID may not be smaller than 999.
-                             *  Either you use the API function
-                             *  iJIT_GetNewMethodID to get a valid and unique
-                             *  method ID, or you take care of ID uniqueness
-                             *  and correct range by yourself.\n
-                             *  You must use the same method ID for all code
-                             *  regions of the same method, otherwise different
-                             *  method IDs mean different methods. */
+typedef struct _iJIT_Method_Load {
+  unsigned int method_id; /**< Unique method ID.
+                           *  Method ID may not be smaller than 999.
+                           *  Either you use the API function
+                           *  iJIT_GetNewMethodID to get a valid and unique
+                           *  method ID, or you take care of ID uniqueness
+                           *  and correct range by yourself.\n
+                           *  You must use the same method ID for all code
+                           *  regions of the same method, otherwise different
+                           *  method IDs mean different methods. */
 
-    char* method_name; /** The name of the method. It can be optionally
-                        *  prefixed with its class name and appended with
-                        *  its complete signature. Can't be  NULL. */
+  char *method_name; /** The name of the method. It can be optionally
+                      *  prefixed with its class name and appended with
+                      *  its complete signature. Can't be  NULL. */
 
-    void* method_load_address; /** The start virtual address of the method code
-                                *  region. If NULL that data provided with
-                                *  event are not accepted. */
+  void *method_load_address; /** The start virtual address of the method code
+                              *  region. If NULL that data provided with
+                              *  event are not accepted. */
 
-    unsigned int method_size; /** The code size of the method in memory.
-                               *  If 0, then data provided with the event are not
-                               *  accepted. */
+  unsigned int method_size; /** The code size of the method in memory.
+                             *  If 0, then data provided with the event are not
+                             *  accepted. */
 
-    unsigned int line_number_size; /** The number of entries in the line number
-                                    *  table.0 if none. */
+  unsigned int line_number_size; /** The number of entries in the line number
+                                  *  table.0 if none. */
 
-    pLineNumberInfo line_number_table; /** Pointer to the line numbers info
-                                        *  array. Can be NULL if
-                                        *  line_number_size is 0. See
-                                        *  LineNumberInfo Structure for a
-                                        *  description of a single entry in
-                                        *  the line number info array */
+  pLineNumberInfo line_number_table; /** Pointer to the line numbers info
+                                      *  array. Can be NULL if
+                                      *  line_number_size is 0. See
+                                      *  LineNumberInfo Structure for a
+                                      *  description of a single entry in
+                                      *  the line number info array */
 
-    unsigned int class_id; /** This field is obsolete. */
+  unsigned int class_id; /** This field is obsolete. */
 
-    char* class_file_name; /** Class name. Can be NULL.*/
+  char *class_file_name; /** Class name. Can be NULL.*/
 
-    char* source_file_name; /** Source file name. Can be NULL.*/
+  char *source_file_name; /** Source file name. Can be NULL.*/
 
-    void* user_data; /** This field is obsolete. */
+  void *user_data; /** This field is obsolete. */
 
-    unsigned int user_data_size; /** This field is obsolete. */
+  unsigned int user_data_size; /** This field is obsolete. */
 
-    iJDEnvironmentType  env; /** This field is obsolete. */
+  iJDEnvironmentType env; /** This field is obsolete. */
 
 } *piJIT_Method_Load, iJIT_Method_Load;
 
 /**
  * Description of inline JIT-compiled method.
  */
-typedef struct _iJIT_Method_Inline_Load
-{
-    unsigned int method_id; /**< Unique method ID.
-                             *  Method ID may not be smaller than 999.
-                             *  Either you use the API function
-                             *  iJIT_GetNewMethodID to get a valid and unique
-                             *  method ID, or you take care of ID uniqueness
-                             *  and correct range by yourself. */
+typedef struct _iJIT_Method_Inline_Load {
+  unsigned int method_id; /**< Unique method ID.
+                           *  Method ID may not be smaller than 999.
+                           *  Either you use the API function
+                           *  iJIT_GetNewMethodID to get a valid and unique
+                           *  method ID, or you take care of ID uniqueness
+                           *  and correct range by yourself. */
 
-    unsigned int parent_method_id; /** Unique immediate parent's method ID.
-                                    *  Method ID may not be smaller than 999.
-                                    *  Either you use the API function
-                                    *  iJIT_GetNewMethodID to get a valid and unique
-                                    *  method ID, or you take care of ID uniqueness
-                                    *  and correct range by yourself. */
+  unsigned int parent_method_id; /** Unique immediate parent's method ID.
+                                  *  Method ID may not be smaller than 999.
+                                  *  Either you use the API function
+                                  *  iJIT_GetNewMethodID to get a valid and
+                                  * unique method ID, or you take care of ID
+                                  * uniqueness and correct range by yourself. */
 
-    char* method_name; /** The name of the method. It can be optionally
-                        *  prefixed with its class name and appended with
-                        *  its complete signature. Can't be  NULL. */
+  char *method_name; /** The name of the method. It can be optionally
+                      *  prefixed with its class name and appended with
+                      *  its complete signature. Can't be  NULL. */
 
-    void* method_load_address;  /** The virtual address on which the method
-                                  * is inlined. If NULL, then data provided with
-                                  * the event are not accepted. */
+  void *method_load_address; /** The virtual address on which the method
+                              * is inlined. If NULL, then data provided with
+                              * the event are not accepted. */
 
-    unsigned int method_size; /** The code size of the method in memory.
-                               *  If 0 that data provided with event are not
-                               *  accepted. */
+  unsigned int method_size; /** The code size of the method in memory.
+                             *  If 0 that data provided with event are not
+                             *  accepted. */
 
-    unsigned int line_number_size; /** The number of entries in the line number
-                                    *  table. 0 if none. */
+  unsigned int line_number_size; /** The number of entries in the line number
+                                  *  table. 0 if none. */
 
-    pLineNumberInfo line_number_table; /** Pointer to the line numbers info
-                                        *  array. Can be NULL if
-                                        *  line_number_size is 0. See
-                                        *  LineNumberInfo Structure for a
-                                        *  description of a single entry in
-                                        *  the line number info array */
+  pLineNumberInfo line_number_table; /** Pointer to the line numbers info
+                                      *  array. Can be NULL if
+                                      *  line_number_size is 0. See
+                                      *  LineNumberInfo Structure for a
+                                      *  description of a single entry in
+                                      *  the line number info array */
 
-    char* class_file_name; /** Class name. Can be NULL.*/
+  char *class_file_name; /** Class name. Can be NULL.*/
 
-    char* source_file_name; /** Source file name. Can be NULL.*/
+  char *source_file_name; /** Source file name. Can be NULL.*/
 
 } *piJIT_Method_Inline_Load, iJIT_Method_Inline_Load;
 
@@ -449,15 +443,15 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifndef CDECL
-#  if defined WIN32 || defined _WIN32
-#    define CDECL __cdecl
-#  else /* defined WIN32 || defined _WIN32 */
-#    if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
-#      define CDECL /* not actual on x86_64 platform */
-#    else  /* _M_X64 || _M_AMD64 || __x86_64__ */
-#      define CDECL __attribute__ ((cdecl))
-#    endif /* _M_X64 || _M_AMD64 || __x86_64__ */
-#  endif /* defined WIN32 || defined _WIN32 */
+#if defined WIN32 || defined _WIN32
+#define CDECL __cdecl
+#else /* defined WIN32 || defined _WIN32 */
+#if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
+#define CDECL /* not actual on x86_64 platform */
+#else         /* _M_X64 || _M_AMD64 || __x86_64__ */
+#define CDECL __attribute__((cdecl))
+#endif /* _M_X64 || _M_AMD64 || __x86_64__ */
+#endif /* defined WIN32 || defined _WIN32 */
 #endif /* CDECL */
 
 #define JITAPI CDECL
@@ -493,7 +487,7 @@ iJIT_IsProfilingActiveFlags JITAPI iJIT_IsProfilingActive(void);
  *
  * @param[in] event_type - type of the data sent to the agent
  * @param[in] EventSpecificData - pointer to event-specific data
- * 
+ *
  * @returns 1 on success, otherwise 0.
  */
 int JITAPI iJIT_NotifyEvent(iJIT_JVM_EVENT event_type, void *EventSpecificData);

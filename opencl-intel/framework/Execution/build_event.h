@@ -14,35 +14,36 @@
 
 #pragma once
 
-#include <cl_types.h>
-#include <cl_object.h>
-#include "ocl_event.h"
 #include "cl_shared_ptr.hpp"
+#include "ocl_event.h"
+#include <cl_object.h>
+#include <cl_types.h>
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-	class Context;
+class Context;
 
-	class BuildEvent : public OclEvent
-	{
-	public:
-        BuildEvent(_cl_context_int* context);
+class BuildEvent : public OclEvent {
+public:
+  BuildEvent(_cl_context_int *context);
 
-		SharedPtr<Context>  GetContext() const { return m_pContext; }
+  SharedPtr<Context> GetContext() const { return m_pContext; }
 
-		// OCLObject implementation
-                cl_err_code
-                GetInfo(cl_int /*iParamName*/, size_t /*szParamValueSize*/,
-                        void * /*paramValue*/,
-                        size_t * /*szParamValueSizeRet*/) const override {
-                  return CL_INVALID_VALUE;
-                }
+  // OCLObject implementation
+  cl_err_code GetInfo(cl_int /*iParamName*/, size_t /*szParamValueSize*/,
+                      void * /*paramValue*/,
+                      size_t * /*szParamValueSizeRet*/) const override {
+    return CL_INVALID_VALUE;
+  }
 
-                virtual void SetComplete(cl_int returnCode);
+  virtual void SetComplete(cl_int returnCode);
 
-              protected:
+protected:
+  SharedPtr<Context> m_pContext;
+};
 
-		SharedPtr<Context>   m_pContext;
-	};
-
-}}}    // Intel::OpenCL::Framework
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

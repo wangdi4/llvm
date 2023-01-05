@@ -1,7 +1,6 @@
 ; The transformation cannot be triggered if the dim lower bounds are non-constant
 ; (%"jacobian_$Q")[i1+2][%mod][%mod27] has dim lower bound [%sext:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)]
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; *** IR Dump After HIR Store Result Into Temp Array ***

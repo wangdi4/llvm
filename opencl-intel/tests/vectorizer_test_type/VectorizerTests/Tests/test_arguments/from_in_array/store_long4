@@ -7,15 +7,15 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-store_long4 (	__global const float8 *in,
-		__global long4 *out)
+store_long4 (  __global const float8 *in,
+    __global long4 *out)
 {
-	int gid = get_global_id(0);
-	out[gid] = as_long4(in[gid]);
+  int gid = get_global_id(0);
+  out[gid] = as_long4(in[gid]);
 }

@@ -7,20 +7,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; In this test the function that originally contained the local variable
 ; has been optimized away, but has left inlined instances within two functions.
 
-; Old pass manager
-; RUN: sed -e s/^.DO_CLONE1:// %s | sed s/^.DO_CLONE2:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.NO_CLONE1:// %s | sed s/^.DO_CLONE2:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.DO_CLONE1:// %s | sed s/^.NO_CLONE2:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; RUN: sed -e s/^.NO_CLONE1:// %s | sed s/^.NO_CLONE2:// | \
-; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
-
-; New pass manager
 ; RUN: sed -e s/^.DO_CLONE1:// %s | sed s/^.DO_CLONE2:// | \
 ; RUN:     opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.node
 

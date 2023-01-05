@@ -223,7 +223,7 @@ static bool isPrivatizationCandidate(AllocaInst *AI,
     LLVM_DEBUG(reportSkipped(AI, "unsupported value type"));
     return false;
   }
-  Optional<TypeSize> Size =
+  std::optional<TypeSize> Size =
       AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
   if (!Size) {
     LLVM_DEBUG(reportSkipped(AI, "unknown size"));
@@ -593,7 +593,7 @@ static bool cleanupItem(
     if (Item->getIsTyped())
       ToPrivatize.insert({V, getTypedClauseInfoForTypedItem(Item)});
     else if (!V->getType()->isOpaquePointerTy())
-      ToPrivatize.insert({V, llvm::None});
+      ToPrivatize.insert({V, std::nullopt});
     else if (auto *AI = dyn_cast<AllocaInst>(V))
       ToPrivatize.insert({AI, VPOUtils::getTypedClauseInfoForAlloca(AI)});
     else
@@ -704,18 +704,18 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (MA->getBasePtr() != MA->getSectionPtr())
         return false;
 
-      auto Size = dyn_cast<ConstantInt>(MA->getSize());
+      auto *Size = dyn_cast<ConstantInt>(MA->getSize());
       if (!Size)
         return false;
 
-      Type *ItemTy = nullptr;
-      Value *NumElements = nullptr;
-      // TODO: this will stop working with opaque pointers, because
-      //       we do not plan to have type information for MAP clauses yet.
-      std::tie(ItemTy, NumElements, std::ignore) =
-          VPOParoptUtils::getItemInfo(MI);
-      if (NumElements)
+      auto *AI = cast<AllocaInst>(MI->getOrig());
+      const auto &[ItemTy, NumElements] =
+          VPOUtils::getTypedClauseInfoForAlloca(AI);
+
+      if (NumElements && (!isa<ConstantInt>(NumElements) ||
+                          !cast<ConstantInt>(NumElements)->isOne()))
         return false;
+
       TypeSize ElemSize =
           F->getParent()->getDataLayout().getTypeAllocSize(ItemTy);
       if (Size->getValue() != ElemSize)
@@ -964,7 +964,7 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
         !AI->getAllocatedType()->isSingleValueType())
       continue;
 
-    Optional<TypeSize> Size =
+    std::optional<TypeSize> Size =
         AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
     if (!Size)
       continue;

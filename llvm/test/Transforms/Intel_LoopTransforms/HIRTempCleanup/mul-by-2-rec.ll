@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are able to get rid of copy of %t.026 and are using only a single mul recurrence blob in the innermost loop.
@@ -31,7 +30,6 @@
 ; CHECK: |   %t.026 = 2 * %t.026;
 ; CHECK: + END LOOP
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -hir-details -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-LIVEIN
 
 ; Verify that %t.026 becomes livein to i2 loop after substitution.

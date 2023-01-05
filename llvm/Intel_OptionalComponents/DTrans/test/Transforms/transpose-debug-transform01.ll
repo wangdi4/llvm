@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that no subscripts are transformed, because there are none.
 

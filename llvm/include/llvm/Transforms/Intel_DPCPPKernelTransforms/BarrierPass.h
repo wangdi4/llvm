@@ -16,6 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
@@ -47,6 +48,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
+
+  static bool isRequired() { return true; }
 
 private:
   using BBSet = CompilationUtils::BBSet;
@@ -406,31 +409,6 @@ private:
   /// whether there is a barrier in any path from the basic block to another
   /// basic block.
   DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> HasBarrierFromTo;
-};
-
-/// KernelBarrierLegacy pass for legacy pass manager.
-class KernelBarrierLegacy : public ModulePass {
-  KernelBarrier Impl;
-
-public:
-  static char ID;
-
-  /// IsNativeDebug true if we are debugging natively (gdb).
-  explicit KernelBarrierLegacy(bool IsNativeDebug = false,
-                               bool useTLSGlobals = false);
-
-  ~KernelBarrierLegacy() {}
-
-  /// Provides name of pass.
-  StringRef getPassName() const override { return "Intel Kernel Barrier"; }
-
-  /// Execute pass on given module.
-  /// M module to optimize.
-  /// Returns True if module was modified.
-  bool runOnModule(Module &M) override;
-
-  /// Inform about usage/modification/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // namespace llvm

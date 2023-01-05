@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -disable-loop-unrolling -O2 -S -disable-hir-vec-dir-insert < %s | FileCheck %s
 ; RUN: opt -disable-loop-unrolling -passes='default<O2>' -S -disable-hir-vec-dir-insert < %s | FileCheck %s
 
 ; Check that disabling of automatic unrolling in the pass builder is honored.

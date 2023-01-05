@@ -109,7 +109,7 @@ private:
   // Rest of the state is inaccessible if the group itself isn't transformable.
   Optional<int64_t> GroupStride; // In bytes.
   /// Group-wide memop should be performed at that position.
-  VPVLSClientMemref *InsertPointMemref;
+  const VPVLSClientMemref *InsertPointMemref;
   /// VPInstruction associated with the insert point above.
   VPLoadStoreInst *InsertPointInst;
   /// Memref with lowest offset. We rely on the fact that the group actually

@@ -1,5 +1,4 @@
 ; INTEL_COLLAB
-; RUN: opt -openmp-opt-cgscc -S < %s | FileCheck %s
 ; RUN: opt -passes=openmp-opt-cgscc -S < %s | FileCheck %s
 ;
 ; This test checks that openmp-opt pass does not deduplicate runtime calls

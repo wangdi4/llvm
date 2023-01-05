@@ -3,7 +3,6 @@
 ; multiple predecessors (%invoke.cont1, %invoke.cont, %for.body),
 ; which are in a loop.
 
-; RUN: opt < %s -simplifycfg -S -hoist-common-insts=true | FileCheck %s
 ; RUN: opt < %s -passes=simplifycfg -S -hoist-common-insts=true | FileCheck %s
 
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

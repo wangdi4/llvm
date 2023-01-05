@@ -11,9 +11,9 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=stderr 2>&1 >%tout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=%t < %s -disable-output
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=4 -intel-opt-report=low -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=4 -intel-opt-report=low -intel-opt-report-file=stderr 2>&1 >%tout < %s -disable-output | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=4 -intel-opt-report=low -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s -check-prefix=OPTREPORT --strict-whitespace < %t
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}

@@ -30,6 +30,7 @@
 #include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanLoopExitCanonicalization.h"
+#include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
@@ -40,6 +41,8 @@
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
+
+using namespace llvm::PatternMatch;
 
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
@@ -130,6 +133,10 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     BlendWithSafeValueDumpControl("blend-with-safe-value",
                                  "blend integer div/rem with safe value");
+
+static LoopVPlanDumpControl
+    EarlyPeepholeDumpControl("early-peephole",
+                             "Peephole transformation before predicator");
 
 // The following two options are used together to temporarily disable
 // vectorization for loops that have both properties.
@@ -232,11 +239,6 @@ static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
             "vector factors for multiple loops."));
 static int VPlanOrderNumber = 0;
 
-static cl::opt<bool>
-    DtransDisableVecRemainder("dtrans-disable-vec-rem", cl::init(false),
-                              cl::Hidden,
-                              cl::desc("Disable remainder loop vectorization"));
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -270,11 +272,6 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
 #endif // INTEL_CUSTOMIZATION
-
-bool LoopVectorizationPlanner::isVecRemainderDisabled() const {
-  return DtransDisableVecRemainder ||
-         (IsVecRemainder.has_value() ? !IsVecRemainder.value() : false);
-}
 
 int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -388,11 +385,9 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
   return 1;
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
-                                                      const DataLayout *DL,
-                                                      std::string VPlanName,
-                                                      ScalarEvolution *SE,
-                                                      bool IsLegalToVec) {
+unsigned LoopVectorizationPlanner::buildInitialVPlans(
+    LLVMContext *Context, const DataLayout *DL, std::string VPlanName,
+    AssumptionCache &AC, ScalarEvolution *SE, bool IsLegalToVec) {
   ++VPlanOrderNumber;
   // Concatenate VPlan order number into VPlanName which allows to align
   // VPlans in all different VPlan internal dumps.
@@ -407,7 +402,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
   // TODO: revisit when we build multiple VPlans.
   std::shared_ptr<VPlanVector> Plan =
-      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, SE);
+      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, AC, SE);
   if (!Plan) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
     return 0;
@@ -486,6 +481,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
   // CFG canonicalization transform (merge loop exits).
   doLoopMassaging(Plan.get());
+
+  // Exchange input and scan phases of exclusive scan loops.
+  exchangeExclusiveScanLoopInputScanPhases(Plan.get());
 
   printAndVerifyAfterInitialTransforms(Plan.get());
 
@@ -698,6 +696,11 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
+  // Note that dynamic alignment for peeling is strictly opt-in by design.
+  // This is a deliberate difference between xmain and mainline compilers,
+  // driven by negative experience in icc.  It's difficult to ensure
+  // consistent gains, and it complicates cost modeling for the main and
+  // remainder loops.
   bool EnableDP = isDynAlignEnabled();
   if (!VPlanEnableGeneralPeeling && !EnableDP)
     return;
@@ -764,6 +767,27 @@ LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
   llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
 
+std::unique_ptr<VPlanCostModelInterface>
+LoopVectorizationPlanner::createNoSLPCostModel(const VPlanVector *Plan,
+                                               unsigned VF,
+                                               unsigned UF) const {
+  // Do not run VLSA for VF = 1
+  VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
+
+  switch (getPlannerType()) {
+    case PlannerType::Full:
+      return VPlanCostModelFullNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+    case PlannerType::LightWeight:
+      return VPlanCostModelLiteNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+    case PlannerType::Base:
+      return VPlanCostModelBaseNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
+                                                    TLI, DL, VLSACM);
+  }
+  llvm_unreachable("Uncovered Planner type in the switch-case above.");
+}
+
 unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   if (VPlanForceUF == 0) {
     if (Forced)
@@ -806,6 +830,18 @@ void LoopVectorizationPlanner::extractVFsFromMetadata(unsigned Safelen) {
   }
 }
 
+bool LoopVectorizationPlanner::hasVFOneInMetadata() const {
+  if (!VectorlengthMD)
+    return false;
+  for (unsigned I = 1; I < (VectorlengthMD->getNumOperands()); I++) {
+    ConstantInt *IntMD =
+        mdconst::extract<ConstantInt>(VectorlengthMD->getOperand(I));
+    if (IntMD->getZExtValue() == 1)
+      return true;
+  }
+  return false;
+}
+
 ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
 
 void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
@@ -829,7 +865,7 @@ Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
                                 "novecremainder\n");
     return false;
   }
-  return None;
+  return std::nullopt;
 }
 
 bool LoopVectorizationPlanner::readDynAlignEnabled() {
@@ -936,7 +972,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   VecScenario.resetRemainders();
 
   if (ForcedVF > 0) {
-    if (ForcedVF * BestUF > TripCount) {
+    if ((uint64_t)ForcedVF * (uint64_t)BestUF > TripCount) {
       LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
                         << ForcedVF << ") * BestUF(" << BestUF
                         << ") > TripCount(" << TripCount << ")\n");
@@ -979,6 +1015,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
       }
+      case VPlanIdioms::SearchLoopValueCmp:
+        // Intentional fall-through.
       default:
         break;
     }
@@ -1003,7 +1041,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
 
-      if (SearchLoopPreferredVF * BestUF > TripCount) {
+      if ((uint64_t)SearchLoopPreferredVF * (uint64_t)BestUF > TripCount) {
         LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because "
                    << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
                    << ") * BestUF(" << BestUF << ") > TripCount("
@@ -1059,6 +1097,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
   DenseMap<unsigned, VPCostSummary> VFCosts;
 
+  // Add protection from MinVF evaluated to 1 when dealing with 'vector always'
+  // and 'simd' loops. Otherwise, if VF=1 cost is lower than VF>1 costs, VF=1
+  // will be selected. Do not remove VF=1 when it is forced.
+  if (ShouldIgnoreProfitability && (ForcedVF != 1) && !hasVFOneInMetadata())
+    VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                             [](unsigned VF) { return (VF == 1); }),
+              VFs.end());
+
   //
   // The main loop where we choose VF.
   // Please note that best peeling variant is expected to be selected up to
@@ -1080,14 +1126,16 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   //    is selected.
   for (unsigned VF : getVectorFactors()) {
     assert(hasVPlanForVF(VF) && "expected non-null VPlan");
-    if (TripCount < VF * BestUF)
+    if (TripCount < (uint64_t)VF * (uint64_t)BestUF)
       continue; // FIXME: Consider masked low trip later.
 
     VPlanVector *Plan = getVPlanForVF(VF);
     assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
-    auto MainLoopCM = createCostModel(Plan, VF, BestUF);
+    auto MainLoopCM = IsVectorAlways || ForcedVF > 1 ?
+      createNoSLPCostModel(Plan, VF, BestUF) :
+      createCostModel(Plan, VF, BestUF);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
     // Peeling is not supported for non-normalized loops.
@@ -1428,25 +1476,21 @@ void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<VPlanVector *> PredicatedVPlans;
-  auto Predicate = [&PredicatedVPlans](VPlanVector *VPlan) {
-    if (PredicatedVPlans.count(VPlan))
-      return; // Already predicated.
-
-    VPLoop *OuterLoop = VPlan->getMainLoop(true);
+  auto Predicate = [](VPlanVector &VPlan) {
+    VPLoop *OuterLoop = VPlan.getMainLoop(true);
     // Search loops require multiple hacks. Skipping LCSSA/LoopCFU is one of
     // them.
     bool SearchLoopHack = !OuterLoop->getExitBlock();
 
     if (!SearchLoopHack)
-      formLCSSA(*VPlan, true /* SkipTopLoop */);
+      formLCSSA(VPlan, true /* SkipTopLoop */);
     VPLAN_DUMP(LCSSADumpControl, VPlan);
 
     if (!SearchLoopHack) {
-      assert(!VPlan->getVPlanDA()->isDivergent(
+      assert(!VPlan.getVPlanDA()->isDivergent(
                  *(OuterLoop)->getLoopLatch()->getCondBit()) &&
              "Outer loop doesn't have uniform backedge!");
-      VPlanLoopCFU LoopCFU(*VPlan);
+      VPlanLoopCFU LoopCFU(VPlan);
       LoopCFU.run();
     }
     VPLAN_DUMP(LoopCFUDumpControl, VPlan);
@@ -1454,22 +1498,12 @@ void LoopVectorizationPlanner::predicate() {
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator
     // has some hacks for search loop processing inside it as well.
-    VPlanPredicator VPP(*VPlan);
+    VPlanPredicator VPP(VPlan);
     VPP.predicate();
     VPLAN_DUMP(PredicatorDumpControl, VPlan);
-
-    PredicatedVPlans.insert(VPlan);
   };
 
-  for (auto It : VPlans) {
-    if (It.first == 1)
-      continue; // Ignore Scalar VPlan;
-    VPlanVector *MainPlan = It.second.MainPlan.get();
-    Predicate(MainPlan);
-    // Masked mode loop might not exist.
-    if (VPlanVector *MaskedModeLoopPlan = It.second.MaskedModeLoop.get())
-      Predicate(MaskedModeLoopPlan);
-  }
+  transformAllVPlans(Predicate);
 }
 
 void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
@@ -1622,9 +1656,8 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
-    VPExternalValues &Ext,
-    VPUnlinkedInstructions &UnlinkedVPInsts, std::string VPlanName,
-    ScalarEvolution *SE) {
+    VPExternalValues &Ext, VPUnlinkedInstructions &UnlinkedVPInsts,
+    std::string VPlanName, AssumptionCache &AC, ScalarEvolution *SE) {
   // Create new empty VPlan. At this stage we want to create only NonMasked
   // VPlans.
   std::shared_ptr<VPlanVector> SharedPlan =
@@ -1640,7 +1673,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
     Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE, BFI);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, AC, *DT, SE,
+                               BFI);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 
@@ -1672,6 +1706,253 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
+}
+
+void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
+    VPlanVector *Plan) {
+  if (!WRLp)
+    return;
+
+  // Nothing to do if this is not an exclusive scan loop. According to the spec,
+  // scan reductions must be either all inclusive or all exclusive.
+  // If we don't have exclusive reductions, this loop does not require
+  // the transformation.
+  bool IsExclusiveLoop = false;
+  for (ReductionItem *Item : WRLp->getRed().items()) {
+    if (Item->getIsInscan() &&
+        isa<ExclusiveItem>(
+            WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp,
+                                                                    Item))) {
+      IsExclusiveLoop = true;
+      break;
+    }
+  }
+  if (!IsExclusiveLoop)
+    return;
+
+  // Entities framework removed the scan region directives, however their
+  // parent basic blocks remained. As the scan region is single entry/single
+  // exit, the structure would look like this:
+  //
+  // ScanPhaseBB:
+  //  ... ; scan phase
+  //
+  // ScanBeginBB: #preds : ScanPhaseBB
+  //  br ScanBB
+  //
+  // ScanBB: # preds: ScanBeginBB
+  //  ...
+  //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
+  //  ...
+  //  br ScanEndBB
+  //
+  // ScanEndBB: # preds: ScanBB
+  //  br InputPhaseBB
+  //
+  // InputPhaseBB: # preds: ScanEndBB
+  //  ... ; input phase
+
+  // After the transformation the loop would like as follows:
+  // InputPhaseBB:
+  //  ... ; input phase
+  //  br ScanBeginBB
+  //
+  // ScanBeginBB: #preds : InputPhaseBB
+  //  br ScanBB
+  //
+  // ScanBB: # preds: ScanBeginBB
+  //  ...
+  //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
+  //  br ScanEndBB
+  //
+  // ScanEndBB: # preds: ScanBB
+  //  br ScanPhaseBB
+  //
+  // ScanPhaseBB: # preds: ScanEndBB
+  //  ... ; scan phase
+
+  // Locate the block containing running exclusive reduction instructions.
+  // It is enough to find one such instruction as they all have been insterted
+  // into the same block.
+  VPInstruction *RunningRedInst = nullptr;
+  for (auto &I : vpinstructions(Plan)) {
+    if (isa<VPRunningExclusiveReduction>(&I) ||
+        isa<VPRunningExclusiveUDS>(&I)) {
+      RunningRedInst = &I;
+      break;
+    }
+  }
+  assert(RunningRedInst &&
+         "Running reduction instructions must have been inserted!");
+
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *VPL = *VPLInfo->begin();
+
+  // Split the latch before all of the induction increments.
+  // Find the first increment for inductions in the Latch, traversing it in
+  // reverse.
+  VPBasicBlock *Latch = VPL->getLoopLatch();
+  assert(Latch && "Latch is expected to exist.");
+  VPBranchInst *Br = Latch->getTerminator();
+  assert(Br && "Expect branch condition!");
+  VPCmpInst *Cond = dyn_cast<VPCmpInst>(Br->getCondition());
+  assert(Cond && (Cond->getNumUsers() == 1) &&
+         "Loop latch condition is expected to have one user!");
+
+  auto IsIndIncrement = [VPL](VPInstruction *PossibleIndInc) {
+    if (!PossibleIndInc)
+      return false;
+    if (PossibleIndInc->getOpcode() == Instruction::Add &&
+        (isa<VPInductionInitStep>(PossibleIndInc->getOperand(1)) ||
+         isa<VPInductionInitStep>(PossibleIndInc->getOperand(0))) &&
+        llvm::find_if(PossibleIndInc->users(), [VPL](auto &User) {
+          return (isa<VPPHINode>(User) &&
+                  cast<VPPHINode>(User)->getParent() == VPL->getHeader());
+        }) != PossibleIndInc->users().end())
+      return true;
+    return false;
+  };
+
+  auto GetIndInc = [&IsIndIncrement](VPInstruction *VPInst) -> VPInstruction * {
+    for (unsigned Idx = 0; Idx < VPInst->getNumOperands(); Idx++) {
+      VPInstruction *Op = cast<VPInstruction>(VPInst->getOperand(Idx));
+      if (IsIndIncrement(Op))
+        return Op;
+    }
+    return nullptr;
+  };
+  VPInstruction *IVIndInc = GetIndInc(Cond);
+  assert(IVIndInc && "Expect increment for loop IV!");
+  // In case the increment is not in the Latch, move it there.
+  if (IVIndInc->getParent() != Latch)
+    IVIndInc->moveBefore(Cond);
+
+  // Go starting from Cond in reverse looking for the first induction increment.
+  // We do expect at least one induction increment for the main loop IV.
+  VPBasicBlock::iterator FirstIndInc = --Cond->getIterator();
+  for (auto It = FirstIndInc; It != Latch->begin(); It--) {
+    VPInstruction *PossibleIndInc = &*It;
+    if (IsIndIncrement(PossibleIndInc))
+      FirstIndInc = It;
+    else
+      break;
+  }
+
+  VPBasicBlock *NewLatch =
+      VPBlockUtils::splitBlock(Latch, FirstIndInc, VPLInfo);
+  NewLatch->setName("new_latch");
+
+  // Split the header after the last store to the Linear.IV. Otherwise,
+  // this initializing store would move past the separating pragma. This would
+  // lead to uninitialized memory loads for Linear.IV in the part of loop
+  // preceeding the separating pragma.
+  // Loop closed calculation and store for Linear.IV are first instruction in
+  // the original header. Entity framework have inserted its instructions just
+  // after the phis, so the split will be correct.
+
+  // Obtain pointer for in-memory LINEAR.IV, traverse through inductions.
+  VPValue *LinearIVMemPtr = nullptr;
+  VPBasicBlock *Preheader = VPL->getLoopPreheader();
+  for (const auto &I : *Preheader) {
+    auto *VPIndInit = dyn_cast<VPInductionInit>(&I);
+    if (!VPIndInit)
+      continue;
+    if (VPIndInit->getIsLinearIV()) {
+      for (const auto *U : VPIndInit->users()) {
+        // The only Store of InductionInit is the store to Linear.IV alloca.
+        auto *LSI = dyn_cast<VPLoadStoreInst>(U);
+        if (!LSI)
+          continue;
+        if (LSI->getOpcode() != Instruction::Store)
+          continue;
+        LinearIVMemPtr = LSI->getPointerOperand();
+      }
+    }
+  }
+  assert(LinearIVMemPtr && "LinearIV memory has to be found!");
+  auto *Header = VPL->getHeader();
+  // Inscan reduction requires memory guard regions to be present,
+  // thus the regions were inserted in the Header right after phis.
+  // After VPOCFGRestructuringPass pass they were outlined into separate BBs
+  // and removed during VPlan construction, but BBs remained.
+  // That means that we should look for Linear.IV store in the second next BB
+  // after the Header.
+  // HeaderBB:
+  //   %vp1 = phi [ ], ... // header phis.
+  //   br BB1
+  // BB1:
+  //   br BB2
+  // BB2:
+  //   ... ; actual header code.
+  VPInstruction *LastLinearIVStore = nullptr;
+  auto *OriginalHeader = Header->getSingleSuccessor()->getSingleSuccessor();
+  for (auto &I : reverse(*OriginalHeader)) {
+    auto *LSI = dyn_cast<VPLoadStoreInst>(&I);
+    if (!LSI)
+      continue;
+    if (LSI->getOpcode() != Instruction::Store)
+      continue;
+    const VPValue *PtrOp = LSI->getPointerOperand();
+    if (PtrOp == LinearIVMemPtr) {
+      LastLinearIVStore = &I;
+      break;
+    }
+  }
+  assert(LastLinearIVStore && "LinearIV must have a store in OriginalHeader!");
+
+  // Incrementing LastLinearIVStore is safe as in the worst case scenario
+  // it will be a terminator inst.
+  VPBasicBlock *HeaderSucc = VPBlockUtils::splitBlock(
+      OriginalHeader, ++LastLinearIVStore->getIterator(), VPLInfo);
+
+  VPBasicBlock *ScanBB = RunningRedInst->getParent();
+  VPBasicBlock *ScanBeginBB = ScanBB->getSinglePredecessor();
+  VPBasicBlock *ScanEndBB = ScanBB->getSingleSuccessor();
+  assert(ScanBeginBB && ScanEndBB && "Separating scan pragma was not found!");
+  assert(ScanBeginBB->getSingleSuccessor() &&
+         ScanEndBB->getSinglePredecessor() &&
+         "Separating pragma directives must have one successor/predecessor!");
+  assert(ScanBeginBB->getSingleSuccessor() ==
+             ScanEndBB->getSinglePredecessor() &&
+         "Separating pragma directives must be one basic block away!");
+
+  assert(ScanEndBB->getSingleSuccessor() && "Expect only one successor!");
+  assert(ScanBeginBB->getSinglePredecessor() && "Expect only one predecessor!");
+  auto *BeginPred = ScanBeginBB->getSinglePredecessor();
+  auto *EndSucc = ScanEndBB->getSingleSuccessor();
+
+  OriginalHeader->replaceSuccessor(HeaderSucc, EndSucc);
+  Latch->replaceSuccessor(NewLatch, ScanBeginBB);
+  ScanEndBB->replaceSuccessor(EndSucc, HeaderSucc);
+  BeginPred->replaceSuccessor(ScanBeginBB, NewLatch);
+
+  // Lifetime start/end intrinsics might become reversed.
+  // Move them to the header and the new latch. In theory, their scope might be
+  // widened in doing so. However, this is more of a conservative approach as
+  // it seems to be unlikely to have deeply nested Lifetime start/end intrinsics
+  // in scan loops. We expect at least one pair for LINEAR.IV.
+  SmallVector<VPCallInstruction *, 2> LifetimeStartVec;
+  SmallVector<VPCallInstruction *, 2> LifetimeEndVec;
+  for (auto &I : vpinstructions(Plan)) {
+    VPInstruction *Inst = &I;
+    if (!VPL->contains(Inst))
+      continue;
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(Inst)) {
+      if (VPCall->isIntrinsicFromList({Intrinsic::lifetime_start}))
+        LifetimeStartVec.push_back(VPCall);
+      if (VPCall->isIntrinsicFromList({Intrinsic::lifetime_end}))
+        LifetimeEndVec.push_back(VPCall);
+    }
+  }
+  for (auto *LifetimeStart : LifetimeStartVec)
+    LifetimeStart->moveBefore(Header->getFirstNonPhi());
+  for (auto *LifetimeEnd : LifetimeEndVec)
+    LifetimeEnd->moveBefore(NewLatch->getFirstNonPhi());
+
+  // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
+  // recalculating it.
+  Plan->computeDT();
+  Plan->computePDT();
 }
 
 void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
@@ -1823,19 +2104,71 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
   if (!LE)
     return false;
-  // Check whether all reductions are supported
+  // Check whether all reductions are supported.
   for (auto Red : LE->vpreductions()) {
-    // Bailouts for user-defined reductions.
-    if (Red->getRecurrenceKind() == RecurKind::Udr) {
-      // Check if UDR is registerized. This can happen due to hoisting/invariant
-      // code motion done by pre-vectorizer passes. Asserts in debug build to
-      // detect accidental registerization during testing.
+    // Bailouts for user-defined reductions and scans.
+    if ((Red->getRecurrenceKind() == RecurKind::Udr) ||
+        isa<VPInscanReduction>(Red)) {
+      // Check if UDR/Scan is registerized. This can happen due to
+      // hoisting/invariant code motion done by pre-vectorizer passes.
+      // Asserts in debug build to detect accidental registerization during
+      // testing.
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
-        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR found.\n");
-        assert(false && "Registerized UDR unexpected.");
+        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR/Scan found.\n");
+        assert(false && "Registerized UDR/Scan unexpected.");
         return false;
       }
+
+      auto *UDS = dyn_cast<VPUserDefinedScanReduction>(Red);
+      if (UDS && !UDS->getInitializer()) {
+        LLVM_DEBUG(
+            dbgs() << "LVP: UDS without Initializer is not supported yet!\n");
+        return false;
+      }
+    }
+
+    // Check that reduction does not have more than one liveout instruction.
+    // TODO: This scenario can potentially be handled in the future by emitting
+    // a reduction-final for each liveout value.
+    unsigned NumLiveOutInsts =
+        llvm::count_if(Red->getLinkedVPValues(), [&VPLp](VPValue *V) {
+          if (auto *I = dyn_cast<VPInstruction>(V))
+            return VPLp->isLiveOut(I);
+          return false;
+        });
+    // Consider the following input with non-simd loop.
+    // DO i1 = 0, %N + -1, 1
+    //   %add = %add21  +  i1; <Safe Reduction>
+    //   ...
+    //   %add21 = %add; <Safe Reduction>
+    // END LOOP
+    //
+    // We will create the VPlan IR below. Here the %vp30972 is reduction
+    // exit, but it's not real liveout. The real live out is %vp24048. That
+    // discrepancy is resulted from HIR's incomplete temps matching. Both
+    // statements are marked in one "safe reduction" chain but we don't
+    // account this: even the chained statements are put into linked value list
+    // of reduction, we don't look through that list during importing. Bail out
+    // for now. TODO: implement the lookup and correct linking, see the test
+    // in Intel_LoopTransforms/HIROptReport/loop-unswitch.ll
+    //
+    // i32 %vp16330 = phi  [ i32 %add21, BB21 ],  [ i32 %vp30972, BB22 ]
+    // i32 %vp14746 = phi  [ i32 0, BB21 ],  [ i32 %vp23996, BB22 ]
+    // i32 %vp24048 = add i32 %vp16330 i32 %vp14746
+    // ...
+    // i32 %vp30972 = hir-copy i32 %vp24048 , OriginPhiId: -1
+    // i32 %vp23996 = add i32 %vp14746 i32 1
+    // i1 %vp30894 = icmp slt i32 %vp23996 i32 %vp31834
+    // br i1 %vp30894, BB22, BB23
+    // 
+    if (Red->getLoopExitInstr() && !VPLp->isLiveOut(Red->getLoopExitInstr()))
+      NumLiveOutInsts++; // at the moment we make reduction exit as liveout.
+
+    if (NumLiveOutInsts > 1) {
+      LLVM_DEBUG(dbgs() << "LVP: Reduction with multiple liveout instructions "
+                           "is not supported.\n");
+      return false;
     }
   }
 
@@ -1897,7 +2230,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
       } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
         return false;
       }
     }
@@ -1977,7 +2310,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TopLoopDescrs, TheLoop);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
@@ -1989,8 +2322,19 @@ void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
 
   VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                               *Plan, VPAF);
+  fillLoopDescrs();
 }
 
+void LoopVectorizationPlanner::fillLoopDescrs() {
+  for (const CfgMergerPlanDescr &PlanDescr : MergerVPlans) {
+    VPlan *Plan = PlanDescr.getVPlan();
+    if (isa<VPlanScalar>(Plan))
+      continue;
+    VPLoop *Lp = cast<VPlanVector>(Plan)->getMainLoop(true /* StrictCheck */);
+    assert(Lp && "Expected non-null mainloop");
+    TopLoopDescrs[Lp] = &PlanDescr;
+  }
+}
 // Return true if the compare and branch sequence guarantees the loop trip count
 // is meaningful, i.e. the loop is executed as a loop. For example, consider the
 // following comination:
@@ -2209,12 +2553,7 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
   if (!EnableIntDivRemBlendWithSafeValue)
     return;
 
-  SmallPtrSet<VPlan *, 2> Visited;
-
-  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
-    if (!Visited.insert(&P).second)
-      return;
-
+  auto ProcessVPlan = [](VPlanVector &P) -> void {
     auto NeedProcessInst = [&P](const VPInstruction &Inst) {
       auto Opcode = Inst.getOpcode();
       if (Opcode != Instruction::SDiv && Opcode != Instruction::UDiv &&
@@ -2237,6 +2576,7 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
     SmallVector<VPInstruction *, 4> InstrToProcess(
         map_range(make_filter_range(vpinstructions(&P), NeedProcessInst),
                   [](VPInstruction &I) { return &I; }));
+
     VPBuilder Builder;
     for (auto *Inst : InstrToProcess) {
       Builder.setInsertPoint(Inst);
@@ -2252,39 +2592,82 @@ void LoopVectorizationPlanner::blendWithSafeValue() {
     VPLAN_DUMP(BlendWithSafeValueDumpControl, P);
   };
 
-  for (auto &Pair : VPlans) {
-    if (Pair.first == 1) // VF
-      continue;
-
-    ProcessVPlan(*Pair.second.MainPlan);
-    if (Pair.second.MaskedModeLoop)
-      ProcessVPlan(*Pair.second.MaskedModeLoop);
-  }
+  transformAllVPlans(ProcessVPlan);
 }
 
 void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
-  SmallPtrSet<VPlan *, 2> Visited;
 
-  auto ProcessVPlan = [&Visited](VPlanMasked &P) -> void {
-    if (!Visited.insert(&P).second)
+  auto ProcessVPlan = [](VPlanVector &Plan) -> void {
+    if (!isa<VPlanMasked>(Plan))
       return;
+
     // Don't disable optimization if TC is unknown.
-    VPLoop *L = P.getMainLoop(true /*StrictCheck*/);
+    VPLoop *L = Plan.getMainLoop(true /*StrictCheck*/);
     if (L->getTripCountInfo().IsEstimated)
       return;
 
     for (auto &Inst :
-         make_filter_range(vpinstructions(&P), [](const VPInstruction &Inst) {
+         make_filter_range(vpinstructions(Plan), [](const VPInstruction &Inst) {
            return isa<VPLoadStoreInst>(Inst);
          }))
       cast<VPLoadStoreInst>(Inst).disableNegOneOpt();
   };
 
-  for (auto &Pair : VPlans) {
-    if (Pair.first == 1) // VF
-      continue;
+  transformAllVPlans(ProcessVPlan);
+}
 
-    if (Pair.second.MaskedModeLoop)
-      ProcessVPlan(*Pair.second.MaskedModeLoop);
-  }
+void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
+
+  auto ProcessPlan = [](VPlan &Plan) -> void {
+    SmallVector<VPInstruction *, 4> InstToRemove;
+
+    auto ReplaceTruncZExtByAnd = [&InstToRemove,
+                                  &Plan](VPInstruction &Inst) -> bool {
+      // Perform the following transformation
+      //   %t = trunc ty1 %op to ty2
+      //   %r = zext %t to ty1
+      // ==>
+      //   %r = and ty1 %op, ty2 all_ones
+      //
+      VPInstruction *TruncI = nullptr, *Operand = nullptr;
+      if (!match(&Inst, m_ZExt(m_Bind(TruncI))) ||
+          !match(TruncI, m_Trunc(m_Bind(Operand))))
+        return false;
+      if (TruncI->getNumUsers() != 1)
+        return false;
+      if (Operand->getType() != Inst.getType())
+        return false;
+      // We don't check postdomination due to that is not needed. E.g. even we
+      // have something like below we can safely replace ZExt by And, we will
+      // just have masked And and all uses of ZExt are under the same mask.
+      //
+      // %t = trunc typeOf_v %v to someTy
+      // if (%cond)
+      //   %r = zext SomeTy %t to typeOf_v
+      //
+      VPBuilder Builder;
+      Builder.setInsertPoint(&Inst);
+      APInt V = APInt::getAllOnes(TruncI->getType()->getPrimitiveSizeInBits())
+                    .zext(Operand->getType()->getPrimitiveSizeInBits());
+      VPInstruction *AndI = Builder.createAnd(
+          Operand, Plan.getVPConstant(ConstantInt::get(Operand->getType(), V)));
+      AndI->setDebugLocation(Inst.getDebugLocation());
+      Inst.replaceAllUsesWith(AndI);
+      Plan.getVPlanDA()->updateDivergence(*AndI);
+      InstToRemove.push_back(&Inst); // Need first to remove the use
+      InstToRemove.push_back(TruncI);
+      return true;
+    };
+
+    for (auto &Inst : vpinstructions(&Plan)) {
+      if (ReplaceTruncZExtByAnd(Inst))
+        continue; // looks weird at the moment, leaving for further adding
+    }
+    for (auto *Inst : InstToRemove) {
+      Inst->getParent()->eraseInstruction(Inst);
+    }
+    VPLAN_DUMP(EarlyPeepholeDumpControl, Plan);
+  };
+
+  transformAllVPlans(ProcessPlan);
 }

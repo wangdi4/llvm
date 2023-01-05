@@ -29,7 +29,7 @@ const int __attribute__((max_replicates(2))) gc1 = 0;
 const int __attribute__((max_replicates(2), simple_dual_port)) gc3 = 0;
 
 void foo() {
-  //CHECK: call void @llvm.var.annotation(ptr %lc1, ptr [[ANN1]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %lc1, ptr [[ANN1]]
   int __attribute__((max_replicates(2))) lc1;
   int __attribute__((simple_dual_port)) lc3 = 0;
   int __attribute__((max_replicates(2), simple_dual_port)) lc4 = 0;
@@ -39,9 +39,9 @@ template <int bankwidth, int numbanks, int readports, int writeports,
           int bit1, int bit2, int bit3, int max_concurrency, int num_replicates,
           int private_copies>
 __attribute__((ihc_component)) void foo_one() {
-  //CHECK: call void @llvm.var.annotation(ptr %var_one, ptr [[ANN11]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_two, ptr [[ANN12]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_four, ptr [[ANN13]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_one, ptr [[ANN11]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_two, ptr [[ANN12]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_four, ptr [[ANN13]]
   __attribute__((bankwidth(bankwidth), numbanks(numbanks),
                  max_concurrency(max_concurrency),
                  max_replicates(num_replicates))) int var_one;
@@ -57,12 +57,12 @@ __attribute__((ihc_component)) void foo_one() {
 
 template <int numbanks, int bit, int num_replicates>
 __attribute__((ihc_component)) void foo_two() {
-  //CHECK: call void @llvm.var.annotation(ptr %var_one, ptr [[ANN14]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_two, ptr [[ANN15]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_four, ptr [[ANN4]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_five, ptr [[ANN16]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_six, ptr [[ANN17]]
-  //CHECK: call void @llvm.var.annotation(ptr %var_seven, ptr [[ANN18]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_one, ptr [[ANN14]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_two, ptr [[ANN15]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_four, ptr [[ANN4]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_five, ptr [[ANN16]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_six, ptr [[ANN17]]
+  //CHECK: call void @llvm.var.annotation.p0.p0(ptr %var_seven, ptr [[ANN18]]
 
   __attribute__((max_replicates(num_replicates))) int var_one;
   __attribute__((max_replicates(num_replicates), __bank_bits__(4, bit, 2))) int var_two;
@@ -85,9 +85,9 @@ struct foo_three {
 static foo_three s1;
 
 void bar1() {
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr @[[Struct3]], ptr [[ANN1]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr @[[Struct3]], ptr [[ANN1]]
   s1.f3 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct3]], i32 0, i32 1), ptr [[ANN4]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_three, ptr @[[Struct3]], i32 0, i32 1), ptr [[ANN4]]
   s1.f4 = 0;
 }
 
@@ -106,13 +106,13 @@ struct foo_five {
 static foo_five s2;
 
 void bar2() {
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr @[[Struct5]], ptr [[ANN6]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr @[[Struct5]], ptr [[ANN6]]
   s2.f1 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 1), ptr [[ANN7]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 1), ptr [[ANN7]]
   s2.f2[0] = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 2), ptr [[ANN8]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 2), ptr [[ANN8]]
   s2.f3 = 0;
-  //CHECK: call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 3), ptr [[ANN9]]
+  //CHECK: call ptr @llvm.ptr.annotation.p0.p0(ptr getelementptr inbounds (%struct.foo_five, ptr @[[Struct5]], i32 0, i32 3), ptr [[ANN9]]
   s2.f4[0] = 0;
 }
 

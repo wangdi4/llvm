@@ -1,6 +1,4 @@
 ; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
-; RUN: opt -S -dpcpp-kernel-builtin-lib=%t.lib.bc -dpcpp-kernel-group-builtin %s | FileCheck %s
-; RUN: opt -S -dpcpp-kernel-builtin-lib=%t.lib.bc -dpcpp-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -S -dpcpp-kernel-builtin-lib=%t.lib.bc -passes=dpcpp-kernel-group-builtin %s | FileCheck %s
 ; RUN: opt -S -dpcpp-kernel-builtin-lib=%t.lib.bc -passes=dpcpp-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 

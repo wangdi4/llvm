@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -disable-output -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that the pair [ q[zext.i32.i64(i1 - 1)], q[i1] ] will not be placed into a single

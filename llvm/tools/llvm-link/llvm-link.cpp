@@ -493,6 +493,9 @@ int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
   ExitOnErr.setBanner(std::string(argv[0]) + ": ");
 
+  cl::HideUnrelatedOptions({&LinkCategory, &getColorCategory()});
+  cl::ParseCommandLineOptions(argc, argv, "llvm linker\n");
+
   LLVMContext Context;
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-32051: If the module has opaque pointers then it requires the
@@ -507,8 +510,6 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
   Context.setDiagnosticHandler(std::make_unique<LLVMLinkDiagnosticHandler>(),
                                true);
-  cl::HideUnrelatedOptions({&LinkCategory, &getColorCategory()});
-  cl::ParseCommandLineOptions(argc, argv, "llvm linker\n");
 
   if (!DisableDITypeMap)
     Context.enableDebugTypeODRUniquing();

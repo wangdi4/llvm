@@ -1,6 +1,5 @@
 ; When the loop upper bound is complicated, the code generation would not be triggered
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -print-after=hir-last-value-computation < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Last Value Computation ***

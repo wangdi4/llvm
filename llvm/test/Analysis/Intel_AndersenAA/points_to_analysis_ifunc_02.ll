@@ -3,7 +3,6 @@
 ; AndersensAA was incorrectly computing points-to info for %notconst
 ; because it was not handling ifuncs.
 
-; RUN: opt < %s -anders-aa -instcombine -S  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="require<anders-aa>,instcombine" -S  2>&1 | FileCheck %s
 
 ; Check store instruction in @bar is not eliminated.

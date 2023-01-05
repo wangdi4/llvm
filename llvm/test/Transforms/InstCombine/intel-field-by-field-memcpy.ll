@@ -1,7 +1,6 @@
 ; CMPLRLLVM-25540: This test verifies that field-by-field memcpy lowering
 ; is triggered in instcombine pass.
 
-; RUN: opt -instcombine %s -S | FileCheck %s
 ; RUN: opt -passes=instcombine %s -S | FileCheck %s
 
 ; check memcpy is field-by-field lowered.

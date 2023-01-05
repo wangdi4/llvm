@@ -1,6 +1,5 @@
 ; Removing nsw and nuw flags in the instruction chains when reassociation happens
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = add i32 %gepload, %gepload56

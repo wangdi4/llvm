@@ -1,7 +1,6 @@
 ; This test verifies that load instructions of "nabout" are replaced with
 ; "@__acrt_iob_func(i32 1)" by globalopt when whole-program-safe is true.
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -globalopt -whole-program-assume -S | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,globalopt' -whole-program-assume -S | FileCheck %s
 
 ; CHECK: define dso_local void @bar()

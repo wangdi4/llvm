@@ -3,7 +3,6 @@
 ; because the number of ifs and/or switches was not sufficient.
 
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -debug-only=ipcloning -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -debug-only=ipcloning -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 
 ; CHECK: Enter IP cloning: (After inlining)

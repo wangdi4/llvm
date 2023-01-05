@@ -81,16 +81,21 @@ using namespace llvm::vpo;
 namespace {
 class VPlanFunctionVectorizer {
   Function &F;
+  AssumptionCache &AC;
+  const DominatorTree &DT;
 
 public:
-  VPlanFunctionVectorizer(Function &F) : F(F) {}
+  VPlanFunctionVectorizer(Function &F, AssumptionCache &AC,
+                          const DominatorTree &DT)
+      : F(F), AC(AC), DT(DT) {}
 
   bool run() {
     auto Externals = std::make_unique<VPExternalValues>(
         &F.getContext(), &F.getParent()->getDataLayout());
     auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
-    VPlanFunctionCFGBuilder Builder(Plan.get(), F);
+
+    VPlanFunctionCFGBuilder Builder(Plan.get(), F, AC, DT);
     Builder.buildCFG();
     Plan->setName(F.getName());
 
@@ -154,6 +159,7 @@ public:
 } // namespace
 INITIALIZE_PASS_BEGIN(VPlanFunctionVectorizerLegacyPass, "vplan-func-vec",
                       "VPlan Function Vectorization Driver", false, false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_END(VPlanFunctionVectorizerLegacyPass, "vplan-func-vec",
                     "VPlan Function Vectorization Driver", false, false)
 
@@ -181,7 +187,8 @@ static std::string getDescription(const Function &F) {
 
 bool VPlanFunctionVectorizerLegacyPass::skipFunction(const Function &F) const {
   OptPassGate &Gate = F.getContext().getOptPassGate();
-  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+  if (Gate.isEnabled() &&
+      !Gate.shouldRunPass(this->getPassName(), getDescription(F)))
     return true;
 
   if (F.hasOptNone() &&
@@ -197,13 +204,19 @@ bool VPlanFunctionVectorizerLegacyPass::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
-  VPlanFunctionVectorizer FunctionVectorizer(Fn);
+  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+  VPlanFunctionVectorizer FunctionVectorizer(Fn, AC, DT);
   return FunctionVectorizer.run();
 }
 
 PreservedAnalyses
 VPlanFunctionVectorizerPass::run(Function &F, FunctionAnalysisManager &AM) {
-  VPlanFunctionVectorizer FunctionVectorizer(F);
+  auto &AC = AM.getResult<AssumptionAnalysis>(F);
+  const auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+
+  VPlanFunctionVectorizer FunctionVectorizer(F, AC, DT);
   if (!FunctionVectorizer.run())
     return PreservedAnalyses::all();
 

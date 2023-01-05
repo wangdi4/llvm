@@ -11,6 +11,14 @@
 // RUN: %env_lsan_opts="" %run %t 2>&1
 // UNSUPPORTED: arm,powerpc,i386-linux && !android
 
+// INTEL_CUSTOMIZATION
+// This test fails with a couple, but not all, of builds on zsc2.
+// Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
+// for now pending further investigation.
+// CMPLRLLVM-42777
+// UNSUPPORTED: x86_64
+// end INTEL_CUSTOMIZATION
+
 #ifndef BUILD_DSO
 #include <assert.h>
 #include <dlfcn.h>

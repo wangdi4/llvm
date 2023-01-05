@@ -17,17 +17,13 @@
 
 using namespace Validation;
 
-IRunnerFactory* RunnerFactory::s_oclFactory = NULL;
+IRunnerFactory *RunnerFactory::s_oclFactory = NULL;
 
-RunnerFactory::RunnerFactory()
-{
-}
+RunnerFactory::RunnerFactory() {}
 
-IRunnerFactory& RunnerFactory::GetInstance()
-{
-    if( NULL == s_oclFactory)
-    {
-        s_oclFactory = new OpenCLFactory();
-    }
-    return *s_oclFactory;
+IRunnerFactory &RunnerFactory::GetInstance() {
+  if (NULL == s_oclFactory) {
+    s_oclFactory = new OpenCLFactory();
+  }
+  return *s_oclFactory;
 }

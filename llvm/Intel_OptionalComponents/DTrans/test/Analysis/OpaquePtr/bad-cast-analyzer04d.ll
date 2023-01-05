@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
+
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
 
 ; Test that the bad casting analyzer does not do anything because it has

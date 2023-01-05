@@ -46,8 +46,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -88,6 +86,11 @@
 #include <numeric>
 #include <type_traits>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 class DataLayout;
@@ -526,8 +529,10 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   if (SE) {
     if (ULO.ForgetAllSCEV)
       SE->forgetAllLoops();
-    else
+    else {
       SE->forgetTopmostLoop(L);
+      SE->forgetBlockAndLoopDispositions();
+    }
   }
 
   if (!LatchIsExiting)
@@ -626,7 +631,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
             if (It > 1 && L->contains(InValI))
               InVal = LastValueMap[InValI];
           VMap[OrigPHI] = InVal;
-          New->getInstList().erase(NewPHI);
+          NewPHI->eraseFromParent();
         }
 
       // Update our running map of newest clones
@@ -645,6 +650,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
           if (It != LastValueMap.end())
             Incoming = It->second;
           PHI.addIncoming(Incoming, New);
+          SE->forgetValue(&PHI);
         }
       }
       // Keep track of new headers and latches as we create them, so that
@@ -699,7 +705,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   for (PHINode *PN : OrigPHINode) {
     if (CompletelyUnroll) {
       PN->replaceAllUsesWith(PN->getIncomingValueForBlock(Preheader));
-      Header->getInstList().erase(PN);
+      PN->eraseFromParent();
     } else if (ULO.Count > 1) {
       Value *InVal = PN->removeIncomingValue(LatchBlock, false);
       // If this value was defined in the loop, take the value defined by the
@@ -777,11 +783,11 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   };
 
   auto WillExit = [&](const ExitInfo &Info, unsigned i, unsigned j,
-                      bool IsLatch) -> Optional<bool> {
+                      bool IsLatch) -> std::optional<bool> {
     if (CompletelyUnroll) {
       if (PreserveOnlyFirst) {
         if (i == 0)
-          return None;
+          return std::nullopt;
         return j == 0;
       }
       // Complete (but possibly inexact) unrolling
@@ -789,7 +795,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
         return true;
       if (Info.TripCount && j != Info.TripCount)
         return false;
-      return None;
+      return std::nullopt;
     }
 
     if (ULO.Runtime) {
@@ -797,7 +803,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       // exits may be stale.
       if (IsLatch && j != 0)
         return false;
-      return None;
+      return std::nullopt;
     }
 
     if (j != Info.BreakoutTrip &&
@@ -806,7 +812,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       // unconditional branch for some iterations.
       return false;
     }
-    return None;
+    return std::nullopt;
   };
 
   // Fold branches for iterations where we know that they will exit or not
@@ -817,7 +823,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       // The branch destination.
       unsigned j = (i + 1) % e;
       bool IsLatch = Pair.first == LatchBlock;
-      Optional<bool> KnownWillExit = WillExit(Info, i, j, IsLatch);
+      std::optional<bool> KnownWillExit = WillExit(Info, i, j, IsLatch);
       if (!KnownWillExit)
         continue;
 

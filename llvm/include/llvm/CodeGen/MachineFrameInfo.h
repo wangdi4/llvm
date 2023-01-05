@@ -34,6 +34,7 @@
 #include "llvm/ADT/SmallSet.h"  // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/Register.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/Support/Alignment.h"
 #include <cassert>
 #include <vector>
@@ -228,6 +229,14 @@ private:
   /// optimization, each such alloca gets its own dynamic realignment.
   bool StackRealignable;
 
+#if INTEL_CUSTOMIZATION
+  // X86 specific StackRealignable to indicate if we can realign stack.
+  // TODO: Some code in CG didn't check StackRealignable and set larger aligment
+  // exceeded default value in TFI. This is a temporary workaround before we fix
+  // all of them.
+  bool X86StackRealignable = true;
+#endif // INTEL_CUSTOMIZATION
+
   /// Whether the function has the \c alignstack attribute.
   bool ForcedRealign;
 
@@ -372,6 +381,9 @@ public:
   /// Return true if there are any stack objects in this function.
   bool hasStackObjects() const { return !Objects.empty(); }
 
+  bool getX86StackRealignable() const { return X86StackRealignable; } // INTEL
+  void setX86StackRealignable(bool SR) { X86StackRealignable = SR; }  // INTEL
+
   /// This method may be called any time after instruction
   /// selection is complete to determine if the stack frame for this function
   /// contains any variable sized objects.
@@ -510,14 +522,21 @@ public:
     return Objects[ObjectIdx + NumFixedObjects].Alignment;
   }
 
+  /// Should this stack ID be considered in MaxAlignment.
+  bool contributesToMaxAlignment(uint8_t StackID) {
+    return StackID == TargetStackID::Default ||
+           StackID == TargetStackID::ScalableVector;
+  }
+
   /// setObjectAlignment - Change the alignment of the specified stack object.
   void setObjectAlignment(int ObjectIdx, Align Alignment) {
     assert(unsigned(ObjectIdx + NumFixedObjects) < Objects.size() &&
            "Invalid Object Idx!");
     Objects[ObjectIdx + NumFixedObjects].Alignment = Alignment;
 
-    // Only ensure max alignment for the default stack.
-    if (getStackID(ObjectIdx) == 0)
+    // Only ensure max alignment for the default and scalable vector stack.
+    uint8_t StackID = getStackID(ObjectIdx);
+    if (contributesToMaxAlignment(StackID))
       ensureMaxAlignment(Alignment);
   }
 

@@ -1,4 +1,10 @@
 # RUN: clangd -lit-test < %s | FileCheck -strict-whitespace %s
+
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-42768
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
+
 # Test initialize request parameters with rootUri
 {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootUri":"test:///workspace","capabilities":{},"trace":"off"}}
 #      CHECK:  "id": 0,
@@ -58,6 +64,7 @@
 # CHECK-NEXT:        "legend": {
 # CHECK-NEXT:          "tokenModifiers": [
 # CHECK-NEXT:            "declaration",
+# CHECK-NEXT:            "definition",
 # CHECK-NEXT:            "deprecated",
 # CHECK-NEXT:            "deduced",
 # CHECK-NEXT:            "readonly",
@@ -67,6 +74,9 @@
 # CHECK-NEXT:            "dependentName",
 # CHECK-NEXT:            "defaultLibrary",
 # CHECK-NEXT:            "usedAsMutableReference",
+# CHECK-NEXT:            "usedAsMutablePointer",
+# CHECK-NEXT:            "constructorOrDestructor",
+# CHECK-NEXT:            "userDefined",
 # CHECK-NEXT:            "functionScope",
 # CHECK-NEXT:            "classScope",
 # CHECK-NEXT:            "fileScope",

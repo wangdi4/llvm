@@ -1,7 +1,6 @@
-; RUN: opt -S -dtransop-allow-typed-pointers -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt -S -dtransop-allow-typed-pointers -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt -S -opaque-pointers -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
-; RUN: opt -S -opaque-pointers -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt -S -opaque-pointers -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that structure types get replaced within a function
 ; when the type is changed by the transformation or because
@@ -19,41 +18,41 @@
 %struct.test03b = type { i32, %struct.test03a }
 
 ; Case where type to be converted has a pointer to another type
-%struct.test04a = type { i32, %struct.test04b* }
+%struct.test04a = type { i32, ptr }
 %struct.test04b = type { i32 }
 
 ; Case where type to be converted is pointed-to by another type
 %struct.test05a = type { i32 }
-%struct.test05b = type { i32, %struct.test05a* }
+%struct.test05b = type { i32, ptr }
 
 ; Case where a type has multiple dependent types
 %struct.test06a = type { i32 }
-%struct.test06b = type { %struct.test06a* }
-%struct.test06c = type { %struct.test06a* }
+%struct.test06b = type { ptr }
+%struct.test06c = type { ptr }
 %struct.test06d = type { %struct.test06a }
 %struct.test06e = type { %struct.test06a }
 
 ; Case where type is pointed-to by another type, and contains another type
 %struct.test07a = type { i32, %struct.test07c }
-%struct.test07b = type { i32, %struct.test07a* }
+%struct.test07b = type { i32, ptr }
 %struct.test07c = type { i32 }
 
 ; Case with self & circular references
-%struct.test08a = type { i32, %struct.test08a*, %struct.test08b* }
-%struct.test08b = type { i32, %struct.test08b*, %struct.test08c* }
-%struct.test08c = type { i32, %struct.test08c*, %struct.test08a* }
+%struct.test08a = type { i32, ptr, ptr }
+%struct.test08b = type { i32, ptr, ptr }
+%struct.test08c = type { i32, ptr, ptr }
 
 ; Case with pointer-to-pointer reference
 %struct.test09a = type { i32, i32 }
-%struct.test09b = type { i32, %struct.test09a** }
+%struct.test09b = type { i32, ptr }
 
 ; Case with an empty structure
 %struct.test10a = type {}
-%struct.test10b = type { %struct.test10a* }
+%struct.test10b = type { ptr }
 
 ; Case with an opaque structure
 %struct.test11a = type opaque
-%struct.test11b = type { %struct.test11a* }
+%struct.test11b = type { ptr }
 
 define void @test01() {
   %local1a = alloca %struct.test01a
@@ -79,40 +78,25 @@ define void @test01() {
 ; All types, except for struct.test02b and struct.test04b, should be changed.
 ; The 2 unchanged types do not have a dependency on a type being changed.
 
-; CHECK-NONOPAQUE: %local1a = alloca %__DTT_struct.test01a
-; CHECK-NONOPAQUE: %local2b = alloca %struct.test02b
-; CHECK-NONOPAQUE: %local3b = alloca %__DDT_struct.test03b
-; CHECK-NONOPAQUE: %local4b = alloca %struct.test04b
-; CHECK-NONOPAQUE: %local5b = alloca %__DDT_struct.test05b
-; CHECK-NONOPAQUE: %local6b = alloca %__DDT_struct.test06b
-; CHECK-NONOPAQUE: %local6c = alloca %__DDT_struct.test06c
-; CHECK-NONOPAQUE: %local6d = alloca %__DDT_struct.test06d
-; CHECK-NONOPAQUE: %local6e = alloca %__DDT_struct.test06e
-; CHECK-NONOPAQUE: %local7a = alloca %__DTT_struct.test07a
-; CHECK-NONOPAQUE: %local8c = alloca %__DDT_struct.test08c
-; CHECK-NONOPAQUE: %local9b = alloca %__DDT_struct.test09b
-; CHECK-NONOPAQUE: %local10a = alloca %__DTT_struct.test01a
-; CHECK-NONOPAQUE: %local10b = alloca %__DDT_struct.test10b
-; CHECK-NONOPAQUE: %local11b = alloca %__DDT_struct.test11b
 
 ; The following chekcs can replace the above checks when opaque pointers are in use.
 ; In this case, types purely haivng pointer dependencies do not get changed so many
 ; of the 'alloca' instructions will stay the same.
-; CHECK-OPAQUE: %local1a = alloca %__DTT_struct.test01a
-; CHECK-OPAQUE: %local2b = alloca %struct.test02b
-; CHECK-OPAQUE: %local3b = alloca %__DDT_struct.test03b
-; CHECK-OPAQUE: %local4b = alloca %struct.test04b
-; CHECK-OPAQUE: %local5b = alloca %struct.test05b
-; CHECK-OPAQUE: %local6b = alloca %struct.test06b
-; CHECK-OPAQUE: %local6c = alloca %struct.test06c
-; CHECK-OPAQUE: %local6d = alloca %__DDT_struct.test06d
-; CHECK-OPAQUE: %local6e = alloca %__DDT_struct.test06e
-; CHECK-OPAQUE: %local7a = alloca %__DTT_struct.test07a
-; CHECK-OPAQUE: %local8c = alloca %struct.test08c
-; CHECK-OPAQUE: %local9b = alloca %struct.test09b
-; CHECK-OPAQUE: %local10a = alloca %__DTT_struct.test01a
-; CHECK-OPAQUE: %local10b = alloca %struct.test10b
-; CHECK-OPAQUE: %local11b = alloca %struct.test11b
+; CHECK: %local1a = alloca %__DTT_struct.test01a
+; CHECK: %local2b = alloca %struct.test02b
+; CHECK: %local3b = alloca %__DDT_struct.test03b
+; CHECK: %local4b = alloca %struct.test04b
+; CHECK: %local5b = alloca %struct.test05b
+; CHECK: %local6b = alloca %struct.test06b
+; CHECK: %local6c = alloca %struct.test06c
+; CHECK: %local6d = alloca %__DDT_struct.test06d
+; CHECK: %local6e = alloca %__DDT_struct.test06e
+; CHECK: %local7a = alloca %__DTT_struct.test07a
+; CHECK: %local8c = alloca %struct.test08c
+; CHECK: %local9b = alloca %struct.test09b
+; CHECK: %local10a = alloca %__DTT_struct.test01a
+; CHECK: %local10b = alloca %struct.test10b
+; CHECK: %local11b = alloca %struct.test11b
 
 !intel.dtrans.types = !{!16, !17, !18, !19, !20, !21, !22, !23, !24, !25, !26, !27, !28, !29, !30, !31, !32, !33, !34, !35, !36, !37, !38, !39, !40, !41}
 

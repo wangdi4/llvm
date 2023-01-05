@@ -1,4 +1,3 @@
-;RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-details -print-after=hir-loop-distribute-memrec -hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -hir-details  < %s 2>&1 | FileCheck %s
 
 ;+ DO i64 i1 = 0, (%storemerge966)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>

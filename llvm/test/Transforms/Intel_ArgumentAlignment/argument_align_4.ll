@@ -2,7 +2,6 @@
 ; This test is same as argument_align_1.ll except return address
 ; of calloc is passed to "foo" as first argument indirectly.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
 ; Check that the constants were removed

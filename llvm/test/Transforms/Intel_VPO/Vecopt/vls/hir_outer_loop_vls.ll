@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-vls -print-after=hir-vplan-vec  -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -disable-output -vplan-print-after-vls -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; LIT test to demonstrate issue with VLS group formation in VPlan HIR path.
 ; When forming groups, we were getting stride information using the parent loop

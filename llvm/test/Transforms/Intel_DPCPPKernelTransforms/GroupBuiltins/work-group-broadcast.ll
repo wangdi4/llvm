@@ -1,8 +1,6 @@
 ; RUN: llvm-as %p/work-group-builtins-32.ll -o %t.work-group-builtins-32.ll.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=dpcpp-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -dpcpp-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -passes=dpcpp-kernel-group-builtin -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.work-group-builtins-32.ll.bc -dpcpp-kernel-group-builtin -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass
@@ -25,7 +23,8 @@ target triple = "i686-pc-win32"
 ; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2)
 ; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: store i32 %CallWGForItem, i32 addrspace(1)* %arrayidx2, align 1
+; CHECK: %CallFinalizeWG = call i32 @_Z30__finalize_work_group_identityi(i32 %LoadWGFinalResult)
+; CHECK: store i32 %CallFinalizeWG, i32 addrspace(1)* %arrayidx2, align 1
 
 define void @wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:
@@ -51,7 +50,9 @@ declare i32 @_Z20work_group_broadcastij(i32, i32)
 ; CHECK-NOT: call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
 ; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: store <4 x i32> %CallWGForItem, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
+; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z30__finalize_work_group_identityDv4_i(<4 x i32> %LoadWGFinalResult)
+; CHECK: store <4 x i32> %CallFinalizeWG, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
 
 define void @__Vectorized_.wg_test_broadcast(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %b) nounwind {
 entry:

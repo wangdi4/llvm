@@ -24,7 +24,7 @@ extern "C" void Emit_VZeroUpper(void);
 static void Emit_VZeroUpper(void) {
   __asm
   {
-    //vzeroupper
+  // vzeroupper
 #if _MSC_VER < 1600
     _emit 197
     _emit 248
@@ -39,11 +39,7 @@ static void Emit_VZeroUpper(void) {
 #endif
 #endif
 
-CPUKernel::CPUKernel():
-    Kernel(),
-    m_hasAVX1(false),
-    m_hasAVX2(false)
-    { }
+CPUKernel::CPUKernel() : Kernel(), m_hasAVX1(false), m_hasAVX2(false) {}
 
 CPUKernel::CPUKernel(const std::string &name,
                      const std::vector<KernelArgument> &args,
@@ -54,30 +50,26 @@ CPUKernel::CPUKernel(const std::string &name,
   m_hasAVX2 = m_pProps->GetCpuId().HasAVX2();
 }
 
-cl_dev_err_code CPUKernel::PrepareThreadState(ICLDevExecutionState& state) const
-{
-    // Use vzeroupper to avoid the AVX state transition penalty.
-    if(m_hasAVX1 && !m_hasAVX2)
-    {
-        Emit_VZeroUpper();
-    }
+cl_dev_err_code
+CPUKernel::PrepareThreadState(ICLDevExecutionState &state) const {
+  // Use vzeroupper to avoid the AVX state transition penalty.
+  if (m_hasAVX1 && !m_hasAVX2) {
+    Emit_VZeroUpper();
+  }
 
-    state.MXCSRstate = _mm_getcsr();
-    unsigned int uiNewFlags = (state.MXCSRstate & ~m_CSRMask) | m_CSRFlags;
-    _mm_setcsr( uiNewFlags);
-    return CL_DEV_SUCCESS;
+  state.MXCSRstate = _mm_getcsr();
+  unsigned int uiNewFlags = (state.MXCSRstate & ~m_CSRMask) | m_CSRFlags;
+  _mm_setcsr(uiNewFlags);
+  return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CPUKernel::RestoreThreadState(ICLDevExecutionState& state) const
-{
-    // Use vzeroupper to avoid the AVX state transition penalty.
-    if(m_hasAVX1 && !m_hasAVX2)
-    {
-        Emit_VZeroUpper();
-    }
+cl_dev_err_code
+CPUKernel::RestoreThreadState(ICLDevExecutionState &state) const {
+  // Use vzeroupper to avoid the AVX state transition penalty.
+  if (m_hasAVX1 && !m_hasAVX2) {
+    Emit_VZeroUpper();
+  }
 
-    _mm_setcsr(state.MXCSRstate);
-    return CL_DEV_SUCCESS;
+  _mm_setcsr(state.MXCSRstate);
+  return CL_DEV_SUCCESS;
 }
-
-

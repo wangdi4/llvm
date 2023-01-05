@@ -1,4 +1,3 @@
-; RUN: opt -S -disable-output -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -disable-output -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that loop will not be MV'ed because is contans a switch, which is against a cost model.

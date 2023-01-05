@@ -54,8 +54,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FileUtilities.h" // INTEL
-#include "llvm/Support/LineIterator.h"  // INTEL
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VersionTuple.h"
@@ -64,6 +62,11 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/LineIterator.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace driver;
@@ -218,7 +221,7 @@ static const DriverSuffix *FindDriverSuffix(StringRef ProgName, size_t &Pos) {
 /// Normalize the program name from argv[0] by stripping the file extension if
 /// present and lower-casing the string on Windows.
 static std::string normalizeProgramName(llvm::StringRef Argv0) {
-  std::string ProgName = std::string(llvm::sys::path::stem(Argv0));
+  std::string ProgName = std::string(llvm::sys::path::filename(Argv0));
   if (is_style_windows(llvm::sys::path::Style::native)) {
     // Transform to lowercase for case insensitive file systems.
     std::transform(ProgName.begin(), ProgName.end(), ProgName.begin(),
@@ -236,6 +239,13 @@ static const DriverSuffix *parseDriverSuffix(StringRef ProgName, size_t &Pos) {
   // prefix "x86_64-linux". If such a target prefix is found, it may be
   // added via -target as implicit first argument.
   const DriverSuffix *DS = FindDriverSuffix(ProgName, Pos);
+
+  if (!DS && ProgName.endswith(".exe")) {
+    // Try again after stripping the executable suffix:
+    // clang++.exe -> clang++
+    ProgName = ProgName.drop_back(StringRef(".exe").size());
+    DS = FindDriverSuffix(ProgName, Pos);
+  }
 
   if (!DS) {
     // Try again after stripping any trailing version number:
@@ -307,8 +317,9 @@ std::string ToolChain::getInputFilename(const InputInfo &Input) const {
   return Input.getFilename();
 }
 
-bool ToolChain::IsUnwindTablesDefault(const ArgList &Args) const {
-  return false;
+ToolChain::UnwindTableLevel
+ToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
+  return UnwindTableLevel::None;
 }
 
 Tool *ToolChain::getClang() const {
@@ -466,7 +477,6 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::CompileJobClass:
   case Action::PrecompileJobClass:
-  case Action::HeaderModulePrecompileJobClass:
   case Action::PreprocessJobClass:
   case Action::ExtractAPIJobClass:
   case Action::AnalyzeJobClass:
@@ -726,13 +736,18 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD) const {
   // --ld-path= takes precedence over -fuse-ld= and specifies the executable
   // name. -B, COMPILER_PATH and PATH and consulted if the value does not
   // contain a path component separator.
+  // -fuse-ld=lld can be used with --ld-path= to inform clang that the binary
+  // that --ld-path= points to is lld.
   if (const Arg *A = Args.getLastArg(options::OPT_ld_path_EQ)) {
     std::string Path(A->getValue());
     if (!Path.empty()) {
       if (llvm::sys::path::parent_path(Path).empty())
         Path = GetProgramPath(A->getValue());
-      if (llvm::sys::fs::can_execute(Path))
+      if (llvm::sys::fs::can_execute(Path)) {
+        if (LinkerIsLLD)
+          *LinkerIsLLD = UseLinker == "lld";
         return std::string(Path);
+      }
     }
     getDriver().Diag(diag::err_drv_invalid_linker_name) << A->getAsString(Args);
     return GetProgramPath(getDefaultLinker());
@@ -913,6 +928,9 @@ void ToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 void ToolChain::addClangTargetOptions(
     const ArgList &DriverArgs, ArgStringList &CC1Args,
     Action::OffloadKind DeviceOffloadKind) const {}
+
+void ToolChain::addClangCC1ASTargetOptions(const ArgList &Args,
+                                           ArgStringList &CC1ASArgs) const {}
 
 void ToolChain::addClangWarningOptions(ArgStringList &CC1Args) const {}
 
@@ -1100,8 +1118,15 @@ void ToolChain::AddClangCXXStdlibIsystemArgs(
     const llvm::opt::ArgList &DriverArgs,
     llvm::opt::ArgStringList &CC1Args) const {
   DriverArgs.ClaimAllArgs(options::OPT_stdlibxx_isystem);
-  if (!DriverArgs.hasArg(options::OPT_nostdinc, options::OPT_nostdincxx,
-                         options::OPT_nostdlibinc))
+  // This intentionally only looks at -nostdinc++, and not -nostdinc or
+  // -nostdlibinc. The purpose of -stdlib++-isystem is to support toolchain
+  // setups with non-standard search logic for the C++ headers, while still
+  // allowing users of the toolchain to bring their own C++ headers. Such a
+  // toolchain likely also has non-standard search logic for the C headers and
+  // uses -nostdinc to suppress the default logic, but -stdlib++-isystem should
+  // still work in that case and only be suppressed by an explicit -nostdinc++
+  // in a project using the toolchain.
+  if (!DriverArgs.hasArg(options::OPT_nostdincxx))
     for (const auto &P :
          DriverArgs.getAllArgValues(options::OPT_stdlibxx_isystem))
       addSystemInclude(DriverArgs, CC1Args, P);
@@ -1184,24 +1209,27 @@ bool ToolChain::CheckAddIntelLib(StringRef LibName, const ArgList &Args) const {
 }
 
 static const std::string getIntelBasePath(const std::string DriverDir) {
-  // Perf libs are located in different locations depending on the package
-  // being used.  This is PSXE vs oneAPI installations.
-  //  oneAPI: <install>/compiler/<ver>/<os>/bin
-  //  PSXE: <install>/compiler/<os>/bin
-  // FIXME - The path returned is based on oneAPI.  Additional checks need to
-  // be added to properly enable for PSXE.
+  // Perf libs are located in the oneAPI package
   const std::string BasePath(DriverDir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  return BasePath + "/../../";
+#else
   return BasePath + "/../../../../";
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 }
 
 static std::string getIPPBasePath(const ArgList &Args,
                                   const std::string DriverDir) {
   const char * IPPRoot = getenv("IPPROOT");
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   bool IsCrypto = false;
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (const Arg *A = Args.getLastArg(options::OPT_qipp_EQ)) {
     if (A->getValue() == StringRef("crypto") ||
         A->getValue() == StringRef("nonpic_crypto")) {
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
       IsCrypto = true;
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
       IPPRoot = getenv("IPPCRYPTOROOT");
     }
   }
@@ -1209,9 +1237,12 @@ static std::string getIPPBasePath(const ArgList &Args,
   if (IPPRoot)
     P.append(IPPRoot);
   else {
-    P.append(getIntelBasePath(DriverDir) + "ipp");
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "ipp");
     if (IsCrypto)
       P.append("cp");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
@@ -1237,10 +1268,16 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
       IsNonPIC = true;
   SmallString<128> P(Opt);
   P.append(getIPPBasePath(Args, getDriver().Dir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
@@ -1255,8 +1292,12 @@ static std::string getMKLBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (MKLRoot)
     P.append(MKLRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "mkl");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "mkl");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1282,10 +1323,16 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
 std::string ToolChain::GetMKLLibPath(void) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }
@@ -1303,8 +1350,12 @@ static std::string getTBBBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (TBBRoot)
     P.append(TBBRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "tbb");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "tbb");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1323,10 +1374,16 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Opt) const {
   SmallString<128> P(Opt);
   P.append(getTBBBasePath(getDriver().Dir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   // FIXME - this only handles Linux and Windows for now
   if (getTriple().isWindowsMSVCEnvironment())
     llvm::sys::path::append(P, "vc14");
@@ -1343,8 +1400,12 @@ static std::string getDAALBasePath(const std::string DriverDir) {
   SmallString<128> P;
   if (DAALRoot)
     P.append(DAALRoot);
-  else
-    P.append(getIntelBasePath(DriverDir) + "dal");
+  else {
+    P.append(getIntelBasePath(DriverDir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(P, "dal");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
+  }
   // Lib root could be set to the date based level or one above.  Check for
   // 'latest' and if it is there, use that.
   if (llvm::sys::fs::exists(P + "/latest"))
@@ -1361,10 +1422,16 @@ std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
 std::string ToolChain::GetDAALLibPath(void) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+#else
+  llvm::sys::path::append(P, "lib");
+  if (getTriple().getArch() == llvm::Triple::x86)
+    llvm::sys::path::append(P, "32");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }
@@ -1558,7 +1625,7 @@ bool ToolChain::detectGCCPIEDefault() const {
   llvm::SmallString<64> OutputFile(
       getDriver().GetTemporaryPath("gcc-enable-pie", "txt"));
   llvm::FileRemover OutputRemover(OutputFile.c_str());
-  llvm::Optional<llvm::StringRef> Redirects[] = {
+  std::optional<llvm::StringRef> Redirects[] = {
       {""},
       OutputFile.str(),
       OutputFile.str(),
@@ -1627,7 +1694,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
        ~SanitizerKind::Function) |
       (SanitizerKind::CFI & ~SanitizerKind::CFIICall) |
       SanitizerKind::CFICastStrict | SanitizerKind::FloatDivideByZero |
-      SanitizerKind::UnsignedIntegerOverflow |
+      SanitizerKind::KCFI | SanitizerKind::UnsignedIntegerOverflow |
       SanitizerKind::UnsignedShiftBase | SanitizerKind::ImplicitConversion |
       SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
@@ -1640,9 +1707,6 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
       getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
-  if (getTriple().getArch() == llvm::Triple::x86_64 ||
-      getTriple().isAArch64(64))
-    Res |= SanitizerKind::KCFI;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC

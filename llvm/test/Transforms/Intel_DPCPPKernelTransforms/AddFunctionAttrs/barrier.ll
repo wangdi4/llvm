@@ -1,9 +1,7 @@
 ; Checks the barrier / work_group_barrier decls and calls have
 ; convergent, "kernel-call-once", "kernel-convergent-call" attributes.
 
-; RUN: opt -dpcpp-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-function-attrs -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S < %s | FileCheck %s
 
 declare void @_Z7barrierj(i32)

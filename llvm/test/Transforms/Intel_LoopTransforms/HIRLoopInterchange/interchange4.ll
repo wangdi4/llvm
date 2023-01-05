@@ -17,7 +17,6 @@
 ;                            A[i5][i4][i3][i2+m][i1] + 1 ;
 ;
 ; REQUIRES: asserts
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 5 4 3 2 1 )

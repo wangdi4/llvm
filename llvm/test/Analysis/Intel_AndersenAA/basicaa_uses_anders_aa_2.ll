@@ -49,8 +49,6 @@
 ; }
 ;
 
-; RUN: opt < %s -anders-aa -sroa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -anders-aa -sroa -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 

@@ -58,7 +58,7 @@ template <typename MemInstType> class MemRefBucket {
     MemRefBucketMember(MemInstType *LoadStoreInstruction, OffsetTy Offset)
         : LSInstruction(LoadStoreInstruction),
           BaseExprValue(LoadStoreInstruction->getPointerOperand()),
-          Offset(Offset) {}
+          Offset(Offset), NextMemRefDistance((OffsetTy)0) {}
     ~MemRefBucketMember() {}
 
     /// Integer Offset from the pointer stored in MemRefBucketHeader

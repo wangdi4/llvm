@@ -1,11 +1,12 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that metadata gets created for the new types created during
 ; type transformation for function types.
 
 %struct.test01a = type { i32 }
-%struct.test01b = type { %struct.test01a*, void (%struct.test01a*)*, %struct.test01a* ()*, %struct.test01a* (i32, ...)*, i32 (metadata)* }
+%struct.test01b = type { ptr, ptr, ptr, ptr, ptr }
 
 @globVar01b = global %struct.test01b zeroinitializer
 
@@ -31,7 +32,7 @@
 ; CHECK: ![[S01A]] = !{!"S", %__DTT_struct.test01a zeroinitializer, i32 1, ![[I32:[0-9]+]]}
 ; CHECK: ![[I32]] = !{i32 0, i32 0}
 
-; CHECK: ![[S01B]] = !{!"S", %__DDT_struct.test01b zeroinitializer, i32 5, ![[PTR_S01A:[0-9]+]], ![[VOID_FUNC_PTR:[0-9+]]], ![[S01A_FUNC_PTR:[0-9]+]], ![[S01A_VARARG_FUNC_PTR:[0-9]+]], ![[METADATA_FUNC_PTR:[0-9]+]]}
+; CHECK: ![[S01B]] = !{!"S", %struct.test01b zeroinitializer, i32 5, ![[PTR_S01A:[0-9]+]], ![[VOID_FUNC_PTR:[0-9+]]], ![[S01A_FUNC_PTR:[0-9]+]], ![[S01A_VARARG_FUNC_PTR:[0-9]+]], ![[METADATA_FUNC_PTR:[0-9]+]]}
 
 ; CHECK: ![[PTR_S01A]] = !{%__DTT_struct.test01a zeroinitializer, i32 1}
 

@@ -1,7 +1,5 @@
 ; It checks anders-aa helps LICM to hoist invariant load out of loop
-; RUN: opt < %s  -anders-aa -licm  -disable-output  -stats -S 2>&1 | grep "1 licm"
 ; RUN: opt < %s  -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output  -stats -S 2>&1 | grep "1 licm"
-; RUN: opt < %s -convert-to-subscript -S | opt  -anders-aa -licm  -disable-output  -stats -S 2>&1 | grep "1 licm"
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt  -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output  -stats -S 2>&1 | grep "1 licm"
 ; REQUIRES: asserts
 

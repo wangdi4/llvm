@@ -15,24 +15,24 @@
 #ifndef __ICONTAINERVISITOR_H__
 #define __ICONTAINERVISITOR_H__
 
-#include "IMemoryObject.h"
 #include "IBufferContainer.h"
 #include "IBufferContainerList.h"
+#include "IMemoryObject.h"
 
-namespace Validation
-{
-    /// @brief IContainerVisitor interface
-    /// Base interface for all the container visitors
-    class IContainerVisitor
-    {
-    public:
-        virtual ~IContainerVisitor(){}
+namespace Validation {
+/// @brief IContainerVisitor interface
+/// Base interface for all the container visitors
+class IContainerVisitor {
+public:
+  virtual ~IContainerVisitor() {}
 
-        virtual void visitImage( const IMemoryObject* pImage ) = 0;
-        virtual void visitBuffer( const IMemoryObject* pBuffer ) = 0;
-        virtual void visitBufferContainer( const IBufferContainer* pBufferContainer) = 0;
-        virtual void visitBufferContainerList( const IBufferContainerList* pBufferContainerList ) = 0;
-    };
-}
+  virtual void visitImage(const IMemoryObject *pImage) = 0;
+  virtual void visitBuffer(const IMemoryObject *pBuffer) = 0;
+  virtual void
+  visitBufferContainer(const IBufferContainer *pBufferContainer) = 0;
+  virtual void visitBufferContainerList(
+      const IBufferContainerList *pBufferContainerList) = 0;
+};
+} // namespace Validation
 
 #endif // __ICONTAINERVISITOR_H__

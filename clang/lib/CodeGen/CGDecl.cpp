@@ -33,9 +33,6 @@
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
-#if INTEL_COLLAB
-#include "intel/CGOpenMPLateOutline.h"
-#endif // INTEL_COLLAB
 #include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
@@ -58,6 +55,10 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
+
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 
 using namespace clang;
 using namespace CodeGen;
@@ -111,6 +112,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::Export:
   case Decl::ObjCPropertyImpl:
   case Decl::FileScopeAsm:
+  case Decl::TopLevelStmt:
   case Decl::Friend:
   case Decl::FriendTemplate:
   case Decl::Block:
@@ -121,6 +123,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::ObjCTypeParam:
   case Decl::Binding:
   case Decl::UnresolvedUsingIfExists:
+  case Decl::HLSLBuffer:
     llvm_unreachable("Declaration should not be in declstmts!");
   case Decl::Record:    // struct/union/class X;
   case Decl::CXXRecord: // struct/union/class X; [C++]
@@ -147,6 +150,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::OMPRequires:
   case Decl::Empty:
   case Decl::Concept:
+  case Decl::ImplicitConceptSpecialization:
   case Decl::LifetimeExtendedTemporary:
   case Decl::RequiresExprBody:
     // None of these decls require codegen support.
@@ -1733,9 +1737,11 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     CGM.generateHLSAnnotation(&D, AnnotStr);
     if (!AnnotStr.empty()) {
       llvm::Value *V = address.getPointer();
-      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
-                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
-                         AnnotStr, D.getLocation());
+      EmitAnnotationCall(
+          CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
+                           {CGM.Int8PtrTy, CGM.ConstGlobalsPtrTy}),
+          Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()), AnnotStr,
+          D.getLocation());
     }
   }
 
@@ -1753,8 +1759,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       llvm::Value *Arg = Builder.CreateBitCast(V, DestPtrTy, V->getName());
       if (address.getAddressSpace() != 0)
         Arg = Builder.CreateAddrSpaceCast(Arg, CGM.Int8PtrTy, V->getName());
-      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation), Arg,
-                         AnnotStr, D.getLocation());
+      EmitAnnotationCall(
+          CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
+                           {CGM.Int8PtrTy, CGM.ConstGlobalsPtrTy}),
+          Arg, AnnotStr, D.getLocation());
     }
   }
 
@@ -2892,5 +2900,5 @@ CodeGenModule::getOMPAllocateAlignment(const VarDecl *VD) {
           std::max<unsigned>(UserAlign, NaturalAlign.getQuantity()));
     }
   }
-  return llvm::None;
+  return std::nullopt;
 }

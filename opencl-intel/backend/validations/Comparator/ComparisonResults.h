@@ -16,74 +16,70 @@
 #define COMPARISON_RESULTS_H
 
 #include "IComparisonResults.h"
-#include <vector>
-#include <string>
 #include <map>
+#include <string>
+#include <vector>
 
-namespace Validation
-{
-    /// Comparison data for one buffer
-    struct CompStatistics
-    {
-        IMemoryObjectDescPtr pDesc;
-        uint64_t numMismatches;
-        double maxDiff;
-        float maxInterval;
+namespace Validation {
+/// Comparison data for one buffer
+struct CompStatistics {
+  IMemoryObjectDescPtr pDesc;
+  uint64_t numMismatches;
+  double maxDiff;
+  float maxInterval;
 
-        CompStatistics() : numMismatches(0), maxDiff(0.0), maxInterval(0.0)
-        {}
+  CompStatistics() : numMismatches(0), maxDiff(0.0), maxInterval(0.0) {}
 
-        CompStatistics(const IMemoryObjectDesc * in_pDesc) :
-        pDesc(*in_pDesc), numMismatches(0), maxDiff(0.0), maxInterval(0.0)
-        {}
-    };
+  CompStatistics(const IMemoryObjectDesc *in_pDesc)
+      : pDesc(*in_pDesc), numMismatches(0), maxDiff(0.0), maxInterval(0.0) {}
+};
 
+/// @brief  Simple implementation of IComparisonResults interface. Stores
+/// mismatches information in the vector of values.
+class ComparisonResults : public IComparisonResults {
+public:
+  static const uint32_t MAX_MISMATCHES = 100;
 
-    /// @brief  Simple implementation of IComparisonResults interface. Stores mismatches information in the vector of values.
-    class ComparisonResults : public IComparisonResults
-    {
-    public:
+  ComparisonResults(const std::string &kerName, bool statDetail)
+      : m_kernelName(kerName) {}
 
-        static const uint32_t MAX_MISMATCHES = 100;
+  ComparisonResults() {}
 
-        ComparisonResults(const std::string& kerName, bool statDetail):m_kernelName(kerName) {}
+  virtual ~ComparisonResults();
 
-        ComparisonResults() {}
+  /// @brief Adds mismatch information
+  /// @param  [in]  in_Val            Mismatch value information
+  /// template<typename T>
+  void AddMismatch(const MismatchedVal &in_Val) override;
 
-        virtual ~ComparisonResults();
+  /// @brief Gets mismatch information by given mismatch index
+  /// @param [in] index   Index of mismatch value in mismatch container
+  MismatchedVal GetMismatch(size_t index) override;
 
-        /// @brief Adds mismatch information
-        /// @param  [in]  in_Val            Mismatch value information        template<typename T>
-        void AddMismatch(const MismatchedVal &in_Val) override;
+  /// @brief Number of mismatched values in mismatch container
+  size_t GetMismatchCount() override;
 
-        /// @brief Gets mismatch information by given mismatch index
-        /// @param [in] index   Index of mismatch value in mismatch container
-        MismatchedVal GetMismatch(size_t index) override;
+  bool isFailed() override;
 
-        /// @brief Number of mismatched values in mismatch container
-        size_t GetMismatchCount() override;
+  void Report();
 
-        bool isFailed() override;
+  void ReportDetail();
 
-        void Report();
+  void Clear() override;
 
-        void ReportDetail();
+  /// @brief returns pointer to object that contains statistics data
+  StatisticsCollector *GetStatistics() override { return &mStatistics; }
 
-        void Clear() override;
-
-        /// @brief returns pointer to object that contains statistics data
-        StatisticsCollector *GetStatistics() override { return &mStatistics; }
-
-      private:
-        std::string m_kernelName;
-        /// @brief  Mismatched values container
-        std::vector<MismatchedVal> mismatches;
-        /// @brief  Number of mismatched values
-        typedef std::map<uint32_t, CompStatistics> CompStatMap;
-        CompStatMap         m_statMap;
-        /// @brief  Object for gathering statistical information
-        StatisticsCollector mStatistics;
-    };
+private:
+  std::string m_kernelName;
+  /// @brief  Mismatched values container
+  std::vector<MismatchedVal> mismatches;
+  /// @brief  Number of mismatched values
+  typedef std::map<uint32_t, CompStatistics> CompStatMap;
+  CompStatMap m_statMap;
+  /// @brief  Object for gathering statistical information
+  StatisticsCollector mStatistics;
+};
 } // namespace Validation
 
 #endif // COMPARISON_RESULTS_H

@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -instcombine -debug-only=instcombine -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=instcombine -debug-only=instcombine -S 2>&1 | FileCheck %s
 
 ; The following test case checks that the SExt instruction in %tmp2 is

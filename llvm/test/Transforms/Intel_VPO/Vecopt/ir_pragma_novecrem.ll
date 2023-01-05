@@ -5,8 +5,6 @@
 
 ; RUN: opt %s -disable-output -passes="vplan-vec" -vplan-enable-masked-variant -march=core-avx2 -debug-only=LoopVectorizationPlanner
 ; RUN: opt %s -disable-output -passes="vplan-vec" -vplan-enable-non-masked-vectorized-remainder -vplan-enable-masked-vectorized-remainder -vplan-enable-masked-variant -march=core-avx2 -debug-only=LoopVectorizationPlanner
-; RUN: opt %s -disable-output -vplan-vec -vplan-enable-masked-variant -march=core-avx2 -debug-only=LoopVectorizationPlanner
-; RUN: opt %s -disable-output -vplan-vec -vplan-enable-non-masked-vectorized-remainder -vplan-enable-masked-vectorized-remainder -vplan-enable-masked-variant -march=core-avx2 -debug-only=LoopVectorizationPlanner
 ; REQUIRES: asserts
 
 ; CHECK: No vector remainder enabled

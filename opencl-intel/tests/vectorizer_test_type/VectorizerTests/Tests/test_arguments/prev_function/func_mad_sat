@@ -7,19 +7,19 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_mad_sat (	__global const float *in,
-		__global float *out)
+func_mad_sat (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	ushort tmp1 = convert_ushort(lgamma(in[gid] + in[gid] / 7));
-	ushort tmp2 = (ushort) cbrt(in[gid] * 10);
-	ushort2 tmp3 = as_ushort2(in[gid]);
-	ushort tmp4 = tmp3.x;
-	out[gid] = mad_sat(tmp1, tmp2, tmp4);
+  int gid = get_global_id(0);
+  ushort tmp1 = convert_ushort(lgamma(in[gid] + in[gid] / 7));
+  ushort tmp2 = (ushort) cbrt(in[gid] * 10);
+  ushort2 tmp3 = as_ushort2(in[gid]);
+  ushort tmp4 = tmp3.x;
+  out[gid] = mad_sat(tmp1, tmp2, tmp4);
 }

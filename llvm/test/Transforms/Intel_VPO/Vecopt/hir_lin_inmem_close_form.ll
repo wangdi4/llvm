@@ -1,7 +1,7 @@
 
 ; Test to check that we don't crash on in-memory linear which needs a close form when
 ; we generate masked remainder.
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-masked-remainder-gain-threshold=0 -vplan-enable-peel-rem-strip=0 %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-masked-remainder-gain-threshold=0 -vplan-enable-peel-rem-strip=0 %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -14,8 +14,8 @@ declare void @llvm.directive.region.exit(token) #0
 
 define hidden void @_ZN9LAMMPS_NS21ImproperHarmonicIntel4evalILi0ELi1ELi0EfdEEviPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EE.DIR.OMP.PARALLEL.2(i32 %N) #1 {
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK:             + DO i1 = [[PHI_TEMP0:%.*]], [[LOOP_UB200:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
-; CHECK:             |   [[DOTVEC210:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[N0:%.*]];
+; CHECK:             + DO i1 = 0, [[LOOP_UB220:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
+; CHECK:             |   [[DOTVEC230:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[DOTVEC180:%.*]];
 newFuncRoot:
   %n.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1

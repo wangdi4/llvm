@@ -1,4 +1,4 @@
-; RUN: opt -vplan-vec -vplan-force-vf=2 -vector-library=SVML \
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vector-library=SVML \
 ; RUN: -vplan-print-after-transformed-library-calls -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after transforming library calls
@@ -25,9 +25,7 @@
 ; CHECK-NEXT:    [[COS_WIDE:%.*]] = bitcast double* [[COS_GEP]] to <2 x double>*
 ; CHECK-NEXT:    store <2 x double> [[COS]], <2 x double>* [[COS_WIDE]], align 8
 
-; RUN: opt -hir-ssa-deconstruction -hir-vplan-vec -vplan-force-vf=2 -vector-library=SVML \
-; RUN: -vplan-print-after-transformed-library-calls -disable-output -print-after=hir-vplan-vec \
-; RUN: -S < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -vector-library=SVML -vplan-print-after-transformed-library-calls -disable-output -S < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; HIR-LABEL: VPlan after transforming library calls
 ; HIR:       [[BODY:BB[0-9]+]]:

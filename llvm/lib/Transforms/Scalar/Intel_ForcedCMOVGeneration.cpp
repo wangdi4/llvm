@@ -246,7 +246,7 @@ bool ForcedCMOVGeneration::IsACandidateBasicBlock(BasicBlock &B,
 void ForcedCMOVGeneration::AddSelectInst(BasicBlock &B,
                                          IfThenConstruct &Construct) {
   LLVM_DEBUG(dbgs() << "AddSelectInst to BB = " << B.getName() << "\n");
-  BranchInst *BI = dyn_cast<BranchInst>(B.getTerminator());
+  BranchInst *BI = cast<BranchInst>(B.getTerminator());
   // Create dummy variable on stack
   // add select instruction to select between address in store of ThenBlock and
   // the dummy variable

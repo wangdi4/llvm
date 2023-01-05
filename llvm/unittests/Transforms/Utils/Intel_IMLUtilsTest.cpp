@@ -111,14 +111,14 @@ TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
           "__ocl_svml_00_cos4",
           FunctionType::get(VectorType::get(DoubleTy, 4, false),
                             {VectorType::get(DoubleTy, 4, false)}, false)),
-      None);
+      std::nullopt);
 
   EXPECT_EQ(
       getSVMLCallingConvByNameAndType(
           "__ocl_svml_shared_acospif3",
           FunctionType::get(VectorType::get(FloatTy, 3, false),
                             {VectorType::get(FloatTy, 3, false)}, false)),
-      None);
+      std::nullopt);
 }
 
 TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
@@ -167,7 +167,7 @@ TEST_F(IMLUtilsTest, DetermineCSVMLCallConv) {
           "_svml_fdimf16_z0",
           FunctionType::get(VectorType::get(FloatTy, 16, false),
                             {VectorType::get(FloatTy, 16, false)}, false)),
-      None);
+      std::nullopt);
 }
 
 }

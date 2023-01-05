@@ -19,7 +19,7 @@
 #define PIPE_READ_BUF_PREFERRED_LIMIT 256
 #define PIPE_WRITE_BUF_PREFERRED_LIMIT 256
 
-#define ATTR_ALIGN(alignment)  __attribute__((aligned(alignment)))
+#define ATTR_ALIGN(alignment) __attribute__((aligned(alignment)))
 #define ALIGNED(decl, alignment) decl ATTR_ALIGN(alignment)
 
 // Utility struct for maintaining a pipe internal cache.
@@ -47,8 +47,8 @@ typedef struct FILE FILE;
 FILE *fopen(__generic const char *filename, __constant char *mode);
 int fclose(FILE *fp);
 int fflush(FILE *fp);
-size_t fread(void *ptr, size_t size_of_elements,
-             size_t number_of_elements, FILE *a_file);
+size_t fread(void *ptr, size_t size_of_elements, size_t number_of_elements,
+             FILE *a_file);
 size_t fwrite(const void *ptr, size_t size_of_elements,
               size_t number_of_elements, FILE *a_file);
 
@@ -73,39 +73,40 @@ struct __pipe_t {
 //
 // Internal helper functions
 //
-int get_buffer_capacity(__global const struct __pipe_internal_buf* b);
-__global void* get_packet_ptr(__global struct __pipe_t* p, int index);
-bool reserve_write_buffer(__global struct __pipe_internal_buf* b, int capacity);
-bool reserve_read_buffer(__global struct __pipe_internal_buf* b, int capacity);
-int advance(__global const struct __pipe_t* p, int index, int offset);
-int get_read_capacity(__global struct __pipe_t* p);
-int get_write_capacity(__global struct __pipe_t* p);
+int get_buffer_capacity(__global const struct __pipe_internal_buf *b);
+__global void *get_packet_ptr(__global struct __pipe_t *p, int index);
+bool reserve_write_buffer(__global struct __pipe_internal_buf *b, int capacity);
+bool reserve_read_buffer(__global struct __pipe_internal_buf *b, int capacity);
+int advance(__global const struct __pipe_t *p, int index, int offset);
+int get_read_capacity(__global struct __pipe_t *p);
+int get_write_capacity(__global struct __pipe_t *p);
 // Defined in LLVM IR, because OpenCL standard does not allow cast from pipe
 // (opaque pointer) to other pointer type.
-__global struct __pipe_t* __ocl_wpipe2ptr(write_only pipe uchar p);
-__global struct __pipe_t* __ocl_rpipe2ptr(read_only pipe uchar p);
+__global struct __pipe_t *__ocl_wpipe2ptr(write_only pipe uchar p);
+__global struct __pipe_t *__ocl_rpipe2ptr(read_only pipe uchar p);
 
 //
 // Flush mechanism support
 //
-void __store_write_pipe_use(__global void* __private* __private arr,
-                            __private int* size, write_only pipe uchar pp);
-void __store_read_pipe_use(__global void* __private* __private arr,
-                           __private int* size, read_only pipe uchar pp);
-void __flush_pipe_read_array(__global void* __private* arr,
-                             __private int* size);
-void __flush_pipe_write_array(__global void* __private* arr,
-                              __private int* size);
-void __flush_read_pipe(__global void* p);
-void __flush_write_pipe(__global void* p);
+void __store_write_pipe_use(__global void *__private *__private arr,
+                            __private int *size, write_only pipe uchar pp);
+void __store_read_pipe_use(__global void *__private *__private arr,
+                           __private int *size, read_only pipe uchar pp);
+void __flush_pipe_read_array(__global void *__private *arr,
+                             __private int *size);
+void __flush_pipe_write_array(__global void *__private *arr,
+                              __private int *size);
+void __flush_read_pipe(__global void *p);
+void __flush_write_pipe(__global void *p);
 
 //
 // Global constructor and desctructor
 //
-void __pipe_init_fpga(__global void* pp, int packet_size, int max_packets, int mode);
-void __pipe_init_array_fpga(__global void* __global* pp, int array_size, int packet_size,
-                            int depth, int mode);
-void __pipe_release_fpga(__global void* pp);
+void __pipe_init_fpga(__global void *pp, int packet_size, int max_packets,
+                      int mode);
+void __pipe_init_array_fpga(__global void *__global *pp, int array_size,
+                            int packet_size, int depth, int mode);
+void __pipe_release_fpga(__global void *pp);
 
 //
 // Main read/write built-ins

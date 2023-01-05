@@ -21,7 +21,6 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-cg -sroa -S < %s 2>&1 | FileCheck %s --check-prefixes=VPCHECK,IRCHECK
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,sroa" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefixes=VPCHECK,IRCHECK
 
 

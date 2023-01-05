@@ -38,8 +38,11 @@
 // XFAIL: windows-msvc
 
 // INTEL_CUSTOMIZATION
-// log_path is not supported running in docker with root
-// XFAIL: *
+// CMPLRLLVM-42852
+// This test may passes on Linux zsc2, but fails on el78
+// Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
+// log_path is not supported running in docker with root(`/INVALID` is valid path with root)
+// UNSUPPORTED: i386-linux, x86_64-linux
 // end INTEL_CUSTOMIZATION
 
 #include <stdlib.h>

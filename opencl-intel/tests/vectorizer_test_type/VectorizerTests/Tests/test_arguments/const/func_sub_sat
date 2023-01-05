@@ -6,16 +6,16 @@
  * This function is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_sub_sat ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	out[gid] = sub_sat(LONG1, LONG2);
+  int gid = get_global_id(0);
+  out[gid] = sub_sat(LONG1, LONG2);
 }

@@ -4,7 +4,6 @@
 ; Additionally, check that we properly truncate the value back to `i1` or
 ; `<N x i1>` before uses so that users observe the correct type.
 
-; RUN: opt -opaque-pointers=0 -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN16v_foo(<16 x i8> %p)

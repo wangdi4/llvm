@@ -46,16 +46,13 @@
 #include "clang/Analysis/Analyses/ReachableCode.h"
 #include "clang/Analysis/Analyses/ThreadSafety.h"
 #include "clang/Analysis/Analyses/UninitializedValues.h"
+#include "clang/Analysis/Analyses/UnsafeBufferUsage.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Analysis/CFG.h"
 #include "clang/Analysis/CFGStmtMap.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TargetInfo.h" // INTEL
 #include "clang/Lex/Preprocessor.h"
-#if INTEL_CUSTOMIZATION
-#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
-#endif // INTEL_CUSTOMIZATION
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -68,6 +65,11 @@
 #include <algorithm>
 #include <deque>
 #include <iterator>
+
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 
@@ -2160,6 +2162,23 @@ public:
 } // namespace clang
 
 //===----------------------------------------------------------------------===//
+// Unsafe buffer usage analysis.
+//===----------------------------------------------------------------------===//
+
+class UnsafeBufferUsageReporter : public UnsafeBufferUsageHandler {
+  Sema &S;
+
+public:
+  UnsafeBufferUsageReporter(Sema &S) : S(S) {}
+
+  void handleUnsafeOperation(const Stmt *Operation) override {
+    S.Diag(Operation->getBeginLoc(), diag::warn_unsafe_buffer_usage)
+        << Operation->getSourceRange();
+  }
+};
+
+
+//===----------------------------------------------------------------------===//
 // AnalysisBasedWarnings - Worker object used by Sema to execute analysis-based
 //  warnings on a function, method, or block.
 //===----------------------------------------------------------------------===//
@@ -2465,6 +2484,12 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
     if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
       if (S.getLangOpts().CPlusPlus && isNoexcept(FD))
         checkThrowInNonThrowingFunc(S, FD, AC);
+
+  // Emit unsafe buffer usage warnings and fixits.
+  if (!Diags.isIgnored(diag::warn_unsafe_buffer_usage, D->getBeginLoc())) {
+    UnsafeBufferUsageReporter R(S);
+    checkUnsafeBufferUsage(D, R);
+  }
 
   // If none of the previous checks caused a CFG build, trigger one here
   // for the logical error handler.

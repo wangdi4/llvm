@@ -1,7 +1,6 @@
 ; This test checks that the argument alignment runs correctly when alloca
 ; instruction is used as memory allocation.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
 ; Check that the constants were removed

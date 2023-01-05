@@ -96,6 +96,10 @@ namespace llvm {
   /// matching during instruction selection.
   FunctionPass *createCodeGenPreparePass();
 
+  /// This pass implements generation of target-specific intrinsics to support
+  /// handling of complex number arithmetic
+  FunctionPass *createComplexDeinterleavingPass(const TargetMachine *TM);
+
   /// AtomicExpandID -- Lowers atomic operations in terms of either cmpxchg
   /// load-linked/store-conditional loops.
   extern char &AtomicExpandID;
@@ -237,10 +241,12 @@ namespace llvm {
   /// FoldLoadsToGatherID -- This pass fold loads to gather intrinsic.
   extern char &FoldLoadsToGatherID;
 
-  extern char &HeteroArchOptID;
-
   extern char &ExpandVectorPredicationID;
 
+#if INTEL_FEATURE_MARKERCOUNT
+  /// Inserts pseudo marker count at prolog/epilog of function and loop header.
+  extern char &PseudoMarkerCountInserterID;
+#endif  // INTEL_FEATURE_MARKERCOUNT
 #endif  // INTEL_CUSTOMIZATION
 
   /// PostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -366,6 +372,10 @@ namespace llvm {
 
   MachineFunctionPass *createMachineCopyPropagationPass(bool UseCopyInstr);
 
+  /// MachineLateInstrsCleanup - This pass removes redundant identical
+  /// instructions after register allocation and rematerialization.
+  extern char &MachineLateInstrsCleanupID;
+
   /// PeepholeOptimizer - This pass performs peephole optimizations -
   /// like extension and comparison eliminations.
   extern char &PeepholeOptimizerID;
@@ -441,8 +451,15 @@ namespace llvm {
   /// the intrinsic for later emission to the StackMap.
   extern char &StackMapLivenessID;
 
+  // MachineSanitizerBinaryMetadata - appends/finalizes sanitizer binary
+  // metadata after llvm SanitizerBinaryMetadata pass.
+  extern char &MachineSanitizerBinaryMetadataID;
+
   /// RemoveRedundantDebugValues pass.
   extern char &RemoveRedundantDebugValuesID;
+
+  /// MachineCFGPrinter pass.
+  extern char &MachineCFGPrinterID;
 
   /// LiveDebugValues pass
   extern char &LiveDebugValuesID;
@@ -529,6 +546,9 @@ namespace llvm {
   // Expands large div/rem instructions.
   FunctionPass *createExpandLargeDivRemPass();
 
+  // Expands large div/rem instructions.
+  FunctionPass *createExpandLargeFpConvertPass();
+
   // This pass expands memcmp() to load/stores.
   FunctionPass *createExpandMemCmpPass();
 
@@ -560,8 +580,6 @@ namespace llvm {
   FunctionPass *createFloat128ExpandPass();
 
   FunctionPass *createFoldLoadsToGatherPass();
-
-  FunctionPass *createHeteroArchOptPass();
 #endif // INTEL_CUSTOMIZATION
 
   /// This pass inserts pseudo probe annotation for callsite profiling.
@@ -569,8 +587,10 @@ namespace llvm {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
-  /// This pass inserts pseudo markercount.
-  FunctionPass *createPseudoMarkerCountInserter();
+  /// This pass inserts pseudo marker count.
+  FunctionPass *
+  createPseudoMarkerCountInserter(unsigned MarkerCountKind,
+                                  StringRef OverrideMarkerCountFile);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 

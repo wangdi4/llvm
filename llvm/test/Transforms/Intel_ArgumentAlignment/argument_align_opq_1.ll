@@ -1,4 +1,3 @@
-; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
 ; This test checks that the argument alignment runs correctly. It is the same

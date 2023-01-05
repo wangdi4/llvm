@@ -1554,7 +1554,7 @@ public:
 
   // Constructor to hold info about calls that only use a single memory
   // region, such as memset.
-  MemfuncCallInfo(Instruction *I, MemfuncKind MK, MemfuncRegion &MR)
+  MemfuncCallInfo(Instruction *I, MemfuncKind MK, const MemfuncRegion &MR)
       : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
 
     assert(MK == MK_Memset &&
@@ -1566,8 +1566,8 @@ public:
   // regions, such as memcpy or memmove call.
   // The first region parameter is the destination, the second region parameter
   // is the source region.
-  MemfuncCallInfo(Instruction *I, MemfuncKind MK, MemfuncRegion &MRDest,
-                  MemfuncRegion &MRSrc)
+  MemfuncCallInfo(Instruction *I, MemfuncKind MK, const MemfuncRegion &MRDest,
+                  const MemfuncRegion &MRSrc)
       : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
     assert(((MK == MK_Memcpy) || (MK == MK_Memmove)) &&
         "MemfuncCallInfo: Dual range form expects memcpy or memmove");
@@ -1681,12 +1681,13 @@ public:
   // Create an entry in the CallInfoMap about a memset call.
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR);
+                        const dtrans::MemfuncRegion &MR);
 
   // Create an entry in the CallInfoMap about a memcpy/memmove call.
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+                        const dtrans::MemfuncRegion &MR1,
+                        const dtrans::MemfuncRegion &MR2);
 
   // Destroy the CallInfo stored about the specific instruction.
   void deleteCallInfo(Instruction *I);

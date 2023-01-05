@@ -32,6 +32,11 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/Operator.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
@@ -52,6 +57,13 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
 #if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
+
+// Flag to track if TLI should mark non-readonly functions as vectorizable.
+static cl::opt<bool> TLIVecNonReadonlyLibCalls(
+    "tli-vectorize-non-readonly-libcalls", cl::Hidden,
+    cl::desc(
+        "Vectorize library calls even if they don't have readonly attribute."),
+    cl::init(true));
 #endif
 
 StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
@@ -121,6 +133,37 @@ static bool hasBcmp(const Triple &TT) {
   // not have it.
   return TT.isOSFreeBSD() || TT.isOSSolaris();
 }
+
+#if INTEL_CUSTOMIZATION
+bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
+                                               const ElementCount &VF,
+                                               bool IsMasked) const {
+  // Track if call allows substitution with approximate functions. We use
+  // FastMathFlags to determine this property for FP computations.
+  bool CallAllowsApproxFn = true;
+  if (auto *FPCall = dyn_cast<FPMathOperator>(&CB))
+    CallAllowsApproxFn = FPCall->hasApproxFunc();
+  if (!CallAllowsApproxFn)
+    return false;
+
+  // Vector library calls can be used if call is known to read memory only
+  // (non-default behavior).
+  bool CallOnlyReadsMem = TLIVecNonReadonlyLibCalls || CB.onlyReadsMemory();
+  if (!CallOnlyReadsMem)
+    return false;
+
+  LibFunc LibF;
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  // Call is valid for vector library-based vectorization if it represents a
+  // known library function, is an LLVM intrinsic or an OCL vector function.
+  bool IsValidMathLibFunc = getLibFunc(*F, LibF) || F->isIntrinsic() ||
+                            isOCLVectorFunction(CalledFnName);
+
+  return IsValidMathLibFunc &&
+         isFunctionVectorizable(CalledFnName, VF, IsMasked);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static bool isCallingConvCCompatible(CallingConv::ID CC, StringRef TT,
                                      FunctionType *FuncTy) {
@@ -485,6 +528,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_htons);
     TLI.setUnavailable(LibFunc_lchown);
     TLI.setUnavailable(LibFunc_lstat);
+    TLI.setUnavailable(LibFunc_memrchr);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
     TLI.setUnavailable(LibFunc_opendir);
@@ -1464,6 +1508,11 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_vec_free);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (T.isSPIR())
+    TLI.setUseSVMLDevice(true);
+#endif // INTEL_CUSTOMIZATION
+
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
 }
 
@@ -1635,7 +1684,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
   case LibFunc_re_search_2:
-    return (NumParams = 9 && FTy.getReturnType()->isIntegerTy() &&
+    return (NumParams == 9 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
@@ -4242,7 +4291,7 @@ case LibFunc_under_commit:
             FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
-    return (NumParams = 4 && FTy.getReturnType()->isVoidTy() &&
+    return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
@@ -4572,6 +4621,13 @@ case LibFunc_under_commit:
             FTy.getParamType(3)->isIntegerTy() &&
             FTy.getParamType(4)->isPointerTy());
 
+  case LibFunc_cdfnorm:
+  case LibFunc_cdfnormf:
+  case LibFunc_cdfnorminv:
+  case LibFunc_cdfnorminvf:
+    return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
+            FTy.getParamType(0)->isFloatingPointTy());
+
   case LibFunc_chdir:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -4611,7 +4667,14 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_erf:
   case LibFunc_erfc:
+  case LibFunc_erfcf:
+  case LibFunc_erfcinv:
+  case LibFunc_erfcinvf:
+  case LibFunc_erff:
+  case LibFunc_erfinv:
+  case LibFunc_erfinvf:
     return (NumParams == 1 && FTy.getReturnType()->isFloatingPointTy() &&
             FTy.getParamType(0)->isFloatingPointTy());
 
@@ -5638,12 +5701,8 @@ case LibFunc_under_commit:
     break;
   }
 
-  // FIXME: There is no guarantee that sizeof(size_t) is equal to
-  // sizeof(int*) for every target. So the assumption used here to derive
-  // the SizeTBits based on the size of an integer pointer in address space
-  // zero isn't always valid.
   unsigned IntBits = getIntSize();
-  unsigned SizeTBits = M.getDataLayout().getPointerSizeInBits(/*AddrSpace=*/0);
+  unsigned SizeTBits = getSizeTSize(M);
   unsigned Idx = 0;
 
   // Iterate over the type ids in the function prototype, matching each
@@ -5771,17 +5830,28 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     break;
   }
   case SVML: {
-    const VecDesc VecFuncs[] = {
+#if INTEL_CUSTOMIZATION
+    if (getUseSVMLDevice()) {
+      const VecDesc VecFuncs[] = {
+#define GET_SVML_VARIANTS
+#include "llvm/IR/Intel_SVML_Device.gen"
+#undef GET_SVML_VARIANTS
+      };
+      addVectorizableFunctions(VecFuncs);
+    } else {
+#endif // INTEL_CUSTOMIZATION
+      const VecDesc VecFuncs[] = {
 #if INTEL_CUSTOMIZATION
 #define GET_SVML_VARIANTS
 #include "llvm/IR/Intel_SVML.gen"
 #undef GET_SVML_VARIANTS
 #else
-    #define TLI_DEFINE_SVML_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
+#define TLI_DEFINE_SVML_VECFUNCS
+#include "llvm/Analysis/VecFuncs.def"
 #endif // INTEL_CUSTOMIZATION
-    };
-    addVectorizableFunctions(VecFuncs);
+      };
+      addVectorizableFunctions(VecFuncs);
+    }
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -5803,6 +5873,19 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
 #if INTEL_CUSTOMIZATION
 bool TargetLibraryInfoImpl::isSVMLEnabled() const {
   return CurVectorLibrary == SVML;
+}
+
+bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->IsOCLFn;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5856,6 +5939,22 @@ unsigned TargetLibraryInfoImpl::getWCharSize(const Module &M) const {
       M.getModuleFlag("wchar_size")))
     return cast<ConstantInt>(ShortWChar->getValue())->getZExtValue();
   return 0;
+}
+
+unsigned TargetLibraryInfoImpl::getSizeTSize(const Module &M) const {
+  // There is really no guarantee that sizeof(size_t) is equal to sizeof(int*).
+  // If that isn't true then it should be possible to derive the SizeTTy from
+  // the target triple here instead and do an early return.
+
+  // Historically LLVM assume that size_t has same size as intptr_t (hence
+  // deriving the size from sizeof(int*) in address space zero). This should
+  // work for most targets. For future consideration: DataLayout also implement
+  // getIndexSizeInBits which might map better to size_t compared to
+  // getPointerSizeInBits. Hard coding address space zero here might be
+  // unfortunate as well. Maybe getDefaultGlobalsAddressSpace() or
+  // getAllocaAddrSpace() is better.
+  unsigned AddressSpace = 0;
+  return M.getDataLayout().getPointerSizeInBits(AddressSpace);
 }
 
 TargetLibraryInfoWrapperPass::TargetLibraryInfoWrapperPass()

@@ -1,6 +1,5 @@
 ; This test case checks def level for %TempArray and its blobs when the innermost loop's loop level is larger than 3
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -hir-details -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump After HIR Store Result Into Temp Array ***
@@ -27,7 +26,7 @@
 ; CHECK:           |   |   |   |   %71 = %70  *  2.000000e+00;
 ; CHECK:           |   |   |   |   %72 = %71  /  %61;
 ; CHECK:           |   |   |   |   (%TempArray)[i2][i3][i4] = @llvm.pow.f64(%72,  2.250000e+00);
-; CHECK:           |   |   |   |   <LVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:100}
+; CHECK:           |   |   |   |   <LVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:[[ALLOCASB:.*]]}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}
@@ -43,14 +42,14 @@
 ; CHECK:           |   |   |   |   %57 = i4 + 4  %  %9;
 ; CHECK:           |   |   |   |   %73 = (%TempArray)[i2][i3][i4];
 ; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %73 {sb:54}
-; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:101}
+; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:[[ALLOCASB:.*]]}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}
 ;                  |   |   |   |
 ; CHECK:           |   |   |   |   %89 = (%TempArray)[i2 + 1][zext.i32.i64(%47) + -2][zext.i32.i64(%57) + -2];
 ; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %89 {sb:70}
-; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2 + 1][LINEAR i64 zext.i32.i64(%47) + -2{def@3}][NON-LINEAR i64 zext.i32.i64(%57) + -2] inbounds  {sb:101}
+; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2 + 1][LINEAR i64 zext.i32.i64(%47) + -2{def@3}][NON-LINEAR i64 zext.i32.i64(%57) + -2] inbounds  {sb:[[ALLOCASB:.*]]}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
 ; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}

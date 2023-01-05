@@ -22,9 +22,7 @@
 ;   }
 ; }
 
-; RUN: opt -S -vplan-vec -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2  < %s 2>&1 | FileCheck %s  -check-prefixes=IR,CHECK
 ; RUN: opt -S -passes="vplan-vec" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=IR,CHECK
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -print-after=hir-vplan-vec -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 ; REQUIRES: asserts
 

@@ -35,6 +35,7 @@
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/IR/IRBuilder.h"           // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
+#include <optional>
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -98,7 +99,7 @@ struct VFParameter {
   VFParamKind ParamKind;     // Kind of Parameter.
   int LinearStepOrPos = 0;   // Step or Position of the Parameter.
 #if INTEL_CUSTOMIZATION
-  MaybeAlign Alignment = None; // Optional alignment in bytes.
+  MaybeAlign Alignment = std::nullopt; // Optional alignment in bytes.
 #endif
 
   // Comparison operator.
@@ -110,39 +111,104 @@ struct VFParameter {
 
 #if INTEL_CUSTOMIZATION
   // Create a vector parameter at the given position, with a possible alignment.
-  static VFParameter vector(unsigned Pos, MaybeAlign Alignment = None) {
+  static VFParameter vector(unsigned Pos, MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::Vector, 0, Alignment};
   }
 
   // Create a linear parameter at the given position, with the given stride,
   // with a possible alignment.
   static VFParameter linear(unsigned Pos, int Stride,
-                            MaybeAlign Alignment = None) {
+                            MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_Linear, Stride, Alignment};
+  }
+
+  // Create a linear ref parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linearRef(unsigned Pos, int Stride,
+                               MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearRef, Stride, Alignment};
+  }
+
+  // Create a linear uval parameter at the given position, with the given
+  // stride, with a possible alignment.
+  static VFParameter linearUVal(unsigned Pos, int Stride,
+                                MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearUVal, Stride, Alignment};
+  }
+
+  // Create a linear val parameter at the given position, with the given stride,
+  // with a possible alignment.
+  static VFParameter linearVal(unsigned Pos, int Stride,
+                               MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearVal, Stride, Alignment};
   }
 
   // Create a linear parameter at the given position, with the given variable
   // position, with a possible alignment.
-  static VFParameter variableStrided(unsigned Pos, int LinearPos,
-                                     MaybeAlign Alignment = None) {
+  static VFParameter linearPos(unsigned Pos, int LinearPos,
+                               MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_LinearPos, LinearPos, Alignment};
+  }
+
+  // Create a linearRef parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter linearRefPos(unsigned Pos, int LinearPos,
+                                  MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearRefPos, LinearPos,
+                       Alignment};
+  }
+
+  // Create a linearUVal parameter at the given position, with the given
+  // variable position, with a possible alignment.
+  static VFParameter linearUValPos(unsigned Pos, int LinearPos,
+                                   MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearUValPos, LinearPos,
+                       Alignment};
+  }
+
+  // Create a linearVal parameter at the given position, with the given variable
+  // position, with a possible alignment.
+  static VFParameter linearValPos(unsigned Pos, int LinearPos,
+                                  MaybeAlign Alignment = std::nullopt) {
+    return VFParameter{Pos, VFParamKind::OMP_LinearValPos, LinearPos,
+                       Alignment};
   }
 
   // Create a uniform parameter at the given position, with a possible
   // alignment.
-  static VFParameter uniform(unsigned Pos, MaybeAlign Alignment = None) {
+  static VFParameter uniform(unsigned Pos,
+                             MaybeAlign Alignment = std::nullopt) {
     return VFParameter{Pos, VFParamKind::OMP_Uniform, 0, Alignment};
   }
 
   // Create a mask parameter at the given position.
   static VFParameter mask(unsigned Pos) {
-    return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, None};
+    return VFParameter{Pos, VFParamKind::GlobalPredicate, 0, std::nullopt};
   }
 
-  /// Is this a linear parameter?
+  /// Is this a non-reference linear parameter? This includes linear integral
+  /// parameters and linear pointers.
   bool isLinear() const {
     return ParamKind == VFParamKind::OMP_Linear ||
            ParamKind == VFParamKind::OMP_LinearPos;
+  }
+
+  /// Is this a linear reference parameter with ref modifier?
+  bool isLinearRef() const {
+    return ParamKind == VFParamKind::OMP_LinearRef ||
+           ParamKind == VFParamKind::OMP_LinearRefPos;
+  }
+
+  /// Is this a linear reference parameter with uval modifer?
+  bool isLinearUVal() const {
+    return ParamKind == VFParamKind::OMP_LinearUVal ||
+           ParamKind == VFParamKind::OMP_LinearUValPos;
+  }
+
+  /// Is this a linear reference parameter with val modifer?
+  bool isLinearVal() const {
+    return ParamKind == VFParamKind::OMP_LinearVal ||
+           ParamKind == VFParamKind::OMP_LinearValPos;
   }
 
   /// Is this a uniform parameter?
@@ -164,12 +230,18 @@ struct VFParameter {
   /// Is the stride for a linear parameter a uniform variable? (i.e.,
   /// the stride is stored in a variable but is uniform)
   bool isVariableStride() const {
-    return ParamKind == VFParamKind::OMP_LinearPos;
+    return ParamKind == VFParamKind::OMP_LinearPos ||
+           ParamKind == VFParamKind::OMP_LinearRefPos ||
+           ParamKind == VFParamKind::OMP_LinearUValPos ||
+           ParamKind == VFParamKind::OMP_LinearValPos;
   }
 
   /// Is the stride for a linear parameter a compile-time constant?
   bool isConstantStrideLinear() const {
-    return ParamKind == VFParamKind::OMP_Linear;
+    return ParamKind == VFParamKind::OMP_Linear ||
+           ParamKind == VFParamKind::OMP_LinearRef ||
+           ParamKind == VFParamKind::OMP_LinearUVal ||
+           ParamKind == VFParamKind::OMP_LinearVal;
   }
 
   /// Is the stride for a linear variable non-unit stride?
@@ -183,7 +255,7 @@ struct VFParameter {
   }
 
   /// Is the parameter aligned?
-  bool isAligned() const { return Alignment.hasValue(); }
+  bool isAligned() const { return Alignment.has_value(); }
 
   /// Get the stride associated with a linear parameter.
   int getStride() const {
@@ -418,7 +490,9 @@ public:
   /// Returns the score of the vector variant matching between 'this' and \p
   /// Other. Returns score of 0 if no proper match was found. Places the
   /// position of the highest scoring arg in \p MaxArg.
-  int getMatchingScore(const VFInfo &Other, int &MaxArg, const Module *M) const;
+  int getMatchingScore(
+      const VFInfo &Other, int &MaxArg, const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -463,7 +537,8 @@ Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module &M);
 
 #if INTEL_CUSTOMIZATION
 VFInfo demangleForVFABI(StringRef MangledName);
-Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module *M = nullptr);
+Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
+                                     const Module *M = nullptr);
 #endif
 
 /// This routine mangles the given VectorName according to the LangRef
@@ -667,6 +742,14 @@ Value *getSplatValue(const Value *V);
 /// This may be more powerful than the related getSplatValue() because it is
 /// not limited by finding a scalar source value to a splatted vector.
 bool isSplatValue(const Value *V, int Index = -1, unsigned Depth = 0);
+
+/// Transform a shuffle mask's output demanded element mask into demanded
+/// element masks for the 2 operands, returns false if the mask isn't valid.
+/// Both \p DemandedLHS and \p DemandedRHS are initialised to [SrcWidth].
+/// \p AllowUndefElts permits "-1" indices to be treated as undef.
+bool getShuffleDemandedElts(int SrcWidth, ArrayRef<int> Mask,
+                            const APInt &DemandedElts, APInt &DemandedLHS,
+                            APInt &DemandedRHS, bool AllowUndefElts = false);
 
 /// Replace each shuffle mask index with the scaled sequential indices for an
 /// equivalent mask of narrowed elements. Mask elements that are less than 0
@@ -903,10 +986,18 @@ std::string typeToString(Type *Ty);
 bool isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
                     StringRef VFnName);
 
-/// Determine if scalar function \p FnName should be vectorized by pumping
+/// \brief Returns true if \p FnName is a name of a scalar version of SVML
+/// device function
+bool isSVMLDeviceScalarFunctionName(StringRef FnName);
+/// \brief Returns true if \p VFnName is a device version of a SVML vector
+/// function for a given vectorizable scalar function \p FnName.
+bool isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
+                          StringRef VFnName);
+
+/// Determine if scalar call \p CB should be vectorized by pumping
 /// feature for the chosen \p VF. If yes, then the factor to pump by is
 /// returned, 1 otherwise.
-unsigned getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
+unsigned getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
                        const TargetLibraryInfo *TLI);
 
 /// \brief A helper function that returns value after skipping 'bitcast' and
@@ -1180,7 +1271,7 @@ public:
   /// \returns false if the instruction doesn't belong to the group.
   bool insertMember(InstTy *Instr, int32_t Index, Align NewAlign) {
     // Make sure the key fits in an int32_t.
-    Optional<int32_t> MaybeKey = checkedAdd(Index, SmallestKey);
+    std::optional<int32_t> MaybeKey = checkedAdd(Index, SmallestKey);
     if (!MaybeKey)
       return false;
     int32_t Key = *MaybeKey;
@@ -1203,7 +1294,7 @@ public:
     } else if (Key < SmallestKey) {
 
       // Make sure the largest index fits in an int32_t.
-      Optional<int32_t> MaybeLargestIndex = checkedSub(LargestKey, Key);
+      std::optional<int32_t> MaybeLargestIndex = checkedSub(LargestKey, Key);
       if (!MaybeLargestIndex)
         return false;
 

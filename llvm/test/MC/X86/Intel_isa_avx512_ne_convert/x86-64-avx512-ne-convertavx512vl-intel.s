@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_avx_ne_convert
+// REQUIRES: intel_feature_isa_avx512_ne_convert
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK:      {evex} vbcstnebf162ps xmm22, word ptr [rbp + 8*r14 + 268435456]

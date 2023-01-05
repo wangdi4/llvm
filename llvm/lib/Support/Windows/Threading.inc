@@ -1,4 +1,21 @@
 //===- Windows/Threading.inc - Win32 Threading Implementation - -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -49,19 +66,13 @@ void llvm_thread_detach_impl(HANDLE hThread) {
   }
 }
 
-DWORD llvm_thread_get_id_impl(HANDLE hThread) {
-  return ::GetThreadId(hThread);
-}
+DWORD llvm_thread_get_id_impl(HANDLE hThread) { return ::GetThreadId(hThread); }
 
-DWORD llvm_thread_get_current_id_impl() {
-  return ::GetCurrentThreadId();
-}
+DWORD llvm_thread_get_current_id_impl() { return ::GetCurrentThreadId(); }
 
 } // namespace llvm
 
-uint64_t llvm::get_threadid() {
-  return uint64_t(::GetCurrentThreadId());
-}
+uint64_t llvm::get_threadid() { return uint64_t(::GetCurrentThreadId()); }
 
 uint32_t llvm::get_max_thread_name_length() { return 0; }
 
@@ -86,9 +97,8 @@ static void SetThreadName(DWORD Id, LPCSTR Name) {
 
   __try {
     ::RaiseException(MS_VC_EXCEPTION, 0, sizeof(info) / sizeof(ULONG_PTR),
-      (ULONG_PTR *)&info);
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER) {
+                     (ULONG_PTR *)&info);
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
   }
 }
 #endif
@@ -212,9 +222,11 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
       USHORT GroupArray[4]{};
       if (::GetProcessGroupAffinity(GetCurrentProcess(), &GroupCount,
                                     GroupArray)) {
-        assert(GroupCount == 1 &&
-               "On startup, a program is expected to be assigned only to "
-               "one processor group!");
+#if INTEL_CUSTOMIZATION
+        //assert(GroupCount == 1 &&
+        //"On startup, a program is expected to be assigned only to "
+        //"one processor group!");
+#endif
         unsigned CurrentGroupID = GroupArray[0];
         ProcessorGroup NewG{Groups[CurrentGroupID]};
         NewG.Affinity = ProcessAffinityMask;
@@ -238,8 +250,7 @@ static unsigned aggregate(R &&Range, UnaryPredicate P) {
   return I;
 }
 
-// for sys::getHostNumPhysicalCores
-int computeHostNumPhysicalCores() {
+int llvm::get_physical_cores() {
   static unsigned Cores =
       aggregate(getProcessorGroups(), [](const ProcessorGroup &G) {
         return G.UsableThreads / G.ThreadsPerCore;
@@ -247,29 +258,29 @@ int computeHostNumPhysicalCores() {
   return Cores;
 }
 
-int computeHostNumHardwareThreads() {
+static int computeHostNumHardwareThreads() {
   static unsigned Threads =
       aggregate(getProcessorGroups(),
                 [](const ProcessorGroup &G) { return G.UsableThreads; });
   return Threads;
 }
 
-// Finds the proper CPU socket where a thread number should go. Returns 'None'
-// if the thread shall remain on the actual CPU socket.
-Optional<unsigned>
+// Finds the proper CPU socket where a thread number should go. Returns
+// 'std::nullopt' if the thread shall remain on the actual CPU socket.
+std::optional<unsigned>
 llvm::ThreadPoolStrategy::compute_cpu_socket(unsigned ThreadPoolNum) const {
   ArrayRef<ProcessorGroup> Groups = getProcessorGroups();
   // Only one CPU socket in the system or process affinity was set, no need to
   // move the thread(s) to another CPU socket.
   if (Groups.size() <= 1)
-    return None;
+    return std::nullopt;
 
   // We ask for less threads than there are hardware threads per CPU socket, no
   // need to dispatch threads to other CPU sockets.
   unsigned MaxThreadsPerSocket =
       UseHyperThreads ? Groups[0].UsableThreads : Groups[0].useableCores();
   if (compute_thread_count() <= MaxThreadsPerSocket)
-    return None;
+    return std::nullopt;
 
   assert(ThreadPoolNum < compute_thread_count() &&
          "The thread index is not within thread strategy's range!");
@@ -281,7 +292,7 @@ llvm::ThreadPoolStrategy::compute_cpu_socket(unsigned ThreadPoolNum) const {
 // Assign the current thread to a more appropriate CPU socket or CPU group
 void llvm::ThreadPoolStrategy::apply_thread_strategy(
     unsigned ThreadPoolNum) const {
-  Optional<unsigned> Socket = compute_cpu_socket(ThreadPoolNum);
+  std::optional<unsigned> Socket = compute_cpu_socket(ThreadPoolNum);
   if (!Socket)
     return;
   ArrayRef<ProcessorGroup> Groups = getProcessorGroups();

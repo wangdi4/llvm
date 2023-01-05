@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-post-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that the first loop is not unrolled because the alloca stores are used in the second loop which is vectorized and we assume that scalar alloca stores cannot be propagated to vector loads.
+; Note that the second loop is now completely unrolled after vectorization.
 
 ; CHECK: DO i1 = 0, 3, 1
 

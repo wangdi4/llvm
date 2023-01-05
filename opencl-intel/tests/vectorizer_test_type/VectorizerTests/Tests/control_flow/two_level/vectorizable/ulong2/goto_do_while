@@ -5,36 +5,36 @@
  * depends on a ulong and none of them depend on thread id.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-goto_do_while (	__global const float *in,
-		__global float *out, __global const ulong2 ulong2Arg1)
+goto_do_while (  __global const float *in,
+    __global float *out, __global const ulong2 ulong2Arg1)
 {
-	int gid = get_global_id(0);
+  int gid = get_global_id(0);
 
-	ulong tmp1 = ulong2Arg1.x - ulong2Arg1.y;
-	tmp1 = hadd(tmp1, ulong2Arg1.y);
+  ulong tmp1 = ulong2Arg1.x - ulong2Arg1.y;
+  tmp1 = hadd(tmp1, ulong2Arg1.y);
 
-	int i = 0;
+  int i = 0;
 
-	goto label1;
+  goto label1;
 
-	tmp1 = max(in[gid], 0.0f);
+  tmp1 = max(in[gid], 0.0f);
 
-	label1:
+  label1:
 
 
-	do {
+  do {
 
-		tmp1 += clz(max(ulong2Arg1.x, ulong2Arg1.y));
-		i++;
+    tmp1 += clz(max(ulong2Arg1.x, ulong2Arg1.y));
+    i++;
 
-	} while ((tmp1 < ulong2Arg1.x * ulong2Arg1.y + 17) && (i < 538));
+  } while ((tmp1 < ulong2Arg1.x * ulong2Arg1.y + 17) && (i < 538));
 
-	out[gid] = tmp1 * gid + in[gid];
+  out[gid] = tmp1 * gid + in[gid];
 
 }

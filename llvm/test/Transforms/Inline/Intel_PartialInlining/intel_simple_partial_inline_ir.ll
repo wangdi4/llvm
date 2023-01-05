@@ -73,7 +73,6 @@
 ; This test checks that the IR was generated correctly from the partial
 ; inliner pass.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1

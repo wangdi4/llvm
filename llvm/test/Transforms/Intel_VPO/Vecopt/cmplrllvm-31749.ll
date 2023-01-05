@@ -1,10 +1,10 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt < %s -S -vplan-vec -enable-intel-advanced-opts | FileCheck %s
+; RUN: opt < %s -S -passes=vplan-vec -enable-intel-advanced-opts | FileCheck %s
 ;
 ; The run line below used to crash w/o the fix to enable DA recalculation in clones
-; RUN: opt < %s -S -vplan-vec -enable-intel-advanced-opts -vplan-enable-non-masked-vectorized-remainder | FileCheck %s
+; RUN: opt < %s -S -passes=vplan-vec -enable-intel-advanced-opts -vplan-enable-non-masked-vectorized-remainder | FileCheck %s
 
 ; The test is generated from LAMMPS source code and corresponds to one of this
 ; application hot loops.
@@ -15,7 +15,7 @@
 ; type to present in output multiple times.
 
 ; CHECK-LABEL: define
-; CHECK-COUNT-50: <16 x
+; CHECK-COUNT-50: <8 x
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -533,8 +533,8 @@ if.end207:                                        ; preds = %DIR.OMP.BARRIER.6, 
   %my.tid480 = load i32, i32* %tid, align 4
   %78 = call i32 @__kmpc_reduce(%struct.ident_t* nonnull @.kmpc_loc.0.0.26, i32 %my.tid480, i32 7, i32 56, i8* nonnull %77, void (i8*, i8*)* nonnull @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii_tree_reduce_13, [8 x i32]* nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
   switch i32 %78, label %atomic.reduce.exit [
-    i32 1, label %tree.reduce.exit
-    i32 2, label %atomic.reduce
+  i32 1, label %tree.reduce.exit
+  i32 2, label %atomic.reduce
   ]
 
 tree.reduce.exit:                                 ; preds = %if.end207

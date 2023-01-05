@@ -55,8 +55,8 @@ TEST_F(TestWGOrdering, Channels) {
       << "createAndBuildProgram failed";
 
   const size_t numDims = 3;
-  size_t globalSize[numDims] = { 128, 64, 32 };
-  size_t localSize[numDims] = { 32, 16, 8 };
+  size_t globalSize[numDims] = {128, 64, 32};
+  size_t localSize[numDims] = {32, 16, 8};
   size_t numElements = globalSize[0] * globalSize[1] * globalSize[2] * 2;
 
   cl_mem buffer = createBuffer<cl_int4>(numElements, CL_MEM_WRITE_ONLY);
@@ -137,8 +137,8 @@ TEST_F(TestWGOrdering, Pipes) {
       << "createAndBuildProgram failed";
 
   const size_t numDims = 3;
-  size_t globalSize[numDims] = { 128, 64, 32 };
-  size_t localSize[numDims] = { 32, 16, 8 };
+  size_t globalSize[numDims] = {128, 64, 32};
+  size_t localSize[numDims] = {32, 16, 8};
   size_t numElements = globalSize[0] * globalSize[1] * globalSize[2] * 2;
 
   cl_mem buffer = createBuffer<cl_int4>(numElements, CL_MEM_WRITE_ONLY);
@@ -205,8 +205,8 @@ TEST_F(TestWGOrdering, Unordered) {
       << "createAndBuildProgram failed";
 
   const size_t numDims = 1;
-  size_t globalSize[numDims] = { 8 };
-  size_t localSize[numDims] = { 1 };
+  size_t globalSize[numDims] = {8};
+  size_t localSize[numDims] = {1};
 
   ASSERT_TRUE(
       enqueueNDRange("test", numDims, globalSize, localSize, /*event*/ nullptr))

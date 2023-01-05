@@ -1,4 +1,3 @@
-; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; Verifies basic nesting structure for a doubly nested loop nest
 ; Verifies nesting order is correct, and that correct ivs are

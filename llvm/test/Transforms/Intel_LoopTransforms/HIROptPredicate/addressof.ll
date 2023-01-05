@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -disable-output -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that the following switch is optimized.

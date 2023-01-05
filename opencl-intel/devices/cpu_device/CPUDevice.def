@@ -1,8 +1,8 @@
 
 EXPORTS
-	clDevCreateDeviceInstance
-	clDevGetDeviceInfo
-	clDevGetDeviceTimer
-	clDevGetAvailableDeviceList
-	clDevErr2Txt
-	clDevInitDeviceAgent
+  clDevCreateDeviceInstance
+  clDevGetDeviceInfo
+  clDevGetDeviceTimer
+  clDevGetAvailableDeviceList
+  clDevErr2Txt
+  clDevInitDeviceAgent

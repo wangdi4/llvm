@@ -9,83 +9,27 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include <cmath>
 
 #define DEBUG_TYPE "dpcpp-kernel-analysis"
 
 using namespace llvm;
 using namespace CompilationUtils;
 
-namespace {
+static cl::opt<bool> DPCPPKernelAnalysisAssumeIsAMX(
+    "dpcpp-kernel-analysis-assume-isamx", cl::init(false), cl::Hidden,
+    cl::desc("make assumption for dpcpp kernel analysis's isamx"));
 
-/// Legacy DPCPPKernel analysis pass.
-class DPCPPKernelAnalysisLegacy : public ModulePass {
-  DPCPPKernelAnalysisPass Impl;
-
-public:
-  /// Pass identifier.
-  static char ID;
-
-  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {
-    initializeDPCPPKernelAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                    .getResult()
-                    .getRuntimeService();
-    auto GetLI = [&](Function &F) -> LoopInfo & {
-      return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-                        RTS, GetLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-private:
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info to.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
-};
-
-} // namespace
-
-char DPCPPKernelAnalysisLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                      "Analyze kernel properties", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
-                    "Analyze kernel properties", false, false)
-
-void DPCPPKernelAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
-  Impl.print(OS, M);
-}
-
-ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
-  return new DPCPPKernelAnalysisLegacy();
-}
+DiagnosticKind DPCPPKernelAnalysisDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module
@@ -109,6 +53,13 @@ void DPCPPKernelAnalysisPass::fillMatrixCallFuncs() {
     case Intrinsic::experimental_matrix_extract_row_slice:
     case Intrinsic::experimental_matrix_insert_row_slice:
     case Intrinsic::experimental_matrix_fill:
+      if (!IsAMX)
+        M->getContext().diagnose(DPCPPKernelAnalysisDiagInfo(
+            F,
+            "AMX matrix primitives are being used on an arch older than "
+            "Sapphire Rapids! DPC++ joint matrix extension requires presence "
+            "of AMX on Sapphire Rapids or later)",
+            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
       MatrixIntrins.insert(&F);
       break;
     }
@@ -260,7 +211,9 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     OS << "Kernel <" << FuncName << ">:\n";
     OS.indent(2) << "NoBarrierPath=" << KIMD.NoBarrierPath.get() << "\n";
-    OS.indent(2) << "KernelHasMatrixCall=" << KIMD.HasMatrixCall.get() << "\n";
+    if (KIMD.HasMatrixCall.hasValue())
+      OS.indent(2) << "KernelHasMatrixCall=" << KIMD.HasMatrixCall.get()
+                   << "\n";
     OS.indent(2) << "KernelHasSubgroups=" << KIMD.KernelHasSubgroups.get()
                  << "\n";
     OS.indent(2) << "KernelHasGlobalSync=" << KIMD.KernelHasGlobalSync.get()
@@ -276,6 +229,7 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
 PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
+  IsAMX = DPCPPKernelAnalysisAssumeIsAMX || IsAMX;
   RuntimeService &RTS =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();

@@ -12,10 +12,9 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_DEDUCEMAXWGDIM_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
-
+class CallGraph;
 class RuntimeService;
 
 /// Deduce the maximum WG dimemsion that needs to be executed and save result
@@ -25,12 +24,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, RuntimeService &RTS);
-
-private:
-  bool runOnFunction(Function &F);
-
-  CompilationUtils::FuncSet ForbiddenFuncUsers;
+  bool runImpl(Module &M, RuntimeService &RTS, CallGraph &CG);
 };
 
 } // namespace llvm

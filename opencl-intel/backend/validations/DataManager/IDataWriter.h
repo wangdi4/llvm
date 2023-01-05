@@ -17,17 +17,15 @@
 
 #include "IContainer.h"
 
-namespace Validation
-{
-    /// @brief Interface to a data writer. It saves object IContainer to storage
-    class IDataWriter
-    {
-    public:
-        /// @brief Write IContainer object to file
-        /// @param [in] pContainer pointer to object with IContainer interface
-        virtual void Write(const IContainer *pContainer) = 0;
-        virtual ~IDataWriter() {}
-    };
+namespace Validation {
+/// @brief Interface to a data writer. It saves object IContainer to storage
+class IDataWriter {
+public:
+  /// @brief Write IContainer object to file
+  /// @param [in] pContainer pointer to object with IContainer interface
+  virtual void Write(const IContainer *pContainer) = 0;
+  virtual ~IDataWriter() {}
+};
 
-} // End of Validation namespace
+} // namespace Validation
 #endif // __I_DATA_WRITER_H__

@@ -283,6 +283,13 @@ private:
         }
         NewLLVMElement->setBody(LLVMElements);
         NewDTElement->setBody(DTElements);
+
+        // Create Metadata for new element type that is not mapped to any
+        // existing types.
+        NamedMDNode *DTMDTypes = TypeMetadataReader::getDTransTypesMetadata(M);
+	assert(DTMDTypes && "Expected non-null DTMDTypes");
+        DTMDTypes->addOperand(
+            NewDTElement->createMetadataStructureDescriptor());
       }
 
       {
@@ -594,7 +601,7 @@ inline bool FALSE(const char *Msg) {
 bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     SOAToAOSOPTransformImpl &Impl, Module &M) {
 
-  for (auto Pair : zip_first(methodsets(), fields()))
+  for (const auto &Pair : zip_first(methodsets(), fields()))
     for (auto *F : *std::get<0>(Pair)) {
       const TargetLibraryInfo &TLI = Impl.GetTLI(*F);
       DepCompute DC(*Impl.DTInfo, Impl.DL, TLI, F, std::get<1>(Pair),
@@ -643,7 +650,7 @@ bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
   unsigned Cnt = 0;
   bool UnknownSeen = false;
-  for (auto Tuple :
+  for (const auto &Tuple :
        zip_first(methodsets(), fields(), elements(), ArrayFieldOffsets)) {
     ++Cnt;
 
@@ -759,7 +766,7 @@ bool SOAToAOSOPTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     assert(Running.size() == Pivot.size() &&
            "Missing checks in array method classification");
     GlobalNumberState GNS;
-    for (auto Pair : zip(Pivot, Running)) {
+    for (const auto &Pair : zip(Pivot, Running)) {
       auto *F = std::get<0>(Pair);
       auto *O = std::get<1>(Pair);
       FunctionComparator CmpFunc(F, O, &GNS);

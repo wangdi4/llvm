@@ -1,6 +1,4 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-rewrite-pipes -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-rewrite-pipes -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s -o - | FileCheck %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-rewrite-pipes,dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-rewrite-pipes,dpcpp-kernel-equalizer -S %s -o - | FileCheck %s
 

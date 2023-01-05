@@ -73,6 +73,12 @@ using VectItem = std::tuple<const char *, const char *, const char *>;
 
 enum class SyncType { None, Barrier, DummyBarrier };
 
+enum class SubGroupConstructionMode { Linear = -1, X = 0, Y = 1, Z = 2 };
+
+// The "user." prefix for a WI function, indicating the corresponding function
+// is associated with user-specified work info.
+extern const StringRef UserVariantPrefix;
+
 namespace KernelAttribute {
 // Attributes
 extern const StringRef CallOnce;
@@ -145,8 +151,8 @@ struct PipeKind {
     Commit            ///< commit operation
   };
 
-  ScopeKind Scope;
-  AccessKind Access;
+  ScopeKind Scope = ScopeKind::WorkItem;
+  AccessKind Access = AccessKind::Read;
   OpKind Op = OpKind::None;
   bool Blocking = false;
   bool IO = false;
@@ -209,34 +215,47 @@ bool isGeneratedFromOMP(const Module &M);
 /// Return true if IR is generated from SPIRV.
 bool generatedFromSPIRV(const Module &M);
 
-/// Return true if string is plain or mangled get_enqueued_local_size.
+/// Return true if string is mangled get_enqueued_local_size.
 bool isGetEnqueuedLocalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_global_linear_id.
+/// Return true if string is mangled get_enqueued_local_size with user variant
+/// prefix.
+bool isUserVariantOfGetEnqueuedLocalSize(StringRef S);
+
+/// Return true if string is mangled get_global_linear_id.
 bool isGetGlobalLinearId(StringRef S);
 
-/// Return true if string is plain or mangled get_local_linear_id.
+/// Return true if string is mangled get_local_linear_id.
 bool isGetLocalLinearId(StringRef S);
 
-/// Return true if string is plain or mangled get_global_size.
+/// Return true if string is mangled get_global_size.
 bool isGetGlobalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_group_id.
+/// Return true if string is mangled get_global_size with user variant prefix.
+bool isUserVariantOfGetGlobalSize(StringRef S);
+
+/// Return true if string is mangled get_group_id.
 bool isGetGroupId(StringRef S);
 
-/// Return true if string is plain or mangled get_local_size.
+/// Return true if string is mangled get_local_size.
 bool isGetLocalSize(StringRef S);
 
-/// Return true if string is plain or mangled get_num_groups.
+/// Return true if string is mangled get_local_size with user variant prefix.
+bool isUserVariantOfGetLocalSize(StringRef S);
+
+/// Return true if string is mangled get_num_groups.
 bool isGetNumGroups(StringRef S);
 
-/// Return true if string is plain or mangled get_work_dim.
+/// Return true if string is mangled get_num_groups with user variant prefix.
+bool isUserVariantOfGetNumGroups(StringRef S);
+
+/// Return true if string is mangled get_work_dim.
 bool isGetWorkDim(StringRef S);
 
-/// Return true if string is plain or mangled get_local_id.
+/// Return true if string is mangled get_local_id.
 bool isGetLocalId(StringRef S);
 
-/// Return true if string is plain or mangled get_global_id.
+/// Return true if string is mangled get_global_id.
 bool isGetGlobalId(StringRef S);
 
 /// Return true if string is name of atomic builtin.
@@ -264,8 +283,8 @@ bool isPrefetch(StringRef S);
 /// Return "get_base_global_id."
 StringRef nameGetBaseGID();
 
-/// Return true if string is "get_special_buffer."
-bool isGetSpecialBuffer(StringRef S);
+/// Return "get_special_buffer."
+StringRef nameSpecialBuffer();
 
 /// Return true if string is "__opencl_printf".
 bool isOpenCLPrintf(StringRef S);
@@ -315,6 +334,7 @@ bool isWorkGroupCommitWritePipe(StringRef S);
 bool isWorkGroupAll(StringRef S);
 bool isWorkGroupAny(StringRef S);
 bool isWorkGroupBroadCast(StringRef S);
+bool isWorkGroupIdentity(StringRef S);
 bool isWorkGroupReduceAdd(StringRef S);
 bool isWorkGroupScanExclusiveAdd(StringRef S);
 bool isWorkGroupScanInclusiveAdd(StringRef S);
@@ -368,6 +388,11 @@ std::string appendWorkGroupFinalizePrefix(StringRef S);
 
 /// Remove "__finalize_" prefix for \p S.
 std::string removeWorkGroupFinalizePrefix(StringRef S);
+
+/// Returns "__finalize_work_group_identity" for \p S
+/// This is used to generate the common finalize work group function for the
+/// scalar work group function & work_group_broadcast
+std::string getWorkGroupIdentityFinalize(StringRef S);
 
 /// Returns struct type with corresponding name if such exists
 /// The main difference from Module::getTypeByName is that this function
@@ -700,11 +725,11 @@ void initializeVectInfoOnce(
 
 /// Insert printf in the kernel for debug purpose.
 void insertPrintf(const Twine &Prefix, Instruction *IP,
-                  ArrayRef<Value *> Inputs = None);
+                  ArrayRef<Value *> Inputs = std::nullopt);
 void insertPrintf(const Twine &Prefix, BasicBlock *BB,
-                  ArrayRef<Value *> Inputs = None);
+                  ArrayRef<Value *> Inputs = std::nullopt);
 void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
-                  ArrayRef<Value *> Inputs = None);
+                  ArrayRef<Value *> Inputs = std::nullopt);
 
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
 bool isValidMatrixType(FixedVectorType *MatrixType);

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -30,7 +30,6 @@
 #ifndef LLVM_ANALYSIS_BASICALIASANALYSIS_H
 #define LLVM_ANALYSIS_BASICALIASANALYSIS_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h" // INTEL
@@ -40,12 +39,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace llvm {
 
 class AssumptionCache;
-class BasicBlock;
 class DataLayout;
 class DominatorTree;
 class Function;
@@ -64,15 +63,12 @@ class Value;
 /// While it does retain some storage, that is used as an optimization and not
 /// to preserve information from query to query. However it does retain handles
 /// to various other analyses and must be recomputed when those analyses are.
-class BasicAAResult : public AAResultBase<BasicAAResult> {
-  friend AAResultBase<BasicAAResult>;
-
+class BasicAAResult : public AAResultBase {
   const DataLayout &DL;
   const Function &F;
   const TargetLibraryInfo &TLI;
   AssumptionCache &AC;
   DominatorTree *DT;
-  PhiValues *PV;
 
 #if INTEL_CUSTOMIZATION
   /// The maximum number of uses to explore for PointerMayBeCaptured() calls.
@@ -102,9 +98,8 @@ private:
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
-                DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
-                unsigned OptLevel = 2u) // INTEL
-      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
+                DominatorTree *DT = nullptr, unsigned OptLevel = 2u) // INTEL
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT) // INTEL
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);
@@ -113,11 +108,10 @@ public:
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
-        DT(Arg.DT), PV(Arg.PV), // INTEL
-        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
+        DT(Arg.DT), PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
   BasicAAResult(BasicAAResult &&Arg)
       : AAResultBase(std::move(Arg)), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI),
-        AC(Arg.AC), DT(Arg.DT), PV(Arg.PV), // INTEL
+        AC(Arg.AC), DT(Arg.DT), // INTEL
         PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {}     // INTEL
 
   /// Handle invalidation events in the new pass manager.
@@ -127,15 +121,10 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI);
-
-  // Compute modref info for a call's operand bundles.
-  ModRefInfo getDirectiveModRefInfo(const CallBase *Call,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
@@ -143,38 +132,28 @@ public:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
 
-  /// Chases pointers until we find a (constant global) or not.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal);
+  /// Returns a bitmask that should be unconditionally applied to the ModRef
+  /// info of a memory location. This allows us to eliminate Mod and/or Ref
+  /// from the ModRef info based on the knowledge that the memory location
+  /// points to constant and/or locally-invariant memory.
+  ///
+  /// If IgnoreLocals is true, then this method returns NoModRef for memory
+  /// that points to a local alloca.
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                               bool IgnoreLocals = false);
 
   /// Get the location associated with a pointer argument of a callsite.
   ModRefInfo getArgModRefInfo(const CallBase *Call, unsigned ArgIdx);
 
   /// Returns the behavior when calling the given call site.
-  FunctionModRefBehavior getModRefBehavior(const CallBase *Call);
+  MemoryEffects getMemoryEffects(const CallBase *Call, AAQueryInfo &AAQI);
 
   /// Returns the behavior when calling the given function. For use when the
   /// call site is not known.
-  FunctionModRefBehavior getModRefBehavior(const Function *Fn);
+  MemoryEffects getMemoryEffects(const Function *Fn);
 
 private:
   struct DecomposedGEP;
-
-  /// Tracks phi nodes we have visited.
-  ///
-  /// When interpret "Value" pointer equality as value equality we need to make
-  /// sure that the "Value" is not part of a cycle. Otherwise, two uses could
-  /// come from different "iterations" of a cycle and see different values for
-  /// the same "Value" pointer.
-  ///
-  /// The following example shows the problem:
-  ///   %p = phi(%alloca1, %addr2)
-  ///   %l = load %ptr
-  ///   %addr1 = gep, %alloca2, 0, %l
-  ///   %addr2 = gep  %alloca2, 0, (%l + 1)
-  ///      alias(%p, %addr1) -> MayAlias !
-  ///   store %l, ...
-  SmallPtrSet<const BasicBlock *, 8> VisitedPhiBBs;
 
   /// Tracks instructions visited by pointsToConstantMemory.
   SmallPtrSet<const Value *, 16> Visited;
@@ -199,15 +178,16 @@ private:
   /// will therefore conservatively refuse to decompose these expressions.
   /// However, we know that, for all %x, zext(%x) != zext(%x + 1), even if
   /// the addition overflows.
-  bool
-  constantOffsetHeuristic(const DecomposedGEP &GEP, LocationSize V1Size,
-                          LocationSize V2Size, AssumptionCache *AC,
-                          DominatorTree *DT);
+  bool constantOffsetHeuristic(const DecomposedGEP &GEP, LocationSize V1Size,
+                               LocationSize V2Size, AssumptionCache *AC,
+                               DominatorTree *DT, const AAQueryInfo &AAQI);
 
-  bool isValueEqualInPotentialCycles(const Value *V1, const Value *V2);
+  bool isValueEqualInPotentialCycles(const Value *V1, const Value *V2,
+                                     const AAQueryInfo &AAQI);
 
   void subtractDecomposedGEPs(DecomposedGEP &DestGEP,
-                              const DecomposedGEP &SrcGEP);
+                              const DecomposedGEP &SrcGEP,
+                              const AAQueryInfo &AAQI);
 
   AliasResult aliasGEP(const AddressOperator *V1,   // INTEL
                        LocationSize V1Size,         // INTEL
@@ -221,6 +201,11 @@ private:
   AliasResult aliasSelect(const SelectInst *SI, LocationSize SISize,
                           const Value *V2, LocationSize V2Size,
                           AAQueryInfo &AAQI);
+
+#if INTEL_CUSTOMIZATION
+  // Check if the input value O1 is captured by the input value O2
+  bool valueIsNotCapturedBeforeOrAt(const Value *O1, const Value *O2);
+#endif // INTEL_CUSTOMIZATION
 
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
                          const Value *V2, LocationSize V2Size,
@@ -276,8 +261,8 @@ BasicAAResult createLegacyPMBasicAAResult(Pass &P, Function &F);
 /// they live long enough to be queried, but we re-use them each time.
 class LegacyAARGetter {
   Pass &P;
-  Optional<BasicAAResult> BAR;
-  Optional<AAResults> AAR;
+  std::optional<BasicAAResult> BAR;
+  std::optional<AAResults> AAR;
 
 public:
   LegacyAARGetter(Pass &P) : P(P) {}

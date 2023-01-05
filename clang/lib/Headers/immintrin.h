@@ -313,17 +313,6 @@ typedef struct __tile1024i_str {
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_IFMA */
-#if defined(__AVXIFMA_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxifma/avxifmaintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AVX_IFMA */
-/* end INTEL_CUSTOMIZATION */
-
-/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512IFMA__) && defined(__AVX512VL__)) ||                      \
     defined(__M_INTRINSIC_PROMOTE__)
@@ -336,6 +325,20 @@ typedef struct __tile1024i_str {
     defined(__AVX512VBMI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vbmiintrin.h>
+#endif
+
+/* INTEL_CUSTOMIZATION */
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
+#include <avxifmaintrin.h>
+#endif
+
+/* INTEL_CUSTOMIZATION */
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXNECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
+#include <avxneconvertintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
@@ -369,27 +372,35 @@ typedef struct __tile1024i_str {
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512FP16__)
+    defined(__AVX512FP16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512fp16intrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512FP16__))
+    (defined(__AVX512VL__) && defined(__AVX512FP16__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlfp16intrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+#ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX512BF16__) || defined(__AVX256P__) ||                         \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16intrin.h>
 #endif
+#endif
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
+#ifndef __SYCL_DEVICE_ONLY__
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VL__) && defined(__AVX512BF16__)) ||                      \
-    defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlbf16intrin.h>
 #endif
+#endif
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_BF16 */
@@ -431,25 +442,19 @@ typedef struct __tile1024i_str {
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
-#if defined(__AVXVNNIINT8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVXVNNIINT8__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxvnniint8/avxvnniint8intrin.h>
+/* end INTEL_CUSTOMIZATION */
+#include <avxvnniint8intrin.h>
 #endif
-#endif
-/* end INTEL_FEATURE_ISA_AVX_VNNI_INT8 */
 
+/* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
-/*
- * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVXDOTPRODPHPS_SUPPORTED__)
- * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)"
- *
- */
-#if defined(__AVXDOTPRODPHPS__) && defined(__AVX512FP16__)
+#if defined(__AVXDOTPRODPHPS_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxdotprodphps/avxdotprodphpsintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /* end INTEL_CUSTOMIZATION */
@@ -472,51 +477,43 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX512_VNNI_FP16 */
-/*
- * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVX512DOTPROD_SUPPORTED__)
- * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
- *
- */
-#if defined(__AVX512VNNIFP16__)
+#if defined(__AVX512VNNIFP16_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VNNIFP16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vnnifp16/avx512vnnifp16intrin.h>
 #endif
-#if defined(__AVX512VL__) && defined(__AVX512VNNIFP16__)
-#include <avx512vnnifp16/avx512vldotprodphpsintrin.h>
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512VNNIFP16__)) ||                  \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vnnifp16/avx512vlvnnifp16intrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_VNNI_FP16 */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_CONVERT */
-/*
- * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVXCONVERT_SUPPORTED__)
- * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
- *
- */
-#if defined(__AVXCONVERT__) && defined(__AVX512FP16__)
+#if defined(__AVXCONVERT_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxconvert/avxconvertintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_CONVERT */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX512_CONVERT */
-/*
- * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVX512CONVERT_SUPPORTED__)
- * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
- *
- */
-#if defined(__AVX512CONVERT__)
+#if defined(__AVX512CONVERT_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512convert/avx512convertintrin.h>
 #endif
-#if defined(__AVX512VL__) && defined(__AVX512CONVERT__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512_CONVERT__)) ||                  \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512convert/avx512vlconvertintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_CONVERT */
 /* end INTEL_CUSTOMIZATION */
@@ -604,15 +601,11 @@ typedef struct __tile1024i_str {
 /* end INTEL_FEATURE_ISA_AVX_RAO_INT */
 
 /* INTEL_FEATURE_ISA_AVX_RAO_FP */
-/*
- * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVXRAOFP_SUPPORTED__)
- * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVXRAOFP__) || defined(__M_INTRINSIC_PROMOTE__)"
- *
- */
-#if defined(__AVXRAOFP__) && defined(__AVX512FP16__)
+#if defined(__AVXRAOFP_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXRAOFP__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxraofp/avxraofpintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_RAO_FP */
 
@@ -636,46 +629,42 @@ typedef struct __tile1024i_str {
 /* end INTEL_FEATURE_ISA_AVX512_RAO_INT */
 
 /* INTEL_FEATURE_ISA_AVX512_RAO_FP */
-/* FIXME: Change these When _Float16 type is supported */
-#if (defined(__AVXRAOFP__) || defined(__AVX512RAOFP__)) && defined(__AVX512FP16__)
+#if defined(__AVXRAOFP__) || defined(__AVX512RAOFP__)
 #include <avx512raofp/avx512raofpintrin.h>
 #endif
-#if (defined(__AVXRAOFP__) ||                                                  \
-     ((defined(__AVX512RAOFP__) && defined(__AVX512VL__)))) &&                 \
-    defined(__AVX512FP16__)
+#if defined(__AVXRAOFP__) ||                                                   \
+    ((defined(__AVX512RAOFP__) && defined(__AVX512VL__)))
 #include <avx512raofp/avx512vlraofpintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_RAO_FP */
 
-/* INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
-/* FIXME: Change these When _Float16 type is supported */
-#if defined(__AMXAVX512CVTROW_SUPPORTED__)
-#if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXAVX512CVTROW__) && defined(__AVX512FP16__) || defined(__M_INTRINSIC_PROMOTE__)) \
-    && defined(__AVX512FP16__)
-#include <amxavx512cvtrow/amxavx512cvtrowintrin.h>
+/* INTEL_FEATURE_ISA_AMX_AVX512 */
+#if defined(__AMXAVX512_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXAVX512__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxavx512/amxavx512intrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
+/* end INTEL_FEATURE_ISA_AMX_AVX512 */
 
-/* INTEL_FEATURE_ISA_AVX_NE_CONVERT */
-/* FIXME: Change these When _Float16 type is supported */
-#if defined(__AVXNECONVERT__) && defined(__AVX512FP16__)
-#include <avxneconvert/avxneconvertintrin.h>
+/* INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV */
+#if defined(__AMXAVX512TILE16MOV_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXAVX512TILE16MOV__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <amxavx512tile16mov/amxavx512tile16movintrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_AVX_NE_CONVERT */
+#endif
+/* end INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV */
 
 /* INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
-/* FIXME: Change these When _Float16 type is supported */
 #if defined(__AVX512NECONVERT_SUPPORTED__)
-#if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||     \
-    defined(__AVX512NECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)) &&       \
-    defined(__AVX512FP16__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512NECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512neconvert/avx512neconvertintrin.h>
 #endif
-#if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||     \
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512NECONVERT__) && defined(__AVX512VL__)) ||                 \
-    defined(__M_INTRINSIC_PROMOTE__)) && defined(__AVX512FP16__)
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512neconvert/avx512vlneconvertintrin.h>
 #endif
 #endif /* __AVX512NECONVERT_SUPPORTED__ */
@@ -1009,6 +998,10 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_CUSTOMIZATION */
 #include <invpcidintrin.h>
 #endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXFP16__)
+#include <amxfp16intrin.h>
+#endif
 
 /* INTEL_CUSTOMIZATION */
 
@@ -1017,6 +1010,7 @@ _storebe_i64(void * __P, long long __D) {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXFP8__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxfp8intrin.h>
+#include <Intel_amxfp8futureintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP8 */
@@ -1113,15 +1107,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE_EVEX */
-
-/* INTEL_FEATURE_ISA_AMX_FP16 */
-#if defined(__AMXFP16_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxfp16intrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AMX_FP16 */
 
 /* INTEL_FEATURE_ISA_AMX_CONVERT */
 #if defined(__AMXCONVERT_SUPPORTED__)
@@ -1220,17 +1205,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_VPINSR_VPEXTR */
 
-/* INTEL_FEATURE_ISA_CMPCCXADD */
-/* AUTO GENERATED BY TOOL */
-#if defined(__CMPCCXADD_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CMPCCXADD__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <cmpccxadd/cmpccxaddintrin.h>
-#endif
-#endif
-/* end AUTO GENERATED BY TOOL */
-/* end INTEL_FEATURE_ISA_CMPCCXADD */
-
 /* INTEL_FEATURE_ISA_AVX512_SAT_CVT */
 /* AUTO GENERATED BY TOOL */
 #if defined(__AVX512SATCVT_SUPPORTED__)
@@ -1250,13 +1224,18 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AVX512_SAT_CVT */
 
 /* INTEL_FEATURE_ISA_AVX512_BF16_NE */
-// __bf16 is not supported by default, include below when target supports.
-#if defined(__AVX512BF16NE__)
+#if defined(__AVX512BF16NE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512BF16NE__) || defined(__AVX256P__) ||                       \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512bf16neintrin.h>
 #endif
 
-#if defined(__AVX512BF16NE__) && defined(__AVX512VL__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512BF16NE__) && defined(__AVX512VL__)) ||                    \
+    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512vlbf16neintrin.h>
+#endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_BF16_NE */
 
@@ -1327,6 +1306,22 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_AVX512_REDUCTION2 */
 /* end INTEL_CUSTOMIZATION */
 
+/* INTEL_FEATURE_ISA_AVX512_VNNI_FP8 */
+/* AUTO GENERATED BY TOOL */
+#if defined(__AVX512VNNIFP8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VNNIFP8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vnnifp8/avx512vnnifp8intrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VNNIFP8__) && defined(__AVX512VL__)) ||                   \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vnnifp8/avx512vlvnnifp8intrin.h>
+#endif
+#endif
+/* end AUTO GENERATED BY TOOL */
+/* end INTEL_FEATURE_ISA_AVX512_VNNI_FP8 */
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>
@@ -1349,6 +1344,17 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlvp2intersectintrin.h>
 #endif
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_VPMM */
+#if defined(__AMX512VPMM_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VPMM__)
+#include <avx512vpmm/avx512vpmmintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_VPMM */
+/* end INTEL_CUSTOMIZATION */
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__ENQCMD__)

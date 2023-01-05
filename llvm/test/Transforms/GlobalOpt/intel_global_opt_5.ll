@@ -3,7 +3,6 @@
 ; Also verifies that GlobalOpt is not triggered to replace use of GV in
 ; @foo32.
 
-; RUN: opt < %s -S -globalopt | FileCheck %s
 ; RUN: opt < %s -S -passes='globalopt' | FileCheck %s
 
 ; CHECK: %call1 = tail call i32 @foo64(i64 12345)

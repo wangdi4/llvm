@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>,hir-loop-reversal" -aa-pipeline="basic-aa" -print-before=hir-loop-reversal -print-after=hir-loop-reversal %s 2>&1 | FileCheck %s
 ;
 ; Verify that loop is not reversed because the safe reduction has unsafe algebra.

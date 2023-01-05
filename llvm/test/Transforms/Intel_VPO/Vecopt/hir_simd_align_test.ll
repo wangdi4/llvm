@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec -print-after=hir-vplan-vec -print-after=vplan-vec -vplan-enable-peeling < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,vplan-vec' -print-after=vplan-vec -vplan-enable-peeling < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we suppress dynamic peeling in HIR path due to
 ; presence of simd aligned clause. This test will be updated once we start

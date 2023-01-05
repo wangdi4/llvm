@@ -2,7 +2,6 @@
 ; if a structure doesn't have fields.
 
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -dtrans-reorderfields  -disable-output  2>/dev/null
 ; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-reorderfields  -disable-output  2>/dev/null
 
 

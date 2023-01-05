@@ -65,6 +65,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cmath>
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -920,6 +921,22 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       }
       LLVM_FALLTHROUGH;
     }
+    case Instruction::Shl: {
+      int64_t Op1IntVal;
+      int64_t Op0StrideIntVal;
+      bool Op1IsInt = getConstantIntVal(Op1, Op1IntVal);
+      bool Shape0StrideIsInt = getConstantIntVal(Shape0.getStride(),
+                                                 Op0StrideIntVal);
+      if (Op1IsInt && Op1IntVal >=0 && Shape0StrideIsInt &&
+          I->hasNoSignedWrap() && I->hasNoUnsignedWrap()) {
+        // Be conservative by checking for nuw/nsw flags
+        // See CMPLRLLVM-41456 - may need to be done for all binary ops
+        int64_t MulFactor = std::pow(2, Op1IntVal); // each shift is mul by 2
+        int64_t NewStrideVal = Op0StrideIntVal * MulFactor;
+        return getStridedVectorShape(NewStrideVal);
+      }
+      LLVM_FALLTHROUGH;
+    }
     default:
       return getRandomVectorShape();
   }
@@ -1582,11 +1599,15 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     const VPReductionInit *Init = cast<VPReductionInit>(I);
     NewShape =
       Init->isScalar() ? getUniformVectorShape() : getRandomVectorShape();
-  } else if (Opcode == VPInstruction::ReductionFinal)
+  } else if (Opcode == VPInstruction::ReductionInitArr)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinal)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalInscan)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalUdr)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalArr)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();
@@ -1607,6 +1628,14 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::PrivateLastValueNonPOD)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueNonPODMasked)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateArrayNonPODCtor)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateArrayNonPODDtor)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateLastValueArrayNonPOD)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateLastValueArrayNonPODMasked)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
@@ -1653,6 +1682,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::RunningExclusiveReduction)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningInclusiveUDS)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::RunningExclusiveUDS)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressStore)
@@ -1864,6 +1897,7 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
           (It != OrigClonedValuesMap.end()) ? It->second : OrigStride;
     NewClonedShape->setStride(ClonedStride);
     ClonedVPDA->updateVectorShape(ClonedVal, *NewClonedShape);
+    delete NewClonedShape;
   }
 }
 

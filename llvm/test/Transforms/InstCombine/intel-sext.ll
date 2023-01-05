@@ -1,4 +1,3 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
 ; RUN: opt < %s -passes=instcombine -S | FileCheck %s
 
 ; The following test case checks that the SExt instruction in %tmp2 is

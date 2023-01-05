@@ -285,6 +285,11 @@ public:
   /// for non-builtins.
   bool canBeRedeclared(unsigned ID) const;
 
+  /// Return true if this function can be constant evaluated by Clang frontend.
+  bool isConstantEvaluated(unsigned ID) const {
+    return strchr(getRecord(ID).Attributes, 'E') != nullptr;
+  }
+
 private:
   const Info &getRecord(unsigned ID) const;
 

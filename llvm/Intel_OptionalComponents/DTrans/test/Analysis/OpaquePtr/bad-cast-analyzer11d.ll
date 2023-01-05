@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
+
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case where an alloc store
@@ -140,7 +140,7 @@ declare !intel.dtrans.func.type !35 dso_local noalias noundef "intel_dtrans_func
 ; Function Attrs: mustprogress nofree noinline norecurse nosync nounwind uwtable willreturn writeonly
 define internal void @coder1_startup(ptr nocapture "intel_dtrans_func_index"="1" %arg0) #4 !intel.dtrans.func.type !36 {
 entry:
-  %t3 = load i32, i32* @myglobalint2;
+  %t3 = load i32, ptr @myglobalint2;
   %t4 = icmp eq i32 %t3, 70
   br i1 %t4, label %t5, label %t11
 t5:

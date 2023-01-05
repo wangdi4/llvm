@@ -350,6 +350,7 @@ public:
     Op = OP;
     Lp = nullptr;
     Parent = nullptr;
+    SNodeNum = UINT_MAX;
   };
 
   // Returns the true target basic block for BlockSNode. This information 
@@ -361,10 +362,16 @@ public:
   virtual const SNode *getFalseTarget() const = 0;
 
   // Sets the id for the SNode
-  void setSNodeNum(unsigned int Num) { SNodeNum = Num; }
+  void setSNodeNum(unsigned int Num) {
+    assert(Num != UINT_MAX && "Invalid node num");
+    SNodeNum = Num;
+  }
 
   // Returns the id of the SNode
-  unsigned int getSNodeNum() const { return SNodeNum; }
+  unsigned int getSNodeNum() const {
+    assert(SNodeNum != UINT_MAX && "Invalid node num");
+    return SNodeNum;
+  }
 
   // Returns the type of the SNode
   SNodeOp getOp() const { return Op; }
@@ -624,10 +631,10 @@ public:
 class SNodeAnalysis : public FunctionPass {
 private:
   // the LoopInfo
-  LoopInfo *LI;
+  LoopInfo *LI = nullptr;
   
   // the Function
-  Function *F;
+  Function *F = nullptr;
   
   // the map table between the basic block and the SNode
   BB2SNodeMapTy BB2SNodeMap;
@@ -639,7 +646,7 @@ private:
   SNodeVectorTy SNodes;
   
   // the first SNode after hierarchical cfg is formed
-  SNode *EntrySNode;
+  SNode *EntrySNode = nullptr;
   
   void operator=(const SNodeAnalysis &) = delete;
   SNodeAnalysis(const SNodeAnalysis &) = delete;

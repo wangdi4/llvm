@@ -1,5 +1,4 @@
 ; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks implicit gids are added to not-inlined function which is only
 ; used in kernel with barrier path.

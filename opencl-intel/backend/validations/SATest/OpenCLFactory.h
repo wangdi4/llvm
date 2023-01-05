@@ -19,41 +19,40 @@
 
 #include <string>
 
-namespace Validation
-{
-        /// @brief This class is a factory of OpenCL program, program runner and reference runner
-    class OpenCLFactory : public IRunnerFactory
-    {
-    public:
-        OpenCLFactory(void);
-        ~OpenCLFactory(void);
+namespace Validation {
+/// @brief This class is a factory of OpenCL program, program runner and
+/// reference runner
+class OpenCLFactory : public IRunnerFactory {
+public:
+  OpenCLFactory(void);
+  ~OpenCLFactory(void);
 
-        /// @brief Creates new OpenCL program
-        virtual IProgram *
-        CreateProgram(IProgramConfiguration *programConfig,
-                      IRunConfiguration *pRunConfiguration) override;
+  /// @brief Creates new OpenCL program
+  virtual IProgram *
+  CreateProgram(IProgramConfiguration *programConfig,
+                IRunConfiguration *pRunConfiguration) override;
 
-        /// @brief Creates new program configuration
-        virtual IProgramConfiguration *
-        CreateProgramConfiguration(const std::string &configFile,
-                                   const std::string &baseDir) override;
+  /// @brief Creates new program configuration
+  virtual IProgramConfiguration *
+  CreateProgramConfiguration(const std::string &configFile,
+                             const std::string &baseDir) override;
 
-        /// @brief Creates new run configuration
-        virtual IRunConfiguration *CreateRunConfiguration() override;
+  /// @brief Creates new run configuration
+  virtual IRunConfiguration *CreateRunConfiguration() override;
 
-        /// @brief Creates new OpenCL program runner
-        virtual IProgramRunner *CreateProgramRunner(
-            const IRunComponentConfiguration *pRunConfiguration) override;
+  /// @brief Creates new OpenCL program runner
+  virtual IProgramRunner *CreateProgramRunner(
+      const IRunComponentConfiguration *pRunConfiguration) override;
 
-        /// @brief Creates new OpenCL reference runner
-        virtual IProgramRunner *CreateReferenceRunner(
-            const IRunComponentConfiguration *pRunConfiguration) override;
+  /// @brief Creates new OpenCL reference runner
+  virtual IProgramRunner *CreateReferenceRunner(
+      const IRunComponentConfiguration *pRunConfiguration) override;
 
-        /// @brief Creates new run results comparator for given platform
-        virtual IRunResultComparator *
-        CreateComparator(IProgramConfiguration *pProgramConfiguration,
-                         IRunConfiguration *pRunConfiguration) override;
-    };
-}
+  /// @brief Creates new run results comparator for given platform
+  virtual IRunResultComparator *
+  CreateComparator(IProgramConfiguration *pProgramConfiguration,
+                   IRunConfiguration *pRunConfiguration) override;
+};
+} // namespace Validation
 
 #endif // OPENCL_FACTORY_H

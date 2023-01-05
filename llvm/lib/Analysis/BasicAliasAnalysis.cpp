@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -39,12 +39,9 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -72,12 +69,21 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/KnownBits.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <utility>
 
 #define DEBUG_TYPE "basicaa"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 
@@ -100,12 +106,6 @@ STATISTIC(SearchLimitReached, "Number of times the limit to "
                               "decompose GEPs is reached");
 STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 
-/// Cutoff after which to stop analysing a set of phi nodes potentially involved
-/// in a cycle. Because we are analysing 'through' phi nodes, we need to be
-/// careful with value equivalence. We use reachability to make sure a value
-/// cannot be involved in a cycle.
-const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
-
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject().
 static const unsigned MaxLookupSearchDepth = 6;
@@ -117,8 +117,7 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
   // may be created without handles to some analyses and in that case don't
   // depend on them.
   if (Inv.invalidate<AssumptionAnalysis>(Fn, PA) ||
-      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)) ||
-      (PV && Inv.invalidate<PhiValuesAnalysis>(Fn, PA)))
+      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)))
     return true;
 
   // Otherwise this analysis result remains valid.
@@ -335,7 +334,9 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
     return true;
 
   return I != Iter.first->second &&
-         !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, &LI);
+#if INTEL_CUSTOMIZATION
+         !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, LI);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void EarliestEscapeInfo::removeInstruction(Instruction *I) {
@@ -601,8 +602,8 @@ struct BasicAAResult::DecomposedGEP {
   // Scaled variable (non-constant) indices.
   SmallVector<VariableGEPIndex, 4> VarIndices;
   // Are all operations inbounds GEPs or non-indexing operations?
-  // (None iff expression doesn't involve any geps)
-  Optional<bool> InBounds;
+  // (std::nullopt iff expression doesn't involve any geps)
+  std::optional<bool> InBounds;
 
   void dump() const {
     print(dbgs());
@@ -761,7 +762,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       // We are not a GEP, but GEPOrSubsOperators may still be in bounds.
       // Note that upstream does this for GEPs below.
       if (auto *GOS = dyn_cast<GEPOrSubsOperator>(V)) {
-        if (Decomposed.InBounds == None)
+        if (Decomposed.InBounds == std::nullopt)
           Decomposed.InBounds = GOS->isInBounds();
         else if (!GOS->isInBounds())
           Decomposed.InBounds = false;
@@ -793,7 +794,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
 
     // Track whether we've seen at least one in bounds gep, and if so, whether
     // all geps parsed were in bounds.
-    if (Decomposed.InBounds == None)
+    if (Decomposed.InBounds == std::nullopt)
       Decomposed.InBounds = GEPOp->isInBounds();
     else if (!GEPOp->isInBounds())
       Decomposed.InBounds = false;
@@ -896,36 +897,46 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   return Decomposed;
 }
 
-/// Returns whether the given pointer value points to memory that is local to
-/// the function, with global constants being considered local to all
-/// functions.
-bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
-                                           AAQueryInfo &AAQI, bool OrLocal) {
+ModRefInfo BasicAAResult::getModRefInfoMask(const MemoryLocation &Loc,
+                                            AAQueryInfo &AAQI,
+                                            bool IgnoreLocals) {
   assert(Visited.empty() && "Visited must be cleared after use!");
+  auto _ = make_scope_exit([&] { Visited.clear(); });
 
   unsigned MaxLookup = 8;
   SmallVector<const Value *, 16> Worklist;
   Worklist.push_back(Loc.Ptr);
+  ModRefInfo Result = ModRefInfo::NoModRef;
+
   do {
     const Value *V = getUnderlyingObject(Worklist.pop_back_val());
-    if (!Visited.insert(V).second) {
-      Visited.clear();
-      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
-    }
-
-    // An alloca instruction defines local memory.
-    if (OrLocal && isa<AllocaInst>(V))
+    if (!Visited.insert(V).second)
       continue;
 
-    // A global constant counts as local memory for our purposes.
+    // Ignore allocas if we were instructed to do so.
+    if (IgnoreLocals && isa<AllocaInst>(V))
+      continue;
+
+    // If the location points to memory that is known to be invariant for
+    // the life of the underlying SSA value, then we can exclude Mod from
+    // the set of valid memory effects.
+    //
+    // An argument that is marked readonly and noalias is known to be
+    // invariant while that function is executing.
+    if (const Argument *Arg = dyn_cast<Argument>(V)) {
+      if (Arg->hasNoAliasAttr() && Arg->onlyReadsMemory()) {
+        Result |= ModRefInfo::Ref;
+        continue;
+      }
+    }
+
+    // A global constant can't be mutated.
     if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
       // Note: this doesn't require GV to be "ODR" because it isn't legal for a
       // global to be marked constant in some modules and non-constant in
       // others.  GV may even be a declaration, not a definition.
-      if (!GV->isConstant()) {
-        Visited.clear();
-        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
-      }
+      if (!GV->isConstant())
+        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       continue;
     }
 
@@ -940,21 +951,21 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
     // the phi.
     if (const PHINode *PN = dyn_cast<PHINode>(V)) {
       // Don't bother inspecting phi nodes with many operands.
-      if (PN->getNumIncomingValues() > MaxLookup) {
-        Visited.clear();
-        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
-      }
+      if (PN->getNumIncomingValues() > MaxLookup)
+        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       append_range(Worklist, PN->incoming_values());
       continue;
     }
 
     // Otherwise be conservative.
-    Visited.clear();
-    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   } while (!Worklist.empty() && --MaxLookup);
 
-  Visited.clear();
-  return Worklist.empty();
+  // If we hit the maximum number of instructions to examine, be conservative.
+  if (!Worklist.empty())
+    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+
+  return Result;
 }
 
 static bool isIntrinsicCall(const CallBase *Call, Intrinsic::ID IID) {
@@ -963,90 +974,42 @@ static bool isIntrinsicCall(const CallBase *Call, Intrinsic::ID IID) {
 }
 
 /// Returns the behavior when calling the given call site.
-FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
-  if (Call->doesNotAccessMemory())
-    // Can't do better than this.
-    return FunctionModRefBehavior::none();
+MemoryEffects BasicAAResult::getMemoryEffects(const CallBase *Call,
+                                              AAQueryInfo &AAQI) {
+  MemoryEffects Min = Call->getAttributes().getMemoryEffects();
 
-  // If the callsite knows it only reads memory, don't return worse
-  // than that.
-  ModRefInfo MR = ModRefInfo::ModRef;
-  if (Call->onlyReadsMemory())
-    MR = ModRefInfo::Ref;
-  else if (Call->onlyWritesMemory())
-    MR = ModRefInfo::Mod;
-
-  FunctionModRefBehavior Min(MR);
-  if (Call->onlyAccessesArgMemory())
-    Min = FunctionModRefBehavior::argMemOnly(MR);
-  else if (Call->onlyAccessesInaccessibleMemory())
-    Min = FunctionModRefBehavior::inaccessibleMemOnly(MR);
-  else if (Call->onlyAccessesInaccessibleMemOrArgMem())
-    Min = FunctionModRefBehavior::inaccessibleOrArgMemOnly(MR);
-
-  // If the call has operand bundles then aliasing attributes from the function
-  // it calls do not directly apply to the call.  This can be made more precise
-  // in the future.
-  if (!Call->hasOperandBundles())
-    if (const Function *F = Call->getCalledFunction())
-      Min &= getBestAAResults().getModRefBehavior(F);
+  if (const Function *F = dyn_cast<Function>(Call->getCalledOperand())) {
+    MemoryEffects FuncME = AAQI.AAR.getMemoryEffects(F);
+    // Operand bundles on the call may also read or write memory, in addition
+    // to the behavior of the called function.
+    if (Call->hasReadingOperandBundles())
+      FuncME |= MemoryEffects::readOnly();
+    if (Call->hasClobberingOperandBundles())
+      FuncME |= MemoryEffects::writeOnly();
+    Min &= FuncME;
+  }
 
   return Min;
 }
 
 /// Returns the behavior when calling the given function. For use when the call
 /// site is not known.
-FunctionModRefBehavior BasicAAResult::getModRefBehavior(const Function *F) {
-  // If the function declares it doesn't access memory, we can't do better.
-  if (F->doesNotAccessMemory())
-    return FunctionModRefBehavior::none();
+MemoryEffects BasicAAResult::getMemoryEffects(const Function *F) {
+  switch (F->getIntrinsicID()) {
+  case Intrinsic::experimental_guard:
+  case Intrinsic::experimental_deoptimize:
+    // These intrinsics can read arbitrary memory, and additionally modref
+    // inaccessible memory to model control dependence.
+    return MemoryEffects::readOnly() |
+           MemoryEffects::inaccessibleMemOnly(ModRefInfo::ModRef);
+  }
 
-  // If the function declares it only reads memory, go with that.
-  ModRefInfo MR = ModRefInfo::ModRef;
-  if (F->onlyReadsMemory())
-    MR = ModRefInfo::Ref;
-  else if (F->onlyWritesMemory())
-    MR = ModRefInfo::Mod;
-
-  if (F->onlyAccessesArgMemory())
-    return FunctionModRefBehavior::argMemOnly(MR);
-  if (F->onlyAccessesInaccessibleMemory())
-    return FunctionModRefBehavior::inaccessibleMemOnly(MR);
-  if (F->onlyAccessesInaccessibleMemOrArgMem())
-    return FunctionModRefBehavior::inaccessibleOrArgMemOnly(MR);
-  return FunctionModRefBehavior(MR);
-}
-
-/// Returns true if this is a writeonly (i.e Mod only) parameter.
-static bool isWriteOnlyParam(const CallBase *Call, unsigned ArgIdx,
-                             const TargetLibraryInfo &TLI) {
-  if (Call->paramHasAttr(ArgIdx, Attribute::WriteOnly))
-    return true;
-
-  // We can bound the aliasing properties of memset_pattern16 just as we can
-  // for memcpy/memset.  This is particularly important because the
-  // LoopIdiomRecognizer likes to turn loops into calls to memset_pattern16
-  // whenever possible.
-  // FIXME Consider handling this in InferFunctionAttr.cpp together with other
-  // attributes.
-  LibFunc F;
-  if (Call->getCalledFunction() &&
-      TLI.getLibFunc(*Call->getCalledFunction(), F) &&
-      F == LibFunc_memset_pattern16 && TLI.has(F))
-    if (ArgIdx == 0)
-      return true;
-
-  // TODO: memset_pattern4, memset_pattern8
-  // TODO: _chk variants
-  // TODO: strcmp, strcpy
-
-  return false;
+  return F->getMemoryEffects();
 }
 
 ModRefInfo BasicAAResult::getArgModRefInfo(const CallBase *Call,
                                            unsigned ArgIdx) {
-  // Checking for known builtin intrinsics and target library functions.
-  if (isWriteOnlyParam(Call, ArgIdx, TLI))
+  if (Call->paramHasAttr(ArgIdx, Attribute::WriteOnly))
     return ModRefInfo::Mod;
 
   if (Call->paramHasAttr(ArgIdx, Attribute::ReadOnly))
@@ -1089,31 +1052,6 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
   return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
 }
 
-#if INTEL_CUSTOMIZATION
-// Tests the operand bundles on a call, against the given Loc.
-// Returns ModRef if there may/must be an alias, Ref otherwise.
-// Does not analyze the call parameters.
-ModRefInfo BasicAAResult::getDirectiveModRefInfo(const CallBase *Call,
-                                                 const MemoryLocation &Loc,
-                                                 AAQueryInfo &AAQI) {
-  for (unsigned I = 0; I < Call->getNumOperandBundles(); ++I) {
-    OperandBundleUse BU = Call->getOperandBundleAt(I);
-    for (const Use &U : BU.Inputs) {
-      Value *V = U;
-      if (V->getType()->isPointerTy()) {
-        AliasResult AR = getBestAAResults().alias(
-            MemoryLocation::getBeforeOrAfter(V), Loc, AAQI);
-        if (AR != AliasResult::NoAlias)
-          return ModRefInfo::ModRef;
-      }
-    }
-  }
-  // Even if all are "NoAlias" (or no operand bundles), return "Ref".
-  // We want to avoid store motion across calls with operand bundles.
-  return ModRefInfo::Ref;
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Checks to see if the specified callsite can clobber the specified memory
 /// object.
 ///
@@ -1127,15 +1065,13 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
          "AliasAnalysis query involving multiple functions!");
 
   const Value *Object = getUnderlyingObject(Loc.Ptr);
-
-#if INTEL_CUSTOMIZATION
-  if (vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_SIMD ||
-       vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_END_SIMD)
-    // With SIMD directives, we do not examine the parameters, just
-    // the bundle operands.
-    return getDirectiveModRefInfo(Call, Loc, AAQI);
-#endif // INTEL_CUSTOMIZATION
-
+#if INTEL_COLLAB
+  // Scan the bundle operands of OMP directives. If a bundle operand aliases
+  // the Loc, the OMP directive may  modref the Loc. This prevents
+  // motion in/out of OMP regions.
+  if (vpo::VPOAnalysisUtils::isOpenMPDirective(const_cast<CallBase *>(Call)))
+    return AAQI.AAR.getDirectiveModRefInfo(Call, Loc, AAQI);
+#endif // INTEL_COLLAB
   // Calls marked 'tail' cannot read or write allocas from the current frame
   // because the current frame might be destroyed by the time they run. However,
   // a tail call may use an alloca with byval. Calling with byval copies the
@@ -1182,9 +1118,9 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
 
       // If this is a no-capture pointer argument, see if we can tell that it
       // is impossible to alias the pointer we're checking.
-      AliasResult AR = getBestAAResults().alias(
-          MemoryLocation::getBeforeOrAfter(*CI),
-          MemoryLocation::getBeforeOrAfter(Object), AAQI);
+      AliasResult AR =
+          AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(*CI),
+                         MemoryLocation::getBeforeOrAfter(Object), AAQI);
       // Operand doesn't alias 'Object', continue looking for other aliases
 #if INTEL_CUSTOMIZATION
       // AA currently does not handle vectors of pointers, if we get
@@ -1224,43 +1160,10 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   if (isMallocOrCallocLikeFn(Call, &TLI)) {
     // Be conservative if the accessed pointer may alias the allocation -
     // fallback to the generic handling below.
-    if (getBestAAResults().alias(MemoryLocation::getBeforeOrAfter(Call), Loc,
-                                 AAQI) == AliasResult::NoAlias)
+    if (AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(Call), Loc, AAQI) ==
+        AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
   }
-
-  // Ideally, there should be no need to special case for memcpy/memove
-  // intrinsics here since general machinery (based on memory attributes) should
-  // already handle it just fine. Unfortunately, it doesn't due to deficiency in
-  // operand bundles support. At the moment it's not clear if complexity behind
-  // enhancing general mechanism worths it.
-  // TODO: Consider improving operand bundles support in general mechanism.
-  if (auto *Inst = dyn_cast<AnyMemTransferInst>(Call)) {
-    AliasResult SrcAA =
-        getBestAAResults().alias(MemoryLocation::getForSource(Inst), Loc, AAQI);
-    AliasResult DestAA =
-        getBestAAResults().alias(MemoryLocation::getForDest(Inst), Loc, AAQI);
-    // It's also possible for Loc to alias both src and dest, or neither.
-    ModRefInfo rv = ModRefInfo::NoModRef;
-    if (SrcAA != AliasResult::NoAlias || Call->hasReadingOperandBundles())
-      rv |= ModRefInfo::Ref;
-    if (DestAA != AliasResult::NoAlias || Call->hasClobberingOperandBundles())
-      rv |= ModRefInfo::Mod;
-    return rv;
-  }
-
-  // Guard intrinsics are marked as arbitrarily writing so that proper control
-  // dependencies are maintained but they never mods any particular memory
-  // location.
-  //
-  // *Unlike* assumes, guard intrinsics are modeled as reading memory since the
-  // heap state at the point the guard is issued needs to be consistent in case
-  // the guard invokes the "deopt" continuation.
-  if (isIntrinsicCall(Call, Intrinsic::experimental_guard))
-    return ModRefInfo::Ref;
-  // The same applies to deoptimize which is essentially a guard(false).
-  if (isIntrinsicCall(Call, Intrinsic::experimental_deoptimize))
-    return ModRefInfo::Ref;
 
   // Like assumes, invariant.start intrinsics were also marked as arbitrarily
   // writing so that proper control dependencies are maintained but they never
@@ -1307,12 +1210,12 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call1,
   // possibilities for guard intrinsics.
 
   if (isIntrinsicCall(Call1, Intrinsic::experimental_guard))
-    return isModSet(getModRefBehavior(Call2).getModRef())
+    return isModSet(getMemoryEffects(Call2, AAQI).getModRef())
                ? ModRefInfo::Ref
                : ModRefInfo::NoModRef;
 
   if (isIntrinsicCall(Call2, Intrinsic::experimental_guard))
-    return isModSet(getModRefBehavior(Call1).getModRef())
+    return isModSet(getMemoryEffects(Call1, AAQI).getModRef())
                ? ModRefInfo::Mod
                : ModRefInfo::NoModRef;
 
@@ -1352,9 +1255,9 @@ AliasResult BasicAAResult::aliasGEP(
 
     // If both accesses have unknown size, we can only check whether the base
     // objects don't alias.
-    AliasResult BaseAlias = getBestAAResults().alias(
-        MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-        MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+    AliasResult BaseAlias =
+        AAQI.AAR.alias(MemoryLocation::getBeforeOrAfter(UnderlyingV1),
+                       MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
     return BaseAlias == AliasResult::NoAlias ? AliasResult::NoAlias
                                              : AliasResult::MayAlias;
   }
@@ -1368,7 +1271,7 @@ AliasResult BasicAAResult::aliasGEP(
 
   // Subtract the GEP2 pointer from the GEP1 pointer to find out their
   // symbolic difference.
-  subtractDecomposedGEPs(DecompGEP1, DecompGEP2);
+  subtractDecomposedGEPs(DecompGEP1, DecompGEP2, AAQI);
 
   // If an inbounds GEP would have to start from an out of bounds address
   // for the two to alias, then we can assume noalias.
@@ -1394,11 +1297,11 @@ AliasResult BasicAAResult::aliasGEP(
 #if INTEL_CUSTOMIZATION
     AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
-      PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
+      PreciseBaseAlias = AAQI.AAR.loopCarriedAlias(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     else
-      PreciseBaseAlias = getBestAAResults().alias(
+      PreciseBaseAlias = AAQI.AAR.alias(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     return PreciseBaseAlias;
@@ -1409,11 +1312,11 @@ AliasResult BasicAAResult::aliasGEP(
 #if INTEL_CUSTOMIZATION
   AliasResult BaseAlias = AliasResult::MayAlias;
   if (AAQI.NeedLoopCarried)
-    BaseAlias = getBestAAResults().loopCarriedAlias(
+    BaseAlias = AAQI.AAR.loopCarriedAlias(
         MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
         MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
   else
-    BaseAlias = getBestAAResults().alias(
+    BaseAlias = AAQI.AAR.alias(
         MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
         MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
 #endif // INTEL_CUSTOMIZATION
@@ -1534,7 +1437,7 @@ AliasResult BasicAAResult::aliasGEP(
 
   // Try to determine the range of values for VarIndex such that
   // VarIndex <= -MinAbsVarIndex || MinAbsVarIndex <= VarIndex.
-  Optional<APInt> MinAbsVarIndex;
+  std::optional<APInt> MinAbsVarIndex;
   if (DecompGEP1.VarIndices.size() == 1) {
     // VarIndex = Scale*V.
     const VariableGEPIndex &Var = DecompGEP1.VarIndices[0];
@@ -1569,12 +1472,12 @@ AliasResult BasicAAResult::aliasGEP(
   } else if (DecompGEP1.VarIndices.size() == 2) {
     // VarIndex = Scale*V0 + (-Scale)*V1.
     // If V0 != V1 then abs(VarIndex) >= abs(Scale).
-    // Check that VisitedPhiBBs is empty, to avoid reasoning about
+    // Check that MayBeCrossIteration is false, to avoid reasoning about
     // inequality of values across loop iterations.
     const VariableGEPIndex &Var0 = DecompGEP1.VarIndices[0];
     const VariableGEPIndex &Var1 = DecompGEP1.VarIndices[1];
     if (Var0.Scale == -Var1.Scale && Var0.Val.TruncBits == 0 &&
-        Var0.Val.hasSameCastsAs(Var1.Val) && VisitedPhiBBs.empty() &&
+        Var0.Val.hasSameCastsAs(Var1.Val) && !AAQI.MayBeCrossIteration &&
         isKnownNonEqual(Var0.Val.V, Var1.Val.V, DL, &AC, /* CxtI */ nullptr,
                         DT))
       MinAbsVarIndex = Var0.Scale.abs();
@@ -1590,7 +1493,7 @@ AliasResult BasicAAResult::aliasGEP(
       return AliasResult::NoAlias;
   }
 
-  if (constantOffsetHeuristic(DecompGEP1, V1Size, V2Size, &AC, DT))
+  if (constantOffsetHeuristic(DecompGEP1, V1Size, V2Size, &AC, DT, AAQI))
     return AliasResult::NoAlias;
 
   // Statically, we can see that the base objects are the same, but the
@@ -1598,6 +1501,59 @@ AliasResult BasicAAResult::aliasGEP(
   // little tricks above worked.
   return AliasResult::MayAlias;
 }
+
+#if INTEL_CUSTOMIZATION
+// Return true if the input Value O1 is not captured before or by Value O2.
+// Else return false. This check will use the function
+// EarliestCaptureInfo::isNotCapturedBeforeOrAt, which is a more expensive
+// analysis.
+bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
+                                                 const Value *O2) {
+  if (!DT || O1 == O2)
+    return false;
+
+  assert(O1 && "Trying to check if O1 is captured but value is null");
+  assert(O2 && "Trying to check if O2 will capture but value is null");
+
+  if (!isIdentifiedFunctionLocal(O1))
+    return false;
+
+  auto *Call = dyn_cast<CallBase>(O2);
+  if (!Call)
+    return false;
+
+  // Calls to subscript intrinsics are a form of GEP.
+  // TODO: Subscript instructions shouldn't be here. The function isEscapeSource
+  // calls isIntrinsicReturningPointerAliasingArgumentWithoutCapturing, and it
+  // needs to be updated to consider subscript intrinsics (CMPLRLLVM-42509).
+  if(isa<SubscriptInst>(O2))
+    return false;
+
+  // We currently don't process indirect calls and/or varargs to save compile
+  // time. The function isNotCapturedBeforeOrAt is expensive.
+  auto *F = Call->getCalledFunction();
+  if (Call->isIndirectCall() || !F || F->isVarArg())
+    return false;
+
+  // Do some simple check in case the value is passed to the call.
+  //
+  // NOTE: This is conservative, perhaps we could relax for no-capture and/or
+  // read-only attributes. Also, we may want to check that the call doesn't
+  // have operand bundles too.
+  for (Value *Arg : Call->args()) {
+    if (Arg == O1)
+      return false;
+  }
+
+  // AAQI.CI in BasicAA uses SimpleCaptureInfo, which won't identify if the
+  // captured instruction happens after the value. We are going to use
+  // EarliestEscapeInfo, which checks if the capture instruction happens
+  // after the value.
+  const SmallPtrSet<const Value *, 4> EphValues;
+  EarliestEscapeInfo EI(*DT, EphValues);
+  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Call);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static AliasResult MergeAliasResults(AliasResult A, AliasResult B) {
   // If the results agree, take it.
@@ -1628,29 +1584,29 @@ BasicAAResult::aliasSelect(const SelectInst *SI, LocationSize SISize,
   // If the values are Selects with the same condition, we can do a more precise
   // check: just check for aliases between the values on corresponding arms.
   if (const SelectInst *SI2 = dyn_cast<SelectInst>(V2))
-    if (SI->getCondition() == SI2->getCondition()) {
-      AliasResult Alias = getBestAAResults().alias(
-          MemoryLocation(SI->getTrueValue(), SISize),
-          MemoryLocation(SI2->getTrueValue(), V2Size), AAQI);
+    if (isValueEqualInPotentialCycles(SI->getCondition(), SI2->getCondition(),
+                                      AAQI)) {
+      AliasResult Alias =
+          AAQI.AAR.alias(MemoryLocation(SI->getTrueValue(), SISize),
+                         MemoryLocation(SI2->getTrueValue(), V2Size), AAQI);
       if (Alias == AliasResult::MayAlias)
         return AliasResult::MayAlias;
-      AliasResult ThisAlias = getBestAAResults().alias(
-          MemoryLocation(SI->getFalseValue(), SISize),
-          MemoryLocation(SI2->getFalseValue(), V2Size), AAQI);
+      AliasResult ThisAlias =
+          AAQI.AAR.alias(MemoryLocation(SI->getFalseValue(), SISize),
+                         MemoryLocation(SI2->getFalseValue(), V2Size), AAQI);
       return MergeAliasResults(ThisAlias, Alias);
     }
 
   // If both arms of the Select node NoAlias or MustAlias V2, then returns
   // NoAlias / MustAlias. Otherwise, returns MayAlias.
-  AliasResult Alias =
-      getBestAAResults().alias(MemoryLocation(SI->getTrueValue(), SISize),
-                               MemoryLocation(V2, V2Size), AAQI);
+  AliasResult Alias = AAQI.AAR.alias(MemoryLocation(SI->getTrueValue(), SISize),
+                                     MemoryLocation(V2, V2Size), AAQI);
   if (Alias == AliasResult::MayAlias)
     return AliasResult::MayAlias;
 
   AliasResult ThisAlias =
-      getBestAAResults().alias(MemoryLocation(SI->getFalseValue(), SISize),
-                               MemoryLocation(V2, V2Size), AAQI);
+      AAQI.AAR.alias(MemoryLocation(SI->getFalseValue(), SISize),
+                     MemoryLocation(V2, V2Size), AAQI);
   return MergeAliasResults(ThisAlias, Alias);
 }
 
@@ -1671,9 +1627,9 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   if (!AAQI.NeedLoopCarried) // INTEL
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
-      Optional<AliasResult> Alias;
+      std::optional<AliasResult> Alias;
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
-        AliasResult ThisAlias = getBestAAResults().alias(
+        AliasResult ThisAlias = AAQI.AAR.alias(
             MemoryLocation(PN->getIncomingValue(i), PNSize),
             MemoryLocation(
                 PN2->getIncomingValueForBlock(PN->getIncomingBlock(i)), V2Size),
@@ -1693,11 +1649,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // if we don't alias the underlying objects of the other phi operands, as we
   // know that the recursive phi needs to be based on them in some way.
   bool isRecursive = false;
-#if INTEL_CUSTOMIZATION
-  // Factor some duplicated community code into this lambda.
-  // This function returns true if the incoming phi value is a basic loop IV.
-  // We skip analysis of this value and look at the other incoming value
-  // instead.
   auto CheckForRecPhi = [&](Value *PV) {
     if (!EnableRecPhiAnalysis)
       return false;
@@ -1707,103 +1658,61 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     }
     return false;
   };
-#endif // INTEL_CUSTOMIZATION
 
-  if (PV) {
-    // If we have PhiValues then use it to get the underlying phi values.
-    const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
-    // If we have more phi values than the search depth then return MayAlias
-    // conservatively to avoid compile time explosion. The worst possible case
-    // is if both sides are PHI nodes. In which case, this is O(m x n) time
-    // where 'm' and 'n' are the number of PHI sources.
-    if (PhiValueSet.size() > MaxLookupSearchDepth)
-      return AliasResult::MayAlias;
-    // Add the values to V1Srcs
-    for (Value *PV1 : PhiValueSet) {
-      if (CheckForRecPhi(PV1))
-        continue;
+  SmallPtrSet<Value *, 4> UniqueSrc;
+  Value *OnePhi = nullptr;
+  for (Value *PV1 : PN->incoming_values()) {
+    // Skip the phi itself being the incoming value.
+    if (PV1 == PN)
+      continue;
+
+    if (isa<PHINode>(PV1)) {
+      if (OnePhi && OnePhi != PV1) {
+        // To control potential compile time explosion, we choose to be
+        // conserviate when we have more than one Phi input.  It is important
+        // that we handle the single phi case as that lets us handle LCSSA
+        // phi nodes and (combined with the recursive phi handling) simple
+        // pointer induction variable patterns.
+        return AliasResult::MayAlias;
+      }
+      OnePhi = PV1;
+    }
+
+    if (CheckForRecPhi(PV1))
+      continue;
 #if INTEL_CUSTOMIZATION
-        // FIXME: limited support of recursive updates. phi-loop.ll
-        if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
-          if (PV1Subs->getPointerOperand() == PN &&
-              isa<ConstantInt>(PV1Subs->getIndex())) {
-            isRecursive = true;
-            continue;
-          }
+
+    if (EnableRecPhiAnalysis) {
+      // FIXME: limited support of recursive updates. phi-loop.ll
+      if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
+        if (PV1Subs->getPointerOperand() == PN &&
+            isa<ConstantInt>(PV1Subs->getIndex())) {
+          isRecursive = true;
+          continue;
         }
-        if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
-          if (PV1F->getPointerOperand() == PN) {
-            isRecursive = true;
-            continue;
-          }
+      }
+      if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
+        if (PV1F->getPointerOperand() == PN) {
+          isRecursive = true;
+          continue;
         }
-        // 24303: If the phi is a loop header, and it is not a simple
-        // basic IV as CheckForRecPhi, we have to analyze it in a
-        // conservative way because V2 and PV1 are from different iterations.
-        // Set isRecursive, and push PV1 on the analysis list below.
-        // This flag will stop tests that assume same-iteration, like
-        // (GEP[%a,i], GEP[%a,i+1]) => NoAlias).
-        if (auto *I = dyn_cast<Instruction>(PV1)) {
-          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
-            isRecursive = true;
-          }
+      }
+      // 24303: see comment above.
+      if (auto *I = dyn_cast<Instruction>(PV1)) {
+        if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
+          isRecursive = true;
         }
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
+    if (UniqueSrc.insert(PV1).second)
       V1Srcs.push_back(PV1);
-    }
-  } else {
-    // If we don't have PhiInfo then just look at the operands of the phi itself
-    // FIXME: Remove this once we can guarantee that we have PhiInfo always
-    SmallPtrSet<Value *, 4> UniqueSrc;
-    Value *OnePhi = nullptr;
-    for (Value *PV1 : PN->incoming_values()) {
-      if (isa<PHINode>(PV1)) {
-        if (OnePhi && OnePhi != PV1) {
-          // To control potential compile time explosion, we choose to be
-          // conserviate when we have more than one Phi input.  It is important
-          // that we handle the single phi case as that lets us handle LCSSA
-          // phi nodes and (combined with the recursive phi handling) simple
-          // pointer induction variable patterns.
-          return AliasResult::MayAlias;
-        }
-        OnePhi = PV1;
-      }
-
-      if (CheckForRecPhi(PV1))
-        continue;
-#if INTEL_CUSTOMIZATION
-      if (EnableRecPhiAnalysis) {
-        // FIXME: limited support of recursive updates. phi-loop.ll
-        if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
-          if (PV1Subs->getPointerOperand() == PN &&
-              isa<ConstantInt>(PV1Subs->getIndex())) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
-          if (PV1F->getPointerOperand() == PN) {
-            isRecursive = true;
-            continue;
-          }
-        }
-        // 24303: see comment above.
-        if (auto *I = dyn_cast<Instruction>(PV1)) {
-          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
-            isRecursive = true;
-          }
-        }
-      }
-#endif // INTEL_CUSTOMIZATION
-      if (UniqueSrc.insert(PV1).second)
-        V1Srcs.push_back(PV1);
-    }
-
-    if (OnePhi && UniqueSrc.size() > 1)
-      // Out of an abundance of caution, allow only the trivial lcssa and
-      // recursive phi cases.
-      return AliasResult::MayAlias;
   }
+
+  if (OnePhi && UniqueSrc.size() > 1)
+    // Out of an abundance of caution, allow only the trivial lcssa and
+    // recursive phi cases.
+    return AliasResult::MayAlias;
 
   // If V1Srcs is empty then that means that the phi has no underlying non-phi
   // value. This should only be possible in blocks unreachable from the entry
@@ -1818,45 +1727,18 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     PNSize = LocationSize::beforeOrAfterPointer();
 
   // In the recursive alias queries below, we may compare values from two
-  // different loop iterations. Keep track of visited phi blocks, which will
-  // be used when determining value equivalence.
-  bool BlockInserted = VisitedPhiBBs.insert(PN->getParent()).second;
-  auto _ = make_scope_exit([&]() {
-    if (BlockInserted)
-      VisitedPhiBBs.erase(PN->getParent());
-  });
-
-#if INTEL_CUSTOMIZATION
-  // aliasGEP must be more conservative when called from aliasPHI, because
-  // it is not safe to compare GEPs from different iterations.
-  // If we call aliasGEP outside aliasPHI and cache the results, the cached
-  // results may not be correct inside aliasPHI. The community fix below
-  // will pass an empty cache to prevent this.
-  //
-  // This case is already covered by the fix for 24303 above.
-  // Setting PNSize to unknown, will prevent a cache hit, as the cache
-  // checks on both value and size.
-  // Therefore we can improve compile time for deep phi->gep->phi->gep cases by
-  // passing the real cache. (CMPLRLLVM-25048)
-  (void)BlockInserted;
-  AAQueryInfo *UseAAQI = &AAQI;
-#else
-  // If we inserted a block into VisitedPhiBBs, alias analysis results that
-  // have been cached earlier may no longer be valid. Perform recursive queries
-  // with a new AAQueryInfo.
-  AAQueryInfo NewAAQI = AAQI.withEmptyCache();
-  AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
-#endif // INTEL_CUSTOMIZATION
+  // different loop iterations.
+  SaveAndRestore SavedMayBeCrossIteration(AAQI.MayBeCrossIteration, true);
 
 #if INTEL_CUSTOMIZATION
   AliasResult Alias = AliasResult::MayAlias;
-  if (UseAAQI->NeedLoopCarried)
-    Alias = getBestAAResults().loopCarriedAlias(
+  if (AAQI.NeedLoopCarried)
+    Alias = AAQI.AAR.loopCarriedAlias(
         MemoryLocation(V2, V2Size),
-        MemoryLocation(V1Srcs[0], PNSize), *UseAAQI);
+        MemoryLocation(V1Srcs[0], PNSize), AAQI);
   else
-    Alias = getBestAAResults().alias(
-      MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+    Alias = AAQI.AAR.alias(MemoryLocation(V1Srcs[0], PNSize),
+                           MemoryLocation(V2, V2Size), AAQI);
 #endif // INTEL_CUSTOMIZATION
 
   // Early exit if the check of the first PHI source against V2 is MayAlias.
@@ -1875,13 +1757,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 
 #if INTEL_CUSTOMIZATION
     AliasResult ThisAlias = AliasResult::MayAlias;
-    if (UseAAQI->NeedLoopCarried)
-      ThisAlias = getBestAAResults().loopCarriedAlias(
+    if (AAQI.NeedLoopCarried)
+      ThisAlias = AAQI.AAR.loopCarriedAlias(
             MemoryLocation(V2, V2Size),
-            MemoryLocation(V, PNSize), *UseAAQI);
+            MemoryLocation(V, PNSize), AAQI);
     else
-       ThisAlias = getBestAAResults().alias(
-        MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+       ThisAlias = AAQI.AAR.alias(
+           MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), AAQI);
 #endif // INTEL_CUSTOMIZATION
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == AliasResult::MayAlias)
@@ -1906,7 +1788,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 //   ...
 //   %303 = getelementptr inbounds i8, i8* %297, i64 3
 //
-// This routine can be extended to cover more cases by making it as 
+// This routine can be extended to cover more cases by making it as
 // recursive routine and considering more IR operands.
 //
 static Value* getNoAliasPtrOfPHI(const Value* U) {
@@ -1923,7 +1805,7 @@ static Value* getNoAliasPtrOfPHI(const Value* U) {
   for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
     Value* V = PN->getIncomingValue(I);
     if (GEPOperator *G = dyn_cast<GEPOperator>(V)) {
-      Value* GEP1 = G->getPointerOperand(); 
+      Value* GEP1 = G->getPointerOperand();
       // Skip it if PointerOperand of GEP is the PHI node
       // that we are currently processing.
       if (GEP1 == PN) continue;
@@ -2029,7 +1911,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   // case. The function isValueEqualInPotentialCycles ensures that this cannot
   // happen by looking at the visited phi nodes and making sure they cannot
   // reach the value.
-  if (isValueEqualInPotentialCycles(V1, V2))
+  if (isValueEqualInPotentialCycles(V1, V2, AAQI))
     return AliasResult::MustAlias;
 
   if (!V1->getType()->isPointerTy() || !V2->getType()->isPointerTy())
@@ -2074,12 +1956,18 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL, // INTEL
-                                         cast<Instruction>(O1)))    // INTEL
+#if INTEL_CUSTOMIZATION
+            (AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL,
+                                             cast<Instruction>(O1)) ||
+        valueIsNotCapturedBeforeOrAt(O2, O1)))
+#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-        AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, // INTEL
-                                         cast<Instruction>(O2)))    // INTEL
+#if INTEL_CUSTOMIZATION
+            (AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL,
+                                             cast<Instruction>(O2)) ||
+        valueIsNotCapturedBeforeOrAt(O1, O2)))
+#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
 
 #if INTEL_CUSTOMIZATION
@@ -2104,7 +1992,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 
     // Return NoAlias if O1 and O2 are PHINodes and they point to two
     // different addresses that are returned by noalias functions.
-    // Ex: They point to addresses that are returned by two 
+    // Ex: They point to addresses that are returned by two
     // different malloc calls.
     //
     if (isa<PHINode>(O2) && isa<PHINode>(O1)) {
@@ -2190,8 +2078,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     return AliasResult::MayAlias;
 
   // Check the cache before climbing up use-def chains. This also terminates
-  // otherwise infinitely recursive queries.
-  AAQueryInfo::LocPair Locs({V1, V1Size}, {V2, V2Size});
+  // otherwise infinitely recursive queries. Include MayBeCrossIteration in the
+  // cache key, because some cases where MayBeCrossIteration==false returns
+  // MustAlias or NoAlias may become MayAlias under MayBeCrossIteration==true.
+  AAQueryInfo::LocPair Locs({V1, V1Size, AAQI.MayBeCrossIteration},
+                            {V2, V2Size, AAQI.MayBeCrossIteration});
   const bool Swapped = V1 > V2;
   if (Swapped)
     std::swap(Locs.first, Locs.second);
@@ -2308,39 +2199,37 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
 
 /// Check whether two Values can be considered equivalent.
 ///
-/// In addition to pointer equivalence of \p V1 and \p V2 this checks whether
-/// they can not be part of a cycle in the value graph by looking at all
-/// visited phi nodes an making sure that the phis cannot reach the value. We
-/// have to do this because we are looking through phi nodes (That is we say
+/// If the values may come from different cycle iterations, this will also
+/// check that the values are not part of cycle. We have to do this because we
+/// are looking through phi nodes, that is we say
 /// noalias(V, phi(VA, VB)) if noalias(V, VA) and noalias(V, VB).
 bool BasicAAResult::isValueEqualInPotentialCycles(const Value *V,
-                                                  const Value *V2) {
+                                                  const Value *V2,
+                                                  const AAQueryInfo &AAQI) {
   if (V != V2)
     return false;
 
+  if (!AAQI.MayBeCrossIteration)
+    return true;
+
+  // Non-instructions and instructions in the entry block cannot be part of
+  // a loop.
   const Instruction *Inst = dyn_cast<Instruction>(V);
-  if (!Inst)
+  if (!Inst || Inst->getParent()->isEntryBlock())
     return true;
 
-  if (VisitedPhiBBs.empty())
-    return true;
-
-  if (VisitedPhiBBs.size() > MaxNumPhiBBsValueReachabilityCheck)
-    return false;
-
-  // Make sure that the visited phis cannot reach the Value. This ensures that
-  // the Values cannot come from different iterations of a potential cycle the
-  // phi nodes could be involved in.
-  for (const auto *P : VisitedPhiBBs)
-    if (isPotentiallyReachable(&P->front(), Inst, nullptr, DT))
-      return false;
-
-  return true;
+  // Check whether the instruction is part of a cycle, by checking whether the
+  // block can (non-trivially) reach itself.
+  BasicBlock *BB = const_cast<BasicBlock *>(Inst->getParent());
+  SmallVector<BasicBlock *> Succs(successors(BB));
+  return !Succs.empty() &&
+         !isPotentiallyReachableFromMany(Succs, BB, nullptr, DT);
 }
 
 /// Computes the symbolic difference between two de-composed GEPs.
 void BasicAAResult::subtractDecomposedGEPs(DecomposedGEP &DestGEP,
-                                           const DecomposedGEP &SrcGEP) {
+                                           const DecomposedGEP &SrcGEP,
+                                           const AAQueryInfo &AAQI) {
   DestGEP.Offset -= SrcGEP.Offset;
   for (const VariableGEPIndex &Src : SrcGEP.VarIndices) {
     // Find V in Dest.  This is N^2, but pointer indices almost never have more
@@ -2348,7 +2237,7 @@ void BasicAAResult::subtractDecomposedGEPs(DecomposedGEP &DestGEP,
     bool Found = false;
     for (auto I : enumerate(DestGEP.VarIndices)) {
       VariableGEPIndex &Dest = I.value();
-      if (!isValueEqualInPotentialCycles(Dest.Val.V, Src.Val.V) ||
+      if (!isValueEqualInPotentialCycles(Dest.Val.V, Src.Val.V, AAQI) ||
           !Dest.Val.hasSameCastsAs(Src.Val))
         continue;
 
@@ -2372,9 +2261,12 @@ void BasicAAResult::subtractDecomposedGEPs(DecomposedGEP &DestGEP,
   }
 }
 
-bool BasicAAResult::constantOffsetHeuristic(
-    const DecomposedGEP &GEP, LocationSize MaybeV1Size,
-    LocationSize MaybeV2Size, AssumptionCache *AC, DominatorTree *DT) {
+bool BasicAAResult::constantOffsetHeuristic(const DecomposedGEP &GEP,
+                                            LocationSize MaybeV1Size,
+                                            LocationSize MaybeV2Size,
+                                            AssumptionCache *AC,
+                                            DominatorTree *DT,
+                                            const AAQueryInfo &AAQI) {
   if (GEP.VarIndices.size() != 2 || !MaybeV1Size.hasValue() ||
       !MaybeV2Size.hasValue())
     return false;
@@ -2398,7 +2290,7 @@ bool BasicAAResult::constantOffsetHeuristic(
   LinearExpression E1 =
       GetLinearExpression(CastedValue(Var1.Val.V), DL, 0, AC, DT);
   if (E0.Scale != E1.Scale || !E0.Val.hasSameCastsAs(E1.Val) ||
-      !isValueEqualInPotentialCycles(E0.Val.V, E1.Val.V))
+      !isValueEqualInPotentialCycles(E0.Val.V, E1.Val.V, AAQI))
     return false;
 
   // We have a hit - Var0 and Var1 only differ by a constant offset!
@@ -2432,8 +2324,7 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
-  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
-  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT, PV,
+  return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT,
                        XOL.getOptLevel()); // INTEL
 }
 
@@ -2450,7 +2341,6 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
@@ -2463,13 +2353,11 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &ACT = getAnalysis<AssumptionCacheTracker>();
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
-  auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>();
   auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
-                                 PVWP ? &PVWP->getResult() : nullptr, // INTEL
                                  XOL.getOptLevel()));                 // INTEL
 
   return false;
@@ -2480,7 +2368,6 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<PhiValuesWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
 
@@ -2489,6 +2376,6 @@ BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
       F.getParent()->getDataLayout(), F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
-      nullptr, nullptr,                                              // INTEL
+      nullptr,                                                       // INTEL
       P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());      // INTEL
 }

@@ -88,8 +88,11 @@
 // CHECK-NO_ANSI_ALIAS: "-relaxed-aliasing"
 
 // -Fsize support
-// RUN: %clang_cl -### -F1000 %s 2>&1 | FileCheck -check-prefix CHECK-FSTACK %s
-// CHECK-FSTACK: link{{.*}} "-stack:1000"
+// RUN: %clang_cl -### -F1000 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix CHECK-FSTACK %s -DSIZE=1000
+// RUN: %clang_cl -### -F0xffff %s 2>&1 \
+// RUN:   | FileCheck -check-prefix CHECK-FSTACK %s -DSIZE=0xffff
+// CHECK-FSTACK: link{{.*}} "-stack:[[SIZE]]"
 
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
@@ -518,7 +521,7 @@
 // CHECK-STD-C11: clang{{.*}} "-std=c11"
 
 // /Qstd only is supported for /Qstd:c++14 and up
-// RUN: %clang_cl -### --intel /Qstd:c++11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-CXX11 %s
+// RUN: %clang_cl -### --intel -fmsc-version=1900 /Qstd:c++11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-CXX11 %s
 // CHECK-STD-CXX11-NOT: "-std=c++11"
 // CHECK-STD-CXX11: argument unused
 // CHECK-STD-CXX11: "-std=c++14"

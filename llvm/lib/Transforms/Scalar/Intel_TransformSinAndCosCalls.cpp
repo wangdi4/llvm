@@ -347,10 +347,10 @@ static bool convertToSinpiOrCospi(CallInst *CI, TargetLibraryInfo &TLI) {
 
     Value *OrigFMul = cast<Instruction>(Arg)->getOperand(0);
     Value *FMul =
-        Builder.CreateFMulFMF(Expr, NewMulConst, dyn_cast<Instruction>(OrigFMul),
+        Builder.CreateFMulFMF(Expr, NewMulConst, cast<Instruction>(OrigFMul),
                               OrigFMul->getName() + ".overpi");
     FSinCosArg =
-        Builder.CreateFAddFMF(FMul, NewAddConst, dyn_cast<Instruction>(Arg),
+        Builder.CreateFAddFMF(FMul, NewAddConst, cast<Instruction>(Arg),
                               Arg->getName() + ".overpi");
 
     PatternMatch = true;

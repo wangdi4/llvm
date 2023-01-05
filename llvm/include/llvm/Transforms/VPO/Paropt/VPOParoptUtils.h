@@ -1121,11 +1121,11 @@ public:
   /// before \p InsertPt.
   /// \p AllocaAddrSpace specifies address space in which the memory
   /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
+  /// std::nullopt, then the address space matches the default alloca's
   /// address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
-  /// If \p ValueAddrSpace does not match llvm::None,
+  /// If \p ValueAddrSpace does not match std::nullopt,
   /// then the generated Value will be immediately addrspacecast'ed
   /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
   /// expression will be returned as a result.
@@ -1135,8 +1135,8 @@ public:
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
                          bool IsTargetSPIRV, const Twine &VarName = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None,
+                         llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         llvm::Optional<unsigned> ValueAddrSpace = std::nullopt,
                          AllocateItem *AllocItem = nullptr);
 
   /// Return true if address spaces \p AS1 and \p AS2 are compatible
@@ -2076,12 +2076,14 @@ public:
   /// argument in the argument list of the variant call. Otherwise, the
   /// InteropObj is inserted in the argument list in the position indicated
   /// by \p InteropPosition. (First argument is position 1.)
-  static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Value *InteropObj,
-                                  llvm::Optional<uint64_t> InteropPosition,
-                                  Instruction *InsertPt,
-                                  WRegionNode *W = nullptr,
-                                  bool IsTail = false);
+  /// The output variable \p InteropPositionIfEmitted holds the position
+  /// (1-based) of the first interop obj emitted into the variant call, or zero
+  /// if no interop obj is added into the variant call.
+  static CallInst *
+  genVariantCall(CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
+                 llvm::Optional<uint64_t> InteropPosition,
+                 uint64_t &InteropPositionIfEmitted, Instruction *InsertPt,
+                 WRegionNode *W = nullptr, bool IsTail = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt
@@ -2100,7 +2102,7 @@ public:
   /// full body of \p W.
   static Function *genOutlineFunction(
       const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = llvm::None,
+      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
       std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
@@ -2432,6 +2434,110 @@ public:
   /// NumElements is the number of elements, in case I's Orig is an array, \b
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
+  /// Some examples of input clauses and their output element-type/num-elements,
+  /// returned by this function are:
+  ///
+  ///  \code
+  ///
+  ///  short x, &xr = x, *xp, *&xpr = xp;
+  ///  short y[10], &yr = y, (*yp)[10], (*&ypr)[10] = yp;
+  ///
+  ///  #pragma omp ... private(x, xr, xp, xpr, y, yr, yp, ypr)
+  ///  #pragma omp ... reduction(+:xp[2:5], xpr[2:5], y[2:5],
+  ///                              yr[2:5], yp[0][2:5], ypr[0][2:5])
+  ///  #pragma omp ... linear(xp, xpr, yp, ypr: 3)
+  ///  #pragma omp ... use_device_ptr(xp)
+  ///
+  /// Clause                                        | ElementType | NumElements
+  /// ----------------------------------------------+-------------+-------------
+  /// PRIVATE:TYPED(i16* %x, i16 0, i64 1)          | i16         | nullptr
+  /// PRIVATE:BYREF.TYPED(i16** %xr, i16 0, i64 1)  | i16         | nullptr
+  /// PRIVATE:TYPED(i16** %xp, i16* null, i64 1)    | i16*        | nullptr
+  /// PRIVATE:BYREF.TYPED(i16*** %xpr,              | i16*        | nullptr
+  ///                     i16* null,                |             |
+  ///                     i64 1)                    |             |
+  /// PRIVATE:TYPED([10 x i16]* %y, i16 0, i64 10)  | i16         | i64 10
+  /// PRIVATE:BYREF.TYPED([10 x i16]** %yr,         | i16         | i64 10
+  ///                     i16 0,                    |             |
+  ///                     i64 10)                   |             |
+  /// PRIVATE:TYPED([10 x i16]** %yp,               | [10 x i16]* | nullptr
+  ///               [10 x i16]* null,               |             |
+  ///               I64 1)                          |             |
+  /// PRIVATE:BYREF.TYPED([10 x i16]*** %ypr,       | [10 x i16]* | nullptr
+  ///                     [10 x i16]* null,         |             |
+  ///                     i64 1)                    | [10 x i16]* | nullptr
+  /// RED.ADD:ARRSECT.PTR_TO_PTR.TYPED(i16** %xp,   | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT.PTR_TO_PTR.BYREF.TYPED(       | i16         | i64 5
+  ///                                  i16*** %xpr, |             |
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:TYPED([10 x i16]* %y,         | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:BYREF.TYPED([10 x i16]** %yr, | i16         | i64 5
+  ///                                  i16 0,       |             |
+  ///                                  i64 5,       |             |
+  ///                                  i64 2)       |             |
+  /// RED.ADD:ARRSECT:PTR_TO_PTR.TYPED(             | i16         | i64 5
+  ///                         [10 x i16]** %yp,     |             |
+  ///                         i16 0,                |             |
+  ///                         i64 5,                |             |
+  ///                         i64 2)                |             |
+  /// RED.ADD:ARRSECT:PTR_TO_PTR.BYREF.TYPED(       | i16         | i64 5
+  ///                         [10 x i16]*** %yr,    |             |
+  ///                         i16 0,                |             |
+  ///                         i64 5,                |             |
+  ///                         i64 2)                |             |
+  /// LINEAR:PTR_TO_PTR.TYPED(i16** %xp,            | i16*        | nullptr
+  ///                         i16 0,                |             |
+  ///                         i64 1,                |             |
+  ///                         i64 3)                |             |
+  /// LINEAR:PTR_TO_PTR.BYREF.TYPED(i16*** %xpr,    | i16*        | nullptr
+  ///                               i16 0,          |             |
+  ///                               i64 1,          |             |
+  ///                               i64 3)          |             |
+  /// LINEAR:PTR_TO_PTR.TYPED(                      | [10 x i16]* | nullptr
+  ///                   [10 x i16]** %yp,           |             |
+  ///                   [10 x i16] zeroinitializer, |             |
+  ///                   i64 1,                      |             |
+  ///                   i64 3)                      |             |
+  /// LINEAR:PTR_TO_PTR.BYREF.TYPED(                | [10 x i16]* | nullptr
+  ///                   [10 x i16]*** %ypr,         |             |
+  ///                   [10 x i16] zeroinitializer, |             |
+  ///                   i64 1,                      |             |
+  ///                   i64 3)                      |             |
+  /// USE_DEVICE_PTR:PTR_TO_PTR.TYPED(i16** %xp,    | i16*        | nullptr
+  ///                                 i16 0,        |             |
+  ///                                 i64 1)        |             |
+  /// USE_DEVICE_PTR:PTR_TO_PTR(ptr %xp)            | ptr         | nullptr
+  /// NORMALIZD.IV:TYPED(ptr %omp.iv, i32 0)        | i32         | nullptr
+  ///
+#if INTEL_CUSTOMIZATION
+  /// Some Fortran specific examples include:
+  ///  integer(kind=2) :: a(:)
+  ///  type(c_ptr) :: cp
+  ///
+  ///  !$omp ... private(a)
+  ///  !$omp ... use_device_ptr(cp)
+  ///
+  /// Clause                                        | ElementType | NumElements
+  /// ----------------------------------------------+-------------+-------------
+  ///  PRIVATE:F90_DV.TYPED(%QNCA* %a,              | %QNCA       | nullptr
+  ///                       %QNCA zeroinitializer,  |             |
+  ///                       i16 0)                  |             |
+  ///  USE_DEVICE_PTR:CPTR.TYPED(                   | %CPTR       | nullptr
+  ///                       %CPTR* %cp,             |             |
+  ///                       %CPTR zeroinitializer,  |             |
+  ///                       i64 1)                  |             |
+  ///  USE_DEVICE_PTR:CPTR(ptr %cp)                 | ptr         | nullptr
+  ///
+#endif // INTEL_CUSTOMIZATION
+  /// \endcode
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
 #if INTEL_CUSTOMIZATION
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -26,67 +26,67 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#if defined (_WIN32)
-    #define WCSDUP   _wcsdup
+#if defined(_WIN32)
+#define WCSDUP _wcsdup
 #else
-    #define WCSDUP    wcsdup
+#define WCSDUP wcsdup
 #endif
 
 #define MAX_STRDUP_SIZE 1024
 
-#if !_WIN32 && !DEVICE_NATIVE
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = nullptr;
+static llvm::ManagedStatic<FrameworkUserLogger> UserLogger;
 
-}}}
-#endif
+FrameworkUserLogger *FrameworkUserLogger::GetInstance() {
+  return &*UserLogger;
+}
+}
+} // namespace OpenCL
+} // namespace Intel
 
 /**
  * Safe version of strdup.
  */
-char *strdup_safe(const char *src)
-{
-    size_t actual = strlen(src);
-    actual = (actual > MAX_STRDUP_SIZE) ? MAX_STRDUP_SIZE : actual;
+char *strdup_safe(const char *src) {
+  size_t actual = strlen(src);
+  actual = (actual > MAX_STRDUP_SIZE) ? MAX_STRDUP_SIZE : actual;
 
-    char *retStr = (char*)malloc((actual+1) * sizeof(char));
-    if (nullptr == retStr) return nullptr;
+  char *retStr = (char *)malloc((actual + 1) * sizeof(char));
+  if (nullptr == retStr)
+    return nullptr;
 
-    STRCPY_S(retStr, actual+1, src);
-    return retStr;
+  STRCPY_S(retStr, actual + 1, src);
+  return retStr;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileDescriptorLogHandler::FileDescriptorLogHandler(const char* handle) : LogHandler(), m_fileHandler(nullptr), m_dupStderr(-1)
-{
-    if (nullptr != handle)
-    {
-        m_handle = strdup_safe(handle);
-    }
+FileDescriptorLogHandler::FileDescriptorLogHandler(const char *handle)
+    : LogHandler(), m_fileHandler(nullptr), m_dupStderr(-1) {
+  if (nullptr != handle) {
+    m_handle = strdup_safe(handle);
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler Dtor
 /////////////////////////////////////////////////////////////////////////////////////////
-FileDescriptorLogHandler::~FileDescriptorLogHandler()
-{
-	if ( nullptr != m_handle )
-	{
-		free(m_handle);
-		m_handle=nullptr;
-	}
+FileDescriptorLogHandler::~FileDescriptorLogHandler() {
+  if (nullptr != m_handle) {
+    free(m_handle);
+    m_handle = nullptr;
+  }
 
-	if (-1 != m_dupStderr)
-	{
-		// redirect back stderr
-		DUP2(m_dupStderr, fileno(stderr));
-		m_dupStderr = -1;
-	}
+  if (-1 != m_dupStderr) {
+    // redirect back stderr
+    DUP2(m_dupStderr, fileno(stderr));
+    m_dupStderr = -1;
+  }
 }
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Init
@@ -108,9 +108,13 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level,
 
   // redirect stderr to fileDesc (in order to get log messages from MIC device)
   fflush(stderr);
+  // Let m_dupStderr refers to stderr
   m_dupStderr = DUP(fileno(stderr));
-  assert(-1 != m_dupStderr && "duplicate stderr failed");
-  DUP2(fileno(m_fileHandler), fileno(stderr));
+  if (-1 != m_dupStderr)
+    // If succeed, stderr will refer to m_fileHandler.
+    // If an error occurs, we don't need exit. Diagnostic or error messages
+    // are typically attached to the user's terminal instead of m_fileHandler
+    DUP2(fileno(m_fileHandler), fileno(stderr));
 
   const char *pTitle =
       (nullptr == title)
@@ -132,64 +136,54 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level,
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Log
 /////////////////////////////////////////////////////////////////////////////////////////
-void FileDescriptorLogHandler::Log(LogMessage& logMessage)
-{
-    if (m_logLevel > logMessage.GetLogLevel())
-    {
-        // ignore messages with lower log level
-        return;
-    }
+void FileDescriptorLogHandler::Log(LogMessage &logMessage) {
+  if (m_logLevel > logMessage.GetLogLevel()) {
+    // ignore messages with lower log level
+    return;
+  }
 
-    char* formattedMsg = logMessage.GetFormattedMessage();
-    // error logging still causes some link errors in Linux
-    // TODO: here we should print error in user logger
-	// fputs is thread safe.
-    if (EOF == fputs(formattedMsg, m_fileHandler))
-    {
-        printf("fwrite failed\n");
-        assert(false);
-        return;
-    }
-    Flush();
+  char *formattedMsg = logMessage.GetFormattedMessage();
+  // error logging still causes some link errors in Linux
+  // TODO: here we should print error in user logger
+  // fputs is thread safe.
+  if (EOF == fputs(formattedMsg, m_fileHandler)) {
+    printf("fwrite failed\n");
+    assert(false);
+    return;
+  }
+  Flush();
 
-	return;
+  return;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler::Flush
 /////////////////////////////////////////////////////////////////////////////////////////
-void FileDescriptorLogHandler::Flush()
-{
-	if (m_fileHandler)
-	{
-		fflush(m_fileHandler);     // thread safe
-	}
+void FileDescriptorLogHandler::Flush() {
+  if (m_fileHandler) {
+    fflush(m_fileHandler); // thread safe
+  }
 }
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::FileLogHandler(const char* handle) : FileDescriptorLogHandler(handle), m_fileName(nullptr)
-{
-}
+FileLogHandler::FileLogHandler(const char *handle)
+    : FileDescriptorLogHandler(handle), m_fileName(nullptr) {}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Dtor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::~FileLogHandler()
-{
-	if (nullptr != m_fileHandler)
-	{
-        fclose(m_fileHandler);
-		m_fileHandler=nullptr;
-	}
+FileLogHandler::~FileLogHandler() {
+  if (nullptr != m_fileHandler) {
+    fclose(m_fileHandler);
+    m_fileHandler = nullptr;
+  }
 
-	if ( nullptr != m_fileName )
-	{
-		free(m_fileName);
-		m_fileName=nullptr;
-	}
+  if (nullptr != m_fileName) {
+    free(m_fileName);
+    m_fileName = nullptr;
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

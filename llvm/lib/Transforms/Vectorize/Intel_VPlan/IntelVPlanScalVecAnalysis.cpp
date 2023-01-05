@@ -20,6 +20,7 @@
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <numeric>
+#include <optional>
 
 #define DEBUG_TYPE "vplan-scalvec-analysis"
 
@@ -388,6 +389,18 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReductionInitArr: {
+    // First operand represents reduction's identity value which should be
+    // scalar.
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    // Second operand is the private alloca for array reduction.
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    // Instruction itself is vector in nature since it gets lowered to a loop of
+    // VF x NumArrElems iterations.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    return true;
+  }
+
   case VPInstruction::ReductionFinal: {
     auto *RedFinal = cast<VPReductionFinal>(Inst);
     // Special processing for each operand of reduction-final.
@@ -430,6 +443,17 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // return value.
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::ReductionFinalArr: {
+    // Instruction itself is vectorized, it produces a loop nest to finalize
+    // array reduction.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // First operand is the private alloca.
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    // Second operand is the original scalar array.
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
     return true;
   }
 
@@ -480,6 +504,28 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::PrivateLastValueNonPODMasked: {
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::PrivateArrayNonPODCtor:
+  case VPInstruction::PrivateArrayNonPODDtor: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::PrivateLastValueArrayNonPOD: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::PrivateLastValueArrayNonPODMasked: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
     setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
     setSVAKindForOperand(Inst, 2, SVAKind::Vector);
     return true;
@@ -685,9 +731,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ExtractLastVectorLane: {
-    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::LastScalar);
     // Each lanes has its own value.
-    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::LastScalar);
     return true;
   }
 
@@ -702,6 +748,23 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::RunningInclusiveUDS: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::RunningExclusiveUDS: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2 /*SecondArg*/, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::CompressStore: {
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
@@ -712,6 +775,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
     setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 2, SVAKind::Vector);
     return true;
   }
   case VPInstruction::ExpandLoad: {
@@ -724,6 +788,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     setSVAKindForReturnValue(Inst, SVAKind::Vector);
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
     return true;
   }
   case VPInstruction::CompressExpandIndexInit: {
@@ -808,7 +873,8 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
   // Case 2: This is a new VPInst not found in table yet since it has no
   // use-site bits. Determine its ScalVec nature using DA.
   if (CombinedUseBits.none()) {
-    assert(InstBits == None && "Instruction is not expected to have SVABits.");
+    assert(InstBits == std::nullopt &&
+           "Instruction is not expected to have SVABits.");
     SVAKind NewSVAKind =
         DA->isDivergent(*VPInst) ? SVAKind::Vector : SVAKind::FirstScalar;
 
@@ -857,7 +923,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
     // Propagate all set bits from users for instruction and its operands. If
     // the instruction already has some analyzed bits, then we refine it further
     // by or-ing its current bits with user bits.
-    if (InstBits == None) {
+    if (InstBits == std::nullopt) {
       // Instruction has not been analyzed yet, initialize with empty bits.
       SVABits NullBits = 0;
       setSVABitsForInst(VPInst, NullBits);
@@ -992,7 +1058,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
         continue;
       }
 
-      if (CurrentOpSVABits == None) {
+      if (CurrentOpSVABits == std::nullopt) {
         // Allow skipped loop header PHIs whose only users are other loop header
         // PHIs. Check PHI handling in computeSpecialInstruction for more
         // details.
@@ -1045,9 +1111,11 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
+  case VPInstruction::ReductionInitArr:
   case VPInstruction::ReductionFinal:
   case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalInscan:
+  case VPInstruction::ReductionFinalArr:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
@@ -1075,6 +1143,10 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalArrayMasked:
   case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::PrivateLastValueNonPODMasked:
+  case VPInstruction::PrivateArrayNonPODCtor:
+  case VPInstruction::PrivateArrayNonPODDtor:
+  case VPInstruction::PrivateLastValueArrayNonPOD:
+  case VPInstruction::PrivateLastValueArrayNonPODMasked:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
@@ -1088,6 +1160,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ExtractLastVectorLane:
   case VPInstruction::RunningInclusiveReduction:
   case VPInstruction::RunningExclusiveReduction:
+  case VPInstruction::RunningInclusiveUDS:
+  case VPInstruction::RunningExclusiveUDS:
   case VPInstruction::CompressStore:
   case VPInstruction::CompressStoreNonu:
   case VPInstruction::ExpandLoad:

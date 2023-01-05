@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -dtransanalysis -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtransanalysis>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case is the same as arrays_with_const_01.ll, the only difference is

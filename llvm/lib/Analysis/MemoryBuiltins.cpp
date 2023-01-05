@@ -30,7 +30,6 @@
 
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
@@ -61,6 +60,7 @@
 #include <cstdint>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -71,14 +71,12 @@ using namespace llvm;
 enum AllocType : uint8_t {
   OpNewLike          = 1<<0, // allocates; never returns null
   MallocLike         = 1<<1, // allocates; may return null
-  AlignedAllocLike   = 1<<2, // allocates with alignment; may return null
-  CallocLike         = 1<<3, // allocates + bzero
-  ReallocLike        = 1<<4, // reallocates
-  StrDupLike         = 1<<5,
+  CallocLike         = 1<<2, // allocates + bzero // INTEL
+  StrDupLike         = 1<<3,
   MallocOrOpNewLike  = MallocLike | OpNewLike,
-  MallocOrCallocLike = MallocLike | OpNewLike | CallocLike | AlignedAllocLike,
-  AllocLike          = MallocOrCallocLike | StrDupLike,
-  AnyAlloc           = AllocLike | ReallocLike
+  MallocOrCallocLike = MallocLike | OpNewLike | CallocLike, // INTEL
+  AllocLike          = MallocOrCallocLike | StrDupLike, // INTEL
+  AnyAlloc           = AllocLike
 };
 
 enum class MallocFamily {
@@ -132,7 +130,6 @@ struct AllocFnsTy {
 // FIXME: certain users need more information. E.g., SimplifyLibCalls needs to
 // know which functions are nounwind, noalias, nocapture parameters, etc.
 static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
-    {LibFunc_vec_malloc,                        {MallocLike,       1,  0, -1, -1, MallocFamily::VecMalloc}},
     {LibFunc_Znwj,                              {OpNewLike,        1,  0, -1, -1, MallocFamily::CPPNew}},             // new(unsigned int)
     {LibFunc_ZnwjRKSt9nothrow_t,                {MallocLike,       2,  0, -1, -1, MallocFamily::CPPNew}},             // new(unsigned int, nothrow)
     {LibFunc_ZnwjSt11align_val_t,               {OpNewLike,        2,  0, -1,  1, MallocFamily::CPPNewAligned}},      // new(unsigned int, align_val_t)
@@ -157,14 +154,11 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_msvc_new_array_int_nothrow,        {MallocLike,       2,  0, -1, -1, MallocFamily::MSVCArrayNew}},       // new[](unsigned int, nothrow)
     {LibFunc_msvc_new_array_longlong,           {OpNewLike,        1,  0, -1, -1, MallocFamily::MSVCArrayNew}},       // new[](unsigned long long)
     {LibFunc_msvc_new_array_longlong_nothrow,   {MallocLike,       2,  0, -1, -1, MallocFamily::MSVCArrayNew}},       // new[](unsigned long long, nothrow)
-    {LibFunc_memalign,                          {AlignedAllocLike, 2,  1, -1,  0, MallocFamily::Malloc}},
-    {LibFunc_vec_calloc,                        {CallocLike,       2,  0,  1, -1, MallocFamily::VecMalloc}},
-    {LibFunc_vec_realloc,                       {ReallocLike,      2,  1, -1, -1, MallocFamily::VecMalloc}},
     {LibFunc_strdup,                            {StrDupLike,       1, -1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_dunder_strdup,                     {StrDupLike,       1, -1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
     {LibFunc_dunder_strndup,                    {StrDupLike,       2,  1, -1, -1, MallocFamily::Malloc}},
-    {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}}
+    {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1, MallocFamily::KmpcAllocShared}},
 };
 // clang-format on
 
@@ -187,18 +181,18 @@ static const Function *getCalledFunction(const Value *V,
 
 /// Returns the allocation data for the given value if it's a call to a known
 /// allocation function.
-static Optional<AllocFnsTy>
+static std::optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
   // Don't perform a slow TLI lookup, if this function doesn't return a pointer
   // and thus can't be an allocation function.
   if (!Callee->getReturnType()->isPointerTy())
-    return None;
+    return std::nullopt;
 
   // Make sure that the function is available.
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
-    return None;
+    return std::nullopt;
 
   const auto *Iter = find_if(
       AllocationFnData, [TLIFn](const std::pair<LibFunc, AllocFnsTy> &P) {
@@ -206,18 +200,18 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
       });
 
   if (Iter == std::end(AllocationFnData))
-    return None;
+    return std::nullopt;
 
   const AllocFnsTy *FnData = &Iter->second;
   if ((FnData->AllocTy & AllocTy) != FnData->AllocTy)
-    return None;
+    return std::nullopt;
 
   // Check function prototype.
   int FstParam = FnData->FstParam;
   int SndParam = FnData->SndParam;
   FunctionType *FTy = Callee->getFunctionType();
 
-  if (FTy->getReturnType() == Type::getInt8PtrTy(FTy->getContext()) &&
+  if (FTy->getReturnType()->isPointerTy() &&
       FTy->getNumParams() == FnData->NumParams &&
       (FstParam < 0 ||
        (FTy->getParamType(FstParam)->isIntegerTy(32) ||
@@ -237,19 +231,20 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
     return *FnData;
 #endif // INTEL_CUSTOMIZATION
 
-  return None;
+  return std::nullopt;
 }
 
-static Optional<AllocFnsTy> getAllocationData(const Value *V, AllocType AllocTy,
-                                              const TargetLibraryInfo *TLI) {
+static std::optional<AllocFnsTy>
+getAllocationData(const Value *V, AllocType AllocTy,
+                  const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
   if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall))
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(Callee, AllocTy, TLI);
-  return None;
+  return std::nullopt;
 }
 
-static Optional<AllocFnsTy>
+static std::optional<AllocFnsTy>
 getAllocationData(const Value *V, AllocType AllocTy,
                   function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
   bool IsNoBuiltinCall;
@@ -257,29 +252,29 @@ getAllocationData(const Value *V, AllocType AllocTy,
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(
           Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)));
-  return None;
+  return std::nullopt;
 }
 
-static Optional<AllocFnsTy> getAllocationSize(const Value *V,
-                                              const TargetLibraryInfo *TLI) {
+static std::optional<AllocFnsTy>
+getAllocationSize(const Value *V, const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
   const Function *Callee =
       getCalledFunction(V, IsNoBuiltinCall);
   if (!Callee)
-    return None;
+    return std::nullopt;
 
   // Prefer to use existing information over allocsize. This will give us an
   // accurate AllocTy.
   if (!IsNoBuiltinCall)
-    if (Optional<AllocFnsTy> Data =
+    if (std::optional<AllocFnsTy> Data =
             getAllocationDataForFunction(Callee, AnyAlloc, TLI))
       return Data;
 
   Attribute Attr = Callee->getFnAttribute(Attribute::AllocSize);
   if (Attr == Attribute())
-    return None;
+    return std::nullopt;
 
-  std::pair<unsigned, Optional<unsigned>> Args = Attr.getAllocSizeArgs();
+  std::pair<unsigned, std::optional<unsigned>> Args = Attr.getAllocSizeArgs();
 
   AllocFnsTy Result;
   // Because allocsize only tells us how many bytes are allocated, we're not
@@ -292,28 +287,6 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   Result.AlignParam = -1;
   return Result;
 }
-
-#if INTEL_CUSTOMIZATION
-/// Returns indices of size arguments of Malloc-like functions.
-/// All functions except calloc return -1 as a second argument.
-std::pair<unsigned, unsigned>
-llvm::IntelMemoryBuiltins::getAllocSizeArgumentIndices(const Value *I,
-                                  const TargetLibraryInfo *TLI) {
-  Optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
-  if (!Res)
-    return std::make_pair(-1U, -1U);
-
-  return std::make_pair(Res->FstParam, Res->SndParam);
-}
-
-/// Checks if \p LF is in the AllocationFnData list.
-bool llvm::IntelMemoryBuiltins::isAllocationLibFunc(LibFunc LF) {
-  auto Fns = makeArrayRef(AllocationFnData);
-  return std::any_of(
-    Fns.begin(), Fns.end(),
-    [&LF](std::pair<LibFunc, AllocFnsTy> Elem) { return Elem.first == LF; });
-}
-#endif // INTEL_CUSTOMIZATION
 
 static AllocFnKind getAllocFnKind(const Value *V) {
   if (const auto *CB = dyn_cast<CallBase>(V)) {
@@ -353,6 +326,15 @@ bool llvm::isAllocationFn(
          checkFnAllocKind(V, AllocFnKind::Alloc | AllocFnKind::Realloc);
 }
 
+#if !INTEL_CUSTOMIZATION
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory via new.
+bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, OpNewLike, TLI).has_value();
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
@@ -360,18 +342,368 @@ static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 }
 
 /// Tests if a value is a call or invoke to a library function that
-/// allocates uninitialized memory with alignment (such as aligned_alloc).
-static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AlignedAllocLike, TLI).has_value();
-}
-
-/// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
 static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
 }
+#endif // INTEL_CUSTOMIZATION
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, MallocOrCallocLike, TLI).has_value(); // INTEL
+}
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory (either malloc, calloc, or strdup like).
+bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, AllocLike, TLI).has_value() ||
+         checkFnAllocKind(V, AllocFnKind::Alloc);
+}
+
+/// Tests if a functions is a call or invoke to a library function that
+/// reallocates memory (e.g., realloc).
+bool llvm::isReallocLikeFn(const Function *F) {
+  return checkFnAllocKind(F, AllocFnKind::Realloc);
+}
+
+Value *llvm::getReallocatedOperand(const CallBase *CB) {
+#ifdef INTEL_CUSTOMIZATION
+  if (checkFnAllocKind(CB, AllocFnKind::Realloc)) {
+    // All currently supported realloc functions reallocate the first argument.
+    return CB->getArgOperand(0);
+  }
+#endif //INTEL_CUSTOMIZATION
+  if (checkFnAllocKind(CB, AllocFnKind::Realloc))
+    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
+  return nullptr;
+}
+
+bool llvm::isRemovableAlloc(const CallBase *CB, const TargetLibraryInfo *TLI) {
+  // Note: Removability is highly dependent on the source language.  For
+  // example, recent C++ requires direct calls to the global allocation
+  // [basic.stc.dynamic.allocation] to be observable unless part of a new
+  // expression [expr.new paragraph 13].
+
+  // Historically we've treated the C family allocation routines and operator
+  // new as removable
+  return isAllocLikeFn(CB, TLI);
+}
+
+Value *llvm::getAllocAlignment(const CallBase *V,
+                               const TargetLibraryInfo *TLI) {
+  const std::optional<AllocFnsTy> FnData = getAllocationData(V, AnyAlloc, TLI);
+  if (FnData && FnData->AlignParam >= 0) {
+    return V->getOperand(FnData->AlignParam);
+  }
+  return V->getArgOperandWithAttribute(Attribute::AllocAlign);
+}
+
+/// When we're compiling N-bit code, and the user uses parameters that are
+/// greater than N bits (e.g. uint64_t on a 32-bit build), we can run into
+/// trouble with APInt size issues. This function handles resizing + overflow
+/// checks for us. Check and zext or trunc \p I depending on IntTyBits and
+/// I's value.
+static bool CheckedZextOrTrunc(APInt &I, unsigned IntTyBits) {
+  // More bits than we can handle. Checking the bit width isn't necessary, but
+  // it's faster than checking active bits, and should give `false` in the
+  // vast majority of cases.
+  if (I.getBitWidth() > IntTyBits && I.getActiveBits() > IntTyBits)
+    return false;
+  if (I.getBitWidth() != IntTyBits)
+    I = I.zextOrTrunc(IntTyBits);
+  return true;
+}
+
+std::optional<APInt>
+llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
+                   function_ref<const Value *(const Value *)> Mapper) {
+  // Note: This handles both explicitly listed allocation functions and
+  // allocsize.  The code structure could stand to be cleaned up a bit.
+  std::optional<AllocFnsTy> FnData = getAllocationSize(CB, TLI);
+  if (!FnData)
+    return std::nullopt;
+
+  // Get the index type for this address space, results and intermediate
+  // computations are performed at that width.
+  auto &DL = CB->getModule()->getDataLayout();
+  const unsigned IntTyBits = DL.getIndexTypeSizeInBits(CB->getType());
+
+  // Handle strdup-like functions separately.
+  if (FnData->AllocTy == StrDupLike) {
+    APInt Size(IntTyBits, GetStringLength(Mapper(CB->getArgOperand(0))));
+    if (!Size)
+      return std::nullopt;
+
+    // Strndup limits strlen.
+    if (FnData->FstParam > 0) {
+      const ConstantInt *Arg =
+        dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
+      if (!Arg)
+        return std::nullopt;
+
+      APInt MaxSize = Arg->getValue().zext(IntTyBits);
+      if (Size.ugt(MaxSize))
+        Size = MaxSize + 1;
+    }
+    return Size;
+  }
+
+  const ConstantInt *Arg =
+    dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
+  if (!Arg)
+    return std::nullopt;
+
+  APInt Size = Arg->getValue();
+  if (!CheckedZextOrTrunc(Size, IntTyBits))
+    return std::nullopt;
+
+  // Size is determined by just 1 parameter.
+  if (FnData->SndParam < 0)
+    return Size;
+
+  Arg = dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->SndParam)));
+  if (!Arg)
+    return std::nullopt;
+
+  APInt NumElems = Arg->getValue();
+  if (!CheckedZextOrTrunc(NumElems, IntTyBits))
+    return std::nullopt;
+
+  bool Overflow;
+  Size = Size.umul_ov(NumElems, Overflow);
+  if (Overflow)
+    return std::nullopt;
+  return Size;
+}
+
+Constant *llvm::getInitialValueOfAllocation(const Value *V,
+                                            const TargetLibraryInfo *TLI,
+                                            Type *Ty) {
+  auto *Alloc = dyn_cast<CallBase>(V);
+  if (!Alloc)
+    return nullptr;
+
+  // malloc are uninitialized (undef)
+  if (isMallocLikeFn(Alloc, TLI)) // INTEL
+    return UndefValue::get(Ty);
+
+#ifdef INTEL_CUSTOMIZATION
+  // calloc zero initializes
+  if (isCallocLikeFn(Alloc, TLI))
+    return Constant::getNullValue(Ty);
+#endif // INTEL_CUSTOMIZATION
+
+  AllocFnKind AK = getAllocFnKind(Alloc);
+  if ((AK & AllocFnKind::Uninitialized) != AllocFnKind::Unknown)
+    return UndefValue::get(Ty);
+  if ((AK & AllocFnKind::Zeroed) != AllocFnKind::Unknown)
+    return Constant::getNullValue(Ty);
+
+  return nullptr;
+}
+
+struct FreeFnsTy {
+  unsigned NumParams;
+  // Name of default allocator function to group malloc/free calls by family
+  MallocFamily Family;
+};
+
+// clang-format off
+static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
+    {LibFunc_ZdlPv,                              {1, MallocFamily::CPPNew}},             // operator delete(void*)
+    {LibFunc_ZdaPv,                              {1, MallocFamily::CPPNewArray}},        // operator delete[](void*)
+    {LibFunc_msvc_delete_ptr32,                  {1, MallocFamily::MSVCNew}},            // operator delete(void*)
+    {LibFunc_msvc_delete_ptr64,                  {1, MallocFamily::MSVCNew}},            // operator delete(void*)
+    {LibFunc_msvc_delete_array_ptr32,            {1, MallocFamily::MSVCArrayNew}},       // operator delete[](void*)
+    {LibFunc_msvc_delete_array_ptr64,            {1, MallocFamily::MSVCArrayNew}},       // operator delete[](void*)
+    {LibFunc_ZdlPvj,                             {2, MallocFamily::CPPNew}},             // delete(void*, uint)
+    {LibFunc_ZdlPvm,                             {2, MallocFamily::CPPNew}},             // delete(void*, ulong)
+    {LibFunc_ZdlPvRKSt9nothrow_t,                {2, MallocFamily::CPPNew}},             // delete(void*, nothrow)
+    {LibFunc_ZdlPvSt11align_val_t,               {2, MallocFamily::CPPNewAligned}},      // delete(void*, align_val_t)
+    {LibFunc_ZdaPvj,                             {2, MallocFamily::CPPNewArray}},        // delete[](void*, uint)
+    {LibFunc_ZdaPvm,                             {2, MallocFamily::CPPNewArray}},        // delete[](void*, ulong)
+    {LibFunc_ZdaPvRKSt9nothrow_t,                {2, MallocFamily::CPPNewArray}},        // delete[](void*, nothrow)
+    {LibFunc_ZdaPvSt11align_val_t,               {2, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, align_val_t)
+    {LibFunc_msvc_delete_ptr32_int,              {2, MallocFamily::MSVCNew}},            // delete(void*, uint)
+    {LibFunc_msvc_delete_ptr64_longlong,         {2, MallocFamily::MSVCNew}},            // delete(void*, ulonglong)
+    {LibFunc_msvc_delete_ptr32_nothrow,          {2, MallocFamily::MSVCNew}},            // delete(void*, nothrow)
+    {LibFunc_msvc_delete_ptr64_nothrow,          {2, MallocFamily::MSVCNew}},            // delete(void*, nothrow)
+    {LibFunc_msvc_delete_array_ptr32_int,        {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, uint)
+    {LibFunc_msvc_delete_array_ptr64_longlong,   {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, ulonglong)
+    {LibFunc_msvc_delete_array_ptr32_nothrow,    {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, nothrow)
+    {LibFunc_msvc_delete_array_ptr64_nothrow,    {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, nothrow)
+    {LibFunc___kmpc_free_shared,                 {2, MallocFamily::KmpcAllocShared}},    // OpenMP Offloading RTL free
+    {LibFunc_ZdlPvSt11align_val_tRKSt9nothrow_t, {3, MallocFamily::CPPNewAligned}},      // delete(void*, align_val_t, nothrow)
+    {LibFunc_ZdaPvSt11align_val_tRKSt9nothrow_t, {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, align_val_t, nothrow)
+    {LibFunc_ZdlPvjSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned int, align_val_t)
+    {LibFunc_ZdlPvmSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned long, align_val_t)
+    {LibFunc_ZdaPvjSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned int, align_val_t)
+    {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned long, align_val_t)
+};
+// clang-format on
+
+std::optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
+                                                        const LibFunc TLIFn) {
+// INTEL_CUSTOMIZATION
+// This looks up TLIFn in the table above, but does not do any
+// additional parameter type checking.
+// end INTEL_CUSTOMIZATION
+  (void)Callee; // INTEL
+  const auto *Iter =
+      find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
+        return P.first == TLIFn;
+      });
+  if (Iter == std::end(FreeFnData))
+    return std::nullopt;
+  return Iter->second;
+}
+
+std::optional<StringRef>
+llvm::getAllocationFamily(const Value *I, const TargetLibraryInfo *TLI) {
+  bool IsNoBuiltin;
+  const Function *Callee = getCalledFunction(I, IsNoBuiltin);
+  if (Callee == nullptr || IsNoBuiltin)
+    return std::nullopt;
+  LibFunc TLIFn;
+
+  if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn)) {
+    // Callee is some known library function.
+    const auto AllocData = getAllocationDataForFunction(Callee, AnyAlloc, TLI);
+    if (AllocData)
+      return mangledNameForMallocFamily(AllocData.value().Family);
+    const auto FreeData = getFreeFunctionDataForFunction(Callee, TLIFn);
+    if (FreeData)
+      return mangledNameForMallocFamily(FreeData.value().Family);
+  }
+  // Callee isn't a known library function, still check attributes.
+  if (checkFnAllocKind(I, AllocFnKind::Free | AllocFnKind::Alloc |
+                              AllocFnKind::Realloc)) {
+    Attribute Attr = cast<CallBase>(I)->getFnAttr("alloc-family");
+    if (Attr.isValid())
+      return Attr.getValueAsString();
+  }
+  return std::nullopt;
+}
+
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+/// INTEL_CUSTOMIZATION
+/// Requires the Function object and its TLI lookup object.
+/// This returns true on all free-like functions in FreeFnData
+/// such as delete, etc. with the correct number of parms and at least one
+/// i8* parameter.
+/// end INTEL_CUSTOMIZATION
+bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
+  std::optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
+  if (!FnData)
+    return checkFnAllocKind(F, AllocFnKind::Free);
+
+  // Check free prototype.
+  // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
+  // attribute will exist.
+  // INTEL_CUSTOMIZATION
+  // This code is needed because the TLI matching has a very loose
+  // parameter type check.
+  // end INTEL_CUSTOMIZATION
+  FunctionType *FTy = F->getFunctionType();
+  if (!FTy->getReturnType()->isVoidTy())
+    return false;
+  if (FTy->getNumParams() != FnData->NumParams)
+    return false;
+  if (!FTy->getParamType(0)->isPointerTy())
+    return false;
+
+  return true;
+}
+
+Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin) { // INTEL
+  bool IsNoBuiltinCall;
+  const Function *Callee = getCalledFunction(CB, IsNoBuiltinCall);
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
+    return nullptr;
+
+  LibFunc TLIFn;
+  if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn) &&
+      isLibFreeFunction(Callee, TLIFn)) {
+    // All currently supported free functions free the first argument.
+    return CB->getArgOperand(0);
+  }
+
+  if (checkFnAllocKind(CB, AllocFnKind::Free))
+    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
+
+  return nullptr;
+}
 
 #if INTEL_CUSTOMIZATION
+/// isLibDeleteFunction - Returns true if the function is a builtin delete().
+bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
+  // First check that the TLI matches and is in the delete "family".
+  std::optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
+
+  if (!FnData.has_value())
+    return false;
+
+  auto isDeleteFamily = [&]() {
+    switch (FnData->Family) {
+    case MallocFamily::CPPNew:
+    case MallocFamily::CPPNewAligned:
+    case MallocFamily::CPPNewArray:
+    case MallocFamily::CPPNewArrayAligned:
+    case MallocFamily::MSVCNew:
+    case MallocFamily::MSVCArrayNew:
+      return true;
+    default:
+      return false;
+    }
+  };
+  if (!isDeleteFamily())
+    return false;
+
+  // Check the prototype.
+  FunctionType *FTy = F->getFunctionType();
+  if (!FTy->getReturnType()->isVoidTy())
+    return false;
+  if (FTy->getNumParams() != FnData->NumParams)
+    return false;
+  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
+    return false;
+
+  return true;
+}
+
+/// isDeleteCall - Returns non-null if the value is a call to the builtin
+/// delete(). Must be in the delete "family".
+const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
+                                   bool CheckNoBuiltin) {
+  bool IsNoBuiltinCall;
+  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
+    return nullptr;
+
+  StringRef FnName = Callee->getName();
+  LibFunc TLIFn;
+  if (!TLI || !TLI->getLibFunc(FnName, TLIFn) || !TLI->has(TLIFn))
+    return nullptr;
+
+  return isLibDeleteFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+std::pair<unsigned, unsigned>
+llvm::IntelMemoryBuiltins::getAllocSizeArgumentIndices(const Value *I,
+                                  const TargetLibraryInfo *TLI) {
+  std::optional<AllocFnsTy> Res = getAllocationSize(I, TLI);
+  if (!Res)
+    return std::make_pair(-1U, -1U);
+
+  return std::make_pair(Res->FstParam, Res->SndParam);
+}
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
@@ -418,6 +750,14 @@ bool llvm::IntelMemoryBuiltins::isNewLikeFn(const Function *F, const TargetLibra
   return getAllocationDataForFunction(F, OpNewLike, TLI).has_value();
 }
 
+/// Tests if function 'F' is identified as one that allocates memory (e.g.,
+///// malloc, calloc, new, ...).
+bool llvm::IntelMemoryBuiltins::isAllocLikeFn(const Function *F,
+                                              const TargetLibraryInfo *TLI) {
+  return getAllocationDataForFunction(F, AllocLike, TLI).has_value() ||
+         checkFnAllocKind(F, AllocFnKind::Alloc | AllocFnKind::Realloc);
+}
+
 /// Tests if a function is a call or invoke to free() (specifically).
 /// TODO: this matches current xmain behavior, but we could call
 /// isLibFreeFunction to match all free-like functions instead.
@@ -450,350 +790,6 @@ bool llvm::IntelMemoryBuiltins::isDeleteFn(const Function *F, const TargetLibrar
 
 #endif // INTEL_CUSTOMIZATION
 
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory similar to malloc or calloc.
-bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, MallocOrCallocLike, TLI).has_value();
-}
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory (either malloc, calloc, or strdup like).
-bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AllocLike, TLI).has_value() ||
-         checkFnAllocKind(V, AllocFnKind::Alloc);
-}
-
-/// Tests if a functions is a call or invoke to a library function that
-/// reallocates memory (e.g., realloc).
-bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, ReallocLike, TLI).has_value() ||
-         checkFnAllocKind(F, AllocFnKind::Realloc);
-}
-
-Value *llvm::getReallocatedOperand(const CallBase *CB,
-                                   const TargetLibraryInfo *TLI) {
-  if (getAllocationData(CB, ReallocLike, TLI).has_value() ||      // INTEL
-      checkFnAllocKind(CB, AllocFnKind::Realloc)) {               // INTEL
-    // All currently supported realloc functions reallocate the first argument.
-    return CB->getArgOperand(0);
-  }
-  if (checkFnAllocKind(CB, AllocFnKind::Realloc))
-    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
-  return nullptr;
-}
-
-bool llvm::isRemovableAlloc(const CallBase *CB, const TargetLibraryInfo *TLI) {
-  // Note: Removability is highly dependent on the source language.  For
-  // example, recent C++ requires direct calls to the global allocation
-  // [basic.stc.dynamic.allocation] to be observable unless part of a new
-  // expression [expr.new paragraph 13].
-
-  // Historically we've treated the C family allocation routines and operator
-  // new as removable
-  return isAllocLikeFn(CB, TLI);
-}
-
-Value *llvm::getAllocAlignment(const CallBase *V,
-                               const TargetLibraryInfo *TLI) {
-  const Optional<AllocFnsTy> FnData = getAllocationData(V, AnyAlloc, TLI);
-  if (FnData && FnData->AlignParam >= 0) {
-    return V->getOperand(FnData->AlignParam);
-  }
-  return V->getArgOperandWithAttribute(Attribute::AllocAlign);
-}
-
-/// When we're compiling N-bit code, and the user uses parameters that are
-/// greater than N bits (e.g. uint64_t on a 32-bit build), we can run into
-/// trouble with APInt size issues. This function handles resizing + overflow
-/// checks for us. Check and zext or trunc \p I depending on IntTyBits and
-/// I's value.
-static bool CheckedZextOrTrunc(APInt &I, unsigned IntTyBits) {
-  // More bits than we can handle. Checking the bit width isn't necessary, but
-  // it's faster than checking active bits, and should give `false` in the
-  // vast majority of cases.
-  if (I.getBitWidth() > IntTyBits && I.getActiveBits() > IntTyBits)
-    return false;
-  if (I.getBitWidth() != IntTyBits)
-    I = I.zextOrTrunc(IntTyBits);
-  return true;
-}
-
-Optional<APInt>
-llvm::getAllocSize(const CallBase *CB, const TargetLibraryInfo *TLI,
-                   function_ref<const Value *(const Value *)> Mapper) {
-  // Note: This handles both explicitly listed allocation functions and
-  // allocsize.  The code structure could stand to be cleaned up a bit.
-  Optional<AllocFnsTy> FnData = getAllocationSize(CB, TLI);
-  if (!FnData)
-    return None;
-
-  // Get the index type for this address space, results and intermediate
-  // computations are performed at that width.
-  auto &DL = CB->getModule()->getDataLayout();
-  const unsigned IntTyBits = DL.getIndexTypeSizeInBits(CB->getType());
-
-  // Handle strdup-like functions separately.
-  if (FnData->AllocTy == StrDupLike) {
-    APInt Size(IntTyBits, GetStringLength(Mapper(CB->getArgOperand(0))));
-    if (!Size)
-      return None;
-
-    // Strndup limits strlen.
-    if (FnData->FstParam > 0) {
-      const ConstantInt *Arg =
-        dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
-      if (!Arg)
-        return None;
-
-      APInt MaxSize = Arg->getValue().zext(IntTyBits);
-      if (Size.ugt(MaxSize))
-        Size = MaxSize + 1;
-    }
-    return Size;
-  }
-
-  const ConstantInt *Arg =
-    dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->FstParam)));
-  if (!Arg)
-    return None;
-
-  APInt Size = Arg->getValue();
-  if (!CheckedZextOrTrunc(Size, IntTyBits))
-    return None;
-
-  // Size is determined by just 1 parameter.
-  if (FnData->SndParam < 0)
-    return Size;
-
-  Arg = dyn_cast<ConstantInt>(Mapper(CB->getArgOperand(FnData->SndParam)));
-  if (!Arg)
-    return None;
-
-  APInt NumElems = Arg->getValue();
-  if (!CheckedZextOrTrunc(NumElems, IntTyBits))
-    return None;
-
-  bool Overflow;
-  Size = Size.umul_ov(NumElems, Overflow);
-  if (Overflow)
-    return None;
-  return Size;
-}
-
-Constant *llvm::getInitialValueOfAllocation(const Value *V,
-                                            const TargetLibraryInfo *TLI,
-                                            Type *Ty) {
-  auto *Alloc = dyn_cast<CallBase>(V);
-  if (!Alloc)
-    return nullptr;
-
-  // malloc and aligned_alloc are uninitialized (undef)
-  if (isMallocLikeFn(Alloc, TLI) || isAlignedAllocLikeFn(Alloc, TLI))
-    return UndefValue::get(Ty);
-
-  // calloc zero initializes
-  if (isCallocLikeFn(Alloc, TLI))
-    return Constant::getNullValue(Ty);
-
-  AllocFnKind AK = getAllocFnKind(Alloc);
-  if ((AK & AllocFnKind::Uninitialized) != AllocFnKind::Unknown)
-    return UndefValue::get(Ty);
-  if ((AK & AllocFnKind::Zeroed) != AllocFnKind::Unknown)
-    return Constant::getNullValue(Ty);
-
-  return nullptr;
-}
-
-struct FreeFnsTy {
-  unsigned NumParams;
-  // Name of default allocator function to group malloc/free calls by family
-  MallocFamily Family;
-};
-
-// clang-format off
-static const std::pair<LibFunc, FreeFnsTy> FreeFnData[] = {
-    {LibFunc_vec_free,                           {1, MallocFamily::VecMalloc}},
-    {LibFunc_ZdlPv,                              {1, MallocFamily::CPPNew}},             // operator delete(void*)
-    {LibFunc_ZdaPv,                              {1, MallocFamily::CPPNewArray}},        // operator delete[](void*)
-    {LibFunc_msvc_delete_ptr32,                  {1, MallocFamily::MSVCNew}},            // operator delete(void*)
-    {LibFunc_msvc_delete_ptr64,                  {1, MallocFamily::MSVCNew}},            // operator delete(void*)
-    {LibFunc_msvc_delete_array_ptr32,            {1, MallocFamily::MSVCArrayNew}},       // operator delete[](void*)
-    {LibFunc_msvc_delete_array_ptr64,            {1, MallocFamily::MSVCArrayNew}},       // operator delete[](void*)
-    {LibFunc_ZdlPvj,                             {2, MallocFamily::CPPNew}},             // delete(void*, uint)
-    {LibFunc_ZdlPvm,                             {2, MallocFamily::CPPNew}},             // delete(void*, ulong)
-    {LibFunc_ZdlPvRKSt9nothrow_t,                {2, MallocFamily::CPPNew}},             // delete(void*, nothrow)
-    {LibFunc_ZdlPvSt11align_val_t,               {2, MallocFamily::CPPNewAligned}},      // delete(void*, align_val_t)
-    {LibFunc_ZdaPvj,                             {2, MallocFamily::CPPNewArray}},        // delete[](void*, uint)
-    {LibFunc_ZdaPvm,                             {2, MallocFamily::CPPNewArray}},        // delete[](void*, ulong)
-    {LibFunc_ZdaPvRKSt9nothrow_t,                {2, MallocFamily::CPPNewArray}},        // delete[](void*, nothrow)
-    {LibFunc_ZdaPvSt11align_val_t,               {2, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, align_val_t)
-    {LibFunc_msvc_delete_ptr32_int,              {2, MallocFamily::MSVCNew}},            // delete(void*, uint)
-    {LibFunc_msvc_delete_ptr64_longlong,         {2, MallocFamily::MSVCNew}},            // delete(void*, ulonglong)
-    {LibFunc_msvc_delete_ptr32_nothrow,          {2, MallocFamily::MSVCNew}},            // delete(void*, nothrow)
-    {LibFunc_msvc_delete_ptr64_nothrow,          {2, MallocFamily::MSVCNew}},            // delete(void*, nothrow)
-    {LibFunc_msvc_delete_array_ptr32_int,        {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, uint)
-    {LibFunc_msvc_delete_array_ptr64_longlong,   {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, ulonglong)
-    {LibFunc_msvc_delete_array_ptr32_nothrow,    {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, nothrow)
-    {LibFunc_msvc_delete_array_ptr64_nothrow,    {2, MallocFamily::MSVCArrayNew}},       // delete[](void*, nothrow)
-    {LibFunc___kmpc_free_shared,                 {2, MallocFamily::KmpcAllocShared}},    // OpenMP Offloading RTL free
-    {LibFunc_ZdlPvSt11align_val_tRKSt9nothrow_t, {3, MallocFamily::CPPNewAligned}},      // delete(void*, align_val_t, nothrow)
-    {LibFunc_ZdaPvSt11align_val_tRKSt9nothrow_t, {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, align_val_t, nothrow)
-    {LibFunc_ZdlPvjSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned int, align_val_t)
-    {LibFunc_ZdlPvmSt11align_val_t,              {3, MallocFamily::CPPNewAligned}},      // delete(void*, unsigned long, align_val_t)
-    {LibFunc_ZdaPvjSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}, // delete[](void*, unsigned int, align_val_t)
-    {LibFunc_ZdaPvmSt11align_val_t,              {3, MallocFamily::CPPNewArrayAligned}}  // delete[](void*, unsigned long, align_val_t)
-};
-// clang-format on
-
-// INTEL_CUSTOMIZATION
-// This looks up TLIFn in the table above, but does not do any
-// additional parameter type checking.
-// end INTEL_CUSTOMIZATION
-Optional<FreeFnsTy> getFreeFunctionDataForFunction(const Function *Callee,
-                                                   const LibFunc TLIFn) {
-  (void)Callee; // INTEL
-  const auto *Iter =
-      find_if(FreeFnData, [TLIFn](const std::pair<LibFunc, FreeFnsTy> &P) {
-        return P.first == TLIFn;
-      });
-  if (Iter == std::end(FreeFnData))
-    return None;
-  return Iter->second;
-}
-
-Optional<StringRef> llvm::getAllocationFamily(const Value *I,
-                                              const TargetLibraryInfo *TLI) {
-  bool IsNoBuiltin;
-  const Function *Callee = getCalledFunction(I, IsNoBuiltin);
-  if (Callee == nullptr || IsNoBuiltin)
-    return None;
-  LibFunc TLIFn;
-
-  if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn)) {
-    // Callee is some known library function.
-    const auto AllocData = getAllocationDataForFunction(Callee, AnyAlloc, TLI);
-    if (AllocData)
-      return mangledNameForMallocFamily(AllocData.value().Family);
-    const auto FreeData = getFreeFunctionDataForFunction(Callee, TLIFn);
-    if (FreeData)
-      return mangledNameForMallocFamily(FreeData.value().Family);
-  }
-  // Callee isn't a known library function, still check attributes.
-  if (checkFnAllocKind(I, AllocFnKind::Free | AllocFnKind::Alloc |
-                              AllocFnKind::Realloc)) {
-    Attribute Attr = cast<CallBase>(I)->getFnAttr("alloc-family");
-    if (Attr.isValid())
-      return Attr.getValueAsString();
-  }
-  return None;
-}
-
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-/// INTEL_CUSTOMIZATION
-/// Requires the Function object and its TLI lookup object.
-/// This returns true on all free-like functions in FreeFnData
-/// such as delete, etc. with the correct number of parms and at least one
-/// i8* parameter.
-/// end INTEL_CUSTOMIZATION
-bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
-  Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
-  if (!FnData)
-    return checkFnAllocKind(F, AllocFnKind::Free);
-
-  // Check free prototype.
-  // FIXME: workaround for PR5130, this will be obsolete when a nobuiltin
-  // attribute will exist.
-  // INTEL_CUSTOMIZATION
-  // This code is needed because the TLI matching has a very loose
-  // parameter type check.
-  // end INTEL_CUSTOMIZATION
-  FunctionType *FTy = F->getFunctionType();
-  if (!FTy->getReturnType()->isVoidTy())
-    return false;
-  if (FTy->getNumParams() != FnData->NumParams)
-    return false;
-  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
-    return false;
-
-  return true;
-}
-
-#if INTEL_CUSTOMIZATION
-/// isLibDeleteFunction - Returns true if the function is a builtin delete().
-bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
-  // First check that the TLI matches and is in the delete "family".
-  Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
-
-  if (!FnData.has_value())
-    return false;
-
-  auto isDeleteFamily = [&]() {
-    switch (FnData->Family) {
-    case MallocFamily::CPPNew:
-    case MallocFamily::CPPNewAligned:
-    case MallocFamily::CPPNewArray:
-    case MallocFamily::CPPNewArrayAligned:
-    case MallocFamily::MSVCNew:
-    case MallocFamily::MSVCArrayNew:
-      return true;
-    default:
-      return false;
-    }
-  };
-  if (!isDeleteFamily())
-    return false;
-
-  // Check the prototype.
-  FunctionType *FTy = F->getFunctionType();
-  if (!FTy->getReturnType()->isVoidTy())
-    return false;
-  if (FTy->getNumParams() != FnData->NumParams)
-    return false;
-  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
-    return false;
-
-  return true;
-}
-#endif // INTEL_CUSTOMIZATION
-
-Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
-                             bool CheckNoBuiltin) { // INTEL
-  bool IsNoBuiltinCall;
-  const Function *Callee = getCalledFunction(CB, IsNoBuiltinCall);
-  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
-    return nullptr;
-
-  LibFunc TLIFn;
-  if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn) &&
-      isLibFreeFunction(Callee, TLIFn)) {
-    // All currently supported free functions free the first argument.
-    return CB->getArgOperand(0);
-  }
-
-  if (checkFnAllocKind(CB, AllocFnKind::Free))
-    return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
-
-  return nullptr;
-}
-
-#if INTEL_CUSTOMIZATION
-/// isDeleteCall - Returns non-null if the value is a call to the builtin
-/// delete(). Must be in the delete "family".
-const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
-                                   bool CheckNoBuiltin) {
-  bool IsNoBuiltinCall;
-  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
-  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
-    return nullptr;
-
-  StringRef FnName = Callee->getName();
-  LibFunc TLIFn;
-  if (!TLI || !TLI->getLibFunc(FnName, TLIFn) || !TLI->has(TLIFn))
-    return nullptr;
-
-  return isLibDeleteFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
-}
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
@@ -980,9 +976,6 @@ bool ObjectSizeOffsetVisitor::CheckedZextOrTrunc(APInt &I) {
 }
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitAllocaInst(AllocaInst &I) {
-  if (!I.getAllocatedType()->isSized())
-    return unknown();
-
   TypeSize ElemSize = DL.getTypeAllocSize(I.getAllocatedType());
   if (ElemSize.isScalable() && Options.EvalMode != ObjectSizeOpts::Mode::Min)
     return unknown();
@@ -1017,7 +1010,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitArgument(Argument &A) {
 }
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitCallBase(CallBase &CB) {
-  if (Optional<APInt> Size = getAllocSize(&CB, TLI))
+  if (std::optional<APInt> Size = getAllocSize(&CB, TLI))
     return std::make_pair(*Size, Zero);
   return unknown();
 }
@@ -1349,7 +1342,7 @@ SizeOffsetEvalType ObjectSizeOffsetEvaluator::visitAllocaInst(AllocaInst &I) {
 }
 
 SizeOffsetEvalType ObjectSizeOffsetEvaluator::visitCallBase(CallBase &CB) {
-  Optional<AllocFnsTy> FnData = getAllocationSize(&CB, TLI);
+  std::optional<AllocFnsTy> FnData = getAllocationSize(&CB, TLI);
   if (!FnData)
     return unknown();
 

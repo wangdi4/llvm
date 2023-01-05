@@ -83,6 +83,9 @@ protected:
 
     err = clReleaseContext(m_context);
     ASSERT_OCL_SUCCESS(err, "clReleaseContext");
+
+    ASSERT_TRUE(UNSETENV("CL_CONFIG_USE_VECTORIZER"));
+    ASSERT_TRUE(UNSETENV("CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE"));
   }
 
   void BuildProgram(unsigned workDim, bool createKernel = true) {
@@ -446,4 +449,6 @@ TEST_F(ForceWGSizeSingleTest, invalidDeviceProgram) {
     err = clReleaseDevice(d);
     ASSERT_OCL_SUCCESS(err, "clReleaseDevice");
   }
+
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE"));
 }

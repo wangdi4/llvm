@@ -140,6 +140,14 @@ static cl::opt<unsigned> DynAllocaMaxCharArraySize(
     "inlining-dyn-alloca-max-char-array-size", cl::init(4096), cl::ReallyHidden,
     cl::desc("Maximum size of char array which is dynamic alloca exception"));
 
+static cl::opt<bool> DynAllocaAdjustable(
+    "inlining-dyn-alloca-adjustable", cl::init(true), cl::ReallyHidden,
+    cl::desc("Allow inlining of functions with adjustable dynamic allocas"));
+
+static cl::opt<unsigned> DynAllocaAdjustableMaxCount(
+    "inlining-dyn-alloca-adjustable-max-count", cl::init(350), cl::ReallyHidden,
+    cl::desc("Maximum number of dynamic allocas to add to caller"));
+
 //
 // Options controlling the recognition of a huge function
 //
@@ -475,6 +483,36 @@ InliningLoopInfoCache::~InliningLoopInfoCache() {
 
 #if INTEL_FEATURE_SW_ADVANCED
 //
+// Functions called at the beginning and end of analyzing a call site.
+//
+
+// Count of dynamic allocas to be inlined into caller.
+static unsigned DynamicAllocaCount = 0;
+// Map with number of dynamic allocas already inlined into caller.
+static DenseMap<Function *, uint64_t> DynamicAllocaCountMap;
+
+//
+// Intel-specific analysis run before call is analyzed.
+//
+extern void intelStartAnalysisForCall(CallBase &CB,
+                                      const InlineParams &Params) {
+  if (!CB.getCaller()->isFortran())
+    return;
+  if (!Params.LinkForLTO.value_or(false))
+    return;
+  DynamicAllocaCount = 0;
+}
+
+//
+// Intel-specific analysis run after call is analyzed.
+//
+extern void intelFinalizeAnalysisForCall(CallBase &CB, bool IsSuccess) {
+  if (!IsSuccess || !DynamicAllocaCount)
+    return;
+  DynamicAllocaCountMap[CB.getCaller()] += DynamicAllocaCount;
+}
+
+//
 // Functions to manage profiling
 //
 
@@ -485,12 +523,12 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
                                               CallBase &Call,
                                               bool IsLibIRCAllowed) {
   if (!(DTransInlineHeuristics && IsLibIRCAllowed))
-    return None;
+    return std::nullopt;
   if (!PSI || !PSI->hasInstrumentationProfile())
-    return None;
+    return std::nullopt;
   MDNode *MD = Call.getMetadata(LLVMContext::MD_intel_profx);
   if (!MD)
-    return None;
+    return std::nullopt;
   assert(MD->getNumOperands() == 2);
   ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
   assert(CI);
@@ -517,7 +555,7 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M,
         continue;
       Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB,
                                                          IsLibIRCAllowed);
-      if (ProfCount == None)
+      if (ProfCount == std::nullopt)
         continue;
       uint64_t NewValue = ProfCount.value();
       if (ProfQueue.size() < ProfInstrumentHotCount) {
@@ -551,7 +589,7 @@ static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
   Module *M = CB.getParent()->getParent()->getParent();
   uint64_t Threshold = profInstrumentThreshold(PSI, M, IsLibIRCAllowed);
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB, IsLibIRCAllowed);
-  if (ProfCount == None)
+  if (ProfCount == std::nullopt)
     return false;
   return ProfCount.value() >= Threshold;
 }
@@ -761,7 +799,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         if (!CB->isLifetimeStartOrEnd())
           CallOrLoadSeen = true;
       } else if (DTransInlineHeuristics && IsLibIRCAllowed &&
-                 isa<LoadInst>(U)) {
+          isa<LoadInst>(U)) {
         CallOrLoadSeen = true;
       } else {
         return false;
@@ -780,6 +818,59 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         return true;
     }
     return false;
+  };
+
+  // Return 'true' if 'I' represents a special Fortran adjustable array
+  // whose presence in a function entry block should not inhibit inlining.
+  auto IsSpecialFortranAdjustableArray =
+      [](AllocaInst &I, CallBase &CandidateCall, bool LinkForLTO) -> bool {
+    // Return 'true' if 'I' is a multiply or shift (multiply by power of 2).
+    auto MulVal = [](Instruction *I) -> User * {
+      if (auto LS = dyn_cast<LShrOperator>(I))
+        return LS;
+      if (auto BO = dyn_cast<BinaryOperator>(I))
+        if (BO->getOpcode() == Instruction::Mul)
+          return BO;
+      return nullptr;
+    };
+
+    // Return 'true' if 'I' is hoistable to its function's entry block.
+    auto IsHoistableToEntryBlock = [&MulVal](AllocaInst &I) -> bool {
+      BasicBlock &BB = I.getFunction()->getEntryBlock();
+      Value *V = I.getArraySize();
+      if (auto II = dyn_cast<Instruction>(V)) {
+        if (II->getParent() == &BB)
+          return true;
+        // The following special case can be generalized if this is
+        // found to be useful.
+        if (auto MO = MulVal(II))
+          if (auto IIL = dyn_cast<Instruction>(MO->getOperand(0)))
+            if (IIL->getParent() == &BB)
+              if (isa<ConstantInt>(MO->getOperand(1)))
+                return true;
+      }
+      return false;
+    };
+
+    Function *F = I.getFunction();
+    if (!DynAllocaAdjustable)
+      return false;
+    if (!(LinkForLTO || EnableLTOInlineCost))
+      return false;
+    if (!F->isFortran())
+      return false;
+    if (I.getParent() != &F->getEntryBlock() && !IsHoistableToEntryBlock(I))
+      return false;
+    // The following special case can be generalized if this is
+    // found to be useful.
+    if (!F->hasOneUser())
+      return false;
+    // Do not inline too many dynamic allocas into the caller.
+    if (DynamicAllocaCountMap[CandidateCall.getCaller()] + DynamicAllocaCount >
+        DynAllocaAdjustableMaxCount)
+      return false;
+    DynamicAllocaCount++;
+    return true;
   };
 
   // Return 'true' if 'I' is in a BasicBlock which will be an entry block after
@@ -803,6 +894,11 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
 
   // CMPLRLLVM-21826: Ignore AllocaInsts that appear in an OMP_SIMD directive
   if (IsInOmpSimd(I))
+    return true;
+
+  // Ignore AllocaInsts from special Fortran adjustable arrays
+  bool LinkForLTO = Params.LinkForLTO.value_or(false);
+  if (IsSpecialFortranAdjustableArray(I, CandidateCall, LinkForLTO))
     return true;
 
   // In Fortran, dynamic allocas can be used to represent local arrays
@@ -1153,6 +1249,9 @@ static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO,
   if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
 
+  if (CB.hasFnAttr("noinline-dtrans"))
+    return true;
+
   // The callee was marked as candidate to suppress inlining.
   if (Function *Callee = CB.getCalledFunction())
     if (Callee->hasFnAttribute("noinline-dtrans"))
@@ -1183,7 +1282,7 @@ static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
     return true;
   for (auto &I : instructions(F))
     if (const auto *const CB = dyn_cast<CallBase>(&I))
-      if (getReallocatedOperand(CB, TLI))
+      if (getReallocatedOperand(CB))
         return true;
   return false;
 }
@@ -1923,7 +2022,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
   bool IsLibIRCAllowed = CalleeTTI.isLibIRCAllowed();
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
-    return None;
+    return std::nullopt;
   Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall,
                                                      IsLibIRCAllowed);
   if (ProfCount && ProfCount.value() == 0) {
@@ -1980,7 +2079,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
   if (CandidateCall.getCaller() == Callee &&
       Callee->hasFnAttribute("no-more-recursive-inlining"))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
-  return None;
+  return std::nullopt;
 }
 
 //
@@ -2097,13 +2196,12 @@ static bool boundConstArg(Function *F, Loop *L) {
     unsigned ArgNo = Arg->getArgNo();
     for (Use &U : F->uses()) {
       if (auto CB = dyn_cast<CallBase>(U.getUser())) {
-        if (!CB)
-          return false;
         if (!CB->isCallee(&U))
           return false;
         if (!isa<Constant>(CB->getOperand(ArgNo)))
           return false;
-      }
+      } else 
+        return false;
     }
     return true;
   }
@@ -3533,10 +3631,10 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
 //
 static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
                                                  bool PrepareForLTO,
-                                                  bool IsLibIRCAllowed) {
+                                                 bool IsLibIRCAllowed) {
   Function *Callee = CB.getCalledFunction();
   if (!worthInliningFunctionPassedDummyArgs(*Callee, PrepareForLTO,
-                                            IsLibIRCAllowed))
+                                             IsLibIRCAllowed))
     return false;
   for (User *U : CB.users())
     if (dyn_cast<SwitchInst>(U))
@@ -3767,7 +3865,7 @@ static bool worthInliningForSmallApp(CallBase &CB,
 static bool preferFunctionLevelRegion(Function *F, bool PrepareForLTO,
                                       bool IsLibIRCAllowed,
                                       WholeProgramInfo *WPI) {
-  if (!F || PrepareForLTO  || !(DTransInlineHeuristics && IsLibIRCAllowed)||
+  if (!F || PrepareForLTO  || !(DTransInlineHeuristics && IsLibIRCAllowed) ||
       !WPI || !F->hasOneUse())
     return false;
   auto CB = dyn_cast<CallBase>(*(F->user_begin()));

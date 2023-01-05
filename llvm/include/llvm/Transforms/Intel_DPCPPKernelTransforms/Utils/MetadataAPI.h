@@ -158,6 +158,8 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<llvm::Function, MDValueGlobalObjectStrategy>
       ScalarizedKernelTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> UseFPGAPipesTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy>
+      SubGroupConstructionModeTy;
 
   KernelInternalMetadataAPI(llvm::Function *Func)
       : LocalBufferSize(Func, "local_buffer_size"),
@@ -179,7 +181,8 @@ struct KernelInternalMetadataAPI {
         VectorizedMaskedKernel(Func, "vectorized_masked_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarKernel(Func, "scalar_kernel"),
-        UseFPGAPipes(Func, "use_fpga_pipes") {}
+        UseFPGAPipes(Func, "use_fpga_pipes"),
+        SubGroupConstructionMode(Func, "sg_construction_mode") {}
 
   // internal attributes
   NamedMDValueAccessor<LocalBufferSizeTy> LocalBufferSize;
@@ -202,6 +205,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<KernelWrapperTy> KernelWrapper;
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarKernel;
   NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;
+  NamedMDValueAccessor<SubGroupConstructionModeTy> SubGroupConstructionMode;
 
 public:
   const llvm::SmallVectorImpl<llvm::StringRef> &getMDNames() const {
@@ -217,8 +221,7 @@ public:
           CanUniteWorkgroups.getID(),     VectorizedKernel.getID(),
           VectorizedMaskedKernel.getID(), KernelWrapper.getID(),
           ScalarKernel.getID(),           UseFPGAPipes.getID(),
-          HasMatrixCall.getID(),
-      };
+          HasMatrixCall.getID(),          SubGroupConstructionMode.getID()};
     }
     return MDNames;
   }

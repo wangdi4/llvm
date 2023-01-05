@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers < %s -S -ip-cloning -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that many loops specialization cloning was performed. This is similar to

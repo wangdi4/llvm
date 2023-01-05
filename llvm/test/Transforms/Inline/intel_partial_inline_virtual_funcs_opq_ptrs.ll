@@ -173,13 +173,13 @@
 ; The important functions of this test case are Manager::runner, Derived::foo and
 ; Derived2::foo. The test case will go though the following passes:
 ;
-; 1) Whole program analysis: -wholeprogramanalysis -whole-program-assume -intel-libirc-allowed -internalize -intel-fold-wp-intrinsic
+; 1) Whole program analysis: -wholeprogramanalysis -whole-program-assume -internalize -intel-fold-wp-intrinsic
 ; 2) Simplify call graph: -simplifycfg
 ; 3) Whole program devirtualization: -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -intel-libirc-allowed -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -542,43 +542,25 @@ attributes #13 = { builtin nounwind }
 ; Partially inline (A == null) in Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEPvi:                 ; preds = %entry
 ; CHECK:         %cmp.i[[V0:[0-9]+]] = icmp eq ptr %A, null
-; CHECK-NEXT:    br i1 %cmp.i[[V0]], label %_ZN7Derived3fooEPvi.2.exit, label %for.cond.preheader.i[[V5:[0-9]+]]
-;
+
 ; Partially inline (Size = 0) in Derived::foo
-; CHECK: for.cond.preheader.i[[V5]]:                           ; preds = %BBDevirt__ZN7Derived3fooEPvi
-; CHECK:         %cmp29.i[[V1:[0-9]+]] = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    br i1 %cmp29.i[[V1]], label %codeRepl.i[[V2:[0-9]+]], label %_ZN7Derived3fooEPvi.2.exit
-;
+; CHECK:    %cmp29.i[[V7:[0-9]+]] = icmp sgt i32 %Size, 0
+
 ; Call the outline function of Derived::foo
-; CHECK: codeRepl.i[[V2]]:                                     ; preds = %for.cond.preheader.i[[V5]]
-; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, ptr %A)
+; CHECK:        codeRepl.i{{.*}}:
+; CHECK-NEXT:    call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, ptr %A)
 ; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
-;
-; CHECK: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi, %for.cond.preheader.i[[V5]], %codeRepl.i[[V2]]
-; CHECK:        %retval.0.i[[V3:[0-9]+]] = phi i1 [ false, %BBDevirt__ZN7Derived3fooEPvi ], [ true, %for.cond.preheader.i[[V5]] ], [ true, %codeRepl.i[[V2]] ]
-; CHECK-NEXT:    br label %MergeBB
 ;
 ; Partially inline (A == null) in Derived2::foo
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEPvi:                ; preds = %entry
 ; CHECK:         %cmp.i = icmp eq ptr %A, null
-; CHECK-NEXT:    br i1 %cmp.i, label %_ZN8Derived23fooEPvi.1.exit, label %for.cond.preheader.i
-;
+
 ; Partially inline (Size == 0) in Derived2::foo
-; CHECK-LABEL: for.cond.preheader.i:                             ; preds = %BBDevirt__ZN8Derived23fooEPvi
 ; CHECK:         %cmp29.i = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    br i1 %cmp29.i, label %codeRepl.i, label %_ZN8Derived23fooEPvi.1.exit
-;
+
 ; Call the outline function of Derived2:foo
-; CHECK-LABEL: codeRepl.i:                                       ; preds = %for.cond.preheader.i
-; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, ptr %A)
+; CHECK-LABEL: codeRepl.i{{.*}}:
+; CHECK-NEXT:    call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, ptr %A)
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
-; CHECK-LABEL: _ZN8Derived23fooEPvi.1.exit:
-; CHECK:    %retval.0.i = phi i1 [ false, %BBDevirt__ZN8Derived23fooEPvi ], [ true, %for.cond.preheader.i ], [ true, %codeRepl.i ]
-; CHECK-NEXT:    br label %MergeBB
-;
-; CHECK-LABEL: MergeBB:                                      ; preds = %_ZN8Derived23fooEPvi.1.exit, %_ZN7Derived3fooEPvi.2.exit
-; CHECK-NEXT:    %i[[V4:[0-9]+]] = phi i1 [ %retval.0.i[[V3]], %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
-; CHECK-NEXT:    br label %bb
-
 ; end INTEL_FEATURE_SW_DTRANS

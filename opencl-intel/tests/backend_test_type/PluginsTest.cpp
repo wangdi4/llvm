@@ -28,86 +28,83 @@ File Name:  PluginsTest.cpp
 #include <stdio.h>
 #include <string>
 
-TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
-{
-    // define the environment variable that will contain the path
-    // to the plugin dll
-    const char *pluginPath = PLUGIN_DLL_NAME;
-    ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, pluginPath));
+TEST_F(BackEndTests_Plugins, PluginLoadSuccess) {
+  // define the environment variable that will contain the path
+  // to the plugin dll
+  const char *pluginPath = PLUGIN_DLL_NAME;
+  ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, pluginPath));
 
-    // load the plugin dll and get the exported function
-    try
-    {
-        m_dll.Load(pluginPath);
-    }catch(Exceptions::DynamicLibException& )
-    {
-        FAIL() << "Cannot load the plugin dll file.\n";
-    }
-    getFlag = (PLUGIN_EXPORT_F)(intptr_t)m_dll.GetFuncPtr("getTheFlag");
-    ASSERT_TRUE(getFlag);
+  // load the plugin dll and get the exported function
+  try {
+    m_dll.Load(pluginPath);
+  } catch (Exceptions::DynamicLibException &) {
+    FAIL() << "Cannot load the plugin dll file.\n";
+  }
+  getFlag = (PLUGIN_EXPORT_F)(intptr_t)m_dll.GetFuncPtr("getTheFlag");
+  ASSERT_TRUE(getFlag);
 
-    //-----------------------------------------------------------------
-    // check the 'pluginWorked' flag - should be false
-    ASSERT_FALSE(getFlag());
+  //-----------------------------------------------------------------
+  // check the 'pluginWorked' flag - should be false
+  ASSERT_FALSE(getFlag());
 
-    // To detect that the plugin is loaded, we can create an event that will
-    // make the plugin "do something", the event CreateProgram, will lead to
-    // the plugin's method OnCreateProgram which will change the flag
-    Intel::OpenCL::PluginManager manager;
-    CreateTestEvent(&manager);
+  // To detect that the plugin is loaded, we can create an event that will
+  // make the plugin "do something", the event CreateProgram, will lead to
+  // the plugin's method OnCreateProgram which will change the flag
+  Intel::OpenCL::PluginManager manager;
+  CreateTestEvent(&manager);
 
-    // now, plugin's method OnCreateProgram should have changed the 'pluginWorked' flag
-    // check if the flag really changed - should be true
-    ASSERT_TRUE(getFlag());
+  // now, plugin's method OnCreateProgram should have changed the 'pluginWorked'
+  // flag check if the flag really changed - should be true
+  ASSERT_TRUE(getFlag());
 }
 
-TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
-{
-    // define the environment variable that will contain the WRONG path to the plugin dll
-    std::string envString("");
+TEST_F(BackEndTests_Plugins, PluginLoadWrongPath) {
+  // define the environment variable that will contain the WRONG path to the
+  // plugin dll
+  std::string envString("");
 #ifdef _WIN32
-    // envString = "fakepath\PLUGIN_DLL_NAME"
-    envString = get_exe_dir() + "fakepathblabla\\" + PLUGIN_DLL_NAME;
-    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
+  // envString = "fakepath\PLUGIN_DLL_NAME"
+  envString = get_exe_dir() + "fakepathblabla\\" + PLUGIN_DLL_NAME;
+  ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
-    // envString = "environmentname=fakepath/PLUGIN_DLL_NAME"
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + get_exe_dir() + "fakepathblabla/" + PLUGIN_DLL_NAME;
-    ASSERT_EQ(putenv(&(envString[0])), 0);
+  // envString = "environmentname=fakepath/PLUGIN_DLL_NAME"
+  envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + get_exe_dir() +
+              "fakepathblabla/" + PLUGIN_DLL_NAME;
+  ASSERT_EQ(putenv(&(envString[0])), 0);
 #endif
 
-    try{
-      // PluginManager is initialized in lazy fashion - so need to generate even to trigger the initialization
-      Intel::OpenCL::PluginManager manager;
-      CreateTestEvent(&manager);
-    } catch (Intel::OpenCL::PluginManagerException e){
-      return;
-    }
-    FAIL() << "exception was expected";
-}
-
-TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
-{
-    // define the environment variable and leave it EMPTY
-    ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, ""));
-    // make sure the environment variable is defined but empty
-    std::string Env;
-    ASSERT_TRUE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
-    ASSERT_TRUE(STRING_EQ("", Env));
-
-    // init the backend - should success
+  try {
+    // PluginManager is initialized in lazy fashion - so need to generate even
+    // to trigger the initialization
     Intel::OpenCL::PluginManager manager;
     CreateTestEvent(&manager);
+  } catch (Intel::OpenCL::PluginManagerException e) {
+    return;
+  }
+  FAIL() << "exception was expected";
 }
 
-TEST_F(BackEndTests_Plugins, PluginLoadSuccess2)
-{
-    // ensure the environment variable is not defined
-    ASSERT_TRUE(UNSETENV(PLUGIN_ENVIRONMENT_VAR));
+TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath) {
+  // define the environment variable and leave it EMPTY
+  ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, ""));
+  // make sure the environment variable is defined but empty
+  std::string Env;
+  ASSERT_TRUE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
+  ASSERT_TRUE(STRING_EQ("", Env));
 
-    std::string Env;
-    ASSERT_FALSE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
+  // init the backend - should success
+  Intel::OpenCL::PluginManager manager;
+  CreateTestEvent(&manager);
+}
 
-    // init the backend - should success
-    Intel::OpenCL::PluginManager manager;
-    CreateTestEvent(&manager);
+TEST_F(BackEndTests_Plugins, PluginLoadSuccess2) {
+  // ensure the environment variable is not defined
+  ASSERT_TRUE(UNSETENV(PLUGIN_ENVIRONMENT_VAR));
+
+  std::string Env;
+  ASSERT_FALSE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
+
+  // init the backend - should success
+  Intel::OpenCL::PluginManager manager;
+  CreateTestEvent(&manager);
 }

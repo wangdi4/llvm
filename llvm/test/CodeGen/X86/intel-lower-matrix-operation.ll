@@ -174,6 +174,78 @@ enrty:
   ret <16 x i32> %0
 }
 
+define <16 x i8> @test_fill_int8_usea() {
+; CHECK-LABEL: @test_fill_int8_usea(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 4)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  ret <16 x i8> %0
+}
+
+define <16 x i8> @test_fill_int8_useb() {
+; CHECK-LABEL: @test_fill_int8_useb(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  ret <16 x i8> %0
+}
+
+define <16 x i16> @test_fill_bf16_usea() {
+; CHECK-LABEL: @test_fill_bf16_usea(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i16> @llvm.x86.cast.tile.to.vector.v16i16(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  ret <16 x i16> %0
+}
+
+define <16 x i16> @test_fill_bf16_useb() {
+; CHECK-LABEL: @test_fill_bf16_useb(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 2, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i16> @llvm.x86.cast.tile.to.vector.v16i16(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  ret <16 x i16> %0
+}
+
+define <16 x float> @test_fill_float_usec() {
+; CHECK-LABEL: @test_fill_float_usec(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.cast.tile.to.vector.v16f32(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
+  ret <16 x float> %0
+}
+
+define <16 x i32> @test_fill_i32_usec() {
+; CHECK-LABEL: @test_fill_i32_usec(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i32> @llvm.x86.cast.tile.to.vector.v16i32(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i32> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
+  ret <16 x i32> %0
+}
+
 define void @test_load_store_same_addrspace(i32* %ptr, i64 %stride, i32* %dst) {
 ; CHECK-LABEL: @test_load_store_same_addrspace(
 ; CHECK-NEXT:  enrty:
@@ -274,6 +346,90 @@ define void @load_mad_store_bf16(i16 addrspace(4)* %ptrA, i16 addrspace(4)* %ptr
   %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)* %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, metadata !"matrix.rowmajor", <450 x i16> %B, metadata !"matrix.packed.b", <225 x float> %C, metadata !"matrix.rowmajor", i32 15, i32 30, i32 15, metadata !"scope.subgroup")
   call void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float> %D, float addrspace(4)* %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  ret void
+}
+
+define void @load_mad_store_int8_with_use(i32 addrspace(4)* %ptr, i64 %Stride) {
+; CHECK-LABEL: @load_mad_store_int8_with_use(
+; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i32 addrspace(4)* [[PTR:%.*]] to i8*
+; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[STRIDE:%.*]], 1
+; CHECK-NEXT:    [[TMP3:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 3, i16 4, i8* [[TMP1]], i64 [[TMP2]])
+; CHECK-NEXT:    [[TMP4:%.*]] = call <12 x i8> @llvm.x86.cast.tile.to.vector.v12i8(x86_amx [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast i32 addrspace(4)* [[PTR]] to i8*
+; CHECK-NEXT:    [[TMP6:%.*]] = mul i64 [[STRIDE]], 1
+; CHECK-NEXT:    [[TMP7:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 1, i16 20, i8* [[TMP5]], i64 [[TMP6]])
+; CHECK-NEXT:    [[TMP8:%.*]] = call <20 x i8> @llvm.x86.cast.tile.to.vector.v20i8(x86_amx [[TMP7]])
+; CHECK-NEXT:    [[TMP9:%.*]] = addrspacecast i32 addrspace(4)* [[PTR]] to i8*
+; CHECK-NEXT:    [[TMP10:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    [[TMP11:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 3, i16 20, i8* [[TMP9]], i64 [[TMP10]])
+; CHECK-NEXT:    [[TMP12:%.*]] = call <15 x i32> @llvm.x86.cast.tile.to.vector.v15i32(x86_amx [[TMP11]])
+; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v15i32(<15 x i32> [[TMP12]])
+; CHECK-NEXT:    [[TMP14:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v12i8(<12 x i8> [[TMP4]])
+; CHECK-NEXT:    [[TMP15:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v20i8(<20 x i8> [[TMP8]])
+; CHECK-NEXT:    [[TMP16:%.*]] = call x86_amx @llvm.x86.tdpbssd.internal(i16 3, i16 20, i16 4, x86_amx [[TMP13]], x86_amx [[TMP14]], x86_amx [[TMP15]])
+; CHECK-NEXT:    [[TMP17:%.*]] = call <15 x i32> @llvm.x86.cast.tile.to.vector.v15i32(x86_amx [[TMP16]])
+; CHECK-NEXT:    [[TMP18:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v15i32(<15 x i32> [[TMP12]])
+; CHECK-NEXT:    [[TMP19:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v12i8(<12 x i8> [[TMP4]])
+; CHECK-NEXT:    [[TMP20:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v20i8(<20 x i8> [[TMP8]])
+; CHECK-NEXT:    [[TMP21:%.*]] = call x86_amx @llvm.x86.tdpbsud.internal(i16 3, i16 20, i16 4, x86_amx [[TMP18]], x86_amx [[TMP19]], x86_amx [[TMP20]])
+; CHECK-NEXT:    [[TMP22:%.*]] = call <15 x i32> @llvm.x86.cast.tile.to.vector.v15i32(x86_amx [[TMP21]])
+; CHECK-NEXT:    [[TMP23:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v15i32(<15 x i32> [[TMP12]])
+; CHECK-NEXT:    [[TMP24:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v12i8(<12 x i8> [[TMP4]])
+; CHECK-NEXT:    [[TMP25:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v20i8(<20 x i8> [[TMP8]])
+; CHECK-NEXT:    [[TMP26:%.*]] = call x86_amx @llvm.x86.tdpbusd.internal(i16 3, i16 20, i16 4, x86_amx [[TMP23]], x86_amx [[TMP24]], x86_amx [[TMP25]])
+; CHECK-NEXT:    [[TMP27:%.*]] = call <15 x i32> @llvm.x86.cast.tile.to.vector.v15i32(x86_amx [[TMP26]])
+; CHECK-NEXT:    [[TMP28:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v15i32(<15 x i32> [[TMP12]])
+; CHECK-NEXT:    [[TMP29:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v12i8(<12 x i8> [[TMP4]])
+; CHECK-NEXT:    [[TMP30:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v20i8(<20 x i8> [[TMP8]])
+; CHECK-NEXT:    [[TMP31:%.*]] = call x86_amx @llvm.x86.tdpbuud.internal(i16 3, i16 20, i16 4, x86_amx [[TMP28]], x86_amx [[TMP29]], x86_amx [[TMP30]])
+; CHECK-NEXT:    [[TMP32:%.*]] = call <15 x i32> @llvm.x86.cast.tile.to.vector.v15i32(x86_amx [[TMP31]])
+; CHECK-NEXT:    [[TMP33:%.*]] = addrspacecast i32 addrspace(4)* [[PTR]] to i8*
+; CHECK-NEXT:    [[TMP34:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    [[TMP35:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v15i32(<15 x i32> [[TMP17]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 3, i16 20, i8* [[TMP33]], i64 [[TMP34]], x86_amx [[TMP35]])
+; CHECK-NEXT:    ret void
+;
+  %A = call <12 x i8> @llvm.experimental.matrix.load.v12i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 4, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  %B = call <20 x i8> @llvm.experimental.matrix.load.v20i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 4, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  %C = call <15 x i32> @llvm.experimental.matrix.load.v15i32(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
+  %D = call <15 x i32> @llvm.experimental.matrix.mad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  %E = call <15 x i32> @llvm.experimental.matrix.sumad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  %F = call <15 x i32> @llvm.experimental.matrix.usmad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  %G = call <15 x i32> @llvm.experimental.matrix.uumad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  call void @llvm.experimental.matrix.store.v15i32(<15 x i32> %D, i32 addrspace(4)* %ptr, i64 %Stride, i1 0, i32 3, i32 5, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
+  ret void
+}
+
+define void @load_mad_store_bf16_with_use(i16 addrspace(4)* %ptrA, i16 addrspace(4)* %ptrB, float addrspace(4)* %ptrC, float addrspace(4)* %ptrD, i64 %Stride) {
+; CHECK-LABEL: @load_mad_store_bf16_with_use(
+; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i16 addrspace(4)* [[PTRA:%.*]] to i8*
+; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[STRIDE:%.*]], 2
+; CHECK-NEXT:    [[TMP3:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 15, i16 60, i8* [[TMP1]], i64 [[TMP2]])
+; CHECK-NEXT:    [[TMP4:%.*]] = call <450 x i16> @llvm.x86.cast.tile.to.vector.v450i16(x86_amx [[TMP3]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast i16 addrspace(4)* [[PTRB:%.*]] to i8*
+; CHECK-NEXT:    [[TMP6:%.*]] = mul i64 [[STRIDE]], 2
+; CHECK-NEXT:    [[TMP7:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 15, i16 60, i8* [[TMP5]], i64 [[TMP6]])
+; CHECK-NEXT:    [[TMP8:%.*]] = call <450 x i16> @llvm.x86.cast.tile.to.vector.v450i16(x86_amx [[TMP7]])
+; CHECK-NEXT:    [[TMP9:%.*]] = addrspacecast float addrspace(4)* [[PTRC:%.*]] to i8*
+; CHECK-NEXT:    [[TMP10:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    [[TMP11:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 15, i16 60, i8* [[TMP9]], i64 [[TMP10]])
+; CHECK-NEXT:    [[TMP12:%.*]] = call <225 x float> @llvm.x86.cast.tile.to.vector.v225f32(x86_amx [[TMP11]])
+; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v225f32(<225 x float> [[TMP12]])
+; CHECK-NEXT:    [[TMP14:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v450i16(<450 x i16> [[TMP4]])
+; CHECK-NEXT:    [[TMP15:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v450i16(<450 x i16> [[TMP8]])
+; CHECK-NEXT:    [[TMP16:%.*]] = call x86_amx @llvm.x86.tdpbf16ps.internal(i16 15, i16 60, i16 60, x86_amx [[TMP13]], x86_amx [[TMP14]], x86_amx [[TMP15]])
+; CHECK-NEXT:    [[TMP17:%.*]] = call <225 x float> @llvm.x86.cast.tile.to.vector.v225f32(x86_amx [[TMP16]])
+; CHECK-NEXT:    [[TMP18:%.*]] = addrspacecast float addrspace(4)* [[PTRD:%.*]] to i8*
+; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    [[TMP20:%.*]] = call x86_amx @llvm.x86.cast.vector.to.tile.v225f32(<225 x float> [[TMP17]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 15, i16 60, i8* [[TMP18]], i64 [[TMP19]], x86_amx [[TMP20]])
+; CHECK-NEXT:    ret void
+;
+  %A = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrA, i64 %Stride, i1 false, i32 15, i32 30, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  %B = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrB, i64 %Stride, i1 false, i32 30, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
+  %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)* %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
+  %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, metadata !"matrix.columnmajor", <450 x i16> %B, metadata !"matrix.rowmajor", <225 x float> %C, metadata !"matrix.columnmajor", i32 15, i32 30, i32 15, metadata !"scope.subgroup")
+  call void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float> %D, float addrspace(4)* %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
   ret void
 }
 

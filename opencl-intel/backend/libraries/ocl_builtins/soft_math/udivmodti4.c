@@ -43,7 +43,7 @@ static inline du_int udiv128by64to64default(du_int u1, du_int u0, du_int v,
   du_int q1, q0;                                  // Quotient digits
   du_int un64, un21, un10;                        // Dividend digit pairs
   du_int rhat;                                    // A remainder
-  si_int s;                                       // Shift amount for normalization
+  si_int s; // Shift amount for normalization
 
   s = __builtin_clzll(v);
   if (s > 0) {
@@ -99,9 +99,7 @@ static inline du_int udiv128by64to64(du_int u1, du_int u0, du_int v,
                                      du_int *r) {
 #if defined(__x86_64__)
   du_int result;
-  __asm__("divq %[v]"
-          : "=a"(result), "=d"(*r)
-          : [ v ] "r"(v), "a"(u0), "d"(u1));
+  __asm__("divq %[v]" : "=a"(result), "=d"(*r) : [v] "r"(v), "a"(u0), "d"(u1));
   return result;
 #else
   return udiv128by64to64default(u1, u0, v, r);
@@ -133,8 +131,8 @@ tu_int __udivmodti4(tu_int a, tu_int b, tu_int *rem) {
                                        divisor.s.low, &remainder.s.low);
       quotient.s.high = 0;
     } else {
-      // First, divide with the high part to get the remainder in dividend.s.high.
-      // After that dividend.s.high < divisor.s.low.
+      // First, divide with the high part to get the remainder in
+      // dividend.s.high. After that dividend.s.high < divisor.s.low.
       quotient.s.high = dividend.s.high / divisor.s.low;
       dividend.s.high = dividend.s.high % divisor.s.low;
       quotient.s.low = udiv128by64to64(dividend.s.high, dividend.s.low,

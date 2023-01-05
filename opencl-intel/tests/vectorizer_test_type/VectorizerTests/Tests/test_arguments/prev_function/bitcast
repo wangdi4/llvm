@@ -7,24 +7,24 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 bitcast ( __global const float *in,
-		__global float16 *out)
+    __global float16 *out)
 {
-	int gid = get_global_id(0);
-	int x = in[gid] * in[gid] - gid;
-	int y = erf((float) x) + gid;
-	int z = isgreater(x, y) * step((float)x, (float)y);
-	int w = z + clamp((float)x, (float)y, (float)z);
-	float16 tmp1 = { w, z, x + x, y * z, z, y * w, w, w, w, x - y, z / y, w + z / y, y / z, x * w, z, z};
-//	long8 tmp2 =  as_long8(tmp1);
-	long8 tmp2 = (long8)0;
-	tmp2 = tmp2 * tmp2;
-	tmp2.x = tmp2.y * tmp2.x;
-	out[gid] = as_float16(tmp2);
+  int gid = get_global_id(0);
+  int x = in[gid] * in[gid] - gid;
+  int y = erf((float) x) + gid;
+  int z = isgreater(x, y) * step((float)x, (float)y);
+  int w = z + clamp((float)x, (float)y, (float)z);
+  float16 tmp1 = { w, z, x + x, y * z, z, y * w, w, w, w, x - y, z / y, w + z / y, y / z, x * w, z, z};
+//  long8 tmp2 =  as_long8(tmp1);
+  long8 tmp2 = (long8)0;
+  tmp2 = tmp2 * tmp2;
+  tmp2.x = tmp2.y * tmp2.x;
+  out[gid] = as_float16(tmp2);
 }

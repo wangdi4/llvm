@@ -3,7 +3,6 @@
 ; for (j = 0; j < N; j++)
 ; c[i][j] = c[i][j] + a[i][k] * b[k][j];
 
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ;

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case which has a use of
@@ -67,7 +67,7 @@ t5:
   store ptr @coder1_startup, ptr %field1, align 8
   %field2 = getelementptr inbounds %struct._ZTS11mynextcoder.mynextcoder, ptr %arg0, i64 0, i32 2
   store ptr @coder1_shutdown, ptr %field2, align 8
-  %t20 = load volatile i32, i32* @myweirdcompare
+  %t20 = load volatile i32, ptr @myweirdcompare
   %t15 = icmp eq i32 1, %t20
   br i1 %t15, label %t16, label %t17
 

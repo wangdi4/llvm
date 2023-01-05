@@ -14,6 +14,7 @@
 
 #include "ObjectDump.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Errc.h"
 #include "llvm/Support/TargetSelect.h"
 
 using namespace llvm;
@@ -44,7 +45,12 @@ Error ObjectDump::dumpObject(const MemoryBuffer *ObjBuffer,
   object::ObjectFile *OF = (*OFOrErr).get();
 
   Out = &OS;
-  dumpObjectToFile(OF);
+  try {
+    dumpObjectToFile(OF);
+  } catch (std::bad_array_new_length &e) {
+    return llvm::make_error<llvm::StringError>("out of memory",
+                                               llvm::errc::not_enough_memory);
+  }
   return Error::success();
 }
 

@@ -19,7 +19,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
-namespace intel{
+namespace intel {
 llvm::Type *reflectionToLLVM(llvm::LLVMContext &,
                              const llvm::reflection::RefParamType &);
 }

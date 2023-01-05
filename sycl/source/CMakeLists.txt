@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -85,10 +85,12 @@ function(add_sycl_rt_library LIB_NAME LIB_OBJ_NAME)
   else()
     target_compile_options(${LIB_OBJ_NAME} PUBLIC
                            -fvisibility=hidden -fvisibility-inlines-hidden)
-    set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/ld-version-script.txt")
-    target_link_libraries(
-        ${LIB_NAME} PRIVATE "-Wl,--version-script=${linker_script}")
-    set_target_properties(${LIB_NAME} PROPERTIES LINK_DEPENDS ${linker_script})
+    if (NOT APPLE)
+      set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/ld-version-script.txt")
+      target_link_libraries(
+          ${LIB_NAME} PRIVATE "-Wl,--version-script=${linker_script}")
+      set_target_properties(${LIB_NAME} PROPERTIES LINK_DEPENDS ${linker_script})
+    endif()
     if (SYCL_ENABLE_XPTI_TRACING)
       target_link_libraries(${LIB_NAME} PRIVATE dl)
     endif()
@@ -167,7 +169,8 @@ set(SYCL_SOURCES
     "detail/error_handling/enqueue_kernel.cpp"
     "detail/event_impl.cpp"
     "detail/filter_selector_impl.cpp"
-    "detail/force_device.cpp"
+    "detail/fusion/fusion_wrapper.cpp"
+    "detail/fusion/fusion_wrapper_impl.cpp"
     "detail/global_handler.cpp"
     "detail/helpers.cpp"
     "detail/handler_proxy.cpp"
@@ -251,6 +254,12 @@ intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
 
+check_cxx_compiler_flag(-fsemantic-interposition HAS_SEMANTIC_INTERPOSITION_FLAG)
+if (HAS_SEMANTIC_INTERPOSITION_FLAG)
+  # See https://github.com/llvm/llvm-project/issues/58295.
+  set_source_files_properties(device_selector.cpp PROPERTIES COMPILE_FLAGS -fsemantic-interposition)
+endif()
+
 if (WIN32)
 set(LIB_NAME "sycl${SYCL_MAJOR_VERSION}")
 else()
@@ -288,17 +297,15 @@ install(TARGETS ${SYCL_RT_LIBS}
   LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
   RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
 
-# Copy SYCL config to build location
-add_custom_target(sycl-config-file ALL
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf $<TARGET_FILE_DIR:sycl>
-COMMENT "Copying SYCL config ...")
-
-# Copy SYCL config to install location
 set(SYCL_CONF_INSTALL_PATH "NOT SET")
 if (MSVC)
-  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_RUNTIME_INSTALL_DIR})
+  set(SYCL_CONF_INSTALL_PATH ${SYCL_RUNTIME_INSTALL_DIR})
 else()
-  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_LIBRARY_INSTALL_DIR})
+  set(SYCL_CONF_INSTALL_PATH ${SYCL_LIBRARY_INSTALL_DIR})
 endif()
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
+
+# Configure SYCL config to build location
+configure_file(sycl.conf ${CMAKE_BINARY_DIR}/${SYCL_CONF_INSTALL_PATH}/sycl.conf COPYONLY)
+# Copy SYCL config to install location
+install(FILES sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
 # end INTEL_CUSTOMIZATION

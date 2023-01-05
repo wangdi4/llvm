@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -121,8 +121,9 @@ endfunction()
 set(crt_obj_deps wrapper.h device.h spirv_vars.h sycl-compiler)
 set(complex_obj_deps device_complex.h device.h sycl-compiler)
 set(cmath_obj_deps device_math.h device.h sycl-compiler)
-set(imf_obj_deps device_imf.hpp imf_half.hpp device.h sycl-compiler)
+set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp device.h sycl-compiler)
 set(itt_obj_deps device_itt.h spirv_vars.h device.h sycl-compiler)
+set(bfloat16_obj_deps sycl-compiler)
 
 add_devicelib_obj(libsycl-itt-stubs SRC itt_stubs.cpp DEP ${itt_obj_deps})
 add_devicelib_obj(libsycl-itt-compiler-wrappers SRC itt_compiler_wrappers.cpp DEP ${itt_obj_deps})
@@ -135,6 +136,8 @@ add_devicelib_obj(libsycl-cmath SRC cmath_wrapper.cpp DEP ${cmath_obj_deps})
 add_devicelib_obj(libsycl-cmath-fp64 SRC cmath_wrapper_fp64.cpp DEP ${cmath_obj_deps} )
 add_devicelib_obj(libsycl-imf SRC imf_wrapper.cpp DEP ${imf_obj_deps})
 add_devicelib_obj(libsycl-imf-fp64 SRC imf_wrapper_fp64.cpp DEP ${imf_obj_deps})
+add_devicelib_obj(libsycl-imf-bf16 SRC imf_wrapper_bf16.cpp DEP ${imf_obj_deps})
+add_devicelib_obj(libsycl-bfloat16 SRC bfloat16_wrapper.cpp DEP ${cmath_obj_deps} )
 if(WIN32)
 add_devicelib_obj(libsycl-msvc-math SRC msvc_math.cpp DEP ${cmath_obj_deps})
 endif()
@@ -145,6 +148,8 @@ add_fallback_devicelib(libsycl-fallback-complex SRC fallback-complex.cpp DEP ${c
 add_fallback_devicelib(libsycl-fallback-complex-fp64 SRC fallback-complex-fp64.cpp DEP ${complex_obj_deps} )
 add_fallback_devicelib(libsycl-fallback-cmath SRC fallback-cmath.cpp DEP ${cmath_obj_deps})
 add_fallback_devicelib(libsycl-fallback-cmath-fp64 SRC fallback-cmath-fp64.cpp DEP ${cmath_obj_deps})
+add_fallback_devicelib(libsycl-fallback-bfloat16 SRC fallback-bfloat16.cpp DEP ${bfloat16_obj_deps})
+add_fallback_devicelib(libsycl-native-bfloat16 SRC bfloat16_wrapper.cpp DEP ${bfloat16_obj_deps})
 
 file(MAKE_DIRECTORY ${obj_binary_dir}/libdevice)
 set(imf_fallback_src_dir ${obj_binary_dir}/libdevice)
@@ -165,7 +170,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/log2_h_la.cpp
                            imf/intel/sin_h_la.cpp
                            imf/intel/erfinv_s_ha.cpp
-                           imf/intel/cos_s_ha.cpp
+                           imf/intel/cos_s_la.cpp
                            imf/intel/cbrt_s_la.cpp
                            imf/intel/atan_s_ha.cpp
                            imf/intel/atanh_s_la.cpp
@@ -186,6 +191,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/exp10_s_la.cpp
                            imf/intel/erfc_s_la.cpp
                            imf/intel/erfcinv_s_la.cpp
+                           imf/intel/norm_s_ep.cpp
                            imf/intel/norm3d_s_la.cpp
                            imf/intel/nextafter_s_xa.cpp
                            imf/intel/modf_s_xa.cpp
@@ -199,11 +205,13 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/invcbrt_s_ha.cpp
                            imf/intel/ilogb_s_xa.cpp
                            imf/intel/tan_s_la.cpp
-                           imf/intel/sin_s_ha.cpp
+                           imf/intel/sin_s_la.cpp
                            imf/intel/sinpi_s_ha.cpp
                            imf/intel/sinh_s_la.cpp
-                           imf/intel/sincos_s_ha.cpp
+                           imf/intel/sincos_s_la.cpp
+                           imf/intel/sincospi_s_la.cpp
                            imf/intel/round_s_xa.cpp
+                           imf/intel/rnorm_s_ep.cpp
                            imf/intel/rnorm4d_s_la.cpp
                            imf/intel/rnorm3d_s_la.cpp
                            imf/intel/rhypot_s_la.cpp
@@ -214,6 +222,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/tgamma_s_la.cpp
                            imf/intel/tanh_s_ha.cpp
                            imf/intel/cdfnorm_s_la.cpp
+                           imf/intel/cdfnorminv_s_la.cpp
                            imf/intel/erfcx_s_la.cpp
                            imf/intel/hypot_s_la.cpp
                            imf/intel/isfinite_s_xa.cpp
@@ -276,12 +285,14 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/modf_d_xa.cpp
                            imf/intel/nan_d_xa.cpp
                            imf/intel/nextafter_d_xa.cpp
+                           imf/intel/norm_d_ep.cpp
                            imf/intel/norm3d_d_la.cpp
                            imf/intel/norm4d_d_la.cpp
                            imf/intel/pow_d_la.cpp
                            imf/intel/remainder_d_xa.cpp
                            imf/intel/remquo_d_xa.cpp
                            imf/intel/rhypot_d_la.cpp
+                           imf/intel/rnorm_d_ep.cpp
                            imf/intel/rnorm3d_d_la.cpp
                            imf/intel/rnorm4d_d_la.cpp
                            imf/intel/round_d_xa.cpp
@@ -294,10 +305,18 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/sinpi_d_ha.cpp
                            imf/intel/tan_d_ha.cpp
                            imf/intel/tanh_d_ha.cpp
+                           imf/intel/tgamma_d_ep.cpp
+                           imf/intel/lgamma_d_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp64.cpp)
+set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
+                           imf_utils/bfloat16_convert.cpp
+                           imf/imf_inline_bf16.cpp)
+
 set(imf_fp32_fallback_src ${imf_fallback_src_dir}/imf_fp32_fallback.cpp)
 set(imf_fp64_fallback_src ${imf_fallback_src_dir}/imf_fp64_fallback.cpp)
+set(imf_bf16_fallback_src ${imf_fallback_src_dir}/imf_bf16_fallback.cpp)
+
 set(imf_host_cxx_flags -c
   # INTEL_CUSTOMIZATION
   -DINTEL_CUSTOMIZATION
@@ -307,16 +326,32 @@ set(imf_host_cxx_flags -c
 add_custom_command(OUTPUT ${imf_fp32_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
-                                            -D FP64=0
+                                            -D IMF_TARGET=FP32
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp32_deps})
 
 add_custom_command(OUTPUT ${imf_fp64_fallback_src}
                    COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
                                             -D DEST_DIR=${imf_fallback_src_dir}
-                                            -D FP64=1
+                                            -D IMF_TARGET=FP64
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
                                             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
                    DEPENDS ${imf_fallback_fp64_deps})
+
+add_custom_command(OUTPUT ${imf_bf16_fallback_src}
+                   COMMAND ${CMAKE_COMMAND} -D SRC_DIR=${imf_src_dir}
+                                            -D DEST_DIR=${imf_fallback_src_dir}
+                                            -D IMF_TARGET=BF16
+                                             # INTEL_CUSTOMIZATION
+                                            -D OMP_LIBDEVICE=0
+                                             # end INTEL_CUSTOMIZATION
+                                            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ImfSrcConcate.cmake
+                   DEPENDS ${imf_fallback_bf16_deps})
 
 add_custom_target(get_imf_fallback_fp32  DEPENDS ${imf_fp32_fallback_src})
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf.spv
@@ -368,6 +403,31 @@ add_custom_command(OUTPUT ${obj_binary_dir}/fallback-imf-fp64-host.${lib-suffix}
                    DEPENDS ${imf_fallback_fp64_deps} get_imf_fallback_fp64 sycl-compiler
                    VERBATIM)
 
+add_custom_target(get_imf_fallback_bf16  DEPENDS ${imf_bf16_fallback_src})
+add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv
+                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                           ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
+                           ${imf_bf16_fallback_src}
+                           -o ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv
+                   DEPENDS ${imf_fallback_bf16_deps} get_imf_fallback_bf16 sycl-compiler
+                   VERBATIM)
+
+add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-imf-bf16.${lib-suffix}
+                   COMMAND ${clang} -fsycl -c -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
+                           ${compile_opts} ${sycl_targets_opt}
+                           ${imf_bf16_fallback_src}
+                           -o ${obj_binary_dir}/libsycl-fallback-imf-bf16.${lib-suffix}
+                   DEPENDS ${imf_fallback_bf16_deps} get_imf_fallback_bf16 sycl-compiler
+                   VERBATIM)
+
+add_custom_command(OUTPUT ${obj_binary_dir}/fallback-imf-bf16-host.${lib-suffix}
+                   COMMAND ${clang} ${imf_host_cxx_flags}
+                           -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
+                           ${imf_bf16_fallback_src}
+                           -o ${obj_binary_dir}/fallback-imf-bf16-host.${lib-suffix}
+                   DEPENDS ${imf_fallback_bf16_deps} get_imf_fallback_bf16 sycl-compiler
+                   VERBATIM)
+
 add_custom_target(imf_fallback_fp32_spv DEPENDS ${spv_binary_dir}/libsycl-fallback-imf.spv)
 add_custom_target(imf_fallback_fp32_obj DEPENDS ${obj_binary_dir}/libsycl-fallback-imf.${lib-suffix})
 add_custom_target(imf_fallback_fp32_host_obj DEPENDS ${obj_binary_dir}/fallback-imf-fp32-host.${lib-suffix})
@@ -379,6 +439,12 @@ add_custom_target(imf_fallback_fp64_obj DEPENDS ${obj_binary_dir}/libsycl-fallba
 add_custom_target(imf_fallback_fp64_host_obj DEPENDS ${obj_binary_dir}/fallback-imf-fp64-host.${lib-suffix})
 add_dependencies(libsycldevice-spv imf_fallback_fp64_spv)
 add_dependencies(libsycldevice-obj imf_fallback_fp64_obj)
+
+add_custom_target(imf_fallback_bf16_spv DEPENDS ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv)
+add_custom_target(imf_fallback_bf16_obj DEPENDS ${obj_binary_dir}/libsycl-fallback-imf-bf16.${lib-suffix})
+add_custom_target(imf_fallback_bf16_host_obj DEPENDS ${obj_binary_dir}/fallback-imf-bf16-host.${lib-suffix})
+add_dependencies(libsycldevice-spv imf_fallback_bf16_spv)
+add_dependencies(libsycldevice-obj imf_fallback_bf16_obj)
 
 add_custom_command(OUTPUT ${obj_binary_dir}/imf-fp32-host.${lib-suffix}
                    COMMAND ${clang} ${imf_host_cxx_flags}
@@ -396,24 +462,41 @@ add_custom_command(OUTPUT ${obj_binary_dir}/imf-fp64-host.${lib-suffix}
                    DEPENDS ${imf_obj_deps}
                    VERBATIM)
 
+add_custom_command(OUTPUT ${obj_binary_dir}/imf-bf16-host.${lib-suffix}
+                   COMMAND ${clang} ${imf_host_cxx_flags}
+                           ${CMAKE_CURRENT_SOURCE_DIR}/imf_wrapper_bf16.cpp
+                           -o ${obj_binary_dir}/imf-bf16-host.${lib-suffix}
+                   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/imf_wrapper_bf16.cpp
+                   DEPENDS ${imf_obj_deps}
+                   VERBATIM)
+
 add_custom_target(imf_fp32_host_obj DEPENDS ${obj_binary_dir}/imf-fp32-host.${lib-suffix})
 add_custom_target(imf_fp64_host_obj DEPENDS ${obj_binary_dir}/imf-fp64-host.${lib-suffix})
+add_custom_target(imf_bf16_host_obj DEPENDS ${obj_binary_dir}/imf-bf16-host.${lib-suffix})
+
 add_custom_target(imf_host_obj
                   COMMAND ${llvm-ar} rcs ${obj_binary_dir}/${devicelib_host_static}
                           ${obj_binary_dir}/imf-fp32-host.${lib-suffix}
                           ${obj_binary_dir}/fallback-imf-fp32-host.${lib-suffix}
                           ${obj_binary_dir}/imf-fp64-host.${lib-suffix}
                           ${obj_binary_dir}/fallback-imf-fp64-host.${lib-suffix}
-                  DEPENDS imf_fp32_host_obj imf_fallback_fp32_host_obj imf_fp64_host_obj imf_fallback_fp64_host_obj sycl-compiler
+                          ${obj_binary_dir}/imf-bf16-host.${lib-suffix}
+                          ${obj_binary_dir}/fallback-imf-bf16-host.${lib-suffix}
+                  DEPENDS imf_fp32_host_obj imf_fallback_fp32_host_obj
+                  DEPENDS imf_fp64_host_obj imf_fallback_fp64_host_obj
+                  DEPENDS imf_bf16_host_obj imf_fallback_bf16_host_obj
+                  DEPENDS sycl-compiler
                   VERBATIM)
 add_dependencies(libsycldevice-obj imf_host_obj)
 install(FILES ${spv_binary_dir}/libsycl-fallback-imf.spv
               ${spv_binary_dir}/libsycl-fallback-imf-fp64.spv
+              ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv
         DESTINATION ${install_dest_spv}
         COMPONENT libsycldevice)
 
 install(FILES ${obj_binary_dir}/libsycl-fallback-imf.${lib-suffix}
               ${obj_binary_dir}/libsycl-fallback-imf-fp64.${lib-suffix}
+              ${obj_binary_dir}/libsycl-fallback-imf-bf16.${lib-suffix}
               ${obj_binary_dir}/${devicelib_host_static}
         DESTINATION ${install_dest_lib}
         COMPONENT libsycldevice)

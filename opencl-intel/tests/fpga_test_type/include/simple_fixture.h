@@ -39,9 +39,7 @@ protected:
     ASSERT_NE(nullptr, m_context) << "createContext failed";
   }
 
-  void TearDown() override {
-    parent_t::TearDown();
-  }
+  void TearDown() override { parent_t::TearDown(); }
 
   /**
    *  \brief Creates and builds an OpenCL program
@@ -50,7 +48,7 @@ protected:
    *  enqueueNDRange, enqueueTask
    */
   bool createAndBuildProgram(const std::string &program_sources,
-                                   const std::string &build_options = "") {
+                             const std::string &build_options = "") {
     m_program = parent_t::createAndBuildProgram(m_context, program_sources,
                                                 build_options);
     return nullptr != m_program;
@@ -105,7 +103,7 @@ protected:
    *
    *  This function is a helper, \see enqueueNDRange for detailed description
    */
-  template<typename... Args>
+  template <typename... Args>
   bool enqueueTask(const std::string &kernel_name, Args... args) {
     return enqueueTaskImpl(/*OOO*/ false, kernel_name, /*event*/ nullptr,
                            args...);
@@ -275,8 +273,8 @@ private:
 
   cl_command_queue getOrCreateQueue(const std::string &kernel_name) {
     if (m_queues.find(kernel_name) == m_queues.end()) {
-      cl_command_queue queue = parent_t::createCommandQueue(
-          m_context, parent_t::device());
+      cl_command_queue queue =
+          parent_t::createCommandQueue(m_context, parent_t::device());
       EXPECT_TRUE(nullptr != queue) << "createCommandQueue failed";
       if (nullptr == queue) {
         return nullptr;

@@ -1,6 +1,6 @@
 //===- IntelVPlanValueTrackingHIR.cpp ---------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -11,6 +11,8 @@
 
 #include "IntelVPlanValueTrackingHIR.h"
 
+#include "../IntelVPlan.h"
+#include "../IntelVPlanDominatorTree.h"
 #include "IntelVPlanScalarEvolutionHIR.h"
 
 #include <llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h>
@@ -91,9 +93,10 @@ KnownBits
 VPlanValueTrackingHIR::computeKnownBitsForScev(const SCEV *Expr,
                                                Instruction *CtxI) const {
   auto BitWidth = DL->getMaxIndexSizeInBits();
+  auto *AC = VPAC->getLLVMCache();
 
   if (auto *E = dyn_cast<SCEVUnknown>(Expr))
-    return computeKnownBits(E->getValue(), *DL, 0, AC, CtxI, DT)
+    return llvm::computeKnownBits(E->getValue(), *DL, 0, AC, CtxI, DT)
         .anyextOrTrunc(BitWidth);
 
   if (auto *E = dyn_cast<SCEVConstant>(Expr))

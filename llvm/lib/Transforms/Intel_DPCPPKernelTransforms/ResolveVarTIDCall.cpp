@@ -16,8 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveVarTIDCall.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -60,42 +58,32 @@ static bool runOnTID(Module &M, IRBuilder<> &Builder, Constant *ConstZero,
     CI->eraseFromParent();
   }
 
-  auto &Ctx = M.getContext();
+  DenseMap<Function *, SmallVector<Instruction *, 3>> FuncToFixedTIDCalls;
 
   for (CallInst *CI : VarTIDCalls) {
     auto *Caller = CI->getFunction();
-    auto *Arg = CI->getArgOperand(0);
-
-    // Create BasicBlock for each dimension.
-    auto *BBDim0 = CI->getParent();
-    auto *BBDimOOB =
-        BBDim0->splitBasicBlock(CI, Twine("bb.") + Prefix + Twine("oob"));
-    auto *BBAfter =
-        BBDimOOB->splitBasicBlock(CI, Twine("bb.") + Prefix + Twine("exit"));
-    auto *BBDim1 = BasicBlock::Create(Ctx, Twine("bb.") + Prefix + Twine("1"),
-                                      Caller, BBDimOOB);
-    auto *BBDim2 = BasicBlock::Create(Ctx, Twine("bb.") + Prefix + Twine("2"),
-                                      Caller, BBDimOOB);
-
-    BBDim0->getTerminator()->eraseFromParent();
-
-    BasicBlock *BBDims[] = {BBDim0, BBDim1, BBDim2, BBDimOOB};
-
-    Builder.SetInsertPoint(CI);
-    auto *TIDPhi = Builder.CreatePHI(CI->getType(), 4, Prefix + Twine("phi"));
-    TIDPhi->addIncoming(ConstZero, BBDimOOB);
-
-    // Create TID calls with fixed arguments.
-    for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
-      Builder.SetInsertPoint(BBDims[Dim]);
-      auto *TID = getWICall(&M, TIDName, CI->getType(), Dim, Builder,
-                            AppendWithDimension(Prefix, Dim));
-      auto *Cond = Builder.CreateICmpEQ(Arg, Builder.getInt32(Dim));
-      Builder.CreateCondBr(Cond, BBAfter, BBDims[Dim + 1]);
-      TIDPhi->addIncoming(TID, BBDims[Dim]);
+    auto It = FuncToFixedTIDCalls.find(Caller);
+    if (It == FuncToFixedTIDCalls.end()) {
+      Builder.SetInsertPoint(Caller->getEntryBlock().getFirstNonPHI());
+      SmallVector<Instruction *, 3> TIDs;
+      for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+        TIDs.push_back(getWICall(&M, TIDName, CI->getType(), Dim, Builder,
+                                 AppendWithDimension(Prefix, Dim)));
+      bool Inserted;
+      std::tie(It, Inserted) = FuncToFixedTIDCalls.insert({Caller, TIDs});
+      assert(Inserted && "failed to insert TID calls");
     }
 
-    CI->replaceAllUsesWith(TIDPhi);
+    auto *Arg = CI->getArgOperand(0);
+    Builder.SetInsertPoint(CI);
+    auto *Cmp = Builder.CreateICmpEQ(Arg, Builder.getInt32(0));
+    auto *Select = Builder.CreateSelect(Cmp, It->second[0], ConstZero);
+    Cmp = Builder.CreateICmpEQ(Arg, Builder.getInt32(1));
+    Select = Builder.CreateSelect(Cmp, It->second[1], Select);
+    Cmp = Builder.CreateICmpEQ(Arg, Builder.getInt32(2));
+    Select = Builder.CreateSelect(Cmp, It->second[2], Select);
+
+    CI->replaceAllUsesWith(Select);
     CI->eraseFromParent();
   }
 
@@ -107,36 +95,16 @@ static bool runImpl(Module &M) {
   auto *ConstZero = ConstantInt::get(getIndTy(&M), 0);
   bool Changed = runOnTID(M, Builder, ConstZero, mangledGetLID(), "lid.");
   Changed |= runOnTID(M, Builder, ConstZero, mangledGetGID(), "gid.");
+  Changed |= runOnTID(M, Builder, ConstZero, mangledGetGroupID(), "groupid.");
   return Changed;
-}
-
-namespace {
-class ResolveVarTIDCallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ResolveVarTIDCallLegacy() : ModulePass(ID) {
-    initializeResolveVarTIDCallLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "ResolveVarTIDCallLegacy";
-  }
-
-  bool runOnModule(Module &M) override { return runImpl(M); }
-};
-} // namespace
-
-char ResolveVarTIDCallLegacy::ID = 0;
-
-INITIALIZE_PASS(ResolveVarTIDCallLegacy, DEBUG_TYPE,
-                "Resolve TID with variable argument", false, false)
-
-ModulePass *llvm::createResolveVarTIDCallLegacyPass() {
-  return new ResolveVarTIDCallLegacy();
 }
 
 PreservedAnalyses ResolveVarTIDCallPass::run(Module &M,
                                              ModuleAnalysisManager &) {
-  return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  if (!runImpl(M))
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  return PA;
 }

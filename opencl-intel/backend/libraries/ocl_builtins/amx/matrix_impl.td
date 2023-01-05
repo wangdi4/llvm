@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 def int8_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_layout_transform_rowmajor_to_vnni, [v1i8], 0, [{
   int k_full_quads = $Arg2VarName / 4, k_quad, n;
   char *in = $Arg0VarName, *out = $Arg1VarName;
@@ -67,17 +79,17 @@ def bf16_matrix_layout_transform_rowmajor_to_vnni_impl : OclBuiltinImpl<matrix_l
   }]>;
 
 def int8_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matrix_layout_transform_colmajor_to_rowmajor, [v1i8], 0, [{
-  for (int k = 0; k < $Arg2VarName; ++k) {
-    for (int n = 0; n < $Arg3VarName; ++n) {
-      $Arg1VarName[n*$Arg2VarName + k] = $Arg0VarName[k*$Arg4VarName + n];
+  for (int k = 0; k < $Arg3VarName; ++k) {
+    for (int n = 0; n < $Arg2VarName; ++n) {
+      $Arg1VarName[n*$Arg3VarName + k] = $Arg0VarName[k*$Arg4VarName + n];
     }
   }
   }]>;
 
 def bf16_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matrix_layout_transform_colmajor_to_rowmajor, [v1i16], 0, [{
-  for (int k = 0; k < $Arg2VarName; ++k) {
-    for (int n = 0; n < $Arg3VarName; ++n) {
-      $Arg1VarName[n*$Arg2VarName + k] = $Arg0VarName[k*$Arg4VarName/2 + n];
+  for (int k = 0; k < $Arg3VarName; ++k) {
+    for (int n = 0; n < $Arg2VarName; ++n) {
+      $Arg1VarName[n*$Arg3VarName + k] = $Arg0VarName[k*$Arg4VarName/2 + n];
     }
   }
   }]>;

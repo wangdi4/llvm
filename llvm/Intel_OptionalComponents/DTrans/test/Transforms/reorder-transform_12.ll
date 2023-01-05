@@ -4,7 +4,6 @@
 ; contains a complete copy of the struct being reordered.
 ;
 
-;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
 ;  RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -S -passes=dtrans-reorderfields -dtrans-reorderfield-enable-applicable-test=0 -dtrans-reorderfield-enable-legal-test=0 | FileCheck %s
 
 ; check __DFR_struct.S means DTrans Field-Reorder pass triggered on this struct type

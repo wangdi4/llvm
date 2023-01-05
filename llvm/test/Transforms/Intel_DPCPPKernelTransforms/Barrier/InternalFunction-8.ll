@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and function "foo",
@@ -19,7 +17,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 ; CHECK: @main
-define void @main() nounwind {
+define void @main() nounwind !no_barrier_path !1 {
 L1:
   call void @dummy_barrier.()
   br label %L2
@@ -68,6 +66,7 @@ declare i32 @_Z13get_global_idj(i32)
 !sycl.kernels = !{!0}
 
 !0 = !{void ()* @main}
+!1 = !{i1 false}
 
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4

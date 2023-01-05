@@ -1454,7 +1454,7 @@ static int svmlGetListForBaseName(const char * func_base_name, int is_svml, Func
 #if !defined LRB
     static const FunctionDescriptionType FunctionDescription_svml_table32[] =
     {
-        #include "GLC/iml_table_svml_ia32_glc.inc"
+        #include "iml_table_svml_ia32.inc"
         //#pragma message "IA32 GLC SVML TABLE LOADED"
     };
 
@@ -1468,13 +1468,8 @@ static int svmlGetListForBaseName(const char * func_base_name, int is_svml, Func
 
     static const FunctionDescriptionType FunctionDescription_svml_table64[] =
     {
-#if defined LRB
-        #include "iml_table_svml_knc.inc"
-        //#pragma message "KNC SVML TABLE LOADED"
-#else
-        #include "GLC/iml_table_svml_em64t_glc.inc"
+        #include "iml_table_svml_em64t.inc"
         //#pragma message "EFI2 GLC SVML TABLE LOADED"
-#endif
     };
 
     static const FunctionDescriptionType FunctionDescription_libm_table64[] =

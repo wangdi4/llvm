@@ -15,7 +15,9 @@
 namespace {
 constexpr auto sycl_read_write = sycl::access::mode::read_write;
 
-TEST(HostAccessorDeadLockTest, CheckThreadOrder) {
+// Disable the test until https://jira.devtools.intel.com/browse/CMPLRLLVM-40867
+// is fixed
+TEST(DISABLED_HostAccessorDeadLockTest, CheckThreadOrder) {
   constexpr std::size_t size = 1;
   constexpr std::size_t threadCount = 4, launchCount = 5;
 

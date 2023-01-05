@@ -1,8 +1,8 @@
 ; Test to verify that VPlan vectorizers remove VPO.GUARD.MEM.MOTION directives
 ; from outgoing scalar peel/remainder loops.
 
-; RUN: opt -vplan-vec -vplan-vec-scenario="s1;v2;s1" -instcombine -vplan-pragma-omp-ordered-simd-extract -disable-output -print-after=vplan-vec < %s 2>&1 | FileCheck %s  -check-prefixes=IR
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="s1;v2;s1" -hir-cg -simplifycfg -sroa -instcombine -vplan-pragma-omp-ordered-simd-extract -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s  -check-prefixes=HIR
+; RUN: opt -passes=vplan-vec,instcombine -vplan-vec-scenario="s1;v2;s1" -disable-output -print-after=vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=IR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,simplifycfg,sroa,instcombine' -vplan-vec-scenario="s1;v2;s1" -disable-output < %s 2>&1 | FileCheck %s  -check-prefixes=HIR
 
 ; ------------------------------------------------------------------------------
 

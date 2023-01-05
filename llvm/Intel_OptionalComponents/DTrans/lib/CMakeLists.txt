@@ -28,6 +28,7 @@ add_llvm_component_library(LLVMIntel_DTrans
   LLVMCore
   LLVMIntel_DTransAnalysis
   LLVMIntel_DTransOpt
+  LLVMIRPrinter
   LLVMSupport
 
   LINK_COMPONENTS

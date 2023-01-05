@@ -51,8 +51,8 @@ namespace google {
 namespace protobuf {
 
 // Defined in other files.
-class Descriptor;        // descriptor.h
-class DescriptorPool;    // descriptor.h
+class Descriptor;     // descriptor.h
+class DescriptorPool; // descriptor.h
 
 // Constructs implementations of Message which can emulate types which are not
 // known at compile-time.
@@ -72,7 +72,7 @@ class DescriptorPool;    // descriptor.h
 // from the same factory will share the same support data.  Any Descriptors
 // used with a particular factory must outlive the factory.
 class LIBPROTOBUF_EXPORT DynamicMessageFactory : public MessageFactory {
- public:
+public:
   // Construct a DynamicMessageFactory that will search for extensions in
   // the DescriptorPool in which the extendee is defined.
   DynamicMessageFactory();
@@ -84,7 +84,7 @@ class LIBPROTOBUF_EXPORT DynamicMessageFactory : public MessageFactory {
   //   parser to look for extensions in an alternate pool.  However, note that
   //   this is almost never what you want to do.  Almost all users should use
   //   the zero-arg constructor.
-  DynamicMessageFactory(const DescriptorPool* pool);
+  DynamicMessageFactory(const DescriptorPool *pool);
 
   ~DynamicMessageFactory();
 
@@ -115,50 +115,51 @@ class LIBPROTOBUF_EXPORT DynamicMessageFactory : public MessageFactory {
   // outlive the DynamicMessageFactory.
   //
   // The method is thread-safe.
-  const Message* GetPrototype(const Descriptor* type);
+  const Message *GetPrototype(const Descriptor *type);
 
- private:
-  const DescriptorPool* pool_;
+private:
+  const DescriptorPool *pool_;
   bool delegate_to_generated_factory_;
 
-  // This struct just contains a hash_map.  We can't #include <google/protobuf/stubs/hash.h> from
-  // this header due to hacks needed for hash_map portability in the open source
-  // release.  Namely, stubs/hash.h, which defines hash_map portably, is not a
-  // public header (for good reason), but dynamic_message.h is, and public
-  // headers may only #include other public headers.
+  // This struct just contains a hash_map.  We can't #include
+  // <google/protobuf/stubs/hash.h> from this header due to hacks needed for
+  // hash_map portability in the open source release.  Namely, stubs/hash.h,
+  // which defines hash_map portably, is not a public header (for good reason),
+  // but dynamic_message.h is, and public headers may only #include other public
+  // headers.
   struct PrototypeMap;
   std::unique_ptr<PrototypeMap> prototypes_;
   mutable Mutex prototypes_mutex_;
 
   friend class DynamicMessage;
-  const Message* GetPrototypeNoLock(const Descriptor* type);
+  const Message *GetPrototypeNoLock(const Descriptor *type);
 
   // Construct default oneof instance for reflection usage if oneof
   // is defined.
-  static void ConstructDefaultOneofInstance(const Descriptor* type,
+  static void ConstructDefaultOneofInstance(const Descriptor *type,
                                             const uint32 offsets[],
-                                            void* default_oneof_instance);
+                                            void *default_oneof_instance);
   // Delete default oneof instance. Called by ~DynamicMessageFactory.
-  static void DeleteDefaultOneofInstance(const Descriptor* type,
+  static void DeleteDefaultOneofInstance(const Descriptor *type,
                                          const uint32 offsets[],
-                                         const void* default_oneof_instance);
+                                         const void *default_oneof_instance);
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(DynamicMessageFactory);
 };
 
 // Helper for computing a sorted list of map entries via reflection.
 class LIBPROTOBUF_EXPORT DynamicMapSorter {
- public:
-  static std::vector<const Message*> Sort(const Message& message,
-                                          int map_size,
-                                          const Reflection* reflection,
-                                          const FieldDescriptor* field) {
-    std::vector<const Message*> result(static_cast<size_t>(map_size));
-    const RepeatedPtrField<Message>& map_field =
+public:
+  static std::vector<const Message *> Sort(const Message &message, int map_size,
+                                           const Reflection *reflection,
+                                           const FieldDescriptor *field) {
+    std::vector<const Message *> result(static_cast<size_t>(map_size));
+    const RepeatedPtrField<Message> &map_field =
         reflection->GetRepeatedPtrField<Message>(message, field);
     size_t i = 0;
     for (RepeatedPtrField<Message>::const_pointer_iterator it =
-             map_field.pointer_begin(); it != map_field.pointer_end(); ) {
+             map_field.pointer_begin();
+         it != map_field.pointer_end();) {
       result[i++] = *it++;
     }
     GOOGLE_DCHECK_EQ(result.size(), i);
@@ -168,66 +169,66 @@ class LIBPROTOBUF_EXPORT DynamicMapSorter {
 #ifndef NDEBUG
     for (size_t j = 1; j < static_cast<size_t>(map_size); j++) {
       if (!comparator(result[j - 1], result[j])) {
-        GOOGLE_LOG(ERROR) << (comparator(result[j], result[j - 1]) ?
-                      "internal error in map key sorting" :
-                      "map keys are not unique");
+        GOOGLE_LOG(ERROR) << (comparator(result[j], result[j - 1])
+                                  ? "internal error in map key sorting"
+                                  : "map keys are not unique");
       }
     }
 #endif
     return result;
   }
 
- private:
+private:
   class LIBPROTOBUF_EXPORT MapEntryMessageComparator {
-   public:
-    explicit MapEntryMessageComparator(const Descriptor* descriptor)
+  public:
+    explicit MapEntryMessageComparator(const Descriptor *descriptor)
         : field_(descriptor->field(0)) {}
 
-    bool operator()(const Message* a, const Message* b) {
-      const Reflection* reflection = a->GetReflection();
+    bool operator()(const Message *a, const Message *b) {
+      const Reflection *reflection = a->GetReflection();
       switch (field_->cpp_type()) {
-        case FieldDescriptor::CPPTYPE_BOOL: {
-          bool first = reflection->GetBool(*a, field_);
-          bool second = reflection->GetBool(*b, field_);
-          return first < second;
-        }
-        case FieldDescriptor::CPPTYPE_INT32: {
-          int32 first = reflection->GetInt32(*a, field_);
-          int32 second = reflection->GetInt32(*b, field_);
-          return first < second;
-        }
-        case FieldDescriptor::CPPTYPE_INT64: {
-          int64 first = reflection->GetInt64(*a, field_);
-          int64 second = reflection->GetInt64(*b, field_);
-          return first < second;
-        }
-        case FieldDescriptor::CPPTYPE_UINT32: {
-          uint32 first = reflection->GetUInt32(*a, field_);
-          uint32 second = reflection->GetUInt32(*b, field_);
-          return first < second;
-        }
-        case FieldDescriptor::CPPTYPE_UINT64: {
-          uint64 first = reflection->GetUInt64(*a, field_);
-          uint64 second = reflection->GetUInt64(*b, field_);
-          return first < second;
-        }
-        case FieldDescriptor::CPPTYPE_STRING: {
-          string first = reflection->GetString(*a, field_);
-          string second = reflection->GetString(*b, field_);
-          return first < second;
-        }
-        default:
-          GOOGLE_LOG(DFATAL) << "Invalid key for map field.";
-          return true;
+      case FieldDescriptor::CPPTYPE_BOOL: {
+        bool first = reflection->GetBool(*a, field_);
+        bool second = reflection->GetBool(*b, field_);
+        return first < second;
+      }
+      case FieldDescriptor::CPPTYPE_INT32: {
+        int32 first = reflection->GetInt32(*a, field_);
+        int32 second = reflection->GetInt32(*b, field_);
+        return first < second;
+      }
+      case FieldDescriptor::CPPTYPE_INT64: {
+        int64 first = reflection->GetInt64(*a, field_);
+        int64 second = reflection->GetInt64(*b, field_);
+        return first < second;
+      }
+      case FieldDescriptor::CPPTYPE_UINT32: {
+        uint32 first = reflection->GetUInt32(*a, field_);
+        uint32 second = reflection->GetUInt32(*b, field_);
+        return first < second;
+      }
+      case FieldDescriptor::CPPTYPE_UINT64: {
+        uint64 first = reflection->GetUInt64(*a, field_);
+        uint64 second = reflection->GetUInt64(*b, field_);
+        return first < second;
+      }
+      case FieldDescriptor::CPPTYPE_STRING: {
+        string first = reflection->GetString(*a, field_);
+        string second = reflection->GetString(*b, field_);
+        return first < second;
+      }
+      default:
+        GOOGLE_LOG(DFATAL) << "Invalid key for map field.";
+        return true;
       }
     }
 
-   private:
-    const FieldDescriptor* field_;
+  private:
+    const FieldDescriptor *field_;
   };
 };
 
-}  // namespace protobuf
+} // namespace protobuf
 
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_DYNAMIC_MESSAGE_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_DYNAMIC_MESSAGE_H__

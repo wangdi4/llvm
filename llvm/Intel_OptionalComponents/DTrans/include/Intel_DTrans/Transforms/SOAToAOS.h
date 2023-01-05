@@ -59,6 +59,13 @@ public:
   public:
     Ignore(SOAToAOSApproximationDebugResult *Ptr);
     Ignore(Ignore &&Other);
+
+    // This class is using unique_ptr, so it does not make sense to allow
+    // copying or assignment.
+    Ignore(const Ignore &Other) = delete;
+    Ignore &operator=(const Ignore &) = delete;
+    Ignore &operator=(Ignore &&) = delete;
+
     const SOAToAOSApproximationDebugResult *get() const;
     // Prevent default dtor creation while type is incomplete.
     ~Ignore();
@@ -89,6 +96,13 @@ public:
   public:
     Ignore(SOAToAOSArrayMethodsCheckDebugResult *Ptr);
     Ignore(Ignore &&Other);
+
+    // This class is using unique_ptr, so it does not make sense to allow
+    // copying or assignment.
+    Ignore(const Ignore &Other) = delete;
+    Ignore &operator=(const Ignore &) = delete;
+    Ignore &operator=(Ignore &&) = delete;
+
     const SOAToAOSArrayMethodsCheckDebugResult *get() const;
     // Prevent default dtor creation while type is incomplete.
     ~Ignore();
@@ -116,6 +130,12 @@ public:
     const SOAToAOSStructMethodsCheckDebugResult *get() const;
     // Prevent default dtor creation while type is incomplete.
     ~Ignore();
+
+    // This class is using unique_ptr, so it does not make sense to allow
+    // copying or assignment.
+    Ignore(const Ignore &Other) = delete;
+    Ignore &operator=(const Ignore &) = delete;
+    Ignore &operator=(Ignore &&) = delete;
   };
   typedef Ignore Result;
 

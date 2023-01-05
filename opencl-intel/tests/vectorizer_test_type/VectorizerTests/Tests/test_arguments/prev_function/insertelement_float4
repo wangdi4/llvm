@@ -7,20 +7,20 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 insertelement_float4 ( __global const float *in,
-		__global float4 *out)
+    __global float4 *out)
 {
-	int gid = get_global_id(0);
-	float x = atan((float)gid);
-	float y = degrees(in[gid]);
-	float z = length(x * y * in[gid]);
-	float w = isless(x, in[gid] + z);
-	float4 tmp = (float4)(x, y, z, w);
-	out[gid] = tmp;
+  int gid = get_global_id(0);
+  float x = atan((float)gid);
+  float y = degrees(in[gid]);
+  float z = length(x * y * in[gid]);
+  float w = isless(x, in[gid] + z);
+  float4 tmp = (float4)(x, y, z, w);
+  out[gid] = tmp;
 }

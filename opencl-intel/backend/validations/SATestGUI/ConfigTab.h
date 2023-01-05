@@ -14,45 +14,40 @@
 
 #ifndef CONFIGTAB_H
 #define CONFIGTAB_H
-#include "Tab.h"
 #include "ConfigManager.h"
-#include <QLabel>
+#include "Tab.h"
 #include <QCheckBox>
-#include <QTextEdit>
-#include <QLineEdit>
-#include <QLabel>
 #include <QFormLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QTextEdit>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The ConfigTab class
  * @detailed Shows options from *.cfg file
  * @TODO add functionality for saving updated params
  */
-class ConfigTab : public Tab
-{
-    Q_OBJECT
+class ConfigTab : public Tab {
+  Q_OBJECT
 public:
-    explicit ConfigTab(ConfigManager*);
+  explicit ConfigTab(ConfigManager *);
 
 signals:
 
 public slots:
 private:
-    QFormLayout* layout;
-    QCheckBox* vectorizer;
-    QTextEdit* dirs;
-    QCheckBox* vtune;
-    QLineEdit* compFlags;
-    ConfigManager* cfg;
-
+  QFormLayout *layout;
+  QCheckBox *vectorizer;
+  QTextEdit *dirs;
+  QCheckBox *vtune;
+  QLineEdit *compFlags;
+  ConfigManager *cfg;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // CONFIGTAB_H

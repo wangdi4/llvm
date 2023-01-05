@@ -18,5 +18,4 @@
 using Intel::OpenCL::Utils::ApiLogger;
 using namespace Intel::OpenCL::TaskExecutor;
 
-template<typename Func>
-void TbbTaskGroup::Run(Func& f) { m_tskGrp->run(f); }
+template <typename Func> void TbbTaskGroup::Run(Func &f) { m_tskGrp->run(f); }

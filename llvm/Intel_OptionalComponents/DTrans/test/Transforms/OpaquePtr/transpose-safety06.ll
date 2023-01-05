@@ -1,11 +1,11 @@
 ; This test verifies the safety analysis for the usage of dope vectors
 ; in uplevel variables for cases supported by the transpose transformation.
 
-; RUN: opt -opaque-pointers < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Variation to test that invalidates the candidate.
-; RUN: sed -e s/.TEST_CAST:// %s | opt -opaque-pointers -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 ; RUN: sed -e s/.TEST_CAST:// %s | opt -opaque-pointers -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 
 

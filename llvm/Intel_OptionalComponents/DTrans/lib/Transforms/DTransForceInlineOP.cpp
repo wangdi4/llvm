@@ -34,10 +34,13 @@
 using namespace llvm;
 using namespace dtransOP;
 
+static constexpr unsigned ParamNumberUsesLimit = 6;
+
 namespace {
 class DTransForceInlineOP {
 public:
-  bool run(Module &M, std::function<const TargetLibraryInfo& (const Function&)> GetTLI);
+  bool run(Module &M,
+           std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 };
 
 bool DTransForceInlineOP::run(
@@ -45,7 +48,7 @@ bool DTransForceInlineOP::run(
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
 
   // Returns true if “Fn” is empty.
-  auto IsEmptyFunction = [] (Function *Fn) {
+  auto IsEmptyFunction = [](Function *Fn) {
     if (Fn->isDeclaration())
       return false;
     for (auto &I : Fn->getEntryBlock()) {
@@ -54,6 +57,136 @@ bool DTransForceInlineOP::run(
       if (isa<ReturnInst>(I))
         return true;
       break;
+    }
+    return false;
+  };
+
+  // Returns true if Argument "Param" is used only to pass as an argument to
+  // calls and typecast to multiple types before passing.
+  //  Ex:
+  //      foo(void * value) {
+  //        ...
+  //        bar1(..., (short*) value);
+  //        ...
+  //        bar2(..., (char*) value);
+  //        ...
+  //        bar3(..., (struct A *) value);
+  //        ...
+  //      }
+  auto IsArgPassedAsMultipleTypes =
+      [](Argument *Param, SmallPtrSetImpl<CallBase *> &NoInlineCalls,
+         TypeMetadataReader &MDReader) {
+        SmallPtrSet<Type *, 4> UsedTypesSet;
+        for (Use &U : Param->uses()) {
+          // Makes sure "Param" is used only in Calls.
+          auto *CB = dyn_cast<CallBase>(U.getUser());
+          if (!CB || !CB->isArgOperand(&U))
+            return false;
+          Function *Callee = CB->getCalledFunction();
+          if (!Callee)
+            return false;
+          unsigned ArgNo = CB->getArgOperandNo(&U);
+          auto *DTy = dyn_cast_or_null<DTransFunctionType>(
+              MDReader.getDTransTypeFromMD(Callee));
+          if (!DTy || Callee->arg_size() <= ArgNo)
+            return false;
+          DTransType *DTArgTy = DTy->getArgType(ArgNo);
+          auto *PTy = dyn_cast<DTransPointerType>(DTArgTy);
+          if (!PTy)
+            return false;
+          Type *ElemTy = PTy->getPointerElementType()->getLLVMType();
+          // Ignore if Param is passed as I8Ptr.
+          if (ElemTy->isIntegerTy(8))
+            continue;
+          UsedTypesSet.insert(ElemTy);
+          if (Callee->isDeclaration())
+            continue;
+          if (Callee->getArg(ArgNo)->hasNUses(0))
+            continue;
+          NoInlineCalls.insert(CB);
+        }
+        // Check if "Param" is typecast to multiple types before passing
+        // as arguments to calls.
+        if (UsedTypesSet.size() > 1 && NoInlineCalls.size() > 0)
+          return true;
+        return false;
+      };
+
+  // Returns true if "F" has a i8* argument that is saved into a struct
+  // and a pointer to struct is passed as the argument to "F".
+  //  Ex:
+  //      foo(void * value) {
+  //        ...
+  //        struct.A* c;
+  //        ...
+  //        c->field1 =  value;
+  //        ...
+  //      }
+  //      bar() {
+  //        struct.A* ptr = baz();
+  //        ...
+  //        foo((void*) ptr);
+  //      }
+  //
+  // Set "noinline-dtrans" attribute for "foo" to avoid badcasting for
+  // "struct.A" in the example.
+  //
+  auto IsStructPtrReturnValuePassedAsI8 = [&](Function &F,
+                                              DTransFunctionType *DFnTy,
+                                              TypeMetadataReader &MDReader) {
+    // Allow only single callsite.
+    if (!F.hasOneUse())
+      return false;
+    auto *CB = dyn_cast<CallBase>(F.user_back());
+    if (!CB || CB->getCalledFunction() != &F)
+      return false;
+    unsigned NumArgs = F.arg_size();
+    for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+      // Check argument is i8*
+      DTransType *DTArgTy = DFnTy->getArgType(ArgIdx);
+      auto *PTy = dyn_cast<DTransPointerType>(DTArgTy);
+      if (!PTy)
+        continue;
+      if (!PTy->getPointerElementType()->getLLVMType()->isIntegerTy(8))
+        continue;
+      auto *Param = F.getArg(ArgIdx);
+      if (Param->hasNUsesOrMore(ParamNumberUsesLimit))
+        continue;
+      // Check argument is a return value of another call and type of
+      // the return value is "pointer to a struct".
+      Value *Arg = CB->getArgOperand(ArgIdx);
+      auto *ArgCall = dyn_cast<CallBase>(Arg);
+      if (!ArgCall || ArgCall->hasNUsesOrMore(ParamNumberUsesLimit))
+        continue;
+      Function *ArgCallee = ArgCall->getCalledFunction();
+      if (!ArgCallee)
+        continue;
+      DTransType *DType = MDReader.getDTransTypeFromMD(ArgCallee);
+      if (!DType)
+        continue;
+      auto *FnType = cast<DTransFunctionType>(DType);
+      DTransType *DRetTy = FnType->getReturnType();
+      if (!DRetTy->isPointerTy() ||
+          !isa<DTransStructType>(DRetTy->getPointerElementType()))
+        continue;
+
+      // Check if I8* argument is stored to a struct.
+      bool ParamStoredInStruct = false;
+      for (User *U : Param->users()) {
+        auto *SI = dyn_cast<StoreInst>(U);
+        if (!SI)
+          continue;
+        if (SI->getValueOperand() != Param)
+          continue;
+        auto *GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+        if (!GEPI || !isa<StructType>(GEPI->getSourceElementType()))
+          continue;
+        ParamStoredInStruct = true;
+        break;
+      }
+      if (!ParamStoredInStruct)
+        continue;
+      return true;
     }
     return false;
   };
@@ -117,7 +250,7 @@ bool DTransForceInlineOP::run(
   }
   // Don’t need to track empty functions for DTrans. Analysis will
   // be simpler if empty functions are inlined.
-  for (Function *F: SOAToAOSCandidateMethods)
+  for (Function *F : SOAToAOSCandidateMethods)
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
@@ -153,7 +286,7 @@ bool DTransForceInlineOP::run(
   }
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
-  for (Function *F: MemInitFuncs)
+  for (Function *F : MemInitFuncs)
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
@@ -215,6 +348,54 @@ bool DTransForceInlineOP::run(
   // Force inlining.
   for (Function *F : MemManageInlineMethods)
     F->addFnAttr("prefer-inline-dtrans");
+
+  // Mark calls with "noinline-dtrans" if any argument of a function is
+  // used only to pass as an argument to calls and typecast to multiple
+  // types before passing.
+  //  Ex: Mark "noinline-dtrans" attribute for bar1, bar2 and bar3 calls.
+  //
+  //      foo(void * value) {
+  //        ...
+  //        bar1(..., (short*) value);
+  //        ...
+  //        bar2(..., (char*) value);
+  //        ...
+  //        bar3(..., (struct A *) value);
+  //        ...
+  //      }
+  for (auto &F : M) {
+    if (F.isDeclaration() || F.arg_size() < 1)
+      continue;
+    auto *DFnTy =
+        dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(&F));
+    if (!DFnTy)
+      continue;
+
+    unsigned NumArgs = F.arg_size();
+    SmallPtrSet<CallBase *, 8> NoInlinedCallSites;
+    for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+      DTransType *DTArgTy = DFnTy->getArgType(ArgIdx);
+      auto *PTy = dyn_cast<DTransPointerType>(DTArgTy);
+      if (!PTy)
+        continue;
+      if (!PTy->getPointerElementType()->getLLVMType()->isIntegerTy(8))
+        continue;
+      auto *Param = F.getArg(ArgIdx);
+      if (Param->hasNUsesOrMore(ParamNumberUsesLimit))
+        continue;
+      NoInlinedCallSites.clear();
+      if (!IsArgPassedAsMultipleTypes(Param, NoInlinedCallSites, MDReader))
+        continue;
+      for (auto *CB : NoInlinedCallSites)
+        if (!CB->getCalledFunction()->hasFnAttribute(Attribute::AlwaysInline))
+          CB->addFnAttr("noinline-dtrans");
+    }
+
+    // TODO: This code can be removed once CMPLRLLVM-41532 is fixed.
+    if (IsStructPtrReturnValuePassedAsI8(F, DFnTy, MDReader))
+      if (!F.hasFnAttribute(Attribute::AlwaysInline))
+        F.addFnAttr("noinline-dtrans");
+  }
   return true;
 }
 
@@ -223,15 +404,15 @@ public:
   static char ID;
 
   DTransForceInlineOPWrapper() : ModulePass(ID) {
-    initializeDTransForceInlineOPWrapperPass(
-        *PassRegistry::getPassRegistry());
+    initializeDTransForceInlineOPWrapperPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnModule(Module &M) override {
-    auto GetTLI = [this](const Function& F) -> TargetLibraryInfo& {
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
-    return Impl.runImpl(M, GetTLI); }
+    return Impl.runImpl(M, GetTLI);
+  }
 
 private:
   DTransForceInlineOPPass Impl;
@@ -242,11 +423,11 @@ private:
 namespace llvm {
 namespace dtransOP {
 
-PreservedAnalyses
-DTransForceInlineOPPass::run(Module &M, ModuleAnalysisManager &MAM) {
-  auto& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto GetTLI = [&FAM](const Function& F) -> TargetLibraryInfo& {
-    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+PreservedAnalyses DTransForceInlineOPPass::run(Module &M,
+                                               ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
   runImpl(M, GetTLI);
   return PreservedAnalyses::all();
@@ -263,13 +444,11 @@ bool DTransForceInlineOPPass::runImpl(
 } // end namespace llvm
 
 char DTransForceInlineOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransForceInlineOPWrapper,
-                "dtrans-force-inline-op",
-                "DTrans force inline and noinline", false, false)
+INITIALIZE_PASS_BEGIN(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
+                      "DTrans force inline and noinline", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DTransForceInlineOPWrapper,
-                "dtrans-force-inline-op",
-                "DTrans force inline and noinline", false, false)
+INITIALIZE_PASS_END(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
+                    "DTrans force inline and noinline", false, false)
 ModulePass *llvm::createDTransForceInlineOPWrapperPass() {
   return new DTransForceInlineOPWrapper();
 }

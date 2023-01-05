@@ -50,6 +50,39 @@ struct TripCountInfo {
   }
 };
 
+// Vectorized loop descriptor.
+class VPlanLoopDescr {
+public:
+  enum LoopType {
+    LTRemainder,
+    LTMain,
+    LTPeel,
+  };
+
+  VPlanLoopDescr(LoopType Ty, unsigned VF, bool Masked)
+      : Type(Ty), VF(VF), IsMasked(Masked), TripCount(0) {}
+
+  LoopType getLoopType() const { return Type; }
+  unsigned getVF() const { return VF; }
+  bool isMasked() const { return IsMasked; }
+  TripCountInfo::TripCountTy getTC() const { return TripCount; }
+  bool isTCKnown() const { return TripCount != 0; }
+
+  void setMaxTripCount(TripCountInfo::TripCountTy TC) { TripCount = TC; }
+
+private:
+  LoopType Type;
+  unsigned VF; // vector factor
+  bool IsMasked;
+
+  // Vector iterations count, is set to non-zero only when we know
+  // it exactly. I.e. for vectorized remainder it's VF*UF of main loop
+  // devided by VF of remainder, for vectorized peel it's always 1,
+  // for vectorized main loop it's KnownScalarTC / (VF*UF).
+  TripCountInfo::TripCountTy TripCount;
+};
+using VPLoopDescrMap = DenseMap<VPLoop *, const VPlanLoopDescr *>;
+
 /// VPLoopInfo provides analysis of natural loop for VPlan. It is a
 /// specialization of LoopInfoBase class.
 class VPLoopInfo;
@@ -83,8 +116,17 @@ public:
   /// means that normalized IV code has been added to VPlan but the original
   /// loop does not necessarily have IV normalized, so that we need to bypass
   /// that assertion.
+  /// \p GetOrig tells whether an original bound is needed. The original
+  /// upper bound may be changed during normalization of the masked loops and we
+  /// need some special code to retrieve it.
   std::pair<VPValue *, VPCmpInst *>
-  getLoopUpperBound(bool AssumeNormalizedIV = false) const;
+  getLoopUpperBound(bool AssumeNormalizedIV = false,
+                    bool GetOrig = false) const;
+
+  /// Return original lower bound of the loop. It is the starting value of loop
+  /// induction. It may be changed during normalization of the masked loops and
+  /// we need some special code to retrieve it.
+  VPValue *getOrigLowerBound() const;
 
   /// Return the comparison used for loop latch condition.
   /// If not found, return nullptr.
@@ -94,6 +136,9 @@ public:
   /// obtained by checking loop latch's terminator instruction.
   // TODO: Do we need a setter for LoopID?
   MDNode *getLoopID() const;
+
+  void setIsConflictLoop() { IsConflictLoop = true; }
+  bool getIsConflictLoop() const { return IsConflictLoop; }
 
   /// Return true if the loop has normalized induction.
   bool hasNormalizedInduction() const {
@@ -143,8 +188,30 @@ public:
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }
-
 private:
+  // Latch condition kind.
+  enum LatchCondKind {
+    LckUnknown,
+    LckDoLoop,
+    LckAllZero,
+  };
+  struct LatchCondDescr {
+    LatchCondKind Kind;
+    VPCmpInst* Cond;
+    VPInstruction *IndIncr;
+  };
+
+  // Classifies latch condition.
+  // Recognizing two kinds of backedge conditions for loops:
+  //   - compare the induction increment with the uper bound (LckDoLoop)
+  //   - allzero check of mask resulted from comparison of induction
+  //     increment with the upper bound (LckAllZero)
+  // These two cases cover all the top loops we can have at the moment.
+  // Other cases are not supported (LckUnknown).
+  // Returns LatchCondDescr containing classification code, latch condition and
+  // the loop induction increment. In case of LckUnknown IndIncr is nullptr.
+  LatchCondDescr classifyLatchCond() const;
+
   Optional<bool> HasNormalizedInduction;
   // Flag indicating how the loop iteration count is related to the
   // upper bound (invariant operand of the latch condition). False means
@@ -153,7 +220,11 @@ private:
   bool ExactUB = true;
   // Track opt-report remarks for this VPLoop.
   OptReport OR = nullptr;
+
+  // Is this a conflict loop for vconflict idiom?
+  bool IsConflictLoop = false;
 };
+
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   using Base = LoopInfoBase<VPBasicBlock, VPLoop>;
 
@@ -211,7 +282,7 @@ template <> struct OptReportTraits<vpo::VPLoop> {
   }
 
   static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
-    return None;
+    return std::nullopt;
   }
 
   static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,

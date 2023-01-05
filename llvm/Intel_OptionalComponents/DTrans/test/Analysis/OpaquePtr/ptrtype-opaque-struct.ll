@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -64,29 +63,29 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       DomTy: %struct.test03*
 
 %struct.test01 = type opaque
-%struct.test02 = type { %struct.test02*, %struct.test03 }
+%struct.test02 = type { ptr, %struct.test03 }
 %struct.test03 = type { i32 }
 
-define internal void @foo(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
+define internal void @foo(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !8 {
 entry:
-  %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
-  %tmp1 = load %struct.test02*, %struct.test02** %tmp0
-  %tmp2 = bitcast %struct.test01* %arg to %struct.test03*
-  %tmp3 = icmp eq %struct.test02* %tmp1, null
+  %tmp0 = bitcast ptr %arg to ptr
+  %tmp1 = load ptr, ptr %tmp0
+  %tmp2 = bitcast ptr %arg to ptr
+  %tmp3 = icmp eq ptr %tmp1, null
   br i1 %tmp3, label %bb1, label %bb2
 
 bb1:
-  %tmp4 = call %struct.test02* @bar(%struct.test03* %tmp2)
+  %tmp4 = call ptr @bar(ptr %tmp2)
   br label %bb2
 
 bb2:
-  %tmp5 = phi %struct.test02* [%tmp1, %entry], [%tmp4, %bb1]
-  %tmp6 = getelementptr inbounds %struct.test02, %struct.test02* %tmp5, i64 0, i32 1
+  %tmp5 = phi ptr [%tmp1, %entry], [%tmp4, %bb1]
+  %tmp6 = getelementptr inbounds %struct.test02, ptr %tmp5, i64 0, i32 1
 
   ret void
 }
 
-declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1"  %struct.test02* @bar(%struct.test03* "intel_dtrans_func_index"="2" %arg)
+declare !intel.dtrans.func.type !11 "intel_dtrans_func_index"="1"  ptr @bar(ptr "intel_dtrans_func_index"="2" %arg)
 
 !intel.dtrans.types = !{!1, !2, !5}
 

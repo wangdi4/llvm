@@ -458,8 +458,10 @@ def register_library(library):
     library.LLVMInitializeScalarOpts.argtypes = [PassRegistry]
     library.LLVMInitializeScalarOpts.restype = None
 
+#if INTEL_CUSTOMIZATION
     library.LLVMInitializeObjCARCOpts.argtypes = [PassRegistry]
     library.LLVMInitializeObjCARCOpts.restype = None
+#endif // INTEL_CUSTOMIZATION
 
     library.LLVMInitializeVectorization.argtypes = [PassRegistry]
     library.LLVMInitializeVectorization.restype = None
@@ -467,14 +469,8 @@ def register_library(library):
     library.LLVMInitializeInstCombine.argtypes = [PassRegistry]
     library.LLVMInitializeInstCombine.restype = None
 
-    library.LLVMInitializeAggressiveInstCombiner.argtypes = [PassRegistry]
-    library.LLVMInitializeAggressiveInstCombiner.restype = None
-
     library.LLVMInitializeIPO.argtypes = [PassRegistry]
     library.LLVMInitializeIPO.restype = None
-
-    library.LLVMInitializeInstrumentation.argtypes = [PassRegistry]
-    library.LLVMInitializeInstrumentation.restype = None
 
     library.LLVMInitializeAnalysis.argtypes = [PassRegistry]
     library.LLVMInitializeAnalysis.restype = None
@@ -626,11 +622,12 @@ def initialize_llvm():
     lib.LLVMInitializeCore(p)
     lib.LLVMInitializeTransformUtils(p)
     lib.LLVMInitializeScalarOpts(p)
+#if INTEL_CUSTOMIZATION
     lib.LLVMInitializeObjCARCOpts(p)
+#endif // INTEL_CUSTOMIZATION
     lib.LLVMInitializeVectorization(p)
     lib.LLVMInitializeInstCombine(p)
     lib.LLVMInitializeIPO(p)
-    lib.LLVMInitializeInstrumentation(p)
     lib.LLVMInitializeAnalysis(p)
     lib.LLVMInitializeCodeGen(p)
     lib.LLVMInitializeTarget(p)

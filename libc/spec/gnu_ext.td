@@ -1,3 +1,7 @@
+def CpuSetT : NamedType<"cpu_set_t">;
+def CpuSetPtr : PtrType<CpuSetT>;
+def ConstCpuSetPtr : ConstType<CpuSetPtr>;
+
 def GnuExtensions : StandardSpec<"GNUExtensions"> {
   NamedType CookieIOFunctionsT = NamedType<"cookie_io_functions_t">;
   HeaderSpec CType = HeaderSpec<
@@ -25,9 +29,29 @@ def GnuExtensions : StandardSpec<"GNUExtensions"> {
             RetValSpec<VoidType>,
             [ArgSpec<FloatType>, ArgSpec<FloatPtr>, ArgSpec<FloatPtr>]
         >,
+        FunctionSpec<"exp10f", RetValSpec<FloatType>, [ArgSpec<FloatType>]>,
       ]
   >;
-  
+ 
+  HeaderSpec Sched = HeaderSpec<
+      "sched.h",
+      [], // Macros
+      [PidT, SizeTType, CpuSetT], // Types
+      [], // Enumerations
+      [
+        FunctionSpec<
+            "sched_getaffinity",
+            RetValSpec<IntType>,
+            [ArgSpec<PidT>, ArgSpec<SizeTType>, ArgSpec<CpuSetPtr>]
+        >,
+        FunctionSpec<
+            "sched_setaffinity",
+            RetValSpec<IntType>,
+            [ArgSpec<PidT>, ArgSpec<SizeTType>, ArgSpec<ConstCpuSetPtr>]
+        >,
+      ]
+  >;
+ 
   HeaderSpec String = HeaderSpec<
       "string.h",
       [], // Macros
@@ -38,6 +62,11 @@ def GnuExtensions : StandardSpec<"GNUExtensions"> {
             "memrchr",
             RetValSpec<VoidPtr>,
             [ArgSpec<VoidPtr>, ArgSpec<IntType>, ArgSpec<SizeTType>]
+        >,
+        FunctionSpec<
+            "strerror_r",
+            RetValSpec<CharPtr>,
+            [ArgSpec<IntType>, ArgSpec<CharPtr>, ArgSpec<SizeTType>]
         >,
       ]
   >;
@@ -108,6 +137,11 @@ def GnuExtensions : StandardSpec<"GNUExtensions"> {
                ArgSpec<SizeTType>,
                ArgSpec<FILERestrictedPtr>]
           >,
+          FunctionSpec<
+              "fgetc_unlocked",
+              RetValSpec<IntType>,
+              [ArgSpec<FILEPtr>]
+          >,
       ]
   >;
 
@@ -128,6 +162,14 @@ def GnuExtensions : StandardSpec<"GNUExtensions"> {
               [ArgSpec<PThreadTType>, ArgSpec<CharPtr>, ArgSpec<SizeTType>]
           >,
       ]
+  >;
+
+  HeaderSpec SysAuxv = HeaderSpec<
+      "sys/auxv.h",
+      [], // Macros
+      [], // Types
+      [], // Enumerations
+      []  // Functions
   >;
 
   HeaderSpec SendFile = HeaderSpec<
@@ -163,7 +205,9 @@ def GnuExtensions : StandardSpec<"GNUExtensions"> {
     FEnv,
     Math,
     PThread,
+    Sched,
     SendFile,
+    SysAuxv,
     StdIO,
     String,
     UniStd,

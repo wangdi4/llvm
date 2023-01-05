@@ -1,4 +1,21 @@
 //===---------- private.h - Target independent OpenMP target RTL ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -220,6 +237,12 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// NOTE: LLVM turns on TIMESCOPE() by default when this file is included.
+#define TIMESCOPE()
+#define TIMESCOPE_WITH_IDENT(IDENT)
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
+#else // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
 #define TIMESCOPE_WITH_IDENT(IDENT)                                            \
@@ -228,6 +251,7 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
 #define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
   SourceInfo SI(IDENT);                                                        \
   llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
+#endif // INTEL_CUSTOMIZATION
 #else
 #define TIMESCOPE()
 #define TIMESCOPE_WITH_IDENT(IDENT)

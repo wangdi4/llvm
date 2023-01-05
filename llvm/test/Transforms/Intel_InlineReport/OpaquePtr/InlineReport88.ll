@@ -1,11 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -enable-new-pm=0 -wholeprogramanalysis -inline -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -inline-report=0xe807 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that mycopy_ was inlined according to the 'Exposes local arrays'
 ; inline heuristic
@@ -13,6 +9,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-BEFORE-NOT: call{{.*}}@mycopy_
 ; CHECK: INLINE: mycopy_{{.*}}Exposes local arrays
 ; CHECK-AFTER-NOT: call{{.*}}@mycopy_
+
+target triple = "x86_64-unknown-linux-gnu"
 
 declare dso_local i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #0
 

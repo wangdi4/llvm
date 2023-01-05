@@ -3,8 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtrans-lpa -disable-output 2>&1 | FileCheck %s
-
 ; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtrans-lpa -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that the local pointer analysis sets the aliases and

@@ -15,18 +15,23 @@ struct S {
 
 //CHECK-LABEL: S3foo
 void S::foo() {
-  //CHECK: [[A:%a.*]] = getelementptr {{.*}}, i32 0, i32 0{{$}}
-  //CHECK: [[PTR:%ptr.*]] = getelementptr {{.*}}, i32 0, i32 1{{$}}
-  //CHECK: [[REF:%ref.*]] = getelementptr {{.*}}, i32 0, i32 2{{$}}
+  //CHECK: [[A:%a]] = getelementptr {{.*}}, i32 0, i32 0{{$}}
+  //CHECK: [[PTR:%ptr]] = getelementptr {{.*}}, i32 0, i32 1{{$}}
+  //CHECK: [[REF:%ref]] = getelementptr {{.*}}, i32 0, i32 2{{$}}
   //CHECK: [[LREF:%[0-9]+]] = load ptr, ptr [[REF]], align 8
-  //CHECK: [[AAPTR:%aaptr.*]] = getelementptr {{.*}}, i32 0, i32 3{{$}}
-  //CHECK: [[ARR:%arr.*]] = getelementptr {{.*}}, i32 0, i32 4{{$}}
+  //CHECK: [[AAPTR:%aaptr]] = getelementptr {{.*}}, i32 0, i32 3{{$}}
+  //CHECK: [[ARR:%arr]] = getelementptr {{.*}}, i32 0, i32 4{{$}}
 
   //CHECK: "DIR.OMP.TARGET.DATA"()
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[A]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[PTR]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[LREF]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[AAPTR]])
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[A1:%a[0-9]+]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[PTR1:%ptr[0-9]+]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[LREF1:%[0-9]+]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[AAPTR1:%aaptr[0-9]+]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[ARR1:%arr[0-9]+]]
+  //CHECK-SAME: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[A]])
+  //CHECK-SAME: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[PTR]])
+  //CHECK-SAME: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[LREF]])
+  //CHECK-SAME: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[AAPTR]])
   //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[ARR]])
   #pragma omp target data use_device_addr(a, ptr [3:4], ref, aaptr[0], arr[:a])
   ++a, ++*ptr, ++ref, ++arr[0];
@@ -42,11 +47,20 @@ void foo() {
   //CHECK-DAG: [[I:%i.*]] = alloca i32,
   //CHECK-DAG: [[J:%j.*]] = alloca ptr,
   //CHECK-DAG: [[K:%k.*]] = alloca ptr,
+  //CHECK-DAG: [[KMAPTMP:%k.map.ptr.tmp]] = alloca ptr
+  //CHECK-DAG: [[L0:%[0-9]+]] = load ptr, ptr [[J]]
+  //CHECK-DAG: [[L1:%[0-9]+]] = load ptr, ptr [[J]]
+  //CHECK-DAG: [[L2:%[0-9]+]] = load ptr, ptr [[K]]
+  //CHECK-DAG: [[L3:%[0-9]+]] = load ptr, ptr [[J]]
 
   //CHECK: "DIR.OMP.TARGET.DATA"()
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[I]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[J]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[K]],
+  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(ptr [[I]]
+  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]]
+  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(ptr [[L2]]
+  //CHECK-DAG: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[I]])
+  //CHECK-DAG: "QUAL.OMP.USE_DEVICE_ADDR:BYREF"{{.*}}[[J]])
+  //CHECK-DAG: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[L2]])
+  //CHECK-DAG: "QUAL.OMP.LIVEIN"(ptr [[KMAPTMP]])
   #pragma omp target data map(tofrom: i) use_device_addr(i, j, k[:i])
   {
     i++; j++; k++;
@@ -66,18 +80,36 @@ int main() {
   //CHECK: [[PTR:%ptr.*]] = alloca ptr,
   //CHECK: [[REF:%ref.*]] = alloca ptr,
   //CHECK: [[ARR:%arr.*]] = alloca [4 x float],
+  //CHECK: [[PTRMPTMP:%ptr.map.ptr.tmp]] = alloca ptr
+  //CHECK: [[ARRMPTMP:%arr.map.ptr.tmp]] = alloca ptr
+  //CHECK: [[VLAMPTMP:%vla.map.ptr.tmp]] = alloca ptr
   //CHECK: [[VLA:%vla.*]] = alloca float, i64
+  
+  //CHECK: [[LPTR:%[0-9]+]] = load ptr, ptr [[PTR]]
+  //CHECK: [[LREF:%[0-9]+]] = load ptr, ptr [[REF]]
+  //CHECK: [[ARDEC:%arraydecay]] = getelementptr inbounds
+  //CHECK: [[LPTRMAP:%[0-9]+]] = load ptr, ptr [[REF]]
 
   S s;
   s.foo();
 
   //CHECK: "DIR.OMP.TARGET.DATA"()
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[A]]
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[LPTR]]
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[LREF]]
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[ARDEC]]
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[VLA]]
+
   //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[A]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR:ARRSECT{{.*}}[[PTR]], i64 1, i64 3,
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[REF]])
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR:ARRSECT{{.*}}[[PTR]], i64 1, i64 0,
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR:ARRSECT{{.*}}[[ARR]],
-  //CHECK: QUAL.OMP.USE_DEVICE_ADDR:ARRSECT{{.*}}[[VLA]],
+  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[LPTR]])
+  //CHECK: QUAL.OMP.USE_DEVICE_ADDR:BYREF"{{.*}}[[REF]])
+  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[ARDEC]])
+  //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[VLA]])
+
+  //CHECK: "QUAL.OMP.LIVEIN"(ptr [[PTRMPTMP]]
+  //CHECK: "QUAL.OMP.LIVEIN"(ptr [[ARRMPTMP]]
+  //CHECK: "QUAL.OMP.LIVEIN"(ptr [[VLAMPTMP]]
+
   #pragma omp target data \
                use_device_addr(a, ptr [3:4], ref, ptr[0], arr[:(int)a], vla[0])
   ++a, ++*ptr, ++ref, ++arr[0], ++vla[0];

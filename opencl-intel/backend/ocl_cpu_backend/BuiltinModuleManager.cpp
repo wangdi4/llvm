@@ -12,53 +12,44 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-#include <string>
-#include <memory>
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CPUBuiltinLibrary.h"
 #include "FPGAEmuBuiltinLibrary.h"
+#include <assert.h>
+#include <memory>
+#include <string>
 
 llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev,
-                                   llvm::orc::LLJIT* LLJIT = nullptr);
+                                   llvm::orc::LLJIT *LLJIT = nullptr);
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-BuiltinModuleManager* BuiltinModuleManager::s_pInstance = nullptr;
+BuiltinModuleManager *BuiltinModuleManager::s_pInstance = nullptr;
 
-BuiltinModuleManager::BuiltinModuleManager()
-{}
+BuiltinModuleManager::BuiltinModuleManager() {}
 
-BuiltinModuleManager::~BuiltinModuleManager()
-{
-    for( BuiltinsMap::iterator i = m_BuiltinLibs.begin(), e = m_BuiltinLibs.end(); i != e; ++i )
-    {
-        delete i->second;
-    }
+BuiltinModuleManager::~BuiltinModuleManager() {}
+
+void BuiltinModuleManager::Init(bool isFPGAEmuDev) {
+  assert(!s_pInstance);
+  s_pInstance = new BuiltinModuleManager();
+  // TODO: need to move this function from the Manager Initialization
+  llvm::consumeError(RegisterCPUBIFunctions(isFPGAEmuDev));
 }
 
-void BuiltinModuleManager::Init(bool isFPGAEmuDev)
-{
-    assert(!s_pInstance);
-    s_pInstance = new BuiltinModuleManager();
-    // TODO: need to move this function from the Manager Initialization
-    llvm::consumeError(RegisterCPUBIFunctions(isFPGAEmuDev));
+void BuiltinModuleManager::Terminate() {
+  if (nullptr != s_pInstance) {
+    delete s_pInstance;
+    s_pInstance = nullptr;
+  }
 }
 
-void BuiltinModuleManager::Terminate()
-{
-    if( nullptr != s_pInstance)
-    {
-        delete s_pInstance;
-        s_pInstance = nullptr;
-    }
-}
-
-BuiltinModuleManager* BuiltinModuleManager::GetInstance()
-{
-    assert(s_pInstance);
-    return s_pInstance;
+BuiltinModuleManager *BuiltinModuleManager::GetInstance() {
+  assert(s_pInstance);
+  return s_pInstance;
 }
 
 template <typename DeviceBuiltinLibrary>
@@ -72,14 +63,15 @@ BuiltinModuleManager::GetOrLoadDeviceLibrary(const CPUDetect *cpuId) {
   TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId->GetCPU());
   BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
   if (it != m_BuiltinLibs.end()) {
-    return it->second;
+    return it->second.get();
   }
 
   std::unique_ptr<BuiltinLibrary> pLibrary(new DeviceBuiltinLibrary(cpuId));
   pLibrary->Load();
 
-  m_BuiltinLibs[key] = pLibrary.get();
-  return pLibrary.release();
+  auto *ptr = pLibrary.get();
+  m_BuiltinLibs[key] = std::move(pLibrary);
+  return ptr;
 }
 
 // TODO: Make this method re-entrable
@@ -96,9 +88,10 @@ BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(const CPUDetect *cpuId) {
 
 llvm::Error
 BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(bool isFPGAEmuDev,
-                                                    llvm::orc::LLJIT *LLJIT)
-{
-    return RegisterCPUBIFunctions(isFPGAEmuDev, LLJIT);
+                                                    llvm::orc::LLJIT *LLJIT) {
+  return RegisterCPUBIFunctions(isFPGAEmuDev, LLJIT);
 }
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

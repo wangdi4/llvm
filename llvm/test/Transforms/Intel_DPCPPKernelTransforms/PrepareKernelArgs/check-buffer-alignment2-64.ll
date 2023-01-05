@@ -1,5 +1,3 @@
-; RUN: opt -mtriple=x86_64 -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -mtriple=x86_64 -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s | FileCheck %s
 ; RUN: opt -mtriple=x86_64 -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -mtriple=x86_64 -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s | FileCheck %s
 
@@ -49,5 +47,5 @@ entry:
 !0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}
+; DEBUGIFY-COUNT-46: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}
 ; DEBUGIFY-NOT: WARNING

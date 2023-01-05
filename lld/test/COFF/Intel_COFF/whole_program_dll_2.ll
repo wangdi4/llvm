@@ -8,14 +8,6 @@
 ; RUN: lld-link /entry:exportfn /out:%t_wp_dll_2.dll /dll %t_wp_dll_2.bc
 ; RUN: lld-link /out:%t_wp_dll_2.exe /entry:main %t_wp_dll_2_main.bc %t_wp_dll_2.lib \
 ; RUN:     /subsystem:console /mllvm:-debug-only=whole-program-analysis \
-; RUN:     /opt:noltonewpassmanager \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: llvm-as -o %t_wp_dll_2.bc %p/Inputs/whole_program_dll_2_exportfn.ll
-; RUN: llvm-as -o %t_wp_dll_2_main.bc %s
-; RUN: lld-link /entry:exportfn /out:%t_wp_dll_2.dll /dll %t_wp_dll_2.bc
-; RUN: lld-link /out:%t_wp_dll_2.exe /entry:main %t_wp_dll_2_main.bc %t_wp_dll_2.lib \
-; RUN:     /subsystem:console /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 

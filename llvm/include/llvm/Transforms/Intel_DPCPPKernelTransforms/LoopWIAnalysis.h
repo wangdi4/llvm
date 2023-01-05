@@ -49,7 +49,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 
 namespace llvm {
@@ -58,18 +57,18 @@ class DominatorTree;
 /// LoopWIInfo holds work item dependency info for loops.
 class LoopWIInfo {
 public:
-  enum Dependency {
+  enum class Dependency : int {
     /// Value is loop invariant. For vectors, this means all vector elements are
     /// the same (broadcast).
-    UNIFORM,
+    UNIFORM = 0,
     /// Elements are in strides. For vectors, this assumes stride between vector
     /// elements and between loops.
-    STRIDED,
+    STRIDED = 1,
     /// Unknown or non-consecutive order.
-    RANDOM,
-    /// Overall number of dependencies.
-    NumDeps = 3
+    RANDOM = 2,
   };
+  /// Overall number of dependencies.
+  static constexpr int NumDeps = static_cast<int>(Dependency::RANDOM) + 1;
 
   /// Run analysis.
   void run(Loop *L, DominatorTree *DT, LoopInfo *LI);
@@ -181,29 +180,6 @@ public:
 
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &);
-};
-
-/// For legacy pass manager.
-class LoopWIAnalysisLegacy : public LoopPass {
-  LoopWIInfo WIInfo;
-
-public:
-  static char ID;
-
-  LoopWIAnalysisLegacy();
-
-  StringRef getPassName() const override { return "LoopWIAnalysisLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  bool runOnLoop(Loop *L, LPPassManager &LPM) override;
-
-  void print(raw_ostream &OS, const Module *) const override {
-    WIInfo.print(OS);
-  }
-
-  LoopWIInfo &getResult() { return WIInfo; }
-  const LoopWIInfo &getResult() const { return WIInfo; }
 };
 
 } // namespace llvm

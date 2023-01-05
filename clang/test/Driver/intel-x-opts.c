@@ -213,6 +213,36 @@
 // RUN:  | FileCheck -check-prefixes=XROCKETLAKE,ADV_OPT %s
 // XROCKETLAKE: "-target-cpu" "rocketlake"
 
+// RUN: %clang -### -c -xRAPTORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XRAPTORLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxRAPTORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XRAPTORLAKE,ADV_OPT %s
+// XRAPTORLAKE: "-target-cpu" "raptorlake"
+
+// RUN: %clang -### -c -xMETEORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxMETEORLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
+// XMETEORLAKE: "-target-cpu" "meteorlake"
+
+// RUN: %clang -### -c -xGRANITERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxGRANITERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS,ADV_OPT %s
+// XGRANITERAPIDS: "-target-cpu" "graniterapids"
+
+// RUN: %clang -### -c -xSIERRAFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSIERRAFOREST,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxSIERRAFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSIERRAFOREST,ADV_OPT %s
+// XSIERRAFOREST: "-target-cpu" "sierraforest"
+
+// RUN: %clang -### -c -xGRANDRIDGE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANDRIDGE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxGRANDRIDGE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANDRIDGE,ADV_OPT %s
+// XGRANDRIDGE: "-target-cpu" "grandridge"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \

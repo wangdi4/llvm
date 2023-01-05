@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam  -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam"  -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 
 ; HIR-
 ; + DO i1 = 0, -1 * %init1 + %n + -1, 1   <DO_LOOP>

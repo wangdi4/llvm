@@ -1564,7 +1564,7 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
     for (const auto &RC : RegisterClasses) {
       OS << "    {\t// " << RC.getName() << '\n';
       for (auto &Idx : SubRegIndices) {
-        Optional<std::pair<CodeGenRegisterClass *, CodeGenRegisterClass *>>
+        std::optional<std::pair<CodeGenRegisterClass *, CodeGenRegisterClass *>>
             MatchingSubClass = RC.getMatchingSubClassWithSubRegs(RegBank, &Idx);
 
         unsigned EnumValue = 0;
@@ -1665,6 +1665,15 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
         ArrayRef<Record*>(OPSet.begin(), OPSet.end()));
     }
 
+    // Add all constant physical registers to the preserved mask:
+    SetTheory::RecSet ConstantSet;
+    for (auto &Reg : RegBank.getRegisters()) {
+      if (Reg.Constant)
+        ConstantSet.insert(Reg.TheDef);
+    }
+    Covered |= RegBank.computeCoveredRegisters(
+        ArrayRef<Record *>(ConstantSet.begin(), ConstantSet.end()));
+
     OS << "static const uint32_t " << CSRSet->getName()
        << "_RegMask[] = { ";
     printBitVectorAsHex(OS, Covered, 32);
@@ -1681,7 +1690,7 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
     OS << "  };\n";
     OS << "  return makeArrayRef(Masks);\n";
   } else {
-    OS << "  return None;\n";
+    OS << "  return std::nullopt;\n";
   }
   OS << "}\n\n";
 
@@ -1747,7 +1756,7 @@ RegisterInfoEmitter::runTargetDesc(raw_ostream &OS, CodeGenTarget &Target,
     OS << "  };\n";
     OS << "  return makeArrayRef(Names);\n";
   } else {
-    OS << "  return None;\n";
+    OS << "  return std::nullopt;\n";
   }
   OS << "}\n\n";
 
@@ -1827,6 +1836,7 @@ void RegisterInfoEmitter::debugDump(raw_ostream &OS) {
     OS << "SubRegIndex " << SRI.getName() << ":\n";
     OS << "\tLaneMask: " << PrintLaneMask(SRI.LaneMask) << '\n';
     OS << "\tAllSuperRegsCovered: " << SRI.AllSuperRegsCovered << '\n';
+    OS << "\tOffset, Size: " << SRI.Offset << ", " << SRI.Size << '\n';
   }
 
   for (const CodeGenRegister &R : RegBank.getRegisters()) {

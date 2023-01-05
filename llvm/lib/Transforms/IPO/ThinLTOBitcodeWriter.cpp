@@ -25,7 +25,6 @@
 
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
@@ -46,6 +45,11 @@
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 namespace {

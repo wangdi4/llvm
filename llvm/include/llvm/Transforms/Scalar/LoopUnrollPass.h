@@ -9,10 +9,10 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_LOOPUNROLLPASS_H
 #define LLVM_TRANSFORMS_SCALAR_LOOPUNROLLPASS_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
+#include <optional>
 
 namespace llvm {
 
@@ -59,13 +59,13 @@ public:
 /// additional setters and then pass it to LoopUnrollPass.
 ///
 struct LoopUnrollOptions {
-  Optional<bool> AllowPartial;
-  Optional<bool> AllowPeeling;
-  Optional<bool> AllowRuntime;
-  Optional<bool> AllowUpperBound;
-  Optional<bool> AllowProfileBasedPeeling;
-  Optional<unsigned> Threshold; // INTEL_COLLAB
-  Optional<unsigned> FullUnrollMaxCount;
+  std::optional<bool> AllowPartial;
+  std::optional<bool> AllowPeeling;
+  std::optional<bool> AllowRuntime;
+  std::optional<bool> AllowUpperBound;
+  std::optional<bool> AllowProfileBasedPeeling;
+  std::optional<unsigned> Threshold; // INTEL_COLLAB
+  std::optional<unsigned> FullUnrollMaxCount;
   int OptLevel;
 
   /// If false, use a cost model to determine whether unrolling of a loop is

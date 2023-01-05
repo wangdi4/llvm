@@ -48,7 +48,6 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
@@ -77,6 +76,10 @@
 #include <algorithm>
 #include <cassert>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace reassociate;
@@ -2183,8 +2186,10 @@ Instruction *ReassociatePass::canonicalizeNegFPConstantsForOp(Instruction *I,
   IRBuilder<> Builder(I);
   Value *NewInst = IsFSub ? Builder.CreateFAddFMF(OtherOp, Op, I)
                           : Builder.CreateFSubFMF(OtherOp, Op, I);
+#if INTEL_CUSTOMIZATION
   if (auto NewInstruction = dyn_cast<Instruction>(NewInst))
     NewInstruction->copyMetadata(*I);
+#endif // INTEL_CUSTOMIZATION
   I->replaceAllUsesWith(NewInst);
   RedoInsts.insert(I);
   return dyn_cast<Instruction>(NewInst);

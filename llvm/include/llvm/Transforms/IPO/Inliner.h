@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -133,7 +133,9 @@ public:
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
       : OnlyMandatory(Arg.OnlyMandatory), LTOPhase(std::move(Arg.LTOPhase)),
-        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)),
+        IsAlwaysInline(Arg.IsAlwaysInline) {}
+  InlinerPass &operator=(const InlinerPass &Other) = delete;
 #endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,

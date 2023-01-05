@@ -1179,7 +1179,7 @@ void VPlanPredicator::emitPredicates() {
     // Either 2+ incoming edges or a single edge under condition. Create generic
     // OR sequence for all incoming predicates.
     std::list<VPValue *> IncomingConditions;
-    for (auto Term : PredTerms)
+    for (const auto &Term : PredTerms)
       if (auto *Val = getOrCreateValueForPredicateTerm(Term, Block))
         IncomingConditions.push_back(Val);
 
@@ -1243,7 +1243,7 @@ void VPlanPredicator::predicate() {
   transformPhisToBlends();
 
   // Now do the block splitting to move ANDs out of block-predicates influence.
-  for (auto It : BlocksToSplit)
+  for (const auto &It : BlocksToSplit)
     (void)VPBlockUtils::splitBlock(It.first, It.second->getIterator(), VPLI,
                                    Plan.getDT(), Plan.getPDT());
 

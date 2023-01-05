@@ -2,9 +2,9 @@
 ; RUN: opt -passes="function(loop(indvars,loop-idiom,loop-deletion),simplifycfg)" -S < %s | FileCheck %s
 ; Compile command:
 ; $ clang -m32 -fno-discard-value-names -O0 -S -emit-llvm -Xclang -disable-O0-optnone Code.c
-; $ bin/opt -S -basic-aa -mem2reg -loop-simplify -lcssa -loop-rotate \
-;   -licm -simple-loop-unswitch -enable-nontrivial-unswitch -loop-simplify \
-;   -loop-deletion -simplifycfg -indvars Code.ll > CodeOpt.ll
+; $ bin/opt -S -passes=mem2reg,loop-simplify,lcssa,loop-rotate \
+; -passes=licm,simple-loop-unswitch -enable-nontrivial-unswitch -passes=loop-simplify \
+; -passes=loop-deletion,simplifycfg,indvars Code.ll > CodeOpt.ll
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
 ; void PositiveFor32(int *ar, int n, int m)
 ; {
@@ -290,6 +290,8 @@ define dso_local void @NestedFor64(i32* %ar, i64 %n, i64 %m, i64 %o) #0 {
 ; CHECK-LABEL: @NestedFor64(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP3:%.*]] = icmp slt i64 0, [[N:%.*]]
+; INTEL_CUSTOMIZATION
+; xmain doesn't merge branches here..
 ; CHECK-NEXT:    br i1 [[CMP3]], label [[FOR_BODY_LR_PH:%.*]], label [[FOR_END17:%.*]]
 ; CHECK:       for.body.lr.ph:
 ; CHECK-NEXT:    [[CMP41:%.*]] = icmp slt i64 0, [[M:%.*]]
@@ -297,6 +299,7 @@ define dso_local void @NestedFor64(i32* %ar, i64 %n, i64 %m, i64 %o) #0 {
 ; CHECK-NEXT:    [[CONV14:%.*]] = trunc i64 [[MUL13]] to i32
 ; CHECK-NEXT:    br i1 [[CMP41]], label [[FOR_BODY_US_PREHEADER:%.*]], label [[FOR_END17]]
 ; CHECK:       for.body.us.preheader:
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP0:%.*]] = mul i64 [[O]], [[M]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[O]] to i32

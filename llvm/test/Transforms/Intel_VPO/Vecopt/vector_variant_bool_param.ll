@@ -1,7 +1,6 @@
 ; Check to see that we properly promote boolean (i1) parameters to <VF x i8>
 ; when generating a call to a vectorized variant function.
 
-; RUN: opt -vec-clone -vplan-vec -S < %s | FileCheck %s
 ; RUN: opt -passes='vec-clone,vplan-vec' -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @bar(<2 x i1> %i)

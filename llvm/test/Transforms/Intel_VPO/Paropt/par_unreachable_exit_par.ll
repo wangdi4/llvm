@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 
 ; Check that we can outline the first parallel region with unreachable exit,

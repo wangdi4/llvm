@@ -1,5 +1,5 @@
-; RUN: opt < %s -vplan-vec -S -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner  2>&1 | FileCheck %s --check-prefixes=CHECK,LLVM
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec  2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
+; RUN: opt < %s -passes=vplan-vec -S -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner  2>&1 | FileCheck %s --check-prefixes=CHECK,LLVM
+; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -disable-output -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner  2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
 
 
 ; CHECK:      LVP: ForcedVF: 4

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we are succesfully able to normalize i1 type subscript of (%A)[-1 * i1].

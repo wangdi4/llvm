@@ -1,7 +1,6 @@
 ; This test verifies that t_printf routine is treated as wrapper to
 ; vsprintf by checking <universal> is NOT in points-to set of GVar<mem>.
 
-
 ; RUN: opt < %s -passes='require<anders-aa>' -disable-output -print-anders-points-to 2>&1 | FileCheck %s
 
 ; CHECK: [1] GVar<mem>   --> ({{[0-9]+}}): main:p

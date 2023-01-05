@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-cleanup-wrapped %s -S  -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-cleanup-wrapped %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-cleanup-wrapped %s -S  -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-cleanup-wrapped %s -S | FileCheck %s
 

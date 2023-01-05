@@ -1,6 +1,6 @@
 ; LIT test to check that peeling kicks in for a multi dimension array access
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-details-no-verbose-indent -hir-details -vplan-force-vf=4 -vplan-enable-peeling  -mattr=+avx2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -hir-details -vplan-force-vf=4 -vplan-enable-peeling  -mattr=+avx2 -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Incoming HIR:
 ;      + DO i1 = 0, 1023, 1   <DO_LOOP>

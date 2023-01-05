@@ -2,10 +2,8 @@
 ;; Test loops created with LoopCreator in presence of both scalar and vector
 ;; kernels.
 
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -111,7 +109,7 @@ entry:
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
 
-define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #1 !scalar_kernel !{void(i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 16} {
+define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #1 !scalar_kernel !{void(i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 16} !vectorization_dimension !1 !can_unite_workgroups !2 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
   %0 = trunc i64 %call to i32
@@ -130,6 +128,8 @@ attributes #1 = { noinline }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}
+!1 = !{i32 0}
+!2 = !{i1 true}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-46: WARNING: Instruction with empty DebugLoc in function _Z30ParallelForNDRangeImplKernel1DPiS_S_mmm

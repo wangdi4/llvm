@@ -33,6 +33,10 @@
 // REQUIRES: x86_64h-darwin || x86_64-darwin || i386-darwin || x86_64-linux || i386-linux
 // UNSUPPORTED: windows-msvc
 // UNSUPPORTED: android
+//
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: i386-linux
+// end INTEL_CUSTOMIZATION
 
 #include <string.h>
 

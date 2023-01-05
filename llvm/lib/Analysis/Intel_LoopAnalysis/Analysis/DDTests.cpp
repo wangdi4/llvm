@@ -1,5 +1,5 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -----------===//
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -113,6 +113,10 @@ static cl::opt<VaryingBaseMode> VaryingBaseHandling(
                clEnumValN(VaryingBaseMode::QueryLoopCarriedAlias,
                           "query-loopcarried",
                           "Query the loopCarriedAlias() interface")));
+
+static cl::opt<bool>
+    SkipLinearizedRefsTest("hir-dd-test-skip-lin-refs-test", cl::init(false),
+                           cl::Hidden, cl::desc("Skip linearized refs test"));
 
 #define DEBUG_TYPE "hir-dd-test"
 #define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
@@ -875,7 +879,7 @@ void Dependences::dump(raw_ostream &OS) const {
   bool Splitable = false;
 
 #if 0
-	
+
   if (isConfused())
     OS << "confused";
   else {
@@ -905,6 +909,7 @@ void Dependences::dump(raw_ostream &OS) const {
       if (II != Levels) {
         OS << " ";
       }
+      Splitable |= isSplitable(II);
     }
     OS << ")\n";
 
@@ -1130,7 +1135,7 @@ void DDTest::removeMatchingExtensions(Subscript *Pair) {
 #if 0
   const CanonExpr *Src = Pair->Src;
   const CanonExpr *Dst = Pair->Dst;
-	
+
   if ((isa<SCEVZeroExtendExpr>(Src) && isa<SCEVZeroExtendExpr>(Dst)) ||
       (isa<SCEVSignExtendExpr>(Src) && isa<SCEVSignExtendExpr>(Dst))) {
     const SCEVIntegralCastExpr *SrcCast = cast<SCEVIntegralCastExpr>(Src);
@@ -2288,21 +2293,36 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     return false;
   }
 
+  // if SrcCoeff doesn't divide Delta, then no dependence
+  if (Delta->isIntConstant() && !isRemainderZero(Delta, ConstCoeff)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
+  // check that Delta/SrcCoeff < 0
+  if (HLNodeUtils::isKnownNegative(
+          ((CoeffValue < 0) ? getNegative(Delta) : Delta), CurLoop)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = nullptr;
+  const CanonExpr *AbsDelta = nullptr;
   if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
-    NewDelta = Delta;
+    AbsDelta = Delta;
   } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
-    NewDelta = getNegative(Delta);
+    AbsDelta = getNegative(Delta);
   } else {
     // Coeff not known to be positive or negative.
     return false;
   }
 
   // check that Delta/SrcCoeff < iteration count
-  // really check NewDelta < count*AbsCoeff
+  // really check AbsDelta < count*AbsCoeff
   if (!CurLoop->isUnknown()) {
     const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -2313,12 +2333,12 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
       return false;
     }
 
-    if (isKnownPredicate(CmpInst::ICMP_SGT, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       ++WeakZeroSIVindependence;
       ++WeakZeroSIVsuccesses;
       return true;
     }
-    if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_EQ, AbsDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
         Result.DV[Level].Direction &= DVKind::LE;
@@ -2329,22 +2349,6 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     }
   }
 
-  // check that Delta/SrcCoeff >= 0
-  // really check that NewDelta >= 0
-  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
-    // No dependence, newDelta < 0
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
-
-  // if SrcCoeff doesn't divide Delta, then no dependence
-  int64_t k1;
-  if (Delta->isIntConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
   return false;
 }
 
@@ -2417,28 +2421,42 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     return false; // dependences caused by first iteration
   }
 
-  int64_t K1;
-
+  int64_t CoeffValue;
   const CanonExpr *ConstCoeff = SrcCoeff;
-
-  if (ConstCoeff->isIntConstant(&K1)) {
+  if (!(SrcCoeff->isIntConstant(&CoeffValue))) {
     return false;
   }
+
+  // if SrcCoeff doesn't divide Delta, then no dependence
+  if (Delta->isIntConstant() && !isRemainderZero(Delta, ConstCoeff)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
+  // check that Delta/SrcCoeff < 0
+  if (HLNodeUtils::isKnownNegative(
+          ((CoeffValue < 0) ? getNegative(Delta) : Delta), CurLoop)) {
+    ++WeakZeroSIVindependence;
+    ++WeakZeroSIVsuccesses;
+    return true;
+  }
+
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = nullptr;
+  const CanonExpr *AbsDelta = nullptr;
   if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
-    NewDelta = Delta;
+    AbsDelta = Delta;
   } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
-    NewDelta = getNegative(Delta);
+    AbsDelta = getNegative(Delta);
   } else {
     // Coeff not known to be positive or negative.
     return false;
   }
 
   // check that Delta/SrcCoeff < iteration count
-  // really check NewDelta < count*AbsCoeff
+  // really check AbsDelta < count*AbsCoeff
   if (!CurLoop->isUnknown()) {
     const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -2448,12 +2466,12 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
       return false;
     }
 
-    if (isKnownPredicate(CmpInst::ICMP_SGT, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       ++WeakZeroSIVindependence;
       ++WeakZeroSIVsuccesses;
       return true;
     }
-    if (isKnownPredicate(CmpInst::ICMP_EQ, NewDelta, Product)) {
+    if (isKnownPredicate(CmpInst::ICMP_EQ, AbsDelta, Product)) {
       // dependences caused by last iteration
       if (Level < CommonLevels) {
         Result.DV[Level].Direction &= DVKind::GE;
@@ -2464,26 +2482,6 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     }
   }
 
-  // check that Delta/SrcCoeff >= 0
-  // really check that NewDelta >= 0
-  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
-    // No dependence, newDelta < 0
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
-
-  // if SrcCoeff doesn't divide Delta, then no dependence
-
-  if (!(Delta->isIntConstant(&K1))) {
-    return false;
-  }
-
-  if (!isRemainderZero(Delta, ConstCoeff)) {
-    ++WeakZeroSIVindependence;
-    ++WeakZeroSIVsuccesses;
-    return true;
-  }
   return false;
 }
 
@@ -2966,14 +2964,16 @@ bool DDTest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
 bool DDTest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                      const DirectionVector &InputDV,
                      const SmallBitVector &Loops, Dependences &Result,
-                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
+                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop,
+                     const RegDDRef *SrcRegDDRef, const RegDDRef *DstRegDDRef) {
 
   LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
   LLVM_DEBUG(dbgs() << "\n   dst = "; Dst->dump());
   Result.Consistent = false;
   return gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
          banerjeeMIVtest(Src, Dst, InputDV, Loops, Result, SrcParentLoop,
-                         DstParentLoop);
+                         DstParentLoop) ||
+         refineLinearizedMIVtest(Src, Dst, Result, SrcRegDDRef, DstRegDDRef);
 }
 
 #if 0
@@ -2991,6 +2991,196 @@ static const CanonExpr *getConstantPart(const CanonExpr *Product) {
   return nullptr;
 }
 #endif
+
+// Refine DV for linearized DD ref. If refs differ by no more than a constant 1,
+// the DV could be refined.
+//
+// A[5308416 * i1 + 2304 * i2 + 2304 * i3 + i4 + -9216] =
+//     A[5308416 * i1 + 2304 * i2 + 2304 * i3 + i4 + -9216] + 1;
+// DV could be refined to (* * * =).
+//
+// A[5308416 * i1 + 2304 * i2 + 2304 * i3 + i4 + -9216] =
+//     A[5308416 * i1 + 2304 * i2 + 2304 * i3 + i4 + -9217] + 1;
+// DV could be refined to (* * * <)
+//
+// TODO:  Take care of INDEP cases as in  .. 2* i4 + 1   vs.  ..  2 *i4.
+bool DDTest::refineLinearizedMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
+                                     Dependences &Result,
+                                     const RegDDRef *SrcRegDDRef,
+                                     const RegDDRef *DstRegDDRef) {
+  if (SkipLinearizedRefsTest) {
+    return false;
+  }
+
+  // Refine only (* * * *) or (* * * <>)
+  for (unsigned II = 1; II < CommonLevels; ++II) {
+    if (Result.getDirection(II) != DVKind::ALL) {
+      return false;
+    }
+  }
+
+  if (Result.getDirection(CommonLevels) != DVKind::ALL &&
+      Result.getDirection(CommonLevels) != DVKind::NE) {
+    return false;
+  }
+
+  LLVM_DEBUG(dbgs() << "\nstarting refineLinearizedMIV\n");
+  LLVM_DEBUG(dbgs() << "\n   src = "; Src->dump());
+  LLVM_DEBUG(dbgs() << "\n   dst = "; Dst->dump());
+
+  unsigned Index1, Index2;
+  int64_t Coeff1, Coeff2;
+  Src->getIVCoeff(CommonLevels, &Index1, &Coeff1);
+  Dst->getIVCoeff(CommonLevels, &Index2, &Coeff2);
+
+  // Consider CEs with constant coefficient on the innermost IV.
+  if ((Index1 != InvalidBlobIndex) || (Index2 != InvalidBlobIndex)) {
+    return false;
+  }
+
+  // Currently we only consider coefficient 1 for the inner IV.
+  if (Coeff1 != Coeff2 || std::abs(Coeff1) != 1) {
+    return false;
+  }
+
+  // Consider refs with constant distance.
+  auto *Delta = getMinus(Src, Dst);
+  if (!Delta) {
+    return false;
+  }
+
+  int64_t DeltaConst;
+  if (Delta->isIntConstant(&DeltaConst)) {
+    if (DeltaConst == 0) {
+      Result.setDirection(CommonLevels, DVKind::EQ);
+    } else if (((DeltaConst == -1) && (Coeff1 == 1)) ||
+               ((DeltaConst == 1) && (Coeff1 == -1))) {
+      Result.setDirection(CommonLevels, DVKind::LT);
+      Result.setDistance(CommonLevels, Delta);
+    } else if (((DeltaConst == -1) && (Coeff1 == -1)) ||
+               ((DeltaConst == 1) && (Coeff1 == 1))) {
+      Result.setDirection(CommonLevels, DVKind::GT);
+      Result.setDistance(CommonLevels, Delta);
+    }
+    return false;
+
+  } else if ((CommonLevels > 1) && Delta->isSingleBlob()) {
+    // If there is a loopnest, the single blob Delta could be a result of loop
+    // unroll and jam optimization.
+    //
+    // IR:
+    // for (i = 0; i < TC; i++) {
+    //   for (j) {
+    //     t = a[%n * i + j]
+    //     a[%n * i + j] = t + 1
+    //   }
+    // }
+    //
+    // IR After unroll by 4 and jam:
+    // for (i = 0; i < TC/4; i++) {
+    //   for (j) {
+    //     t = a[4 * %n * i + j]
+    //     a[4 * %n * i + j] = t + 1
+    //     t = a[4 * %n * i + j + %n]
+    //     a[4 * %n * i + j + %n] = t + 1
+    //     t = a[4 * %n * i + j + 2* %n]
+    //     a[4 * %n * i + j + 2 * %n] = t + 1
+    //     t = a[4 * %n * i + j + 3 * %n]
+    //     a[4 * %n * i + j + 3 * %n] = t + 1
+    //   }
+    // }
+    //
+    // If the loopnest is under RuntimeDD multiversioning tag and refs are
+    // marked as delinearized. Here we verify that memrefs have same base and
+    // that they differ by (C * Blob) where Blob equals an i blob coefficient
+    // and abs(C) is less than unroll factor. Ex.:
+    //   a[4 * %n * i + j] and a[4 * %n * i + j + 2 * %n]
+    //   Delta is    -2 * %n
+    // In this case we refine (* *) to (< =).
+
+    // Memrefs must be in the same loop. As we expect unroll-and-jam happened,
+    // there should be at least 2 level loop nest.
+    const HLLoop *SrcLoop = SrcRegDDRef->getParentLoop();
+    const HLLoop *DstLoop = DstRegDDRef->getParentLoop();
+    if ((SrcLoop != DstLoop) || (SrcLoop->getNestingLevel() == 1)) {
+      return false;
+    }
+
+    // In order to conclude that the delta came from last-but-one level IV,
+    // the refs should be delineariable.
+    if (!SrcLoop->getMVTag()) {
+      return false;
+    }
+
+    const HLLoop *TagLoop = SrcLoop;
+    while (TagLoop) {
+      auto &Delinearized = TagLoop->getMVDelinearizableBlobIndices();
+      if (!Delinearized.empty()) {
+        break;
+      }
+      TagLoop = TagLoop->getParentLoop();
+    }
+
+    if (!TagLoop) {
+      return false;
+    }
+
+    // Check that base of the memrefs was marked 'delinearized' during
+    // RuntimeDD multiversioning.
+    auto &Delinearized = TagLoop->getMVDelinearizableBlobIndices();
+    unsigned BaseBlobIdx = SrcRegDDRef->getBasePtrBlobIndex();
+    auto It = std::find(Delinearized.begin(), Delinearized.end(), BaseBlobIdx);
+    if (It == Delinearized.end()) {
+      return false;
+    }
+
+    // TODO: Consider two-level unroll-and-jam for now. Can be extended later.
+    unsigned Index1, Index2;
+    int64_t Coeff1, Coeff2;
+    Src->getIVCoeff(CommonLevels - 1, &Index1, &Coeff1);
+    Dst->getIVCoeff(CommonLevels - 1, &Index2, &Coeff2);
+
+    // The loop is multiversioned for DD, that means the subscript IV coeficient
+    // should be positive. Mem refs should have same last-but-one level
+    // coefficient on the IV.
+    if ((Coeff1 < 0) || (Coeff1 != Coeff2)) {
+      return false;
+    }
+
+    int64_t DeltaBlobCoeff = Delta->getSingleBlobCoeff();
+
+    // Mem refs should have same last-but-one level coefficient on the IV.
+    if (std::abs(DeltaBlobCoeff) >= Coeff1) {
+      // It's not unroll and jam result.
+      return false;
+    }
+
+    // Mem refs should have same last-but-one level coefficient on the IV.
+    if ((Index1 != Index2) || (Index1 != Delta->getSingleBlobIndex())) {
+      // It's not unroll and jam result.
+      return false;
+    }
+
+    // For refs of the form:
+    //   a[4 * %n * i + j] and a[4 * %n * i + j + 2 * %n]
+    //   Delta is    -2 * %n
+    // Refine (* *) to (< =) with (0 0) distance.
+
+    if (DeltaBlobCoeff > 0) {
+      Result.setDirection(CommonLevels - 1, DVKind::GT);
+      Result.setDistance(CommonLevels - 1,
+                         getConstantWithType(Src->getSrcType(), 0));
+    } else {
+      Result.setDirection(CommonLevels - 1, DVKind::LT);
+      Result.setDistance(CommonLevels - 1,
+                         getConstantWithType(Src->getSrcType(), 0));
+    }
+    Result.setDirection(CommonLevels, DVKind::EQ);
+
+    return false;
+  }
+  return false;
+}
 
 //===----------------------------------------------------------------------===//
 // gcdMIVtest -
@@ -3387,6 +3577,9 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     ++BanerjeeIndependence;
     Disproved = true;
   }
+
+  LLVM_DEBUG(dbgs() << "\nBanerjee proved independence? " << Disproved
+                    << "\n";);
   return Disproved;
 }
 
@@ -5165,7 +5358,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         LLVM_DEBUG(dbgs() << ", MIV\n");
 
         if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
-                    SrcLoop, DstLoop)) {
+                    SrcLoop, DstLoop, SrcRegDDRef, DstRegDDRef)) {
           return nullptr;
         }
         break;
@@ -5199,7 +5392,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         }
       }
     }
-  } else {
+  } else { // ForFusion
     //  Note: The other tests - SIV, RDIV - can only be used when the 2 Refs are
     //  actually within the same  nests
     for (int SI = Separable.find_first(); SI >= 0;
@@ -5210,8 +5403,27 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
           return nullptr;
         break;
       default:
+        const HLLoop *MIVSrcLoop = SrcLoop;
+        const HLLoop *MIVDstLoop = DstLoop;
+        const CanonExpr *SrcUBCE =
+            collectUpperBound(SrcLoop, Pair[SI].Src->getSrcType());
+        const CanonExpr *DstUBCE =
+            collectUpperBound(DstLoop, Pair[SI].Dst->getSrcType());
+        int64_t UBDist;
+
+        //  For fusion case, we pass in the Loop with the higher TC to handle
+        //  checking for peeled iterations
+        if (SrcLevels == DstLevels && SrcUBCE && DstUBCE &&
+            (CanonExprUtils::getConstDistance(SrcUBCE, DstUBCE, &UBDist))) {
+
+          if (UBDist > 0)
+            MIVDstLoop = SrcLoop;
+          else if (UBDist < 0)
+            MIVSrcLoop = DstLoop;
+        }
+
         if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
-                    SrcLoop, DstLoop)) {
+                    MIVSrcLoop, MIVDstLoop, SrcRegDDRef, DstRegDDRef)) {
           return nullptr;
         }
       }
@@ -5324,7 +5536,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
         if (Pair[SJ].Classification == Subscript::MIV) {
           LLVM_DEBUG(dbgs() << "MIV test\n");
           if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops,
-                      Result, SrcLoop, DstLoop))
+                      Result, SrcLoop, DstLoop, SrcRegDDRef, DstRegDDRef))
             return nullptr;
         } else
           llvm_unreachable("expected only MIV subscripts at this point");
@@ -5672,7 +5884,7 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
   // to be supported. But multiple levels vectorization is not
   // currently generated
   for (; II >= 1; --II, Lp = Lp->getParentLoop()) {
-    if (Lp->hasVectorizeIVDepPragma()) {
+    if (Lp && Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
         // Do not change the result if it was already better than '='
@@ -5894,11 +6106,7 @@ void DDTest::setDVForCollapsedRefs(DirectionVector &BackwardDV,
 
 bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                               const DirectionVector &InputDV,
-                              DirectionVector &ForwardDV,
-                              DirectionVector &BackwardDV,
-                              DistanceVector &ForwardDistV,
-                              DistanceVector &BackwardDistV,
-                              bool *IsLoopIndepDepTemp) {
+                              DirectionVectorInfo &DVInfo) {
 
   // This interface is created to facilitate the building of DDG when forward or
   // backward  edges are needed.
@@ -5926,8 +6134,6 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   // the argument after InputDV indicates calling to rebuild DDG
   auto Result = depends(SrcDDRef, DstDDRef, InputDV, true, AssumeLoopFusion);
 
-  *IsLoopIndepDepTemp = false;
-
   if (Result == nullptr) {
     LLVM_DEBUG(dbgs() << "\nIs Independent!\n");
     return false;
@@ -5936,6 +6142,11 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   unsigned Levels = Result->getLevels();
+
+  auto &ForwardDV = DVInfo.ForwardDV;
+  auto &BackwardDV = DVInfo.BackwardDV;
+  auto &ForwardDistV = DVInfo.ForwardDistV;
+  auto &BackwardDistV = DVInfo.BackwardDistV;
 
   // DVs and DistVs must always be smaller than the constructed capacity, so
   // this should not result in reallocations.
@@ -6073,7 +6284,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
         // Most Transformations would have to scan and drop this kind
         // of Anti Dep
 
-        *IsLoopIndepDepTemp = true;
+        DVInfo.IsLoopIndepDepTemp = true;
       } else if (IsAnti) {
         // b)    = x ;
         //     x =  ;
@@ -6136,6 +6347,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   if (IsCollapsedWithBackwardDep) {
     setDVForCollapsedRefs(BackwardDV, *Result, Levels);
   } else if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+    DVInfo.FirstIterPeelingRemovesDep = true;
     setDVForPeelFirstAndReversed(ForwardDV, BackwardDV, *Result, Levels);
   } else if (BiDirection) {
     setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels, LTGTLevel);
@@ -6552,7 +6764,7 @@ const  SCEV *DependenceAnalysis::getSplitIteration(const Dependence &Dep,
     }
   }
 	llvm_unreachable("somehow reached end of routine");
-		
+
   return nullptr;
 }
 

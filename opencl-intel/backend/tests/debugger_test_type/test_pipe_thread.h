@@ -22,13 +22,12 @@
 using namespace std;
 using Intel::OpenCL::Utils::OclThread;
 
-class NamedPipeThread: public OclThread
-{
+class NamedPipeThread : public OclThread {
 public:
-    HANDLE pipe;
-    std::string portNumber;
+  HANDLE pipe;
+  std::string portNumber;
 
-    NamedPipeThread();
+  NamedPipeThread();
 
 protected:
   virtual RETURN_TYPE_ENTRY_POINT Run() override;

@@ -1,14 +1,14 @@
 ; This test verifies the safety analysis for the usage of dope vectors
 ; in uplevel variables for cases supported by the transpose transformation.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; This test is similar to transpose-safety06.ll, but uses the new form of
 ; uplevel type names.
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Variation to test that invalidates the candidate.
-; RUN: sed -e s/.TEST_CAST:// %s | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 ; RUN: sed -e s/.TEST_CAST:// %s | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 
 ; Uplevel type consisting of a dope vector and an integer.

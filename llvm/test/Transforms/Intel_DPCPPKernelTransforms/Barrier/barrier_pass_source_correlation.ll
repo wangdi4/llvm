@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define dso_local void @test(<3 x double> addrspace(1)* %p) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !kernel_has_sub_groups !9 !kernel_execution_length !10 !kernel_has_barrier !9 !kernel_has_global_sync !9 {
+define dso_local void @test(<3 x double> addrspace(1)* %p) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !kernel_has_sub_groups !9 !kernel_execution_length !10 !no_barrier_path !9 !kernel_has_global_sync !9 {
 entry:
 ; CHECK: %SBIndex{{[0-9]+}} = load i64, i64* %pCurrSBIndex, align 8, !dbg [[LOCATION_METADATA:![0-9]+]]
 ;CHECK: store i64* %pSB_LocalId{{[0-9]+}}, i64** %i.addr, align 8, !dbg [[LOCATION_METADATA]]

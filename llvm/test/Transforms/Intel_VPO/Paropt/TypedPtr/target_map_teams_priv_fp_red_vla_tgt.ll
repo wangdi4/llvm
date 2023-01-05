@@ -63,8 +63,8 @@
 ; LOCAL:     [[VLA:%vla.ascast.priv.ascast]] = addrspacecast i32* %vla.ascast.priv to i32 addrspace(4)*
 
 ; Check that the private copies are used inside the region.
-; LOCAL:       %oclPrint = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[VLA]], i32 addrspace(4)* [[VLA1]], i32 addrspace(4)* [[VLA2]])
-; MODULE:      %oclPrint = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA]] to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA1]] to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA2]] to i32 addrspace(4)*))
+; LOCAL:       %oclPrint = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[VLA]], i32 addrspace(4)* [[VLA1]], i32 addrspace(4)* [[VLA2]])
+; MODULE:      %oclPrint = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA]] to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA1]] to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[VLA2]] to i32 addrspace(4)*))
 
 ; REMARK: remark: <unknown>:0:0: VLAs requested to be team (work group) local will be made thread (work-item) local. Team local VLA allocation is not supported. The experimental flag `-mllvm -vpo-paropt-teams-non-wilocal-vla-alloc-mode=module` can be used to force a team-local allocation, but is not recommended.
 

@@ -133,7 +133,7 @@ OclBuiltinImpl hypot_v148f32 = OclBuiltinImpl<hypot, [v1f32, v2f32, v4f32, v8f32
 // hypot f(vXfX, vXfX)
 
 // [LLVM 3.6 UPGRADE] This is a quick fix for
-// CORC-208 - [Nightly] Pass Spir1.2_math_brute_force - math_kernel3.hypot_float3 did not validate
+// Pass Spir1.2_math_brute_force - math_kernel3.hypot_float3 did not validate
 //
 // The root cause is UB in hypot_impl_nr hypot(float4, float4) in case when
 // float3 arguments get promoted to float4 arguments filling 4th component with undef value causing

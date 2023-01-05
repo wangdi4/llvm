@@ -15,35 +15,33 @@
 #ifndef EDITTAB_H
 #define EDITTAB_H
 
-#include <QWidget>
+#include "ConfigManager.h"
+#include "OCLHighlighter.h"
+#include "Tab.h"
+#include <QFile>
 #include <QString>
 #include <QTextEdit>
 #include <QVBoxLayout>
-#include <QFile>
-#include "OCLHighlighter.h"
-#include "Tab.h"
-#include "ConfigManager.h"
+#include <QWidget>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 /**
  * @brief The EditTab class
  * @detailed This Tab shows plain text data from selected file
  */
-class EditTab : public Tab
-{
+class EditTab : public Tab {
 public:
-    EditTab(ConfigManager* cfg, QString path);
-    void save();
+  EditTab(ConfigManager *cfg, QString path);
+  void save();
+
 private:
-    QTextEdit* textEdit;
-    OCLHighlighter* highlighter;
-    QString path;
-    ConfigManager* cfg;
+  QTextEdit *textEdit;
+  OCLHighlighter *highlighter;
+  QString path;
+  ConfigManager *cfg;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 #endif // EDITTAB_H

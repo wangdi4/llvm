@@ -1,10 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed  -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test two identical structures with different names.
 ;
@@ -28,17 +26,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Safety data:{{.*}}Address taken{{.*}}
 ; CHECK: End LLVMType: %struct.test01c
 
-%struct.test01a = type { i32*, i32 }
-%struct.test01c = type { i32*, i32 }
+%struct.test01a = type { ptr, i32 }
+%struct.test01c = type { ptr, i32 }
 
-declare !intel.dtrans.func.type !4 void @useA(%struct.test01c* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !4 void @useA(ptr "intel_dtrans_func_index"="1")
 
-@var = global void (%struct.test01a*)* zeroinitializer, !intel_dtrans_type !8
+@var = global ptr zeroinitializer, !intel_dtrans_type !8
 
-define void @test1(%struct.test01c* "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !9 {
-  %fptr = load void (%struct.test01a*)*, void (%struct.test01a*)** @var
-  %a = bitcast %struct.test01c* %c to %struct.test01a*
-  call void %fptr(%struct.test01a* %a), !intel_dtrans_type !5
+define void @test1(ptr "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !9 {
+  %fptr = load ptr, ptr @var
+  call void %fptr(ptr %c), !intel_dtrans_type !5
   ret void
 }
 

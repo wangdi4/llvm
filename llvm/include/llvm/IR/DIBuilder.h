@@ -1,4 +1,21 @@
 //===- DIBuilder.h - Debug Information Builder ------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -27,6 +43,7 @@
 #include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 
 namespace llvm {
 
@@ -37,6 +54,7 @@ namespace llvm {
   class LLVMContext;
   class Module;
   class Value;
+  class DbgAssignIntrinsic;
 
   class DIBuilder {
     Module &M;
@@ -47,8 +65,9 @@ namespace llvm {
     Function *ValueFn;       ///< llvm.dbg.value
     Function *LabelFn;       ///< llvm.dbg.label
     Function *AddrFn;        ///< llvm.dbg.addr
+    Function *AssignFn;      ///< llvm.dbg.assign
 
-    SmallVector<Metadata *, 4> AllEnumTypes;
+    SmallVector<TrackingMDNodeRef, 4> AllEnumTypes;
     /// Track the RetainTypes, since they can be updated later on.
     SmallVector<TrackingMDNodeRef, 4> AllRetainTypes;
     SmallVector<Metadata *, 4> AllSubprograms;
@@ -171,10 +190,10 @@ namespace llvm {
     /// \param Checksum  Optional checksum kind (e.g. CSK_MD5, CSK_SHA1, etc.)
     ///                  and value.
     /// \param Source    Optional source text.
-    DIFile *
-    createFile(StringRef Filename, StringRef Directory,
-               Optional<DIFile::ChecksumInfo<StringRef>> Checksum = None,
-               Optional<StringRef> Source = None);
+    DIFile *createFile(
+        StringRef Filename, StringRef Directory,
+        std::optional<DIFile::ChecksumInfo<StringRef>> Checksum = std::nullopt,
+        std::optional<StringRef> Source = std::nullopt);
 
     /// Create debugging information entry for a macro.
     /// \param Parent     Macro parent (could be nullptr).
@@ -254,7 +273,7 @@ namespace llvm {
     DIDerivedType *
     createPointerType(DIType *PointeeTy, uint64_t SizeInBits,
                       uint32_t AlignInBits = 0,
-                      Optional<unsigned> DWARFAddressSpace = None,
+                      std::optional<unsigned> DWARFAddressSpace = std::nullopt,
                       StringRef Name = "", DINodeArray Annotations = nullptr);
 
     /// Create debugging information entry for a pointer to member.
@@ -269,11 +288,10 @@ namespace llvm {
 
     /// Create debugging information entry for a c++
     /// style reference or rvalue reference type.
-    DIDerivedType *createReferenceType(unsigned Tag, DIType *RTy,
-                                       uint64_t SizeInBits = 0,
-                                       uint32_t AlignInBits = 0,
-                                       Optional<unsigned> DWARFAddressSpace =
-                                           None);
+    DIDerivedType *createReferenceType(
+        unsigned Tag, DIType *RTy, uint64_t SizeInBits = 0,
+        uint32_t AlignInBits = 0,
+        std::optional<unsigned> DWARFAddressSpace = std::nullopt);
 
     /// Create debugging information entry for a typedef.
     /// \param Ty          Original type.
@@ -282,10 +300,12 @@ namespace llvm {
     /// \param LineNo      Line number.
     /// \param Context     The surrounding context for the typedef.
     /// \param AlignInBits Alignment. (optional)
+    /// \param Flags       Flags to describe inheritance attribute, e.g. private
     /// \param Annotations Annotations. (optional)
     DIDerivedType *createTypedef(DIType *Ty, StringRef Name, DIFile *File,
                                  unsigned LineNo, DIScope *Context,
                                  uint32_t AlignInBits = 0,
+                                 DINode::DIFlags Flags = DINode::FlagZero,
                                  DINodeArray Annotations = nullptr);
 
     /// Create debugging information entry for a 'friend'.
@@ -487,6 +507,48 @@ namespace llvm {
 				       DIDerivedType *Discriminator,
 				       DINodeArray Elements,
 				       StringRef UniqueIdentifier = "");
+#if INTEL_CUSTOMIZATION
+    /* This routine returns a template type wrapped as a DIDerived type.
+    This implementation will be under a switch,
+    enable-template-as-type-parameter , which CLANG should check for and
+    call the appropriate DIBuilder routine accordingly. CLANG/Codegen should
+    add this node to the template parameters list even though it is not a valid
+    DITemplateParameter as represented by the following IR:
+
+    !11 = !DIBasicType(name: "int", size: 32,encoding: DW_ATE_signed)
+    !14 = distinct !DICompositeType(tag:DW_TAG_structure_type, name: "A", file:
+    !1, line: 2, size: 64, flags:DIFlagTypePassByValue | DIFlagNonTrivial,
+    elements: !15, templateParams: !23,identifier: "ZTS1AIiE")
+    !16 = !DIDerivedType(tag: DW_TAG_member, name: "val_",scope: !14, file: !1,
+    line: 5, baseType: !17, size: 32) !17 = !DIDerivedType(tag:
+    DW_TAG_template_type_parameter, name: "T", scope: !14,baseType: !11) !23 =
+    !{!17}
+
+    Note this is temporary until we create a proper
+    DITemplateTypeParameterAsType node in the community. This routine will
+    change to create and return a DITemplateTypeParameterAsType already wrapping
+    the DIDerivedType. This new node should then be added to the template params
+    list as represented bythe following IR:
+
+    !11 = !DIBasicType(name: "int", size: 32, encoding:DW_ATE_signed)
+    !14 = distinct !DICompositeType(tag: DW_TAG_structure_type, name:"A", file:
+    !1, line: 2, size: 64, flags: DIFlagTypePassByValue | DIFlagNonTrivial,
+    elements: !15, templateParams: !23, identifier: "ZTS1AIiE")
+    !15 = !{!16}
+    !16 = !DIDerivedType(tag: DW_TAG_member, name: "val_", scope: !14, file:
+    !1,line: 5, baseType: !17, size: 32)
+    !17 = !DITemplateTypeParameterAsType(tag: DW_TAG_template_as_type, scope:
+    !14, type: !18) !18 = !DIDerivedType(tag:
+    DW_TAG_template_type_parameter,name: "T", scope: !14, baseType: !11) !23 =
+    !{!17}
+    */
+    /// \param Scope        Scope in which this type is defined.
+    /// \param Name         Type parameter name.
+    /// \param Ty           Parameter type.
+    DIDerivedType *createTemplateTypeParameterAsType(DIScope *Scope,
+                                                     StringRef Name,
+                                                     DIType *Ty);
+#endif
 
     /// Create debugging information for template
     /// type parameter.
@@ -683,7 +745,7 @@ namespace llvm {
     DIGlobalVariable *createTempGlobalVariableFwdDecl(
         DIScope *Context, StringRef Name, StringRef LinkageName, DIFile *File,
         unsigned LineNo, DIType *Ty, bool IsLocalToUnit, MDNode *Decl = nullptr,
-        MDTuple *TemplateParams= nullptr, uint32_t AlignInBits = 0);
+        MDTuple *TemplateParams = nullptr, uint32_t AlignInBits = 0);
 
     /// Create a new descriptor for an auto variable.  This is a local variable
     /// that is not a subprogram parameter.
@@ -728,7 +790,7 @@ namespace llvm {
     /// Create a new descriptor for the specified
     /// variable which has a complex address expression for its address.
     /// \param Addr        An array of complex address operations.
-    DIExpression *createExpression(ArrayRef<uint64_t> Addr = None);
+    DIExpression *createExpression(ArrayRef<uint64_t> Addr = std::nullopt);
 
     /// Create an expression for a variable that does not have an address, but
     /// does have a constant value.
@@ -914,6 +976,26 @@ namespace llvm {
     Instruction *insertDeclare(llvm::Value *Storage, DILocalVariable *VarInfo,
                                DIExpression *Expr, const DILocation *DL,
                                BasicBlock *InsertAtEnd);
+
+    /// Insert a new llvm.dbg.assign intrinsic call.
+    /// \param LinkedInstr   Instruction with a DIAssignID to link with the new
+    ///                      intrinsic. The intrinsic will be inserted after
+    ///                      this instruction.
+    /// \param Val           The value component of this dbg.assign.
+    /// \param SrcVar        Variable's debug info descriptor.
+    /// \param ValExpr       A complex location expression to modify \p Val.
+    /// \param Addr          The address component (store destination).
+    /// \param AddrExpr      A complex location expression to modify \p Addr.
+    ///                      NOTE: \p ValExpr carries the FragInfo for the
+    ///                      variable.
+    /// \param DL            Debug info location, usually: (line: 0,
+    ///                      column: 0, scope: var-decl-scope). See
+    ///                      getDebugValueLoc.
+    DbgAssignIntrinsic *insertDbgAssign(Instruction *LinkedInstr, Value *Val,
+                                        DILocalVariable *SrcVar,
+                                        DIExpression *ValExpr, Value *Addr,
+                                        DIExpression *AddrExpr,
+                                        const DILocation *DL);
 
     /// Insert a new llvm.dbg.declare intrinsic call.
     /// \param Storage      llvm::Value of the variable

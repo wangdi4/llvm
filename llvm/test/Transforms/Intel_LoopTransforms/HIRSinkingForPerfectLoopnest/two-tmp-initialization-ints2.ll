@@ -1,7 +1,6 @@
 ; Verify that the test allows multiple pre-loop copy inst candidates.
 ; In this test case, there are two pre-loop copy insts %4 = 0 and %5 = 0.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***
@@ -56,7 +55,6 @@
 ; Test undo sinking pass can hoist out the load insts and stores insts when loop interchange
 ; was not triggered.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-distribute-loopnest -hir-loop-interchange -hir-undo-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest -print-after=hir-loop-distribute-loopnest -print-after=hir-loop-interchange -print-after=hir-undo-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s --check-prefix=CHECK-UNDO
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-loop-interchange,hir-undo-sinking-for-perfect-loopnest,print<hir>,print<hir>,print<hir>,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=CHECK-UNDO
 ; 
 ;*** IR Dump After HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***

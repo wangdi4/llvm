@@ -1,7 +1,5 @@
 ; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -S -debug -disable-output 2>&1 | FileCheck %s
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound %s -S -debug -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: WGLoopBoundaries
 ;; boundary output pattern: dim, contains_val(T/F), is_global_id(T/F), IsSigned(T/F), IsUpperBound(T,F)

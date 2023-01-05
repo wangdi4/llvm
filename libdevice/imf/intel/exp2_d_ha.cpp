@@ -13,6 +13,9 @@
 * License.
 *******************************************************************************/
 #include "_imf_include_fp64.hpp"
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+#pragma omp declare target
+#endif
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_exp2_d_ha {
 namespace {
@@ -184,3 +187,8 @@ DEVICE_EXTERN_C_INLINE double __devicelib_imf_exp2(double x) {
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+DEVICE_EXTERN_C_DECLSIMD_INLINE
+double __svml_device_exp2(double x) { return __devicelib_imf_exp2(x); }
+#pragma omp end declare target
+#endif

@@ -29,14 +29,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Triple.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#include "Intel_DTrans/Analysis/DTransTypes.h"
-#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "llvm/Demangle/Demangle.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -49,11 +41,22 @@
 #include "llvm/IR/PseudoProbe.h"
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/Object/ModuleSymbolTable.h"
-#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <optional>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#include "llvm/Demangle/Demangle.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -184,6 +187,8 @@ public:
     if (DtransTypeMDReader)
       delete DtransTypeMDReader;
   }
+  DTransStructsMap(const DTransStructsMap &) = delete;
+  DTransStructsMap &operator=(const DTransStructsMap &) = delete;
 
   // Return the DTransStructType mapped to the input StructType if it is
   // available, else return nullptr
@@ -287,6 +292,9 @@ public:
     if (DTransDstStructsMap)
       delete DTransDstStructsMap;
   }
+  TypeMapTy(const TypeMapTy &) = delete;
+  TypeMapTy &operator=(const TypeMapTy &) = delete;
+
 #else // INTEL_FEATURE_SW_DTRANS
   TypeMapTy(IRMover::IdentifiedStructTypeSet &DstStructTypesSet)
       : DstStructTypesSet(DstStructTypesSet) {}
@@ -1829,7 +1837,7 @@ void TypeMapTy::updateDTransTypeManager() {
   // find the corresponding DTransStructureType. The map constructed in
   // DTransSrcStructsMap uses the pointer to the structure type rather
   // than the structure name.
-  for (auto StructPair : DTransSrcStructsMap->getDtransStructMap()) {
+  for (const auto &StructPair : DTransSrcStructsMap->getDtransStructMap()) {
     if (!StructPair.second)
       continue;
 
@@ -2088,7 +2096,7 @@ class IRLinker {
 
   /// The Error encountered during materialization. We use an Optional here to
   /// avoid needing to manage an unconsumed success value.
-  Optional<Error> FoundError;
+  std::optional<Error> FoundError;
   void setError(Error E) {
     if (E)
       FoundError = std::move(E);
@@ -3553,6 +3561,11 @@ void IRLinker::linkNamedMDNodes() {
                     DstM.getModuleIdentifier() + "' is not\n");
       continue;
     }
+    // The stats are computed per module and will all be merged in the binary.
+    // Importing the metadata will cause duplication of the stats.
+    if (IsPerformingImport && NMD.getName() == "llvm.stats")
+      continue;
+
     NamedMDNode *DestNMD = DstM.getOrInsertNamedMetadata(NMD.getName());
     // Add Src elements into Dest node.
     for (const MDNode *Op : NMD.operands())

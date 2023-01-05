@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-output -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -aa-pipeline="basic-aa" -print-after=hir-loop-distribute-memrec -disable-output -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 
 
@@ -39,24 +38,26 @@
 ;                |   |      {
 ;                |   |         %y.addr.023 = %y.addr.023  +  1;
 ;                |   |         %0 = (@A1)[0][%x.addr.026];
+;                |   |         (%.TempArray2)[0][i2] = %0;
 ;                |   |         %1 = (@A)[0][%x.addr.026];
+;                |   |         (%.TempArray4)[0][i2] = %1;
 ;                |   |         %2 = (@B)[0][%y.addr.023];
-;                |   |         (%.TempArray2)[0][i2] = %2;
+;                |   |         (%.TempArray6)[0][i2] = %2;
 ;                |   |      }
 ;                |   |   }
 ; CHECK:         |   + END LOOP
 ;                |
 ;                |
 ; CHECK:         |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+;                |   |   %0 = (@A1)[0][%x.addr.026];
+;                |   |   %1 = (@A)[0][%x.addr.026];
+;                |   |   %2 = (%.TempArray2)[0][i2];
 ; CHECK:         |   |   if (64 * i1 + i2 > %cmp)
 ;                |   |   {
-; CHECK:         |   |      %x.addr.026 = (%.TempArray)[0][i2];
 ; CHECK:         |   |      if (64 * i1 + i2 < %v)
 ;                |   |      {
-;                |   |         %0 = (@A1)[0][%x.addr.026];
-;                |   |         %1 = (@A)[0][%x.addr.026];
-;                |   |         %2 = (%.TempArray2)[0][i2];
-; CHECK:         |   |         (@B1)[0][%x.addr.026] = %0 + (%1 * %2);
+; CHECK:         |   |         %x.addr.026 = (%.TempArray)[0][i2];
+; CHECK-NEXT     |   |         (@B1)[0][%x.addr.026] = %0 + (%1 * %2);
 ;                |   |      }
 ;                |   |   }
 ;                |   + END LOOP

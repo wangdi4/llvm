@@ -121,6 +121,7 @@ private:
               SmallVector<std::pair<const MCSymbol *, const MCSymbol *>, 1>>
         DefRanges;
     bool UseReferenceType = false;
+    std::optional<APSInt> ConstantValue;
 #if INTEL_CUSTOMIZATION
     uint32_t UplevelOffset = 0;
 #endif // INTEL_CUSTOMIZATION

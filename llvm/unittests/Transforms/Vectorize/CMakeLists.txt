@@ -15,12 +15,15 @@ set(LLVM_LINK_COMPONENTS
 
 add_llvm_unittest(VectorizeTests
 # INTEL_CUSTOMIZATION
+  IntelVPAssumptionCacheTest.cpp
+  IntelVPOperandBundlesTest.cpp
   IntelVPlanAlignmentAnalysisTest.cpp
   IntelVPlanAllZeroCheckCost.cpp
   IntelVPlanCGTest.cpp
   IntelVPlanCheckNodeParent.cpp
   IntelVPlanClonePlanTest.cpp
   IntelVPlanDATest.cpp
+  IntelVPlanTest.cpp
   IntelVPlanTTIMemrefCostTest.cpp
   IntelVPlanValueTrackingTest.cpp
 # INTEL_FEATURE_SW_ADVANCED

@@ -59,7 +59,7 @@ private:
   std::unique_ptr<llvm::opt::InputArgList> m_pArgs;
   unsigned m_missingArgIndex;
   unsigned m_missingArgCount;
-  llvm::SmallVector<const char*, 4> m_Args;
+  llvm::SmallVector<const char *, 4> m_Args;
 };
 
 class ClangFECompilerLinkTask {
@@ -84,6 +84,6 @@ private:
   std::string m_allKernelNames;
 };
 
-} // ClangFE
-} // OpenCL
-} // Intel
+} // namespace ClangFE
+} // namespace OpenCL
+} // namespace Intel

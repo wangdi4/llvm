@@ -30,6 +30,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include <optional>
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
 
@@ -41,10 +42,10 @@ static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
     cl::location(ForceComplexTyReductionVec), cl::Hidden,
     cl::desc("Force vectorization of reduction involving complex type."));
 
-static cl::opt<bool, true> ForceInscanReductionVecOpt(
-    "vplan-force-inscan-reduction-vectorization",
-    cl::location(ForceInscanReductionVec), cl::Hidden,
-    cl::desc("Force vectorization of inscan reduction."));
+static cl::opt<bool, true>
+    ForceUDSReductionVecOpt("vplan-force-uds-reduction-vectorization",
+                            cl::location(ForceUDSReductionVec), cl::Hidden,
+                            cl::desc("Force vectorization of UDS reduction."));
 
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
@@ -53,7 +54,7 @@ static cl::opt<bool>
 namespace llvm {
 namespace vpo {
 bool ForceComplexTyReductionVec = false;
-bool ForceInscanReductionVec = false;
+bool ForceUDSReductionVec = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -82,7 +83,11 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
         WorkList.push_back(U);
         continue;
       }
-      if (isa<AddrSpaceCastInst>(U))
+      if (isa<AddrSpaceCastInst>(U)) {
+        WorkList.push_back(U);
+        continue;
+      }
+      if (isa<GetElementPtrInst>(U))
         WorkList.push_back(U);
     }
   }
@@ -461,8 +466,9 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
 }
 
-void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
-                                                    RecurKind Kind) {
+void VPOVectorizationLegality::parseMinMaxReduction(
+    Value *RedVarPtr, RecurKind Kind,
+    Optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing some possible scenarios:
   // (1)
@@ -531,11 +537,10 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
                             nullptr /*IntermediateStore*/, Kind, FMF, nullptr,
                             StartV->getType(), true /*Signed*/,
                             false /*Ordered*/, CastInsts, -1U);
-    ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr,
-                                             None /*InscanReductionKind*/};
+    ExplicitReductions[LoopHeaderPhiNode] = {
+        RD, RedVarPtr, std::nullopt /*InscanReductionKind*/};
   } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
-    InMemoryReductions[RedVarPtr] =
-      {Kind, None /*InscanReductionKind*/, ReductionUse};
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
@@ -607,7 +612,7 @@ void VPOVectorizationLegality::addReduction(
 
   // TODO: Support min/max scan reductions as well.
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
-    parseMinMaxReduction(RedVarPtr, Kind);
+    parseMinMaxReduction(RedVarPtr, Kind, InscanRedKind);
     return;
   }
 
@@ -691,6 +696,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             continue;
 
           if (checkAndAddAliasForSimdLastPrivate(Phi))
+            continue;
+
+          if (checkUncondLastPrivOperands<PHINode>(
+                  Header, Phi,
+                  [&](PHINode *Phi) { return Inductions.count(Phi); }))
             continue;
 
           LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"

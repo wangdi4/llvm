@@ -81,10 +81,15 @@ protected:
     Plan = buildHCFG(LoopHeader);
   }
 
-  void setupPeelingAnalysis() {
+  void commonSetup() {
     VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(
       *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
-    VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
+    VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, Plan->getVPAC(),
+                                                    &*DT, Plan->getDT());
+  }
+
+  void setupPeelingAnalysis() {
+    commonSetup();
     VPPA = std::make_unique<VPlanPeelingAnalysis>(*VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);
   }
@@ -1051,6 +1056,57 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
   EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP64));
   EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP64));
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, AlignedVal) {
+  buildVPlanFromString(
+      "declare void @llvm.assume(i1)\n"
+      "\n"
+      "define void @foo(i32* %p) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]\n"
+      "  call void @llvm.assume(i1 true) [ \"align\"(i32* %p, i32 16) ]\n"
+      "  store i32 1, i32* %p\n"
+      "  %ind.next = add nuw nsw i32 %ind, 1\n"
+      "  %cond = icmp eq i32 %ind.next, 256\n"
+      "  br i1 %cond, label %for.body, label %exit\n"
+      "\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
+
+  commonSetup();
+  VPlanAlignmentAnalysis AA(*VPSE, *VPVT, 4);
+
+  VPLoadStoreInst *S = findStoreInst();
+  EXPECT_EQ(Align(16), AA.tryGetKnownAlignment(S->getOperand(1), S));
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
+  buildVPlanFromString(
+      "declare void @llvm.assume(i1)\n"
+      "\n"
+      "define void @foo(i32* %p) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]\n"
+      "  store i32 1, i32* %p\n"
+      "  %ind.next = add nuw nsw i32 %ind, 1\n"
+      "  %cond = icmp eq i32 %ind.next, 256\n"
+      "  br i1 %cond, label %for.body, label %exit\n"
+      "\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
+
+  commonSetup();
+  VPlanAlignmentAnalysis AA(*VPSE, *VPVT, 4);
+
+  VPLoadStoreInst *S = findStoreInst();
+  EXPECT_EQ(std::nullopt, AA.tryGetKnownAlignment(S->getOperand(1), S));
 }
 
 } // namespace

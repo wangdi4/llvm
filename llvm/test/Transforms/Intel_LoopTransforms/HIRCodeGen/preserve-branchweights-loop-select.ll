@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ; Make sure HIR loopopt preserves input profile-related metadata (i.e. "branch_weights")

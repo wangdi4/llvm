@@ -2513,7 +2513,7 @@ public:
         return false;
 
       // FIXME: extend to handle left over parameters and var-arg.
-      for (auto Pair : zip(FT1->params(), FT2->params())) {
+      for (const auto &Pair : zip(FT1->params(), FT2->params())) {
         auto *PT1 = std::get<0>(Pair);
         auto *PT2 = std::get<1>(Pair);
         if (!typesMayBeCRuleCompatibleX(PT1, PT2, Tstack, IgnorePointees))
@@ -2832,7 +2832,7 @@ public:
       // Selects and PHIs may have created a pointer that refers to
       // elements in multiple aggregate types. This sets the field
       // address taken condition for them all.
-      for (auto PointeePair : LPI.getElementPointeeSet()) {
+      for (const auto &PointeePair : LPI.getElementPointeeSet()) {
         auto Res = getParentStructType(PointeePair, Arg);
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
@@ -3067,7 +3067,7 @@ public:
                                                   dtrans::MismatchedArgUse);
         }
       } else {
-        for (auto Pair : zip(F->args(), Call.args()))
+        for (const auto &Pair : zip(F->args(), Call.args()))
           if (!SpecialArguments.count(std::get<1>(Pair)))
             checkArgTypeMismatch(&Call, F, &std::get<0>(Pair),
                                  std::get<1>(Pair));
@@ -3489,7 +3489,7 @@ public:
       if (!isSimpleStructureMember(GEPLPI, STy, FieldNum, &PrePadBytes))
         return false;
 
-      if (!STy || PrePadBytes != 0)
+      if (!(*STy) || PrePadBytes != 0)
         return false;
 
       llvm::Type *DestType = (*STy)->getElementType(*FieldNum);
@@ -3765,9 +3765,9 @@ public:
     }
   }
 
-  std::pair<llvm::Type *, size_t>
-  getParentStructType(LocalPointerInfo::TypeAndPointeeLocPair &PointeePair,
-                      Value *ValOp) {
+  std::pair<llvm::Type *, size_t> getParentStructType(
+      const LocalPointerInfo::TypeAndPointeeLocPair &PointeePair,
+      Value *ValOp) {
     llvm::Type *ParentTy = PointeePair.first;
     assert((!ParentTy->isStructTy() ||
             PointeePair.second.getKind() !=
@@ -3863,7 +3863,7 @@ public:
 
     if (ValLPI.pointsToSomeElement()) {
       auto ValPointees = ValLPI.getElementPointeeSet();
-      for (auto PointeePair : ValPointees) {
+      for (const auto &PointeePair : ValPointees) {
         auto Res = getParentStructType(PointeePair, ValOperand);
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
@@ -4176,7 +4176,7 @@ public:
           };
 
       if (hasNonCastLoadStoreUses(I)) {
-        for (auto PointeePair : PointeeSet) {
+        for (const auto &PointeePair : PointeeSet) {
           llvm::Type *ParentTy = PointeePair.first;
           if (ParentTy->isStructTy()) {
             auto *ParentStInfo =
@@ -4351,7 +4351,7 @@ public:
     // type we also need to note that since it can have implications on
     // field access tracking.
     if (LPI.pointsToSomeElement()) {
-      for (auto PointeePair : LPI.getElementPointeeSet()) {
+      for (const auto &PointeePair : LPI.getElementPointeeSet()) {
         auto Res = getParentStructType(PointeePair, RetVal);
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
@@ -8913,7 +8913,7 @@ private:
         return;
       if (auto *STy = dyn_cast<StructType>(Ty)) {
         updateSubGraphNode(F, STy);
-        for (auto FTy : STy->elements())
+        for (const auto &FTy : STy->elements())
           Propagate(FTy);
       } else if (auto *ATy = dyn_cast<ArrayType>(Ty))
         Propagate(ATy->getElementType());
@@ -9180,7 +9180,7 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 
   // To get some consistency in the printing order, populate a tuple
   // that can be sorted, then output the sorted list.
-  for (auto CIVec : call_info_entries())
+  for (const auto &CIVec : call_info_entries())
     for (auto &E : enumerate(CIVec)) {
       auto *CI = E.value();
       Instruction *I = CI->getInstruction();
@@ -9319,6 +9319,9 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
 DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
 
 DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
+  if (this == &Other)
+    return *this;
+
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
   CIM = std::move(Other.CIM);
@@ -9350,7 +9353,7 @@ void DTransAnalysisInfo::reset() {
   CIM.reset();
 
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
-  for (auto Entry : TypeInfoMap) {
+  for (const auto &Entry : TypeInfoMap) {
     switch (Entry.second->getTypeInfoKind()) {
     case dtrans::TypeInfo::NonAggregateInfo:
       delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
@@ -9391,7 +9394,7 @@ void DTransAnalysisInfo::parseIgnoreList() {
       }
       SmallVector<StringRef, 20> IgnoreListElements;
       IgnoreList.split(IgnoreListElements, ";");
-      for (auto Element : IgnoreListElements) {
+      for (const auto &Element : IgnoreListElements) {
         std::pair<StringRef, StringRef> TransformationAndTypes =
             Element.split(":");
         if (TransformationAndTypes.first.empty() ||
@@ -9437,7 +9440,7 @@ void DTransAnalysisInfo::parseIgnoreList() {
         LLVM_DEBUG(dbgs() << "\n\tAdding   \'" << Element << "\' ");
         SmallVector<StringRef, 20> IgnoreTypes;
         TransformationAndTypes.second.split(IgnoreTypes, ",");
-        for (auto TypeName : IgnoreTypes)
+        for (const auto &TypeName : IgnoreTypes)
           IgnoreTypeMap[TransName].insert(TypeName);
       }
     }
@@ -9602,6 +9605,12 @@ bool DTransAnalysisInfo::analyzeModule(
                       << "DTransAnalysis didn't run\n");
     return false;
   }
+
+#if INTEL_PRODUCT_RELEASE
+  // Set a flag to induce an error if anyone attempts to write the IR
+  // to a file after this pass has been run.
+  M.setIntelProprietary();
+#endif // INTEL_PRODUCT_RELEASE
 
   setCallGraphStats(M);
   buildRelatedTypesMap(M);

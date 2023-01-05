@@ -29,8 +29,7 @@
 namespace llvm {
 
 /// An AAResult providing alias queries.
-class DPCPPAAResult : public AAResultBase<DPCPPAAResult> {
-  friend AAResultBase<DPCPPAAResult>;
+class DPCPPAAResult : public AAResultBase {
 
 public:
   DPCPPAAResult();
@@ -42,8 +41,8 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &);
 
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal = false);
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool IgnoreLocals = false);
 
   void deleteValue(Value *V);
   void copyValue(Value *From, Value *To);
@@ -116,32 +115,5 @@ public:
   Result run(Function &, FunctionAnalysisManager &);
 };
 
-/// For legacy pass manager.
-class DPCPPAliasAnalysisLegacy : public ImmutablePass {
-  DPCPPAAResult AAResult;
-
-public:
-  static char ID;
-
-  DPCPPAliasAnalysisLegacy();
-
-  StringRef getPassName() const override { return "DPCPPAliasAnalysisLegacy"; }
-
-  bool doInitialization(Module &) override { return false; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  DPCPPAAResult &getResult() { return AAResult; }
-  const DPCPPAAResult &getResult() const { return AAResult; }
-};
-
-class DPCPPExternalAliasAnalysisLegacy : public ExternalAAWrapperPass {
-public:
-  static char ID;
-
-  DPCPPExternalAliasAnalysisLegacy();
-};
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPPKERNELTRANSFORMS_DPCPPALIASANALYSIS_H

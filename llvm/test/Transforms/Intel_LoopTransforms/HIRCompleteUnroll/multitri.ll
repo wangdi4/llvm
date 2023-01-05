@@ -1,7 +1,6 @@
 
 ; Test for completely unrolling multiple triangular loops.
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
@@ -30,7 +29,6 @@
 ;    return A[2][3];
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN

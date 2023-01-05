@@ -401,7 +401,12 @@ struct DeviceTy {
                    map_var_info_t HstPtrName, bool HasFlagTo,
                    bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
                    bool HasCloseModifier, bool HasPresentModifier,
+#if INTEL_COLLAB
+                   bool HasHoldModifier, bool UseHostMem,
+                   AsyncInfoTy &AsyncInfo);
+#else // INTEL_COLLAB
                    bool HasHoldModifier, AsyncInfoTy &AsyncInfo);
+#endif // INTEL_COLLAB
 
   /// Return the target pointer for \p HstPtrBegin in \p HDTTMap. The accessor
   /// ensures exclusive access to the HDTT map.
@@ -469,7 +474,7 @@ struct DeviceTy {
   int32_t manifestDataForRegion(void *TgtEntryPtr);
   char *getDeviceName(char *Buffer, size_t BufferMaxSize);
   void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase,
-                      int32_t DedicatedPool = 0);
+                      int32_t AllocOpt = ALLOC_OPT_NONE);
   int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,
@@ -569,6 +574,28 @@ private:
 
 extern bool deviceIsReady(int DeviceNum);
 
+#if INTEL_CUSTOMIZATION
+struct InteropTblTy {
+  // Just use a simple container for now. It might need to be refactored
+  // in the future if becomes a bottleneck.
+  typedef std::vector<__tgt_interop *> ContainerTy;
+  typedef ContainerTy::iterator iterator;
+
+  ContainerTy Interops;
+
+  void addInterop( __tgt_interop * iop ) { Interops.push_back(iop); }
+  void clear( );
+
+  // Iterators to traverse all interop objects
+  iterator begin ( ) { return Interops.begin(); }
+  iterator end ( ) { return Interops.end(); }
+  // Iterators to traverse at least interop objects owned by gtid/task. 
+  // With the current container we traverse all.
+  iterator begin ( int gtid, void *current_task ) { return Interops.begin(); }
+  iterator end ( int gtid, void *current_task ) { return Interops.end(); }
+};
+#endif
+
 /// Struct for the data required to handle plugins
 struct PluginManager {
   PluginManager(bool UseEventsForAtomicTransfers)
@@ -609,6 +636,9 @@ struct PluginManager {
   int64_t RootDeviceID = -1;
   int64_t SubDeviceMask = 0;
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  InteropTblTy InteropTbl;
+#endif
 };
 
 extern PluginManager *PM;

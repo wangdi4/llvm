@@ -1,6 +1,6 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -hir-rowwise-mv-skip-dtrans -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -print-before=hir-rowwise-mv -hir-rowwise-mv-skip-dtrans -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; This test checks that the row-wise multiversioning transformation generates
 ; the expected code for cases where the temp array is needed.

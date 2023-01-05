@@ -18,31 +18,28 @@
 #include "auto_ptr_ex.h"
 #include <stdlib.h>
 
-namespace Validation { 
+namespace Validation {
 
-//\brief Allocated memory of given size, aligned to the given alignment. Throws bad_alloc on failure
-void * align_malloc(size_t size, size_t alignment);
+//\brief Allocated memory of given size, aligned to the given alignment. Throws
+// bad_alloc on failure
+void *align_malloc(size_t size, size_t alignment);
 //\brief Frees memory previously allocated by align_malloc
-void   align_free(void * ptr);
+void align_free(void *ptr);
 
 //\brief auto_ptr_ex destruction policy. Uses align_free to free the pointers
-template<class T> struct AlignDP
-{
-    static void Delete(T* pT) { align_free((void*)pT); }
+template <class T> struct AlignDP {
+  static void Delete(T *pT) { align_free((void *)pT); }
 };
-typedef auto_ptr_ex<char, AlignDP<char> > auto_ptr_aligned;
+typedef auto_ptr_ex<char, AlignDP<char>> auto_ptr_aligned;
 
-
-//\brief auto_ptr_ex destruction policy. Uses Release method to free the pointers
-template<class T> struct ReleaseDP
-{
-    static void Delete(T* pT)
-    {
-        if (NULL != pT)
-        {
-            pT->Release();
-        }
+//\brief auto_ptr_ex destruction policy. Uses Release method to free the
+// pointers
+template <class T> struct ReleaseDP {
+  static void Delete(T *pT) {
+    if (NULL != pT) {
+      pT->Release();
     }
+  }
 };
-}
-#endif //MEM_UTILS
+} // namespace Validation
+#endif // MEM_UTILS

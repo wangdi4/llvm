@@ -1,84 +1,97 @@
 set(TARGET debugger_test_type)
 
 # some debugger tests have to use deprecated OpenCL API functions.
-if (WIN32)
-    add_definitions(
-        -wd4996 # Suppress 'function': was declared deprecated'
-    )
-endif (WIN32)
-
-FIND_SOURCES()
-CALCULATE_TARGET_SOURCES()
-
-add_opencl_executable(${TARGET}
-  ${TARGET_SOURCES}
-
-  INCLUDE_DIRS
-    ${OCL_SOURCE_DIR}/framework/export
-    ${OCL_SOURCE_DIR}/cl_api
-    ${CL_API_HEADERS}
-    ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
-    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-    ${OCL_SOURCE_DIR}/externals/itt/include
-
-    LINK_LIBS
-      OpenCL-ICD
-      cl_sys_utils
+if(WIN32)
+  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
   )
+endif(WIN32)
+
+find_sources()
+calculate_target_sources()
+
+add_opencl_executable(
+  ${TARGET}
+  ${TARGET_SOURCES}
+  INCLUDE_DIRS
+  ${OCL_SOURCE_DIR}/framework/export
+  ${OCL_SOURCE_DIR}/cl_api
+  ${CL_API_HEADERS}
+  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
+  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+  ${OCL_SOURCE_DIR}/externals/itt/include
+  LINK_LIBS
+  OpenCL-ICD
+  cl_sys_utils)
 
 #
-##
-### Post-build events to copy stuff appropriately to the output directory
-##
+# Post-build events to copy stuff appropriately to the output directory
 #
 
 # This is where things will be copied to
 #
 set(DTT_DIR_NAME tests/debugger_test_type)
 
-# Copy generated executable to DTT_DIR_NAME
-# Since COPY_GENERATED_FILES_POST_BUILD needs OCL_INSTALL_DIR set, we save it
-# and restore it after the command.
+# Copy generated executable to DTT_DIR_NAME Since
+# COPY_GENERATED_FILES_POST_BUILD needs OCL_INSTALL_DIR set, we save it and
+# restore it after the command.
 #
 install(TARGETS ${TARGET} DESTINATION ${DTT_DIR_NAME})
 
 # Copy all .py files from the main directory
 #
-file(GLOB MAIN_PY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.py)
+file(
+  GLOB MAIN_PY_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  *.py)
 install(FILES ${MAIN_PY_FILES} DESTINATION ${DTT_DIR_NAME})
 
 # Copy all .pm files from the main directory
 #
-file(GLOB MAIN_PM_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.pm)
+file(
+  GLOB MAIN_PM_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  *.pm)
 install(FILES ${MAIN_PM_FILES} DESTINATION ${DTT_DIR_NAME})
 
 # Copy all .zip files from the testlib directory
 #
 set(DTT_TESTLIB_DIR_NAME ${DTT_DIR_NAME}/testlib)
-file(GLOB MAIN_ZIP_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} testlib/*.zip)
+file(
+  GLOB MAIN_ZIP_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  testlib/*.zip)
 install(FILES ${MAIN_ZIP_FILES} DESTINATION ${DTT_TESTLIB_DIR_NAME})
 
 # Create directory for CL files and copy them
 #
 set(DTT_KERNELS_DIR_NAME ${DTT_DIR_NAME}/cl_kernels)
 
-file(GLOB_RECURSE CL_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} cl_kernels/*.cl)
+file(
+  GLOB_RECURSE CL_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  cl_kernels/*.cl)
 install(FILES ${CL_FILES} DESTINATION ${DTT_KERNELS_DIR_NAME})
 
 # Create directory for testcases and copy them
 #
 set(DTT_TESTCASES_DIR_NAME ${DTT_DIR_NAME}/testcases)
 
-file(GLOB_RECURSE TESTCASE_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} testcases/*.py)
+file(
+  GLOB_RECURSE TESTCASE_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  testcases/*.py)
 install(FILES ${TESTCASE_FILES} DESTINATION ${DTT_TESTCASES_DIR_NAME})
 
 # Copy all code in the testlib/ dir
 #
-file(GLOB_RECURSE TESTLIB_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} testlib/*.py)
-install( FILES ${TESTLIB_FILES} DESTINATION ${DTT_TESTLIB_DIR_NAME})
+file(
+  GLOB_RECURSE TESTLIB_FILES
+  RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  testlib/*.py)
+install(FILES ${TESTLIB_FILES} DESTINATION ${DTT_TESTLIB_DIR_NAME})
 
 # Copy .xml config files for test runner
-install( FILES cfg_win.xml cfg_linux.xml
-         DESTINATION ${DTT_DIR_NAME}/debugger_test)
+install(FILES cfg_win.xml cfg_linux.xml
+        DESTINATION ${DTT_DIR_NAME}/debugger_test)
 
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
+set_target_properties(${TARGET} PROPERTIES FOLDER "validation")

@@ -91,9 +91,6 @@ def AlwaysInline : EnumAttr<"alwaysinline", [FnAttr]>;
 def AlwaysInlineRecursive : EnumAttr<"alwaysinline_recursive", [FnAttr]>;
 // endif INTEL_CUSTOMIZATION
 
-/// Function can access memory only using pointers based on its arguments.
-def ArgMemOnly : EnumAttr<"argmemonly", [FnAttr]>;
-
 /// Callee is recognized as a builtin, despite nobuiltin attribute on its
 /// declaration.
 def Builtin : EnumAttr<"builtin", [FnAttr]>;
@@ -133,14 +130,6 @@ def ElementType : TypeAttr<"elementtype", [ParamAttr]>;
 /// symbol.
 def FnRetThunkExtern : EnumAttr<"fn_ret_thunk_extern", [FnAttr]>;
 
-/// Function may only access memory that is inaccessible from IR.
-def InaccessibleMemOnly : EnumAttr<"inaccessiblememonly", [FnAttr]>;
-
-/// Function may only access memory that is either inaccessible from the IR,
-/// or pointed to by its pointer arguments.
-def InaccessibleMemOrArgMemOnly : EnumAttr<"inaccessiblemem_or_argmemonly",
-                                           [FnAttr]>;
-
 /// Pass structure in an alloca.
 def InAlloca : TypeAttr<"inalloca", [ParamAttr]>;
 
@@ -157,6 +146,9 @@ def InReg : EnumAttr<"inreg", [ParamAttr, RetAttr]>;
 
 /// Build jump-instruction tables and replace refs.
 def JumpTable : EnumAttr<"jumptable", [FnAttr]>;
+
+/// Memory effects of the function.
+def Memory : IntAttr<"memory", [FnAttr]>;
 
 /// Function must be optimized for size first.
 def MinSize : EnumAttr<"minsize", [FnAttr]>;
@@ -247,10 +239,10 @@ def OptimizeNone : EnumAttr<"optnone", [FnAttr]>;
 def Preallocated : TypeAttr<"preallocated", [FnAttr, ParamAttr]>;
 
 /// Function does not access memory.
-def ReadNone : EnumAttr<"readnone", [FnAttr, ParamAttr]>;
+def ReadNone : EnumAttr<"readnone", [ParamAttr]>;
 
 /// Function only reads from memory.
-def ReadOnly : EnumAttr<"readonly", [FnAttr, ParamAttr]>;
+def ReadOnly : EnumAttr<"readonly", [ParamAttr]>;
 
 /// Return value is always equal to this argument.
 def Returned : EnumAttr<"returned", [ParamAttr]>;
@@ -335,7 +327,7 @@ def VScaleRange : IntAttr<"vscale_range", [FnAttr]>;
 def WillReturn : EnumAttr<"willreturn", [FnAttr]>;
 
 /// Function only writes to memory.
-def WriteOnly : EnumAttr<"writeonly", [FnAttr, ParamAttr]>;
+def WriteOnly : EnumAttr<"writeonly", [ParamAttr]>;
 
 /// Zero extended before/after call.
 def ZExt : EnumAttr<"zeroext", [ParamAttr, RetAttr]>;

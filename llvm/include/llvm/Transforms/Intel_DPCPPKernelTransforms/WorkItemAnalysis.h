@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/PassManager.h"
 #include <map>
 #include <queue>
@@ -45,14 +46,15 @@ public:
   using SchdConstMap = std::map<BasicBlock *, std::vector<BasicBlock *>>;
 
   /// Type of dependency on work item.
-  enum Dependency {
+  enum class Dependency : int {
     UNIFORM = 0,         /// All elements in vector are constant.
     CONSECUTIVE = 1,     /// Elements are consecutive.
     PTR_CONSECUTIVE = 2, /// Elements are pointers which are consecutive.
     STRIDED = 3,         /// Elements are in strides.
     RANDOM = 4,          /// Unknown or non consecutive order.
-    NumDeps = 5,         /// Overall amount of dependencies.
   };
+  /// Overall amount of dependencies.
+  static constexpr int NumDeps = static_cast<int>(Dependency::RANDOM) + 1;
 
   /// Returns a map with scheduling constraints.
   SchdConstMap &getSchedulingConstraints() { return SchedulingConstraints; }
@@ -155,13 +157,13 @@ private:
   RuntimeService &RTService;
 
   /// The dimension over which we vectorize (usually 0).
-  unsigned VectorizeDim;
+  unsigned VectorizeDim = 0;
 
   /// Iteratively one set holds the changed from the previous iteration and the
   /// other holds the new changed values from the current iteration.
   SetVector<const Value *> Changed[2];
   // Ptr to current changed set.
-  SetVector<const Value *> *ChangedNew;
+  SetVector<const Value *> *ChangedNew = nullptr;
 
   /// Stores an updated list of all dependencies.
   DenseMap<const Value *, Dependency> Deps;
@@ -233,30 +235,6 @@ public:
     AM.getResult<WorkItemAnalysis>(F).print(OS);
     return PreservedAnalyses::all();
   }
-};
-
-/// For legacy pass manager.
-class WorkItemAnalysisLegacy : public FunctionPass {
-  std::unique_ptr<WorkItemInfo> WIInfo;
-  unsigned VectorizeDim;
-
-public:
-  static char ID;
-
-  WorkItemAnalysisLegacy(unsigned VectorizeDim = 0);
-
-  bool runOnFunction(Function &F) override;
-
-  StringRef getPassName() const override { return "WorkItemAnalysisLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void print(raw_ostream &OS, const Module *) const override {
-    WIInfo->print(OS);
-  }
-
-  WorkItemInfo &getResult() { return *WIInfo; }
-  const WorkItemInfo &getResult() const { return *WIInfo; }
 };
 
 } // namespace llvm

@@ -113,7 +113,7 @@ void VPTransformLibraryCalls::transformSincosCalls() {
 
     // Lastly, store the return values back to their respective storage (the
     // 'sin.out' and 'cos.out' arg ptrs to the original 'sincos' call).
-    for (auto It : enumerate(ReturnValues)) {
+    for (const auto &It : enumerate(ReturnValues)) {
       auto *ArgValue = SincosCall->getArgOperand(It.index() + 1);
       auto *Store = Builder.createStore(It.value(), ArgValue);
       Store->setAlignment(Plan.getDataLayout()->getPrefTypeAlign(ArgTy));

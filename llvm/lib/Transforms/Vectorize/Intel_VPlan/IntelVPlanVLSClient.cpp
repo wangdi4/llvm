@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClient.cpp ---------------------------------------------===/
 //
-//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,12 +18,13 @@
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include <optional>
 
 using namespace llvm::vpo;
 
 /// Implementation of OVLSMemref::getConstStride.
-static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
-                                            VPlanScalarEvolutionLLVM &VPSE) {
+static Optional<int64_t>
+getConstStrideImpl(const SCEV *Expr, const VPlanScalarEvolutionLLVM &VPSE) {
   VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
   Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
   return Linear.transform([](auto &L) { return L.Step; });
@@ -36,7 +37,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
   // sense trying to compute distance between pointers. Pointers to the same
   // allocation always have the same type.
   if (LHS->getType() !=RHS->getType())
-    return None;
+    return std::nullopt;
 
   VPlanSCEV *VPMinus =
       VPSE.getMinusExpr(VPSE.toVPlanSCEV(LHS), VPSE.toVPlanSCEV(RHS));
@@ -44,20 +45,20 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
 
   auto *Const = dyn_cast<SCEVConstant>(Minus);
   if (!Const)
-    return None;
+    return std::nullopt;
 
   return Const->getAPInt().getSExtValue();
 }
 
 Optional<int64_t>
-VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
+VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) const {
   const VPLoadStoreInst *FromInst = cast<VPVLSClientMemref>(From).Inst;
   const SCEV *FromScev = getAddressSCEV(FromInst);
 
   // Don't waste time if memrefs are in different basic blocks. This case is not
   // supported yet.
   if (Inst->getParent() != FromInst->getParent())
-    return None;
+    return std::nullopt;
 
   return getConstDistanceFromImpl(getAddressSCEV(Inst), FromScev, getVPSE());
 }
@@ -163,6 +164,11 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   // ToInst has not been found in the basic block. Probably, it is in the
   // opposite direction.
   return false;
+}
+
+bool VPVLSClientMemref::isConstStride(const VPLoadStoreInst *Inst,
+                                      const VPlanScalarEvolutionLLVM *VPSE) {
+  return getConstStrideImpl(getAddressSCEV(Inst), *VPSE).has_value();
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {

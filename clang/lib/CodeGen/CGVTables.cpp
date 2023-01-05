@@ -447,6 +447,13 @@ void CodeGenFunction::EmitMustTailThunk(GlobalDecl GD,
   llvm::CallInst *Call = Builder.CreateCall(Callee, Args);
   Call->setTailCallKind(llvm::CallInst::TCK_MustTail);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  CGM.addDTransIndirectCallInfo(Call,
+                                dyn_cast_or_null<FunctionDecl>(GD.getDecl()));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Apply the standard set of call attributes.
   unsigned CallingConv;
   llvm::AttributeList Attrs;
@@ -712,19 +719,27 @@ void CodeGenVTables::addRelativeComponent(ConstantArrayBuilder &builder,
                                       /*position=*/vtableAddressPoint);
 }
 
-bool CodeGenVTables::useRelativeLayout() const {
+static bool UseRelativeLayout(const CodeGenModule &CGM) {
   return CGM.getTarget().getCXXABI().isItaniumFamily() &&
          CGM.getItaniumVTableContext().isRelativeLayout();
 }
 
-llvm::Type *CodeGenVTables::getVTableComponentType() const {
-  if (useRelativeLayout())
-    return CGM.Int32Ty;
+bool CodeGenVTables::useRelativeLayout() const {
+  return UseRelativeLayout(CGM);
+}
+
+llvm::Type *CodeGenModule::getVTableComponentType() const {
+  if (UseRelativeLayout(*this))
+    return Int32Ty;
 #if INTEL_COLLAB
-  return CGM.TargetInt8PtrTy;
+  return DefaultInt8PtrTy;
 #else // INTEL_COLLAB
-  return CGM.Int8PtrTy;
+  return Int8PtrTy;
 #endif // INTEL_COLLAB
+}
+
+llvm::Type *CodeGenVTables::getVTableComponentType() const {
+  return CGM.getVTableComponentType();
 }
 
 static void AddPointerLayoutOffset(const CodeGenModule &CGM,
@@ -733,7 +748,7 @@ static void AddPointerLayoutOffset(const CodeGenModule &CGM,
 #if INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
-      CGM.TargetInt8PtrTy));
+      CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
@@ -777,7 +792,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
     else
 #if INTEL_COLLAB
       return builder.add(
-          llvm::ConstantExpr::getBitCast(rtti, CGM.TargetInt8PtrTy));
+          llvm::ConstantExpr::getBitCast(rtti, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
        return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
 #endif // INTEL_COLLAB
@@ -874,7 +889,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
     } else
 #if INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          fnPtr, CGM.TargetInt8PtrTy));
+          fnPtr, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
 #endif // INTEL_COLLAB
@@ -885,7 +900,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
 #if INTEL_COLLAB
-      return builder.addNullPointer(CGM.TargetInt8PtrTy);
+      return builder.addNullPointer(CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
       return builder.addNullPointer(CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
@@ -1347,8 +1362,7 @@ void CodeGenModule::EmitVTableTypeMetadata(const CXXRecordDecl *RD,
   if (!getCodeGenOpts().LTOUnit)
     return;
 
-  CharUnits PointerWidth =
-      Context.toCharUnitsFromBits(Context.getTargetInfo().getPointerWidth(0));
+  CharUnits ComponentWidth = GetTargetTypeStoreSize(getVTableComponentType());
 
   typedef std::pair<const CXXRecordDecl *, unsigned> AddressPoint;
   std::vector<AddressPoint> AddressPoints;
@@ -1386,7 +1400,7 @@ void CodeGenModule::EmitVTableTypeMetadata(const CXXRecordDecl *RD,
   ArrayRef<VTableComponent> Comps = VTLayout.vtable_components();
   for (auto AP : AddressPoints) {
     // Create type metadata for the address point.
-    AddVTableTypeMetadata(VTable, PointerWidth * AP.second, AP.first);
+    AddVTableTypeMetadata(VTable, ComponentWidth * AP.second, AP.first);
 
     // The class associated with each address point could also potentially be
     // used for indirect calls via a member function pointer, so we need to
@@ -1399,7 +1413,7 @@ void CodeGenModule::EmitVTableTypeMetadata(const CXXRecordDecl *RD,
           Context.getMemberPointerType(
               Comps[I].getFunctionDecl()->getType(),
               Context.getRecordType(AP.first).getTypePtr()));
-      VTable->addTypeMetadata((PointerWidth * I).getQuantity(), MD);
+      VTable->addTypeMetadata((ComponentWidth * I).getQuantity(), MD);
     }
   }
 

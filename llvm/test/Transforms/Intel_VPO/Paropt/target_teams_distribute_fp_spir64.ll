@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=PRIVATE
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=PRIVATE
 ; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=true -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=PRIVATE
 
-; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
 ; RUN: opt -vpo-paropt-target-make-distribute-fp-wilocal=false -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=LOCAL
 
 ; Test src:
@@ -35,7 +35,7 @@
 ;
 ; PRIVATE:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru{{.*}}
 ; PRIVATE: master.thread.code:
-; PRIVATE:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[X_DSTFP_CAST]])
+; PRIVATE:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[X_DSTFP_CAST]])
 
 ; With the make-distribute-fp-wilocal flag false, the allocation of the private
 ; copy of "x" happens at the module level in address space local (3).
@@ -55,7 +55,7 @@
 ;
 ; LOCAL:    br i1 %is.master.thread, label %master.thread.code1, label %master.thread.fallthru{{.*}}
 ; LOCAL:  master.thread.code1:
-; LOCAL:    call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[X_DSTFP]] to i32 addrspace(4)*))
+; LOCAL:    call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[X_DSTFP]] to i32 addrspace(4)*))
 
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"

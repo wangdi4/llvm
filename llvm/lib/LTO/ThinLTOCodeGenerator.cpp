@@ -47,7 +47,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/Verifier.h"
@@ -74,8 +73,6 @@
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
 #include "llvm/Transforms/IPO/Internalize.h"
-#include "llvm/Transforms/IPO.h" // INTEL
-#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
@@ -88,6 +85,13 @@
 #include <io.h>
 #endif
 
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "thinlto"
@@ -98,7 +102,7 @@ extern cl::opt<bool> LTODiscardValueNames;
 extern cl::opt<std::string> RemarksFilename;
 extern cl::opt<std::string> RemarksPasses;
 extern cl::opt<bool> RemarksWithHotness;
-extern cl::opt<Optional<uint64_t>, false, remarks::HotnessThresholdParser>
+extern cl::opt<std::optional<uint64_t>, false, remarks::HotnessThresholdParser>
     RemarksHotnessThreshold;
 extern cl::opt<std::string> RemarksFormat;
 }
@@ -289,14 +293,14 @@ static void optimizeModuleLegacyPM(Module &TheModule, TargetMachine &TM,
 static void optimizeModule(Module &TheModule, TargetMachine &TM,
                            unsigned OptLevel, bool Freestanding,
                            bool DebugPassManager, ModuleSummaryIndex *Index) {
-  Optional<PGOOptions> PGOOpt;
+  std::optional<PGOOptions> PGOOpt;
   LoopAnalysisManager LAM;
   FunctionAnalysisManager FAM;
   CGSCCAnalysisManager CGAM;
   ModuleAnalysisManager MAM;
 
   PassInstrumentationCallbacks PIC;
-  StandardInstrumentations SI(DebugPassManager);
+  StandardInstrumentations SI(TheModule.getContext(), DebugPassManager);
   SI.registerCallbacks(PIC, &FAM);
   PipelineTuningOptions PTO;
   PTO.LoopVectorization = true;
@@ -676,7 +680,7 @@ std::unique_ptr<TargetMachine> TargetMachineBuilder::create() const {
 
   std::unique_ptr<TargetMachine> TM(
       TheTarget->createTargetMachine(TheTriple.str(), MCpu, FeatureStr, Options,
-                                     RelocModel, None, CGOptLevel));
+                                     RelocModel, std::nullopt, CGOptLevel));
   assert(TM && "Cannot create target machine");
 
   return TM;
@@ -1282,7 +1286,7 @@ void ThinLTOCodeGenerator::run() {
     }
   }
 
-  pruneCache(CacheOptions.Path, CacheOptions.Policy);
+  pruneCache(CacheOptions.Path, CacheOptions.Policy, ProducedBinaries);
 
   // If statistics were requested, print them out now.
   if (llvm::AreStatisticsEnabled())

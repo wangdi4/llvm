@@ -1,8 +1,8 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Checks that in the SPIR64 target compilation we replace printf()
-; with the OCL builtin version _Z18__spirv_ocl_printfPU3AS2ci()
+; with the OCL builtin version _Z18__spirv_ocl_printfPU3AS2cz()
 ;
 ; #include <stdio.h>
 ; int main() {
@@ -15,13 +15,13 @@
 
 ; Paropt creates this prototype for OCL printf
 ; CHECK: [[STR:@.str.*]] = private target_declare addrspace(2) constant [21 x i8] c"\0A\0AHello %d %f %s \0A\0A\0A\00"
-; CHECK: declare spir_func i32 @_Z18__spirv_ocl_printfPU3AS2ci(ptr addrspace(2) noundef, ...)
+; CHECK: declare spir_func i32 @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2) noundef, ...)
 
 ; Make sure the original printf is removed
 ; CHECK-NOT: call {{.*}} (ptr addrspace(4), ...) @printf
 
 ; Calling the OCL printf
-; CHECK: call i32 (ptr addrspace(2), ...) @_Z18__spirv_ocl_printfPU3AS2ci(ptr addrspace(2) [[STR]], i32 %{{.*}}, double 4.560000e+02, ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str.1 to ptr addrspace(4)))
+; CHECK: call i32 (ptr addrspace(2), ...) @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2) [[STR]], i32 %{{.*}}, double 4.560000e+02, ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str.1 to ptr addrspace(4)))
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

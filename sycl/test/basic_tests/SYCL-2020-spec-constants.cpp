@@ -5,6 +5,8 @@
 // RUN: cat %t-split2_0.prop | FileCheck %s -check-prefixes=CHECK,CHECK-DEF
 // RUN: llvm-spirv -o %t-split1_0.spv -spirv-max-version=1.1 -spirv-ext=+all %t-split1_0.bc
 // RUN: llvm-spirv -o %t-split2_0.spv -spirv-max-version=1.1 -spirv-ext=+all %t-split2_0.bc
+// Timeout tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41515
+// UNSUPPORTED: windows
 //
 //==----------- SYCL-2020-spec-constants.cpp -------------------------------==//
 //

@@ -57,4 +57,4 @@ TEST_P(TBBMaxThreadsTest, noAssert) {
 }
 
 INSTANTIATE_TEST_SUITE_P(TaskExecutor, TBBMaxThreadsTest,
-                        ::testing::Values(1, 2, 128));
+                         ::testing::Values(1, 2, 128));

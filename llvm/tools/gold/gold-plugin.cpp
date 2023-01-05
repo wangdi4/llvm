@@ -143,7 +143,7 @@ static ld_plugin_set_extra_library_path set_extra_library_path = nullptr;
 static ld_plugin_get_view get_view = nullptr;
 static bool IsExecutable = false;
 static bool SplitSections = true;
-static Optional<Reloc::Model> RelocationModel = None;
+static std::optional<Reloc::Model> RelocationModel;
 static std::string output_name = "";
 static std::list<claimed_file> Modules;
 static DenseMap<int, void *> FDToLeaderHandle;
@@ -162,6 +162,7 @@ namespace options {
 
 #if INTEL_CUSTOMIZATION
   static bool AdvOptim = false;
+  static bool ShouldDiscardValueNames = true;
   static bool LibIRCAllowed = false;
 #endif // INTEL_CUSTOMIZATION
 
@@ -251,7 +252,7 @@ namespace options {
   static std::string RemarksFilename;
   static std::string RemarksPasses;
   static bool RemarksWithHotness = false;
-  static Optional<uint64_t> RemarksHotnessThreshold = 0;
+  static std::optional<uint64_t> RemarksHotnessThreshold = 0;
   static std::string RemarksFormat;
 
   // Context sensitive PGO options.
@@ -278,6 +279,8 @@ namespace options {
 #if INTEL_CUSTOMIZATION
     } else if (opt.startswith("fintel-advanced-optim")) {
       AdvOptim = true;
+    } else if (opt.startswith("fintel-preserve-value-names")) {
+      ShouldDiscardValueNames = false;
     } else if (opt == "fintel-libirc-allowed") {
       LibIRCAllowed = true;
 #endif // INTEL_CUSTOMIZATION
@@ -946,6 +949,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
 #if INTEL_CUSTOMIZATION
   Conf.Options.IntelAdvancedOptim = options::AdvOptim;
   Conf.Options.IntelLibIRCAllowed = options::LibIRCAllowed;
+  Conf.ShouldDiscardValueNames = options::ShouldDiscardValueNames;
 #endif // INTEL_CUSTOMIZATION
 
   // Disable the new X86 relax relocations since gold might not support them.
@@ -1161,7 +1165,9 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
   size_t MaxTasks = Lto->getMaxTasks();
   std::vector<std::pair<SmallString<128>, bool>> Files(MaxTasks);
 
-  auto AddStream = [&](size_t Task) -> std::unique_ptr<CachedFileStream> {
+  auto AddStream =
+      [&](size_t Task,
+          const Twine &ModuleName) -> std::unique_ptr<CachedFileStream> {
     Files[Task].second = !SaveTemps;
     int FD = getOutputFileName(Filename, /* TempOutFile */ !SaveTemps,
                                Files[Task].first, Task);
@@ -1169,8 +1175,9 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
         std::make_unique<llvm::raw_fd_ostream>(FD, true));
   };
 
-  auto AddBuffer = [&](size_t Task, std::unique_ptr<MemoryBuffer> MB) {
-    *AddStream(Task)->OS << MB->getBuffer();
+  auto AddBuffer = [&](size_t Task, const Twine &moduleName,
+                       std::unique_ptr<MemoryBuffer> MB) {
+    *AddStream(Task, moduleName)->OS << MB->getBuffer();
   };
 
   FileCache Cache;

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -print-after=hir-opt-var-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Source:

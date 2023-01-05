@@ -15,45 +15,44 @@
 #ifndef OPENCL_COMPARATOR_H
 #define OPENCL_COMPARATOR_H
 
-#include <vector>
-#include <string>
-#include "cl_device_api.h"
-#include "cl_dev_backend_api.h"
 #include "IRunResultComparator.h"
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include <string>
+#include <vector>
 
 using namespace Intel::OpenCL::DeviceBackend;
 
-namespace Validation
-{
-    class OpenCLProgramConfiguration;
-    class ComparatorRunOptions;
-    class ReferenceRunOptions;
-    class IRunResultComparison;
-    class IRunResult;
-    class IProgram;
+namespace Validation {
+class OpenCLProgramConfiguration;
+class ComparatorRunOptions;
+class ReferenceRunOptions;
+class IRunResultComparison;
+class IRunResult;
+class IProgram;
 
-    /// @brief Responsible for comparing the run results of the given program
-    class OpenCLComparator: public IRunResultComparator
-    {
-    public:
-        // TODO: At the moment, RunResult objects doesn't know if it contains valid NEAT data, so we forced to pass
-        // Reference run options and assume if NEAT is enabled then RunResult must contain NEAT data. To fix this 
-        // design bug we need to re-design RunResult object (including interface).
-        OpenCLComparator(const OpenCLProgramConfiguration* pProgramConfig,
-                         const ComparatorRunOptions* pComparatorConfig,
-                         const ReferenceRunOptions* pRefConfig);
+/// @brief Responsible for comparing the run results of the given program
+class OpenCLComparator : public IRunResultComparator {
+public:
+  // TODO: At the moment, RunResult objects doesn't know if it contains valid
+  // NEAT data, so we forced to pass Reference run options and assume if NEAT is
+  // enabled then RunResult must contain NEAT data. To fix this design bug we
+  // need to re-design RunResult object (including interface).
+  OpenCLComparator(const OpenCLProgramConfiguration *pProgramConfig,
+                   const ComparatorRunOptions *pComparatorConfig,
+                   const ReferenceRunOptions *pRefConfig);
 
-        /// @brief Compares the result of two runs
-        virtual IRunResultComparison *
-        Compare(IRunResult *runResults,
-                IRunResult *referenceRunResults) const override;
+  /// @brief Compares the result of two runs
+  virtual IRunResultComparison *
+  Compare(IRunResult *runResults,
+          IRunResult *referenceRunResults) const override;
 
-      private:
-        bool    m_useNeat;
-        double  m_ULPTolerance;
-        bool    m_detailedStat;
-        std::vector<std::string> m_kernels;
-    };
-}
+private:
+  bool m_useNeat;
+  double m_ULPTolerance;
+  bool m_detailedStat;
+  std::vector<std::string> m_kernels;
+};
+} // namespace Validation
 
 #endif // RUN_RESULTS_H

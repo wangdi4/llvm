@@ -16,12 +16,12 @@
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 
-ocl_string_exception::ocl_string_exception(const char *exception) throw() : m_exception(exception) {
-}
+ocl_string_exception::ocl_string_exception(const char *exception) throw()
+    : m_exception(exception) {}
 
-ocl_string_exception::ocl_string_exception(const std::string& exception) throw() : m_exception(exception) {
-}
+ocl_string_exception::ocl_string_exception(const std::string &exception) throw()
+    : m_exception(exception) {}
 
 const char *ocl_string_exception::what() const throw() {
-	return m_exception.c_str();
+  return m_exception.c_str();
 }

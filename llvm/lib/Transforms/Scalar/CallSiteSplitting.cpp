@@ -74,7 +74,6 @@
 
 #include "llvm/Transforms/Scalar/CallSiteSplitting.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -86,6 +85,10 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace PatternMatch;

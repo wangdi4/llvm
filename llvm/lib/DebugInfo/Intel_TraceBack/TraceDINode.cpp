@@ -102,7 +102,7 @@ void TraceRoutine::emit(MCStreamer &OS) const {
   unsigned PointerSize = (getTag() == traceback::TB_TAG_RTN32) ? 4 : 8;
   // Alignment
   OS.AddComment("Align to boundary " + Twine(PointerSize));
-  OS.emitValueToAlignment(PointerSize);
+  OS.emitValueToAlignment(Align(PointerSize));
   // Tag
   emitTag(OS, getTag());
   // 1-byte zero padding
@@ -161,7 +161,7 @@ const TraceLine *TraceModule::getLastLine() const {
 Optional<unsigned> TraceModule::getLastLineNo() const {
   if (getLastLine())
     return getLastLine()->getLine();
-  return None;
+  return std::nullopt;
 }
 
 bool TraceModule::isLastRoutineEmpty() const {

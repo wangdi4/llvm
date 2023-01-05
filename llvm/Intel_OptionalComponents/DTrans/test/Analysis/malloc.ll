@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -dtransanalysis -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-print-allocations -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct identification of calls to malloc and analysis
 ; of arguments to those calls by the DTransAnalysis.
@@ -398,6 +398,30 @@ define void @test22(i32 %n) {
   ret void
 }
 
+; Check with invalid shift amount which would cause the transformations
+; to produce invalid code if accepted.
+%struct.badsize.S6 = type { i32, i32 }
+define void @test23(i32 %n) {
+  %n64 = zext i32 %n to i64
+  %size = shl i64 %n64, -5
+  ; s1 = (struct S1*)malloc(size);
+  %p = call noalias i8* @malloc(i64 %size)
+  %s1 = bitcast i8* %p to %struct.badsize.S6*
+  ret void
+}
+
+; Check with invalid shift amount which would cause the transformations
+; to produce invalid code if accepted.
+%struct.badsize.S7 = type { i32, i32 }
+define void @test24(i32 %n) {
+  %n64 = zext i32 %n to i64
+  %size = shl i64 %n64, 80
+  ; s1 = (struct S1*)malloc(size);
+  %p = call noalias i8* @malloc(i64 %size)
+  %s1 = bitcast i8* %p to %struct.badsize.S7*
+  ret void
+}
+
 ; CHECK: dtrans: Detected allocation cast to pointer type
 ; CHECK: Detected type: %struct.good.S1 = type { i32, i32 }
 
@@ -430,6 +454,10 @@ define void @test22(i32 %n) {
 ; CHECK: LLVMType: %struct.badsize.S4
 ; CHECK: Safety data: Bad alloc size
 ; CHECK: LLVMType: %struct.badsize.S5
+; CHECK: Safety data: Bad alloc size
+; CHECK: LLVMType: %struct.badsize.S6
+; CHECK: Safety data: Bad alloc size
+; CHECK: LLVMType: %struct.badsize.S7
 ; CHECK: Safety data: Bad alloc size
 
 ; 'good' types should have 'No issues found'

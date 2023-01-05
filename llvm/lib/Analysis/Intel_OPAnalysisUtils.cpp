@@ -51,10 +51,10 @@ static Type* FindFirstZeroOffsetStrucType(Type* Outer, Type* Inner) {
 //
 static Optional<Type *> mergeTypes(const Optional<Type *> &X,
                                    const Optional<Type *> &Y) {
-  if (!X.hasValue()) {
+  if (!X.has_value()) {
     return Y;
   }
-  if (!Y.hasValue()) {
+  if (!Y.has_value()) {
     return X;
   }
 
@@ -100,7 +100,10 @@ inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
 
   if (auto AI = dyn_cast<AllocaInst>(V))
     return M[V] = AI->getAllocatedType();
-  
+
+  if (auto SI = dyn_cast<SubscriptInst>(V))
+    return M[V] = SI->getElementType();
+
   auto Ty = AnyTy;
 
   for (auto &Use : V->uses()) {
@@ -131,7 +134,7 @@ inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
       continue;
 
     Ty = mergeTypes(Ty, NTy);
-    if (Ty.hasValue() && Ty.value() == nullptr)
+    if (Ty.has_value() && Ty.value() == nullptr)
       break;
   }
 
@@ -150,7 +153,7 @@ inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
       // We failed to infer a type from the argument defs.
       // This naturally means that the defs have different types.
       // In this case, no better type can be deduced than "any" type.
-      if (Ty.hasValue() && Ty.value() == nullptr)
+      if (Ty.has_value() && Ty.value() == nullptr)
         Ty = AnyTy;
     } else if (auto BC = dyn_cast<BitCastOperator>(V))
     // Failed to infer a BitCast type by uses. In the case if ptr->ptr cast
@@ -182,7 +185,7 @@ Type *inferPtrElementType(Value &V) {
     return Ty->getNonOpaquePointerElementType();
   auto VMap = DenseMap<const Value *, Optional<Type *>>();
   auto RT = inferPtrElementTypeX(&V, VMap);
-  return RT.hasValue() ? RT.value() : nullptr;
+  return RT.has_value() ? RT.value() : nullptr;
 }
 
 } // namespace llvm

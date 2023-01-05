@@ -11,12 +11,10 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include <algorithm>
 
@@ -31,62 +29,6 @@ static cl::opt<bool> OptUniformWGSize(
 
 extern bool EnableTLSGlobals;
 
-namespace {
-
-/// Legacy ResolveWICall pass.
-class ResolveWICallLegacy : public ModulePass {
-public:
-  static char ID;
-
-  ResolveWICallLegacy(bool IsUniformWG = false, bool UseTLSGlobals = false);
-
-  llvm::StringRef getPassName() const override { return "ResolveWICallLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.addPreserved<ImplicitArgsAnalysisLegacy>();
-  }
-
-private:
-  ResolveWICallPass Impl;
-  /// true if a module is compiled with the support of the non-uniform
-  /// work-group size.
-  bool IsUniformWG;
-  /// Use TLS globals instead of implicit arguments.
-  bool UseTLSGlobals;
-};
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(ResolveWICallLegacy, DEBUG_TYPE,
-                      "Resolve work-item built-in calls", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
-INITIALIZE_PASS_END(ResolveWICallLegacy, DEBUG_TYPE,
-                    "Resolve work-item built-in calls", false, false)
-
-char ResolveWICallLegacy::ID = 0;
-
-ResolveWICallLegacy::ResolveWICallLegacy(bool IsUniformWG, bool UseTLSGlobals)
-    : ModulePass(ID), IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {
-  initializeResolveWICallLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool ResolveWICallLegacy::runOnModule(Module &M) {
-  CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  ImplicitArgsInfo *IAInfo =
-      &getAnalysis<ImplicitArgsAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG);
-}
-
-ModulePass *llvm::createResolveWICallLegacyPass(bool IsUniformWGSize,
-                                                bool UseTLSGlobals) {
-  return new ResolveWICallLegacy(IsUniformWGSize, UseTLSGlobals);
-}
-
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
@@ -94,6 +36,7 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();
+  PA.preserve<LocalBufferAnalysis>();
   return PA;
 }
 
@@ -136,6 +79,13 @@ static LoadInst *createLoadForTLSGlobal(IRBuilder<> &Builder, Module *M,
   return Builder.CreateLoad(TLSG->getValueType(), TLSG);
 }
 
+static LoadInst *
+createLoadForTLSGlobalIfExists(IRBuilder<> &Builder, Module *M,
+                               ImplicitArgsUtils::IMPLICIT_ARGS Arg) {
+  auto TLSG = CompilationUtils::getTLSGlobal(M, Arg);
+  return TLSG ? Builder.CreateLoad(TLSG->getValueType(), TLSG) : nullptr;
+}
+
 Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
@@ -148,8 +98,8 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
         createLoadForTLSGlobal(Builder, M, ImplicitArgsUtils::IA_WORK_GROUP_ID);
     BaseGlbId = createLoadForTLSGlobal(Builder, M,
                                        ImplicitArgsUtils::IA_GLOBAL_BASE_ID);
-    SpecialBuf = createLoadForTLSGlobal(Builder, M,
-                                        ImplicitArgsUtils::IA_BARRIER_BUFFER);
+    SpecialBuf = createLoadForTLSGlobalIfExists(
+        Builder, M, ImplicitArgsUtils::IA_BARRIER_BUFFER);
     RuntimeHandle = createLoadForTLSGlobal(
         Builder, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
   } else {
@@ -182,9 +132,13 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
     case ICT_GET_BASE_GLOBAL_ID:
     case ICT_GET_WORK_DIM:
     case ICT_GET_GLOBAL_SIZE:
+    case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
     case ICT_GET_LOCAL_SIZE:
+    case ICT_GET_LOCAL_SIZE_USER_VARIANT:
     case ICT_GET_ENQUEUED_LOCAL_SIZE:
+    case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
     case ICT_GET_NUM_GROUPS:
+    case ICT_GET_NUM_GROUPS_USER_VARIANT:
     case ICT_GET_GROUP_ID:
     case ICT_GET_GLOBAL_OFFSET:
       // Recognize WI info functions
@@ -264,9 +218,13 @@ Value *ResolveWICallPass::updateGetFunction(CallInst *CI,
   case ICT_GET_GLOBAL_OFFSET:
     break;
   case ICT_GET_NUM_GROUPS:
+  case ICT_GET_NUM_GROUPS_USER_VARIANT:
   case ICT_GET_LOCAL_SIZE:
+  case ICT_GET_LOCAL_SIZE_USER_VARIANT:
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
+  case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
   case ICT_GET_GLOBAL_SIZE:
+  case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
     OverflowValue = 1;
     break;
   default:
@@ -344,19 +302,32 @@ Value *ResolveWICallPass::updateGetFunctionInBound(CallInst *CI,
                                                    Instruction *InsertBefore) {
   IRBuilder<> Builder(InsertBefore);
   std::string Name;
+  bool IsUserWIFunction = false;
   switch (CallType) {
   case ICT_GET_GLOBAL_OFFSET:
-  case ICT_GET_GLOBAL_SIZE:
-  case ICT_GET_NUM_GROUPS:
     return IAInfo->GenerateGetFromWorkInfo(
         NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
         Builder);
+  case ICT_GET_GLOBAL_SIZE:
+  case ICT_GET_GLOBAL_SIZE_USER_VARIANT:
+  case ICT_GET_NUM_GROUPS:
+  case ICT_GET_NUM_GROUPS_USER_VARIANT:
+    return IAInfo->GenerateGetFromWorkInfo(
+        NDInfo::internalCall2NDInfo(CallType), WorkInfo, CI->getArgOperand(0),
+        Builder);
+  case ICT_GET_LOCAL_SIZE_USER_VARIANT:
+    IsUserWIFunction = true;
+    LLVM_FALLTHROUGH;
   case ICT_GET_LOCAL_SIZE:
     return IAInfo->GenerateGetLocalSize(IsUniformWG, WorkInfo, WGId,
-                                        CI->getArgOperand(0), Builder);
+                                        IsUserWIFunction, CI->getArgOperand(0),
+                                        Builder);
+  case ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT:
+    IsUserWIFunction = true;
+    LLVM_FALLTHROUGH;
   case ICT_GET_ENQUEUED_LOCAL_SIZE:
-    return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, CI->getArgOperand(0),
-                                                Builder);
+    return IAInfo->GenerateGetEnqueuedLocalSize(WorkInfo, IsUserWIFunction,
+                                                CI->getArgOperand(0), Builder);
   case ICT_GET_BASE_GLOBAL_ID:
     return IAInfo->GenerateGetBaseGlobalID(BaseGlbId, CI->getArgOperand(0),
                                            Builder);
@@ -489,7 +460,8 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   IndexArgs[0] = getConstZeroInt32Value();
 
   auto CreateGEPCastStore = [&](unsigned Offset, Type *DestTy, StringRef Name,
-                                Value *V, Optional<Align> Alignment = None) {
+                                Value *V,
+                                Optional<Align> Alignment = std::nullopt) {
     IndexArgs[1] = ConstantInt::get(I32Ty, Offset);
     auto *GEP = Builder.CreateInBoundsGEP(BufArrType, BufAI, IndexArgs);
     auto *Cast = Builder.CreatePointerCast(GEP, DestTy, Name);
@@ -613,14 +585,18 @@ void ResolveWICallPass::addPrefetchDeclaration() {
 TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
   if (FuncName == CompilationUtils::nameGetBaseGID())
     return ICT_GET_BASE_GLOBAL_ID;
-  if (CompilationUtils::isGetSpecialBuffer(FuncName))
+  if (FuncName == CompilationUtils::nameSpecialBuffer())
     return ICT_GET_SPECIAL_BUFFER;
   if (CompilationUtils::isGetWorkDim(FuncName))
     return ICT_GET_WORK_DIM;
   if (CompilationUtils::isGetGlobalSize(FuncName))
     return ICT_GET_GLOBAL_SIZE;
+  if (CompilationUtils::isUserVariantOfGetGlobalSize(FuncName))
+    return ICT_GET_GLOBAL_SIZE_USER_VARIANT;
   if (CompilationUtils::isGetNumGroups(FuncName))
     return ICT_GET_NUM_GROUPS;
+  if (CompilationUtils::isUserVariantOfGetNumGroups(FuncName))
+    return ICT_GET_NUM_GROUPS_USER_VARIANT;
   if (CompilationUtils::isGetGroupId(FuncName))
     return ICT_GET_GROUP_ID;
   if (CompilationUtils::isGlobalOffset(FuncName))
@@ -639,12 +615,18 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
       return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
     if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetLocalSize(FuncName))
+      return ICT_GET_LOCAL_SIZE_USER_VARIANT;
     if (CompilationUtils::isGetEnqueuedLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetEnqueuedLocalSize(FuncName))
+      return ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT;
   } else {
     // built-ins which behavior is different in OpenCL versions older than 2.0.
     if (CompilationUtils::isGetLocalSize(FuncName))
       return ICT_GET_ENQUEUED_LOCAL_SIZE;
+    if (CompilationUtils::isUserVariantOfGetLocalSize(FuncName))
+      return ICT_GET_ENQUEUED_LOCAL_SIZE_USER_VARIANT;
   }
   return ICT_NONE;
 }
@@ -764,7 +746,7 @@ void ResolveWICallPass::clearPerFunctionCache() {
 Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
   if (UseTLSGlobals)
-    Builder.SetInsertPoint(dyn_cast<Instruction>(WorkInfo)->getNextNode());
+    Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!Block2KernelMapper)
     Block2KernelMapper = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, WorkInfo, Builder);
@@ -774,7 +756,7 @@ Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
 Value *ResolveWICallPass::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
   if (UseTLSGlobals)
-    Builder.SetInsertPoint(dyn_cast<Instruction>(WorkInfo)->getNextNode());
+    Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!RuntimeInterface)
     RuntimeInterface = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, WorkInfo, Builder);

@@ -48,18 +48,21 @@
 #include "llvm/CodeGen/EdgeBundles.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"    // INTEL
-#include "llvm/CodeGen/MachineJumpTableInfo.h" // INTEL
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/MachineDominators.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

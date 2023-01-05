@@ -5,17 +5,9 @@
 // CHECK: encoding: [0x62,0x82,0x44,0x40,0x52,0xf0]
                vdpphps zmm22, zmm23, zmm24
 
-// CHECK:      vdpphps zmm22, zmm23, zmm24, {rn-sae}
-// CHECK: encoding: [0x62,0x82,0x44,0x10,0x52,0xf0]
-               vdpphps zmm22, zmm23, zmm24, {rn-sae}
-
 // CHECK:      vdpphps zmm22 {k7}, zmm23, zmm24
 // CHECK: encoding: [0x62,0x82,0x44,0x47,0x52,0xf0]
                vdpphps zmm22 {k7}, zmm23, zmm24
-
-// CHECK:      vdpphps zmm22 {k7} {z}, zmm23, zmm24, {rz-sae}
-// CHECK: encoding: [0x62,0x82,0x44,0xf7,0x52,0xf0]
-               vdpphps zmm22 {k7} {z}, zmm23, zmm24, {rz-sae}
 
 // CHECK:      vdpphps zmm22, zmm23, zmmword ptr [rbp + 8*r14 + 268435456]
 // CHECK: encoding: [0x62,0xa2,0x44,0x40,0x52,0xb4,0xf5,0x00,0x00,0x00,0x10]

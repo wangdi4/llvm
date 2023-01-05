@@ -1,4 +1,4 @@
-//==--- header_linker.cpp - generate include with pre-release extensions-*-C++-*//
+//==- header_linker.cpp - generate include with pre-release extensions-*-C++-*//
 ////
 //// Copyright (C) 2019 Intel Corporation. All rights reserved.
 ////
@@ -6,7 +6,7 @@
 //// of Intel Corporation and may not be disclosed, examined or reproduced in
 //// whole or in part without explicit written authorization from the company.
 ////
-//// ===--------------------------------------------------------------------=== //
+//// ===------------------------------------------------------------------=== //
 
 #include <stdio.h>
 #include <string.h>

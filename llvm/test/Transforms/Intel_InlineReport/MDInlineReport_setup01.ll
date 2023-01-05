@@ -1,4 +1,3 @@
-; RUN: opt -inlinereportsetup -inline-report=128 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes=inlinereportsetup -inline-report=128 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that metadata corresponding to the inlining report was

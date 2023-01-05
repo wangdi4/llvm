@@ -1,57 +1,51 @@
-__kernel void multSPOCL(__global float* ptrAlpha,
-						__global float* ptrData,
-						__global float* ptrLevel,
-						__global float* ptrIndex,
-						__global float* ptrResult,
-						int fastStorageSize,
-						int storageSize,
-						int offset)
-{
-	int globalIdx = get_global_id(0);
-	globalIdx = globalIdx + offset;
-	float eval, index_calc, abs, last, localSupport, curSupport;
-	float myResult = 0.0f;
-	// Create registers for the data
-	float data_0 = ptrData[(globalIdx*5)+0];
-	float data_1 = ptrData[(globalIdx*5)+1];
-	float data_2 = ptrData[(globalIdx*5)+2];
-	float data_3 = ptrData[(globalIdx*5)+3];
-	float data_4 = ptrData[(globalIdx*5)+4];
-	// Iterate over all grid points (fast ones, with cache)
-	for(int j = 0; j < storageSize; j++)
-	{
-			curSupport = ptrAlpha[j];
-		eval = ((ptrLevel[(j*5)+0]) * (data_0));
-		index_calc = eval - (ptrIndex[(j*5)+0]);
-		abs = fabs(index_calc);
-		last = 1.0f - abs;
-		localSupport = fmax(last, 0.0f);
-		curSupport *= localSupport;
-		eval = ((ptrLevel[(j*5)+1]) * (data_1));
-		index_calc = eval - (ptrIndex[(j*5)+1]);
-		abs = fabs(index_calc);
-		last = 1.0f - abs;
-		localSupport = fmax(last, 0.0f);
-		curSupport *= localSupport;
-		eval = ((ptrLevel[(j*5)+2]) * (data_2));
-		index_calc = eval - (ptrIndex[(j*5)+2]);
-		abs = fabs(index_calc);
-		last = 1.0f - abs;
-		localSupport = fmax(last, 0.0f);
-		curSupport *= localSupport;
-		eval = ((ptrLevel[(j*5)+3]) * (data_3));
-		index_calc = eval - (ptrIndex[(j*5)+3]);
-		abs = fabs(index_calc);
-		last = 1.0f - abs;
-		localSupport = fmax(last, 0.0f);
-		curSupport *= localSupport;
-		eval = ((ptrLevel[(j*5)+4]) * (data_4));
-		index_calc = eval - (ptrIndex[(j*5)+4]);
-		abs = fabs(index_calc);
-		last = 1.0f - abs;
-		localSupport = fmax(last, 0.0f);
-		curSupport *= localSupport;
-			myResult += curSupport;
-	}
-	ptrResult[globalIdx] = myResult;
+__kernel void multSPOCL(__global float *ptrAlpha, __global float *ptrData,
+                        __global float *ptrLevel, __global float *ptrIndex,
+                        __global float *ptrResult, int fastStorageSize,
+                        int storageSize, int offset) {
+  int globalIdx = get_global_id(0);
+  globalIdx = globalIdx + offset;
+  float eval, index_calc, abs, last, localSupport, curSupport;
+  float myResult = 0.0f;
+  // Create registers for the data
+  float data_0 = ptrData[(globalIdx * 5) + 0];
+  float data_1 = ptrData[(globalIdx * 5) + 1];
+  float data_2 = ptrData[(globalIdx * 5) + 2];
+  float data_3 = ptrData[(globalIdx * 5) + 3];
+  float data_4 = ptrData[(globalIdx * 5) + 4];
+  // Iterate over all grid points (fast ones, with cache)
+  for (int j = 0; j < storageSize; j++) {
+    curSupport = ptrAlpha[j];
+    eval = ((ptrLevel[(j * 5) + 0]) * (data_0));
+    index_calc = eval - (ptrIndex[(j * 5) + 0]);
+    abs = fabs(index_calc);
+    last = 1.0f - abs;
+    localSupport = fmax(last, 0.0f);
+    curSupport *= localSupport;
+    eval = ((ptrLevel[(j * 5) + 1]) * (data_1));
+    index_calc = eval - (ptrIndex[(j * 5) + 1]);
+    abs = fabs(index_calc);
+    last = 1.0f - abs;
+    localSupport = fmax(last, 0.0f);
+    curSupport *= localSupport;
+    eval = ((ptrLevel[(j * 5) + 2]) * (data_2));
+    index_calc = eval - (ptrIndex[(j * 5) + 2]);
+    abs = fabs(index_calc);
+    last = 1.0f - abs;
+    localSupport = fmax(last, 0.0f);
+    curSupport *= localSupport;
+    eval = ((ptrLevel[(j * 5) + 3]) * (data_3));
+    index_calc = eval - (ptrIndex[(j * 5) + 3]);
+    abs = fabs(index_calc);
+    last = 1.0f - abs;
+    localSupport = fmax(last, 0.0f);
+    curSupport *= localSupport;
+    eval = ((ptrLevel[(j * 5) + 4]) * (data_4));
+    index_calc = eval - (ptrIndex[(j * 5) + 4]);
+    abs = fabs(index_calc);
+    last = 1.0f - abs;
+    localSupport = fmax(last, 0.0f);
+    curSupport *= localSupport;
+    myResult += curSupport;
+  }
+  ptrResult[globalIdx] = myResult;
 }

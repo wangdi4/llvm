@@ -1,5 +1,6 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
-; RUN: opt -opaque-pointers -S -remove-dead-dtranstypemetadata %s | FileCheck %s
+; RUN: opt -opaque-pointers -S -passes=remove-dead-dtranstypemetadata %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that unreferenced DTrans type metadata is removed from the DTrans structure type list.
 ;
@@ -12,27 +13,27 @@
 ; %struct.test07 - Needs to be kept because a global variable references it
 
 %struct.test01 = type { i64 }
-%struct.test02 = type { i64, %struct.test05* }
+%struct.test02 = type { i64, ptr }
 %struct.test03 = type { i64, i64 }
-%struct.test04 = type { %struct.test03* }
-%struct.test05 = type { i64*, i64* }
-%struct.test06 = type { i64*, i64* }
-%struct.test07 = type { i64*, i64* }
+%struct.test04 = type { ptr }
+%struct.test05 = type { ptr, ptr }
+%struct.test06 = type { ptr, ptr }
+%struct.test07 = type { ptr, ptr }
 
-@gVar = internal global %struct.test07* null, !intel_dtrans_type !5
+@gVar = internal global ptr null, !intel_dtrans_type !5
 
-define "intel_dtrans_func_index"="1" %struct.test01* @used() !intel.dtrans.func.type !7 {
-  %alloc = alloca %struct.test06**, !intel_dtrans_type !8
-  %mem = call i8* @malloc(i64 64)
-  ret %struct.test01* null
+define "intel_dtrans_func_index"="1" ptr @used() !intel.dtrans.func.type !7 {
+  %alloc = alloca ptr, !intel_dtrans_type !8
+  %mem = call ptr @malloc(i64 64)
+  ret ptr null
 }
 
-define void @extractee(%struct.test04* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !10 {
-  %tmp = call %struct.test01* @used()
+define void @extractee(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !10 {
+  %tmp = call ptr @used()
   ret void
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 !intel.dtrans.types = !{!13, !14, !15, !16, !17, !18, !19}
 

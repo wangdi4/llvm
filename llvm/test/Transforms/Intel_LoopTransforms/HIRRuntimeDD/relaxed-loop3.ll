@@ -3,7 +3,6 @@
 ; into two memref groups.
 ; RTDD happens in i2 loop in this case.
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

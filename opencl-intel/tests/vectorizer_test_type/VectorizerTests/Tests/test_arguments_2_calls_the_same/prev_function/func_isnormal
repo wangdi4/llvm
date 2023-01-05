@@ -7,22 +7,22 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-func_isnormal (	__global const float *in,
-		__global float16 *out)
+func_isnormal (  __global const float *in,
+    __global float16 *out)
 {
-	int gid = get_global_id(0);
-	float x = gid;
-	float y = max((float)gid, (float)(in[gid])) * in[gid];
-	float z = fast_length(x * y);
-	float w = fma(x, y, z) -y + x * z;
-	float16 tmp = (float16) ( x, x, y - z, x * y + w, y + x -z * x, y, z, y, z, x * x * x, y * x * w, y + y, z - w, w - x - 1, y, w);
-	int16 res1 = isnormal(tmp);
-	int16 res2 = isnormal(tmp);
-	out[gid] = convert_float16(res1 * res2);
+  int gid = get_global_id(0);
+  float x = gid;
+  float y = max((float)gid, (float)(in[gid])) * in[gid];
+  float z = fast_length(x * y);
+  float w = fma(x, y, z) -y + x * z;
+  float16 tmp = (float16) ( x, x, y - z, x * y + w, y + x -z * x, y, z, y, z, x * x * x, y * x * w, y + y, z - w, w - x - 1, y, w);
+  int16 res1 = isnormal(tmp);
+  int16 res2 = isnormal(tmp);
+  out[gid] = convert_float16(res1 * res2);
 }

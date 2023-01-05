@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-analysis -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-analysis -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-analysis -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-analysis -S %s | FileCheck %s
 
 ; Check that has-sub-groups attribute is not assigned to function decalarations.
 

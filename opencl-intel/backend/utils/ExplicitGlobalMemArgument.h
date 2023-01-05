@@ -18,41 +18,43 @@
 #include "ExplicitArgument.h"
 #include "cl_types.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-  // TODO : rename this class? it is used both for global and constsant mem args
-  class ExplicitGlobalMemArgument : public ExplicitArgument {
-  
-  public:
-  
-    /// @brief Constructor
-    /// @param pValue           Implict argument's value destination pointer
-    /// @param arg              OpenCL argument
-    ExplicitGlobalMemArgument(char* pValue, const KernelArgument& arg)
-    : ExplicitArgument(pValue, arg) { }
+// TODO : rename this class? it is used both for global and constsant mem args
+class ExplicitGlobalMemArgument : public ExplicitArgument {
 
-    /// @brief Overriding implementation
-    /// @brief Sets the value of this argument
-    /// @param pValueSrc       The src from which to copy the value
-    virtual void setValue(const char *pValue) override {
-      // The src is a mem descriptor and we need to extract the pointer to memory
-      //if it is an image, we suppose the imageAuxData instead
-    const void* pGlobalData = nullptr;
+public:
+  /// @brief Constructor
+  /// @param pValue           Implict argument's value destination pointer
+  /// @param arg              OpenCL argument
+  ExplicitGlobalMemArgument(char *pValue, const KernelArgument &arg)
+      : ExplicitArgument(pValue, arg) {}
+
+  /// @brief Overriding implementation
+  /// @brief Sets the value of this argument
+  /// @param pValueSrc       The src from which to copy the value
+  virtual void setValue(const char *pValue) override {
+    // The src is a mem descriptor and we need to extract the pointer to memory
+    // if it is an image, we suppose the imageAuxData instead
+    const void *pGlobalData = nullptr;
     cl_mem_obj_descriptor *pMemObj =
         !pValue ? nullptr
                 : (*reinterpret_cast<cl_mem_obj_descriptor **>(
                       const_cast<char *>(pValue)));
-    if ( nullptr != pMemObj )
-    {
+    if (nullptr != pMemObj) {
       if (pMemObj->memObjType == CL_MEM_OBJECT_BUFFER)
         pGlobalData = pMemObj->pData;
       else
         pGlobalData = pMemObj->imageAuxData;
     }
     ExplicitArgument::setValue(reinterpret_cast<char *>(&pGlobalData));
-    }
-  };
+  }
+};
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __EXPLICIT_GLOBAL_MEM_ARGUMENT_H__

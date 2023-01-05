@@ -52,9 +52,10 @@ using SmValVecImpl = SmallVectorImpl<Value *>;
 //
 // Search 'BBI' and if it has exactly two StoreInsts, and no other
 // Instruction that writes to memory, return 'true'. If we return 'true',
-// we set the values of 'ST1' and 'ST2' to the two StoreInsts found.
+// we set the values of 'SI1' and 'SI2' to the two StoreInsts found.
 //
 static bool getTwoStores(BasicBlock *BBI, StoreInst **SI1, StoreInst **SI2) {
+  assert(SI1 && SI2 && "SI1 and SI2 must not be null");
   *SI1 = nullptr;
   *SI2 = nullptr;
   for (auto &I : *BBI) {
@@ -69,7 +70,7 @@ static bool getTwoStores(BasicBlock *BBI, StoreInst **SI1, StoreInst **SI2) {
       return false;
     }
   }
-  return SI1 && SI2;
+  return *SI1 && *SI2;
 }
 
 //
@@ -1969,7 +1970,7 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   //
   // Return 'true' if 'BBI' contains a PHINode of the form:
   //
-  //   'V0' = phi i8* [ 'VMPO', %if.end75 ], [ 'VMPI', %if.end48 ]
+  //   'V0' = phi i8* [ 'VMFI', %if.end75 ], [ 'VMFO', %if.end48 ]
   //
   // If we return 'true', we set the value of 'VO'.
   //
@@ -1980,7 +1981,7 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
     if (!getBIAndIC(BBI, ICmpInst::ICMP_EQ, &BI, &IC))
       return false;
     PHINode *PHI = nullptr;
-    if (!IsJoinPHI(IC->getPrevNonDebugInstruction(), VMFO, VMFI, &PHI))
+    if (!IsJoinPHI(IC->getPrevNonDebugInstruction(), VMFI, VMFO, &PHI))
       return false;
     *VO = PHI;
     return true;
@@ -2000,7 +2001,7 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
                          PHINode *PHIC0, PHINode *PHIC1, uint64_t BytesInLong,
                          BasicBlock **BBO) -> bool {
     Value *VMF = nullptr;
-    if (!IsEasySwapInit0(BBI, VMFO, VMFI, &VMF))
+    if (!IsEasySwapInit0(BBI, VMFI, VMFO, &VMF))
       return false;
     uint64_t BIL = BytesInLong;
     BasicBlock *BBX = nullptr;

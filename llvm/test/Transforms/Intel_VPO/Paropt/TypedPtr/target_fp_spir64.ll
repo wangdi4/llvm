@@ -1,10 +1,10 @@
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
 ; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=RTL
 
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=MODULE
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=MODULE
 ; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=MODULE
 
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
 ; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=LOCAL
 
 ; Test src:
@@ -24,7 +24,7 @@
 ;
 ; RTL:      br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
 ; RTL:    master.thread.code:
-; RTL:      call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[X_CAST]])
+; RTL:      call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[X_CAST]])
 
 
 ; With "module" allocation mode, the private copy of "x" is allocated in
@@ -41,7 +41,7 @@
 ;
 ; MODULE:   br i1 %is.master.thread, label %master.thread.code1, label %master.thread.fallthru{{.*}}
 ; MODULE: master.thread.code1:
-; MODULE:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* [[X_FPRIV]] to i32 addrspace(4)*))
+; MODULE:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* [[X_FPRIV]] to i32 addrspace(4)*))
 
 ; With "wilocal" allocation mode, the firstprivate clause is handled as if the
 ; WILOCAL modifier was present for it.
@@ -54,7 +54,7 @@
 ;
 ; LOCAL:    br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
 ; LOCAL:  master.thread.code:
-; LOCAL:    call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[X_CAST]])
+; LOCAL:    call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[X_CAST]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

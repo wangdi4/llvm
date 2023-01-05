@@ -16,10 +16,10 @@
 
 #include "Compiler.h"
 #include "debuggingservicetype.h"
-
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
@@ -132,26 +132,6 @@ protected:
   bool m_UseTLSGlobals;
 
   bool UnrollLoops;
-};
-
-/**
- *  Responsible for running the IR=>IR optimization passes on given program
-    using legacy OCL pass manager.
- */
-class OptimizerOCLLegacy : public Optimizer {
-public:
-  OptimizerOCLLegacy(llvm::Module &pModule,
-                     llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
-                     const intel::OptimizerConfig &pConfig);
-
-  void Optimize(llvm::raw_ostream &LogStream) override;
-
-  /// @brief register OpenCL passes to LLVM PassRegistry
-  static void initializePasses();
-
-private:
-  // hold the collection of passes
-  llvm::legacy::PassManager m_PM;
 };
 
 } // namespace DeviceBackend

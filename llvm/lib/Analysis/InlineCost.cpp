@@ -38,11 +38,6 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-#include "llvm/Analysis/Intel_InlineCost.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -56,7 +51,6 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -65,9 +59,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
 #include <climits>
 #include <limits>
+#include <optional>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_InlineCost.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -249,7 +251,7 @@ Optional<int> getStringFnAttrAsInt(const Attribute &Attr) {
     if (!Attr.getValueAsString().getAsInteger(10, AttrValue))
       return AttrValue;
   }
-  return None;
+  return std::nullopt;
 }
 
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
@@ -601,10 +603,10 @@ public:
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
-  Optional<Constant *> getSimplifiedValue(Instruction *I) {
+  std::optional<Constant *> getSimplifiedValue(Instruction *I) {
     if (SimplifiedValues.find(I) != SimplifiedValues.end())
       return SimplifiedValues[I];
-    return None;
+    return std::nullopt;
   }
 
   // Keep a bunch of stats about the cost savings found so we can print them
@@ -661,6 +663,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   /// for speculative "expected profit" of the inlining decision.
   int Threshold = 0;
 
+  /// The amount of StaticBonus applied.
+  int StaticBonusApplied = 0;
+
   /// Attempt to evaluate indirect calls to boost its inline cost.
   const bool BoostIndirectCalls;
 
@@ -692,7 +697,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   bool DecidedByCostBenefit = false;
 
   // The cost-benefit pair computed by cost-benefit analysis.
-  Optional<CostBenefitPair> CostBenefit = None;
+  Optional<CostBenefitPair> CostBenefit = std::nullopt;
 
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
@@ -950,18 +955,18 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   }
 
   // Determine whether we should inline the given call site, taking into account
-  // both the size cost and the cycle savings.  Return None if we don't have
-  // suficient profiling information to determine.
-  Optional<bool> costBenefitAnalysis() {
+  // both the size cost and the cycle savings.  Return std::nullopt if we don't
+  // have suficient profiling information to determine.
+  std::optional<bool> costBenefitAnalysis() {
     if (!CostBenefitAnalysisEnabled)
-      return None;
+      return std::nullopt;
 
     // buildInlinerPipeline in the pass builder sets HotCallSiteThreshold to 0
     // for the prelink phase of the AutoFDO + ThinLTO build.  Honor the logic by
     // falling back to the cost-based metric.
     // TODO: Improve this hacky condition.
     if (Threshold == 0)
-      return None;
+      return std::nullopt;
 
     assert(GetBFI);
     BlockFrequencyInfo *CalleeBFI = &(GetBFI(F));
@@ -1088,10 +1093,19 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     if (auto Result = costBenefitAnalysis()) {
       DecidedByCostBenefit = true;
-      if (*Result)
+#if INTEL_CUSTOMIZATION
+      if (*Result) {
+#if INTEL_FEATURE_SW_ADVANCED
+        intelFinalizeAnalysisForCall(CandidateCall, true);
+#endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::success();
-      else
+      } else {
+#if INTEL_FEATURE_SW_ADVANCED
+        intelFinalizeAnalysisForCall(CandidateCall, false);
+#endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::failure("Cost over threshold.");
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
 #if INTEL_CUSTOMIZATION
@@ -1105,8 +1119,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Threshold =  std::max(1, Threshold);
       DecidedByCostThreshold = true;
     }
-    if (!IsProfitable)
+    if (!IsProfitable) {
+#if INTEL_FEATURE_SW_ADVANCED
+      intelFinalizeAnalysisForCall(CandidateCall, false);
+#endif // INTEL_FEATURE_SW_ADVANCED
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
+    }
+#if INTEL_FEATURE_SW_ADVANCED
+    intelFinalizeAnalysisForCall(CandidateCall, true);
+#endif // INTEL_FEATURE_SW_ADVANCED
     return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -1172,6 +1193,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
+    intelStartAnalysisForCall(CandidateCall, Params);
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
       return IR.value();
@@ -1277,12 +1299,13 @@ public:
   Optional<InstructionCostDetail> getCostDetails(const Instruction *I) {
     if (InstructionCostDetailMap.find(I) != InstructionCostDetailMap.end())
       return InstructionCostDetailMap[I];
-    return None;
+    return std::nullopt;
   }
 
   virtual ~InlineCostCallAnalyzer() = default;
   int getThreshold() const { return Threshold; }
   int getCost() const { return Cost; }
+  int getStaticBonusApplied() const { return StaticBonusApplied; }
   Optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() const { return EarlyExitThreshold; }
@@ -1293,6 +1316,19 @@ public:
   bool wasDecidedByCostBenefit() const { return DecidedByCostBenefit; }
   bool wasDecidedByCostThreshold() const { return DecidedByCostThreshold; }
 };
+
+// Return true if CB is the sole call to local function Callee.
+static bool isSoleCallToLocalFunction(const CallBase &CB,
+                                      const Function &Callee) {
+  return (Callee.hasLocalLinkage()
+#if INTEL_CUSTOMIZATION
+         // CQ370998: Added link once ODR linkage case.
+         || (InlineForXmain && Callee.hasLinkOnceODRLinkage())
+#endif
+         ) &&
+         Callee.hasOneLiveUse() &&
+         &Callee == CB.getCalledFunction();
+}
 
 class InlineCostFeaturesAnalyzer final : public CallAnalyzer {
 private:
@@ -1480,8 +1516,7 @@ private:
         (F.getCallingConv() == CallingConv::Cold));
 
     set(InlineCostFeatureIndex::LastCallToStaticBonus,
-        (F.hasLocalLinkage() && F.hasOneLiveUse() &&
-         &F == CandidateCall.getCalledFunction()));
+        isSoleCallToLocalFunction(CandidateCall, F));
 
     // FIXME: we shouldn't repeat this logic in both the Features and Cost
     // analyzer - instead, we should abstract it to a common method in the
@@ -2036,7 +2071,7 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
   // Otherwise we need BFI to be available and to have a locally hot callsite
   // threshold.
   if (!CallerBFI || !Params.LocallyHotCallSiteThreshold)
-    return None;
+    return std::nullopt;
 
   // Determine if the callsite is hot relative to caller's entry. We could
   // potentially cache the computation of scaled entry frequency, but the added
@@ -2049,7 +2084,7 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
     return Params.LocallyHotCallSiteThreshold;
 
   // Otherwise treat it normally.
-  return None;
+  return std::nullopt;
 }
 
 void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
@@ -2151,9 +2186,9 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     auto HotCallSiteThreshold = getHotCallSiteThreshold(Call, CallerBFI);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-    if (HotCallSiteThreshold != None &&
+    if (HotCallSiteThreshold != std::nullopt &&
         intelNotHotCallee(Callee, Params.PrepareForLTO.value_or(false)))
-      HotCallSiteThreshold = None;
+      HotCallSiteThreshold = std::nullopt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     if (!Caller->hasOptSize() && HotCallSiteThreshold) {
@@ -2219,12 +2254,9 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
 
-  bool OnlyOneCallAndLocalLinkage =
 #if INTEL_CUSTOMIZATION
-       (F.hasLocalLinkage()
-  // CQ370998: Added link once ODR linkage case.
-         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-       F.hasOneLiveUse() && &F == Call.getCalledFunction()
+  bool OnlyOneCallAndLocalLinkage =
+        isSoleCallToLocalFunction(Call, F)
 #if INTEL_FEATURE_SW_ADVANCED
        && !isHugeFunction(&F, ILIC, TTI, Params.PrepareForLTO.value_or(false),
            Params.LinkForLTO.value_or(false), IsSYCLHost,
@@ -2239,6 +2271,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   if (OnlyOneCallAndLocalLinkage) {
     Cost -= LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall);
+    StaticBonusApplied = LastCallToStaticBonus;
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -3064,15 +3097,11 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
     YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-  bool OnlyOneCallAndLocalLinkage =
-      (F.hasLocalLinkage()
-       || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-      F.hasOneLiveUse() && &F == CandidateCall.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
-  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
+  if (!isSoleCallToLocalFunction(CandidateCall, F) && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate") // INTEL
         .setIntelInlReason(NinlrDuplicateCall); // INTEL
 
@@ -3233,7 +3262,7 @@ Optional<int> llvm::getInliningCostEstimate(
 #endif // INTEL_CUSTOMIZATION
   auto R = CA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
-    return None;
+    return std::nullopt;
   return CA.getCost();
 }
 
@@ -3246,7 +3275,7 @@ Optional<InlineCostFeatures> llvm::getInliningCostFeatures(
                                  ORE, *Call.getCalledFunction(), Call);
   auto R = CFA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
-    return None;
+    return std::nullopt;
   return CFA.features();
 }
 
@@ -3369,7 +3398,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     return {InlineResult::failure("noinline call site attribute") // INTEL
                 .setIntelInlReason(NinlrNoinlineCallsite)};       // INTEL
 
-  return None;
+  return std::nullopt;
 }
 
 InlineCost llvm::getInlineCost(
@@ -3437,7 +3466,7 @@ InlineCost llvm::getInlineCost(
   if (CA.wasDecidedByCostThreshold())
     return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
         ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
-        CA.getEarlyExitThreshold());
+        CA.getEarlyExitThreshold(), CA.getStaticBonusApplied());
 #endif // INTEL_CUSTOMIZATION
 
   // No details on how the decision was made, simply return always or never.

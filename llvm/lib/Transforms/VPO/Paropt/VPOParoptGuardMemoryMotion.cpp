@@ -29,6 +29,9 @@ using namespace llvm::vpo;
 static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " PASS_NAME " pass"));
+static cl::opt<bool> RunForScansOpt("insert-guards-for-scan", cl::init(false),
+                                    cl::Hidden,
+                                    cl::desc("Process scan pointers"));
 
 namespace {
 class VPOParoptGuardMemoryMotion : public FunctionPass {
@@ -64,9 +67,9 @@ public:
 // Main function to identify WRNs of interest and add guard directives to
 // prohibit motion of memory outside the region. Variables that should not be
 // moved are added as live-in operands to the directive. This guarding is
-// currently done only for user-defined reduction variables specified in SIMD
-// loops.
-static bool guardMemoryMotion(Function &F, WRegionInfo &WI) {
+// currently done only for user-defined reduction and inscan variables specified
+// in SIMD loops.
+static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = false) {
   bool Changed = false;
 
   // Pass is disabled, nothing to do.
@@ -89,24 +92,50 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI) {
 
     Loop *Lp = VecNode->getTheLoop<Loop>();
     assert(Lp && "Loop associated with SIMD region not found.");
-    CallInst *GuardDirective = nullptr;
+    SmallVector<CallInst *, 2> GuardDirectives;
     SmallVector<std::pair<StringRef, SmallVector<Value *, 1>>, 2> LiveinBundles;
     StringRef LiveInClauseString =
         VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN);
 
-    for (ReductionItem *Item : VecNode->getRed().items()) {
-      // Guarding is needed only for UDR variables.
-      if (Item->getType() == ReductionItem::WRNReductionUdr) {
-        if (!GuardDirective)
-          GuardDirective = VPOUtils::getOrCreateLoopGuardForMemMotion(Lp);
+    // If a loop has inscan reduction-modifier is used, reduction clause without
+    // the inscan modifier must not appear on the same construct. That means
+    // that inscan and regular reduction cannot be present on the same loop.
+    // Detect, whether we are dealing with inscan or regular reduction loop.
+    bool IsInscanLoop =
+        any_of(VecNode->getRed().items(),
+               [](const ReductionItem *Item) { return Item->getIsInscan(); });
+    bool IsUDRLoop =
+        any_of(VecNode->getRed().items(), [](const ReductionItem *Item) {
+          return Item->getType() == ReductionItem::WRNReductionUdr;
+        });
 
-        // Add the UDR variable as QUAL.OMP.LIVEIN operand to the directive.
+    // Guarding is needed only for UDR variables or inscan reductions.
+    if (!((RunForScans && IsInscanLoop) ||
+       (!RunForScans && !IsInscanLoop && IsUDRLoop)))
+      continue;
+
+    Changed = true;
+
+    // Inscan loops require guards for mem motion for both input and scan phases
+    // of the loop. We can process inscan loop seperately as such loop must have
+    // all reductions as inscan ones, according to the stetement above.
+    if (!IsInscanLoop)
+      GuardDirectives.push_back(VPOUtils::getOrCreateLoopGuardForMemMotion(Lp));
+    else {
+      auto BeginPair = VPOUtils::createInscanLoopGuardForMemMotion(Lp);
+      GuardDirectives.push_back(BeginPair.first);
+      GuardDirectives.push_back(BeginPair.second);
+    }
+
+    for (ReductionItem *Item : VecNode->getRed().items()) {
+      if (Item->getType() == ReductionItem::WRNReductionUdr ||
+          Item->getIsInscan()) {
+        // Add the variable as QUAL.OMP.LIVEIN operand to the directive.
         LiveinBundles.push_back({LiveInClauseString, {Item->getOrig()}});
-        Changed = true;
       }
     }
 
-    if (Changed)
+    for (auto *GuardDirective : GuardDirectives)
       GuardDirective = VPOUtils::addOperandBundlesInCall(
           GuardDirective, makeArrayRef(LiveinBundles));
   }
@@ -139,7 +168,7 @@ VPOParoptGuardMemoryMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!guardMemoryMotion(F, WI))
+  if (!guardMemoryMotion(F, WI, RunForScans || RunForScansOpt))
     return PreservedAnalyses::all();
 
   LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");

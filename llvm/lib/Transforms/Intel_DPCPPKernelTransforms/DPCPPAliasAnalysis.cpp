@@ -15,43 +15,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPAliasAnalysis.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-aa"
-
-INITIALIZE_PASS(DPCPPAliasAnalysisLegacy, DEBUG_TYPE,
-                "Address space based alias analysis", false, true)
-INITIALIZE_PASS(DPCPPExternalAliasAnalysisLegacy, "dpcpp-kernel-aa-wrapper",
-                "Address space based alias analysis", false, true)
-
-char DPCPPAliasAnalysisLegacy::ID = 0;
-char DPCPPExternalAliasAnalysisLegacy::ID = 0;
-
-DPCPPAliasAnalysisLegacy::DPCPPAliasAnalysisLegacy() : ImmutablePass(ID) {
-  initializeDPCPPAliasAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-DPCPPExternalAliasAnalysisLegacy::DPCPPExternalAliasAnalysisLegacy()
-    : ExternalAAWrapperPass([](Pass &P, Function &, AAResults &AAR) {
-        if (auto *AAPass = P.getAnalysisIfAvailable<DPCPPAliasAnalysisLegacy>())
-          AAR.addAAResult(AAPass->getResult());
-      }) {
-  initializeDPCPPExternalAliasAnalysisLegacyPass(
-      *PassRegistry::getPassRegistry());
-}
-
-ImmutablePass *llvm::createDPCPPAliasAnalysisLegacyPass() {
-  return new DPCPPAliasAnalysisLegacy();
-}
-
-ImmutablePass *llvm::createDPCPPExternalAliasAnalysisLegacyPass() {
-  return new DPCPPExternalAliasAnalysisLegacy();
-}
 
 AnalysisKey DPCPPAliasAnalysis::Key;
 
@@ -241,8 +210,8 @@ AliasResult DPCPPAAResult::alias(const MemoryLocation &LocA,
   return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
-bool DPCPPAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
-                                           AAQueryInfo &AAQI, bool OrLocal) {
+ModRefInfo DPCPPAAResult::getModRefInfoMask(const MemoryLocation &Loc,
+                                           AAQueryInfo &AAQI, bool IgnoreLocals) {
   const Value *V = Loc.Ptr;
 
   // Remove casts if exists
@@ -252,8 +221,8 @@ bool DPCPPAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
     // If V is a pointer to the OCLAddressSpace::Constant address space
     // then it points to __constant OpenCL memory.
     if (VP->getAddressSpace() == ADDRESS_SPACE_CONSTANT)
-      return true;
+      return ModRefInfo::NoModRef;
   }
 
-  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+  return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
 }

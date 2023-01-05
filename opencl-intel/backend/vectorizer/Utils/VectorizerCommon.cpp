@@ -12,6 +12,7 @@
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 extern cl::opt<llvm::VFISAKind> IsaEncodingOverride;
@@ -19,8 +20,8 @@ extern cl::opt<llvm::VFISAKind> IsaEncodingOverride;
 namespace Intel {
 namespace VectorizerCommon {
 
-llvm::VFISAKind getCPUIdISA(
-    const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
+llvm::VFISAKind
+getCPUIdISA(const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
   if (IsaEncodingOverride.getNumOccurrences())
     return IsaEncodingOverride.getValue();
 

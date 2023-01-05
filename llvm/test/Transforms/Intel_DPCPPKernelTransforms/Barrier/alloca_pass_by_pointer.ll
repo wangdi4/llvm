@@ -16,9 +16,7 @@
 ; }
 ;
 ; RUN: opt -enable-native-debug=true  -passes=dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-native-debug=true  -dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier %s -S | FileCheck %s
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -78,7 +76,7 @@ entry:
 declare void @_Z18work_group_barrierj(i32) #1
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %dst, i32 addrspace(3)* noalias %x) #2 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !kernel_execution_length !12 !kernel_has_barrier !13 !kernel_has_global_sync !13 {
+define void @test(i32 addrspace(1)* noalias %dst, i32 addrspace(3)* noalias %x) #2 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !kernel_execution_length !12 !no_barrier_path !13 !kernel_has_global_sync !13 {
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %dst.addr.addr = alloca i32 addrspace(1)**

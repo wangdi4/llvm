@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
 
 ; Test for DTrans base class identification of type dependency mappings that map
 ; the set of types that need to be changed when DTrans is changing a type.
@@ -36,33 +37,33 @@
 %struct.test03b = type { i32, %struct.test03a }
 
 ; Case where type to be converted has a pointer to another type
-%struct.test04a = type { i32, %struct.test04b* }
+%struct.test04a = type { i32, ptr }
 %struct.test04b = type { i32 }
 
 ; Case where type to be converted is pointed-to by another type
 %struct.test05a = type { i32 }
-%struct.test05b = type { i32, %struct.test05a* }
+%struct.test05b = type { i32, ptr }
 
 ; Case where a type has multiple dependent types
 %struct.test06a = type { i32 }
-%struct.test06b = type { %struct.test06a* }
-%struct.test06c = type { %struct.test06a* }
+%struct.test06b = type { ptr }
+%struct.test06c = type { ptr }
 %struct.test06d = type { %struct.test06a }
 %struct.test06e = type { %struct.test06a }
 
 ; Case where type is pointed-to by another type, and contains another type.
 %struct.test07a = type { i32, %struct.test07c }
-%struct.test07b = type { i32, %struct.test07a* }
+%struct.test07b = type { i32, ptr }
 %struct.test07c = type { i32 }
 
 ; Case with self & circular references
-%struct.test08a = type { i32, %struct.test08a*, %struct.test08b* }
-%struct.test08b = type { i32, %struct.test08b*, %struct.test08c* }
-%struct.test08c = type { i32, %struct.test08c*, %struct.test08a* }
+%struct.test08a = type { i32, ptr, ptr }
+%struct.test08b = type { i32, ptr, ptr }
+%struct.test08c = type { i32, ptr, ptr }
 
 ; Case with pointer-to-pointer reference
 %struct.test09a = type { i32, i32 }
-%struct.test09b = type { i32, %struct.test09a** }
+%struct.test09b = type { i32, ptr }
 
 define void @test01() {
   %local1a = alloca %struct.test01a

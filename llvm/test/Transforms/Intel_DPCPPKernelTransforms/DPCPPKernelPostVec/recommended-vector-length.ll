@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-postvec %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-postvec %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-postvec %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-postvec %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Check that recommended_vector_length metadata is removed from both scalar
 ; and vectorized kernel.

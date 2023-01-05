@@ -26,17 +26,19 @@
 // This pass extracts global values
 //
 //===----------------------------------------------------------------------===//
+#include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/IPO.h"
+#include <algorithm>
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/ADT/SetVector.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/IPO.h"
-#include <algorithm>
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION

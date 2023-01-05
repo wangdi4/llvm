@@ -12,29 +12,28 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cstdlib>
-#include <cstdio>
-#include "plugin_interface.h"
 #include "compile_data.h"
+#include "plugin_interface.h"
 #include "source_file.h"
+#include <cstdio>
+#include <cstdlib>
 
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::Frontend;
 using namespace Intel::OpenCL::DeviceBackend;
 
-struct FePluginMock: ICLFrontendPlugin {
-  FePluginMock(){
-  }
+struct FePluginMock : ICLFrontendPlugin {
+  FePluginMock() {}
 
   void OnLink(const LinkData *data) override { printf("on link was called\n"); }
 
   void OnCompile(const CompileData *data) override {
     SourceFile file("my name is", "slim shady", "");
-    const_cast<CompileData*>(data)->sourceFile(file);
+    const_cast<CompileData *>(data)->sourceFile(file);
   }
 };
 
-struct NullPlugin: ICLDevBackendPlugin{
+struct NullPlugin : ICLDevBackendPlugin {
   void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
                       const _cl_work_description_type *pWorkDesc,
                       size_t bufSize, void *pArgsBuffer) override {}
@@ -49,11 +48,11 @@ struct NullPlugin: ICLDevBackendPlugin{
   void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) override {}
 };
 
-struct DummyPlugin: IPlugin{
-  FePluginMock* pfe;
-  DeviceBackend::ICLDevBackendPlugin* pbe;
+struct DummyPlugin : IPlugin {
+  FePluginMock *pfe;
+  DeviceBackend::ICLDevBackendPlugin *pbe;
 
-  DummyPlugin(): pfe(NULL), pbe(NULL){}
+  DummyPlugin() : pfe(NULL), pbe(NULL) {}
 
   ICLFrontendPlugin *getFrontendPlugin() override {
     if (pfe)
@@ -63,25 +62,28 @@ struct DummyPlugin: IPlugin{
   }
 
   DeviceBackend::ICLDevBackendPlugin *getBackendPlugin() override {
-    if(pbe)
+    if (pbe)
       return pbe;
     pbe = new NullPlugin();
     return pbe;
   }
 
-  ~DummyPlugin(){
-    if(pfe) delete pfe;
-    if(pbe) delete pbe;
+  ~DummyPlugin() {
+    if (pfe)
+      delete pfe;
+    if (pbe)
+      delete pbe;
   }
 };
 
-extern "C"{
-  IPlugin* CreatePlugin(){
-      printf ("creating plugin\n");
-      return new DummyPlugin();
-  }
-  void ReleasePlugin(IPlugin* p){
-      printf ("releasing plugin\n");
-      if(p) delete p;
-  }
+extern "C" {
+IPlugin *CreatePlugin() {
+  printf("creating plugin\n");
+  return new DummyPlugin();
+}
+void ReleasePlugin(IPlugin *p) {
+  printf("releasing plugin\n");
+  if (p)
+    delete p;
+}
 }

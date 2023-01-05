@@ -82,7 +82,7 @@ const std::map<std::string, cl_version> extRefCPU = {
     // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all
     // required builtins.
     // {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}
-    };
+};
 
 TEST_P(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
@@ -185,7 +185,7 @@ TEST_P(CheckExtensions, WithVersion) {
             makeVersonString(extVer.version) +
             ") exists once in reference extensions");
     if (extVer.version == extRef[extVer.name])
-        extRef.erase(extVer.name);
+      extRef.erase(extVer.name);
   }
 
   // Check extRef is empty.

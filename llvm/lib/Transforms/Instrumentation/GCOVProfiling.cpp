@@ -47,8 +47,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/InitializePasses.h" // INTEL
-#include "llvm/Pass.h" // INTEL
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -63,6 +61,11 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 namespace endian = llvm::support::endian;

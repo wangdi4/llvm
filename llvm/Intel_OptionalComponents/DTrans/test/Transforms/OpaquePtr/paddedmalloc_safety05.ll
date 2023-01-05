@@ -2,9 +2,7 @@
 ; isn't applied, the generated global variable and interface
 ; are removed from the IR.
 
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -dtrans-paddedmallocop -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -passes=dtrans-paddedmallocop -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -dtrans-paddedmallocop -padded-pointer-prop-op -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-test-paddedmalloc -passes="dtrans-paddedmallocop,padded-pointer-prop-op" -S 2>&1 | FileCheck %s
 
 ; Check to ensure test is run.

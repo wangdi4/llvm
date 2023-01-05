@@ -655,7 +655,7 @@ GetRegistersAsJSON(NativeThreadProtocol &thread) {
       reg_ctx.GetExpeditedRegisters(ExpeditedRegs::Minimal);
 #endif
   if (expedited_regs.empty())
-    return llvm::None;
+    return std::nullopt;
 
   for (auto &reg_num : expedited_regs) {
     const RegisterInfo *const reg_info_p =
@@ -3066,19 +3066,24 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
 
   StreamString response;
 
-  response.Printf("<?xml version=\"1.0\"?>");
-  response.Printf("<target version=\"1.0\">");
+  response.Printf("<?xml version=\"1.0\"?>\n");
+  response.Printf("<target version=\"1.0\">\n");
+  response.IndentMore();
 
-  response.Printf("<architecture>%s</architecture>",
+  response.Indent();
+  response.Printf("<architecture>%s</architecture>\n",
                   m_current_process->GetArchitecture()
                       .GetTriple()
                       .getArchName()
                       .str()
                       .c_str());
 
-  response.Printf("<feature>");
+  response.Indent("<feature>\n");
 
   const int registers_count = reg_context.GetUserRegisterCount();
+  if (registers_count)
+    response.IndentMore();
+
   for (int reg_index = 0; reg_index < registers_count; reg_index++) {
     const RegisterInfo *reg_info =
         reg_context.GetRegisterInfoAtIndex(reg_index);
@@ -3090,7 +3095,9 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
       continue;
     }
 
-    response.Printf("<reg name=\"%s\" bitsize=\"%" PRIu32 "\" regnum=\"%d\" ",
+    response.Indent();
+    response.Printf("<reg name=\"%s\" bitsize=\"%" PRIu32
+                    "\" regnum=\"%d\" ",
                     reg_info->name, reg_info->byte_size * 8, reg_index);
 
     if (!reg_context.RegisterOffsetIsDynamic())
@@ -3139,11 +3146,15 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
       response.Printf("\" ");
     }
 
-    response.Printf("/>");
+    response.Printf("/>\n");
   }
 
-  response.Printf("</feature>");
-  response.Printf("</target>");
+  if (registers_count)
+    response.IndentLess();
+
+  response.Indent("</feature>\n");
+  response.IndentLess();
+  response.Indent("</target>\n");
   return MemoryBuffer::getMemBufferCopy(response.GetString(), "target.xml");
 }
 
@@ -3647,7 +3658,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qWatchpointSupportInfo(
   auto hw_debug_cap = m_current_process->GetHardwareDebugSupportInfo();
 
   StreamGDBRemote response;
-  if (hw_debug_cap == llvm::None)
+  if (hw_debug_cap == std::nullopt)
     response.Printf("num:0;");
   else
     response.Printf("num:%d;", hw_debug_cap->second);

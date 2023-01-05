@@ -3,9 +3,7 @@
 ; This test make sure AndersensAAResults are not removed from AAs vector during 
 ; the compilation of 1st routine in a module file and AndersensAAResults are
 ; used in test routine, which is 3rd routine in this module.
-; RUN: opt < %s -S -anders-aa -licm -disable-output  -stats 2>&1 | grep "1 licm"
 ; RUN: opt < %s -S -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output  -stats 2>&1 | grep "1 licm"
-; RUN: opt < %s -convert-to-subscript -S | opt -S -anders-aa -licm -disable-output  -stats 2>&1 | grep "1 licm"
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -S -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output  -stats 2>&1 | grep "1 licm"
 ; REQUIRES: asserts
 

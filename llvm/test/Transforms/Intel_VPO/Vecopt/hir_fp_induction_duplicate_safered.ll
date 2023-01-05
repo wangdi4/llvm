@@ -13,7 +13,7 @@
 ;        @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
 define dso_local float @test() local_unnamed_addr #3 {

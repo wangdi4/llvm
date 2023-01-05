@@ -512,7 +512,7 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
     // A VTT parameter was passed to the constructor, use it.
     llvm::Value *VTT = LoadCXXVTT();
 #if INTEL_COLLAB
-    return Builder.CreateConstInBoundsGEP1_64(TargetInt8PtrTy, VTT,
+    return Builder.CreateConstInBoundsGEP1_64(DefaultInt8PtrTy, VTT,
                                               SubVTTIndex);
 #else // INTEL_COLLAB
     return Builder.CreateConstInBoundsGEP1_64(VoidPtrTy, VTT, SubVTTIndex);
@@ -1835,7 +1835,7 @@ namespace {
  public:
    SanitizeDtorCleanupBuilder(ASTContext &Context, EHScopeStack &EHStack,
                               const CXXDestructorDecl *DD)
-       : Context(Context), EHStack(EHStack), DD(DD), StartIndex(llvm::None) {}
+       : Context(Context), EHStack(EHStack), DD(DD), StartIndex(std::nullopt) {}
    void PushCleanupForField(const FieldDecl *Field) {
      if (Field->isZeroSize(Context))
        return;
@@ -1846,7 +1846,7 @@ namespace {
      } else if (StartIndex) {
        EHStack.pushCleanup<SanitizeDtorFieldRange>(
            NormalAndEHCleanup, DD, StartIndex.value(), FieldIndex);
-       StartIndex = None;
+       StartIndex = std::nullopt;
      }
    }
    void End() {
@@ -2632,7 +2632,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
 #endif // INTEL_COLLAB
-  // vtable field is is derived from `this` pointer, therefore it should be in
+  // vtable field is derived from `this` pointer, therefore it should be in
   // default address space.
   VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
 #if INTEL_COLLAB

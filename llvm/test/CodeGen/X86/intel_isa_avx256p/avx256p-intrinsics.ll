@@ -16,14 +16,13 @@ define <4 x double> @test_int_x86_vaddpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vaddpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vaddpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x58,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vaddpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vaddpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x58,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vaddpd256(<4 x double> %C, <4 x double> %D, i32 10)
@@ -35,14 +34,13 @@ define <4 x double> @test_int_x86_mask_vaddpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vaddpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vaddpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x58,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vaddpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vaddpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x58,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vaddpd256(<4 x double> %B, <4 x double> %C, i32 9)
@@ -64,7 +62,7 @@ define <16 x half> @test_int_x86_vaddph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vaddph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vaddph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddph {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x59,0x58,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -82,7 +80,7 @@ define <16 x half> @test_int_x86_mask_vaddph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vaddph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vaddph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddph {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x58,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -110,14 +108,13 @@ define <8 x float> @test_int_x86_vaddps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vaddps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vaddps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x58,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vaddps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vaddps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x58,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vaddps256(<8 x float> %C, <8 x float> %D, i32 10)
@@ -129,14 +126,13 @@ define <8 x float> @test_int_x86_mask_vaddps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vaddps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vaddps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vaddps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x58,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vaddps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vaddps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x58,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vaddps256(<8 x float> %B, <8 x float> %C, i32 9)
@@ -150,7 +146,7 @@ define i4 @test_int_x86_vcmppd256(<4 x double> %A, <4 x double> %B, i4 %C) nounw
 ; CHECK-LABEL: test_int_x86_vcmppd256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcmppd $0, {sae}, %ymm1, %ymm0, %k0 # encoding: [0x62,0xf1,0xf9,0x18,0xc2,0xc1,0x00]
-; CHECK-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; CHECK-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
@@ -162,19 +158,18 @@ define i4 @test_int_x86_vcmppd256(<4 x double> %A, <4 x double> %B, i4 %C) nounw
 define i4 @test_int_x86_mask_vcmppd256(<4 x double> %A, <4 x double> %B, i4 %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcmppd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcmpeqpd %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf1,0xfd,0x29,0xc2,0xc1,0x00]
-; X64-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X64-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcmppd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcmpeqpd %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf1,0xfd,0x29,0xc2,0xc1,0x00]
-; X86-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X86-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X86-NEXT:    # kill: def $al killed $al killed $eax
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -189,7 +184,7 @@ define i16 @test_int_x86_vcmpph256(<16 x half> %A, <16 x half> %B, i16 %C) nounw
 ; CHECK-LABEL: test_int_x86_vcmpph256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcmpph $0, {sae}, %ymm1, %ymm0, %k0 # encoding: [0x62,0xf3,0x78,0x18,0xc2,0xc1,0x00]
-; CHECK-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; CHECK-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
@@ -201,9 +196,9 @@ define i16 @test_int_x86_vcmpph256(<16 x half> %A, <16 x half> %B, i16 %C) nounw
 define i16 @test_int_x86_mask_vcmpph256(<16 x half> %A, <16 x half> %B, i16 %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcmpph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcmpeqph %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf3,0x7c,0x29,0xc2,0xc1,0x00]
-; X64-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X64-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
@@ -212,7 +207,7 @@ define i16 @test_int_x86_mask_vcmpph256(<16 x half> %A, <16 x half> %B, i16 %C) 
 ; X86:       # %bb.0:
 ; X86-NEXT:    kmovw {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf8,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcmpeqph %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf3,0x7c,0x29,0xc2,0xc1,0x00]
-; X86-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X86-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X86-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -227,7 +222,7 @@ define i8 @test_int_x86_vcmpps256(<8 x float> %A, <8 x float> %B, i8 %C) nounwin
 ; CHECK-LABEL: test_int_x86_vcmpps256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcmpps $0, {sae}, %ymm1, %ymm0, %k0 # encoding: [0x62,0xf1,0x78,0x18,0xc2,0xc1,0x00]
-; CHECK-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; CHECK-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
@@ -239,19 +234,18 @@ define i8 @test_int_x86_vcmpps256(<8 x float> %A, <8 x float> %B, i8 %C) nounwin
 define i8 @test_int_x86_mask_vcmpps256(<8 x float> %A, <8 x float> %B, i8 %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcmpps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcmpeqps %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf1,0x7c,0x29,0xc2,0xc1,0x00]
-; X64-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X64-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcmpps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcmpeqps %ymm1, %ymm0, %k0 {%k1} # encoding: [0x62,0xf1,0x7c,0x29,0xc2,0xc1,0x00]
-; X86-NEXT:    kmovw %k0, %eax # encoding: [0xc5,0xf8,0x93,0xc0]
+; X86-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
 ; X86-NEXT:    # kill: def $al killed $al killed $eax
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -285,15 +279,14 @@ define <8 x half> @test_int_x86_vcvtdq2ph256(<8 x i32> %A) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtdq2ph256(<8 x half> %A, i8 %B, <8 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtdq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtdq2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x5b,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtdq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtdq2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x5b,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -306,15 +299,14 @@ define <8 x half> @test_int_x86_mask_vcvtdq2ph256(<8 x half> %A, i8 %B, <8 x i32
 define <8 x half> @test_int_x86_maskz_vcvtdq2ph256(i8 %A, <8 x i32> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtdq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtdq2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x5b,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtdq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtdq2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x5b,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -337,14 +329,13 @@ define <8 x float> @test_int_x86_vcvtdq2ps256(<8 x i32> %A) nounwind {
 define <8 x float> @test_int_x86_mask_vcvtdq2ps256(<8 x float> %A, i8 %B, <8 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtdq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtdq2ps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x5b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtdq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtdq2ps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x5b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx512.sitofp.round.v8f32.v8i32(<8 x i32> %C, i32 10)
@@ -356,14 +347,13 @@ define <8 x float> @test_int_x86_mask_vcvtdq2ps256(<8 x float> %A, i8 %B, <8 x i
 define <8 x float> @test_int_x86_maskz_vcvtdq2ps256(i8 %A, <8 x i32> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtdq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtdq2ps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtdq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtdq2ps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx512.sitofp.round.v8f32.v8i32(<8 x i32> %B, i32 9)
@@ -386,15 +376,14 @@ define <4 x i32> @test_int_x86_vcvtpd2dq256(<4 x double> %A) nounwind {
 define <4 x i32> @test_int_x86_mask_vcvtpd2dq256(<4 x i32> %A, i8 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2dq {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xfb,0x59,0xe6,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2dq {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xfb,0x59,0xe6,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -405,15 +394,14 @@ define <4 x i32> @test_int_x86_mask_vcvtpd2dq256(<4 x i32> %A, i8 %B, <4 x doubl
 define <4 x i32> @test_int_x86_maskz_vcvtpd2dq256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2dq {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xfb,0xb9,0xe6,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2dq {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xfb,0xb9,0xe6,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -435,15 +423,14 @@ define <8 x half> @test_int_x86_vcvtpd2ph256(<4 x double> %A) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtpd2ph256(<8 x half> %A, i8 %B, <4 x double> %C) {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xf9,0x59,0x5a,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xf9,0x59,0x5a,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -454,15 +441,14 @@ define <8 x half> @test_int_x86_mask_vcvtpd2ph256(<8 x half> %A, i8 %B, <4 x dou
 define <8 x half> @test_int_x86_maskz_vcvtpd2ph256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xf9,0xb9,0x5a,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xf9,0xb9,0x5a,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -484,15 +470,14 @@ define <4 x float> @test_int_x86_vcvtpd2ps256(<4 x double> %A) nounwind {
 define <4 x float> @test_int_x86_mask_vcvtpd2ps256(<4 x float> %A, i8 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2ps {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x5a,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2ps {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x5a,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -503,15 +488,14 @@ define <4 x float> @test_int_x86_mask_vcvtpd2ps256(<4 x float> %A, i8 %B, <4 x d
 define <4 x float> @test_int_x86_maskz_vcvtpd2ps256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2ps {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5a,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2ps {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5a,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -532,14 +516,13 @@ define <4 x i64> @test_int_x86_vcvtpd2qq256(<4 x double> %A) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtpd2qq256(<4 x i64> %A, i8 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2qq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x7b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2qq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x7b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtpd2qq256(<4 x double> %C, <4 x i64> %A, i8 %B, i32 10)
@@ -549,14 +532,13 @@ define <4 x i64> @test_int_x86_mask_vcvtpd2qq256(<4 x i64> %A, i8 %B, <4 x doubl
 define <4 x i64> @test_int_x86_maskz_vcvtpd2qq256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2qq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x7b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2qq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x7b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtpd2qq256(<4 x double> %B, <4 x i64> zeroinitializer, i8 %A, i32 9)
@@ -577,15 +559,14 @@ define <4 x i32> @test_int_x86_vcvtpd2udq256(<4 x double> %A) nounwind {
 define <4 x i32> @test_int_x86_mask_vcvtpd2udq256(<4 x i32> %A, i8 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2udq {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x59,0x79,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2udq {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x59,0x79,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -596,15 +577,14 @@ define <4 x i32> @test_int_x86_mask_vcvtpd2udq256(<4 x i32> %A, i8 %B, <4 x doub
 define <4 x i32> @test_int_x86_maskz_vcvtpd2udq256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2udq {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0xb9,0x79,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2udq {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0xb9,0x79,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -625,14 +605,13 @@ define <4 x i64> @test_int_x86_vcvtpd2uqq256(<4 x double> %A) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtpd2uqq256(<4 x i64> %A, i8 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtpd2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2uqq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x79,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtpd2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2uqq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x79,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtpd2uqq256(<4 x double> %C, <4 x i64> %A, i8 %B, i32 10)
@@ -642,14 +621,13 @@ define <4 x i64> @test_int_x86_mask_vcvtpd2uqq256(<4 x i64> %A, i8 %B, <4 x doub
 define <4 x i64> @test_int_x86_maskz_vcvtpd2uqq256(i8 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtpd2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtpd2uqq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x79,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtpd2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtpd2uqq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x79,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtpd2uqq256(<4 x double> %B, <4 x i64> zeroinitializer, i8 %A, i32 9)
@@ -669,14 +647,13 @@ define <8 x i32> @test_int_x86_vcvtph2dq256(<8 x half> %A) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvtph2dq256(<8 x i32> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2dq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x5b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2dq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x5b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtph2dq256(<8 x half> %C, <8 x i32> %A, i8 %B, i32 10)
@@ -686,14 +663,13 @@ define <8 x i32> @test_int_x86_mask_vcvtph2dq256(<8 x i32> %A, i8 %B, <8 x half>
 define <8 x i32> @test_int_x86_maskz_vcvtph2dq256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2dq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x5b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2dq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x5b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtph2dq256(<8 x half> %B, <8 x i32> zeroinitializer, i8 %A, i32 9)
@@ -713,14 +689,13 @@ define <4 x double> @test_int_x86_vcvtph2pd256(<8 x half> %A) nounwind {
 define <4 x double> @test_int_x86_mask_vcvtph2pd256(<4 x double> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2pd {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x19,0x5a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2pd {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x19,0x5a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vcvtph2pd256(<8 x half> %C, <4 x double> %A, i8 %B, i32 8)
@@ -730,14 +705,13 @@ define <4 x double> @test_int_x86_mask_vcvtph2pd256(<4 x double> %A, i8 %B, <8 x
 define <4 x double> @test_int_x86_maskz_vcvtph2pd256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2pd {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x5a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2pd {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x5a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vcvtph2pd256(<8 x half> %B, <4 x double> zeroinitializer, i8 %A, i32 8)
@@ -757,14 +731,13 @@ define <8 x float> @test_int_x86_vcvtph2psx256(<8 x half> %A) nounwind {
 define <8 x float> @test_int_x86_mask_vcvtph2psx256(<8 x float> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2psx256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2psx {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf6,0x79,0x19,0x13,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2psx256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2psx {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf6,0x79,0x19,0x13,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vcvtph2psx256(<8 x half> %C, <8 x float> %A, i8 %B, i32 8)
@@ -774,14 +747,13 @@ define <8 x float> @test_int_x86_mask_vcvtph2psx256(<8 x float> %A, i8 %B, <8 x 
 define <8 x float> @test_int_x86_maskz_vcvtph2psx256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2psx256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2psx {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x79,0x99,0x13,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2psx256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2psx {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x79,0x99,0x13,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vcvtph2psx256(<8 x half> %B, <8 x float> zeroinitializer, i8 %A, i32 8)
@@ -801,14 +773,13 @@ define <4 x i64> @test_int_x86_vcvtph2qq256(<8 x half> %A) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtph2qq256(<4 x i64> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2qq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x7b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2qq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x7b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtph2qq256(<8 x half> %C, <4 x i64> %A, i8 %B, i32 10)
@@ -818,14 +789,13 @@ define <4 x i64> @test_int_x86_mask_vcvtph2qq256(<4 x i64> %A, i8 %B, <8 x half>
 define <4 x i64> @test_int_x86_maskz_vcvtph2qq256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2qq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x7b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2qq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x7b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtph2qq256(<8 x half> %B, <4 x i64> zeroinitializer, i8 %A, i32 9)
@@ -845,14 +815,13 @@ define <8 x i32> @test_int_x86_vcvtph2udq256(<8 x half> %A) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvtph2udq256(<8 x i32> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2udq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x79,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2udq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x79,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtph2udq256(<8 x half> %C, <8 x i32> %A, i8 %B, i32 10)
@@ -862,14 +831,13 @@ define <8 x i32> @test_int_x86_mask_vcvtph2udq256(<8 x i32> %A, i8 %B, <8 x half
 define <8 x i32> @test_int_x86_maskz_vcvtph2udq256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2udq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x79,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2udq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x79,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtph2udq256(<8 x half> %B, <8 x i32> zeroinitializer, i8 %A, i32 9)
@@ -889,14 +857,13 @@ define <4 x i64> @test_int_x86_vcvtph2uqq256(<8 x half> %A) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtph2uqq256(<4 x i64> %A, i8 %B, <8 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2uqq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x79,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtph2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2uqq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x79,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtph2uqq256(<8 x half> %C, <4 x i64> %A, i8 %B, i32 10)
@@ -906,14 +873,13 @@ define <4 x i64> @test_int_x86_mask_vcvtph2uqq256(<4 x i64> %A, i8 %B, <8 x half
 define <4 x i64> @test_int_x86_maskz_vcvtph2uqq256(i8 %A, <8 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2uqq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x79,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtph2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtph2uqq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x79,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtph2uqq256(<8 x half> %B, <4 x i64> zeroinitializer, i8 %A, i32 9)
@@ -933,7 +899,7 @@ define <16 x i16> @test_int_x86_vcvtph2uw256(<16 x half> %A) nounwind {
 define <16 x i16> @test_int_x86_mask_vcvtph2uw256(<16 x i16> %A, i16 %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2uw256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2uw {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x7d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -949,7 +915,7 @@ define <16 x i16> @test_int_x86_mask_vcvtph2uw256(<16 x i16> %A, i16 %B, <16 x h
 define <16 x i16> @test_int_x86_maskz_vcvtph2uw256(i16 %A, <16 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2uw256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2uw {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x7d,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -975,7 +941,7 @@ define <16 x i16> @test_int_x86_vcvtph2w256(<16 x half> %A) nounwind {
 define <16 x i16> @test_int_x86_mask_vcvtph2w256(<16 x i16> %A, i16 %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtph2w256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2w {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x7d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -991,7 +957,7 @@ define <16 x i16> @test_int_x86_mask_vcvtph2w256(<16 x i16> %A, i16 %B, <16 x ha
 define <16 x i16> @test_int_x86_maskz_vcvtph2w256(i16 %A, <16 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtph2w256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtph2w {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x7d,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -1017,14 +983,13 @@ define <8 x i32> @test_int_x86_vcvtps2dq256(<8 x float> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvtps2dq256(<8 x i32> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2dq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x5b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2dq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x5b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtps2dq256(<8 x float> %c, <8 x i32> %a, i8 %b, i32 10)
@@ -1034,14 +999,13 @@ define <8 x i32> @test_int_x86_mask_vcvtps2dq256(<8 x i32> %a, i8 %b, <8 x float
 define <8 x i32> @test_int_x86_maskz_vcvtps2dq256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2dq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x5b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2dq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x5b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtps2dq256(<8 x float> %b, <8 x i32> zeroinitializer, i8 %a, i32 9)
@@ -1061,14 +1025,13 @@ define <4 x double> @test_int_x86_vcvtps2pd256(<4 x float> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vcvtps2pd256(<4 x double> %a, i8 %b, <4 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2pd {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x19,0x5a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2pd {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x19,0x5a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vcvtps2pd256(<4 x float> %c, <4 x double> %a, i8 %b, i32 8)
@@ -1078,14 +1041,13 @@ define <4 x double> @test_int_x86_mask_vcvtps2pd256(<4 x double> %a, i8 %b, <4 x
 define <4 x double> @test_int_x86_maskz_vcvtps2pd256(i8 %a, <4 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2pd {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2pd {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vcvtps2pd256(<4 x float> %b, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -1106,15 +1068,14 @@ define <8 x half> @test_int_x86_vcvtps2phx256(<8 x float> %a) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtps2phx256(<8 x half> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2phx256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2phx {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x1d,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2phx256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2phx {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x79,0x59,0x1d,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1125,15 +1086,14 @@ define <8 x half> @test_int_x86_mask_vcvtps2phx256(<8 x half> %a, i8 %b, <8 x fl
 define <8 x half> @test_int_x86_maskz_vcvtps2phx256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2phx256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2phx {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x1d,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2phx256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2phx {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0xb9,0x1d,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1154,14 +1114,13 @@ define <4 x i64> @test_int_x86_vcvtps2qq256(<4 x float> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtps2qq256(<4 x i64> %a, i8 %b, <4 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2qq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x7b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2qq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x7b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtps2qq256(<4 x float> %c, <4 x i64> %a, i8 %b, i32 10)
@@ -1171,14 +1130,13 @@ define <4 x i64> @test_int_x86_mask_vcvtps2qq256(<4 x i64> %a, i8 %b, <4 x float
 define <4 x i64> @test_int_x86_maskz_vcvtps2qq256(i8 %a, <4 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2qq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x7b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2qq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x7b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtps2qq256(<4 x float> %b, <4 x i64> zeroinitializer, i8 %a, i32 9)
@@ -1198,14 +1156,13 @@ define <8 x i32> @test_int_x86_vcvtps2udq256(<8 x float> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvtps2udq256(<8 x i32> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2udq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x79,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2udq {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x79,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtps2udq256(<8 x float> %c, <8 x i32> %a, i8 %b, i32 10)
@@ -1215,14 +1172,13 @@ define <8 x i32> @test_int_x86_mask_vcvtps2udq256(<8 x i32> %a, i8 %b, <8 x floa
 define <8 x i32> @test_int_x86_maskz_vcvtps2udq256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2udq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x79,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2udq {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x79,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvtps2udq256(<8 x float> %b, <8 x i32> zeroinitializer, i8 %a, i32 9)
@@ -1242,14 +1198,13 @@ define <4 x i64> @test_int_x86_vcvtps2uqq256(<4 x float> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvtps2uqq256(<4 x i64> %a, i8 %b, <4 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtps2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2uqq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x79,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtps2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2uqq {ru-sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x59,0x79,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtps2uqq256(<4 x float> %c, <4 x i64> %a, i8 %b, i32 10)
@@ -1259,14 +1214,13 @@ define <4 x i64> @test_int_x86_mask_vcvtps2uqq256(<4 x i64> %a, i8 %b, <4 x floa
 define <4 x i64> @test_int_x86_maskz_vcvtps2uqq256(i8 %a, <4 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtps2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtps2uqq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x79,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtps2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtps2uqq {rd-sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0xb9,0x79,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvtps2uqq256(<4 x float> %b, <4 x i64> zeroinitializer, i8 %a, i32 9)
@@ -1286,14 +1240,13 @@ define <4 x double> @test_int_x86_vcvtqq2pd256(<4 x i64> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vcvtqq2pd256(<4 x double> %a, i4 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtqq2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2pd {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xfa,0x19,0xe6,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtqq2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2pd {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xfa,0x19,0xe6,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx512.sitofp.round.v4f64.v4i64(<4 x i64> %c, i32 8)
@@ -1305,14 +1258,13 @@ define <4 x double> @test_int_x86_mask_vcvtqq2pd256(<4 x double> %a, i4 %b, <4 x
 define <4 x double> @test_int_x86_maskz_vcvtqq2pd256(i4 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtqq2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2pd {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xfa,0x99,0xe6,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtqq2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2pd {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xfa,0x99,0xe6,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx512.sitofp.round.v4f64.v4i64(<4 x i64> %b, i32 8)
@@ -1335,15 +1287,14 @@ define <8 x half> @test_int_x86_vcvtqq2ph256(<4 x i64> %a) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtqq2ph256(<8 x half> %a, i8 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtqq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2ph {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xf8,0x19,0x5b,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtqq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2ph {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xf8,0x19,0x5b,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1356,15 +1307,14 @@ define <8 x half> @test_int_x86_mask_vcvtqq2ph256(<8 x half> %a, i8 %b, <4 x i64
 define <8 x half> @test_int_x86_maskz_vcvtqq2ph256(i8 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtqq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2ph {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xf8,0x99,0x5b,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtqq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2ph {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xf8,0x99,0x5b,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1388,15 +1338,14 @@ define <4 x float> @test_int_x86_vcvtqq2ps256(<4 x i64> %a) nounwind {
 define <4 x float> @test_int_x86_mask_vcvtqq2ps256(<4 x float> %a, i4 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtqq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2ps {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x19,0x5b,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtqq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2ps {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x19,0x5b,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1409,15 +1358,14 @@ define <4 x float> @test_int_x86_mask_vcvtqq2ps256(<4 x float> %a, i4 %b, <4 x i
 define <4 x float> @test_int_x86_maskz_vcvtqq2ps256(i4 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtqq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtqq2ps {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0x99,0x5b,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtqq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtqq2ps {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0x99,0x5b,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1441,15 +1389,14 @@ define <4 x i32> @test_int_x86_vcvttpd2dq256(<4 x double> %a) nounwind {
 define <4 x i32> @test_int_x86_mask_vcvttpd2dq256(<4 x i32> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttpd2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2dq {sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0xe6,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttpd2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2dq {sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0xe6,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1460,15 +1407,14 @@ define <4 x i32> @test_int_x86_mask_vcvttpd2dq256(<4 x i32> %a, i8 %b, <4 x doub
 define <4 x i32> @test_int_x86_maskz_vcvttpd2dq256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttpd2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2dq {sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0xe6,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttpd2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2dq {sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0xe6,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1489,14 +1435,13 @@ define <4 x i64> @test_int_x86_vcvttpd2qq256(<4 x double> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttpd2qq256(<4 x i64> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttpd2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2qq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0x7a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttpd2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2qq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0x7a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttpd2qq256(<4 x double> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -1506,14 +1451,13 @@ define <4 x i64> @test_int_x86_mask_vcvttpd2qq256(<4 x i64> %a, i8 %b, <4 x doub
 define <4 x i64> @test_int_x86_maskz_vcvttpd2qq256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttpd2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2qq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x7a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttpd2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2qq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x7a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttpd2qq256(<4 x double> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -1534,15 +1478,14 @@ define <4 x i32> @test_int_x86_vcvttpd2udq256(<4 x double> %a) nounwind {
 define <4 x i32> @test_int_x86_mask_vcvttpd2udq256(<4 x i32> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttpd2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2udq {sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x19,0x78,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttpd2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2udq {sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xf8,0x19,0x78,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1553,15 +1496,14 @@ define <4 x i32> @test_int_x86_mask_vcvttpd2udq256(<4 x i32> %a, i8 %b, <4 x dou
 define <4 x i32> @test_int_x86_maskz_vcvttpd2udq256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttpd2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2udq {sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0x99,0x78,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttpd2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2udq {sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xf8,0x99,0x78,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -1582,14 +1524,13 @@ define <4 x i64> @test_int_x86_vcvttpd2uqq256(<4 x double> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttpd2uqq256(<4 x i64> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttpd2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2uqq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0x78,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttpd2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2uqq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x19,0x78,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttpd2uqq256(<4 x double> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -1599,14 +1540,13 @@ define <4 x i64> @test_int_x86_mask_vcvttpd2uqq256(<4 x i64> %a, i8 %b, <4 x dou
 define <4 x i64> @test_int_x86_maskz_vcvttpd2uqq256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttpd2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttpd2uqq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x78,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttpd2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttpd2uqq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x78,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttpd2uqq256(<4 x double> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -1626,14 +1566,13 @@ define <8 x i32> @test_int_x86_vcvttph2dq256(<8 x half> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvttph2dq256(<8 x i32> %a, i8 %b, <8 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2dq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x7a,0x19,0x5b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttph2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2dq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x7a,0x19,0x5b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttph2dq256(<8 x half> %c, <8 x i32> %a, i8 %b, i32 8)
@@ -1643,14 +1582,13 @@ define <8 x i32> @test_int_x86_mask_vcvttph2dq256(<8 x i32> %a, i8 %b, <8 x half
 define <8 x i32> @test_int_x86_maskz_vcvttph2dq256(i8 %a, <8 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2dq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x7a,0x99,0x5b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttph2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2dq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x7a,0x99,0x5b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttph2dq256(<8 x half> %b, <8 x i32> zeroinitializer, i8 %a, i32 8)
@@ -1670,14 +1608,13 @@ define <4 x i64> @test_int_x86_vcvttph2qq256(<8 x half> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttph2qq256(<4 x i64> %a, i8 %b, <8 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2qq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x19,0x7a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttph2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2qq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x19,0x7a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttph2qq256(<8 x half> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -1687,14 +1624,13 @@ define <4 x i64> @test_int_x86_mask_vcvttph2qq256(<4 x i64> %a, i8 %b, <8 x half
 define <4 x i64> @test_int_x86_maskz_vcvttph2qq256(i8 %a, <8 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2qq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0x99,0x7a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttph2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2qq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0x99,0x7a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttph2qq256(<8 x half> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -1714,14 +1650,13 @@ define <8 x i32> @test_int_x86_vcvttph2udq256(<8 x half> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvttph2udq256(<8 x i32> %a, i8 %b, <8 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2udq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x19,0x78,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttph2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2udq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x19,0x78,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttph2udq256(<8 x half> %c, <8 x i32> %a, i8 %b, i32 8)
@@ -1731,14 +1666,13 @@ define <8 x i32> @test_int_x86_mask_vcvttph2udq256(<8 x i32> %a, i8 %b, <8 x hal
 define <8 x i32> @test_int_x86_maskz_vcvttph2udq256(i8 %a, <8 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2udq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x78,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttph2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2udq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x78,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttph2udq256(<8 x half> %b, <8 x i32> zeroinitializer, i8 %a, i32 8)
@@ -1758,14 +1692,13 @@ define <4 x i64> @test_int_x86_vcvttph2uqq256(<8 x half> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttph2uqq256(<4 x i64> %a, i8 %b, <8 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2uqq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x19,0x78,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttph2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2uqq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x19,0x78,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttph2uqq256(<8 x half> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -1775,14 +1708,13 @@ define <4 x i64> @test_int_x86_mask_vcvttph2uqq256(<4 x i64> %a, i8 %b, <8 x hal
 define <4 x i64> @test_int_x86_maskz_vcvttph2uqq256(i8 %a, <8 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2uqq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0x99,0x78,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttph2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttph2uqq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0x99,0x78,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttph2uqq256(<8 x half> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -1802,7 +1734,7 @@ define <16 x i16> @test_int_x86_vcvttph2uw256(<16 x half> %a) nounwind {
 define <16 x i16> @test_int_x86_mask_vcvttph2uw256(<16 x i16> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2uw256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2uw {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x19,0x7c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -1818,7 +1750,7 @@ define <16 x i16> @test_int_x86_mask_vcvttph2uw256(<16 x i16> %a, i16 %b, <16 x 
 define <16 x i16> @test_int_x86_maskz_vcvttph2uw256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2uw256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2uw {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x7c,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -1844,7 +1776,7 @@ define <16 x i16> @test_int_x86_vcvttph2w256(<16 x half> %a) nounwind {
 define <16 x i16> @test_int_x86_mask_vcvttph2w256(<16 x i16> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttph2w256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2w {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x79,0x19,0x7c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -1860,7 +1792,7 @@ define <16 x i16> @test_int_x86_mask_vcvttph2w256(<16 x i16> %a, i16 %b, <16 x h
 define <16 x i16> @test_int_x86_maskz_vcvttph2w256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttph2w256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttph2w {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x79,0x99,0x7c,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -1886,14 +1818,13 @@ define <8 x i32> @test_int_x86_vcvttps2dq256(<8 x float> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvttps2dq256(<8 x i32> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttps2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2dq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x7a,0x19,0x5b,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttps2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2dq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x7a,0x19,0x5b,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttps2dq256(<8 x float> %c, <8 x i32> %a, i8 %b, i32 8)
@@ -1903,14 +1834,13 @@ define <8 x i32> @test_int_x86_mask_vcvttps2dq256(<8 x i32> %a, i8 %b, <8 x floa
 define <8 x i32> @test_int_x86_maskz_vcvttps2dq256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttps2dq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2dq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x7a,0x99,0x5b,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttps2dq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2dq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x7a,0x99,0x5b,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttps2dq256(<8 x float> %b, <8 x i32> zeroinitializer, i8 %a, i32 8)
@@ -1930,14 +1860,13 @@ define <4 x i64> @test_int_x86_vcvttps2qq256(<4 x float> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttps2qq256(<4 x i64> %a, i8 %b, <4 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttps2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2qq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x19,0x7a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttps2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2qq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x19,0x7a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttps2qq256(<4 x float> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -1947,14 +1876,13 @@ define <4 x i64> @test_int_x86_mask_vcvttps2qq256(<4 x i64> %a, i8 %b, <4 x floa
 define <4 x i64> @test_int_x86_maskz_vcvttps2qq256(i8 %a, <4 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttps2qq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2qq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0x99,0x7a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttps2qq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2qq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0x99,0x7a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttps2qq256(<4 x float> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -1974,14 +1902,13 @@ define <8 x i32> @test_int_x86_vcvttps2udq256(<8 x float> %a) nounwind {
 define <8 x i32> @test_int_x86_mask_vcvttps2udq256(<8 x i32> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttps2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2udq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x19,0x78,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttps2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2udq {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x19,0x78,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttps2udq256(<8 x float> %c, <8 x i32> %a, i8 %b, i32 8)
@@ -1991,14 +1918,13 @@ define <8 x i32> @test_int_x86_mask_vcvttps2udq256(<8 x i32> %a, i8 %b, <8 x flo
 define <8 x i32> @test_int_x86_maskz_vcvttps2udq256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttps2udq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2udq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x78,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttps2udq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2udq {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x78,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x i32> @llvm.x86.avx256p.mask.vcvttps2udq256(<8 x float> %b, <8 x i32> zeroinitializer, i8 %a, i32 8)
@@ -2018,14 +1944,13 @@ define <4 x i64> @test_int_x86_vcvttps2uqq256(<4 x float> %a) nounwind {
 define <4 x i64> @test_int_x86_mask_vcvttps2uqq256(<4 x i64> %a, i8 %b, <4 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvttps2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2uqq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x19,0x78,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvttps2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2uqq {sae}, %xmm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x79,0x19,0x78,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttps2uqq256(<4 x float> %c, <4 x i64> %a, i8 %b, i32 8)
@@ -2035,14 +1960,13 @@ define <4 x i64> @test_int_x86_mask_vcvttps2uqq256(<4 x i64> %a, i8 %b, <4 x flo
 define <4 x i64> @test_int_x86_maskz_vcvttps2uqq256(i8 %a, <4 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvttps2uqq256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvttps2uqq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0x99,0x78,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvttps2uqq256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvttps2uqq {sae}, %xmm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x79,0x99,0x78,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x i64> @llvm.x86.avx256p.mask.vcvttps2uqq256(<4 x float> %b, <4 x i64> zeroinitializer, i8 %a, i32 8)
@@ -2063,15 +1987,14 @@ define <8 x half> @test_int_x86_vcvtudq2ph256(<8 x i32> %A) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtudq2ph256(<8 x half> %A, i8 %B, <8 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtudq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtudq2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x7b,0x59,0x7a,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtudq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtudq2ph {ru-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0x7b,0x59,0x7a,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2084,15 +2007,14 @@ define <8 x half> @test_int_x86_mask_vcvtudq2ph256(<8 x half> %A, i8 %B, <8 x i3
 define <8 x half> @test_int_x86_maskz_vcvtudq2ph256(i8 %A, <8 x i32> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtudq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtudq2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x7b,0xb9,0x7a,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtudq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtudq2ph {rd-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0x7b,0xb9,0x7a,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2115,14 +2037,13 @@ define <8 x float> @test_int_x86_vcvtudq2ps256(<8 x i32> %A) nounwind {
 define <8 x float> @test_int_x86_mask_vcvtudq2ps256(<8 x float> %A, i8 %B, <8 x i32> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtudq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtudq2ps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x7b,0x59,0x7a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtudq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtudq2ps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x7b,0x59,0x7a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx512.uitofp.round.v8f32.v8i32(<8 x i32> %C, i32 10)
@@ -2134,14 +2055,13 @@ define <8 x float> @test_int_x86_mask_vcvtudq2ps256(<8 x float> %A, i8 %B, <8 x 
 define <8 x float> @test_int_x86_maskz_vcvtudq2ps256(i8 %A, <8 x i32> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtudq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtudq2ps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x7b,0xb9,0x7a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtudq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtudq2ps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x7b,0xb9,0x7a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx512.uitofp.round.v8f32.v8i32(<8 x i32> %B, i32 9)
@@ -2163,14 +2083,13 @@ define <4 x double> @test_int_x86_vcvtuqq2pd256(<4 x i64> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vcvtuqq2pd256(<4 x double> %a, i4 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtuqq2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2pd {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xfa,0x19,0x7a,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtuqq2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2pd {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xfa,0x19,0x7a,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx512.uitofp.round.v4f64.v4i64(<4 x i64> %c, i32 8)
@@ -2182,14 +2101,13 @@ define <4 x double> @test_int_x86_mask_vcvtuqq2pd256(<4 x double> %a, i4 %b, <4 
 define <4 x double> @test_int_x86_maskz_vcvtuqq2pd256(i4 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtuqq2pd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2pd {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xfa,0x99,0x7a,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtuqq2pd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2pd {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xfa,0x99,0x7a,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx512.uitofp.round.v4f64.v4i64(<4 x i64> %b, i32 8)
@@ -2212,15 +2130,14 @@ define <8 x half> @test_int_x86_vcvtuqq2ph256(<4 x i64> %a) nounwind {
 define <8 x half> @test_int_x86_mask_vcvtuqq2ph256(<8 x half> %a, i8 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtuqq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2ph {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xfb,0x19,0x7a,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtuqq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2ph {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf5,0xfb,0x19,0x7a,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2233,15 +2150,14 @@ define <8 x half> @test_int_x86_mask_vcvtuqq2ph256(<8 x half> %a, i8 %b, <4 x i6
 define <8 x half> @test_int_x86_maskz_vcvtuqq2ph256(i8 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtuqq2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2ph {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xfb,0x99,0x7a,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtuqq2ph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2ph {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf5,0xfb,0x99,0x7a,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2265,15 +2181,14 @@ define <4 x float> @test_int_x86_vcvtuqq2ps256(<4 x i64> %a) nounwind {
 define <4 x float> @test_int_x86_mask_vcvtuqq2ps256(<4 x float> %a, i4 %b, <4 x i64> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtuqq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2ps {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xfb,0x19,0x7a,0xc1]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vcvtuqq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2ps {rn-sae}, %ymm1, %xmm0 {%k1} # encoding: [0x62,0xf1,0xfb,0x19,0x7a,0xc1]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2286,15 +2201,14 @@ define <4 x float> @test_int_x86_mask_vcvtuqq2ps256(<4 x float> %a, i4 %b, <4 x 
 define <4 x float> @test_int_x86_maskz_vcvtuqq2ps256(i4 %a, <4 x i64> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtuqq2ps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuqq2ps {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xfb,0x99,0x7a,0xc0]
 ; X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vcvtuqq2ps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtuqq2ps {rn-sae}, %ymm0, %xmm0 {%k1} {z} # encoding: [0x62,0xf1,0xfb,0x99,0x7a,0xc0]
 ; X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; X86-NEXT:    retl # encoding: [0xc3]
@@ -2317,7 +2231,7 @@ define <16 x half> @test_int_x86_vcvtuw2ph256(<16 x i16> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vcvtuw2ph256(<16 x half> %a, i16 %b, <16 x i16> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtuw2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuw2ph {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x7b,0x19,0x7d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2335,7 +2249,7 @@ define <16 x half> @test_int_x86_mask_vcvtuw2ph256(<16 x half> %a, i16 %b, <16 x
 define <16 x half> @test_int_x86_maskz_vcvtuw2ph256(i16 %a, <16 x i16> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtuw2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtuw2ph {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x7b,0x99,0x7d,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2363,7 +2277,7 @@ define <16 x half> @test_int_x86_vcvtw2ph256(<16 x i16> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vcvtw2ph256(<16 x half> %a, i16 %b, <16 x i16> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vcvtw2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtw2ph {rn-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x7a,0x19,0x7d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2381,7 +2295,7 @@ define <16 x half> @test_int_x86_mask_vcvtw2ph256(<16 x half> %a, i16 %b, <16 x 
 define <16 x half> @test_int_x86_maskz_vcvtw2ph256(i16 %a, <16 x i16> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vcvtw2ph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtw2ph {rn-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x7a,0x99,0x7d,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2409,14 +2323,13 @@ define <4 x double> @test_int_x86_vdivpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vdivpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vdivpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x5e,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vdivpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vdivpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x5e,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vdivpd256(<4 x double> %C, <4 x double> %D, i32 10)
@@ -2428,14 +2341,13 @@ define <4 x double> @test_int_x86_mask_vdivpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vdivpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vdivpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5e,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vdivpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vdivpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5e,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vdivpd256(<4 x double> %B, <4 x double> %C, i32 9)
@@ -2457,7 +2369,7 @@ define <16 x half> @test_int_x86_vdivph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vdivph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vdivph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivph {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x59,0x5e,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2475,7 +2387,7 @@ define <16 x half> @test_int_x86_mask_vdivph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vdivph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vdivph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivph {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x5e,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2503,14 +2415,13 @@ define <8 x float> @test_int_x86_vdivps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vdivps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vdivps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x5e,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vdivps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vdivps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x5e,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vdivps256(<8 x float> %C, <8 x float> %D, i32 10)
@@ -2522,14 +2433,13 @@ define <8 x float> @test_int_x86_mask_vdivps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vdivps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vdivps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vdivps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5e,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vdivps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vdivps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5e,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vdivps256(<8 x float> %B, <8 x float> %C, i32 9)
@@ -2543,7 +2453,7 @@ define <8 x float> @test_int_x86_vfcmaddcph256(<8 x float> %a, <8 x float> %b, <
 ; CHECK-LABEL: test_int_x86_vfcmaddcph256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vfcmaddcph {rz-sae}, %ymm1, %ymm0, %ymm2 # encoding: [0x62,0xf6,0x7b,0x78,0x56,0xd1]
-; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfcmaddcph256(<8 x float> %a, <8 x float> %b, <8 x float> %c, i8 -1, i32 11)
   ret <8 x float> %ret
@@ -2552,17 +2462,16 @@ define <8 x float> @test_int_x86_vfcmaddcph256(<8 x float> %a, <8 x float> %b, <
 define <8 x float> @test_int_x86_mask_vfcmaddcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfcmaddcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfcmaddcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7b,0x59,0x56,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfcmaddcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfcmaddcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7b,0x59,0x56,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfcmaddcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 10)
   ret <8 x float> %ret
@@ -2572,17 +2481,16 @@ declare <8 x float> @llvm.x86.avx256p.maskz.vfcmaddcph256(<8 x float>, <8 x floa
 define <8 x float> @test_int_x86_maskz_vfcmaddcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfcmaddcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfcmaddcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7b,0xb9,0x56,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfcmaddcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfcmaddcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7b,0xb9,0x56,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.maskz.vfcmaddcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 9)
   ret <8 x float> %ret
@@ -2593,7 +2501,7 @@ define <8 x float> @test_int_x86_vfcmulcph256(<8 x float> %a, <8 x float> %b, <8
 ; CHECK-LABEL: test_int_x86_vfcmulcph256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vfcmulcph {rz-sae}, %ymm1, %ymm0, %ymm2 # encoding: [0x62,0xf6,0x7b,0x78,0xd6,0xd1]
-; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfcmulcph256(<8 x float> %a, <8 x float> %b, <8 x float> %c, i8 -1, i32 11)
   ret <8 x float> %ret
@@ -2602,17 +2510,16 @@ define <8 x float> @test_int_x86_vfcmulcph256(<8 x float> %a, <8 x float> %b, <8
 define <8 x float> @test_int_x86_mask_vfcmulcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfcmulcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfcmulcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7b,0x59,0xd6,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfcmulcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfcmulcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7b,0x59,0xd6,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfcmulcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 10)
   ret <8 x float> %ret
@@ -2621,17 +2528,16 @@ define <8 x float> @test_int_x86_mask_vfcmulcph256(<8 x float> %a, i8 %b, <8 x f
 define <8 x float> @test_int_x86_maskz_vfcmulcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfcmulcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfcmulcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7b,0xb9,0xd6,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfcmulcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfcmulcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7b,0xb9,0xd6,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfcmulcph256(<8 x float> %a, <8 x float> %c, <8 x float> zeroinitializer, i8 %b, i32 9)
   ret <8 x float> %ret
@@ -2650,14 +2556,13 @@ define <4 x double> @test_int_x86_vfixupimmpd256(<4 x double> %a, <4 x double> %
 define <4 x double> @test_int_x86_mask_vfixupimmpd256(<4 x double> %a, i8 %b, <4 x double> %c, <4 x i64> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfixupimmpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfixupimmpd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf1,0x19,0x54,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfixupimmpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfixupimmpd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf1,0x19,0x54,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vfixupimmpd256(<4 x double> %a, <4 x double> %c, <4 x i64> %d, i32 127, i8 %b, i32 8)
@@ -2668,14 +2573,13 @@ declare <4 x double> @llvm.x86.avx256p.maskz.vfixupimmpd256(<4 x double>, <4 x d
 define <4 x double> @test_int_x86_maskz_vfixupimmpd256(<4 x double> %a, i8 %b, <4 x double> %c, <4 x i64> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfixupimmpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfixupimmpd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf1,0x99,0x54,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfixupimmpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfixupimmpd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf1,0x99,0x54,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.maskz.vfixupimmpd256(<4 x double> %a, <4 x double> %c, <4 x i64> %d, i32 127, i8 %b, i32 8)
@@ -2695,14 +2599,13 @@ define <8 x float> @test_int_x86_vfixupimmps256(<8 x float> %a, <8 x float> %b, 
 define <8 x float> @test_int_x86_mask_vfixupimmps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x i32> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfixupimmps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfixupimmps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x71,0x19,0x54,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfixupimmps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfixupimmps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x71,0x19,0x54,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfixupimmps256(<8 x float> %a, <8 x float> %c, <8 x i32> %d, i32 127, i8 %b, i32 8)
@@ -2713,14 +2616,13 @@ declare <8 x float> @llvm.x86.avx256p.maskz.vfixupimmps256(<8 x float>, <8 x flo
 define <8 x float> @test_int_x86_maskz_vfixupimmps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x i32> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfixupimmps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfixupimmps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x71,0x99,0x54,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfixupimmps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfixupimmps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x71,0x99,0x54,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.maskz.vfixupimmps256(<8 x float> %a, <8 x float> %c, <8 x i32> %d, i32 127, i8 %b, i32 8)
@@ -2740,14 +2642,13 @@ define <4 x double> @test_int_x86_vfmaddpd256(<4 x double> %a, <4 x double> %b, 
 define <4 x double> @test_int_x86_mask_vfmaddpd256(<4 x double> %a, i4 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132pd {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0xe9,0x59,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmaddpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmadd132pd {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0xe9,0x59,0x98,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vfmaddpd256(<4 x double> %a, <4 x double> %c, <4 x double> %d, i32 10)
@@ -2759,14 +2660,13 @@ define <4 x double> @test_int_x86_mask_vfmaddpd256(<4 x double> %a, i4 %b, <4 x 
 define <4 x double> @test_int_x86_maskz_vfmaddpd256(<4 x double> %a, i4 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132pd {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xe9,0xb9,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmaddpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmadd132pd {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xe9,0xb9,0x98,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vfmaddpd256(<4 x double> %a, <4 x double> %c, <4 x double> %d, i32 9)
@@ -2788,7 +2688,7 @@ define <16 x half> @test_int_x86_vfmaddph256(<16 x half> %a, <16 x half> %b, <16
 define <16 x half> @test_int_x86_mask_vfmaddph256(<16 x half> %a, i16 %b, <16 x half> %c, <16 x half> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132ph {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf6,0x69,0x59,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2806,7 +2706,7 @@ define <16 x half> @test_int_x86_mask_vfmaddph256(<16 x half> %a, i16 %b, <16 x 
 define <16 x half> @test_int_x86_maskz_vfmaddph256(<16 x half> %a, i16 %b, <16 x half> %c, <16 x half> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132ph {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x69,0xb9,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2834,14 +2734,13 @@ define <8 x float> @test_int_x86_vfmaddps256(<8 x float> %a, <8 x float> %b, <8 
 define <8 x float> @test_int_x86_mask_vfmaddps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132ps {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0x69,0x59,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmaddps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmadd132ps {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0x69,0x59,0x98,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vfmaddps256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i32 10)
@@ -2853,14 +2752,13 @@ define <8 x float> @test_int_x86_mask_vfmaddps256(<8 x float> %a, i8 %b, <8 x fl
 define <8 x float> @test_int_x86_maskz_vfmaddps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmadd132ps {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x69,0xb9,0x98,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmaddps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmadd132ps {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x69,0xb9,0x98,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vfmaddps256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i32 9)
@@ -2874,7 +2772,7 @@ define <8 x float> @test_int_x86_vfmaddcph256(<8 x float> %a, <8 x float> %b, <8
 ; CHECK-LABEL: test_int_x86_vfmaddcph256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vfmaddcph {rz-sae}, %ymm1, %ymm0, %ymm2 # encoding: [0x62,0xf6,0x7a,0x78,0x56,0xd1]
-; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfmaddcph256(<8 x float> %a, <8 x float> %b, <8 x float> %c, i8 -1, i32 11)
   ret <8 x float> %ret
@@ -2883,17 +2781,16 @@ define <8 x float> @test_int_x86_vfmaddcph256(<8 x float> %a, <8 x float> %b, <8
 define <8 x float> @test_int_x86_mask_vfmaddcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7a,0x59,0x56,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmaddcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7a,0x59,0x56,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfmaddcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 10)
   ret <8 x float> %ret
@@ -2903,17 +2800,16 @@ declare <8 x float> @llvm.x86.avx256p.maskz.vfmaddcph256(<8 x float>, <8 x float
 define <8 x float> @test_int_x86_maskz_vfmaddcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7a,0xb9,0x56,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmaddcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7a,0xb9,0x56,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.maskz.vfmaddcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 9)
   ret <8 x float> %ret
@@ -2932,14 +2828,13 @@ define <4 x double> @test_int_x86_vfmaddsubpd256(<4 x double> %a, <4 x double> %
 define <4 x double> @test_int_x86_mask_vfmaddsubpd256(<4 x double> %a, i4 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddsubpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132pd {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0xe9,0x59,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmaddsubpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddsub132pd {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0xe9,0x59,0x96,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vfmaddsubpd256(<4 x double> %a, <4 x double> %c, <4 x double> %d, i32 10)
@@ -2951,14 +2846,13 @@ define <4 x double> @test_int_x86_mask_vfmaddsubpd256(<4 x double> %a, i4 %b, <4
 define <4 x double> @test_int_x86_maskz_vfmaddsubpd256(<4 x double> %a, i4 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddsubpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132pd {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xe9,0xb9,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmaddsubpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddsub132pd {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xe9,0xb9,0x96,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vfmaddsubpd256(<4 x double> %a, <4 x double> %c, <4 x double> %d, i32 9)
@@ -2980,7 +2874,7 @@ define <16 x half> @test_int_x86_vfmaddsubph256(<16 x half> %a, <16 x half> %b, 
 define <16 x half> @test_int_x86_mask_vfmaddsubph256(<16 x half> %a, i16 %b, <16 x half> %c, <16 x half> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddsubph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132ph {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf6,0x69,0x59,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -2998,7 +2892,7 @@ define <16 x half> @test_int_x86_mask_vfmaddsubph256(<16 x half> %a, i16 %b, <16
 define <16 x half> @test_int_x86_maskz_vfmaddsubph256(<16 x half> %a, i16 %b, <16 x half> %c, <16 x half> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddsubph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132ph {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x69,0xb9,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3026,14 +2920,13 @@ define <8 x float> @test_int_x86_vfmaddsubps256(<8 x float> %a, <8 x float> %b, 
 define <8 x float> @test_int_x86_mask_vfmaddsubps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmaddsubps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132ps {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0x69,0x59,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmaddsubps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddsub132ps {ru-sae}, %ymm1, %ymm2, %ymm0 {%k1} # encoding: [0x62,0xf2,0x69,0x59,0x96,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vfmaddsubps256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i32 10)
@@ -3045,14 +2938,13 @@ define <8 x float> @test_int_x86_mask_vfmaddsubps256(<8 x float> %a, i8 %b, <8 x
 define <8 x float> @test_int_x86_maskz_vfmaddsubps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmaddsubps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub132ps {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x69,0xb9,0x96,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmaddsubps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmaddsub132ps {rd-sae}, %ymm1, %ymm2, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x69,0xb9,0x96,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vfmaddsubps256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i32 9)
@@ -3066,7 +2958,7 @@ define <8 x float> @test_int_x86_vfmulcph256(<8 x float> %a, <8 x float> %b, <8 
 ; CHECK-LABEL: test_int_x86_vfmulcph256:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vfmulcph {rz-sae}, %ymm1, %ymm0, %ymm2 # encoding: [0x62,0xf6,0x7a,0x78,0xd6,0xd1]
-; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; CHECK-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfmulcph256(<8 x float> %a, <8 x float> %b, <8 x float> %c, i8 -1, i32 11)
   ret <8 x float> %ret
@@ -3075,17 +2967,16 @@ define <8 x float> @test_int_x86_vfmulcph256(<8 x float> %a, <8 x float> %b, <8 
 define <8 x float> @test_int_x86_mask_vfmulcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vfmulcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmulcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7a,0x59,0xd6,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vfmulcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmulcph {ru-sae}, %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7a,0x59,0xd6,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfmulcph256(<8 x float> %a, <8 x float> %c, <8 x float> %d, i8 %b, i32 10)
   ret <8 x float> %ret
@@ -3094,17 +2985,16 @@ define <8 x float> @test_int_x86_mask_vfmulcph256(<8 x float> %a, i8 %b, <8 x fl
 define <8 x float> @test_int_x86_maskz_vfmulcph256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vfmulcph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmulcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7a,0xb9,0xd6,0xd1]
-; X64-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vfmulcph256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vfmulcph {rd-sae}, %ymm1, %ymm0, %ymm2 {%k1} {z} # encoding: [0x62,0xf6,0x7a,0xb9,0xd6,0xd1]
-; X86-NEXT:    vmovaps %ymm2, %ymm0 # encoding: [0xc5,0xfc,0x28,0xc2]
+; X86-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vfmulcph256(<8 x float> %a, <8 x float> %c, <8 x float> zeroinitializer, i8 %b, i32 9)
   ret <8 x float> %ret
@@ -3123,14 +3013,13 @@ define <4 x double> @test_int_x86_vgetexppd256(<4 x double> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vgetexppd256(<4 x double> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetexppd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexppd {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0xf9,0x19,0x42,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vgetexppd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetexppd {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0xf9,0x19,0x42,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vgetexppd256(<4 x double> %c, <4 x double> %a, i8 %b, i32 8)
@@ -3140,14 +3029,13 @@ define <4 x double> @test_int_x86_mask_vgetexppd256(<4 x double> %a, i8 %b, <4 x
 define <4 x double> @test_int_x86_maskz_vgetexppd256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetexppd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexppd {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xf9,0x99,0x42,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vgetexppd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetexppd {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xf9,0x99,0x42,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vgetexppd256(<4 x double> %b, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -3167,7 +3055,7 @@ define <16 x half> @test_int_x86_vgetexpph256(<16 x half> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vgetexpph256(<16 x half> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetexpph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexpph {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf6,0x79,0x19,0x42,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3183,7 +3071,7 @@ define <16 x half> @test_int_x86_mask_vgetexpph256(<16 x half> %a, i16 %b, <16 x
 define <16 x half> @test_int_x86_maskz_vgetexpph256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetexpph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexpph {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x79,0x99,0x42,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3209,14 +3097,13 @@ define <8 x float> @test_int_x86_vgetexpps256(<8 x float> %a) nounwind {
 define <8 x float> @test_int_x86_mask_vgetexpps256(<8 x float> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetexpps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexpps {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0x79,0x19,0x42,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vgetexpps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetexpps {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0x79,0x19,0x42,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vgetexpps256(<8 x float> %c, <8 x float> %a, i8 %b, i32 8)
@@ -3226,14 +3113,13 @@ define <8 x float> @test_int_x86_mask_vgetexpps256(<8 x float> %a, i8 %b, <8 x f
 define <8 x float> @test_int_x86_maskz_vgetexpps256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetexpps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetexpps {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x79,0x99,0x42,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vgetexpps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetexpps {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x79,0x99,0x42,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vgetexpps256(<8 x float> %b, <8 x float> zeroinitializer, i8 %a, i32 8)
@@ -3253,14 +3139,13 @@ define <4 x double> @test_int_x86_vgetmantpd256(<4 x double> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vgetmantpd256(<4 x double> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetmantpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantpd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x26,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vgetmantpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetmantpd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x26,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vgetmantpd256(<4 x double> %c, i32 127, <4 x double> %a, i8 %b, i32 8)
@@ -3270,14 +3155,13 @@ define <4 x double> @test_int_x86_mask_vgetmantpd256(<4 x double> %a, i8 %b, <4 
 define <4 x double> @test_int_x86_maskz_vgetmantpd256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetmantpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantpd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x26,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vgetmantpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetmantpd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x26,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vgetmantpd256(<4 x double> %b, i32 127, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -3297,7 +3181,7 @@ define <16 x half> @test_int_x86_vgetmantph256(<16 x half> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vgetmantph256(<16 x half> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetmantph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantph $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x78,0x19,0x26,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3313,7 +3197,7 @@ define <16 x half> @test_int_x86_mask_vgetmantph256(<16 x half> %a, i16 %b, <16 
 define <16 x half> @test_int_x86_maskz_vgetmantph256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetmantph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantph $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x78,0x99,0x26,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3339,14 +3223,13 @@ define <8 x float> @test_int_x86_vgetmantps256(<8 x float> %a) nounwind {
 define <8 x float> @test_int_x86_mask_vgetmantps256(<8 x float> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vgetmantps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x26,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vgetmantps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetmantps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x26,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vgetmantps256(<8 x float> %c, i32 127, <8 x float> %a, i8 %b, i32 8)
@@ -3356,14 +3239,13 @@ define <8 x float> @test_int_x86_mask_vgetmantps256(<8 x float> %a, i8 %b, <8 x 
 define <8 x float> @test_int_x86_maskz_vgetmantps256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vgetmantps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vgetmantps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x26,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vgetmantps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vgetmantps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x26,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vgetmantps256(<8 x float> %b, i32 127, <8 x float> zeroinitializer, i8 %a, i32 8)
@@ -3383,14 +3265,13 @@ define <4 x double> @test_int_x86_vmaxpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vmaxpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmaxpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxpd {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x19,0x5f,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vmaxpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmaxpd {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x19,0x5f,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vmaxpd256(<4 x double> %C, <4 x double> %D, i32 8)
@@ -3402,14 +3283,13 @@ define <4 x double> @test_int_x86_mask_vmaxpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vmaxpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmaxpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxpd {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x5f,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vmaxpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmaxpd {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x5f,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vmaxpd256(<4 x double> %B, <4 x double> %C, i32 8)
@@ -3431,7 +3311,7 @@ define <16 x half> @test_int_x86_vmaxph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vmaxph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmaxph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxph {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x19,0x5f,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3449,7 +3329,7 @@ define <16 x half> @test_int_x86_mask_vmaxph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vmaxph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmaxph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxph {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x5f,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3477,14 +3357,13 @@ define <8 x float> @test_int_x86_vmaxps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vmaxps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmaxps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxps {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x19,0x5f,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vmaxps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmaxps {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x19,0x5f,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vmaxps256(<8 x float> %C, <8 x float> %D, i32 8)
@@ -3496,14 +3375,13 @@ define <8 x float> @test_int_x86_mask_vmaxps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vmaxps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmaxps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmaxps {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5f,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vmaxps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmaxps {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5f,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vmaxps256(<8 x float> %B, <8 x float> %C, i32 8)
@@ -3525,14 +3403,13 @@ define <4 x double> @test_int_x86_vminpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vminpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vminpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminpd {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x19,0x5d,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vminpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vminpd {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x19,0x5d,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vminpd256(<4 x double> %C, <4 x double> %D, i32 8)
@@ -3544,14 +3421,13 @@ define <4 x double> @test_int_x86_mask_vminpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vminpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vminpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminpd {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x5d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vminpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vminpd {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0x99,0x5d,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vminpd256(<4 x double> %B, <4 x double> %C, i32 8)
@@ -3573,7 +3449,7 @@ define <16 x half> @test_int_x86_vminph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vminph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vminph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminph {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x19,0x5d,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3591,7 +3467,7 @@ define <16 x half> @test_int_x86_mask_vminph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vminph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vminph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminph {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0x99,0x5d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3619,14 +3495,13 @@ define <8 x float> @test_int_x86_vminps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vminps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vminps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminps {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x19,0x5d,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vminps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vminps {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x19,0x5d,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vminps256(<8 x float> %C, <8 x float> %D, i32 8)
@@ -3638,14 +3513,13 @@ define <8 x float> @test_int_x86_mask_vminps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vminps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vminps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vminps {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5d,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vminps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vminps {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0x99,0x5d,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vminps256(<8 x float> %B, <8 x float> %C, i32 8)
@@ -3667,14 +3541,13 @@ define <4 x double> @test_int_x86_vmulpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vmulpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmulpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x59,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vmulpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmulpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x59,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vmulpd256(<4 x double> %C, <4 x double> %D, i32 10)
@@ -3686,14 +3559,13 @@ define <4 x double> @test_int_x86_mask_vmulpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vmulpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmulpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x59,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vmulpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmulpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x59,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vmulpd256(<4 x double> %B, <4 x double> %C, i32 9)
@@ -3715,7 +3587,7 @@ define <16 x half> @test_int_x86_vmulph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vmulph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmulph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulph {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x59,0x59,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3733,7 +3605,7 @@ define <16 x half> @test_int_x86_mask_vmulph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vmulph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmulph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulph {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x59,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3761,14 +3633,13 @@ define <8 x float> @test_int_x86_vmulps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vmulps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vmulps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x59,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vmulps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmulps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x59,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vmulps256(<8 x float> %C, <8 x float> %D, i32 10)
@@ -3780,14 +3651,13 @@ define <8 x float> @test_int_x86_mask_vmulps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vmulps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vmulps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vmulps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x59,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vmulps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vmulps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x59,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vmulps256(<8 x float> %B, <8 x float> %C, i32 9)
@@ -3809,14 +3679,13 @@ define <4 x double> @test_int_x86_vrangepd256(<4 x double> %a, <4 x double> %b) 
 define <4 x double> @test_int_x86_mask_vrangepd256(<4 x double> %a, i8 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vrangepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrangepd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf1,0x19,0x50,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vrangepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrangepd $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf1,0x19,0x50,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vrangepd256(<4 x double> %c, <4 x double> %d, i32 127, <4 x double> %a, i8 %b, i32 8)
@@ -3826,14 +3695,13 @@ define <4 x double> @test_int_x86_mask_vrangepd256(<4 x double> %a, i8 %b, <4 x 
 define <4 x double> @test_int_x86_maskz_vrangepd256(i8 %a, <4 x double> %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vrangepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrangepd $127, {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x50,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vrangepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrangepd $127, {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x50,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vrangepd256(<4 x double> %b, <4 x double> %c, i32 127, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -3853,14 +3721,13 @@ define <8 x float> @test_int_x86_vrangeps256(<8 x float> %a, <8 x float> %b) nou
 define <8 x float> @test_int_x86_mask_vrangeps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vrangeps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrangeps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x71,0x19,0x50,0xc2,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vrangeps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrangeps $127, {sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x71,0x19,0x50,0xc2,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vrangeps256(<8 x float> %c, <8 x float> %d, i32 127, <8 x float> %a, i8 %b, i32 8)
@@ -3870,14 +3737,13 @@ define <8 x float> @test_int_x86_mask_vrangeps256(<8 x float> %a, i8 %b, <8 x fl
 define <8 x float> @test_int_x86_maskz_vrangeps256(i8 %a, <8 x float> %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vrangeps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrangeps $127, {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x50,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vrangeps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrangeps $127, {sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x50,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vrangeps256(<8 x float> %b, <8 x float> %c, i32 127, <8 x float> zeroinitializer, i8 %a, i32 8)
@@ -3897,14 +3763,13 @@ define <4 x double> @test_int_x86_vreducepd256(<4 x double> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vreducepd256(<4 x double> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vreducepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreducepd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x56,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vreducepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vreducepd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x56,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vreducepd256(<4 x double> %c, i32 127, <4 x double> %a, i8 %b, i32 8)
@@ -3914,14 +3779,13 @@ define <4 x double> @test_int_x86_mask_vreducepd256(<4 x double> %a, i8 %b, <4 x
 define <4 x double> @test_int_x86_maskz_vreducepd256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vreducepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreducepd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x56,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vreducepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vreducepd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x56,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vreducepd256(<4 x double> %b, i32 127, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -3941,7 +3805,7 @@ define <16 x half> @test_int_x86_vreduceph256(<16 x half> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vreduceph256(<16 x half> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vreduceph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreduceph $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x78,0x19,0x56,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3957,7 +3821,7 @@ define <16 x half> @test_int_x86_mask_vreduceph256(<16 x half> %a, i16 %b, <16 x
 define <16 x half> @test_int_x86_maskz_vreduceph256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vreduceph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreduceph $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x78,0x99,0x56,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -3983,14 +3847,13 @@ define <8 x float> @test_int_x86_vreduceps256(<8 x float> %a) nounwind {
 define <8 x float> @test_int_x86_mask_vreduceps256(<8 x float> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vreduceps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreduceps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x56,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vreduceps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vreduceps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x56,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vreduceps256(<8 x float> %c, i32 127, <8 x float> %a, i8 %b, i32 8)
@@ -4000,14 +3863,13 @@ define <8 x float> @test_int_x86_mask_vreduceps256(<8 x float> %a, i8 %b, <8 x f
 define <8 x float> @test_int_x86_maskz_vreduceps256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vreduceps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vreduceps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x56,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vreduceps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vreduceps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x56,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vreduceps256(<8 x float> %b, i32 127, <8 x float> zeroinitializer, i8 %a, i32 8)
@@ -4027,14 +3889,13 @@ define <4 x double> @test_int_x86_vrndscalepd256(<4 x double> %a) nounwind {
 define <4 x double> @test_int_x86_mask_vrndscalepd256(<4 x double> %a, i8 %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vrndscalepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscalepd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x09,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vrndscalepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrndscalepd $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0xf9,0x19,0x09,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vrndscalepd256(<4 x double> %c, i32 127, <4 x double> %a, i8 %b, i32 8)
@@ -4044,14 +3905,13 @@ define <4 x double> @test_int_x86_mask_vrndscalepd256(<4 x double> %a, i8 %b, <4
 define <4 x double> @test_int_x86_maskz_vrndscalepd256(i8 %a, <4 x double> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vrndscalepd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscalepd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x09,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vrndscalepd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrndscalepd $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0xf9,0x99,0x09,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vrndscalepd256(<4 x double> %b, i32 127, <4 x double> zeroinitializer, i8 %a, i32 8)
@@ -4071,7 +3931,7 @@ define <16 x half> @test_int_x86_vrndscaleph256(<16 x half> %a) nounwind {
 define <16 x half> @test_int_x86_mask_vrndscaleph256(<16 x half> %a, i16 %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vrndscaleph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscaleph $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x78,0x19,0x08,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4087,7 +3947,7 @@ define <16 x half> @test_int_x86_mask_vrndscaleph256(<16 x half> %a, i16 %b, <16
 define <16 x half> @test_int_x86_maskz_vrndscaleph256(i16 %a, <16 x half> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vrndscaleph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscaleph $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x78,0x99,0x08,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4113,14 +3973,13 @@ define <8 x float> @test_int_x86_vrndscaleps256(<8 x float> %a) nounwind {
 define <8 x float> @test_int_x86_mask_vrndscaleps256(<8 x float> %a, i8 %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_mask_vrndscaleps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscaleps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x08,0xc1,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vrndscaleps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrndscaleps $127, {sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf3,0x79,0x19,0x08,0xc1,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vrndscaleps256(<8 x float> %c, i32 127, <8 x float> %a, i8 %b, i32 8)
@@ -4130,14 +3989,13 @@ define <8 x float> @test_int_x86_mask_vrndscaleps256(<8 x float> %a, i8 %b, <8 x
 define <8 x float> @test_int_x86_maskz_vrndscaleps256(i8 %a, <8 x float> %b) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vrndscaleps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vrndscaleps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x08,0xc0,0x7f]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vrndscaleps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vrndscaleps $127, {sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf3,0x79,0x99,0x08,0xc0,0x7f]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vrndscaleps256(<8 x float> %b, i32 127, <8 x float> zeroinitializer, i8 %a, i32 8)
@@ -4157,14 +4015,13 @@ define <4 x double> @test_int_x86_vscalefpd256(<4 x double> %a, <4 x double> %b)
 define <4 x double> @test_int_x86_mask_vscalefpd256(<4 x double> %a, i8 %b, <4 x double> %c, <4 x double> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vscalefpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0xf1,0x59,0x2c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vscalefpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vscalefpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0xf1,0x59,0x2c,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vscalefpd256(<4 x double> %c, <4 x double> %d, <4 x double> %a, i8 %b, i32 10)
@@ -4174,14 +4031,13 @@ define <4 x double> @test_int_x86_mask_vscalefpd256(<4 x double> %a, i8 %b, <4 x
 define <4 x double> @test_int_x86_maskz_vscalefpd256(i8 %a, <4 x double> %b, <4 x double> %c) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vscalefpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xf9,0xb9,0x2c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vscalefpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vscalefpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0xf9,0xb9,0x2c,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <4 x double> @llvm.x86.avx256p.mask.vscalefpd256(<4 x double> %b, <4 x double> %c, <4 x double> zeroinitializer, i8 %a, i32 9)
@@ -4201,7 +4057,7 @@ define <16 x half> @test_int_x86_vscalefph256(<16 x half> %a, <16 x half> %b) no
 define <16 x half> @test_int_x86_mask_vscalefph256(<16 x half> %a, i16 %b, <16 x half> %c, <16 x half> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vscalefph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefph {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf6,0x71,0x59,0x2c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4217,7 +4073,7 @@ define <16 x half> @test_int_x86_mask_vscalefph256(<16 x half> %a, i16 %b, <16 x
 define <16 x half> @test_int_x86_maskz_vscalefph256(i16 %a, <16 x half> %b, <16 x half> %c) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vscalefph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefph {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x79,0xb9,0x2c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4243,14 +4099,13 @@ define <8 x float> @test_int_x86_vscalefps256(<8 x float> %a, <8 x float> %b) no
 define <8 x float> @test_int_x86_mask_vscalefps256(<8 x float> %a, i8 %b, <8 x float> %c, <8 x float> %d) nounwind {
 ; X64-LABEL: test_int_x86_mask_vscalefps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0x71,0x59,0x2c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vscalefps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vscalefps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf2,0x71,0x59,0x2c,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vscalefps256(<8 x float> %c, <8 x float> %d, <8 x float> %a, i8 %b, i32 10)
@@ -4260,14 +4115,13 @@ define <8 x float> @test_int_x86_mask_vscalefps256(<8 x float> %a, i8 %b, <8 x f
 define <8 x float> @test_int_x86_maskz_vscalefps256(i8 %a, <8 x float> %b, <8 x float> %c) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vscalefps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vscalefps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x79,0xb9,0x2c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vscalefps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vscalefps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf2,0x79,0xb9,0x2c,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret = call <8 x float> @llvm.x86.avx256p.mask.vscalefps256(<8 x float> %b, <8 x float> %c, <8 x float> zeroinitializer, i8 %a, i32 9)
@@ -4287,14 +4141,13 @@ define <4 x double> @test_int_x86_vsqrtpd256(<4 x double> %A) nounwind {
 define <4 x double> @test_int_x86_mask_vsqrtpd256(<4 x double> %A, i4 %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsqrtpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtpd {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x51,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vsqrtpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsqrtpd {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf9,0x59,0x51,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vsqrtpd256(<4 x double> %C, i32 10)
@@ -4306,14 +4159,13 @@ define <4 x double> @test_int_x86_mask_vsqrtpd256(<4 x double> %A, i4 %B, <4 x d
 define <4 x double> @test_int_x86_maskz_vsqrtpd256(i4 %A, <4 x double> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsqrtpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtpd {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x51,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vsqrtpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsqrtpd {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x51,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vsqrtpd256(<4 x double> %B, i32 9)
@@ -4335,7 +4187,7 @@ define <16 x half> @test_int_x86_vsqrtph256(<16 x half> %A) nounwind {
 define <16 x half> @test_int_x86_mask_vsqrtph256(<16 x half> %A, i16 %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsqrtph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtph {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x78,0x59,0x51,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4353,7 +4205,7 @@ define <16 x half> @test_int_x86_mask_vsqrtph256(<16 x half> %A, i16 %B, <16 x h
 define <16 x half> @test_int_x86_maskz_vsqrtph256(i16 %A, <16 x half> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsqrtph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtph {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x51,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4381,14 +4233,13 @@ define <8 x float> @test_int_x86_vsqrtps256(<8 x float> %A) nounwind {
 define <8 x float> @test_int_x86_mask_vsqrtps256(<8 x float> %A, i8 %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsqrtps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x51,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vsqrtps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsqrtps {ru-sae}, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x78,0x59,0x51,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vsqrtps256(<8 x float> %C, i32 10)
@@ -4400,14 +4251,13 @@ define <8 x float> @test_int_x86_mask_vsqrtps256(<8 x float> %A, i8 %B, <8 x flo
 define <8 x float> @test_int_x86_maskz_vsqrtps256(i8 %A, <8 x float> %B) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsqrtps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsqrtps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x51,0xc0]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vsqrtps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsqrtps {rd-sae}, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x51,0xc0]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vsqrtps256(<8 x float> %B, i32 9)
@@ -4429,14 +4279,13 @@ define <4 x double> @test_int_x86_vsubpd256(<4 x double> %A, <4 x double> %B) no
 define <4 x double> @test_int_x86_mask_vsubpd256(<4 x double> %A, i4 %B, <4 x double> %C, <4 x double> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsubpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x5c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vsubpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsubpd {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0xf1,0x59,0x5c,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vsubpd256(<4 x double> %C, <4 x double> %D, i32 10)
@@ -4448,14 +4297,13 @@ define <4 x double> @test_int_x86_mask_vsubpd256(<4 x double> %A, i4 %B, <4 x do
 define <4 x double> @test_int_x86_maskz_vsubpd256(i4 %A, <4 x double> %B, <4 x double> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsubpd256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vsubpd256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsubpd {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0xf9,0xb9,0x5c,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <4 x double> @llvm.x86.avx256p.vsubpd256(<4 x double> %B, <4 x double> %C, i32 9)
@@ -4477,7 +4325,7 @@ define <16 x half> @test_int_x86_vsubph256(<16 x half> %A, <16 x half> %B) nounw
 define <16 x half> @test_int_x86_mask_vsubph256(<16 x half> %A, i16 %B, <16 x half> %C, <16 x half> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsubph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubph {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf5,0x70,0x59,0x5c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4495,7 +4343,7 @@ define <16 x half> @test_int_x86_mask_vsubph256(<16 x half> %A, i16 %B, <16 x ha
 define <16 x half> @test_int_x86_maskz_vsubph256(i16 %A, <16 x half> %B, <16 x half> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsubph256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubph {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf5,0x78,0xb9,0x5c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -4523,14 +4371,13 @@ define <8 x float> @test_int_x86_vsubps256(<8 x float> %A, <8 x float> %B) nounw
 define <8 x float> @test_int_x86_mask_vsubps256(<8 x float> %A, i8 %B, <8 x float> %C, <8 x float> %D) nounwind {
 ; X64-LABEL: test_int_x86_mask_vsubps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x5c,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_mask_vsubps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsubps {ru-sae}, %ymm2, %ymm1, %ymm0 {%k1} # encoding: [0x62,0xf1,0x70,0x59,0x5c,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vsubps256(<8 x float> %C, <8 x float> %D, i32 10)
@@ -4542,14 +4389,13 @@ define <8 x float> @test_int_x86_mask_vsubps256(<8 x float> %A, i8 %B, <8 x floa
 define <8 x float> @test_int_x86_maskz_vsubps256(i8 %A, <8 x float> %B, <8 x float> %C) nounwind {
 ; X64-LABEL: test_int_x86_maskz_vsubps256:
 ; X64:       # %bb.0:
-; X64-NEXT:    kmovw %edi, %k1 # encoding: [0xc5,0xf8,0x92,0xcf]
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vsubps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5c,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
 ;
 ; X86-LABEL: test_int_x86_maskz_vsubps256:
 ; X86:       # %bb.0:
-; X86-NEXT:    movzbl {{[0-9]+}}(%esp), %eax # encoding: [0x0f,0xb6,0x44,0x24,0x04]
-; X86-NEXT:    kmovw %eax, %k1 # encoding: [0xc5,0xf8,0x92,0xc8]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vsubps {rd-sae}, %ymm1, %ymm0, %ymm0 {%k1} {z} # encoding: [0x62,0xf1,0x78,0xb9,0x5c,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
   %ret0 = call <8 x float> @llvm.x86.avx256p.vsubps256(<8 x float> %B, <8 x float> %C, i32 9)

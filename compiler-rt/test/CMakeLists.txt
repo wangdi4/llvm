@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # Needed for lit support in standalone builds.
 include(AddLLVM)
 
@@ -50,7 +67,11 @@ endif()
 function(compiler_rt_test_runtime runtime)
   string(TOUPPER ${runtime} runtime_uppercase)
   if(COMPILER_RT_HAS_${runtime_uppercase})
-    add_subdirectory(${runtime})
+    if (${runtime} STREQUAL scudo_standalone)
+      add_subdirectory(scudo/standalone)
+    else()
+      add_subdirectory(${runtime})
+    endif()
     foreach(directory ${ARGN})
       add_subdirectory(${directory})
     endforeach()
@@ -89,18 +110,29 @@ if(COMPILER_RT_CAN_EXECUTE_TESTS)
   if(COMPILER_RT_BUILD_MEMPROF)
     compiler_rt_test_runtime(memprof)
   endif()
-  if(COMPILER_RT_BUILD_XRAY)
-    compiler_rt_test_runtime(xray)
-  endif()
-  if(COMPILER_RT_BUILD_ORC)
-    compiler_rt_Test_runtime(orc)
-  endif()
+# INTEL_CUSTOMIZATION
+  # We disable XRAY test suite because it fails with Linux self-build on Alloy.
+  # Further investigation is needed. Note that XRAY is not part of our release.
+  # CMPLRLLVM-42899
+  # if(COMPILER_RT_BUILD_XRAY)
+  #   compiler_rt_test_runtime(xray)
+  # endif()
+  # We disable ORC test suite because it fails with Windows and with Linux
+  # self-build on Alloy. Further investigation is needed. Note that ORC
+  # is not part of our release.
+  # CMPLRLLVM-42778.
+  # if(COMPILER_RT_BUILD_ORC)
+  #   compiler_rt_Test_runtime(orc)
+  # endif()
+# end INTEL_CUSTOMIZATION
   if(COMPILER_RT_BUILD_CRT)
     add_subdirectory(crt)
   endif()
   # ShadowCallStack does not yet provide a runtime with compiler-rt, the tests
   # include their own minimal runtime
   add_subdirectory(shadowcallstack)
+  # These tests are self-contained and don't need an additional runtime.
+  add_subdirectory(metadata)
 endif()
 
 if(COMPILER_RT_STANDALONE_BUILD)

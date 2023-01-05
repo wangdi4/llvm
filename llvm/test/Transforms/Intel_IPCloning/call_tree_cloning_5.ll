@@ -2,7 +2,6 @@
 ; Checks that the Multi-Versioning (MV) transformation creates MV function as expected.
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
 
 ; Checks the multi-version (MV) function on pixel_avg() has proper code generation
 

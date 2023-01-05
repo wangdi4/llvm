@@ -1,5 +1,3 @@
-; RUN: opt -mtriple=x86_64 -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -mtriple=x86_64 -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s | FileCheck %s
 ; RUN: opt -mtriple=x86_64 -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -mtriple=x86_64 -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s | FileCheck %s
 
@@ -23,5 +21,5 @@ entry:
 !0 = !{void (i32*)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

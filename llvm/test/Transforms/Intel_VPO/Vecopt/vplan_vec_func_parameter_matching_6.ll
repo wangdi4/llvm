@@ -1,4 +1,3 @@
-; RUN: opt -S -mattr=avx2 -vplan-vec < %s | FileCheck %s
 ; RUN: opt -S -mattr=avx2 -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/callee parameter matching is successful for several variants,

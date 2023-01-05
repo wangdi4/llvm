@@ -1,10 +1,10 @@
-; RUN: opt < %s -disable-output -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s --check-prefix=CHECK-IR
+; RUN: opt < %s -disable-output -passes=vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s --check-prefix=CHECK-IR
 
-; RUN: opt < %s -disable-output -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-uf=3 | FileCheck %s --check-prefix=CHECK-IR-UF3
+; RUN: opt < %s -disable-output -passes=vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-uf=3 | FileCheck %s --check-prefix=CHECK-IR-UF3
 
-; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt < %s -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s --check-prefix=CHECK-HIR
 
-; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-uf=3 | FileCheck %s --check-prefix=CHECK-HIR-UF3
+; RUN: opt < %s -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-uf=3 | FileCheck %s --check-prefix=CHECK-HIR-UF3
 
 ; The test verifies the cost of vector-trip-count instruction in various
 ; scenarios.

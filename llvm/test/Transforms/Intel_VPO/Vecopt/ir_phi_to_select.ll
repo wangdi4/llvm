@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -S %s -O2 -vplan-vec | FileCheck %s --check-prefixes=CHECK,CHECK-OLD-PM
 ; RUN: opt -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-NEW-PM
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {

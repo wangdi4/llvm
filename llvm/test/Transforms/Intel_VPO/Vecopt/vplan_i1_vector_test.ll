@@ -1,7 +1,7 @@
 ; Check that we are able to succesfully vectorize the loop. We were
 ; hitting an incorrect assert which was expecting type size to be a
 ; a multiple of 8 bits.
-; RUN: opt -vplan-vec -S < %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -S < %s | FileCheck %s
 ; CHECK-LABEL: vector.body:
 define dso_local void @foo2(<2 x i1>* nocapture %arr, <2 x i1> %l2) local_unnamed_addr #0 {
 entry:

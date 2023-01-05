@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -52,7 +52,7 @@
 // equivalences.  Pointer equivalences are those pointers that will have the
 // same points-to sets, and location equivalences are those variables that
 // always appear together in points-to sets.  It also includes an offline
-// cycle detection algorithm that allows cycles to be collapsed sooner 
+// cycle detection algorithm that allows cycles to be collapsed sooner
 // during solving.
 //
 // The inclusion constraint solving phase iteratively propagates the inclusion
@@ -257,36 +257,26 @@ static const char *(Andersens_Dealloc_Intrinsics[]) = {
 // This table contains lib calls that don't change points-to
 // info.
 static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
-  "atoi", "atof", "atol", "atoll",
-  "remove", "unlink", "rename", "memcmp", "free",
-  "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64",
-  "strcmp", "strncmp", "strlen", "strnlen", 
-  "execl", "execlp", "execle", "execv", "execvp"
-  "chmod", "puts", "write", "open",
-  "create", "truncate",  "chdir", "mkdir",
-  "rmdir", "read",  "pipe", "wait", "utime", 
-  "time", "stat",  "fstat", "lstat",
-  "fflush", "feof", "fclose", "fcloseall", 
-  "fileno", "clearerr", "rewind", "ftell", "ftello",
-  "ferror", "fgetc", "getc", "_IO_getc", "ungetc",
-  "fwrite", "fread", "fputc", "fputs", "putc",
-  "_IO_putc", "fseek", "fgetpos",
-  "fsetpos", "printf", "fprintf", "sprintf", "vsnprintf",
-  "vprintf", "vfprintf", "vsprintf", "scanf",
-  "fscanf", "sscanf", "vfscanf", "vscanf", "vsscanf", "__assert_fail",
-  "modf", "modff", "modfl", "setjmp", "longjmp", 
-  "gammaf_r", "lgammaf_r", "remquo", "remquof", "remquol", 
-  "sincos", "sincosf", "sincosl", "sincosd", "sincosdf", "sincosdl",
-  "setbuf", "setvbuf", "strspn", "strcspn", "frexp", "frexpf", "frexpl",
-  "system", "sinhcosh", "sinhcoshf", "sinhcoshl",   
-  "wcstombs", "mbstowcs", "mblen",
-  // TODO: Adding these two intrinsics causes an issue with
-  // self-build compiler on efi2linux. Need more investigation
-  // before adding them again.
-  // "llvm.lifetime.start", "llvm.lifetime.end",
-  "llvm.invariant.start", "llvm.invariant.end",
-  nullptr      
-};
+    "atoi", "atof", "atol", "atoll", "remove", "unlink", "rename", "memcmp",
+    "free", "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64", "strcmp", "strncmp",
+    "strlen", "strnlen", "execl", "execlp", "execle", "execv", "execvp",
+    "chmod", "puts", "write", "open", "create", "truncate", "chdir", "mkdir",
+    "rmdir", "read", "pipe", "wait", "utime", "time", "stat", "fstat", "lstat",
+    "fflush", "feof", "fclose", "fcloseall", "fileno", "clearerr", "rewind",
+    "ftell", "ftello", "ferror", "fgetc", "getc", "_IO_getc", "ungetc",
+    "fwrite", "fread", "fputc", "fputs", "putc", "_IO_putc", "fseek", "fgetpos",
+    "fsetpos", "printf", "fprintf", "sprintf", "vsnprintf", "vprintf",
+    "vfprintf", "vsprintf", "scanf", "fscanf", "sscanf", "vfscanf", "vscanf",
+    "vsscanf", "__assert_fail", "modf", "modff", "modfl", "setjmp", "longjmp",
+    "gammaf_r", "lgammaf_r", "remquo", "remquof", "remquol", "sincos",
+    "sincosf", "sincosl", "sincosd", "sincosdf", "sincosdl", "setbuf",
+    "setvbuf", "strspn", "strcspn", "frexp", "frexpf", "frexpl", "system",
+    "sinhcosh", "sinhcoshf", "sinhcoshl", "wcstombs", "mbstowcs", "mblen",
+    // TODO: Adding these two intrinsics causes an issue with
+    // self-build compiler on efi2linux. Need more investigation
+    // before adding them again.
+    // "llvm.lifetime.start", "llvm.lifetime.end",
+    "llvm.invariant.start", "llvm.invariant.end", nullptr};
 
 // Table contains fortran's io library calls.
 //
@@ -320,13 +310,11 @@ static const char *(Andersens_Store_Arg_0_in_Arg_1_Intrinsics[]) = {
 // Note realloc, memcpy etc are in multiple tables.
 //
 static const char *(Andersens_Return_Arg_0_Intrinsics[]) = {
-  "realloc", "memset", "strchr", "strrchr", "strstr",
-  "strtok", "fgets", "gets", "strcat",  "strcpy", "strncpy", 
-  "memchr", "memrchr", "rawmemchr", "strtok_r", "strsep", "strpbrk",
-  "strncat", "memmem", "strcasestr", "memccpy", "memcpy", "mempcpy",
-  "memmove", "strfry", "strupr", "gets_s",
-  nullptr
-};
+    "realloc", "memset",     "strchr",    "strrchr", "strstr",
+    "fgets",   "gets",       "strcat",    "strcpy",  "strncpy",
+    "memchr",  "memrchr",    "rawmemchr", "strpbrk", "strncat",
+    "memmem",  "strcasestr", "memccpy",   "memcpy",  "mempcpy",
+    "memmove", "strfry",     "strupr",    "gets_s",  nullptr};
 
 // TODO: Need to add intrinsics like below:
 //       operator new(std::size_t, void *)
@@ -546,171 +534,57 @@ static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
   return true;
 }
 
-// Return true if the type of a function pointer (FPType) matches with
-// the type of the target (TargetType). What we are looking here is for
-// types that aren't exactly the same with the indirect call but they
-// match. For example:
+// Checks 'CallTy' and 'TargetTy' are isomorphic types by treating pointers
+// as opaque pointers.
 //
-//   %struct.A =    { {}*, i32 }
-//   %struct.A.01 = { %struct.A.01 (i32)*, i32 }
+// Ex: "i32 (%struct.A*)*" and "i32 (%struct.B*)*" are considered as
+// isomorphic types with opaque pointers by treating %struct.A* and
+// %struct.B* are same type.
 //
-// Type %struct.A is composed by an empty structure and an i32, while
-// %struct.A.01 is a function pointer and an i32. The clang CFE sometimes
-// use an empty structure to represent a function pointer. This is a case
-// when the structures aren't equal, but they match because we will assume
-// that the empty structure is the same as a function pointer. We use the
-// same assumption during DTrans analysis.
-bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
-    DenseSet<std::pair<Type *, Type *>> &TypesUsed) {
-
-  // Return true if the input type is an empty structure.
-  auto IsEmptyStructure = [](Type *InType) {
-    return InType->isStructTy() && InType->getStructNumElements() == 0;
-  };
-
-  // Types match
-  if (FPType == TargetType)
+bool AndersensAAResult::areTypesIsomorphicWithOpaquePtrs(Type *CallTy,
+                                                         Type *TargetTy) {
+  if (CallTy == TargetTy)
     return true;
 
-  // If the types were checked before then assume that it is OK.
-  if (!TypesUsed.insert(std::make_pair(FPType, TargetType)).second) {
+  if (CallTy->getTypeID() != TargetTy->getTypeID())
+    return false;
+
+  if (TargetTy->getNumContainedTypes() != CallTy->getNumContainedTypes())
+    return false;
+
+  // Sizes are not same if CallTy/TargetTy is IntegerType.
+  if (isa<IntegerType>(CallTy))
+    return false;
+
+  if (PointerType *PT = dyn_cast<PointerType>(CallTy)) {
+    if (PT->getAddressSpace() != cast<PointerType>(TargetTy)->getAddressSpace())
+      return false;
+
+    // Treat pointers as opaque pointers.
     return true;
+  } else if (FunctionType *FT = dyn_cast<FunctionType>(CallTy)) {
+    if (FT->isVarArg() != cast<FunctionType>(TargetTy)->isVarArg())
+      return false;
+  } else if (StructType *DSTy = dyn_cast<StructType>(CallTy)) {
+    StructType *SSTy = cast<StructType>(TargetTy);
+    if (DSTy->isLiteral() != SSTy->isLiteral() ||
+        DSTy->isPacked() != SSTy->isPacked())
+      return false;
+  } else if (auto *DArrTy = dyn_cast<ArrayType>(CallTy)) {
+    if (DArrTy->getNumElements() != cast<ArrayType>(TargetTy)->getNumElements())
+      return false;
+  } else if (auto *DVecTy = dyn_cast<VectorType>(CallTy)) {
+    if (DVecTy->getElementCount() !=
+        cast<VectorType>(TargetTy)->getElementCount())
+      return false;
   }
 
-  // Check for pointer types
-  if (PointerType *FPPtr = dyn_cast<PointerType>(FPType)) {
+  for (unsigned I = 0, E = TargetTy->getNumContainedTypes(); I != E; ++I)
+    if (!areTypesIsomorphicWithOpaquePtrs(CallTy->getContainedType(I),
+                                          TargetTy->getContainedType(I)))
+      return false;
 
-    // Get the type that is being pointed to
-    if (PointerType *TargetPtr = dyn_cast<PointerType>(TargetType))
-      return isSimilarType(FPPtr->getElementType(),
-          TargetPtr->getElementType(), TypesUsed);
-
-    // Pointer type mismatch
-    return false;
-  }
-
-  // Check for function types
-  if (FunctionType *FPFunc = dyn_cast<FunctionType>(FPType)) {
-
-    // Target is a function type
-    if (FunctionType *TargetFunc = dyn_cast<FunctionType>(TargetType)) {
-
-      // Make sure the parameters match. If they don't match with a
-      // quick check then verify entry by entry.
-      if (FPFunc->params() != TargetFunc->params()) {
-        unsigned FPNumParams = FPFunc->getNumParams();
-        unsigned CurrParam = 0;
-
-        if (FPNumParams != TargetFunc->getNumParams())
-          return false;
-
-        // Check that the parameters match
-        for (CurrParam = 0; CurrParam < FPNumParams; CurrParam++) {
-          if (!isSimilarType(FPFunc->getParamType(CurrParam),
-                          TargetFunc->getParamType(CurrParam), TypesUsed))
-            return false;
-        }
-      }
-      // Check the return type
-      return isSimilarType(FPFunc->getReturnType(), TargetFunc->getReturnType(),
-          TypesUsed);
-    }
-
-    // Clang CFE can sometimes emit empty structures to represent function
-    // pointers. We will go conservative and assume that this will be a
-    // possible target.
-    else if (IsEmptyStructure(TargetType)) {
-      return true;
-    }
-
-    // Function type mismatch
-    return false;
-  }
-
-  // Check for structure types
-  if (StructType *FPStruct = dyn_cast<StructType>(FPType)) {
-
-    // The target is also a structure
-    if (StructType *TargetStruct = dyn_cast<StructType>(TargetType)) {
-
-      // Do a quick check if both are identical
-      if (FPStruct->isLayoutIdentical(TargetStruct))
-        return true;
-
-      unsigned FPNumElems = FPStruct->getNumElements();
-      unsigned CurrElem = 0;
-
-      // Number of elements mismatch
-      if (FPNumElems != TargetStruct->getNumElements())
-        return false;
-
-      // Go through each field of the structures and compare them
-      for (CurrElem = 0; CurrElem < FPNumElems; CurrElem++){
-
-        Type *FPElemType = FPStruct->getElementType(CurrElem);
-        Type *TargetElemType = TargetStruct->getElementType(CurrElem);
-
-        if (!isSimilarType(FPElemType, TargetElemType, TypesUsed))
-          return false;
-      }
-      // Structure type matches
-      return true;
-    }
-
-    // Clang CFE can sometimes emit empty structures to represent function
-    // pointers. We will go conservative and assume that this will be a
-    // possible target.
-    else if (IsEmptyStructure(FPType) && TargetType->isFunctionTy()) {
-      return true;
-    }
-
-    // Struct type mismatch
-    return false;
-  }
-
-  // Array and vector types are Sequential types
-  if (isa<FixedVectorType, ArrayType>(FPType)) {
-    // The target is also sequential type
-    if (isa<FixedVectorType, ArrayType>(TargetType)) {
-      // If the function pointer is array type, then the target must
-      // be array type. Also, if the function pointer is vector type
-      // then the target must be vector type.
-      if ((FPType->isArrayTy() && !TargetType->isArrayTy()) ||
-          (FPType->isVectorTy() && !TargetType->isVectorTy()))
-        return false;
-
-      // Handle the bit width from the vector type
-      if (auto *FPVector = dyn_cast<FixedVectorType>(FPType)) {
-        // We can use cast because we proved that the function pointer
-        // and the target are vector types
-        auto *TargetVector = cast<FixedVectorType>(TargetType);
-        if (FPVector->getPrimitiveSizeInBits() !=
-            TargetVector->getPrimitiveSizeInBits())
-          return false;
-
-        // Check that the number of elements and their types match
-        if (FPVector->getNumElements() != TargetVector->getNumElements())
-          return false;
-        return isSimilarType(FPVector->getElementType(),
-                             TargetVector->getElementType(), TypesUsed);
-      }
-
-      ArrayType *FPArray = cast<ArrayType>(FPType);
-      ArrayType *TargetArray = cast<ArrayType>(TargetType);
-
-      // Check that the number of elements and their types match
-      if (FPArray->getNumElements() != TargetArray->getNumElements())
-        return false;
-      return isSimilarType(FPArray->getElementType(),
-                           TargetArray->getElementType(), TypesUsed);
-    }
-
-    // Sequential type mismatch
-    return false;
-  }
-
-  // Type mismatch
-  return false;
+  return true;
 }
 
 // Interface routine to get possible targets of given function pointer 'FP'.
@@ -787,12 +661,12 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // Add it to the Target list only if signatures of call and possible
     // target do match. This behavior is different from icc. For icc, unsafe
     // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
-    // to the Target list. 
-    DenseSet<std::pair<Type *, Type *>> TypesUsed;
+    // to the Target list.
     if (FP->getType() == V->getType()) {
       Targets.push_back(V);
-    }
-    else {
+    } else if (FP->getType()->getContext().supportsTypedPointers()) {
+      Type *CallTy = Call->getFunctionType();
+      Type *TargetTy = cast<Function>(V)->getFunctionType();
       bool TypeComputed = false;
       // If there is a chance that the types are similar, then it means
       // that we don't have a complete set. V can be a possible target
@@ -801,21 +675,20 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
       // A set will be marked as partially complete only if it is complete.
       // If the previous checks found that the set is incomplete, then that
       // result can't be reverted.
-      if (IsComplete == AndersenSetResult::Complete
-          && isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
+      if (IsComplete == AndersenSetResult::Complete &&
+          areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
         IsComplete = AndersenSetResult::PartiallyComplete;
         TypeComputed = true;
       }
 
       if (Trace) {
         if (TypeComputed ||
-            isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
-          dbgs() << "    Types might be similar: Ignoring " <<
-                        cast<Function>(V)->getName() << "\n";
-        }
-        else {
-          dbgs() << "    Args mismatch: Ignoring " <<
-                        cast<Function>(V)->getName() << "\n";
+            areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
+          dbgs() << "    Types might be similar: Ignoring "
+                 << cast<Function>(V)->getName() << "\n";
+        } else {
+          dbgs() << "    Args mismatch: Ignoring "
+                 << cast<Function>(V)->getName() << "\n";
         }
       }
     }
@@ -1514,21 +1387,21 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
   return R;
 }
 
-/// pointsToConstantMemory - If we can determine that this pointer only points
-/// to constant memory, return true.  In practice, this means that if the
+/// getModRefInfoMask - If we can determine that this pointer only points
+/// to constant memory, return NoModRef.  In practice, this means that if the
 /// pointer can only point to constant globals, functions, or the null pointer,
-/// return true.
+/// return NoModRef.
 ///
-bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+ModRefInfo AndersensAAResult::getModRefInfoMask(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
-                                               bool OrLocal) {
+                                               bool IgnoreLocals) {
   if (ValueNodes.size() == 0) {
-    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   }
 
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
-      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+      return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   }
   auto *P = const_cast<Value *>(Loc.Ptr);
   Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(P)))];
@@ -1552,7 +1425,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
             dbgs() << " Points-to can't decide (Invalidated node)\n";
             dbgs() << " ConstMem_End \n";
         }
-        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
     }
 
     if (PrintAndersConstMemQueries) {
@@ -1568,7 +1441,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               dbgs() << " Points-to can't decide \n";
               dbgs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+          return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       }
     } else {
       if (i != NullObject) {
@@ -1576,16 +1449,16 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               dbgs() << " Points-to can't decide \n";
               dbgs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+          return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
       }
     }
   }
 
   if (PrintAndersConstMemQueries) {
-      dbgs() << " Result: true \n";
-      dbgs() << " ConstMem_End \n";
+    dbgs() << " Result: NoModRef\n";
+    dbgs() << " ConstMem_End \n";
   }
-  return true;
+  return ModRefInfo::NoModRef;
 }
 
 // Returns true if the given value V escapes
@@ -1625,7 +1498,13 @@ bool AndersensAAResult::pointsToSetEscapes(Node *N) {
 //
 bool AndersensAAResult::analyzeGlobalEscape(
     const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
-    const Function **SingleAcessingFunction) {
+    const Function **SingleAcessingFunction,
+    DenseMap<const Value *, bool> &Cache) {
+
+  auto IT = Cache.find(V);
+  if (IT != Cache.end())
+    return IT->second;
+
   const ConstantExpr *CE;
   bool escapes = false;
   for (const Use &U : V->uses()) {
@@ -1640,7 +1519,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
                 UniversalSet)
           escapes = true;
 
-      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction, Cache))
         escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
@@ -1658,7 +1537,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
 
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
+                                  Cache)) {
             escapes = true;
           }
         }
@@ -1670,20 +1550,20 @@ bool AndersensAAResult::analyzeGlobalEscape(
           NonPointerAssignments.insert(SI);
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
           escapes = true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second) {
           if (!isPointsToType(PN->getType()))
             NonPointerAssignments.insert(PN);
 
-          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, Cache))
             escapes = true;
         }
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
@@ -1696,6 +1576,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
     }
   }
 
+  Cache.try_emplace(V, escapes);
   return escapes;
 }
 
@@ -2310,7 +2191,7 @@ void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
   if (AI.getType()->isPointerTy()) {
     CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
   }
-  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+  for (unsigned Op = 0, NumOps = AI.arg_size(); Op < NumOps; ++Op) {
     Value* v1 = AI.getArgOperand(Op);
     if (v1->getType()->isPointerTy()) {
       CreateConstraint(Constraint::Store, getNode(v1), UniversalSet);
@@ -5305,7 +5186,7 @@ private:
   AndersGetTLITy GetTLI;
 
   // Pointer for DataLayout for getUnderlyingObject calls
-  const DataLayout *DL;
+  const DataLayout *DL = nullptr;
 
   // Mapping between Functions and the ModRef sets for them.
   typedef MapVector<Function *, FunctionRecord> FunctionRecordMap;
@@ -5644,7 +5525,7 @@ bool IntelModRefImpl::isResolvableCallee(const Function *F) const {
 
   // If the function does not touch memory, then any calls to it do not
   // matter.
-  if (Ander->getModRefBehavior(F).doesNotAccessMemory())
+  if (Ander->getMemoryEffects(F).doesNotAccessMemory())
     return true;
 
   // treat some llvm intrinsics as not-modifying memory.
@@ -6267,8 +6148,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc, TLI);
   DEBUG_WITH_TYPE("imr-query", {
     dbgs() << "irm-query: LibFunc: " << F->getName();
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
-    bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
+    bool FunctionReadOnly = F->onlyReadsMemory();
+    bool FunctionReadNone = F->doesNotAccessMemory();
     dbgs() << ":: ReadNone:" << FunctionReadNone
            << " ReadOnly:" << FunctionReadOnly;
     dbgs() << " - Model: {";
@@ -6304,7 +6185,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
     PrintfReadOnlyArgs = findFormatCheckReadOnlyStart(Call, TheLibFunc);
 
   if (LibFuncModel & LFMR_ARGS) {
-    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    bool FunctionReadOnly = F->onlyReadsMemory();
     unsigned FuncArgCount = F->getFunctionType()->getNumParams();
     unsigned ArgCount = Call->arg_size();
     for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
@@ -6319,7 +6200,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
           getUnderlyingObject(Call->getArgOperand(ArgNo));
 
       MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
-      SimpleAAQueryInfo AAQIP;
+      AAResults AAR(TLI);
+      SimpleAAQueryInfo AAQIP(AAR);
       AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
       if (AR == AliasResult::NoAlias)
         continue;
@@ -7096,14 +6978,13 @@ void AndersensAAResult::ProcessOpaqueNode(unsigned int NodeIdx) {
 // The utilty analyzeGlobalEscape is also used to collect the 
 // non-pointer assignments related to the static variable.
 void AndersensAAResult::InitEscAnalForGlobals(Module &M) {
-
+  DenseMap<const Value *, bool> Cache;
   for (GlobalVariable &GV : M.globals()) {
     if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) { 
       SmallPtrSet<const PHINode *, 16> PhiUsers;
       const Function *SingleAcessingFunction = nullptr;
       const Value *V = &GV;
-      if (!analyzeGlobalEscape(V, PhiUsers, 
-                               &SingleAcessingFunction)) 
+      if (!analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction, Cache))
         NonEscapeStaticVars.insert(V);
     }
   }

@@ -15,59 +15,55 @@
 #ifndef OpenCLStamp_H
 #define OpenCLStamp_H
 
-#include <iostream>
-#include <fstream>
 #include "md5.h"
+#include <fstream>
+#include <iostream>
 
-#include "RefALUVER.h"
 #include "NEATVER.h"
+#include "RefALUVER.h"
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "IRunConfiguration.h"
-#include "OpenCLRunConfiguration.h"
-#include "OpenCLProgramConfiguration.h"
 #include "OpenCLProgram.h"
+#include "OpenCLProgramConfiguration.h"
+#include "OpenCLRunConfiguration.h"
 
 #include "Exception.h"
 
-namespace Validation
-{
+namespace Validation {
 
 class OCLStamp {
 
 public:
-
-   OCLStamp(const IRunComponentConfiguration* pRunConfiguration, 
-             const IProgramConfiguration* pProgramConfiguration, 
-             const IProgram* pProgram);
-
+  OCLStamp(const IRunComponentConfiguration *pRunConfiguration,
+           const IProgramConfiguration *pProgramConfiguration,
+           const IProgram *pProgram);
 
   // returns stamp length
-  static int GetStampLen()
-  {
-      return m_stampLen;
-  }
+  static int GetStampLen() { return m_stampLen; }
 
-
-   void generateStamps();
+  void generateStamps();
 
 private:
-    std::vector<uint8_t>  generateMD5 (const std::vector<uint8_t>& buffer);
-    void readBinaryInputFile (const std::string inputFileName, std::vector<uint8_t>& buffer);
-    std::vector<uint8_t> calcStampKernelRef (const OpenCLKernelConfiguration * const config);
-    std::vector<uint8_t> calcStampKernelNEAT (const OpenCLKernelConfiguration * const config);
+  std::vector<uint8_t> generateMD5(const std::vector<uint8_t> &buffer);
+  void readBinaryInputFile(const std::string inputFileName,
+                           std::vector<uint8_t> &buffer);
+  std::vector<uint8_t>
+  calcStampKernelRef(const OpenCLKernelConfiguration *const config);
+  std::vector<uint8_t>
+  calcStampKernelNEAT(const OpenCLKernelConfiguration *const config);
 
-    static const int m_stampLen = 16;
+  static const int m_stampLen = 16;
 
-    std::vector<uint8_t> m_RefStampCommon;
-    std::vector<uint8_t> m_NeatStampCommon;
+  std::vector<uint8_t> m_RefStampCommon;
+  std::vector<uint8_t> m_NeatStampCommon;
 
-    bool m_useNEAT;
+  bool m_useNEAT;
 
-    const OpenCLProgramConfiguration * m_pProgramConfig;
+  const OpenCLProgramConfiguration *m_pProgramConfig;
 };
 
-}
+} // namespace Validation
 #endif // OpenCLStamp_H

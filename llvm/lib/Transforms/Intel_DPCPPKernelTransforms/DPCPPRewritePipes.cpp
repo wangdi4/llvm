@@ -20,11 +20,10 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/IR/Value.h"
 #include "llvm/PassRegistry.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -35,44 +34,6 @@ using namespace DPCPPChannelPipeUtils;
 using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-rewrite-pipes"
-
-namespace {
-
-/// Legacy DPCPPRewritePipes pass.
-class DPCPPRewritePipesLegacy : public ModulePass {
-  DPCPPRewritePipesPass Impl;
-
-public:
-  static char ID;
-
-  DPCPPRewritePipesLegacy() : ModulePass(ID) {
-    initializeDPCPPRewritePipesLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "DPCPPRewritePipesLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    auto *BLI = &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    return Impl.runImpl(M, BLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-  }
-};
-
-} // namespace
-
-char DPCPPRewritePipesLegacy::ID = 0;
-INITIALIZE_PASS_BEGIN(DPCPPRewritePipesLegacy, DEBUG_TYPE,
-                      "DPCPPRewritePipesLegacy", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(DPCPPRewritePipesLegacy, DEBUG_TYPE,
-                    "DPCPPRewritePipesLegacy", false, false)
-
-ModulePass *llvm::createDPCPPRewritePipesLegacyPass() {
-  return new DPCPPRewritePipesLegacy();
-}
 
 const StringRef CreatePipeFromPipeStorageWriteName =
     "_Z39__spirv_CreatePipeFromPipeStorage_write";
@@ -184,19 +145,29 @@ rewritePipeStorageVars(Module &M,
     // If you see any of the following asserts firing, then the time to replace
     // this hack with a proper solution has finally come.
 #ifndef NDEBUG
-    for (auto *U : StorageVar->users()) {
-      assert(isa<CastInst>(U) ||
-             cast<ConstantExpr>(U)->getOpcode() == Instruction::AddrSpaceCast);
-      for (auto *CastU : U->users()) {
-        CallInst *CI = cast<CallInst>(CastU);
+    std::function<bool(Value *, int)> ReplaceChecker = [&](Value *Value,
+                                                           int Depth) {
+      if (Depth == 0) {
+        return false;
+      }
+      if (auto *CI = dyn_cast<CallInst>(Value)) {
         Function *F = CI->getCalledFunction();
         assert(F && "Indirect call is not expected");
         assert(F->getName().find(CreatePipeFromPipeStorageWriteName) !=
                    StringRef::npos ||
                F->getName().find(CreatePipeFromPipeStorageReadName) !=
                    StringRef::npos);
+        return true;
       }
-    }
+      for (auto *U : Value->users()) {
+        if (!ReplaceChecker(U, Depth - 1)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    assert(ReplaceChecker(StorageVar, 5) &&
+           "The usage of pipe storage is not expected");
 #endif
 
     Constant *Bitcast =

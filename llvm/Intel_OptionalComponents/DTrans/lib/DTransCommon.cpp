@@ -17,6 +17,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
@@ -316,11 +317,16 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   addPass(MPM, deadmdremover, dtransOP::RemoveDeadDTransTypeMetadataPass());
   addPass(MPM, normalize, dtransOP::DTransNormalizeOPPass());
   addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
-  addPass(MPM, meminittrimdown, dtransOP::MemInitTrimDownOPPass());
-  addPass(MPM, soatoaosprepare, dtransOP::SOAToAOSOPPreparePass());
+  if (EnableMemInitTrimDown)
+    addPass(MPM, meminittrimdown, dtransOP::MemInitTrimDownOPPass());
+  if (EnableSOAToAOSPrepare)
+    addPass(MPM, soatoaosprepare, dtransOP::SOAToAOSOPPreparePass());
+  if (EnableSOAToAOS)
+    addPass(MPM, soatoaos, dtransOP::SOAToAOSOPPass());
   if (EnableMemManageTrans)
     addPass(MPM, memmanagetrans, dtransOP::MemManageTransOPPass());
   addPass(MPM, codealign, dtransOP::CodeAlignPass());
+  addPass(MPM, weakalign, dtrans::WeakAlignPass());
   addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
   addPass(MPM, reorderfields, dtransOP::ReorderFieldsOPPass());
   addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());

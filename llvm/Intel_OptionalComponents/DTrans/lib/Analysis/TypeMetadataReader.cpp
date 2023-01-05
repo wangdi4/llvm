@@ -43,11 +43,11 @@ NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   return DTMDTypes;
 }
 
-bool TypeMetadataReader::mapStructsToMDNodes(
+NamedMDNode *TypeMetadataReader::mapStructsToMDNodes(
     Module &M, MapVector<StructType *, MDNode *> &Mapping, bool IncludeOpaque) {
   NamedMDNode *DTransMD = TypeMetadataReader::getDTransTypesMetadata(M);
   if (!DTransMD)
-    return false;
+    return nullptr;
 
   MapVector<StructType *, MDNode *> OpaqueTyMap;
   for (auto *MD : DTransMD->operands()) {
@@ -94,7 +94,7 @@ bool TypeMetadataReader::mapStructsToMDNodes(
       Mapping.insert({KV.first, KV.second});
   }
 
-  return true;
+  return DTransMD;
 }
 
 MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
@@ -628,12 +628,23 @@ DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
   if (Ty->isStructTy())
     return decodeMDStructRefNode(MD);
 
-  auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
-  assert(PtrLevelMD && "Expected metadata constant");
-  unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
+  if (Ty->isPointerTy()) {
+    // Abort compilation on assertion enabled builds.
+    llvm_unreachable("Pointer type is not allowed in DTrans metadata");
+    return nullptr;
+  }
 
+  auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(1));
+  if (!PtrLevelMD || !isa<ConstantInt>(PtrLevelMD->getValue())) {
+    llvm_unreachable("Expected metadata constant");
+    return nullptr;
+  }
+  unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
   auto *SimpleType = DTransAtomicType::get(TM, Ty);
-  assert(SimpleType && "Type was not first class type");
+  if (!SimpleType) {
+    llvm_unreachable("Type was not first class type");
+    return nullptr;
+  }
 
   DTransType *Result = createPointerToLevel(SimpleType, PtrLevel);
   cacheMDDecoding(MD, Result);
@@ -858,11 +869,20 @@ void TypeMetadataReader::buildFunctionTypeTable(Module &M) {
   // Walk all the functions and build up a table of function signatures based on
   // the metadata.
   for (auto &F : M) {
+    DTransFunctionType *DTransFuncTy = nullptr;
     MDNode *MDTypeListNode = F.getMetadata(DTransFuncTypeMDTag);
-    if (!MDTypeListNode)
+    if (MDTypeListNode) {
+      DTransFuncTy = decodeDTransFuncType(F, *MDTypeListNode);
+    } else {
+      llvm::Type *FnType = F.getValueType();
+      if (TM.isSimpleType(FnType)) {
+        DTransType *DType = TM.getOrCreateSimpleType(FnType);
+        assert(DType && "Expected simple type");
+        DTransFuncTy = dyn_cast<DTransFunctionType>(DType);
+      }
+    }
+    if (!DTransFuncTy)
       continue;
-
-    DTransFunctionType *DTransFuncTy = decodeDTransFuncType(F, *MDTypeListNode);
     FunctionToDTransTypeMap[&F] = DTransFuncTy;
   }
 }

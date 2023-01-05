@@ -244,36 +244,29 @@ inline raw_ostream &operator<<(raw_ostream &OS,
 // Auxiliary class to describe VPlan for CFG merge.
 // After selection of vectorization scenario, the list of the desriptors
 // is created and CFGMerger is run on that list, creating merged CFG.
-class CfgMergerPlanDescr {
+class CfgMergerPlanDescr : public VPlanLoopDescr {
 public:
-  enum LoopType {
-    LTRemainder,
-    LTMain,
-    LTPeel,
-  };
+  using LoopType = VPlanLoopDescr::LoopType;
+
   CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
-      : Type(LT), VF(F), Plan(P) {}
+      : VPlanLoopDescr(LT, F, isa<VPlanMasked>(P)), Plan(P) {}
 
   VPlan *getVPlan() const { return Plan; }
-  unsigned getVF() const { return VF; }
-  LoopType getLoopType() const { return Type; }
 
   bool isMaskedRemainder() const {
-    return Type == LTRemainder && isa<VPlanMasked>(Plan);
+    return getLoopType() == LoopType::LTRemainder && isMasked();
   }
 
   bool isNonMaskedVecRemainder() const {
-    return Type == LTRemainder && isa<VPlanNonMasked>(Plan);
+    return getLoopType() == LoopType::LTRemainder && !isMasked();
   }
 
   bool isMaskedOrScalarRemainder() const {
-    return Type == LTRemainder &&
-           (isa<VPlanMasked>(Plan) || isa<VPlanScalar>(Plan));
+    return getLoopType() == LoopType::LTRemainder &&
+           (isMasked() || isa<VPlanScalar>(Plan));
   }
 
 private:
-  LoopType Type; // Loop-type.
-  unsigned VF;   // vector factor
   VPlan *Plan;   // VPlan
 
   // Basic blocks used during merge.
@@ -294,17 +287,18 @@ private:
   void dump(raw_ostream &OS) const {
     auto getLoopTypeName = [](LoopType LT) -> StringRef {
       switch (LT) {
-      case LTRemainder:
+      case LoopType::LTRemainder:
         return "remainder";
-      case LTMain:
+      case LoopType::LTMain:
         return "main";
-      case LTPeel:
+      case LoopType::LTPeel:
         return "peel";
       };
       return "";
     };
     OS << "VPlan: " << Plan->getName() << "\n";
-    OS << "  Kind: " << getLoopTypeName(Type) << " VF:" << VF << "\n";
+    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF()
+       << " TC:" << getTC() << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
@@ -341,8 +335,8 @@ public:
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA,
                            BlockFrequencyInfo *BFI = nullptr)
-      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), VLSA(VLSA),
-        TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
+      : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
+        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -350,7 +344,7 @@ public:
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
-                              std::string VPlanName,
+                              std::string VPlanName, AssumptionCache &AC,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
@@ -371,6 +365,12 @@ public:
   /// Create and return Plan/VF/UF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
   std::unique_ptr<VPlanCostModelInterface> createCostModel(
+    const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
+
+  /// Create and return Plan/VF/UF specific CostModel object based on global
+  /// compilation settings such as presence of -x knob in command line.
+  /// Do not include the SLP-breakage heuristic.
+  std::unique_ptr<VPlanCostModelInterface> createNoSLPCostModel(
     const VPlanVector *Plan, unsigned VF, unsigned UF = 1) const;
 
   /// Record CM's decision and dispose of all other VPlans.
@@ -421,8 +421,9 @@ public:
 
   void disableVecRemainder() { IsVecRemainder = false; }
 
-  bool isVecRemainderDisabled() const;
-
+  bool isVecRemainderDisabled() const {
+    return IsVecRemainder.has_value() ? !IsVecRemainder.value() : false;
+  }
   bool isVecRemainderEnforced() const {
     return IsVecRemainder.value_or(false);
   }
@@ -431,6 +432,9 @@ public:
 
   /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
   void extractVFsFromMetadata(unsigned SafeLen);
+
+  /// Check if VF=1 provided in "llvm.loop.vector.vectorlength" metadata
+  bool hasVFOneInMetadata() const;
 
   /// Returns vector of allowed VFs
   ArrayRef<unsigned> getVectorFactors();
@@ -493,10 +497,15 @@ public:
     return AuxVPlans.back().get();
   }
 
-  // Return the list-range of VPlans created by the merger to the clients.
+  /// Return the list-range of VPlans created by the merger to the clients.
   inline decltype(auto) mergerVPlans() const {
     return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
+
+  VPLoopDescrMap &getLoopDescrs() { return TopLoopDescrs; }
+
+  /// Execute peephole optimizations before predicator.
+  void runPeepholeBeforePredicator();
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -509,7 +518,8 @@ protected:
   virtual std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext,
                     VPUnlinkedInstructions &UnlinkedVPInsts,
-                    std::string VPlanName, ScalarEvolution *SE = nullptr);
+                    std::string VPlanName, AssumptionCache &AC,
+                    ScalarEvolution *SE = nullptr);
 
   /// If FoorcedVF if specified, puts it into vector of VFs. Else if
   /// "llvm.loop.vector.vectorlength" metadata is specified, fills vector of VFs
@@ -546,7 +556,7 @@ protected:
 
   /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
   /// if it was set on the loop or false if forced by disableVecRemainder call.
-  /// Otherwise, it is None.
+  /// Otherwise, it is std::nullopt.
   Optional<bool> IsVecRemainder;
 
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
@@ -555,7 +565,7 @@ protected:
 
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
-  ///  no such metadata, returns None.
+  ///  no such metadata, returns std::nullopt.
   Optional<bool> readVecRemainderEnabled();
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
@@ -591,6 +601,30 @@ protected:
   /// Select simplest vectorization scenario: no peel, non-masked main loop with
   /// specified vector and unroll factors, scalar remainder.
   void selectSimplestVecScenario(unsigned VF, unsigned UF);
+
+  /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
+  /// for details). The scalar loops are skipped due to we don't have VPLoops
+  /// for them and they are created only during CG
+  void fillLoopDescrs();
+
+  /// Go through all VPlans and run \p ProcessPlan on each of them.
+  template <class F> void transformAllVPlans(F &ProcessPlan) {
+    SmallPtrSet<VPlan *, 2> Visited;
+
+    auto TransformPlan = [&Visited, &ProcessPlan](VPlanVector &P) -> void {
+      if (!Visited.insert(&P).second)
+        return;
+      ProcessPlan(P);
+    };
+
+    for (auto &Pair : VPlans) {
+      if (Pair.first == 1) // skip VF==1
+        continue;
+      TransformPlan(*Pair.second.MainPlan);
+      if (Pair.second.MaskedModeLoop)
+        TransformPlan(*Pair.second.MaskedModeLoop);
+    }
+  }
 
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
@@ -634,9 +668,16 @@ protected:
   VPlanVLSAnalysis *VLSA;
 #endif // INTEL_CUSTOMIZATION
 
+  /// The dominator tree.
+  class DominatorTree *DT;
+
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   std::list<CfgMergerPlanDescr> MergerVPlans;
+
+  // Map of the descriptors for top vector loops. Is built after CFG merger
+  // creates VPlan list for merging. No info for inner loops is kept here.
+  VPLoopDescrMap TopLoopDescrs;
 
   struct VPCostSummary {
     VPInstructionCost ScalarIterationCost;
@@ -678,6 +719,9 @@ private:
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
 
+  /// Exchange input and scan phases for exclusive scan.
+  void exchangeExclusiveScanLoopInputScanPhases(VPlanVector *Plan);
+
   /// Emit uniform IV for the vector loop and rewrite backedge condition to use
   /// it.
   //
@@ -703,9 +747,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  /// The dominators tree.
-  class DominatorTree *DT;
 
   /// Block frequency info
   BlockFrequencyInfo *BFI;

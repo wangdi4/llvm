@@ -59,7 +59,7 @@ void VPlanAllZeroBypass::dumpBypassRegionLiveOuts(
     LiveOutUsersMapTy &LiveOutMap) {
     dbgs() << "LiveOuts for region " << FirstBlockInBypassRegion->getName();
     dbgs() << " -> " << LastBlockInBypassRegion->getName() << "\n";
-    for (auto It : LiveOutMap) {
+    for (const auto &It : LiveOutMap) {
       VPValue *LiveOutVal = It.first;
       LiveOutUsersTy LiveOutUsers = It.second;
       dbgs() << "LiveOutVal: " << *LiveOutVal;
@@ -112,7 +112,7 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
   Builder.setInsertPoint(BypassEnd, BypassEnd->begin());
   // Create a new phi at the end of the split for all values live-out of
   // the bypassed block and replace all users with this phi.
-  for (auto It : LiveOutMap) {
+  for (auto& It : LiveOutMap) {
     VPValue *LiveOut = It.first;
     LiveOutUsersTy &LiveOutUsers = It.second;
     VPPHINode *VPPhi = Builder.createPhiInstruction(LiveOut->getType());
@@ -687,7 +687,7 @@ void VPlanAllZeroBypass::insertAllZeroBypasses(
                           VPLI, AllZeroBypassRegionsFinal);
   Plan.computePDT();
   PDT = Plan.getPDT();
-  for (auto BypassRegion : AllZeroBypassRegionsFinal) {
+  for (const auto &BypassRegion : AllZeroBypassRegionsFinal) {
     (void)BypassRegion;
     assert(PDT->dominates(BypassRegion.second, BypassRegion.first) &&
            "Region exit does not post-dominate region entry");

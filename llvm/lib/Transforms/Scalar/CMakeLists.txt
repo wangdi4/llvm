@@ -57,6 +57,9 @@ add_llvm_component_library(LLVMScalarOpts
 #end INTEL_FEATURE_SW_ADVANCED
   Intel_RemoveRegionDirectives.cpp
   Intel_StdContainerOpt.cpp
+# INTEL_FEATURE_SW_ADVANCED
+  Intel_TightLoopEmitter.cpp
+#end INTEL_FEATURE_SW_ADVANCED
   Intel_TbaaMDPropagation.cpp
   Intel_TransformFPGAReg.cpp
   Intel_TransformSinAndCosCalls.cpp

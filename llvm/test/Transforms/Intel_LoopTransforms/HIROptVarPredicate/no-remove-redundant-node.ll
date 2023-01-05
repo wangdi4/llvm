@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-opt-var-predicate -S -print-after=hir-opt-var-predicate -disable-output  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate" -print-after=hir-opt-var-predicate -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
 
 ; Verify that if (trunc.i64.i32(15) <u 15) is not removed as a redundant node because of cast in the left hand side.

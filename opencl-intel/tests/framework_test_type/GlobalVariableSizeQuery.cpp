@@ -8,8 +8,7 @@
 
 extern cl_device_type gDeviceType;
 
-void globalVariableSizeQueryTest()
-{
+void globalVariableSizeQueryTest() {
   const char *source = "\
     __constant int globalInt = 42;\n\
     __kernel void test_kernel(__global int* p)\n\
@@ -47,7 +46,6 @@ void globalVariableSizeQueryTest()
   err = clBuildProgram(program, 1, &device, "-cl-opt-disable", NULL, NULL);
   ASSERT_EQ(CL_SUCCESS, err) << "clBuildProgram failed.";
 
-
   // Get global variable size
   size_t param_size = 0;
   err = clGetProgramBuildInfo(program, device,
@@ -69,4 +67,3 @@ void globalVariableSizeQueryTest()
   clReleaseProgram(program);
   clReleaseContext(context);
 }
-

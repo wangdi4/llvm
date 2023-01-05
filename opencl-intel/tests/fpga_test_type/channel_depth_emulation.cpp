@@ -87,35 +87,33 @@ protected:
         createBuffer<cl_int>(input.size(), CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, output_buffer) << "createBuffer failed";
 
-    cl_mem reader_errors_buffer =
-        createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
+    cl_mem reader_errors_buffer = createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, reader_errors_buffer) << "createBuffer failed";
 
-    cl_mem writer_errors_buffer =
-        createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
+    cl_mem writer_errors_buffer = createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, writer_errors_buffer) << "createBuffer failed";
 
     ASSERT_TRUE(enqueueTask("writer", input_buffer, should_be_ok,
-                                  should_be_fail, reader_errors_buffer))
+                            should_be_fail, reader_errors_buffer))
         << "enqueuTask failed";
     cl_int reader_errors = 0;
-    ASSERT_TRUE(readBuffer<cl_int>(
-        "writer", reader_errors_buffer, 1, &reader_errors))
+    ASSERT_TRUE(
+        readBuffer<cl_int>("writer", reader_errors_buffer, 1, &reader_errors))
         << "readBuffer failed";
     ASSERT_EQ(0, reader_errors) << "reader kernel was executed with errors";
 
     ASSERT_TRUE(enqueueTask("reader", output_buffer, should_be_ok,
-                                  should_be_fail, writer_errors_buffer))
+                            should_be_fail, writer_errors_buffer))
         << "enqueueTask failed";
     cl_int writer_errors = 0;
-    ASSERT_TRUE(readBuffer<cl_int>(
-        "reader", writer_errors_buffer, 1, &writer_errors))
+    ASSERT_TRUE(
+        readBuffer<cl_int>("reader", writer_errors_buffer, 1, &writer_errors))
         << "readBuffer failed";
     ASSERT_EQ(0, writer_errors) << "writer kernel was executed with errors";
 
     std::vector<cl_int> data(should_be_ok);
-    ASSERT_TRUE(readBuffer<cl_int>("reader", output_buffer,
-                                                  should_be_ok, &data.front()))
+    ASSERT_TRUE(readBuffer<cl_int>("reader", output_buffer, should_be_ok,
+                                   &data.front()))
         << "readBuffer failed";
 
     for (cl_int i = 0; i < should_be_ok; ++i) {
@@ -188,39 +186,36 @@ protected:
         createBuffer<cl_int>(input.size(), CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, output_buffer) << "createBuffer failed";
 
-    cl_mem reader_errors_buffer =
-        createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
+    cl_mem reader_errors_buffer = createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, reader_errors_buffer) << "createBuffer failed";
 
-    cl_mem writer_errors_buffer =
-        createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
+    cl_mem writer_errors_buffer = createBuffer<cl_int>(1, CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, writer_errors_buffer) << "createBuffer failed";
 
     cl_mem pipe = createPipe<cl_int>(depth);
     ASSERT_NE(nullptr, pipe) << "createPipe failed";
 
     ASSERT_TRUE(enqueueTask("writer", input_buffer, pipe, should_be_ok,
-                                  should_be_fail, reader_errors_buffer))
+                            should_be_fail, reader_errors_buffer))
         << "enqueuTask failed";
     cl_int reader_errors = 0;
-    ASSERT_TRUE(readBuffer<cl_int>(
-        "writer", reader_errors_buffer, 1, &reader_errors))
+    ASSERT_TRUE(
+        readBuffer<cl_int>("writer", reader_errors_buffer, 1, &reader_errors))
         << "readBuffer failed";
     ASSERT_EQ(0, reader_errors) << "reader kernel was executed with errors";
 
-    ASSERT_TRUE(enqueueTask("reader", output_buffer, pipe,
-                                           should_be_ok, should_be_fail,
-                                           writer_errors_buffer))
+    ASSERT_TRUE(enqueueTask("reader", output_buffer, pipe, should_be_ok,
+                            should_be_fail, writer_errors_buffer))
         << "enqueueTask failed";
     cl_int writer_errors = 0;
-    ASSERT_TRUE(readBuffer<cl_int>(
-        "reader", writer_errors_buffer, 1, &writer_errors))
+    ASSERT_TRUE(
+        readBuffer<cl_int>("reader", writer_errors_buffer, 1, &writer_errors))
         << "readBuffer failed";
     ASSERT_EQ(0, writer_errors) << "writer kernel was executed with errors";
 
     std::vector<cl_int> data(should_be_ok);
-    ASSERT_TRUE(readBuffer<cl_int>("reader", output_buffer,
-                                                  should_be_ok, &data.front()))
+    ASSERT_TRUE(readBuffer<cl_int>("reader", output_buffer, should_be_ok,
+                                   &data.front()))
         << "readBuffer failed";
 
     for (cl_int i = 0; i < should_be_ok; ++i) {
@@ -271,14 +266,12 @@ protected:
         createBuffer<cl_int>(input.size(), CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, output_buffer) << "createBuffer failed";
 
-    ASSERT_TRUE(enqueueTask("writer", input_buffer))
-        << "enqueueTask failed";
-    ASSERT_TRUE(enqueueTask("reader", output_buffer))
-        << "enqueueTask failed";
+    ASSERT_TRUE(enqueueTask("writer", input_buffer)) << "enqueueTask failed";
+    ASSERT_TRUE(enqueueTask("reader", output_buffer)) << "enqueueTask failed";
 
     std::vector<cl_int> data(input.size(), 0);
-    ASSERT_TRUE(readBuffer<cl_int>("reader", output_buffer,
-                                                  data.size(), &data.front()))
+    ASSERT_TRUE(
+        readBuffer<cl_int>("reader", output_buffer, data.size(), &data.front()))
         << "readBuffer failed";
 
     for (cl_int i = 0; i < (cl_int)data.size(); ++i) {
@@ -501,14 +494,13 @@ TEST_F(TestChannelDepthEmulationWithDefaultEnv, CheckDiagnosticMessage) {
   EXPECT_EQ(CL_SUCCESS, build_error)
       << " clBuildProgram failed with error " << ErrToStr(error);
   size_t log_size = 0;
-  error = clGetProgramBuildInfo(program, getDevice(),
-                                CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+  error = clGetProgramBuildInfo(program, getDevice(), CL_PROGRAM_BUILD_LOG, 0,
+                                nullptr, &log_size);
   ASSERT_EQ(CL_SUCCESS, error)
       << " clGetProgramBuildInfo failed with error " << ErrToStr(error);
   std::string log("", log_size);
-  error =
-      clGetProgramBuildInfo(program, getDevice(), CL_PROGRAM_BUILD_LOG,
-                            log_size, &log[0], nullptr);
+  error = clGetProgramBuildInfo(program, getDevice(), CL_PROGRAM_BUILD_LOG,
+                                log_size, &log[0], nullptr);
   ASSERT_EQ(CL_SUCCESS, error)
       << " clGetProgramBuildInfo failed with error " << ErrToStr(error);
   if (CL_SUCCESS != build_error) {

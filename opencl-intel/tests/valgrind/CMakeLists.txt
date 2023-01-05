@@ -1,40 +1,34 @@
-set(TARGET valgrind )
+set(TARGET valgrind)
 
 set(VALTEST_DIR_NAME "tests/valgrind")
 set(VALTEST_JENKINS_DIR ".offline_jenkins")
 
-install(FILES "README.TXT"
-        DESTINATION ${VALTEST_DIR_NAME}
-        COMPONENT ocl-${TARGET}
-)
+install(
+  FILES "README.TXT"
+  DESTINATION ${VALTEST_DIR_NAME}
+  COMPONENT ocl-${TARGET})
 
-install(DIRECTORY .
-    DESTINATION ${VALTEST_DIR_NAME}/${VALTEST_JENKINS_DIR}
-    COMPONENT ocl-${TARGET}
-    FILES_MATCHING
-    PATTERN "*.py"
-    PATTERN "*.expected"
-    PATTERN "*.supp"
-    PATTERN "valRun*.py" EXCLUDE
-)
+install(
+  DIRECTORY .
+  DESTINATION ${VALTEST_DIR_NAME}/${VALTEST_JENKINS_DIR}
+  COMPONENT ocl-${TARGET}
+  FILES_MATCHING
+  PATTERN "*.py"
+  PATTERN "*.expected"
+  PATTERN "*.supp"
+  PATTERN "valRun*.py" EXCLUDE)
 
 set(VALTEST_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/${VALTEST_DIR_NAME}")
 
 file(MAKE_DIRECTORY ${VALTEST_BINARY_DIR})
 file(MAKE_DIRECTORY ${VALTEST_BINARY_DIR}/${VALTEST_JENKINS_DIR})
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/valRun.py
-    ${VALTEST_BINARY_DIR}
-    @ONLY
-)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/valRun.py ${VALTEST_BINARY_DIR}
+               @ONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/valRunJenkins.py
-    ${VALTEST_BINARY_DIR}
-    @ONLY
-)
+               ${VALTEST_BINARY_DIR} @ONLY)
 
-install(FILES
-    ${VALTEST_BINARY_DIR}/valRun.py
-    ${VALTEST_BINARY_DIR}/valRunJenkins.py
-    DESTINATION ${VALTEST_DIR_NAME}
-    COMPONENT ocl-${TARGET}
-)
+install(
+  FILES ${VALTEST_BINARY_DIR}/valRun.py ${VALTEST_BINARY_DIR}/valRunJenkins.py
+  DESTINATION ${VALTEST_DIR_NAME}
+  COMPONENT ocl-${TARGET})

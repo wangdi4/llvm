@@ -12,7 +12,6 @@
 #define INTEL_DPCPP_KERNEL_TRANSFORMS_SUBGROUP_EMULATION_BUILTIN_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"

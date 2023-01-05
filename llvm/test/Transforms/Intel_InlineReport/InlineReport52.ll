@@ -1,11 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
-
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
 
 ; Check that foo1 meets all of the criteria for preferring multiversioning to inlining, while foo2 does not.
 
@@ -26,6 +22,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-OLD: define{{.*}}@main
 ; CHECK-OLD: call{{.*}}@foo1
 ; CHECK-OLD-NOT: call{{.*}}@foo2
+
+target triple = "x86_64-unknown-linux-gnu"
 
 @a = dso_local global [100 x i32] zeroinitializer, align 16
 @b = dso_local global [100 x i32] zeroinitializer, align 16

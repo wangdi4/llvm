@@ -1,6 +1,7 @@
 ; This test is to verify the IR modifications done by the Transpose transformation.
 
-; RUN: opt < %s -S -dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 
 %uplevel_type = type { { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* }

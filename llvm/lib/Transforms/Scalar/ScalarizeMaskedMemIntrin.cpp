@@ -34,7 +34,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/VectorUtils.h" // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -45,16 +44,21 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/PatternMatch.h" //INTEL
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Local.h" // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
+#include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/Utils/Local.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -1196,7 +1200,7 @@ static void scalarizeMaskedExpandLoad(const DataLayout &DL, CallInst *CI,
   // shuffle blend with the pass through value.
   if (isConstantIntVector(Mask)) {
     unsigned MemIndex = 0;
-    VResult = UndefValue::get(VecType);
+    VResult = PoisonValue::get(VecType);
     SmallVector<int, 16> ShuffleMask(VectorWidth, UndefMaskElem);
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       Value *InsertElt;
@@ -1401,7 +1405,7 @@ static void scalarizeMaskedCompressStore(const DataLayout &DL, CallInst *CI,
 
 static bool runImpl(Function &F, const TargetTransformInfo &TTI,
                     DominatorTree *DT) {
-  Optional<DomTreeUpdater> DTU;
+  std::optional<DomTreeUpdater> DTU;
   if (DT)
     DTU.emplace(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
@@ -1413,7 +1417,7 @@ static bool runImpl(Function &F, const TargetTransformInfo &TTI,
     for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
       bool ModifiedDTOnIteration = false;
       MadeChange |= optimizeBlock(BB, ModifiedDTOnIteration, TTI, DL,
-                                  DTU ? DTU.getPointer() : nullptr);
+                                  DTU ? &*DTU : nullptr);
 
       // Restart BB iteration if the dominator tree of the Function was changed
       if (ModifiedDTOnIteration)

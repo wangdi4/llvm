@@ -88,6 +88,14 @@ static cl::opt<bool> SPIRVTargetHasEUFusion(
     "vpo-paropt-spirv-target-has-eu-fusion", cl::Hidden, cl::init(true),
     cl::desc("Generate code for SPIR-V target with EU fusion."));
 
+// Disable shrink-wrapping of allocas into the region.
+static cl::opt<bool> UseEmptyCodeExtractorAnalysisCache(
+    "vpo-paropt-use-empty-code-extractor-analysis-cache", cl::Hidden,
+    cl::init(true),
+    cl::desc("Use empty CodeExtractorAnalysisCache for creating outlined "
+             "regions with CodeExtractor, to skip shrink-wrapping of allocas "
+             "into the region, thus reducing compile time."));
+
 // Undocumented option to control execution scheme for SPIR targets.
 // This option has to have the same value for the host and the target
 // compilations to work properly.
@@ -4651,12 +4659,13 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
 // Create a variant version of BaseCall using  the same arguments.
 // The base and variant functions must have identical signatures.
-CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
-                                         StringRef VariantName,
-                                         Value *InteropObj,
-                                         llvm::Optional<uint64_t> InteropPosition,
-                                         Instruction *InsertPt, WRegionNode *W,
-                                         bool IsTail) {
+// Output 'InteropPositionIfEmitted' is updated with the position (1-based)
+// of the interop obj if one was added into the variant call, or zero if not.
+CallInst *VPOParoptUtils::genVariantCall(
+    CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
+    llvm::Optional<uint64_t> InteropPosition,
+    uint64_t &InteropPositionIfEmitted, Instruction *InsertPt, WRegionNode *W,
+    bool IsTail) {
   assert(BaseCall && "BaseCall is null");
 
   Module *M = BaseCall->getModule();
@@ -4682,6 +4691,8 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
 
   // At this point, the FnArgs and FnArgTypes of the variant call is the same
   // as the base call. If !InteropObj then the lists are ready for genCall.
+  
+  InteropPositionIfEmitted = 0; // 0 means no interop obj was added to the call
 
   if (InteropObj != nullptr) {
     // Case 1: non-variadic functions
@@ -4732,10 +4743,12 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
         // Case 1a. No InteropPosition. Add interop as last arg.
         FnArgs.push_back(InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
+        InteropPositionIfEmitted = FnArgs.size();
       } else {
         // Case 1b. With InteropPosition.
         // The position is 1-based (ie, first arg is position 1, not 0).
         uint64_t Position = InteropPosition.value();
+        InteropPositionIfEmitted = Position;
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
@@ -4747,12 +4760,14 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       if (isa<WRNDispatchNode>(W) || !PutInteropAfterVararg) {
         // Case 2a: Add interop right after the fixed args but before varargs
         uint64_t Position = FnArgTypes.size() + 1; // number of fixed args + 1
+        InteropPositionIfEmitted = Position;
         auto ArgsIter = FnArgs.begin() + Position - 1;
         FnArgs.insert(ArgsIter, InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
       } else {
         // Case 2b: Add interop as last argument
         FnArgs.push_back(InteropObj);
+        InteropPositionIfEmitted = FnArgs.size();
         // FnArgTypes is the same as the base decl's. No change needed.
       }
     }
@@ -6786,9 +6801,11 @@ Function *VPOParoptUtils::genOutlineFunction(
     W.getEntryDirective()->replaceAllUsesWith(llvm::UndefValue::get(
         Type::getTokenTy(W.getEntryDirective()->getModule()->getContext())));
 
-  CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
-  auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
-  assert(NewFunction && "Code extraction failed for the region.");
+  auto *NewFunction = CE.extractCodeRegion(
+      UseEmptyCodeExtractorAnalysisCache
+          ? CodeExtractorAnalysisCache()
+          : CodeExtractorAnalysisCache(*W.getEntryBBlock()->getParent()),
+      /* hoistAlloca */ true);
 
   auto *CallSite = getSingleCallSite(NewFunction);
 
@@ -6888,7 +6905,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     spirv::Scope Scope) {
 
   // Reduction operation is defined by the operation kind (e.g. add)
-  // and its signedness (true/false for integer types and llvm::None
+  // and its signedness (true/false for integer types and std::nullopt
   // for floating point types).
   typedef Optional<bool> IsSignedTy;
   typedef std::pair<ReductionItem::WRNReductionKind, IsSignedTy>
@@ -6903,53 +6920,53 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
       SPIRVHorizontalReductionMap = {
         //    OperationKind                   IsSigned      Type
         //Builtin name
-        { { { ReductionItem::WRNReductionAdd, true       }, I16 },
+        { { { ReductionItem::WRNReductionAdd, true         }, I16 },
           "_Z20sub_group_reduce_addi" },
-        { { { ReductionItem::WRNReductionAdd, true       }, I32 },
+        { { { ReductionItem::WRNReductionAdd, true         }, I32 },
           "_Z20sub_group_reduce_addi" },
-        { { { ReductionItem::WRNReductionAdd, true       }, I64 },
+        { { { ReductionItem::WRNReductionAdd, true         }, I64 },
           "_Z20sub_group_reduce_addl" },
-        { { { ReductionItem::WRNReductionAdd, llvm::None }, F16 },
+        { { { ReductionItem::WRNReductionAdd, std::nullopt }, F16 },
           "_Z20sub_group_reduce_addDh" },
-        { { { ReductionItem::WRNReductionAdd, llvm::None }, F32 },
+        { { { ReductionItem::WRNReductionAdd, std::nullopt }, F32 },
           "_Z20sub_group_reduce_addf" },
-        { { { ReductionItem::WRNReductionAdd, llvm::None }, F64 },
+        { { { ReductionItem::WRNReductionAdd, std::nullopt }, F64 },
           "_Z20sub_group_reduce_addd" },
-        { { { ReductionItem::WRNReductionMin, true       }, I16 },
+        { { { ReductionItem::WRNReductionMin, true         }, I16 },
           "_Z20sub_group_reduce_mini" },
-        { { { ReductionItem::WRNReductionMin, false      }, I16 },
+        { { { ReductionItem::WRNReductionMin, false        }, I16 },
           "_Z20sub_group_reduce_minj" },
-        { { { ReductionItem::WRNReductionMin, true       }, I32 },
+        { { { ReductionItem::WRNReductionMin, true         }, I32 },
           "_Z20sub_group_reduce_mini" },
-        { { { ReductionItem::WRNReductionMin, false      }, I32 },
+        { { { ReductionItem::WRNReductionMin, false        }, I32 },
           "_Z20sub_group_reduce_minj" },
-        { { { ReductionItem::WRNReductionMin, true       }, I64 },
+        { { { ReductionItem::WRNReductionMin, true         }, I64 },
           "_Z20sub_group_reduce_minl" },
-        { { { ReductionItem::WRNReductionMin, false      }, I64 },
+        { { { ReductionItem::WRNReductionMin, false        }, I64 },
           "_Z20sub_group_reduce_minm" },
-        { { { ReductionItem::WRNReductionMin, llvm::None }, F16 },
+        { { { ReductionItem::WRNReductionMin, std::nullopt }, F16 },
           "_Z20sub_group_reduce_minDh" },
-        { { { ReductionItem::WRNReductionMin, llvm::None }, F32 },
+        { { { ReductionItem::WRNReductionMin, std::nullopt }, F32 },
           "_Z20sub_group_reduce_minf" },
-        { { { ReductionItem::WRNReductionMin, llvm::None }, F64 },
+        { { { ReductionItem::WRNReductionMin, std::nullopt }, F64 },
           "_Z20sub_group_reduce_mind" },
-        { { { ReductionItem::WRNReductionMax, true       }, I16 },
+        { { { ReductionItem::WRNReductionMax, true         }, I16 },
           "_Z20sub_group_reduce_maxi" },
-        { { { ReductionItem::WRNReductionMax, false      }, I16 },
+        { { { ReductionItem::WRNReductionMax, false        }, I16 },
           "_Z20sub_group_reduce_maxj" },
-        { { { ReductionItem::WRNReductionMax, true       }, I32 },
+        { { { ReductionItem::WRNReductionMax, true         }, I32 },
           "_Z20sub_group_reduce_maxi" },
-        { { { ReductionItem::WRNReductionMax, false      }, I32 },
+        { { { ReductionItem::WRNReductionMax, false        }, I32 },
           "_Z20sub_group_reduce_maxj" },
-        { { { ReductionItem::WRNReductionMax, true       }, I64 },
+        { { { ReductionItem::WRNReductionMax, true         }, I64 },
           "_Z20sub_group_reduce_maxl" },
-        { { { ReductionItem::WRNReductionMax, false      }, I64 },
+        { { { ReductionItem::WRNReductionMax, false        }, I64 },
           "_Z20sub_group_reduce_maxm" },
-        { { { ReductionItem::WRNReductionMax, llvm::None }, F16 },
+        { { { ReductionItem::WRNReductionMax, std::nullopt }, F16 },
           "_Z20sub_group_reduce_maxDh" },
-        { { { ReductionItem::WRNReductionMax, llvm::None }, F32 },
+        { { { ReductionItem::WRNReductionMax, std::nullopt }, F32 },
           "_Z20sub_group_reduce_maxf" },
-        { { { ReductionItem::WRNReductionMax, llvm::None }, F64 },
+        { { { ReductionItem::WRNReductionMax, std::nullopt }, F64 },
           "_Z20sub_group_reduce_maxd" },
       };
 
@@ -6959,7 +6976,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     return nullptr;
 
   ReductionItem::WRNReductionKind Kind = RedI->getType();
-  Optional<bool> IsSigned = llvm::None;
+  Optional<bool> IsSigned = std::nullopt;
   if (ScalarTy->isIntegerTy())
     IsSigned = !RedI->getIsUnsigned();
 
@@ -7247,9 +7264,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
                                     &AddrSpace]() -> bool {
     if (const ReductionItem *RedI = dyn_cast<ReductionItem>(I))
       if (RedI->getIsArraySection()) {
-        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-        ElementType = ArrSecInfo.getElementType();
-        NumElements = ArrSecInfo.getSize();
+        ElementType = RedI->getArraySectionElementType();
+        NumElements = RedI->getArraySectionNumElements();
         auto *ItemTy = RedI->getOrig()->getType();
         assert(isa<PointerType>(ItemTy) &&
                "Array section item has to have pointer type.");
@@ -7291,7 +7307,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
       return false;
 
-    // A PTR_TO_PTR clause operand's pointee type is a named struct with one
+    // A CPTR clause operand's pointee type is a named struct with one
     // integer that's the same size as the size of a pointer.
     //   %cptr = type {i64} ; for x86_64 architecture
     //   "USE_DEVICE_PTR:CPTR"(%cptr* %p)
@@ -7305,11 +7321,11 @@ VPOParoptUtils::getItemInfo(const Item *I) {
   };
 #endif // INTEL_CUSTOMIZATION
 
-  if (!getItemInfoIfTyped() && !getItemInfoIfOpaquePtrToPtr() &&
+  if (!getItemInfoIfArraySection() && !getItemInfoIfTyped() &&
 #if INTEL_CUSTOMIZATION
       !getItemInfoIfOpaqueCPtr() &&
 #endif // INTEL_CUSTOMIZATION
-      !getItemInfoIfArraySection()) {
+      !getItemInfoIfOpaquePtrToPtr()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -7384,22 +7400,42 @@ SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
       return cast<Function>(V->getValue());
     };
 
+    auto &&getRegionNumIdxFlags =
+        [&, Node]() -> std::tuple<uint64_t, uint64_t, uint64_t> {
+      // To handle cases where multiple target regions are present in the same
+      // line in user code, the frontend may
+      // send the region kind metadata with either 6 or 7 entries:
+      //    6 entries: RegionNum is implicitly 0, Entry 5 is the Idx,
+      //               Entry 6 is for Flags.
+      //    7 entries: Entry 5 is for RegionNum, Entry 6 is the Idx,
+      //               Entry 7 is for Flags.
+      //
+      // RegionNum is non-zero when the region is not the first target region in
+      // that line in user code. See target_region_num_suffix.ll for reference.
+      if (Node->getNumOperands() < 8)
+        return {0, getMDInt(5), getMDInt(6)};
+      return {getMDInt(5), getMDInt(6), getMDInt(7)};
+    };
+
     switch (getMDInt(0)) {
       case OffloadEntry::EntryKind::RegionKind: {
+        assert((Node->getNumOperands() == 7 || Node->getNumOperands() == 8) &&
+               "Unexpected number of operands in RegionKind offload metadata.");
         auto Device = getMDInt(1u);
         auto File = getMDInt(2u);
         auto Parent = getMDString(3u);
         auto Line = getMDInt(4u);
-        auto Idx = getMDInt(5u);
-        auto Flags = getMDInt(6u);
+        const auto &[RegionNum, Idx, Flags] = getRegionNumIdxFlags();
 
         switch (Flags) {
           case RegionEntry::Region: {
             // Compose name.
             SmallString<128u> Name;
-            llvm::raw_svector_ostream(Name) << "__omp_offloading"
-              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
-              << Parent << "_l" << Line;
+            llvm::raw_svector_ostream(Name)
+                << "__omp_offloading" << llvm::format("_%x", Device)
+                << llvm::format("_%x_", File) << Parent << "_l" << Line
+                << (RegionNum > 0 ? "." + Twine(RegionNum) : "");
+
             addEntry(new RegionEntry(Name, Flags), Idx);
             Name.clear();
             break;
@@ -7477,8 +7513,6 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
 #endif // INTEL_CUSTOMIZATION
 
   if (RedI->getIsArraySection()) {
-    const auto &ArrSecInfo = RedI->getArraySectionInfo();
-
     // computeArraySectionTypeOffsetSize() may insert computations
     // before the target region, if an array section dimension's
     // lower bound or/and size is not constant. Since the dimension
@@ -7487,7 +7521,13 @@ bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
     // We need more sophisticated code here to be able to do that
     // correctly. For now just support array sections with constant
     // section specifiers.
-    if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
+    // TODO: Check if we can keep atomic-free reduction for typed array sections
+    // with variable length/offset.
+#if INTEL_CUSTOMIZATION
+    // Currently, CFE never sends constant offset/offset with typed clauses.
+    // The size/offset computation always happens in the IR. CMPLRLLVM-39762.
+#endif // INTEL_CUSTOMIZATION
+    if (RedI->getIsArraySectionWithVariableLengthOrOffset())
       return false;
   }
 

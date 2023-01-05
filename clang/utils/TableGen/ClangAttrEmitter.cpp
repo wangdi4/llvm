@@ -1310,6 +1310,13 @@ namespace {
       OS << "      }\n";
     }
 
+    void writeValue(raw_ostream &OS) const override {
+      OS << "\";\n";
+      OS << "    get" << getUpperName()
+         << "()->printPretty(OS, nullptr, Policy);\n";
+      OS << "    OS << \"";
+    }
+
     void writeDump(raw_ostream &OS) const override {}
 
     void writeDumpChildren(raw_ostream &OS) const override {
@@ -1617,7 +1624,7 @@ static void writeGetSpellingFunction(const Record &R, raw_ostream &OS) {
   // FIXME: this is a complete hack that needs to be removed. It only "works"
   // because 5 happens to be the spelling list index of the ivdep pragma listed
   // in the LoopHint definition in Attr.td.
-  if (R.getName() == "SYCLIntelFPGAIVDep")
+  if (R.getName() == "SYCLIntelIVDep")
     OS << "  case 5:\n"// << Spellings.size() << ":\n"
        << "    return \"ivdep\";\n";
 #endif
@@ -2263,7 +2270,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
   // Generate routines that check the names of sub-rules.
   OS << "Optional<attr::SubjectMatchRule> "
         "defaultIsAttributeSubjectMatchSubRuleFor(StringRef, bool) {\n";
-  OS << "  return None;\n";
+  OS << "  return std::nullopt;\n";
   OS << "}\n\n";
 
   llvm::MapVector<const Record *, std::vector<AttributeSubjectMatchRule>>
@@ -2286,7 +2293,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
         OS << "    Case(\"" << Rule.getName() << "\", " << Rule.getEnumValue()
            << ").\n";
     }
-    OS << "    Default(None);\n";
+    OS << "    Default(std::nullopt);\n";
     OS << "  return "
           "llvm::StringSwitch<Optional<attr::SubjectMatchRule>>(Name).\n";
     for (const auto &Rule : SubMatchRule.second) {
@@ -2294,7 +2301,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
         OS << "  Case(\"" << Rule.getName() << "\", " << Rule.getEnumValue()
            << ").\n";
     }
-    OS << "  Default(None);\n";
+    OS << "  Default(std::nullopt);\n";
     OS << "}\n\n";
   }
 
@@ -2318,7 +2325,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
     OS << "  Case(\"" << Rule.getName() << "\", std::make_pair("
        << Rule.getEnumValue() << ", " << SubRuleFunction << ")).\n";
   }
-  OS << "  Default(std::make_pair(None, "
+  OS << "  Default(std::make_pair(std::nullopt, "
         "defaultIsAttributeSubjectMatchSubRuleFor));\n";
   OS << "}\n\n";
 

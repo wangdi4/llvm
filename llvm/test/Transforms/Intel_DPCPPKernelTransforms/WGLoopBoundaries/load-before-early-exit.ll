@@ -1,7 +1,5 @@
 ; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -debug -disable-output 2>&1 | FileCheck %s
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound %s -debug -disable-output 2>&1 | FileCheck %s
 
 ; The test cheks that load instruction doesn't block wg boundaries adjustment
 ;

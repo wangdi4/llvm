@@ -135,9 +135,9 @@ public:
   void mangleDynamicAtExitDestructor(const VarDecl *D,
                                      raw_ostream &Out) override;
   void mangleDynamicStermFinalizer(const VarDecl *D, raw_ostream &Out) override;
-  void mangleSEHFilterExpression(const NamedDecl *EnclosingDecl,
+  void mangleSEHFilterExpression(GlobalDecl EnclosingDecl,
                                  raw_ostream &Out) override;
-  void mangleSEHFinallyBlock(const NamedDecl *EnclosingDecl,
+  void mangleSEHFinallyBlock(GlobalDecl EnclosingDecl,
                              raw_ostream &Out) override;
   void mangleItaniumThreadLocalInit(const VarDecl *D, raw_ostream &) override;
   void mangleItaniumThreadLocalWrapper(const VarDecl *D,
@@ -505,8 +505,7 @@ private:
                              const AbiTagList *AdditionalAbiTags);
   void mangleModuleName(const NamedDecl *ND);
   void mangleTemplateName(const TemplateDecl *TD,
-                          const TemplateArgument *TemplateArgs,
-                          unsigned NumTemplateArgs);
+                          ArrayRef<TemplateArgument> Args);
   void mangleUnqualifiedName(GlobalDecl GD, const DeclContext *DC,
                              const AbiTagList *AdditionalAbiTags) {
     mangleUnqualifiedName(GD, cast<NamedDecl>(GD.getDecl())->getDeclName(), DC,
@@ -534,8 +533,7 @@ private:
                         const AbiTagList *AdditionalAbiTags,
                         bool NoFunction=false);
   void mangleNestedName(const TemplateDecl *TD,
-                        const TemplateArgument *TemplateArgs,
-                        unsigned NumTemplateArgs);
+                        ArrayRef<TemplateArgument> Args);
   void mangleNestedNameWithClosurePrefix(GlobalDecl GD,
                                          const NamedDecl *PrefixND,
                                          const AbiTagList *AdditionalAbiTags);
@@ -600,8 +598,7 @@ private:
   void mangleTemplateArgs(TemplateName TN,
                           const TemplateArgumentLoc *TemplateArgs,
                           unsigned NumTemplateArgs);
-  void mangleTemplateArgs(TemplateName TN, const TemplateArgument *TemplateArgs,
-                          unsigned NumTemplateArgs);
+  void mangleTemplateArgs(TemplateName TN, ArrayRef<TemplateArgument> Args);
   void mangleTemplateArgs(TemplateName TN, const TemplateArgumentList &AL);
   void mangleTemplateArg(TemplateArgument A, bool NeedExactType);
   void mangleTemplateArgExpr(const Expr *E);
@@ -627,9 +624,9 @@ NamespaceDecl *ItaniumMangleContextImpl::getStdNamespace() {
   if (!StdNamespace) {
     StdNamespace = NamespaceDecl::Create(
         getASTContext(), getASTContext().getTranslationUnitDecl(),
-        /*Inline*/ false, SourceLocation(), SourceLocation(),
+        /*Inline=*/false, SourceLocation(), SourceLocation(),
         &getASTContext().Idents.get("std"),
-        /*PrevDecl*/ nullptr);
+        /*PrevDecl=*/nullptr, /*Nested=*/false);
     StdNamespace->setImplicit();
   }
   return StdNamespace;
@@ -1109,15 +1106,14 @@ void CXXNameMangler::mangleModuleNamePrefix(StringRef Name, bool IsPartition) {
 }
 
 void CXXNameMangler::mangleTemplateName(const TemplateDecl *TD,
-                                        const TemplateArgument *TemplateArgs,
-                                        unsigned NumTemplateArgs) {
+                                        ArrayRef<TemplateArgument> Args) {
   const DeclContext *DC = Context.getEffectiveDeclContext(TD);
 
   if (DC->isTranslationUnit() || isStdNamespace(DC)) {
     mangleUnscopedTemplateName(TD, DC, nullptr);
-    mangleTemplateArgs(asTemplateName(TD), TemplateArgs, NumTemplateArgs);
+    mangleTemplateArgs(asTemplateName(TD), Args);
   } else {
-    mangleNestedName(TD, TemplateArgs, NumTemplateArgs);
+    mangleNestedName(TD, Args);
   }
 }
 
@@ -1266,8 +1262,7 @@ void CXXNameMangler::manglePrefix(QualType type) {
       // FIXME: GCC does not appear to mangle the template arguments when
       // the template in question is a dependent template name. Should we
       // emulate that badness?
-      mangleTemplateArgs(TST->getTemplateName(), TST->getArgs(),
-                         TST->getNumArgs());
+      mangleTemplateArgs(TST->getTemplateName(), TST->template_arguments());
       addSubstitution(QualType(TST, 0));
     }
   } else if (const auto *DTST =
@@ -1280,7 +1275,7 @@ void CXXNameMangler::manglePrefix(QualType type) {
       // FIXME: GCC does not appear to mangle the template arguments when
       // the template in question is a dependent template name. Should we
       // emulate that badness?
-      mangleTemplateArgs(Template, DTST->getArgs(), DTST->getNumArgs());
+      mangleTemplateArgs(Template, DTST->template_arguments());
       addSubstitution(QualType(DTST, 0));
     }
   } else {
@@ -1610,7 +1605,9 @@ void CXXNameMangler::mangleUnqualifiedName(
 
     // Get a unique id for the anonymous struct. If it is not a real output
     // ID doesn't matter so use fake one.
-    unsigned AnonStructId = NullOut ? 0 : Context.getAnonymousStructId(TD);
+    unsigned AnonStructId =
+        NullOut ? 0
+                : Context.getAnonymousStructId(TD, dyn_cast<FunctionDecl>(DC));
 
     // Mangle it as a source name in the form
     // [n] $_<id>
@@ -1752,14 +1749,13 @@ void CXXNameMangler::mangleNestedName(GlobalDecl GD,
   Out << 'E';
 }
 void CXXNameMangler::mangleNestedName(const TemplateDecl *TD,
-                                      const TemplateArgument *TemplateArgs,
-                                      unsigned NumTemplateArgs) {
+                                      ArrayRef<TemplateArgument> Args) {
   // <nested-name> ::= N [<CV-qualifiers>] <template-prefix> <template-args> E
 
   Out << 'N';
 
   mangleTemplatePrefix(TD);
-  mangleTemplateArgs(asTemplateName(TD), TemplateArgs, NumTemplateArgs);
+  mangleTemplateArgs(asTemplateName(TD), Args);
 
   Out << 'E';
 }
@@ -2441,7 +2437,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
     // conversions to the corresponding template parameter.
     // FIXME: Other compilers mangle partially-resolved template arguments in
     // unresolved-qualifier-levels.
-    mangleTemplateArgs(TemplateName(), TST->getArgs(), TST->getNumArgs());
+    mangleTemplateArgs(TemplateName(), TST->template_arguments());
     break;
   }
 
@@ -2460,7 +2456,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
     TemplateName Template = getASTContext().getDependentTemplateName(
         DTST->getQualifier(), DTST->getIdentifier());
     mangleSourceName(DTST->getIdentifier());
-    mangleTemplateArgs(Template, DTST->getArgs(), DTST->getNumArgs());
+    mangleTemplateArgs(Template, DTST->template_arguments());
     break;
   }
 
@@ -3079,7 +3075,14 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     break;
   }
   case BuiltinType::BFloat16: {
+    #if INTEL_COLLAB
+    const TargetInfo *TI = getASTContext().getLangOpts().OpenMP &&
+                                   getASTContext().getLangOpts().OpenMPIsDevice
+                               ? getASTContext().getAuxTargetInfo()
+                               : &getASTContext().getTargetInfo();
+#else
     const TargetInfo *TI = &getASTContext().getTargetInfo();
+#endif // INTEL_COLLAB
     Out << TI->getBFloat16Mangling();
     break;
   }
@@ -3911,7 +3914,7 @@ void CXXNameMangler::mangleType(const InjectedClassNameType *T) {
 
 void CXXNameMangler::mangleType(const TemplateSpecializationType *T) {
   if (TemplateDecl *TD = T->getTemplateName().getAsTemplateDecl()) {
-    mangleTemplateName(TD, T->getArgs(), T->getNumArgs());
+    mangleTemplateName(TD, T->template_arguments());
   } else {
     if (mangleSubstitution(QualType(T, 0)))
       return;
@@ -3921,7 +3924,7 @@ void CXXNameMangler::mangleType(const TemplateSpecializationType *T) {
     // FIXME: GCC does not appear to mangle the template arguments when
     // the template in question is a dependent template name. Should we
     // emulate that badness?
-    mangleTemplateArgs(T->getTemplateName(), T->getArgs(), T->getNumArgs());
+    mangleTemplateArgs(T->getTemplateName(), T->template_arguments());
     addSubstitution(QualType(T, 0));
   }
 }
@@ -3973,7 +3976,7 @@ void CXXNameMangler::mangleType(const DependentTemplateSpecializationType *T) {
   // FIXME: GCC does not appear to mangle the template arguments when
   // the template in question is a dependent template name. Should we
   // emulate that badness?
-  mangleTemplateArgs(Prefix, T->getArgs(), T->getNumArgs());
+  mangleTemplateArgs(Prefix, T->template_arguments());
   Out << 'E';
 }
 
@@ -4941,9 +4944,7 @@ recurse:
     //  <expr-primary> ::= L <mangled-name> E # external name
     Out << "L_Z";
     auto *CSE = cast<ConceptSpecializationExpr>(E);
-    mangleTemplateName(CSE->getNamedConcept(),
-                       CSE->getTemplateArguments().data(),
-                       CSE->getTemplateArguments().size());
+    mangleTemplateName(CSE->getNamedConcept(), CSE->getTemplateArguments());
     Out << 'E';
     break;
   }
@@ -5409,13 +5410,12 @@ void CXXNameMangler::mangleTemplateArgs(TemplateName TN,
 }
 
 void CXXNameMangler::mangleTemplateArgs(TemplateName TN,
-                                        const TemplateArgument *TemplateArgs,
-                                        unsigned NumTemplateArgs) {
+                                        ArrayRef<TemplateArgument> Args) {
   // <template-args> ::= I <template-arg>+ E
   Out << 'I';
   TemplateArgManglingInfo Info(TN);
-  for (unsigned i = 0; i != NumTemplateArgs; ++i)
-    mangleTemplateArg(TemplateArgs[i], Info.needExactType(i, TemplateArgs[i]));
+  for (unsigned i = 0; i != Args.size(); ++i)
+    mangleTemplateArg(Args[i], Info.needExactType(i, Args[i]));
   Out << 'E';
 }
 
@@ -6495,23 +6495,25 @@ void ItaniumMangleContextImpl::mangleDynamicStermFinalizer(const VarDecl *D,
 }
 
 void ItaniumMangleContextImpl::mangleSEHFilterExpression(
-    const NamedDecl *EnclosingDecl, raw_ostream &Out) {
+    GlobalDecl EnclosingDecl, raw_ostream &Out) {
   CXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << "__filt_";
-  if (shouldMangleDeclName(EnclosingDecl))
+  auto *EnclosingFD = cast<FunctionDecl>(EnclosingDecl.getDecl());
+  if (shouldMangleDeclName(EnclosingFD))
     Mangler.mangle(EnclosingDecl);
   else
-    Mangler.getStream() << EnclosingDecl->getName();
+    Mangler.getStream() << EnclosingFD->getName();
 }
 
 void ItaniumMangleContextImpl::mangleSEHFinallyBlock(
-    const NamedDecl *EnclosingDecl, raw_ostream &Out) {
+    GlobalDecl EnclosingDecl, raw_ostream &Out) {
   CXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << "__fin_";
-  if (shouldMangleDeclName(EnclosingDecl))
+  auto *EnclosingFD = cast<FunctionDecl>(EnclosingDecl.getDecl());
+  if (shouldMangleDeclName(EnclosingFD))
     Mangler.mangle(EnclosingDecl);
   else
-    Mangler.getStream() << EnclosingDecl->getName();
+    Mangler.getStream() << EnclosingFD->getName();
 }
 
 void ItaniumMangleContextImpl::mangleItaniumThreadLocalInit(const VarDecl *D,
@@ -6631,7 +6633,7 @@ ItaniumMangleContext *ItaniumMangleContext::create(ASTContext &Context,
   return new ItaniumMangleContextImpl(
       Context, Diags,
       [](ASTContext &, const NamedDecl *) -> llvm::Optional<unsigned> {
-        return llvm::None;
+        return std::nullopt;
       },
       IsAux);
 }

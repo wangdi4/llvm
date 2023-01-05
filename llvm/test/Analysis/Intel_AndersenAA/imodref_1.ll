@@ -1,5 +1,3 @@
-; RUN: opt < %s -basic-aa -anders-aa -gvn -S | FileCheck %s
-; RUN: opt < %s -basic-aa -anders-aa -gvn -anders-mod-ref-before-inl=true -S | FileCheck %s  --check-prefix=CHECK-BEFOREINL
 ; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -anders-mod-ref-before-inl=true -S | FileCheck %s --check-prefix=CHECK-BEFOREINL
 

@@ -210,7 +210,7 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
                         << Loop->getNumber() << "\n";
                  Loop->dump(); dbgs() << "\n";);
 
-      HIRTransformUtils::doConstantPropagation(Loop, nullptr);
+      HIRTransformUtils::doConstantAndCopyPropagation(Loop);
     });
   }
 
@@ -317,10 +317,7 @@ struct TopSortComparator {
 
 static bool isPassedToMetadataIntrinsic(const RegDDRef *Ref) {
   auto *Inst = dyn_cast<HLInst>(Ref->getHLDDNode());
-  Intrinsic::ID IntrinId;
-  return Inst && Inst->isIntrinCall(IntrinId) &&
-         (IntrinId == Intrinsic::lifetime_start ||
-          IntrinId == Intrinsic::lifetime_end);
+  return Inst && Inst->isLifetimeIntrinsic();
 }
 
 static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {

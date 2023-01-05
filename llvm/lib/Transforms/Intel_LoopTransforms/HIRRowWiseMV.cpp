@@ -710,7 +710,7 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
   DDGraph DDG = DDA.getGraph(Loop);
 
   // Check for DDEdge between Inst Pair and do replacement
-  for (auto Pair : CandidatePairs) {
+  for (auto &Pair : CandidatePairs) {
     HLInst *FNeg = Pair.first;
     HLInst *FAdd = Pair.second;
 
@@ -1340,11 +1340,12 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
 
+    if (HIRTransformUtils::doConstantAndCopyPropagation(MVLoop
 #if INTEL_FEATURE_SW_DTRANS
-    if (HIRTransformUtils::doConstantPropagation(MVLoop, DTII)) {
-#else // INTEL_FEATURE_SW_DTRANS
-    if (HIRTransformUtils::doConstantPropagation(MVLoop)) {
+                                                        ,
+                                                        DTII
 #endif // INTEL_FEATURE_SW_DTRANS
+                                                        )) {
       applyPeepHole(MVLoop, HDDA);
       HLNodeUtils::removeRedundantNodes(MVLoop);
     }

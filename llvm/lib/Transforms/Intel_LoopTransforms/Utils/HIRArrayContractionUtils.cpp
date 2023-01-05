@@ -147,7 +147,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
 
     // See the  NumDimsRemain + 1 Constant strides:
     LLVM_DEBUG({
-      for (auto V : enumerate(DimStride)) {
+      for (auto &V : enumerate(DimStride)) {
         auto index = V.index();
         auto value = V.value();
         dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
@@ -167,7 +167,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     // See the Results:
     LLVM_DEBUG({
       dbgs() << "DimSizeVec: " << DimSizeVec.size() << "\nl";
-      for (auto V : enumerate(DimSizeVec)) {
+      for (auto &V : enumerate(DimSizeVec)) {
         auto index = V.index();
         auto value = V.value();
         dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
@@ -264,7 +264,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     // - unsigned integer, within range of [1..#Dimensions]
     // - be adjacent (already sorted)
     const unsigned NumDims = Ref->getNumDimensions();
-    for (auto Item : ToContractDims) {
+    for (auto &Item : ToContractDims) {
       if (!isInRange<unsigned>(Item, 1, NumDims)) {
         LLVM_DEBUG(dbgs() << "Expect items in ToContractDims be within the "
                              "range of [1.."
@@ -288,7 +288,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
 
     // Expect each value in PreservedDims:
     // - unsigned integer(s), within range of [1..#Dimensions]
-    for (auto Item : PreservedDims) {
+    for (auto &Item : PreservedDims) {
       if (!isInRange<unsigned>(Item, 1, NumDims)) {
         LLVM_DEBUG(
             dbgs()

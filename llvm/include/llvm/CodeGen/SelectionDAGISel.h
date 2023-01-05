@@ -1,4 +1,21 @@
 //===-- llvm/CodeGen/SelectionDAGISel.h - Common Base Class------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,6 +38,7 @@
 
 namespace llvm {
 class AAResults;
+class AssumptionCache;
 class TargetInstrInfo;
 class TargetMachine;
 class SelectionDAGBuilder;
@@ -48,6 +66,7 @@ public:
   SelectionDAG *CurDAG;
   std::unique_ptr<SelectionDAGBuilder> SDB;
   AAResults *AA = nullptr;
+  AssumptionCache *AC = nullptr;
   GCFunctionInfo *GFI = nullptr;
   CodeGenOpt::Level OptLevel;
   const TargetInstrInfo *TII;
@@ -321,6 +340,13 @@ private:
 
   void Select_FREEZE(SDNode *N);
   void Select_ARITH_FENCE(SDNode *N);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  void Select_PSEUDO_FUNCTION_PROLOG(SDNode *N);
+  void Select_PSEUDO_FUNCTION_EPILOG(SDNode *N);
+  void Select_PSEUDO_LOOP_HEADER(SDNode *N);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   void pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops, SDValue Operand,
                                 SDLoc DL);

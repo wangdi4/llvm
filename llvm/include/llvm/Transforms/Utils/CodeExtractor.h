@@ -1,5 +1,23 @@
 //===- Transform/Utils/CodeExtractor.h - Code extraction util ---*- C++ -*-===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -64,6 +82,10 @@ class CodeExtractorAnalysisCache {
   void findSideEffectInfoForBlock(BasicBlock &BB);
 
 public:
+#if INTEL_COLLAB
+  // Calling this constructor disables alloca shrink-wrapping into the region.
+  CodeExtractorAnalysisCache() {}
+#endif // INTEL_COLLAB
   CodeExtractorAnalysisCache(Function &F);
 
   /// Get the allocas in the function at the time the analysis was created.
@@ -110,7 +132,7 @@ public:
     // Bits of intermediate state computed at various phases of extraction.
     SetVector<BasicBlock *> Blocks;
     unsigned NumExitBlocks = std::numeric_limits<unsigned>::max();
-    Type *RetTy;
+    Type *RetTy = nullptr; // INTEL
 
 #if INTEL_COLLAB
     // If there is an associated "omp target" directive for this sequence of

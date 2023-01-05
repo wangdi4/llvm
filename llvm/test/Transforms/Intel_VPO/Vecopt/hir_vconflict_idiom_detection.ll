@@ -4,9 +4,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
 
-; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
+; RUN: opt -S -mattr=+avx2 -passes=hir-ssa-deconstruction,hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
 
 ; <15>               + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; <3>                |   %0 = (%B)[i1];

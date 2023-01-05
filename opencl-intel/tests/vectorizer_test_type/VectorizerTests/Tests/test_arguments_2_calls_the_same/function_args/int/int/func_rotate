@@ -7,19 +7,19 @@
  * This function is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_rotate ( __global const float *in,
-		__global float2 *out, __global const int intArg1, __global const int intArg2)
+    __global float2 *out, __global const int intArg1, __global const int intArg2)
 {
-	int gid = get_global_id(0);
-	float res1 = rotate(intArg1, intArg2);
-	float res2 = rotate(intArg1, intArg2);
-	out[gid].x = res1;
-	out[gid].y = res2;
+  int gid = get_global_id(0);
+  float res1 = rotate(intArg1, intArg2);
+  float res2 = rotate(intArg1, intArg2);
+  out[gid].x = res1;
+  out[gid].y = res2;
 }

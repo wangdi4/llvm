@@ -20,6 +20,7 @@
 #include "llvm/IR/Instructions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include <optional>
 
 namespace llvm {
 
@@ -258,13 +259,13 @@ public:
   /// Returns an array of indices of ExtractValueInst.
   ArrayRef<unsigned> getExtractValueIndices() const {
     auto *EVI = dyn_cast<ExtractValueInst>(Inst);
-    return EVI ? EVI->getIndices() : None;
+    return EVI ? EVI->getIndices() : std::nullopt;
   }
 
   /// Returns an array of indices of InsertValueInst.
   ArrayRef<unsigned> getInsertValueIndices() const {
     auto *IVI = dyn_cast<InsertValueInst>(Inst);
-    return IVI ? IVI->getIndices() : None;
+    return IVI ? IVI->getIndices() : std::nullopt;
   }
 
   /// Returns true if \p Call only accesses inaccessible or arg memory.
@@ -294,6 +295,14 @@ public:
   /// hasUnknownAliasing() below.
   static bool hasUnsafeSideEffects(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
+
+    // Do not consider assume like intrinsics as unsafe insts.
+    auto *Intrin = dyn_cast<IntrinsicInst>(Call);
+
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return false;
+    }
+
     return Call->mayThrow() ||
            (!Call->doesNotAccessMemory() && !Call->onlyAccessesArgMemory());
   }
@@ -360,6 +369,14 @@ public:
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.
   bool isAutoVecDirective() const;
+
+  /// Returns true if instruction is either lifetime.start or lifetime.end
+  /// intrinsic.
+  bool isLifetimeIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) &&
+            (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end));
+  }
 
   /// Checks if the Opcode is a reduction and returns it in \p OpCode.
   /// Select Opcode is returned for min/max intrinsics.

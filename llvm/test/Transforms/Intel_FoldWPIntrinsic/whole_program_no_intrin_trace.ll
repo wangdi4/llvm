@@ -1,9 +1,8 @@
-; REQUIRES: assert, intel_feature_sw_dtrans
+; REQUIRES: asserts, intel_feature_sw_dtrans
 
 ; This test checks that the debug trace is printed correctly if the intrinsic
 ; llvm.intel.wholeprogramsafe intrinsic is not in the IR.
 
-; RUN: opt < %s -intel-fold-wp-intrinsic -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -debug-only=intel-fold-wp-intrinsic -S 2>&1 | FileCheck %s
 
 define i32 @main(i1 %val) {

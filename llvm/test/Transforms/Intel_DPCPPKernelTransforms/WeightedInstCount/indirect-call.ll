@@ -1,5 +1,4 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,function(require<dpcpp-kernel-weighted-inst-count-analysis>)' %s -S
-; RUN: opt -enable-new-pm=0 -analyze -dpcpp-kernel-weighted-inst-count-analysis %s -S
 
 ; check that WightedInstCounter doesn't crash on indirect calls.
 

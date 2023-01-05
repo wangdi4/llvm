@@ -1,10 +1,7 @@
-; RUN: opt < %s -slp-vectorizer -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -mtriple=x86_64 -mcpu=skylake -S | FileCheck %s
 
 ; This is a test for Split-Load, which is Variable-Width SLP only for Loads.
 ; It allows for narrower vector loads compared to the rest of the SLP tree.
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
 
 @idx = local_unnamed_addr global i64 4, align 4
 @src = common global [64 x i64] zeroinitializer, align 1

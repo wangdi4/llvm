@@ -464,8 +464,8 @@ namespace {
 
       // Create zero.
       SDVTList VTs = CurDAG->getVTList(MVT::i32, MVT::i32);
-      SDValue Zero =
-          SDValue(CurDAG->getMachineNode(X86::MOV32r0, dl, VTs, None), 0);
+      SDValue Zero = SDValue(
+          CurDAG->getMachineNode(X86::MOV32r0, dl, VTs, std::nullopt), 0);
       if (VT == MVT::i64) {
         Zero = SDValue(
             CurDAG->getMachineNode(
@@ -606,7 +606,13 @@ static bool isLegalMaskCompare(SDNode *N, const X86Subtarget *Subtarget) {
     if (Opcode == X86ISD::STRICT_CMPM)
       OpVT = N->getOperand(1).getValueType();
     if (OpVT.is256BitVector() || OpVT.is128BitVector())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      return Subtarget->hasVLX() || Subtarget->hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget->hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
     return true;
   }
@@ -1390,7 +1396,7 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
         SDVTList VTs = CurDAG->getVTList(MVT::Other);
         SDValue Ops[] = {N->getOperand(0), N->getOperand(1), MemTmp};
         Store = CurDAG->getMemIntrinsicNode(X86ISD::FST, dl, VTs, Ops, MemVT,
-                                            MPI, /*Align*/ None,
+                                            MPI, /*Align*/ std::nullopt,
                                             MachineMemOperand::MOStore);
         if (N->getFlags().hasNoFPExcept()) {
           SDNodeFlags Flags = Store->getFlags();
@@ -1408,7 +1414,7 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
         SDValue Ops[] = {Store, MemTmp};
         Result = CurDAG->getMemIntrinsicNode(
             X86ISD::FLD, dl, VTs, Ops, MemVT, MPI,
-            /*Align*/ None, MachineMemOperand::MOLoad);
+            /*Align*/ std::nullopt, MachineMemOperand::MOLoad);
         if (N->getFlags().hasNoFPExcept()) {
           SDNodeFlags Flags = Result->getFlags();
           Flags.setNoFPExcept(true);
@@ -2724,7 +2730,7 @@ bool X86DAGToDAGISel::selectMOV64Imm32(SDValue N, SDValue &Imm) {
   if (N->getOpcode() != ISD::TargetGlobalAddress)
     return TM.getCodeModel() == CodeModel::Small;
 
-  Optional<ConstantRange> CR =
+  std::optional<ConstantRange> CR =
       cast<GlobalAddressSDNode>(N)->getGlobal()->getAbsoluteSymbolRange();
   if (!CR)
     return TM.getCodeModel() == CodeModel::Small;
@@ -2906,7 +2912,7 @@ bool X86DAGToDAGISel::selectRelocImm(SDValue N, SDValue &Op) {
 
   // Check that the global's range fits into VT.
   auto *GA = cast<GlobalAddressSDNode>(N.getOperand(0));
-  Optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
+  std::optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
   if (!CR || CR->getUnsignedMax().uge(1ull << VT.getSizeInBits()))
     return false;
 
@@ -2963,7 +2969,7 @@ bool X86DAGToDAGISel::isSExtAbsoluteSymbolRef(unsigned Width, SDNode *N) const {
   if (!GA)
     return false;
 
-  Optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
+  std::optional<ConstantRange> CR = GA->getGlobal()->getAbsoluteSymbolRange();
   if (!CR)
     return Width == 32 && TM.getCodeModel() == CodeModel::Small;
 
@@ -3533,17 +3539,20 @@ bool X86DAGToDAGISel::matchBitExtract(SDNode *Node) {
   // If we have BMI2's BZHI, we are ok with muti-use patterns.
   // Else, if we only have BMI1's BEXTR, we require one-use.
   const bool AllowExtraUsesByDefault = Subtarget->hasBMI2();
-  auto checkUses = [AllowExtraUsesByDefault](SDValue Op, unsigned NUses,
-                                             Optional<bool> AllowExtraUses) {
+  auto checkUses = [AllowExtraUsesByDefault](
+                       SDValue Op, unsigned NUses,
+                       std::optional<bool> AllowExtraUses) {
     return AllowExtraUses.value_or(AllowExtraUsesByDefault) ||
            Op.getNode()->hasNUsesOfValue(NUses, Op.getResNo());
   };
   auto checkOneUse = [checkUses](SDValue Op,
-                                 Optional<bool> AllowExtraUses = None) {
+                                 std::optional<bool> AllowExtraUses =
+                                     std::nullopt) {
     return checkUses(Op, 1, AllowExtraUses);
   };
   auto checkTwoUse = [checkUses](SDValue Op,
-                                 Optional<bool> AllowExtraUses = None) {
+                                 std::optional<bool> AllowExtraUses =
+                                     std::nullopt) {
     return checkUses(Op, 2, AllowExtraUses);
   };
 
@@ -4352,8 +4361,16 @@ bool X86DAGToDAGISel::tryVPTERNLOG(SDNode *N) {
       NVT.getVectorElementType() == MVT::i1)
     return false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // We need VLX or AVX256P for 128/256-bit.
+  if (!((Subtarget->hasVLX() || Subtarget->hasAVX256P()) ||
+        NVT.is512BitVector()))
+#else  // INTEL_FEATURE_ISA_AVX256P
   // We need VLX for 128/256-bit.
   if (!(Subtarget->hasVLX() || NVT.is512BitVector()))
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   SDValue N0 = N->getOperand(0);
@@ -4602,7 +4619,14 @@ bool X86DAGToDAGISel::tryVPTESTM(SDNode *Root, SDValue Setcc,
   }
 
   // Without VLX we need to widen the operation.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  bool Widen = !(Subtarget->hasVLX() || Subtarget->hasAVX256P()) &&
+               !CmpVT.is512BitVector();
+#else  // INTEL_FEATURE_ISA_AVX256P
   bool Widen = !Subtarget->hasVLX() && !CmpVT.is512BitVector();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   auto tryFoldLoadOrBCast = [&](SDNode *Root, SDNode *P, SDValue &L,
                                 SDValue &Base, SDValue &Scale, SDValue &Index,
@@ -5949,8 +5973,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       } else {
         // Zero out the high part, effectively zero extending the input.
         SDVTList VTs = CurDAG->getVTList(MVT::i32, MVT::i32);
-        SDValue ClrNode =
-            SDValue(CurDAG->getMachineNode(X86::MOV32r0, dl, VTs, None), 0);
+        SDValue ClrNode = SDValue(
+            CurDAG->getMachineNode(X86::MOV32r0, dl, VTs, std::nullopt), 0);
         switch (NVT.SimpleTy) {
         case MVT::i16:
           ClrNode =

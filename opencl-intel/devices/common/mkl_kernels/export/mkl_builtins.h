@@ -14,15 +14,22 @@
 
 #pragma once
 
-namespace Intel { namespace OpenCL { namespace Utils {
-    class OclThread;
-}}}
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
+class OclThread;
+}
+} // namespace OpenCL
+} // namespace Intel
 
+namespace Intel {
+namespace OpenCL {
+namespace MKLKernels {
 
-namespace Intel { namespace OpenCL { namespace MKLKernels {
+template <bool useFunctions> bool InitLibrary();
 
-template< bool useFunctions > bool InitLibrary();
+template <bool useFunctions> void ReleaseLibrary();
 
-template< bool useFunctions > void ReleaseLibrary();
-
-}}}
+} // namespace MKLKernels
+} // namespace OpenCL
+} // namespace Intel

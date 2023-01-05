@@ -17,9 +17,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -29,54 +27,6 @@ using namespace llvm;
 #define DEBUG_TYPE "dpcpp-kernel-local-buffers"
 
 extern bool EnableTLSGlobals;
-
-namespace {
-
-/// Legacy LocalBuffers Pass
-class LocalBuffersLegacy : public ModulePass {
-  LocalBuffersPass Impl;
-
-public:
-  static char ID;
-
-  LocalBuffersLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), Impl(UseTLSGlobals) {
-    initializeLocalBuffersLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  ~LocalBuffersLegacy() {}
-
-  StringRef getPassName() const override { return "LocalBuffersLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LocalBufferAnalysisLegacy>();
-    AU.setPreservesCFG();
-  }
-};
-
-} // namespace
-
-char LocalBuffersLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(LocalBuffersLegacy, DEBUG_TYPE,
-                      "Map __local GlobalVariables to the local buffer", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(LocalBufferAnalysisLegacy)
-INITIALIZE_PASS_END(LocalBuffersLegacy, DEBUG_TYPE,
-                    "Map __local GlobalVariables to the local buffer", false,
-                    false)
-
-bool LocalBuffersLegacy::runOnModule(Module &M) {
-  LocalBufferInfo *LBInfo =
-      &getAnalysis<LocalBufferAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, LBInfo);
-}
-
-ModulePass *llvm::createLocalBuffersLegacyPass(bool UseTLSGlobals) {
-  return new LocalBuffersLegacy(UseTLSGlobals);
-}
 
 PreservedAnalyses LocalBuffersPass::run(Module &M, ModuleAnalysisManager &AM) {
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
@@ -92,6 +42,8 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
 
   this->M = &M;
   this->LBInfo = LBInfo;
+  LBInfo->computeSize();
+  const auto &LocalsMap = LBInfo->getDirectLocalsMap();
 
   UseTLSGlobals |= EnableTLSGlobals;
   Context = &M.getContext();
@@ -100,7 +52,9 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   DIFinder.processModule(M);
 
   // Get all kernels
-  KernelsFunctionSet = CompilationUtils::getAllKernels(M);
+  auto KernelsFunctionSet = CompilationUtils::getAllKernels(M);
+  if (KernelsFunctionSet.empty())
+    return false;
 
   // Run on all defined function in the module
   for (auto &Func : M) {
@@ -114,7 +68,8 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
     if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(F))
       continue;
 
-    runOnFunction(F);
+    if (!LocalsMap.lookup(F).empty())
+      runOnFunction(F);
     if (KernelsFunctionSet.count(F)) {
       // We have a kernel, update metadata
       KernelInternalMetadataAPI(F).LocalBufferSize.set(
@@ -124,9 +79,14 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
 
   updateDICompileUnitGlobals();
 
-  // Safely erase useless GVs.
-  for (auto *GV : GVToRemove)
-    GV->eraseFromParent();
+  // Safely erase local variable GVs.
+  for (GlobalVariable &GV : make_early_inc_range(M.globals())) {
+    if (cast<PointerType>(GV.getType())->getAddressSpace() ==
+        CompilationUtils::ADDRESS_SPACE_LOCAL) {
+      assert(GV.use_empty() && "local variable isn't handled");
+      GV.eraseFromParent();
+    }
+  }
 
   return true;
 }
@@ -304,51 +264,25 @@ void LocalBuffersPass::updateDICompileUnitGlobals() {
 // Substitutes a pointer to local buffer, with argument passed within kernel
 // parameters
 void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
-
   IRBuilder<> Builder(InsertPoint);
+  const auto &LocalsMap = LBInfo->getDirectLocalsMap();
 
-  // Get all __local variables owned by F
-  auto &LocalSet = LBInfo->getDirectLocals(F);
+  // Iterate through local buffers directly used in F.
+  for (GlobalVariable *GV : LocalsMap.lookup(F)) {
+    // Retrieve the offset of the local buffer.
+    size_t Offset = LBInfo->getLocalGVToOffset(GV);
+    Type *Ty = CompilationUtils::getSLMBufferElementType(*Context);
+    auto *Idx = ConstantInt::get(Type::getInt32Ty(*Context), Offset);
+    auto *LocalAddr = Builder.CreateGEP(Ty, LocalMem, Idx, "");
 
-  bool IsKernel = KernelsFunctionSet.count(F);
-  unsigned int CurrLocalOffset = 0;
-
-  // Iterate through local buffers
-  for (auto *Local : LocalSet) {
-    GlobalVariable *GV = cast<GlobalVariable>(Local);
-
-    // Calculate required buffer size
-    llvm::DataLayout DL(M);
-    size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
-    assert(0 != ArraySize && "zero array size!");
-    // Now retrieve to the offset of the local buffer
-    Type *Ty = CompilationUtils::getSLMBufferElementType(F->getContext());
-    auto *Idx = ConstantInt::get(IntegerType::get(*Context, 32),
-                                 CurrLocalOffset);
-    auto *pLocalAddr = Builder.CreateGEP(Ty, LocalMem, Idx, "");
-
-    Value *Replacement = nullptr;
-    if (IsKernel) {
-      // For kernels, bitcast to required/original pointer type
-      Replacement = Builder.CreatePointerCast(pLocalAddr, GV->getType());
-    } else {
-      // For non-kernel functions, load the pointer from LocalMemBase.
-      auto *Cast = Builder.CreatePointerCast(pLocalAddr,
-                                             GV->getType()->getPointerTo());
-      Replacement = Builder.CreateLoad(GV->getType(), Cast);
-    }
+    // Add bitcast to required/original pointer type.
+    auto *Replacement = Builder.CreatePointerCast(LocalAddr, GV->getType());
 
     replaceAllUsesOfConstantWith(GV, dyn_cast<Instruction>(Replacement));
-    GVToRemove.insert(GV);
+
     if (SP)
-      attachDebugInfoToLocalMem(GV, LocalMem, CurrLocalOffset);
-
-    // Advance total implicit size
-    CurrLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
+      attachDebugInfoToLocalMem(GV, LocalMem, Offset);
   }
-
-  assert(CurrLocalOffset == LBInfo->getDirectLocalsSize(F) &&
-         "CurrLocalOffset is not equal to local buffer size!");
 }
 
 void LocalBuffersPass::runOnFunction(Function *F) {

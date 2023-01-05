@@ -15,41 +15,31 @@
 #include "EditVariableDialog.h"
 #include "Ui_EditVariableDialog.h"
 
-namespace Validation
-{
-namespace GUI
-{
-EditVariableDialog::EditVariableDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::EditVariableDialog)
-{
-    ui->setupUi(this);
-    connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(updateFields()));
+namespace Validation {
+namespace GUI {
+EditVariableDialog::EditVariableDialog(QWidget *parent)
+    : QDialog(parent), ui(new Ui::EditVariableDialog) {
+  ui->setupUi(this);
+  connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(updateFields()));
 }
 
-EditVariableDialog::EditVariableDialog(QString name, QString value, QWidget *parent):
-    QDialog(parent),
-    ui(new Ui::EditVariableDialog)
-{
-    ui->setupUi(this);
-    connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(updateFields()));
-    ui->nameTE->setText(name);
-    m_name = name;
-    ui->valueTE->setText(value);
-    m_value = value;
-
+EditVariableDialog::EditVariableDialog(QString name, QString value,
+                                       QWidget *parent)
+    : QDialog(parent), ui(new Ui::EditVariableDialog) {
+  ui->setupUi(this);
+  connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(updateFields()));
+  ui->nameTE->setText(name);
+  m_name = name;
+  ui->valueTE->setText(value);
+  m_value = value;
 }
 
-EditVariableDialog::~EditVariableDialog()
-{
-    delete ui;
+EditVariableDialog::~EditVariableDialog() { delete ui; }
+
+void EditVariableDialog::updateFields() {
+  m_name = ui->nameTE->text();
+  m_value = ui->valueTE->text();
 }
 
-void EditVariableDialog::updateFields()
-{
-    m_name = ui->nameTE->text();
-    m_value = ui->valueTE->text();
-}
-
-}
-}
+} // namespace GUI
+} // namespace Validation

@@ -1,4 +1,3 @@
-; RUN: opt < %s -S -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that the stride stores are updated after the transpose of main_$MYA and

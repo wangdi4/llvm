@@ -1,9 +1,8 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck --check-prefixes=CHECK,ALL %s
-; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck --check-prefixes=CHECK,ALL %s
-; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck --check-prefixes=OPQPTR,ALL %s
-; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck --check-prefixes=OPQPTR,ALL %s
+
+; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; NOTE: intel.dtrans.types metadata was added manually below.
@@ -12,13 +11,12 @@
 ;  ;
 ;}
 
-; CHECK: %struct.ident_t = type { i32, i32, i32, i32, i8* }
-; OPQPTR: %struct.ident_t = type { i32, i32, i32, i32, ptr }
-; ALL: !intel.dtrans.types = !{![[TYMD:[0-9]+]]}
-; ALL: ![[TYMD]] = !{!"S", %struct.ident_t zeroinitializer, i32 5, ![[I32MD:[0-9]+]],
-; ALL-SAME: ![[I32MD]], ![[I32MD]], ![[I32MD]], ![[I8PTRMD:[0-9]+]]}
-; ALL-DAG: ![[I32MD]] = !{i32 0, i32 0}
-; ALL-DAG: ![[I8PTRMD]] = !{i8 0, i32 1}
+; CHECK: %struct.ident_t = type { i32, i32, i32, i32, ptr }
+; CHECK: !intel.dtrans.types = !{![[TYMD:[0-9]+]]}
+; CHECK: ![[TYMD]] = !{!"S", %struct.ident_t zeroinitializer, i32 5, ![[I32MD:[0-9]+]],
+; CHECK-SAME: ![[I32MD]], ![[I32MD]], ![[I32MD]], ![[I8PTRMD:[0-9]+]]}
+; CHECK-DAG: ![[I32MD]] = !{i32 0, i32 0}
+; CHECK-DAG: ![[I8PTRMD]] = !{i8 0, i32 1}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

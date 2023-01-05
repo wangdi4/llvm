@@ -12,8 +12,6 @@
 #define INTEL_DPCPP_KERNEL_TRANSFORMS_SUBGROUP_EMULATION_SIZE_ANALYSIS_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 
 #include <map>
 #include <set>
@@ -60,35 +58,6 @@ public:
 
 private:
   raw_ostream &OS;
-};
-
-/// Legacy SGSizeAnalysis module pass.
-class SGSizeAnalysisLegacy : public ModulePass {
-private:
-  SGSizeInfo Result;
-
-public:
-  static char ID;
-
-  SGSizeAnalysisLegacy() : ModulePass(ID) {
-    initializeSGSizeAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "SGSizeAnalysisLegacy"; }
-
-  bool runOnModule(Module &M) override {
-    Result.analyzeModule(M);
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  SGSizeInfo &getResult() { return Result; }
-  const SGSizeInfo &getResult() const { return Result; }
-
-  void print(raw_ostream &OS, const Module *M) const override;
 };
 
 } // namespace llvm

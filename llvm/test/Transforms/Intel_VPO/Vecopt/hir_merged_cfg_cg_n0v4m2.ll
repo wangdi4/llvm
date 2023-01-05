@@ -17,7 +17,6 @@
 ;       ret ;
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n0;v4;m2" -vplan-enable-masked-variant-hir -vplan-print-after-create-masked-vplan -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -36,24 +35,26 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP5:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_NORM_UB:%.*]] = sub i64 [[VP3]] i64 live-in0
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = phi  [ i64 [[VP4]], [[BB1]] ],  [ i64 [[VP7:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp ult i64 [[VP6]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_NEW_IND:%.*]] = add i64 [[VP6]] i64 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp ult i64 [[VP6]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP8]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP0]] i64 [[VP6]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP10:%.*]] = subscript inbounds i64* [[ARY0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP0]] i64 [[VP_NEW_IND]]
+; CHECK-NEXT:       [DA: Div] i64* [[VP10:%.*]] = subscript inbounds i64* [[ARY0:%.*]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP9]] i64* [[VP10]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = icmp ult i64 [[VP7]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = icmp ult i64 [[VP7]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = all-zero-check i1 [[VP11]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -97,22 +98,26 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:           goto final.merge.50
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
-; CHECK-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1>
-; CHECK-NEXT:        [[LOOP_UB90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  1
-; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
-; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC100]]}
-; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))
-; CHECK-NEXT:        |   [[TMP0:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC110]])
-; CHECK-NEXT:        |   [[CMP120:%.*]] = [[TMP0]] == 0
-; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP120]]
+; CHECK-NEXT:        [[DOTVEC90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  [[PHI_TEMP0]]
+; CHECK-NEXT:        [[EXTRACT_0_100:%.*]] = extractelement [[DOTVEC90]],  0
+; CHECK-NEXT:        [[LOOP_UB110:%.*]] = [[EXTRACT_0_100]]  -  1
+; CHECK:             + DO i1 = 0, [[LOOP_UB110]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = i1 + <i64 0, i64 1> <u [[DOTVEC90]]
+; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1 + [[PHI_TEMP0]]] = i1 + sext.i32.i64([[C0]]) + [[PHI_TEMP0]] + <i64 0, i64 1>, Mask = @{[[DOTVEC120]]}
+; CHECK-NEXT:        |   [[DOTVEC130:%.*]] = i1 + <i64 0, i64 1> + 2 <u [[DOTVEC90]]
+; CHECK-NEXT:        |   [[TMP0:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC130]])
+; CHECK-NEXT:        |   [[CMP140:%.*]] = [[TMP0]] == 0
+; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP140]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[IND_FINAL130:%.*]] = 0 + umax(1, sext.i32.i64([[C0]]))
-; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL130]]
+; CHECK:             [[IND_FINAL150:%.*]] = 0  +  umax(1, sext.i32.i64([[C0]]))
+; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL150]]
 ; CHECK-NEXT:        final.merge.50:
 ; CHECK-NEXT:        ret
 ; CHECK-NEXT:  END REGION
 ;
+
+
+
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body

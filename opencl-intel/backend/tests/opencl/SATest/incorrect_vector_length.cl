@@ -1,5 +1,4 @@
-//RUN: SATest -VAL -config=incorrect_vector_size.cl |& FileCheck %s
-//CHECK: vector data does not fit its declared size
+// RUN: SATest -VAL -config=incorrect_vector_size.cl |& FileCheck %s
+// CHECK: vector data does not fit its declared size
 
-__kernel void k( __global int8* v ){
-}
+__kernel void k(__global int8 *v) {}

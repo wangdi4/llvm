@@ -36,6 +36,7 @@
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
+#include <optional>
 
 namespace llvm {
 
@@ -142,9 +143,9 @@ public:
 
   /// \name Cache TTI Implementation
   /// @{
-  llvm::Optional<unsigned> getCacheSize(
+  std::optional<unsigned> getCacheSize(
     TargetTransformInfo::CacheLevel Level) const override;
-  llvm::Optional<unsigned> getCacheAssociativity(
+  std::optional<unsigned> getCacheAssociativity(
     TargetTransformInfo::CacheLevel Level) const override;
   /// @}
 
@@ -165,7 +166,7 @@ public:
                                  ArrayRef<int> Mask,
                                  TTI::TargetCostKind CostKind, int Index,
                                  VectorType *SubTp,
-                                 ArrayRef<const Value *> Args = None);
+                                 ArrayRef<const Value *> Args = std::nullopt);
   InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                    TTI::CastContextHint CCH,
                                    TTI::TargetCostKind CostKind,
@@ -209,13 +210,13 @@ public:
   InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                             const SCEV *Ptr);
 
-  Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
-                                               IntrinsicInst &II) const;
-  Optional<Value *>
+  std::optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
+                                                    IntrinsicInst &II) const;
+  std::optional<Value *>
   simplifyDemandedUseBitsIntrinsic(InstCombiner &IC, IntrinsicInst &II,
                                    APInt DemandedMask, KnownBits &Known,
                                    bool &KnownBitsComputed) const;
-  Optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+  std::optional<Value *> simplifyDemandedVectorEltsIntrinsic(
       InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
       APInt &UndefElts2, APInt &UndefElts3,
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
@@ -227,7 +228,7 @@ public:
                                         TTI::TargetCostKind CostKind);
 
   InstructionCost getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
-                                             Optional<FastMathFlags> FMF,
+                                             std::optional<FastMathFlags> FMF,
                                              TTI::TargetCostKind CostKind);
 
   InstructionCost getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned);
@@ -271,6 +272,7 @@ public:
                                        int64_t Scale, unsigned AddrSpace) const;
 
 #if INTEL_CUSTOMIZATION
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF);
   InstructionCost getSerializationCost(Type *EltTy, unsigned NumElts,
                                        InstructionCost BuildVecCost) const;
 #endif // INTEL_CUSTOMIZATION
@@ -307,6 +309,9 @@ public:
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+  bool shouldExpandReduction(const IntrinsicInst *II) const;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
   bool isIntelAdvancedOptimEnabled() const;
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
@@ -316,9 +321,10 @@ public:
   bool isVPlanVLSProfitable() const;
   bool isAggressiveVLSProfitable() const;
   int getMatchingVectorVariant(
-      const VFInfo &ForCall,
+      const SmallVectorImpl<VFInfo> &ForCall,
       const SmallVectorImpl<VFInfo> &Variants,
-      const Module *M) const;
+      const Module *M,
+      const ArrayRef<bool> ArgIsLinearPrivateMem) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
   bool hasVLX() const;

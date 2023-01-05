@@ -1,7 +1,3 @@
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-idioms \
-; RUN:     2>&1 | FileCheck %s
-
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     < %s -S -debug-only=vplan-idioms 2>&1 | FileCheck %s
 
@@ -18,7 +14,7 @@
 ;   return -1;
 ; }
 
-; CHECK: StrEq and PtrEq loop was not recognized
+; CHECK: Search loop idiom was not recognized.
 
 ;Module Before HIR
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

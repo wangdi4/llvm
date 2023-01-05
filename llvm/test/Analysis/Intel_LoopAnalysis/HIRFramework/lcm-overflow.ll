@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-before=hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-runtime-dd,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the test is successfully compiled. Originally, there was an

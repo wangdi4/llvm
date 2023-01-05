@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -disable-output 2>/dev/null
 ; RUN: opt < %s -passes='require<anders-aa>'  -disable-output 2>/dev/null
 ; Test for a bug (CQ377744) in Andersens analysis that caused crash
 ; during processing of IndirectCalls when formals don't match with

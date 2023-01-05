@@ -4011,6 +4011,8 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
   if (LoopCountPHI) {
     // This path is used during matching of the 'Reset' method
     auto *GEP2 = dyn_cast<GetElementPtrInst>(ArgOp);
+    if (!GEP2)
+      return false;
     if (ObjBlkPtr != GEP2->getOperand(0))
       return false;
     if (LoopCountPHI != GEP2->getOperand(1))

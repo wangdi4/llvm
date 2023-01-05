@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -basic-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange)" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
 

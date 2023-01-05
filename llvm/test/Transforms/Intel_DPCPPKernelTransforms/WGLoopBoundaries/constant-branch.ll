@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
 
 define void @func(i8 addrspace(1)* noalias %_arg_) !no_barrier_path !1 {
 entry:

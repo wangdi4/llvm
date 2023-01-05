@@ -40,4 +40,4 @@ TEST_P(TBBNumWorkersBase, CreateContext) {
 }
 
 INSTANTIATE_TEST_SUITE_P(TestTBBNumWorkers, TBBNumWorkersBase,
-                        ::testing::Values(256, 2, 4096, 1, -42));
+                         ::testing::Values(256, 2, 4096, 1, -42));

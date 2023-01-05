@@ -1,10 +1,9 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment identifies that there is no
 ; no whole program safe and prints the proper debug messages.
 
 ; This test is the same as argument_align_3.ll.
 
-; RUN: opt < %s -intel-argument-alignment -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; CHECK: Candidates for argument alignment: 0

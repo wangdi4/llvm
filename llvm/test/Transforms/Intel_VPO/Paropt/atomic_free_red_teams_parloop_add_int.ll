@@ -1,7 +1,14 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck -check-prefix=MAP %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -S %s | FileCheck -check-prefix=MAP %s
+; REQUIRES: asserts
+
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-use-fp-team-counter=false  -S %s | FileCheck -check-prefixes=CHECK,TC_ZEROINIT %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-use-fp-team-counter=false  -S %s | FileCheck -check-prefixes=CHECK,TC_ZEROINIT %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -S -vpo-paropt-atomic-free-red-use-fp-team-counter=true %s | FileCheck -check-prefixes=CHECK,TC_FP %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-use-fp-team-counter=true -S %s | FileCheck -check-prefixes=CHECK,TC_FP %s
+
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false  -vpo-paropt-atomic-free-red-use-fp-team-counter=false -debug-only=vpo-paropt-target -S 2>&1 %s | FileCheck -check-prefixes=MAP,MAP_TC_ZEROINIT %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false  -vpo-paropt-atomic-free-red-use-fp-team-counter=false -debug-only=vpo-paropt-target -S 2>&1 %s | FileCheck -check-prefixes=MAP,MAP_TC_ZEROINIT %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false  -vpo-paropt-atomic-free-red-use-fp-team-counter=true -debug-only=vpo-paropt-target -S 2>&1 %s | FileCheck -check-prefixes=MAP,MAP_TC_FP %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-reduction-slm=true  -vpo-paropt-atomic-free-reduction-par-global=false  -vpo-paropt-atomic-free-red-use-fp-team-counter=true -debug-only=vpo-paropt-target -S 2>&1 %s | FileCheck -check-prefixes=MAP,MAP_TC_FP %s
 
 ; Test src:
 ;
@@ -70,9 +77,13 @@
 ; CHECK: add i64 %[[IDX_PHI]], 1
 ; CHECK: br label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.store:
-; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(1) %
+; CHECK: store i32 %[[SUM_PHI]], ptr addrspace(1) %sum.ascast
+; TC_ZEROINIT-NEXT: store i32 0, ptr addrspace(1) %teams_counter
+; TC_FP-NOT: store i32 0, ptr addrspace(1) %teams_counter
 
-; MAP: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}"QUAL.OMP.MAP.TO"(ptr addrspace(1) @red_buf, ptr addrspace(1) @red_buf, i64 4096, i64 1152), "QUAL.OMP.MAP.TO"(ptr addrspace(1) @teams_counter, ptr addrspace(1) @teams_counter, i64 4, i64 129)
+; MAP:              Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4096, i64 1152)
+; MAP_TC_ZEROINIT:  Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 16544)
+; MAP_TC_FP:        Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 161)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

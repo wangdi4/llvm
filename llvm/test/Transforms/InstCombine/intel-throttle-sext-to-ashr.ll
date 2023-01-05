@@ -1,4 +1,3 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
 ; RUN: opt -passes=instcombine <%s -S | FileCheck %s
 
 ; Verify that a probable innermost level subscript is not changed into a form with ashr.

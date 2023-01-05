@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -S -always-inline %s | FileCheck %s
 ; RUN: opt -opaque-pointers -S -passes=always-inline %s | FileCheck %s
 ; The function "quux" is calling a byval arg with a different address space.
 ; When promoting the arg to stack memory, it must be casted to the target space

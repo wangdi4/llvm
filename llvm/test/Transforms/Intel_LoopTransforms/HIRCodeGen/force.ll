@@ -1,6 +1,4 @@
 ; With forced hir-cg, we should see HIR->LLVM IR occur
-; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 

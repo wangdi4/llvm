@@ -1,14 +1,14 @@
-; RUN: opt -openmp-opt-cgscc -S < %s | FileCheck %s
+; RUN: opt -passes=openmp-opt-cgscc -S < %s | FileCheck %s
 ; RUN: opt -passes='devirt<2>(cgscc(openmp-opt-cgscc))' -S < %s | FileCheck %s
 ;
 ; This test checks that kmpc library calls get appropriate attributes.
 ;
 ; CHECK: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly)
-; CHECK: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32) [[ATTRS:#[0-9]+]]
-; CHECK: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32) [[ATTRS]]
-; CHECK: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32) [[ATTRS]]
-; CHECK: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64) [[ATTRS]]
-; CHECK: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64) [[ATTRS]]
+; CHECK: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture nofree readonly, i32) [[ATTRS:#[0-9]+]]
+; CHECK: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32) [[ATTRS]]
+; CHECK: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32) [[ATTRS]]
+; CHECK: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64) [[ATTRS]]
+; CHECK: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64) [[ATTRS]]
 ; CHECK: attributes [[ATTRS]] = { nofree nounwind }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt -inline -lcssa -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -simplifycfg -inline -inline-report=0xe807 -disable-output 2>&1 %s | FileCheck %s
 ; RUN: opt -passes='cgscc(inline),function(lcssa,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg)' -inline-report=0xe807 -S 2>&1 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

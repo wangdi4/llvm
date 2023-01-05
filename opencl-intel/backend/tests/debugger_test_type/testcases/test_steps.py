@@ -295,8 +295,6 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(1), 'main_kernel')
         self.client.debug_run_finish()
 
-    @expectedFailureCDB
-    @expectedFailureGDB
     def test_simple_step_out(self):
     #
     # TC-24

@@ -75,35 +75,5 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
-/// For legacy pass manager.
-class BuiltinLibInfoAnalysisLegacy : public ImmutablePass {
-  BuiltinLibInfo BLInfo;
-
-public:
-  static char ID;
-
-  BuiltinLibInfoAnalysisLegacy(ArrayRef<Module *> BuiltinModules = {});
-
-  StringRef getPassName() const override {
-    return "BuiltinLibInfoAnalysisLegacy";
-  }
-
-  bool doInitialization(Module &M) override {
-    BLInfo.loadBuiltinModules(M);
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  void print(raw_ostream &OS, const Module *) const override {
-    BLInfo.print(OS);
-  }
-
-  BuiltinLibInfo &getResult() { return BLInfo; }
-  const BuiltinLibInfo &getResult() const { return BLInfo; }
-};
-
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_BUILTIN_LIB_INFO_ANALYSIS_H

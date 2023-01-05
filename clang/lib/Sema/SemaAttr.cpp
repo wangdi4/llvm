@@ -51,6 +51,7 @@ Sema::PragmaStackSentinelRAII::PragmaStackSentinelRAII(Sema &S,
     S.BSSSegStack.SentinelAction(PSK_Push, SlotLabel);
     S.ConstSegStack.SentinelAction(PSK_Push, SlotLabel);
     S.CodeSegStack.SentinelAction(PSK_Push, SlotLabel);
+    S.StrictGuardStackCheckStack.SentinelAction(PSK_Push, SlotLabel);
   }
 }
 
@@ -61,6 +62,7 @@ Sema::PragmaStackSentinelRAII::~PragmaStackSentinelRAII() {
     S.BSSSegStack.SentinelAction(PSK_Pop, SlotLabel);
     S.ConstSegStack.SentinelAction(PSK_Pop, SlotLabel);
     S.CodeSegStack.SentinelAction(PSK_Pop, SlotLabel);
+    S.StrictGuardStackCheckStack.SentinelAction(PSK_Pop, SlotLabel);
   }
 }
 
@@ -797,6 +799,17 @@ void Sema::ActOnPragmaMSSeg(SourceLocation PragmaLocation,
   Stack->Act(PragmaLocation, Action, StackSlotLabel, SegmentName);
 }
 
+/// Called on well formed \#pragma strict_gs_check().
+void Sema::ActOnPragmaMSStrictGuardStackCheck(SourceLocation PragmaLocation,
+                                              PragmaMsStackAction Action,
+                                              bool Value) {
+  if (Action & PSK_Pop && StrictGuardStackCheckStack.Stack.empty())
+    Diag(PragmaLocation, diag::warn_pragma_pop_failed) << "strict_gs_check"
+                                                       << "stack empty";
+
+  StrictGuardStackCheckStack.Act(PragmaLocation, Action, StringRef(), Value);
+}
+
 /// Called on well formed \#pragma bss_seg().
 void Sema::ActOnPragmaMSSection(SourceLocation PragmaLocation,
                                 int SectionFlags, StringLiteral *SegmentName) {
@@ -900,7 +913,7 @@ getParentAttrMatcherRule(attr::SubjectMatchRule Rule) {
   using namespace attr;
   switch (Rule) {
   default:
-    return None;
+    return std::nullopt;
 #define ATTR_MATCH_RULE(Value, Spelling, IsAbstract)
 #define ATTR_MATCH_SUB_RULE(Value, Spelling, IsAbstract, Parent, IsNegated)    \
   case Value:                                                                  \
@@ -1306,7 +1319,6 @@ void Sema::ActOnPragmaFPContract(SourceLocation Loc,
     break;
   case LangOptions::FPM_Off:
     NewFPFeatures.setDisallowFPContract();
-    Context.disableFPContract(); // INTEL
     break;
   case LangOptions::FPM_FastHonorPragmas:
     llvm_unreachable("Should not happen");

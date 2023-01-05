@@ -1,7 +1,8 @@
 ; This test is to verify the complete transpose candidate
 ; selection/profitability/transformation implementation.
 
-; RUN: opt < %s -S -dtrans-transpose 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -S -passes=dtrans-transpose 2>&1 | FileCheck %s
 
 

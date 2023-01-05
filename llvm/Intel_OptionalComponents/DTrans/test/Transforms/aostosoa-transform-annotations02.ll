@@ -1,5 +1,4 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-aostosoa -dtrans-aostosoa-index32=true -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoa -dtrans-aostosoa-index32=true -dtrans-aostosoa-heur-override=struct.test01,struct.test02 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -36,7 +35,7 @@ define internal void @test01(i64 %num) {
   ; Allocate %num elements. (structure size = 16)
   %size = mul nsw i64 %num, 16
   %mem = call i8* @malloc(i64 %size)
-; CHECK:   call i8* @llvm.ptr.annotation.p0i8(i8* %mem
+; CHECK:   call i8* @llvm.ptr.annotation.p0i8.p0i8(i8* %mem
 ; CHECK-SAME: @__intel_dtrans_aostosoa_alloc,
 
   store i8* %mem, i8** bitcast (%struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0)  to i8**)
@@ -49,7 +48,7 @@ define internal void @test02(i64 %num) {
   ; Allocate %num elements. (structure size = 16)
   %size = mul nsw i64 %num, 16
   %mem = call i8* @malloc(i64 %size)
-; CHECK:   call i8* @llvm.ptr.annotation.p0i8(i8* %mem
+; CHECK:   call i8* @llvm.ptr.annotation.p0i8.p0i8(i8* %mem
 ; CHECK-SAME: @__intel_dtrans_aostosoa_alloc.1,
 
   bitcast i8* %mem to %struct.test02*
@@ -62,25 +61,25 @@ define internal void @test03() {
 ; CHECK-LABEL: define internal void @test03
 
   ; test with constant object GEP
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @g_test01depptr
 ; CHECK-SAME: __intel_dtrans_aostosoa_index,
   %ptr1_to_st01 = load %struct.test01*, %struct.test01** getelementptr (%struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0)
 
   ; test with a field from the peeled structure
   %ptr1_to_st02 = getelementptr %struct.test01, %struct.test01* %ptr1_to_st01, i64 0, i32 0
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %ptr1_to_st02
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %ptr1_to_st02
 ; CHECK-SAME: @__intel_dtrans_aostosoa_index.1,
 
   %st02 = load %struct.test02*, %struct.test02** %ptr1_to_st02
   %ptr2_to_st01 = getelementptr %struct.test02, %struct.test02* %st02, i64 0, i32 0
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %ptr2_to_st01
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %ptr2_to_st01
 ; CHECK-SAME: @__intel_dtrans_aostosoa_index,
 
   %st01 = load %struct.test01*, %struct.test01** %ptr2_to_st01
 
   ; test with a field from a dependent struture
   %ptr3_to_st01 = getelementptr %struct.test01dep, %struct.test01dep* @g_test01depptr, i64 0, i32 0
-; CHECK: call i32* @llvm.ptr.annotation.p0i32(i32* %ptr3_to_st01
+; CHECK: call i32* @llvm.ptr.annotation.p0i32.p0i8(i32* %ptr3_to_st01
 ; CHECK-SAME: @__intel_dtrans_aostosoa_index,
 
   store %struct.test01* %st01, %struct.test01** %ptr3_to_st01

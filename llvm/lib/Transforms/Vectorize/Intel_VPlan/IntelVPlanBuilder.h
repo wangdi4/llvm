@@ -187,7 +187,7 @@ public:
 
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
   // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
-  VPValue *createAdd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+  VPInstruction *createAdd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::Add, LHS->getType(),
                              {LHS, RHS}, Name);
   }
@@ -267,7 +267,7 @@ public:
                              Name);
   }
 
-  VPValue *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+  VPInstruction *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
                              {LHS, RHS}, Name);
   }

@@ -725,6 +725,17 @@ enum OperandEncoding {
 #else // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define XTQ_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_XISA_COMMON
+#define XMMP_ENUM_ENTRY  ENUM_ENTRY(TYPE_XMM_PAIR,   "xmm pair")
+#define YMMP_ENUM_ENTRY  ENUM_ENTRY(TYPE_YMM_PAIR,   "ymm pair")
+#define ZMMP_ENUM_ENTRY  ENUM_ENTRY(TYPE_ZMM_PAIR,   "zmm pair")
+#else // INTEL_FEATURE_XISA_COMMON
+#define XMMP_ENUM_ENTRY
+#define YMMP_ENUM_ENTRY
+#define ZMMP_ENUM_ENTRY
+#endif // INTEL_FEATURE_XISA_COMMON
+
 #endif // INTEL_CUSTOMIZATION
 
 // Semantic interpretations of instruction operands.
@@ -760,6 +771,9 @@ enum OperandEncoding {
   Z16T_ENUM_ENTRY                                                              \
   XTQ_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_TMM,        "tile")                                          \
+  XMMP_ENUM_ENTRY                                                              \
+  YMMP_ENUM_ENTRY                                                              \
+  ZMMP_ENUM_ENTRY                                                              \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

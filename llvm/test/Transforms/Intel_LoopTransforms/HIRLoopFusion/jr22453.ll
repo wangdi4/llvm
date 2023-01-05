@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that pre-fusion HLNode sorting doesn't fails with assertion.
@@ -37,20 +36,21 @@
 
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 10, 1   <DO_LOOP>
-;                  |   (undef)[0] = undef;
-;                  |
-; CHECK:           |   + DO i2 = 0, sext.i32.i64(undef) + -1 * undef + -1, 1   <DO_LOOP>
-;                  |   |   + DO i3 = 0, undef + -3, 1   <DO_LOOP>
-;                  |   |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[i3 + 2][i2 + undef] = undef;
-;                  |   |   + END LOOP
-;                  |   |
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(undef) + -1 * undef + -1, 1   <DO_LOOP> 
 ;                  |   |   %"NCLDS[]13600_fetch" = (undef)[0];
-;                  |   |   %"NCLDS[]14228_fetch" = (undef)[0];
 ;                  |   |   %"NCLDS[]14857_fetch" = (undef)[0];
 ;                  |   |   %"NCLDS[]15890_fetch" = (undef)[0];
 ;                  |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[1][i2 + undef] = undef;
+;                  |   |   %"NCLDS[]14228_fetch" = (undef)[0];
 ; CHECK:           |   + END LOOP
-; CHECK-NOT: DO i2
+;                  |
+;                  |   (undef)[0] = undef;
+;                  |
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(undef) + -1 * undef + -1, 1   <DO_LOOP>
+; CHECK:           |   |   + DO i3 = 0, undef + -3, 1   <DO_LOOP>
+;                  |   |   |   (%"module_ra_gfdleta_mp_swr93_$DFNTRN475")[i3 + 2][i2 + undef] = undef;
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 

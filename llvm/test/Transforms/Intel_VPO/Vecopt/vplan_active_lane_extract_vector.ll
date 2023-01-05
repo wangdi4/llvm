@@ -1,5 +1,5 @@
-; RUN: opt < %s -vplan-vec -vplan-force-vf=2 -S 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=HIR-CG
+; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=HIR-CG
 
 define void @foo(<2 x i64> *%p, i1 %uniform) #0 {
 ; CHECK-LABEL: @foo(

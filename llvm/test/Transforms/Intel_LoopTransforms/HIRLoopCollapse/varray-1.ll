@@ -1,7 +1,5 @@
-; RUN: opt -hir-details-dims -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-details-dims -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Loop Collapse Sanity Test: access a variable array

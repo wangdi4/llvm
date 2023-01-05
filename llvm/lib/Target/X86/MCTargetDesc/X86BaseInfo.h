@@ -679,28 +679,33 @@ namespace X86II {
     /// MRMDestMemImm8 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 2
     /// is a 8-bit immediate.
-    MRMDestMemImm8 = 16,
+    MRMDestMemImm8 = 15,
 
     /// MRMDestReg4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is register and operand
     /// 3 with VEX.VVVV and do not load from memory.
     ///
-    MRMDestReg4VOp3 = 17,
+    MRMDestReg4VOp3 = 16,
 
     /// MRMDestMem4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 3
     /// with VEX.VVVV.
     ///
-    MRMDestMem4VOp3 = 18,
+    MRMDestMem4VOp3 = 17,
 
     /// MRMDestMem4VOp2FSIB - sibmem encoding for dst memory.
     /// src1 mod/r, src2 vex.4v
-    MRMDestMem4VOp2FSIB = 19,
+    MRMDestMem4VOp2FSIB = 18,
 
     /// MRMSrcMem4VOp3FSIB - But force to use the SIB field.
-    MRMSrcMem4VOp3FSIB = 20,
-
+    MRMSrcMem4VOp3FSIB = 19,
 #endif // INTEL_CUSTOMIZATION
+
+    /// MRMDestMem4VOp3CC - This form is used for instructions that use the Mod/RM
+    /// byte to specify a destination which in this case is memory and operand 3
+    /// with VEX.VVVV, and also encodes a condition code.
+    MRMDestMem4VOp3CC = 20,
+
     // Instructions operate on a register Reg/Opcode operand not the r/m field.
     MRMr0 = 21,
 
@@ -1224,6 +1229,7 @@ namespace X86II {
       // Skip registers encoded in reg, VEX_VVVV, and I8IMM.
       return 3;
     case X86II::MRMSrcMemCC:
+    case X86II::MRMDestMem4VOp3CC:
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
       // mask register.
       return 1;

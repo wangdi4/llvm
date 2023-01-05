@@ -2,7 +2,6 @@
 ; Test to check processing of masked variant with unconditional lastprivates.
 ; Bailout for now due to unsupported in CG.
 ;
-; RUN: opt -vplan-vec  -disable-output -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -disable-output -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant < %s 2>&1 | FileCheck %s
 
 ; TODO: Enable test for HIR when vectors are supported by loopopt

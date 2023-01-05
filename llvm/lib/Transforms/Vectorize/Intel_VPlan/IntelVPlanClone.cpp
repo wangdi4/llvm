@@ -113,7 +113,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                          *Parent->getLLVMContext());
 
       SmallVector<Metadata *, 8> NewScopeList;
-      for (auto It : ClonedScopes)
+      for (const auto &It : ClonedScopes)
         NewScopeList.push_back(It.second);
 
       auto *NewMD = MDNode::get(*Parent->getLLVMContext(), NewScopeList);

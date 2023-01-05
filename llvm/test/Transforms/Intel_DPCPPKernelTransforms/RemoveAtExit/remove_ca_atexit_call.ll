@@ -1,7 +1,5 @@
 ; This test case is to check that __cxa_atexit function call is removed
 ; by remove-atexit pass.
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-remove-atexit -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-remove-atexit -S %s | FileCheck %s
 

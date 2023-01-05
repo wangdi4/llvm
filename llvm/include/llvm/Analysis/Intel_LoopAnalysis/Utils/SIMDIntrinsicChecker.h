@@ -46,6 +46,8 @@ public:
 
   bool areAllInPreAndPostLoop() const;
 
+  bool hasReductions() const { return !ReductionRefs.empty(); }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
 #endif

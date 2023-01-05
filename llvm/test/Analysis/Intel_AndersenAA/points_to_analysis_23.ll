@@ -1,7 +1,6 @@
 ; This test verifies that Andersens Analysis treats "free" call as
 ; "no side effect" library call.
 
-; RUN: opt < %s -anders-aa -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-constraints -disable-output 2>&1 | FileCheck %s
 
 

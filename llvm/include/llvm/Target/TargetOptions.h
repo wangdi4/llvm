@@ -145,12 +145,13 @@ namespace llvm {
           NoTrappingFPMath(true), NoSignedZerosFPMath(false),
           ApproxFuncFPMath(false), EnableAIXExtendedAltivecABI(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
-          IntelAdvancedOptim(false),               // INTEL
-          IntelLibIRCAllowed(false),               // INTEL
-          X87Precision(0),                         // INTEL
-          DoFMAOpt(true),                          // INTEL
-          IntelSpillParms(false),                  // INTEL
-          IntelABICompatible(false),               // INTEL
+#if INTEL_CUSTOMIZATION
+          IntelAdvancedOptim(false), IntelLibIRCAllowed(false), X87Precision(0),
+          DoFMAOpt(true), IntelSpillParms(false), IntelABICompatible(false),
+#if INTEL_FEATURE_MARKERCOUNT
+          MarkerCountKind(0),
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           LowerGlobalDtorsViaCxaAtExit(false), DisableIntegratedAS(false),
@@ -267,6 +268,11 @@ namespace llvm {
     /// It is usually difficult to modify ABI in the community, and modification
     /// here is a compromise.
     unsigned IntelABICompatible : 1;
+#if INTEL_FEATURE_MARKERCOUNT
+    /// MarkerCountKind - Indicates the marker count to emit, see
+    /// MarkerCount::Flag in CodeGen.h for details.
+    unsigned MarkerCountKind : 6;
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
@@ -464,6 +470,14 @@ namespace llvm {
 
     /// Which debugger to tune for.
     DebuggerKind DebuggerTuning = DebuggerKind::Default;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+    /// OverrideMarkerCountFile - Overrides the marker count kind for the
+    /// functions in the file
+    std::string OverrideMarkerCountFile;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   private:
     /// Flushing mode to assume in default FP environment.

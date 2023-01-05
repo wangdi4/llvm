@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -35,7 +35,6 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h"          // INTEL
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -61,14 +60,18 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
-#endif //INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -234,6 +237,11 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   NF->setComdat(F.getComdat());
   F.getParent()->getFunctionList().insert(F.getIterator(), NF);
   NF->takeName(&F);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(&F);
+  getInlineReport()->replaceFunctionWithFunction(&F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(&F, NF);
+#endif // INTEL_CUSTOMIZATION
 
   // Loop over all the callers of the function, transforming the call sites
   // to pass in a smaller number of arguments into the new function.
@@ -279,6 +287,10 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
       CB->replaceAllUsesWith(NewCB);
 
     NewCB->takeName(CB);
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
+    getMDInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
+#endif // INTEL_CUSTOMIZATION
 
     // Finally, remove the old call from the program, reducing the use-count of
     // F.
@@ -970,6 +982,11 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   // it again.
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(F);
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+#endif // INTEL_CUSTOMIZATION
 
   // Loop over all the callers of the function, transforming the call sites to
   // pass in a smaller number of arguments into the new function.
@@ -1096,6 +1113,8 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
     }
 
 #if INTEL_CUSTOMIZATION
+    getInlineReport()->replaceCallBaseWithCallBase(&CB, NewCB);
+    getMDInlineReport()->replaceCallBaseWithCallBase(&CB, NewCB);
     IPOUtils::preserveOrSuppressInlineReport(cast<Instruction>(&CB),
                                              cast<Instruction>(NewCB));
 #endif //INTEL_CUSTOMIZATION
@@ -1168,7 +1187,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
         // value (possibly 0 if we became void).
         auto *NewRet = ReturnInst::Create(F->getContext(), RetVal, RI);
         NewRet->setDebugLoc(RI->getDebugLoc());
-        BB.getInstList().erase(RI);
+        RI->eraseFromParent();
       }
 
   // Clone metadata from the old function, including debug info descriptor.

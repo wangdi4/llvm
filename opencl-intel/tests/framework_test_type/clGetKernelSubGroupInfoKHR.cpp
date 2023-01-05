@@ -31,7 +31,7 @@ void clGetKernelSubGroupInfo() {
   // Get platform.
   cl_platform_id platform = 0;
   iRet = clGetPlatformIDs(1, &platform, NULL);
-  ASSERT_EQ(CL_SUCCESS, iRet);// << "clGetPlatformIDs failed.";
+  ASSERT_EQ(CL_SUCCESS, iRet); // << "clGetPlatformIDs failed.";
 
   // Get device.
   cl_device_id device = NULL;
@@ -41,13 +41,14 @@ void clGetKernelSubGroupInfo() {
   // Create context.
   cl_context context = NULL;
   {
-    const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    const cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                           (cl_context_properties)platform, 0};
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << "clCreateContext failed. ";
   }
 
   // Create and build program.
-  const char* kernel_source = "\
+  const char *kernel_source = "\
                               __kernel void dummy_kernel()\
                               {\
                                 return;\
@@ -55,15 +56,16 @@ void clGetKernelSubGroupInfo() {
 
   const size_t kernel_size = strlen(kernel_source);
 
-  cl_program program = clCreateProgramWithSource(context, 1, &kernel_source, &kernel_size, &iRet);
+  cl_program program = clCreateProgramWithSource(context, 1, &kernel_source,
+                                                 &kernel_size, &iRet);
   ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithSource failed. ";
 
   iRet = clBuildProgram(program, 0, nullptr, "", nullptr, nullptr);
 
-  if( CL_SUCCESS != iRet )
-  {
+  if (CL_SUCCESS != iRet) {
     std::string log("", 1000);
-    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log.size(), &log[0], nullptr);
+    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log.size(),
+                          &log[0], nullptr);
     std::cout << log << std::endl;
   }
   ASSERT_EQ(CL_SUCCESS, iRet) << " clBuildProgram failed. ";

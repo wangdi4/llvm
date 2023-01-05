@@ -1,4 +1,3 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-opt-var-predicate -hir-opt-predicate -disable-output -print-after=hir-opt-var-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-opt-var-predicate,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; The test runs HIR Var OptPredicate pass on conditions at lines 33 and 37.

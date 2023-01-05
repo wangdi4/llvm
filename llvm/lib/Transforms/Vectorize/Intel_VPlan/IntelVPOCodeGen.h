@@ -48,14 +48,16 @@ class VPOCodeGen {
 public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
+             TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+             unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlanVector *Plan, OptReportBuilder &ORBuilder,
              bool IsOmpSIMD = false,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
-      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
-        VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
-        Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
+        Legal(LVL), VLSA(VLSA),
+        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
+        VF(VecWidth), UF(UnrollFactor), Builder(Context),
         OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
         IsOmpSIMD(IsOmpSIMD), FatalErrorHandler(FatalErrorHandler) {}
 
@@ -336,6 +338,22 @@ private:
   template <class VPPeelRemainderTy>
   void vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse);
 
+  /// Generate code to initialize array reduction by using a simple algorithm
+  /// that iterates over each allocated element and initializes it with
+  /// reduction's identity value. This algorithm assumes contiguous allocation
+  /// of arrays and its elements.
+  void generateArrayReductionInit(VPInstruction *RedInitArr);
+
+  /// Generate code to finalize array reduction using following algorithm -
+  /// 1. Load custom length of subarray from each private and original arrays.
+  /// 2. Compute reduced value using all loaded subarrays.
+  /// 3. Store the subarray back to original array.
+  /// 4. Execute any remaining iterations in a scalar remainder loop.
+  ///
+  /// Subarray length is determined using target's maximum vector register width
+  /// and number of elements in array.
+  void generateArrayReductionFinal(VPReductionFinalArray *RedFinalArr);
+
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
   /// "llvm.experimental.vector.reduce" intrinsics.
@@ -390,12 +408,25 @@ private:
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
-  /// Vectorize running inclusive reduction.
-  void vectorizeRunningInclusiveReduction(
-    VPRunningInclusiveReduction *InscanRed);
+  // Vectorize ArrayType nonPOD privates.
+  template <typename PrivateInstType>
+  void vectorizePrivateNonPODArray(const VPInstruction *VPInst);
 
-  /// Vectorize extract last vector lane instruction.
+  // Vectorize ArrayType nonPOD last value privates.
+  template <typename PrivateInstType>
+  void vectorizePrivateLastValueNonPODArray(const VPInstruction *VPInst,
+                                            Value *Res);
+
+  // Vectorize running inclusive/exclusive reduction.
+  template <class RunningReductionTy>
+  Value* vectorizeRunningReduction(RunningReductionTy *InscanRed);
+
+  /// Vectorize extract last active vector lane instruction.
   Value *vectorizeExtractLastVectorLane(VPInstruction *VPInst);
+
+  /// Generate vector element-wise min/max instructions.
+  Value *generateMinMaxSequence(unsigned BinOpCode, Value *Op1, Value *Op2,
+                                FastMathFlags FMF);
 
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
@@ -431,6 +462,9 @@ private:
 
   /// Target Library Info.
   TargetLibraryInfo *TLI;
+
+  /// Target Transform Info.
+  TargetTransformInfo *TTI;
 
   /// Vectorization Legality.
   VPOVectorizationLegality *Legal;
@@ -625,7 +659,8 @@ private:
                          AttributeList OrigAttrs,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys,
-                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                         bool IsDevice);
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.
@@ -703,6 +738,10 @@ private:
   /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
 
+  /// Generate sequence for obtaining the last active lane index.
+  /// The index can be used for extracting values in the last active lane.
+  Value *createLastActiveLaneSequence(Value *VecMask);
+
   /// Helper method to visit all VPLoops in final VPlan CFG and lower
   /// opt-reports attached to them to their corresponding loops in outgoing IR.
   void lowerRemarksForVectorLoops();
@@ -741,8 +780,8 @@ private:
 
   FatalErrorHandlerTy FatalErrorHandler;
 
-  // True if loop has any UDR variables.
-  bool LoopHasUDRs = false;
+  // True if loop has any UDR variables and/or inscan reductions.
+  bool LoopHasUDRsOrInscan = false;
 };
 
 } // namespace vpo

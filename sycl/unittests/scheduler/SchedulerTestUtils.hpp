@@ -10,6 +10,7 @@
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/commands.hpp>
 #include <detail/scheduler/scheduler.hpp>
+#include <detail/handler_impl.hpp>
 #include <detail/stream_impl.hpp>
 #include <sycl/detail/cl.h>
 
@@ -102,7 +103,9 @@ class MockScheduler : public sycl::detail::Scheduler {
 public:
   using sycl::detail::Scheduler::addCG;
   using sycl::detail::Scheduler::addCopyBack;
+  using sycl::detail::Scheduler::checkLeavesCompletion;
   using sycl::detail::Scheduler::cleanupCommands;
+  using sycl::detail::Scheduler::MDeferredMemObjRelease;
 
   sycl::detail::MemObjRecord *
   getOrInsertMemObjRecord(const sycl::detail::QueueImplPtr &Queue,
@@ -143,7 +146,7 @@ public:
                              sycl::detail::EnqueueResultT &EnqueueResult,
                              sycl::detail::BlockingT Blocking) {
     std::vector<sycl::detail::Command *> ToCleanUp;
-    return GraphProcessor::enqueueCommand(Cmd, EnqueueResult, ToCleanUp,
+    return GraphProcessor::enqueueCommand(Cmd, EnqueueResult, ToCleanUp, Cmd,
                                           Blocking);
   }
 
@@ -156,6 +159,10 @@ public:
   }
 
   ReadLockT acquireGraphReadLock() { return ReadLockT{MGraphLock}; }
+  WriteLockT acquireOriginSchedGraphWriteLock() {
+    Scheduler &Sched = Scheduler::getInstance();
+    return WriteLockT(Sched.MGraphLock, std::defer_lock);
+  }
 
   sycl::detail::Command *
   insertMemoryMove(sycl::detail::MemObjRecord *Record,
@@ -269,5 +276,39 @@ public:
                               PI_ERROR_INVALID_OPERATION);
 
     return nullptr;
+  }
+};
+
+class MockHandlerCustomFinalize : public MockHandler {
+public:
+  MockHandlerCustomFinalize(std::shared_ptr<sycl::detail::queue_impl> Queue,
+                            bool IsHost)
+      : MockHandler(Queue, IsHost) {}
+
+  std::unique_ptr<sycl::detail::CG> finalize() {
+    std::unique_ptr<sycl::detail::CG> CommandGroup;
+    switch (getType()) {
+    case sycl::detail::CG::Kernel: {
+      CommandGroup.reset(new sycl::detail::CGExecKernel(
+          getNDRDesc(), std::move(getHostKernel()), getKernel(),
+          std::move(MImpl->MKernelBundle), getArgsStorage(), getAccStorage(),
+          getSharedPtrStorage(), getRequirements(), getEvents(), getArgs(),
+          getKernelName(), getOSModuleHandle(), getStreamStorage(),
+          MImpl->MAuxiliaryResources, getCGType(), getCodeLoc()));
+      break;
+    }
+    case sycl::detail::CG::CodeplayHostTask: {
+      CommandGroup.reset(new sycl::detail::CGHostTask(
+          std::move(getHostTask()), getQueue(), getQueue()->getContextImplPtr(),
+          getArgs(), getArgsStorage(), getAccStorage(), getSharedPtrStorage(),
+          getRequirements(), getEvents(), getCGType(), getCodeLoc()));
+      break;
+    }
+    default:
+      throw sycl::runtime_error("Unhandled type of command group",
+                                PI_ERROR_INVALID_OPERATION);
+    }
+
+    return CommandGroup;
   }
 };

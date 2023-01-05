@@ -11,7 +11,6 @@
 ;
 
 ; RUN: opt < %s -opaque-pointers -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
-; RUN: opt < %s -opaque-pointers -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -S | FileCheck %s
 
 ; This is the same test case as call_tree_cloning_11.ll, but it checks for
 ; opaque pointers.

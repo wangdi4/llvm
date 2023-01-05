@@ -42,7 +42,7 @@
 ; END REGION
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -disable-output -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
 
 ; CHECK: VD: Not vectorizing: Cannot support multiple multi-exit loops.
 

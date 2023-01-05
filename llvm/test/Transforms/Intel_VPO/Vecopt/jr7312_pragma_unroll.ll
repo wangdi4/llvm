@@ -1,4 +1,3 @@
-; RUN: opt -S -vplan-enable-all-zero-bypass-non-loops=false -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec %s | FileCheck %s
 ; RUN: opt -S -vplan-enable-all-zero-bypass-non-loops=false -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" %s | FileCheck %s
 ; CHECK-LABEL: vector.body
 ; ModuleID = 'main'

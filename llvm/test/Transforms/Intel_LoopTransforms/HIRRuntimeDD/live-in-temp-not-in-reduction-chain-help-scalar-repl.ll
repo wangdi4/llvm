@@ -1,7 +1,6 @@
 ; Although the temp %q.022 is a live-in temp and it is not in a safe-reduction chain,
 ; B[i1] can still be scalar replacement candidate. Thus, RTDD is triggered in this test case.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

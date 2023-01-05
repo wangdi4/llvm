@@ -1,4 +1,3 @@
-; RUN: opt < %s  -anders-aa -domtree -loops -loop-simplify -lcssa -basic-aa -aa -nonltoglobalopt  -S | FileCheck %s
 ; RUN: opt < %s  -passes="require<anders-aa>,function(require<aa>,nonltoglobalopt)" -aa-pipeline=anders-aa -S | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

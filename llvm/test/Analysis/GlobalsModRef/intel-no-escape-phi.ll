@@ -1,4 +1,3 @@
-; RUN: opt < %s -globals-aa -aa-eval -print-all-alias-modref-info -S -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='require<globals-aa>,function(aa-eval)' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; Verify that globals-aa can disambiguate between %p and @Glob by handling phi

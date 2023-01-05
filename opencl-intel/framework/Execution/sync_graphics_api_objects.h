@@ -14,120 +14,128 @@
 
 #pragma once
 
-#include "enqueue_commands.h"
 #include "GraphicsApiMemoryObject.h"
+#include "enqueue_commands.h"
 
-namespace Intel { namespace OpenCL { namespace Framework
-{
-    /**
-     * @class   SyncGraphicsApiObjects
-     *
-     * @brief   Common base class for synchronization of graphics API objects, such as OpenGL and
-     * 			Direct3D
-     *
-     * @author  Aharon
-     * @date    7/13/2011
-     *
-     * @sa  Intel::OpenCL::Framework::RuntimeCommand
-     */
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
+/**
+ * @class   SyncGraphicsApiObjects
+ *
+ * @brief   Common base class for synchronization of graphics API objects, such
+ * as OpenGL and Direct3D
+ *
+ * @author  Aharon
+ * @date    7/13/2011
+ *
+ * @sa  Intel::OpenCL::Framework::RuntimeCommand
+ */
 
-    class SyncGraphicsApiObjects : public RuntimeCommand
-    {
-        const bool m_bIsAcquireCmd;
-        const cl_command_type m_cmdType;
-        const size_t m_uiMemObjNum;
-        SharedPtr<GraphicsApiMemoryObject>* m_pMemObjects;
+class SyncGraphicsApiObjects : public RuntimeCommand {
+  const bool m_bIsAcquireCmd;
+  const cl_command_type m_cmdType;
+  const size_t m_uiMemObjNum;
+  SharedPtr<GraphicsApiMemoryObject> *m_pMemObjects;
 
-    protected:
-        
-        /**
-         * @fn  SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type cmdType,
-         *      unsigned int uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue,
-         *      ocl_entry_points * pOclEntryPoints, SharedPtr<GraphicsApiMemoryObject>* pMemObjects,
-         *      bool bIsAcquireCmd);
-         *
-         * @brief   Constructor.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         */
+protected:
+  /**
+   * @fn  SyncGraphicsApiObjects::SyncGraphicsApiObjects(cl_command_type
+   * cmdType, unsigned int uiMemObjNum, SharedPtr<IOclCommandQueueBase>
+   * cmdQueue, ocl_entry_points * pOclEntryPoints,
+   * SharedPtr<GraphicsApiMemoryObject>* pMemObjects, bool bIsAcquireCmd);
+   *
+   * @brief   Constructor.
+   *
+   * @author  Aharon
+   * @date    7/13/2011
+   */
 
-        SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum, SharedPtr<IOclCommandQueueBase> cmdQueue, SharedPtr<GraphicsApiMemoryObject>* pMemObjects, bool bIsAcquireCmd);
+  SyncGraphicsApiObjects(cl_command_type cmdType, size_t uiMemObjNum,
+                         SharedPtr<IOclCommandQueueBase> cmdQueue,
+                         SharedPtr<GraphicsApiMemoryObject> *pMemObjects,
+                         bool bIsAcquireCmd);
 
-        public:
+public:
+  /**
+   * @fn  SyncGraphicsApiObjects::~SyncGraphicsApiObjects();
+   *
+   * @brief   Finaliser.
+   *
+   * @author  Aharon
+   * @date    7/13/2011
+   */
 
-        /**
-         * @fn  SyncGraphicsApiObjects::~SyncGraphicsApiObjects();
-         *
-         * @brief   Finaliser.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         */
+  virtual ~SyncGraphicsApiObjects();
 
-        virtual ~SyncGraphicsApiObjects();
+  /**
+   * @fn  unsigned int SyncGraphicsApiObjects::GetNumMemObjs() const
+   *
+   * @brief   Gets the number of memory objects.
+   *
+   * @author  Aharon
+   * @date    7/13/2011
+   *
+   * @return  The number of memory objects.
+   */
 
-        /**
-         * @fn  unsigned int SyncGraphicsApiObjects::GetNumMemObjs() const
-         *
-         * @brief   Gets the number of memory objects.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @return  The number of memory objects.
-         */
+  size_t GetNumMemObjs() const { return m_uiMemObjNum; }
 
-        size_t GetNumMemObjs() const { return m_uiMemObjNum; }
+  // inherited methods:
 
-        // inherited methods:
+  virtual cl_command_type GetCommandType() const override { return m_cmdType; }
 
-        virtual cl_command_type GetCommandType() const override {
-          return m_cmdType;
-        }
+  virtual ECommandExecutionType GetExecutionType() const override {
+    return RUNTIME_EXECUTION_TYPE;
+  }
 
-        virtual ECommandExecutionType GetExecutionType() const override {
-          return RUNTIME_EXECUTION_TYPE;
-        }
+  virtual cl_err_code Init() override;
 
-        virtual cl_err_code Init() override;
+  cl_err_code CommandDone() override;
 
-        cl_err_code CommandDone() override;
+  virtual bool isControlCommand() const override { return false; }
 
-        virtual bool isControlCommand() const override { return false; }
+  /**
+   * @fn  const GraphicsApiMemoryObject&
+   * SyncGraphicsApiObjects::GetMemoryObject(size_t Index) const
+   *
+   * @brief   Gets a memory object.
+   *
+   * @author  Aharon
+   * @date    7/13/2011
+   *
+   * @param   Index   Zero-based index of the memory object.
+   *
+   * @return  The memory object.
+   */
 
-        /**
-         * @fn  const GraphicsApiMemoryObject& SyncGraphicsApiObjects::GetMemoryObject(size_t Index) const
-         *
-         * @brief   Gets a memory object.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @param   Index   Zero-based index of the memory object.
-         *
-         * @return  The memory object.
-         */
+  const GraphicsApiMemoryObject &GetMemoryObject(size_t Index) const {
+    return *m_pMemObjects[Index];
+  }
 
-        const GraphicsApiMemoryObject& GetMemoryObject(size_t Index) const { return *m_pMemObjects[Index]; }
+  /**
+   * @fn  GraphicsApiMemoryObject&
+   * SyncGraphicsApiObjects::GetMemoryObject(size_t Index)
+   *
+   * @brief   Gets a memory object.
+   *
+   * @author  Aharon
+   * @date    7/13/2011
+   *
+   * @param   Index   Zero-based index of the memory object.
+   *
+   * @return  The memory object.
+   */
 
-        /**
-         * @fn  GraphicsApiMemoryObject& SyncGraphicsApiObjects::GetMemoryObject(size_t Index)
-         *
-         * @brief   Gets a memory object.
-         *
-         * @author  Aharon
-         * @date    7/13/2011
-         *
-         * @param   Index   Zero-based index of the memory object.
-         *
-         * @return  The memory object.
-         */
+  GraphicsApiMemoryObject &GetMemoryObject(size_t Index) {
+    return *m_pMemObjects[Index];
+  }
 
-        GraphicsApiMemoryObject& GetMemoryObject(size_t Index) { return *m_pMemObjects[Index]; }
-	private:
-		SyncGraphicsApiObjects(const SyncGraphicsApiObjects& s);
-		SyncGraphicsApiObjects& operator=(const SyncGraphicsApiObjects& s);
-    };
+private:
+  SyncGraphicsApiObjects(const SyncGraphicsApiObjects &s);
+  SyncGraphicsApiObjects &operator=(const SyncGraphicsApiObjects &s);
+};
 
-}}}
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

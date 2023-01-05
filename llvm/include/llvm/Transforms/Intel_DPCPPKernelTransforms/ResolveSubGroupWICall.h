@@ -16,7 +16,6 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 
@@ -32,6 +31,8 @@ public:
 
   // Glue for old PM.
   bool runImpl(Module &M, BuiltinLibInfo *BLI);
+
+  static bool isRequired() { return true; }
 
 private:
   Value *replaceGetSubGroupSize(Instruction *insertBefore, Value *VF,
@@ -144,7 +145,7 @@ private:
   // must be visible to emulation passes.
   bool ResolveSGBarrier;
 
-  RuntimeService *RTS;
+  RuntimeService *RTS = nullptr;
 
   SmallVector<Instruction *, 8> ExtraInstToRemove;
 };

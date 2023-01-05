@@ -444,7 +444,7 @@ public:
     if (NumFields1 != NumFields2)
       return false;
 
-    for (auto P : zip_first(getFields(), Other.getFields())) {
+    for (const auto &P : zip_first(getFields(), Other.getFields())) {
       auto It1 = std::get<0>(P);
       auto It2 = std::get<1>(P);
 
@@ -842,7 +842,7 @@ public:
     // the function signature of the DTransFunctionType object.
     ID.AddPointer(FTy->getReturnType());
     ID.AddInteger(FTy->getNumArgs());
-    for (auto CurParamTy : FTy->args())
+    for (const auto &CurParamTy : FTy->args())
       ID.AddPointer(CurParamTy);
     ID.AddBoolean(FTy->isVarArg());
   }
@@ -857,7 +857,7 @@ public:
     // created.
     ID.AddPointer(DTRetTy);
     ID.AddInteger(ParamTypes.size());
-    for (auto CurParamTy : ParamTypes)
+    for (const auto &CurParamTy : ParamTypes)
       ID.AddPointer(CurParamTy);
     ID.AddBoolean(IsVarArg);
   }

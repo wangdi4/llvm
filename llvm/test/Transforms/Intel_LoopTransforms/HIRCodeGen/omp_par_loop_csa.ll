@@ -1,5 +1,4 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -hir-cg -S | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-recognize-par-loop,hir-cg" -S < %s | FileCheck %s
 ;
 ; REQUIRES: csa-registered-target

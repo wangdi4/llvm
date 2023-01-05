@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
 ; RUN:  opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-resolvetypes -debug-only=dtrans-resolvetypes %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

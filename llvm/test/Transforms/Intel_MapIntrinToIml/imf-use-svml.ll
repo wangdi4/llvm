@@ -10,7 +10,10 @@ define double @f(double %c) {
   ret double %ret
 }
 ; CHECK-LABEL: @f
-; CHECK: call svml_cc double @__svml_exp1_ha
+; CHECK: [[INSERT:%.*]] = insertelement <1 x double> undef, double %{{.*}}, i32 0
+; CHECK: [[CALL:%.*]] = call svml_cc <1 x double> @__svml_exp1_ha(<1 x double> [[INSERT]])
+; CHECK: [[EXTRACT:%.*]] = extractelement <1 x double> [[CALL]], i32 0
+; CHECK: ret double [[EXTRACT]]
 
 declare double @exp(double)
 

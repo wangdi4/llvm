@@ -3,6 +3,11 @@
 // CHECK: init1
 // CHECK-NEXT: init2
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42778
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 #include <stdio.h>
 
 int init1() {

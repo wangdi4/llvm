@@ -42,7 +42,6 @@
 ;  dead function (not collected): unused_bar
 ;
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS

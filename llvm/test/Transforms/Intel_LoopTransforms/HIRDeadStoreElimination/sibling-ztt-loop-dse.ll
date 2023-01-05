@@ -1,4 +1,3 @@
-; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -hir-details -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to conclude post-domination for sibling loops with identical Ztt and eliminate the first loop as dead.

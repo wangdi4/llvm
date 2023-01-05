@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test a variant of the special case code used for safety-store-safe06-opaque-ptr.ll,
@@ -28,7 +28,7 @@ define void @test(i64 %in) {
 
   ; Use %i227 as an i8* type to create a type alias.
   %cmp = icmp eq ptr %i227, null
-  tail call void @llvm.memset.p0i8.i64(ptr %i227, i8 0, i64 %i217, i1 false)
+  tail call void @llvm.memset.p0.i64(ptr %i227, i8 0, i64 %i217, i1 false)
 
   ; Use %i227 as the expected field type to index into the allocated memory
   %i407 = getelementptr double, ptr %i227, i64 8
@@ -42,7 +42,7 @@ define void @test(i64 %in) {
 ; CHECK: End LLVMType: %struct._ZTS10KernelInfo.KernelInfo
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-declare !intel.dtrans.func.type !8 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1 immarg)
+declare !intel.dtrans.func.type !8 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1 immarg)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64

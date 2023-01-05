@@ -6,16 +6,16 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 fmul ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	out[gid] = FLOAT1 * ARG1;
+  int gid = get_global_id(0);
+  out[gid] = FLOAT1 * ARG1;
 }

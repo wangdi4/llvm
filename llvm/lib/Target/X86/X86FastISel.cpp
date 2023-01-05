@@ -38,7 +38,6 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -58,6 +57,11 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetOptions.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 namespace {
@@ -3161,12 +3165,6 @@ bool X86FastISel::fastLowerArguments() {
     if (FPRCnt > 8)
       return false;
   }
-
-#if INTEL_CUSTOMIZATION
-  if (GPRCnt && (TM.Options.IntelSpillParms ||
-                 F->getParent()->getModuleFlag("IntelSpillParms")))
-    return false;
-#endif // INTEL_CUSTOMIZATION
 
   static const MCPhysReg GPR32ArgRegs[] = {
     X86::EDI, X86::ESI, X86::EDX, X86::ECX, X86::R8D, X86::R9D

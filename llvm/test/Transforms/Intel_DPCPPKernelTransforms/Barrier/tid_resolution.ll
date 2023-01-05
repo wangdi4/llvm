@@ -1,14 +1,12 @@
 ; Checks barrier pass resolves get_local_id and get_global_id correctly.
 ; RUN: opt -passes=dpcpp-kernel-barrier %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier %s -S -o - | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
 
 target triple = "i686-pc-win32"
 ; CHECK-LABEL: define void @main
-define void @main(i32 %x) #0 {
+define void @main(i32 %x) #0 !no_barrier_path !1 {
 entry:
   call void @dummy_barrier.()
 ;CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
@@ -47,6 +45,7 @@ attributes #0 = { "no-barrier-path"="false" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32)* @main}
+!1 = !{i1 false}
 
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main --  %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main --  %pCurrBarrier = alloca i32, align 4

@@ -126,11 +126,6 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       if (auto *Intr = dyn_cast<IntrinsicInst>(Call)) {
         SelfStats->NumIntrinsics++;
 
-        // Don't count assume as an unsafe call.
-        if (isa<AssumeInst>(Call)) {
-          return;
-        }
-
         auto IntrinsicId = Intr->getIntrinsicID();
         if (isTriviallyVectorizable(IntrinsicId)) {
           SelfStats->NumProfitableVectorizableCalls++;

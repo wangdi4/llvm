@@ -17,16 +17,15 @@
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: DuplicateCalledKernels
-; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
-; CHECK:      Running pass: FMASplitterPass
+; CHECK:      Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
+; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
 ; CHECK:      Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK:      Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
@@ -47,21 +46,22 @@
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: GVNHoistPass
 ; CHECK:      Running pass: DCEPass
-; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
+; CHECK-NEXT: DuplicateCalledKernels
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK:      Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK:      Running analysis: VFAnalysis
 ; CHECK:      Running analysis: WeightedInstCountAnalysis
 ; CHECK:      Running pass: VectorVariantLowering
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
@@ -69,8 +69,8 @@
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: VectorVariantFillIn
 ; CHECK-NEXT: Running pass: UpdateCallAttrs
@@ -123,6 +123,7 @@
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
 ; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -144,13 +145,12 @@
 ; CHECK:      Running analysis: LoopWIAnalysis
 
 ; CHECK:      Running pass: AddTLSGlobalsPass
-; CHECK:      Running analysis: LocalBufferAnalysis
 ; CHECK:      Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
@@ -168,14 +168,14 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Running pass: SimplifyCFGPass
-; CHECK:      Running pass: SROAPass
-; CHECK:      Running pass: InstCombinePass
-; CHECK:      Running pass: GVNPass
-; CHECK:      Running pass: DSEPass
-; CHECK:      Running pass: ADCEPass
-; CHECK:      Running pass: EarlyCSEPass
-; CHECK:      Running pass: InstCombinePass
+; CHECK:      Running pass: SROAPass on test
+; CHECK:      Running pass: InstCombinePass on test
+; CHECK:      Running pass: SimplifyCFGPass on test
+; CHECK:      Running pass: GVNPass on test
+; CHECK:      Running pass: DSEPass on test
+; CHECK:      Running pass: ADCEPass on test
+; CHECK:      Running pass: EarlyCSEPass on test
+; CHECK:      Running pass: InstCombinePass on test
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 
 ; CHECK: Test program was successfully built.

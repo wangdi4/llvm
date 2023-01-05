@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-mv-const-ub -print-before=hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Pragama likely trip count support for loop multi-versioning. Extract ZTT, and suppress the zero trip count case

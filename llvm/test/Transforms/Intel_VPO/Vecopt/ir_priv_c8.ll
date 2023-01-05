@@ -2,7 +2,7 @@
 ; Test to check that we allow using a recurrency in a load instruction that is in
 ; operands chain of unconditional last private.
 ;
-; RUN: opt -disable-output -vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=vplan-vec -vplan-force-vf=4 --vplan-print-after-initial-transforms -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -29,7 +29,6 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32* [[VP0:%.*]] = phi  [ i32* [[VP__IND_INIT]], [[BB1]] ],  [ i32* [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP__OMP_IV_LOCAL_011:%.*]] = phi  [ i32 [[VP__OMP_IV_LOCAL_011_IND_INIT]], [[BB1]] ],  [ i32 [[VP_ADD2:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32* [[VP1]] = getelementptr inbounds i32* [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP0]] i64 1
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = load i32* [[VP0]]
 ; CHECK-NEXT:     i32 [[VP_ADD2]] = add i32 [[VP__OMP_IV_LOCAL_011]] i32 [[VP__OMP_IV_LOCAL_011_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD2]] i32 [[VP_VECTOR_TRIP_COUNT]]

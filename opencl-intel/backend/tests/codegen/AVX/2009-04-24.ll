@@ -6,6 +6,6 @@
 
 define i32 @f() {
 entry:
-	%tmp1 = load i32, i32* @i
-	ret i32 %tmp1
+  %tmp1 = load i32, i32* @i
+  ret i32 %tmp1
 }

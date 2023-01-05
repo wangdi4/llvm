@@ -1,5 +1,3 @@
-; RUN: opt < %s -anders-aa -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 1
-; RUN: opt < %s -convert-to-subscript -S | opt -anders-aa -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 1
 ; RUN: opt < %s -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 1
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 1
 ; Non-Escape-Static-Vars_Begin

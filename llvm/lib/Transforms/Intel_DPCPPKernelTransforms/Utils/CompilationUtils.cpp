@@ -16,6 +16,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -28,6 +29,8 @@ using namespace llvm;
 using namespace NameMangleAPI;
 
 namespace llvm {
+
+const StringRef UserVariantPrefix = "user.";
 
 // Attributes
 const StringRef KernelAttribute::CallOnce = "kernel-call-once";
@@ -83,6 +86,7 @@ const StringRef NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
 const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
 const StringRef NAME_WORK_GROUP_ANY = "work_group_any";
 const StringRef NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+const StringRef NAME_WORK_GROUP_IDENTITY = "work_group_identity";
 const StringRef NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
 const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
     "work_group_scan_exclusive_add";
@@ -280,6 +284,10 @@ bool isGetEnqueuedLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
 }
 
+bool isUserVariantOfGetEnqueuedLocalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetEnqueuedLocalSize(S);
+}
+
 bool isGetGlobalLinearId(StringRef S) {
   return isMangleOf(S, NAME_GET_LINEAR_GID);
 }
@@ -292,6 +300,10 @@ bool isGetGlobalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
+bool isUserVariantOfGetGlobalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetGlobalSize(S);
+}
+
 bool isGetGroupId(StringRef S) {
   return isMangleOf(S, NAME_GET_GROUP_ID);
 }
@@ -300,8 +312,16 @@ bool isGetLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
+bool isUserVariantOfGetLocalSize(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetLocalSize(S);
+}
+
 bool isGetNumGroups(StringRef S) {
   return isMangleOf(S, NAME_GET_NUM_GROUPS);
+}
+
+bool isUserVariantOfGetNumGroups(StringRef S) {
+  return S.consume_front(UserVariantPrefix) && isGetNumGroups(S);
 }
 
 bool isGetWorkDim(StringRef S) {
@@ -346,7 +366,8 @@ bool isGlobalOffset(StringRef S) {
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
-bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
+
+StringRef nameSpecialBuffer() { return NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
@@ -365,6 +386,10 @@ bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
 
 bool isWorkGroupBroadCast(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool isWorkGroupIdentity(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_IDENTITY);
 }
 
 bool isWorkGroupReduceAdd(StringRef S) {
@@ -698,7 +723,8 @@ bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }
 
 bool isWorkGroupUniform(StringRef S) {
   return isWorkGroupBuiltinUniform(S) || isGetMaxSubGroupSize(S) ||
-         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
+         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S) ||
+         isWorkGroupIdentity(S);
 }
 
 bool isWorkGroupDivergent(StringRef S) {
@@ -726,6 +752,16 @@ std::string removeWorkGroupFinalizePrefix(StringRef S) {
   FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
   std::string FuncName = mangle(FD);
   return FuncName;
+}
+
+std::string getWorkGroupIdentityFinalize(StringRef S) {
+  assert(isMangledName(S) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor FD = demangle(S);
+  // Only preserve the first parameter
+  FD.Parameters.resize(1);
+  FD.Name = (NAME_FINALIZE_WG_FUNCTION_PREFIX + NAME_WORK_GROUP_IDENTITY).str();
+  std::string finalizeFuncName = mangle(FD);
+  return finalizeFuncName;
 }
 
 bool isWorkGroupBuiltin(StringRef S) {
@@ -1344,7 +1380,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
          "Invalid vectorized function name having suffix!");
 
   Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
-  assert(Variant.hasValue() && "Expect vector variant but it's not.");
+  assert(Variant.has_value() && "Expect vector variant but it's not.");
 
   Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
   if (ScalarFunc == nullptr)
@@ -1401,7 +1437,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     Argument *A = &*NewI;
     A->setName(NewArgumentNames[I]);
     if (!NewAttrs.empty())
-      for (auto Attr : NewAttrs[I])
+      for (const auto &Attr : NewAttrs[I])
         A->addAttr(Attr);
   }
 
@@ -1986,9 +2022,9 @@ void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
 #define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
 
 static reflection::TypeVector
-widenParameters(reflection::TypeVector ScalarParams, unsigned int VF) {
+widenParameters(const reflection::TypeVector ScalarParams, unsigned int VF) {
   reflection::TypeVector VectorParams;
-  for (auto Param : ScalarParams) {
+  for (auto &Param : ScalarParams) {
     if (auto *VecParam =
             reflection::dyn_cast<reflection::VectorType>(Param.get())) {
       int widen_len = VecParam->getLength() * VF;
@@ -2202,6 +2238,8 @@ static std::string getFormatStr(Value *V) {
 
   if (T->isIntegerTy(32))
     return Name + ": %d ";
+  if (T->is16bitFPTy())
+    return Name + ": (half/bf16 hex) 0x%X ";
   if (T->isFloatTy())
     return Name + ": %f ";
   if (T->isDoubleTy())
@@ -2249,6 +2287,9 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
         V = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
                                   V->getName() + "cast.");
     FormatStr += getFormatStr(V);
+    if (T->is16bitFPTy())
+      V = Builder.CreateBitCast(V, Builder.getInt16Ty(),
+                                V->getName() + "cast.");
     TempInputsCast.push_back(V);
   }
   FormatStr += "\n";
@@ -2333,7 +2374,7 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
         HasUnnamedType = true;
     } else {
       Result += "sl_";
-      for (auto Elem : STyp->elements())
+      for (auto *Elem : STyp->elements())
         Result += getMangledTypeStr(Elem, HasUnnamedType);
     }
     // Ensure nested structs are distinguishable.
@@ -2415,7 +2456,9 @@ CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
   auto *Arg = Builder.getInt32(TotalElementCount);
   auto AL =
       AttributeList()
-          .addFnAttribute(IP->getContext(), Attribute::ReadNone)
+          .addFnAttribute(IP->getContext(),
+                          Attribute::getWithMemoryEffects(IP->getContext(),
+                                                          MemoryEffects::none()))
           .addFnAttribute(IP->getContext(), Attribute::NoUnwind)
           .addFnAttribute(IP->getContext(), Attribute::WillReturn)
           .addFnAttribute(IP->getContext(), KernelAttribute::ConvergentCall);
@@ -2616,8 +2659,10 @@ void patchNotInlinedTIDUserFunc(
   // 2. Functions which are direct callers of functions described in 1 or
   //    (recursively) functions defined in this line which do not contain sync
   //    instructions.
+  SmallPtrSet<Function *, 8> Visited;
   while (!WorkList.empty()) {
     Function *F = WorkList.pop_back_val();
+    Visited.insert(F);
     for (User *U : F->users()) {
       // OCL2.0 : handle constant expression with bitcast of function pointer.
       if (auto *CE = dyn_cast<ConstantExpr>(U)) {
@@ -2638,7 +2683,8 @@ void patchNotInlinedTIDUserFunc(
       if (KernelAndSyncFuncs.contains(Caller))
         continue;
       FuncsToPatch.insert(Caller);
-      WorkList.push_back(Caller);
+      if (!Visited.contains(Caller))
+        WorkList.push_back(Caller);
     }
   }
 

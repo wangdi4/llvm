@@ -299,7 +299,7 @@ protected:
    *  \param [in] kernel_name
    *  \returns kernel if created successfully, nullptr otherwise
    */
-  cl_kernel createKernel(cl_program program, const std::string& kernel_name) {
+  cl_kernel createKernel(cl_program program, const std::string &kernel_name) {
     cl_int error = CL_SUCCESS;
     cl_kernel kernel = clCreateKernel(program, kernel_name.c_str(), &error);
     EXPECT_EQ(CL_SUCCESS, error)
@@ -326,7 +326,7 @@ protected:
                                       bool use_out_of_order = false) {
     cl_int error = CL_SUCCESS;
     cl_queue_properties queue_type[] = {
-        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0 };
+        CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
     cl_command_queue queue = (use_out_of_order)
                                  ? clCreateCommandQueueWithProperties(
                                        context, device, queue_type, &error)

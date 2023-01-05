@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-resolve-matrix-wi-slice -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-resolve-matrix-wi-slice -enable-debugify -disable-output -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-resolve-matrix-wi-slice -S %s | FileCheck %s
 ; RUN: opt -passes='debugify,dpcpp-kernel-resolve-matrix-wi-slice,check-debugify' -disable-output -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 

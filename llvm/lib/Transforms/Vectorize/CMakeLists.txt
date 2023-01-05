@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -33,6 +33,8 @@ add_llvm_component_library(LLVMVectorize
   IntelMFReplacement.cpp
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
+  Intel_VPlan/IntelVPAlignAssumeCleanup.cpp
+  Intel_VPlan/IntelVPAssumptionCache.cpp
   Intel_VPlan/IntelVPBasicBlock.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp

@@ -39,15 +39,10 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -78,6 +73,14 @@
 #include <deque>
 #include <memory>
 #include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -162,7 +165,15 @@ struct SimpleValue {
 #endif // INTEL_COLLAB
         }
       }
-      return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy();
+      return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy() &&
+             // FIXME: Currently the calls which may access the thread id may
+             // be considered as not accessing the memory. But this is
+             // problematic for coroutines, since coroutines may resume in a
+             // different thread. So we disable the optimization here for the
+             // correctness. However, it may block many other correct
+             // optimizations. Revert this one when we detect the memory
+             // accessing kind more precisely.
+             !CI->getFunction()->isPresplitCoroutine();
     }
     return isa<CastInst>(Inst) || isa<UnaryOperator>(Inst) ||
            isa<BinaryOperator>(Inst) || isa<GetElementPtrInst>(Inst) ||
@@ -493,7 +504,15 @@ struct CallValue {
       return false;
 
     CallInst *CI = dyn_cast<CallInst>(Inst);
-    if (!CI || !CI->onlyReadsMemory())
+    if (!CI || !CI->onlyReadsMemory() ||
+        // FIXME: Currently the calls which may access the thread id may
+        // be considered as not accessing the memory. But this is
+        // problematic for coroutines, since coroutines may resume in a
+        // different thread. So we disable the optimization here for the
+        // correctness. However, it may block many other correct
+        // optimizations. Revert this one when we detect the memory
+        // accessing kind more precisely.
+        CI->getFunction()->isPresplitCoroutine())
       return false;
     return true;
   }
@@ -1284,7 +1303,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
 #endif // INTEL_COLLAB
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
-  for (Instruction &Inst : make_early_inc_range(BB->getInstList())) {
+  for (Instruction &Inst : make_early_inc_range(*BB)) {
     // Dead instructions should just be removed.
     if (isInstructionTriviallyDead(&Inst, &TLI)) {
       LLVM_DEBUG(dbgs() << "EarlyCSE DCE: " << Inst << '\n');

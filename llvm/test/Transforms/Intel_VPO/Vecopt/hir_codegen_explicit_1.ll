@@ -8,7 +8,7 @@
 ;   return a + b;
 ; }
 
-; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' < %s 2>&1 -disable-output | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK:      BEGIN REGION {

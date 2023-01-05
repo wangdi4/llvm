@@ -36,6 +36,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/Compiler.h"
 #include "OSTargets.h"
+#include <optional>
 
 namespace clang {
 namespace targets {
@@ -61,7 +62,8 @@ static const unsigned SPIRDefIsPrivMap[] = {
     0, // sycl_private
     0, // ptr32_sptr
     0, // ptr32_uptr
-    0  // ptr64
+    0, // ptr64
+    0, // hlsl_groupshared
 };
 
 // Used by both the SPIR and SPIR-V targets.
@@ -96,7 +98,8 @@ static const unsigned SPIRDefIsGenMap[] = {
     0, // sycl_private
     0, // ptr32_sptr
     0, // ptr32_uptr
-    0  // ptr64
+    0, // ptr64
+    0, // hlsl_groupshared
 };
 
 // Base class for SPIR and SPIR-V target info.
@@ -123,11 +126,15 @@ public:
   // memcpy as per section 3 of the SPIR spec.
   bool useFP16ConversionIntrinsics() const override { return false; }
 
-  ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override {
+    return std::nullopt;
+  }
 
   const char *getClobbers() const override { return ""; }
 
-  ArrayRef<const char *> getGCCRegNames() const override { return None; }
+  ArrayRef<const char *> getGCCRegNames() const override {
+    return std::nullopt;
+  }
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override {
@@ -135,17 +142,17 @@ public:
   }
 
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
-    return None;
+    return std::nullopt;
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::VoidPtrBuiltinVaList;
   }
 
-  Optional<unsigned>
+  std::optional<unsigned>
   getDWARFAddressSpace(unsigned AddressSpace) const override {
 #if INTEL_CUSTOMIZATION
-    return None;
+    return std::nullopt;
 #else
     return AddressSpace;
 #endif // INTEL_CUSTOMIZATION

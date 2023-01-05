@@ -40,33 +40,6 @@ OclBuiltinImpl add_sat_unsigned_not_shared = OclBuiltinImpl<add_sat, [v16u16] , 
 OclBuiltinImpl rhadd_igeneric_not_shared = OclBuiltinImpl<rhadd, [v16i32], 0, rhadd_igeneric_code>;
 
 
-
-
-/*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-
-// max vector
-OclBuiltinImpl max_ivector_not_shared = OclBuiltinImpl<max, [ v16i8, v8i16, v4i32, v16u8, v8u16, v4u32,
-                                                   v16i16, v8i32, v16u16, v8u32, v16i32, v16u32, v8i64, v8u64], 0, max_ivector_code>;
-
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if y < x, otherwise it returns x                  *
-\*****************************************************************/
-
-// min vectors
-OclBuiltinImpl min_ivector_not_shared = OclBuiltinImpl<min, [ v16i8, v8i16, v4i32, v16u8, v8u16, v4u32,
-                                                   v16i16, v8i32, v16u16, v8u32, v16i32, v16u32, v8i64, v8u64] , 0, min_ivector_code>;
-
-
-
 /*****************************************************************\
  * sub_sat:                                                      *
  *   gentype sub_sat (gentype x, gentype y)                      *

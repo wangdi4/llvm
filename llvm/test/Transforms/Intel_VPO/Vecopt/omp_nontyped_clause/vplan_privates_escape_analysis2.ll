@@ -1,10 +1,10 @@
 ; This test verifies that private-variables escaping out through a write
 ; to an output argument are unsafe for data-layout transformation.
 
-; RUN: opt -disable-output -vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; HIR-run.
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-soa-hir -vplan-dump-soa-info\
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-enable-soa-hir -vplan-dump-soa-info\
 ; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts

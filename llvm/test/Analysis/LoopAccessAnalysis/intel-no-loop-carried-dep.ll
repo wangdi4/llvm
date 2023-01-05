@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -loop-accesses -analyze -enable-new-pm=0 < %s | FileCheck %s
+; RUN: opt -aa-pipeline=tbaa -passes='print<access-info>' -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; We expect there exist only one anti-dep in this loop.
 ;
@@ -19,7 +19,7 @@ define void @foo() local_unnamed_addr {
 ; CHECK-NEXT:   Forward:
 ; CHECK-NEXT:       %2 = load i64, i64* %1, align 8, !tbaa !5 ->
 ; CHECK-NEXT:       store double 0.000000e+00, double* %arrayidx, align 8, !tbaa !5
- ; CHECK-NOT:     Forward:
+; CHECK-NOT:     Forward:
 
 entry:
   %0 = load %struct.test*, %struct.test** @t, align 8, !tbaa !1

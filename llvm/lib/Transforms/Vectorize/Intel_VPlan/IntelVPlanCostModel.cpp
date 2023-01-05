@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -23,6 +23,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/SaveAndRestore.h"
 
+#include <cmath>
 #include <numeric>
 
 #define DEBUG_TYPE "vplan-cost-model"
@@ -36,6 +37,11 @@ static cl::opt<unsigned>
     CMCacheLineSize("vplan-cm-cache-line-size", cl::init(DefaultCacheLineSize),
                     cl::Hidden,
                     cl::desc("Defines size of a cache line (in bytes)"));
+
+cl::opt<bool>
+    CMPrintAnalysis("vplan-cm-print-analysis", cl::init(false), cl::Hidden,
+                    cl::desc("Dump analysis avaiable for instruction in "
+                             "Cost Model dumps."));
 
 // Cost of the store should be 1.5x greater than the cost of a load.
 // Store has two stages: allocate/read cache line(s) and place data to it. The
@@ -73,7 +79,7 @@ namespace vpo {
 #if INTEL_CUSTOMIZATION
 uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   uint32_t ElemSize = I->getType().getElementSize();
-  Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
+  Type *ElemType = Type::getIntNTy(getLLVMContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
     VectorType *VecTy = FixedVectorType::get(ElemType, VF);
     return *TTI.getMemoryOpCost(
@@ -182,7 +188,8 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
          TTI.getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
                               VPInst->getOperand(0)->getType(),
-                              TTI::CastContextHint::None) == 0)
+                              TTI::CastContextHint::None,
+                              TTI::TCK_RecipThroughput) == 0)
     Ptr = VPInst->getOperand(0);
 
   const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
@@ -569,7 +576,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
     FMF = VPCall->getFastMathFlags();
 
   SmallVector<Type *> ParamTys;
-  for (auto Arg : enumerate(VPCall->arg_operands())) {
+  for (const auto &Arg : enumerate(VPCall->arg_operands())) {
     Type *Ty = MaybeVectorizeType(
         Plan->getVPlanSVA()->operandNeedsVectorCode(VPCall, Arg.index()),
         Arg.value()->getType(), VF);
@@ -599,9 +606,9 @@ VPInstructionCost VPlanTTICostModel::getZTTCost(Type *UBType) const {
 
 VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
                                                               Type *DestTy) {
-  VPInstructionCost CastCost =
-    TTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
-                         TTI::CastContextHint::None);
+  VPInstructionCost CastCost = TTI.getCastInstrCost(
+      Instruction::BitCast, DestTy, VecSrcTy, TTI::CastContextHint::None,
+      TTI::TCK_RecipThroughput);
   VPInstructionCost CmpCost = TTI.getCmpSelInstrCost(
     Instruction::ICmp, DestTy, nullptr /* CondTy */,
     CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
@@ -803,11 +810,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case Instruction::UIToFP:
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
-    Type *BaseDstTy = VPInst->getCMType();
-    Type *BaseSrcTy = VPInst->getOperand(0)->getCMType();
-
-    if (!BaseDstTy || !BaseSrcTy)
-      return VPInstructionCost::getUnknown();
+    Type *BaseDstTy = VPInst->getType();
+    Type *BaseSrcTy = VPInst->getOperand(0)->getType();
 
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 
@@ -819,7 +823,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
     return TTI.getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
-                                  TTI::CastContextHint::None);
+                                TTI::CastContextHint::None,
+                                TTI::TCK_RecipThroughput);
   }
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);
@@ -1178,8 +1183,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       if (VPTripCnt->getType()->isIntegerTy(32) &&
           VPStepScalTy->isIntegerTy(64))
         Cost += TTI.getCastInstrCost(
-          Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
-          TTI::CastContextHint::None);
+            Instruction::SExt, VPStepScalTy, VPTripCntVal->getType(),
+            TTI::CastContextHint::None, TTI::TCK_RecipThroughput);
     }
 
     // TODO: Possible PowerOfTwo for known Start/TripCount Values are not
@@ -1310,6 +1315,12 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     return Cost;
   }
 
+  case VPInstruction::ReductionFinalInscan:
+    // reduction-final-inscan does not require any additional operations:
+    // extract from vector value is covered by extract-last-vector-lane,
+    // and the generated extractelement is reused during CG.
+    return 0;
+
   case VPInstruction::CompressExpandIndexInit:
     return TTI.getVectorInstrCost(Instruction::InsertElement,
                                   getWidenedType(VPInst->getType(), VF), 0);
@@ -1340,7 +1351,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *MaskTy = FixedVectorType::get(
         IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
     Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
-                                 TTI::CastContextHint::None);
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
     Cost += TTI.getIntrinsicInstrCost(
         IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
         TTI::TCK_RecipThroughput);
@@ -1355,7 +1367,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         {TargetTransformInfo::OK_UniformConstantValue,
          TargetTransformInfo::OP_None});
     Cost += TTI.getCastInstrCost(Instruction::BitCast, MaskTy, IntTy,
-                                 TTI::CastContextHint::None);
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
     return Cost;
   }
 
@@ -1371,8 +1384,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     auto *VecTy = getWidenedType(OpTy, VF);
     if (OpTy->isVectorTy())
       return TTI.getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
-                                None /* Mask */, TTI::TCK_RecipThroughput,
-                                VF - 1 /* Index */,
+                                std::nullopt /* Mask */,
+                                TTI::TCK_RecipThroughput, VF - 1 /* Index */,
                                 cast<FixedVectorType>(OpTy));
     else
       return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
@@ -1455,6 +1468,80 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Cost += TTI.getArithmeticInstrCost(
       Instruction::Sub, Ty, TargetTransformInfo::TCK_RecipThroughput);
     return Cost;
+  }
+
+  case VPInstruction::ExtractLastVectorLane: {
+    auto *VecTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
+    return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                  VF - 1 /* Index */);
+  }
+
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    // Computation of running insclusive reduction requires:
+    // 1. broadcast of carry-over value from previous iteration;
+    // 2. log(VF) operations of reduction;
+    // 3. 1 more reduction with carry-over value.
+    // 4. log(VF) shuffles.
+    //
+    // Exclusive reduction also requires one more shuffle operation.
+
+    auto BinOpcode =
+        isa<VPRunningExclusiveReduction>(VPInst)
+            ? cast<VPRunningExclusiveReduction>(VPInst)->getBinOpcode()
+            : cast<VPRunningInclusiveReduction>(VPInst)->getBinOpcode();
+    // TODO: refactor this.
+    auto isMinMax = isa<VPRunningExclusiveReduction>(VPInst)
+                        ? cast<VPRunningExclusiveReduction>(VPInst)->isMinMax()
+                        : cast<VPRunningInclusiveReduction>(VPInst)->isMinMax();
+    auto *VecTy = getWidenedType(VPInst->getType(), VF);
+    VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
+
+    unsigned ShuffleOpsNum =
+        isa<VPRunningExclusiveReduction>(VPInst) ? log2(VF) + 1 : log2(VF);
+    if (!isMinMax) {
+      Cost += TTI.getArithmeticInstrCost(
+                  BinOpcode, VecTy, TargetTransformInfo::TCK_RecipThroughput) *
+              (log2(VF) + 1);
+    } else {
+      Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(BinOpcode);
+      auto *VecTy = getWidenedType(VPInst->getType(), VF);
+
+      SmallVector<Type *> ParamTys;
+      // Minmax intrinsics take two args.
+      ParamTys.push_back(VecTy);
+      ParamTys.push_back(VecTy);
+
+      FastMathFlags FMF;
+      if (VPInst->hasFastMathFlags())
+        FMF = VPInst->getFastMathFlags();
+
+      Cost += TTI.getIntrinsicInstrCost(
+                  IntrinsicCostAttributes(Intrin, VecTy, ParamTys, FMF),
+                  TTI::TCK_RecipThroughput) *
+              (log2(VF) + 1);
+    }
+    Cost += TTI.getShuffleCost(TTI::SK_PermuteTwoSrc, VecTy) * ShuffleOpsNum;
+
+    return Cost;
+  }
+  case VPInstruction::FMax:
+  case VPInstruction::FMin: {
+    Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(VPInst->getOpcode());
+    auto *VecTy = getWidenedType(VPInst->getType(), VF);
+
+    SmallVector<Type *> ParamTys;
+    // Minmax intrinsics take two args.
+    ParamTys.push_back(VecTy);
+    ParamTys.push_back(VecTy);
+
+    FastMathFlags FMF;
+    if (VPInst->hasFastMathFlags())
+      FMF = VPInst->getFastMathFlags();
+
+    return TTI.getIntrinsicInstrCost(
+        IntrinsicCostAttributes(Intrin, VecTy, ParamTys, FMF),
+        TTI::TCK_RecipThroughput);
   }
   }
 }

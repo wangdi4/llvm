@@ -1,8 +1,10 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S %s | FileCheck %s
 
 ; CHECK: @main()
 ; CHECK-NOT: load{{.*}} %a
 ; CHECK-NOT: store{{.*}} %a.priv
+; CHECK: codeRepl{{.*}}
 ; CHECK: @__omp_offloading
 ; CHECK: store{{.*}} 5, i32* %a
 ; CHECK: @main.DIR.OMP.TASK

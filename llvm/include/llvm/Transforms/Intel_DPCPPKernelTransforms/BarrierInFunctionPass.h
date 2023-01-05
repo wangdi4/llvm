@@ -35,6 +35,8 @@ public:
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Add dummyBarrier at function begin and barrier at function end.
   /// F function to modify.
@@ -43,25 +45,6 @@ private:
 private:
   /// This is barrier utility class.
   BarrierUtils Utils;
-};
-
-/// BarrierInFunctionLegacy pass for legacy pass manager.
-class BarrierInFunctionLegacy : public ModulePass {
-  BarrierInFunction Impl;
-
-public:
-  BarrierInFunctionLegacy();
-
-  static char ID;
-
-  StringRef getPassName() const override {
-    return "Intel Kernel BarrierInFunction";
-  }
-
-  /// Execute pass on given module.
-  /// M module to optimize,
-  /// True if module was modified.
-  bool runOnModule(Module &M) override;
 };
 
 } // namespace llvm

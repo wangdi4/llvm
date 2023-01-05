@@ -49,8 +49,7 @@ cl_int CL_API_CALL clCreateTracingHandleINTEL(cl_device_id device,
     Thread Safety: no
 */
 cl_int CL_API_CALL clSetTracingPointINTEL(cl_tracing_handle handle,
-                                          cl_function_id fid,
-                                          cl_bool enable);
+                                          cl_function_id fid, cl_bool enable);
 
 /*!
     Function destroys the tracing handle object and releases all the associated

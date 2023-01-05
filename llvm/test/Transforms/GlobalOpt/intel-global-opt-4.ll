@@ -1,4 +1,3 @@
-; RUN: opt < %s -S -globalopt -instcombine | FileCheck %s
 ; RUN: opt < %s -S -passes="globalopt,function(instcombine)" | FileCheck %s
 ;; check that Global Opt treats glob1 as constant integer value 20 and 
 ;; store 20 to glob2 and glob3 variables.

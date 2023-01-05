@@ -33,9 +33,9 @@ createTargetMachine(StringRef CPUStr, StringRef FeaturesStr) {
   std::string Error;
 
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
-  return std::unique_ptr<TargetMachine>(
-      TheTarget->createTargetMachine(TT, CPUStr, FeaturesStr, TargetOptions(),
-                                     None, None, CodeGenOpt::Default));
+  return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
+      TT, CPUStr, FeaturesStr, TargetOptions(), std::nullopt, std::nullopt,
+      CodeGenOpt::Default));
 }
 
 class VPlanAllZeroCheckCostTest : public VPlanTestBase {};
@@ -56,13 +56,16 @@ entry:
   Function *F = M.getFunction("foo");
   EXPECT_TRUE(F);
 
+  const auto AC = std::make_unique<AssumptionCache>(*F, TTI.get());
+
   // Construct simple function-based VPlan and run the minimal set of
   // analyses needed.
   auto Externals =
       std::make_unique<VPExternalValues>(&M.getContext(), &M.getDataLayout());
   auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
   auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
-  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F);
+  VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get(),
+                                             *DT.get());
   FunctionCFGBuilder.buildCFG();
   Plan->setName(F->getName());
   Plan->computeDT();
@@ -115,7 +118,12 @@ entry:
       // VPLoops. Cast down to VPlanCostModelBase to get cost at TTI level.
       VPInstructionCost AllZeroCheckCost =
           static_cast<VPlanCostModelBase*>(CM.get())->getTTICost(AllZeroCheck);
-      EXPECT_EQ(AllZeroCheckCost, 2);
+      if (TargetAttr == "+sse4.2" && VF == 32)
+        EXPECT_EQ(AllZeroCheckCost, 3);
+      else if (TargetAttr == "+avx512f" && VF == 32)
+        EXPECT_EQ(AllZeroCheckCost, 33);
+      else
+        EXPECT_EQ(AllZeroCheckCost, 2);
     }
   }
 }

@@ -13,7 +13,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -hir-cg -S -tbaa -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg' -vplan-force-vf=4 -hir-details -S -aa-pipeline=tbaa -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s
 
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK:              + DO i64 i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>

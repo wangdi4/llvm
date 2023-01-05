@@ -47,7 +47,6 @@
 ;   END REGION
 
 
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr, i32 %n1) {

@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output -padded-pointer-info -passes="padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
 
 ; Checks padding propagation for simple recursion case
@@ -21,12 +20,12 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
 ; CHECK: Function info(baz):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
+; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -36,13 +35,13 @@
 ; CHECK-NEXT:  Arguments' Padding:
 ; CHECK-NEXT:    ptr %p : -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
+; CHECK-NEXT:      %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr @1, ptr @.str, i32 8, ptr null) :: 16
 ; CHECK-NEXT:      %call = call ptr @bar(ptr %p) :: 16
 ; CHECK: Function info(baz):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 16
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
+; CHECK-NEXT:      %t1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %t0, ptr @0, ptr @.str, i32 4, ptr null) :: 8
 ; CHECK-NEXT:      %call = call ptr @bar(ptr %t1) :: 16
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
@@ -56,13 +55,13 @@ target triple = "x86_64-unknown-linux-gnu"
 @1 = private constant [16 x i8] c"padded 16 bytes\00"
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
-declare ptr @llvm.ptr.annotation.p0(ptr, ptr, ptr, i32, ptr) #0
+declare ptr @llvm.ptr.annotation.p0.p0(ptr, ptr, ptr, i32, ptr) #0
 
 ; Function Attrs: nounwind uwtable
 define internal "intel_dtrans_func_index"="1" ptr @bar(ptr "intel_dtrans_func_index"="2" %p) #1 !intel.dtrans.func.type !7 {
 entry:
   %call = call ptr @bar(ptr %p)
-  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
+  %t0 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %call, ptr getelementptr inbounds ([16 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null)
   ret ptr %t0
 }
 
@@ -70,7 +69,7 @@ entry:
 define internal "intel_dtrans_func_index"="1" ptr @baz() #1 !intel.dtrans.func.type !8 {
 entry:
   %t0 = load ptr, ptr @PTR, align 8, !tbaa !9
-  %t1 = tail call ptr @llvm.ptr.annotation.p0(ptr %t0, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null)
+  %t1 = tail call ptr @llvm.ptr.annotation.p0.p0(ptr %t0, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([14 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null)
   %call = call ptr @bar(ptr %t1)
   ret ptr %call
 }

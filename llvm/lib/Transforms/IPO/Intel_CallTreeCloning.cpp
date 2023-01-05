@@ -345,11 +345,6 @@ static cl::opt<unsigned> NumUserCallsModeled(
     "ctcmv-num-user-calls-modeled", cl::init(0), cl::ReallyHidden,
     cl::desc("Arbitrary number of user-defined calls modeled"));
 
-static cl::opt<bool> ForceInlineReportAfterCallTreeCloning(
-    "force-print-inline-report-after-call-tree-cloning", cl::init(false),
-    cl::Hidden,
-    cl::desc("Force printing of the inlining report after call tree cloning"));
-
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
 // Conduct Module Verifications:
@@ -407,6 +402,7 @@ public:
   ParamIndSet(const ParamIndSet &S) : SmallBitVector(S) {}
   ParamIndSet(const SmallBitVector &V) : SmallBitVector(V) {}
   ParamIndSet(size_t N) : SmallBitVector(N) {}
+  ParamIndSet &operator=(const ParamIndSet &) = default;
 
   ParamIndSet &set(unsigned Idx) {
     if (Idx >= size())
@@ -847,7 +843,7 @@ public:
 
   // Reset the Cnt (counter) to 0 for each Node in Nodes list
   void resetTraversalState() {
-    for (auto X : Nodes)
+    for (auto &X : Nodes)
       X.resetTraversalState();
   }
 
@@ -988,7 +984,7 @@ void print_node_set(const std::string &Msg,
                     std::set<DCGNode *, CompareDCGNodePtr> Nodes) {
   dbgs() << Msg << "\n";
 
-  for (const auto X : Nodes)
+  for (const auto *X : Nodes)
     dbgs() << X->toString() << " ";
 
   dbgs() << "\n";
@@ -1122,7 +1118,7 @@ public:
 
   // Check: any ParamIndxSet has Idx?
   bool haveIndex(const unsigned Idx) {
-    for (auto S : *this)
+    for (const auto &S : *this)
       if (S.haveIndex(Idx))
         return true;
     return false;
@@ -2150,7 +2146,7 @@ struct MVFunctionInfo {
   }
 
   void set(SetOfParamIndSets &SPsets) {
-    for (auto S : SPsets)
+    for (auto &S : SPsets)
       Psets.insert(S);
   }
 
@@ -2588,11 +2584,12 @@ bool CallTreeCloningImpl::run(
     return PPResult;
 
   MultiVersionImpl MV(M, LeafSeeds, Clones, this);
-  bool MVResult = MV.run();
+  MV.run();
 
   // Return true if at least 1 of the CTC, PP or MV is triggered and modified
-  // the module
-  return CTCResult || PPResult || MVResult;
+  // the module - CTCResult is guaranteed to be true if we reach this point,
+  // thus true is returned
+  return true;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
@@ -2608,8 +2605,6 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
-  if (ForceInlineReportAfterCallTreeCloning)
-    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -3239,7 +3234,7 @@ bool PostProcessor::doCollection(void) {
   (void)Count;
 
   // - Populate Functions LeafSeeds into ExtSeedFunctions:
-  for (auto Item : LeafSeeds) {
+  for (const auto &Item : LeafSeeds) {
     Function *F = Item.first;
     if (!ExtSeedFunctions[F])
       ExtSeedFunctions[F] = true;
@@ -4302,8 +4297,6 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
   bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
-  if (ForceInlineReportAfterCallTreeCloning)
-    getInlineReport()->testAndPrint(nullptr);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG

@@ -1,4 +1,3 @@
-; RUN: opt -inline < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' < %s -S 2>&1 | FileCheck %s
 
 ; Check that @I241872, which before inlining, has two calls to itself, is

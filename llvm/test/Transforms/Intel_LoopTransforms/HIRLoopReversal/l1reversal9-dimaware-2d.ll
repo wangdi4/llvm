@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal,print<hir>" -hir-cost-model-throttling=0 -S 2>&1 < %s  | FileCheck %s
 
 ; l1reversal9-dimaware-2d.ll:

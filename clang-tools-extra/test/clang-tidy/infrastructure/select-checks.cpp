@@ -3,6 +3,11 @@
 
 // CHECK2: Error: no checks enabled.
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42770
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 namespace i {
 }
 // CHECK: :[[@LINE-1]]:1: warning: namespace 'i' not terminated with a closing comment [llvm-namespace-comment]

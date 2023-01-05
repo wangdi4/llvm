@@ -375,8 +375,14 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
   auto SRI = SRA.getSafeRedInfo(Inst);
 
   if (SRI) {
-    // TODO: add support.
-    return !SRI->HasUnsafeAlgebra;
+    switch (SRI->OpCode) {
+    case Instruction::SDiv:
+    case Instruction::UDiv:
+      return false;
+    default:
+      // TODO: add support.
+      return !SRI->HasUnsafeAlgebra;
+    }
   }
 
   return IdiomList.isIdiom(Inst) == HIRVectorIdioms::MinOrMax ||

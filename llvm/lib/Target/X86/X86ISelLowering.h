@@ -614,14 +614,18 @@ namespace llvm {
     VDPPHPS,
     VDPPHPS_RND,
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
     VPDPBSUD,
     VPDPBSUDS,
     VPDPBUUD,
     VPDPBUUDS,
     VPDPBSSD,
     VPDPBSSDS,
-#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+    VDPBF8PS,
+    VDPBHF8PS,
+    VDPHBF8PS,
+    VDPHF8PS,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
     VCVT2PS2PH,
     VCVTBF162PH,
@@ -907,7 +911,7 @@ namespace llvm {
     STRICT_CVTPS2PH,
     STRICT_CVTPH2PS,
 
-    // WARNING: Only add nodes here if they are stric FP nodes. Non-memory and
+    // WARNING: Only add nodes here if they are strict FP nodes. Non-memory and
     // non-strict FP nodes should be above FIRST_TARGET_STRICTFP_OPCODE.
 
     // Compare and swap.
@@ -926,6 +930,13 @@ namespace llvm {
     LBTS,
     LBTC,
     LBTR,
+
+    /// RAO arithmetic instructions.
+    /// OUTCHAIN = AADD(INCHAIN, PTR, RHS)
+    AADD,
+    AOR,
+    AXOR,
+    AAND,
 
     // Load, scalar_to_vector, and zero extend.
     VZEXT_LOAD,
@@ -1035,6 +1046,12 @@ namespace llvm {
     AESDECWIDE128KL,
     AESENCWIDE256KL,
     AESDECWIDE256KL,
+
+    /// Compare and Add if Condition is Met. Compare value in operand 2 with
+    /// value in memory of operand 1. If condition of operand 4 is met, add value
+    /// operand 3 to m32 and write new value in operand 1. Operand 2 is
+    /// always updated with the original value from operand 1.
+    CMPCCXADD,
 
     // Save xmm argument registers to the stack, according to %al. An operator
     // is needed so that this can be expanded with control flow.
@@ -1157,7 +1174,7 @@ namespace llvm {
     /// specified type. Returns whether it is "fast" in the last argument.
     bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, Align Alignment,
                                         MachineMemOperand::Flags Flags,
-                                        bool *Fast) const override;
+                                        unsigned *Fast) const override;
 
     /// Provide custom lowering hooks for some operations.
     ///
@@ -1329,6 +1346,14 @@ namespace llvm {
     SDValue SimplifyMultipleUseDemandedBitsForTargetNode(
         SDValue Op, const APInt &DemandedBits, const APInt &DemandedElts,
         SelectionDAG &DAG, unsigned Depth) const override;
+
+    bool isGuaranteedNotToBeUndefOrPoisonForTargetNode(
+        SDValue Op, const APInt &DemandedElts, const SelectionDAG &DAG,
+        bool PoisonOnly, unsigned Depth) const override;
+
+    bool canCreateUndefOrPoisonForTargetNode(
+        SDValue Op, const APInt &DemandedElts, const SelectionDAG &DAG,
+        bool PoisonOnly, bool ConsiderFlags, unsigned Depth) const override;
 
     bool isSplatValueForTargetNode(SDValue Op, const APInt &DemandedElts,
                                    APInt &UndefElts,
@@ -1631,11 +1656,11 @@ namespace llvm {
 
     bool supportKCFIBundles() const override { return true; }
 
-    bool hasStackProbeSymbol(MachineFunction &MF) const override;
-    bool hasInlineStackProbe(MachineFunction &MF) const override;
-    StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
+    bool hasStackProbeSymbol(const MachineFunction &MF) const override;
+    bool hasInlineStackProbe(const MachineFunction &MF) const override;
+    StringRef getStackProbeSymbolName(const MachineFunction &MF) const override;
 
-    unsigned getStackProbeSize(MachineFunction &MF) const;
+    unsigned getStackProbeSize(const MachineFunction &MF) const;
 
     bool hasVectorBlend() const override { return true; }
 
@@ -1649,9 +1674,10 @@ namespace llvm {
 
     bool CustomLowerComplexMultiply(Type *FloatTy) const override;
 
-    bool hasExtraIndirectConstraint(const SmallVectorImpl<StringRef> &AsmStrs,
-                                    unsigned OpNo) const override;
 #endif // INTEL_CUSTOMIZATION
+
+    bool isInlineAsmTargetBranch(const SmallVectorImpl<StringRef> &AsmStrs,
+                                 unsigned OpNo) const override;
 
     /// Lower interleaved load(s) into target specific
     /// instructions/intrinsics.
@@ -1669,13 +1695,13 @@ namespace llvm {
                                    SDValue Addr, SelectionDAG &DAG)
                                    const override;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_RAO_INT
-    bool shouldInsertFencesForAtomic(const Instruction *I) const override;
-#endif // INTEL_FEATURE_ISA_RAO_INT
-#endif // INTEL_CUSTOMIZATION
-
     Align getPrefLoopAlignment(MachineLoop *ML) const override;
+
+    EVT getTypeToTransformTo(LLVMContext &Context, EVT VT) const override {
+      if (VT == MVT::f80)
+        return EVT::getIntegerVT(Context, 96);
+      return TargetLoweringBase::getTypeToTransformTo(Context, VT);
+    }
 
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
@@ -1813,16 +1839,15 @@ namespace llvm {
       MachineBasicBlock *Entry,
       const SmallVectorImpl<MachineBasicBlock *> &Exits) const override;
 
-    bool
-    splitValueIntoRegisterParts(SelectionDAG &DAG, const SDLoc &DL, SDValue Val,
-                                SDValue *Parts, unsigned NumParts, MVT PartVT,
-                                Optional<CallingConv::ID> CC) const override;
+    bool splitValueIntoRegisterParts(
+        SelectionDAG & DAG, const SDLoc &DL, SDValue Val, SDValue *Parts,
+        unsigned NumParts, MVT PartVT, std::optional<CallingConv::ID> CC)
+        const override;
 
-    SDValue
-    joinRegisterPartsIntoValue(SelectionDAG &DAG, const SDLoc &DL,
-                               const SDValue *Parts, unsigned NumParts,
-                               MVT PartVT, EVT ValueVT,
-                               Optional<CallingConv::ID> CC) const override;
+    SDValue joinRegisterPartsIntoValue(
+        SelectionDAG & DAG, const SDLoc &DL, const SDValue *Parts,
+        unsigned NumParts, MVT PartVT, EVT ValueVT,
+        std::optional<CallingConv::ID> CC) const override;
 
     bool isUsedByReturnOnly(SDNode *N, SDValue &Chain) const override;
 
@@ -1847,6 +1872,7 @@ namespace llvm {
     TargetLoweringBase::AtomicExpansionKind
     shouldExpandLogicAtomicRMWInIR(AtomicRMWInst *AI) const;
     void emitBitTestAtomicRMWIntrinsic(AtomicRMWInst *AI) const override;
+    void emitCmpArithAtomicRMWIntrinsic(AtomicRMWInst *AI) const override;
 
     LoadInst *
     lowerIdempotentRMWIntoFencedLoad(AtomicRMWInst *AI) const override;

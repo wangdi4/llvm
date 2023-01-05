@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Check that the loop with two-level nested IFs may be distributed.

@@ -1,4 +1,4 @@
-; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 ;
 ; This test checks that paropt target filtering retains functions and variables

@@ -46,6 +46,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include <optional>
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -131,25 +132,25 @@ static Optional<LoadInfo> findLoad(Value *I, const BasicBlock *BB) {
   uint64_t IEIdx = 0;
   if (!match(I, m_InsertElt(m_Value(L.Base), m_Value(IEVal),
                             m_ConstantInt(IEIdx))))
-    return None;
+    return std::nullopt;
 
   // For the first insertelement, the base value may be 'Undef'.
   if (!isa<UndefValue>(L.Base) && !L.Base->hasOneUse())
-    return None;
+    return std::nullopt;
   L.Pos = IEIdx;
 
   auto Load = dyn_cast<LoadInst>(IEVal);
   if (!Load || !Load->hasOneUser() || !Load->isSimple())
-    return None;
+    return std::nullopt;
   L.Load = Load;
 
   auto GEP = dyn_cast<GetElementPtrInst>(Load->getOperand(0));
   if (!GEP || !GEP->hasOneUser())
-    return None;
+    return std::nullopt;
 
   // Only support one index currently.
   if (GEP->getNumIndices() != 1)
-    return None;
+    return std::nullopt;
 
   L.AddrBase = GEP->getPointerOperand();
 
@@ -158,30 +159,30 @@ static Optional<LoadInfo> findLoad(Value *I, const BasicBlock *BB) {
   if (auto ZExt = dyn_cast<ZExtInst>(LastV)) {
     L.ZExtDstTy = ZExt->getDestTy();
     if (!ZExt->hasOneUser())
-      return None;
+      return std::nullopt;
     LastV = ZExt->getOperand(0);
   }
 
   // Must be the same basic block.
   if (auto I = dyn_cast<Instruction>(LastV))
     if (I->getParent() != BB)
-      return None;
+      return std::nullopt;
 
   Value *EEVec = nullptr;
   uint64_t EEIdx = 0;
   if (!match(LastV,
              m_OneUse(m_ExtractElt(m_Value(EEVec), m_ConstantInt(EEIdx)))))
-    return None;
+    return std::nullopt;
 
   if (EEIdx != IEIdx)
-    return None;
+    return std::nullopt;
 
   auto IEVecTy = dyn_cast<FixedVectorType>(L.Base->getType());
   auto EEVecTy = dyn_cast<FixedVectorType>(EEVec->getType());
 
   if (!IEVecTy || !EEVecTy ||
       IEVecTy->getNumElements() != EEVecTy->getNumElements())
-    return None;
+    return std::nullopt;
 
   L.AddrIndex = EEVec;
   L.VF = IEVecTy->getNumElements();

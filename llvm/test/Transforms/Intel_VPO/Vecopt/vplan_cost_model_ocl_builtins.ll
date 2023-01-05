@@ -3,7 +3,7 @@
 ; via SVML library and the vector function mapping is explicitly added
 ; to the lookup table.
 
-; RUN: opt -vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL:   Cost Model for VPlan foo:for.body.#{{[0-9]+}} with VF = 4:
 ; CHECK:         Cost Unknown for float {{%vp.*}} = call float {{%vp.*}} float {{%vp.*}} i32 {{%vp.*}} _Z6selectDv4_fS_Dv4_i [x 1]
@@ -24,7 +24,7 @@ for.body:
   %arg2.load = load float, float* %arg2.gep, align 4
   %arg3.gep = getelementptr inbounds i32, i32* %arg3, i64 %indvars.iv
   %arg3.load = load i32, i32* %arg3.gep, align 4
-  %call = tail call float @_Z6selectffi(float %arg1.load, float %arg2.load, i32 %arg3.load) #9
+  %call = tail call afn float @_Z6selectffi(float %arg1.load, float %arg2.load, i32 %arg3.load) #9
   %res.ptr = getelementptr inbounds float, float* %dest, i64 %indvars.iv
   store float %call, float* %res.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

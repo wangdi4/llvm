@@ -94,16 +94,16 @@ void barfoo() {
 void zoo() {
   barfoo();
 }
-// CHECK: [[LOOP4]] = distinct !{[[LOOP4]], [[VECT5:![0-9]]], [[VECT6:![0-9]]], [[VECT7:![0-9]]], [[VECT6:![0-9]]]}
-// CHECK: [[VECT5]] = !{!"llvm.loop.vectorize.ignore_profitability"}
-// CHECK: [[VECT6]] = !{!"llvm.loop.vectorize.enable", i1 true}
+// CHECK: [[LOOP4]] = distinct !{[[LOOP4]], [[VECT5:![0-9]]], [[VECT6:![0-9]]], [[VECT5]], [[VECT7:![0-9]]]}
+// CHECK: [[VECT5]] = !{!"llvm.loop.vectorize.enable", i1 true}
+// CHECK: [[VECT6]] = !{!"llvm.loop.vectorize.ignore_profitability"}
 // CHECK: [[VECT7]] = !{!"llvm.loop.intel.vector.assert"}
 // CHECK: [[LOOP8]] = distinct !{[[LOOP8]], ![[MUSTPROGRESS:.+]]}
 // CHECK: [[MUSTPROGRESS]] = !{!"llvm.loop.mustprogress"}
-// CHECK: [[LOOP10]] = distinct !{[[LOOP10]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP11]] = distinct !{[[LOOP11]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP12]] = distinct !{[[LOOP12]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP13]] = distinct !{[[LOOP13]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP14]] = distinct !{[[LOOP14]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP15]] = distinct !{[[LOOP15]], [[VECT5]], [[VECT6]], [[VECT7]], [[VECT6]]}
-// CHECK: [[LOOP16]] = distinct !{[[LOOP16]], [[VECT6]]}
+// CHECK: [[LOOP10]] = distinct !{[[LOOP10]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP11]] = distinct !{[[LOOP11]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP12]] = distinct !{[[LOOP12]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP13]] = distinct !{[[LOOP13]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP14]] = distinct !{[[LOOP14]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP15]] = distinct !{[[LOOP15]], [[VECT5]], [[VECT6]], [[VECT5]], [[VECT7]]}
+// CHECK: [[LOOP16]] = distinct !{[[LOOP16]], [[VECT5]]}

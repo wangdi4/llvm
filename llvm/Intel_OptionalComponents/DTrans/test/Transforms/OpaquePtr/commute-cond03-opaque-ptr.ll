@@ -6,7 +6,6 @@
 ; This test is the same as commute-cond03.ll, but uses opaque pointers,
 ; and does not contain any pointer bitcasts.
 
-;  RUN: opt < %s -S -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -dtrans-commutecondop 2>&1 | FileCheck %s
 ;  RUN: opt < %s -S -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecondop 2>&1 | FileCheck %s
 
 ; CHECK: define i32 @proc2

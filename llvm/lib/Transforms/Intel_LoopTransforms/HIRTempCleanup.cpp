@@ -108,11 +108,27 @@ private:
   // the container.
   bool IsValid;
 
+  /// True if temp is liveout of parent loop or region
+  bool IsLiveoutLoadTemp;
+
 public:
   TempInfo(HLInst *DefInst)
       : DefInst(DefInst), SingleRvalDefInst(nullptr),
         DefLoop(DefInst->getLexicalParentLoop()), UseRef(nullptr),
-        IsSubstitutable(true), IsValid(true) {}
+        IsSubstitutable(true), IsValid(true), IsLiveoutLoadTemp(false) {
+    if (isLoad()) {
+      IsLiveoutLoadTemp = DefLoop ? DefLoop->isLiveOut(getSymbase())
+                                  : getDDRef()->isLiveOutOfRegion();
+
+      // Substituting loads into backward use temp copies in unknown loops
+      // affects unroller's cost model. We can either tune unroller's cost model
+      // or try checking the performance impact of this change by allowing it
+      // separately.
+      if (IsLiveoutLoadTemp && DefLoop && DefLoop->isUnknown()) {
+        markInvalid();
+      }
+    }
+  }
 
   HLInst *getDefInst() const { return DefInst; }
 
@@ -134,6 +150,11 @@ public:
   bool isValid() const { return IsValid; }
   void markInvalid() { IsValid = false; }
 
+  bool isLiveoutLoadTemp() const {
+    assert(isLoad() && "Expected load temp candidate!");
+    return IsLiveoutLoadTemp;
+  }
+
   void markNonSubstitutableOrInvalid(HLInst *InvalidatingInst) {
     assert(isLoad() && "Attempt to access use ref for copy temp!");
 
@@ -142,6 +163,10 @@ public:
       // Use of load temp was in a liveout copy temp's RvalDefInst and was
       // reordered so the old use is no longer valid.
       markInvalid();
+
+      LLVM_DEBUG(
+          dbgs() << "Marking load temp candidate: "; getDefInst()->dump();
+          dbgs() << " as invalid on encountering: "; InvalidatingInst->dump());
     } else {
       markNonSubstitutable();
     }
@@ -162,8 +187,13 @@ public:
   bool isInvalidatedByReordering(SmallPtrSetImpl<HLInst *> &MovedRvalDefs,
                                  HLDDNode *UseNode);
 
-  // Substitutes temp in the stored use ref.
-  void substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs);
+  /// Substitutes temp in the stored use ref.
+  void substituteInUseRef(HLRegion *Reg,
+                          SmallPtrSetImpl<HLInst *> &MovedRvalDefs);
+
+  /// Makes \p NewSymbase liveout of parent loops and region instead of load
+  /// temp's symbase.
+  void replaceLiveoutLoadTemp(HLRegion *Reg, unsigned NewSymbase);
 
   RegDDRef *getLastUseRef() const {
     assert(!isLoad() && "Attempt to access last use of load temp!");
@@ -295,7 +325,25 @@ bool TempInfo::isInvalidatedByReordering(
   return false;
 }
 
-void TempInfo::substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs) {
+void TempInfo::replaceLiveoutLoadTemp(HLRegion *Reg, unsigned NewSymbase) {
+  unsigned Symbase = getSymbase();
+  // Since valid load temp candidates have only one use in region, the liveout
+  // use of the temp can only happen out of the region.
+  assert(Reg->isLiveOut(Symbase) &&
+         "Load temp expected to be liveout of region");
+
+  Reg->replaceLiveOutTemp(Symbase, NewSymbase);
+
+  auto *ParentLoop = getDefLoop();
+
+  while (ParentLoop) {
+    ParentLoop->replaceLiveOutTemp(Symbase, NewSymbase);
+    ParentLoop = ParentLoop->getParentLoop();
+  }
+}
+
+void TempInfo::substituteInUseRef(HLRegion *Reg,
+                                  SmallPtrSetImpl<HLInst *> &MovedRvalDefs) {
   assert(isLoad() && "Attempt to access use ref for copy temp!");
 
   if (auto UseRef = getUseRef()) {
@@ -312,6 +360,11 @@ void TempInfo::substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs) {
     // This is so that we don't add memref to copy insts.
     if (UseInst && UseInst->isCopyInst()) {
       LvalRef = UseInst->removeLvalDDRef();
+
+      if (isLiveoutLoadTemp()) {
+        replaceLiveoutLoadTemp(Reg, LvalRef->getSymbase());
+      }
+
       DefInst->replaceOperandDDRef(DefInst->getLvalDDRef(), LvalRef);
       HLNodeUtils::moveBefore(UseInst, DefInst);
       HLNodeUtils::remove(UseInst);
@@ -334,7 +387,7 @@ void TempInfo::substituteInUseRef(SmallPtrSetImpl<HLInst *> &MovedRvalDefs) {
       LvalRef->makeSelfBlob();
     }
 
-  } else {
+  } else if (!isLiveoutLoadTemp()) {
     // No uses, we can simply remove the instruction.
     HLNodeUtils::remove(DefInst);
   }
@@ -450,6 +503,10 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
         LastInnerUse = UseRef;
 
       } else {
+
+        LLVM_DEBUG(dbgs() << "Marking liveout temp candidate: ";
+                   getDefInst()->dump();
+                   dbgs() << " as invalid on encountering: "; UseNode->dump());
         markInvalid();
       }
     }
@@ -691,6 +748,10 @@ FunctionPass *llvm::createHIRTempCleanupPass() {
 void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {
 
   if (!Temp.isSubstitutable()) {
+    LLVM_DEBUG(dbgs() << "Marking liveout temp candidate: ";
+               Temp.getDefInst()->dump();
+               dbgs() << " as invalid on encountering: ";
+               UseRef->getHLDDNode()->dump());
     Temp.markInvalid();
     return;
   }
@@ -707,6 +768,9 @@ void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {
         MovedRvalDefs.insert(Temp.getSingleRvalDefInst());
 
       } else {
+        LLVM_DEBUG(dbgs() << "Marking liveout temp candidate: ";
+                   Temp.getDefInst()->dump();
+                   dbgs() << " as invalid on encountering: "; Node->dump());
         Temp.markInvalid();
         return;
       }
@@ -767,11 +831,10 @@ void TempSubstituter::visit(HLDDNode *Node) {
             Ref->isSelfAddressOf() && (Ref->getBasePtrBlobIndex() == TempIndex);
 
         bool UseIsIndirectCallPtr = false;
-        if (auto *Inst = dyn_cast<HLInst>(Node)) {
-          if (Inst->isIndirectCallInst() &&
-              (Ref == Inst->getIndirectCallPtr())) {
-            UseIsIndirectCallPtr = true;
-          }
+        auto *Inst = dyn_cast<HLInst>(Node);
+        if (Inst && Inst->isIndirectCallInst() &&
+            (Ref == Inst->getIndirectCallPtr())) {
+          UseIsIndirectCallPtr = true;
         }
         // Cannot subtitute load if-
         // 1) There is more than one use, OR
@@ -781,10 +844,20 @@ void TempSubstituter::visit(HLDDNode *Node) {
         // 4) Node is a HLLoop, OR
         // 5) The use is inside a different loop, OR
         // 6) Use is the function pointer operand of indirect call.
+        // 7) Temp is liveout and use is not in a copy inst under the same
+        // parent.
         if (Temp.getUseRef() || !Temp.isSubstitutable() ||
             !(IsSelfBlob || IsSelfPointer) || isa<HLLoop>(Node) ||
             (Node->getLexicalParentLoop() != Temp.getDefLoop()) ||
-            UseIsIndirectCallPtr) {
+            UseIsIndirectCallPtr ||
+            (Temp.isLiveoutLoadTemp() &&
+             (!IsSelfBlob || !Inst || !Inst->isCopyInst() ||
+              (Inst->getParent() != Temp.getDefInst()->getParent())))) {
+
+          LLVM_DEBUG(dbgs() << "Marking load temp candidate: ";
+                     Temp.getDefInst()->dump();
+                     dbgs() << " as invalid on encountering: "; Node->dump());
+
           Temp.markInvalid();
 
         } else {
@@ -892,6 +965,32 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
         }
       }
     }
+
+    // We need to invalidate liveout load temp if this instruction is redefining
+    // the lval of the caputred use because the lval of the use needs to become
+    // the new liveout. For example-
+    //
+    // %t1 = A[i] // load temp candidate
+    //
+    // %t2 = %t1 // captured use of load temp candidate
+    //
+    // %t2 = ... // %t2 is redefined so we can't replace %t1 by %t2 as the new
+    // liveout temp.
+    if ((LvalBlobIndex != InvalidBlobIndex) && Temp.isLoad() &&
+        Temp.isLiveoutLoadTemp()) {
+      if (auto *UseRef = Temp.getUseRef()) {
+        auto *UseInst = cast<HLInst>(UseRef->getHLDDNode());
+
+        if ((HInst != UseInst) &&
+            (UseInst->getLvalBlobIndex() == LvalBlobIndex)) {
+
+          LLVM_DEBUG(dbgs() << "Marking load temp candidate: ";
+                     Temp.getDefInst()->dump();
+                     dbgs() << " as invalid on encountering: "; Inst->dump());
+          Temp.markInvalid();
+        }
+      }
+    }
   }
 }
 
@@ -910,18 +1009,12 @@ bool TempSubstituter::isLiveoutCopy(HLInst *HInst) const {
     return false;
   }
 
+  LLVM_DEBUG(dbgs() << "Recognized liveout temp candidate: "; HInst->dump());
   return true;
 }
 
 bool TempSubstituter::isLoad(HLInst *HInst) const {
   if (!isa<LoadInst>(HInst->getLLVMInstruction())) {
-    return false;
-  }
-
-  RegDDRef *LvalRef = HInst->getLvalDDRef();
-
-  if ((HInst->getLexicalParentLoop() && LvalRef->isLiveOutOfParentLoop()) ||
-      LvalRef->isLiveOutOfRegion()) {
     return false;
   }
 
@@ -939,6 +1032,8 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
     }
   }
 
+  LLVM_DEBUG(dbgs() << "Recognized load temp candidate: "; HInst->dump();
+             dbgs() << "\n");
   return true;
 }
 
@@ -979,7 +1074,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
     if (Temp.isLoad()) {
       // Load temp is substituted once we have traversed the entire region and
       // determined that it has a single use.
-      Temp.substituteInUseRef(MovedRvalDefs);
+      Temp.substituteInUseRef(Reg, MovedRvalDefs);
 
     } else {
 

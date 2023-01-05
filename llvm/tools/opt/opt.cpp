@@ -72,8 +72,10 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Target/TargetMachine.h"
+#ifdef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
@@ -86,6 +88,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 using namespace llvm;
 using namespace opt_tool;
 
@@ -112,6 +115,16 @@ static cl::opt<std::string> PassPipeline(
     cl::desc(
         "A textual description of the pass pipeline. To have analysis passes "
         "available before a certain pass, add 'require<foo-analysis>'."));
+static cl::alias PassPipeline2("p", cl::aliasopt(PassPipeline),
+                                   cl::desc("Alias for -passes"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> TemporarilyAllowOldPassesSyntax(
+    "temporarily-allow-old-pass-syntax",
+    cl::desc("Do not use in new tests. To be removed once all tests have "
+             "migrated."),
+    cl::init(true));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> PrintPasses("print-passes",
                                  cl::desc("Print available passes that can be "
@@ -219,10 +232,6 @@ static cl::opt<bool>
 static cl::opt<std::string>
 TargetTriple("mtriple", cl::desc("Override target triple for module"));
 
-cl::opt<bool> DisableLoopUnrolling(
-    "disable-loop-unrolling",
-    cl::desc("Disable loop unrolling in all relevant passes"), cl::init(false));
-
 static cl::opt<bool> EmitSummaryIndex("module-summary",
                                       cl::desc("Emit module summary index"),
                                       cl::init(false));
@@ -302,12 +311,12 @@ static cl::opt<bool> RemarksWithHotness(
     cl::desc("With PGO, include profile count in optimization remarks"),
     cl::Hidden);
 
-static cl::opt<Optional<uint64_t>, false, remarks::HotnessThresholdParser>
+static cl::opt<std::optional<uint64_t>, false, remarks::HotnessThresholdParser>
     RemarksHotnessThreshold(
         "pass-remarks-hotness-threshold",
         cl::desc("Minimum profile count required for "
                  "an optimization remark to be output. "
-                 "Use 'auto' to apply the threshold from profile summary."),
+                 "Use 'auto' to apply the threshold from profile summary"),
         cl::value_desc("N or 'auto'"), cl::init(0), cl::Hidden);
 
 static cl::opt<std::string>
@@ -330,37 +339,6 @@ static cl::list<std::string>
     PassPlugins("load-pass-plugin",
                 cl::desc("Load passes from plugin library"));
 
-namespace llvm {
-cl::opt<PGOKind>
-    PGOKindFlag("pgo-kind", cl::init(NoPGO), cl::Hidden,
-                cl::desc("The kind of profile guided optimization"),
-                cl::values(clEnumValN(NoPGO, "nopgo", "Do not use PGO."),
-                           clEnumValN(InstrGen, "pgo-instr-gen-pipeline",
-                                      "Instrument the IR to generate profile."),
-                           clEnumValN(InstrUse, "pgo-instr-use-pipeline",
-                                      "Use instrumented profile to guide PGO."),
-                           clEnumValN(SampleUse, "pgo-sample-use-pipeline",
-                                      "Use sampled profile to guide PGO.")));
-cl::opt<std::string> ProfileFile("profile-file",
-                                 cl::desc("Path to the profile."), cl::Hidden);
-
-cl::opt<CSPGOKind> CSPGOKindFlag(
-    "cspgo-kind", cl::init(NoCSPGO), cl::Hidden,
-    cl::desc("The kind of context sensitive profile guided optimization"),
-    cl::values(
-        clEnumValN(NoCSPGO, "nocspgo", "Do not use CSPGO."),
-        clEnumValN(
-            CSInstrGen, "cspgo-instr-gen-pipeline",
-            "Instrument (context sensitive) the IR to generate profile."),
-        clEnumValN(
-            CSInstrUse, "cspgo-instr-use-pipeline",
-            "Use instrumented (context sensitive) profile to guide PGO.")));
-cl::opt<std::string> CSProfileGenFile(
-    "cs-profilegen-file",
-    cl::desc("Path to the instrumented context sensitive profile."),
-    cl::Hidden);
-} // namespace llvm
-
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -370,6 +348,7 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
     PM.add(createVerifierPass());
 }
 
+#ifdef INTEL_CUSTOMIZATION
 /// This routine adds optimization passes based on selected optimization level,
 /// OptLevel.
 ///
@@ -390,37 +369,23 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   } else {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
   }
-  Builder.DisableUnrollLoops = (DisableLoopUnrolling.getNumOccurrences() > 0) ?
-                               DisableLoopUnrolling : OptLevel == 0;
-#if INTEL_CUSTOMIZATION
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
-#endif // INTEL_CUSTOMIZATION
 
   Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
   Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
 
-  if (TM)
-    TM->adjustPassManager(Builder);
-
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
 }
 
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
 //
 
 static CodeGenOpt::Level GetCodeGenOptLevel() {
-  if (CodeGenOptLevel.getNumOccurrences())
-    return static_cast<CodeGenOpt::Level>(unsigned(CodeGenOptLevel));
-  if (OptLevelO1)
-    return CodeGenOpt::Less;
-  if (OptLevelO2)
-    return CodeGenOpt::Default;
-  if (OptLevelO3)
-    return CodeGenOpt::Aggressive;
-  return CodeGenOpt::None;
+  return static_cast<CodeGenOpt::Level>(unsigned(CodeGenOptLevel));
 }
 
 // Returns the TargetMachine instance or zero if no triple is provided.
@@ -508,7 +473,9 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "replace-with-veclib",  "jmc-instrument",
       "dot-regions",          "dot-regions-only",
       "view-regions",         "view-regions-only",
-      "select-optimize",      "expand-large-div-rem"};
+      "select-optimize",      "expand-large-div-rem",
+      "structurizecfg",       "fix-irreducible",
+      "expand-large-fp-convert"};
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -546,18 +513,19 @@ int main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
+#if INTEL_CUSTOMIZATION
   initializeObjCARCOpts(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
-  initializeAggressiveInstCombine(Registry);
-  initializeInstrumentation(Registry);
   initializeTarget(Registry);
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
   initializeExpandLargeDivRemLegacyPassPass(Registry);
+  initializeExpandLargeFpConvertLegacyPassPass(Registry);
   initializeExpandMemCmpPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeSelectOptimizePass(Registry);
@@ -582,7 +550,6 @@ int main(int argc, char **argv) {
   initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
@@ -595,7 +562,6 @@ int main(int argc, char **argv) {
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
   initializeAutoCPUCloneLegacyPassPass(Registry);
-  initializeHeteroArchOptPass(Registry);
 #if INTEL_FEATURE_SW_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -681,9 +647,9 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> RemarksFile = std::move(*RemarksFileOrErr);
 
   // Load the input module...
-  auto SetDataLayout = [](StringRef) -> Optional<std::string> {
+  auto SetDataLayout = [](StringRef) -> std::optional<std::string> {
     if (ClDataLayout.empty())
-      return None;
+      return std::nullopt;
     return ClDataLayout;
   };
   std::unique_ptr<Module> M;
@@ -835,11 +801,13 @@ int main(int argc, char **argv) {
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
+#ifdef INTEL_CUSTOMIZATION
     if (PassPipeline.getNumOccurrences() > 0 && PassList.size() > 0) {
       errs()
           << "Cannot specify passes via both -foo-pass and --passes=foo-pass\n";
       return 1;
     }
+#endif //INTEL_CUSTOMIZATION
     auto NumOLevel = OptLevelO0 + OptLevelO1 + OptLevelO2 + OptLevelO3 +
                      OptLevelOs + OptLevelOz;
     if (NumOLevel > 1) {
@@ -847,14 +815,25 @@ int main(int argc, char **argv) {
       return 1;
     }
     if (NumOLevel > 0 &&
-        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) {
+        (PassPipeline.getNumOccurrences() > 0 || PassList.size() > 0)) { // INTEL
       errs() << "Cannot specify -O# and --passes=/--foo-pass, use "
                 "-passes='default<O#>,other-pass'\n";
       return 1;
     }
+#ifdef INTEL_CUSTOMIZATION
+    if (!PassList.empty()) {
+      errs() << "The `opt -passname` syntax for the new pass manager is "
+                "deprecated, please use `opt -passes=<pipeline>` (or the `-p` "
+                "alias for a more concise version).\n";
+      errs() << "See https://llvm.org/docs/NewPassManager.html#invoking-opt "
+                "for more details on the pass pipeline syntax.\n\n";
+      if (!TemporarilyAllowOldPassesSyntax)
+        return 1;
+    }
+#endif // INTEL_CUSTOMIZATION
     std::string Pipeline = PassPipeline;
 
-    SmallVector<StringRef, 4> Passes;
+    SmallVector<StringRef, 4> Passes; // INTEL
     if (OptLevelO0)
       Pipeline = "default<O0>";
     if (OptLevelO1)
@@ -867,8 +846,10 @@ int main(int argc, char **argv) {
       Pipeline = "default<Os>";
     if (OptLevelOz)
       Pipeline = "default<Oz>";
+#ifdef INTEL_CUSTOMIZATION
     for (const auto &P : PassList)
       Passes.push_back(P->getPassArgument());
+#endif // INTEL_CUSTOMIZATION
     OutputKind OK = OK_NoOutput;
     if (!NoOutput)
       OK = OutputAssembly
@@ -886,7 +867,7 @@ int main(int argc, char **argv) {
     // layer.
     return runPassPipeline(argv[0], *M, TM.get(), &TLII, Out.get(),
                            ThinLinkOut.get(), RemarksFile.get(), Pipeline,
-                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder,
+                           Passes, PluginList, OK, VK, PreserveAssemblyUseListOrder, // INTEL
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
                            EmitModuleHash, EnableDebugify,
                            VerifyDebugInfoPreserve)
@@ -894,6 +875,26 @@ int main(int argc, char **argv) {
                : 1;
   }
 
+#if !INTEL_CUSTOMIZATION
+  if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
+      OptLevelO3) {
+    errs() << "Cannot use -O# with legacy PM.\n";
+    return 1;
+  }
+#endif // !INTEL_CUSTOMIZATION
+
+  if (EmitSummaryIndex) {
+    errs() << "Cannot use -module-summary with legacy PM.\n";
+    return 1;
+  }
+  if (EmitModuleHash) {
+    errs() << "Cannot use -module-hash with legacy PM.\n";
+    return 1;
+  }
+  if (OutputThinLTOBC) {
+    errs() << "Cannot use -thinlto-bc with legacy PM.\n";
+    return 1;
+  }
   // Create a PassManager to hold and optimize the collection of passes we are
   // about to build. If the -debugify-each option is set, wrap each pass with
   // the (-check)-debugify passes.
@@ -933,12 +934,14 @@ int main(int argc, char **argv) {
   }
 
   std::unique_ptr<legacy::FunctionPassManager> FPasses;
+#ifdef INTEL_CUSTOMIZATION
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
       OptLevelO3) {
     FPasses.reset(new legacy::FunctionPassManager(M.get()));
     FPasses->add(createTargetTransformInfoWrapperPass(
         TM ? TM->getTargetIRAnalysis() : TargetIRAnalysis()));
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (PrintBreakpoints) {
     // Default to standard output.
@@ -967,6 +970,7 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
+#ifdef INTEL_CUSTOMIZATION
     if (OptLevelO0 && OptLevelO0.getPosition() < PassList.getPosition(i)) {
       AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
       OptLevelO0 = false;
@@ -997,6 +1001,7 @@ int main(int argc, char **argv) {
       OptLevelO3 = false;
     }
 
+#endif
     const PassInfo *PassInf = PassList[i];
     Pass *P = nullptr;
     if (PassInf->getNormalCtor())
@@ -1032,6 +1037,7 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
   }
 
+#ifdef INTEL_CUSTOMIZATION
   if (OptLevelO0)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
 
@@ -1050,6 +1056,7 @@ int main(int argc, char **argv) {
   if (OptLevelO3)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
 
+#endif // INTEL_CUSTOMIZATION
   if (FPasses) {
     FPasses->doInitialization();
     for (Function &F : *M)
@@ -1094,18 +1101,10 @@ int main(int argc, char **argv) {
       BOS = std::make_unique<raw_svector_ostream>(Buffer);
       OS = BOS.get();
     }
-    if (OutputAssembly) {
-      if (EmitSummaryIndex)
-        report_fatal_error("Text output is incompatible with -module-summary");
-      if (EmitModuleHash)
-        report_fatal_error("Text output is incompatible with -module-hash");
+    if (OutputAssembly)
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
-    } else if (OutputThinLTOBC)
-      report_fatal_error(
-          "Use the new pass manager for printing ThinLTO bitcode");
     else
-      Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder,
-                                         EmitSummaryIndex, EmitModuleHash));
+      Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder));
   }
 
   // Before executing passes, print the final values of the LLVM options.

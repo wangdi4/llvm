@@ -520,8 +520,8 @@ bool HIRMVForVariableStride::MVTransformer::transformLoop(
       PredicateTy::ICMP_EQ, LHS,
       DRU.createConstDDRef(LHS->getDestType(),
                            StrideAndConstSize.front().second));
-  for (auto Pair : make_range(std::next(StrideAndConstSize.begin()),
-                              StrideAndConstSize.end())) {
+  for (auto const &Pair : make_range(std::next(StrideAndConstSize.begin()),
+                                     StrideAndConstSize.end())) {
     RegDDRef *LHS =
         DRU.createScalarRegDDRef(GenericRvalSymbase, Pair.first->clone());
     If->addPredicate(PredicateTy::ICMP_EQ, LHS,

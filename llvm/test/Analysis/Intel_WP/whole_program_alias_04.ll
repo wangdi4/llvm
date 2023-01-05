@@ -2,7 +2,6 @@
 ; This test checks that the alias @aliassub and @aliassub2 weren't resolved
 ; since they are aliasing @sub, which isn't being internalized.
 
-; RUN: opt < %s -enable-new-pm=0 -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:   ALIASES UNRESOLVED: 2

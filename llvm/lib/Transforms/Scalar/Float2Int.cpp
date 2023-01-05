@@ -33,7 +33,6 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -47,6 +46,10 @@
 #include <deque>
 
 #define DEBUG_TYPE "float2int"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -254,7 +257,7 @@ void Float2IntPass::walkBackwards() {
 }
 
 // Calculate result range from operand ranges.
-// Return None if the range cannot be calculated yet.
+// Return std::nullopt if the range cannot be calculated yet.
 Optional<ConstantRange> Float2IntPass::calcRange(Instruction *I) {
   SmallVector<ConstantRange, 4> OpRanges;
   for (Value *O : I->operands()) {
@@ -262,7 +265,7 @@ Optional<ConstantRange> Float2IntPass::calcRange(Instruction *I) {
       auto OpIt = SeenInsts.find(OI);
       assert(OpIt != SeenInsts.end() && "def not seen before use!");
       if (OpIt->second == unknownRange())
-        return None; // Wait until operand range has been calculated.
+        return std::nullopt; // Wait until operand range has been calculated.
       OpRanges.push_back(OpIt->second);
     } else if (ConstantFP *CF = dyn_cast<ConstantFP>(O)) {
       // Work out if the floating point number can be losslessly represented

@@ -23,49 +23,48 @@ using namespace llvm::reflection;
 
 namespace Reflection {
 
-static bool startsWith(const llvm::StringRef s, const llvm::StringRef& prefix){
+static bool startsWith(const llvm::StringRef s, const llvm::StringRef &prefix) {
   return (s.substr(0, prefix.size()) == prefix);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//Purpose: indicates whether a given name is the name of a conversion
-//function.
+// Purpose: indicates whether a given name is the name of a conversion
+// function.
 /////////////////////////////////////////////////////////////////////////////
-bool isConversionFunction(llvm::StringRef s){
+bool isConversionFunction(llvm::StringRef s) {
   return s.startswith("convert_");
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//Purpose: get the 'core name' for the given function name; that is the name
+// Purpose: get the 'core name' for the given function name; that is the name
 //'representing' all the overloaded function of a given conversion.
-//for example the core name of the functions convert_char, convert_char2, and
-//convert_char3 is convert_char.
+// for example the core name of the functions convert_char, convert_char2, and
+// convert_char3 is convert_char.
 /////////////////////////////////////////////////////////////////////////////
-static std::string getConversionCoreName(const std::string& s){
+static std::string getConversionCoreName(const std::string &s) {
   assert(isConversionFunction(s) && "not a conversion function");
-  //conversion functions has the following form:
-  //convert_<type><type_width>?(_<suffix_name>)?
+  // conversion functions has the following form:
+  // convert_<type><type_width>?(_<suffix_name>)?
   std::string ret;
   size_t pos = s.find('_');
   assert(pos != std::string::npos && "failed to find 1st underscore");
-  while (pos<s.length() && !isdigit(s[pos]))
+  while (pos < s.length() && !isdigit(s[pos]))
     ++pos;
   ret = s.substr(0, pos);
-  //deleting the with-digit, so conversion functions of all widths, will be in
-  //the same cache-line
-  while (pos<s.length() && isdigit(s[pos]))
+  // deleting the with-digit, so conversion functions of all widths, will be in
+  // the same cache-line
+  while (pos < s.length() && isdigit(s[pos]))
     ++pos;
   size_t slen = s.length();
   if (slen > pos)
-    ret.append(s.substr(pos, slen-pos));
+    ret.append(s.substr(pos, slen - pos));
   return ret;
 }
 
-static BuiltinMap::MapRange itToRange(
-  NameToFDMultiMap::const_iterator it,
-  NameToFDMultiMap::const_iterator end){
-  if (end != it){
-    const FunctionsVector& fv = it->getValue();
+static BuiltinMap::MapRange itToRange(NameToFDMultiMap::const_iterator it,
+                                      NameToFDMultiMap::const_iterator end) {
+  if (end != it) {
+    const FunctionsVector &fv = it->getValue();
     return std::make_pair(fv.begin(), fv.end());
   } else {
     FunctionsVector empty;
@@ -74,9 +73,9 @@ static BuiltinMap::MapRange itToRange(
 }
 
 //
-//BuiltinMap
+// BuiltinMap
 //
-BuiltinMap::MapRange BuiltinMap::equalRange (llvm::StringRef s)const{
+BuiltinMap::MapRange BuiltinMap::equalRange(llvm::StringRef s) const {
   llvm::StringRef name;
   std::string strConversion;
   if (!isConversionFunction(s))
@@ -89,7 +88,7 @@ BuiltinMap::MapRange BuiltinMap::equalRange (llvm::StringRef s)const{
   return itToRange(it, m_nameToFd.end());
 }
 
-void BuiltinMap::insert (const FunctionDescriptor& fd){
+void BuiltinMap::insert(const FunctionDescriptor &fd) {
   if (isConversionFunction(fd.Name)) {
     std::string name = getConversionCoreName(std::string(fd.Name));
     m_nameToFd[name].append(1U, fd);
@@ -97,20 +96,20 @@ void BuiltinMap::insert (const FunctionDescriptor& fd){
     m_nameToFd[fd.Name].append(1U, fd);
 }
 
-bool
-BuiltinMap::isInSameCacheLine(llvm::StringRef strLeft, llvm::StringRef strRight)const{
+bool BuiltinMap::isInSameCacheLine(llvm::StringRef strLeft,
+                                   llvm::StringRef strRight) const {
   if (strLeft == strRight)
     return true;
-  
-  if (isConversionFunction(strLeft) && isConversionFunction(strRight)){
+
+  if (isConversionFunction(strLeft) && isConversionFunction(strRight)) {
     std::string strl = getConversionCoreName(std::string(strLeft));
     std::string strr = getConversionCoreName(std::string(strRight));
-    return  strl == strr;
+    return strl == strr;
   }
   return false;
 }
 
-bool BuiltinMap::isSOAVersion(const std::string& s)const{
+bool BuiltinMap::isSOAVersion(const std::string &s) const {
   return startsWith(s, "soa_");
 }
 

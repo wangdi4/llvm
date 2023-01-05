@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that setup pass correctly adds new call sites and functions to the inline report.

@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; This test checks that 'sitofp' instruction is not hoisted because the accurate result must be stored.
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

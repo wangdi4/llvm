@@ -1,6 +1,20 @@
-/*===----------------- gfniintrin.h - GFNI intrinsics ----------------------===
+/*===----------------- gfniintrin.h - GFNI intrinsics ---------------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2023 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -20,12 +34,25 @@
 /* Default attributes for YMM unmasked form. */
 #define __DEFAULT_FN_ATTRS_Y __attribute__((__always_inline__, __nodebug__, __target__("avx,gfni"), __min_vector_width__(256)))
 
-/* Default attributes for ZMM forms. */
-#define __DEFAULT_FN_ATTRS_Z __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,gfni"), __min_vector_width__(512)))
+/* Default attributes for ZMM unmasked forms. */
+#define __DEFAULT_FN_ATTRS_Z __attribute__((__always_inline__, __nodebug__, __target__("avx512f,gfni"), __min_vector_width__(512)))
+/* Default attributes for ZMM masked forms. */
+#define __DEFAULT_FN_ATTRS_Z_MASK __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,gfni"), __min_vector_width__(512)))
 
-/* Default attributes for VLX forms. */
+/* Default attributes for VLX masked forms. */
 #define __DEFAULT_FN_ATTRS_VL128 __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,avx512vl,gfni"), __min_vector_width__(128)))
 #define __DEFAULT_FN_ATTRS_VL256 __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,avx512vl,gfni"), __min_vector_width__(256)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS_Y __attribute__((__always_inline__, __nodebug__,  __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS_VL128 __attribute__((__always_inline__, __nodebug__,  __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS_VL256 __attribute__((__always_inline__, __nodebug__,  __min_vector_width__(256)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 #define _mm_gf2p8affineinv_epi64_epi8(A, B, I) \
   ((__m128i)__builtin_ia32_vgf2p8affineinvqb_v16qi((__v16qi)(__m128i)(A), \
@@ -99,7 +126,7 @@ _mm512_gf2p8mul_epi8(__m512i __A, __m512i __B)
               (__v64qi) __B);
 }
 
-static __inline__ __m512i __DEFAULT_FN_ATTRS_Z
+static __inline__ __m512i __DEFAULT_FN_ATTRS_Z_MASK
 _mm512_mask_gf2p8mul_epi8(__m512i __S, __mmask64 __U, __m512i __A, __m512i __B)
 {
   return (__m512i) __builtin_ia32_selectb_512(__U,
@@ -107,7 +134,7 @@ _mm512_mask_gf2p8mul_epi8(__m512i __S, __mmask64 __U, __m512i __A, __m512i __B)
               (__v64qi) __S);
 }
 
-static __inline__ __m512i __DEFAULT_FN_ATTRS_Z
+static __inline__ __m512i __DEFAULT_FN_ATTRS_Z_MASK
 _mm512_maskz_gf2p8mul_epi8(__mmask64 __U, __m512i __A, __m512i __B)
 {
   return _mm512_mask_gf2p8mul_epi8((__m512i)_mm512_setzero_si512(),

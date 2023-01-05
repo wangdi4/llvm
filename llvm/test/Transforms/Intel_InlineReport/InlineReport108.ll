@@ -1,7 +1,5 @@
-; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -force-print-inline-report-after-call-tree-cloning -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -force-print-inline-report-after-call-tree-cloning -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt < %s -passes='module(call-tree-clone),print<inline-report>' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe807 -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,module(call-tree-clone),inlinereportemitter' -enable-intel-advanced-opts=1 -mtriple=i686-- -march=core-avx2 -call-tree-clone-mv-bypass-coll-for-littest=1 -inline-report=0xe886 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that multiversioned callsites appear in the inlining report, when
 ; inlining precedes call tree cloning.
@@ -23,7 +21,7 @@
 ; CHECK-CL: get_ref|8.16 {{.*}}Newly created callsite
 ; CHECK-CL: get_ref|16.8 {{.*}}Newly created callsite
 ; CHECK-CL: get_ref {{.*}}Newly created callsite
-; CHECK-CL: printf {{.*}}Newly created callsite
+; CHECK-CL: EXTERN: printf{{ *$}}
 
 ; CHECK-MD-LABEL: COMPILE FUNC: main{{ *$}}
 ; CHECK-MD: get_ref|16.16 {{.*}}Not tested for inlining
@@ -31,7 +29,7 @@
 ; CHECK-MD: get_ref|8.16 {{.*}}Not tested for inlining
 ; CHECK-MD: get_ref|16.8 {{.*}}Not tested for inlining
 ; CHECK-MD: get_ref {{.*}}Not tested for inlining
-; CHECK-MD: EXTERN: printf
+; CHECK-MD: EXTERN: printf{{ *$}}
 
 ; CHECK-MD-LABEL: COMPILE FUNC: get_ref{{ *$}}
 ; CHECK-MD: get_ref|8.8 {{.*}}Multiversioned callsite

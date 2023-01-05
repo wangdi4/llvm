@@ -46,24 +46,26 @@ using namespace llvm;
 void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
                                          raw_ostream &O) {
   int64_t Imm = MI->getOperand(Op).getImm();
+  bool Flavor = MI->getOpcode() == X86::CMPCCXADDmr32 ||
+                MI->getOpcode() == X86::CMPCCXADDmr64;
   switch (Imm) {
   default: llvm_unreachable("Invalid condcode argument!");
   case    0: O << "o";  break;
   case    1: O << "no"; break;
   case    2: O << "b";  break;
-  case    3: O << "ae"; break;
-  case    4: O << "e";  break;
-  case    5: O << "ne"; break;
+  case    3: O << (Flavor ? "nb" : "ae"); break;
+  case    4: O << (Flavor ?  "z" :  "e"); break;
+  case    5: O << (Flavor ? "nz" : "ne"); break;
   case    6: O << "be"; break;
-  case    7: O << "a";  break;
+  case    7: O << (Flavor ? "nbe" : "a"); break;
   case    8: O << "s";  break;
   case    9: O << "ns"; break;
   case  0xa: O << "p";  break;
   case  0xb: O << "np"; break;
   case  0xc: O << "l";  break;
-  case  0xd: O << "ge"; break;
+  case  0xd: O << (Flavor ? "nl" : "ge"); break;
   case  0xe: O << "le"; break;
-  case  0xf: O << "g";  break;
+  case  0xf: O << (Flavor ? "nle" : "g"); break;
   }
 }
 
@@ -538,4 +540,170 @@ void X86InstPrinterCommon::printTILEQuad(const MCInst *MI, unsigned OpNo,
   llvm_unreachable("Unknown tile quad register name");
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_XISA_COMMON
+void X86InstPrinterCommon::printXMMPair(const MCInst *MI, unsigned OpNo,
+                                        raw_ostream &OS) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case X86::XMM0_XMM1:
+    printRegName(OS, X86::XMM0);
+    return;
+  case X86::XMM2_XMM3:
+    printRegName(OS, X86::XMM2);
+    return;
+  case X86::XMM4_XMM5:
+    printRegName(OS, X86::XMM4);
+    return;
+  case X86::XMM6_XMM7:
+    printRegName(OS, X86::XMM6);
+    return;
+  case X86::XMM8_XMM9:
+    printRegName(OS, X86::XMM8);
+    return;
+  case X86::XMM10_XMM11:
+    printRegName(OS, X86::XMM10);
+    return;
+  case X86::XMM12_XMM13:
+    printRegName(OS, X86::XMM12);
+    return;
+  case X86::XMM14_XMM15:
+    printRegName(OS, X86::XMM14);
+    return;
+  case X86::XMM16_XMM17:
+    printRegName(OS, X86::XMM16);
+    return;
+  case X86::XMM18_XMM19:
+    printRegName(OS, X86::XMM18);
+    return;
+  case X86::XMM20_XMM21:
+    printRegName(OS, X86::XMM20);
+    return;
+  case X86::XMM22_XMM23:
+    printRegName(OS, X86::XMM22);
+    return;
+  case X86::XMM24_XMM25:
+    printRegName(OS, X86::XMM24);
+    return;
+  case X86::XMM26_XMM27:
+    printRegName(OS, X86::XMM26);
+    return;
+  case X86::XMM28_XMM29:
+    printRegName(OS, X86::XMM28);
+    return;
+  case X86::XMM30_XMM31:
+    printRegName(OS, X86::XMM30);
+    return;
+  }
+  llvm_unreachable("Unknown xmm pair register name");
+}
+
+void X86InstPrinterCommon::printYMMPair(const MCInst *MI, unsigned OpNo,
+                                        raw_ostream &OS) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case X86::YMM0_YMM1:
+    printRegName(OS, X86::YMM0);
+    return;
+  case X86::YMM2_YMM3:
+    printRegName(OS, X86::YMM2);
+    return;
+  case X86::YMM4_YMM5:
+    printRegName(OS, X86::YMM4);
+    return;
+  case X86::YMM6_YMM7:
+    printRegName(OS, X86::YMM6);
+    return;
+  case X86::YMM8_YMM9:
+    printRegName(OS, X86::YMM8);
+    return;
+  case X86::YMM10_YMM11:
+    printRegName(OS, X86::YMM10);
+    return;
+  case X86::YMM12_YMM13:
+    printRegName(OS, X86::YMM12);
+    return;
+  case X86::YMM14_YMM15:
+    printRegName(OS, X86::YMM14);
+    return;
+  case X86::YMM16_YMM17:
+    printRegName(OS, X86::YMM16);
+    return;
+  case X86::YMM18_YMM19:
+    printRegName(OS, X86::YMM18);
+    return;
+  case X86::YMM20_YMM21:
+    printRegName(OS, X86::YMM20);
+    return;
+  case X86::YMM22_YMM23:
+    printRegName(OS, X86::YMM22);
+    return;
+  case X86::YMM24_YMM25:
+    printRegName(OS, X86::YMM24);
+    return;
+  case X86::YMM26_YMM27:
+    printRegName(OS, X86::YMM26);
+    return;
+  case X86::YMM28_YMM29:
+    printRegName(OS, X86::YMM28);
+    return;
+  case X86::YMM30_YMM31:
+    printRegName(OS, X86::YMM30);
+    return;
+  }
+  llvm_unreachable("Unknown ymm pair register name");
+}
+
+void X86InstPrinterCommon::printZMMPair(const MCInst *MI, unsigned OpNo,
+                                        raw_ostream &OS) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case X86::ZMM0_ZMM1:
+    printRegName(OS, X86::ZMM0);
+    return;
+  case X86::ZMM2_ZMM3:
+    printRegName(OS, X86::ZMM2);
+    return;
+  case X86::ZMM4_ZMM5:
+    printRegName(OS, X86::ZMM4);
+    return;
+  case X86::ZMM6_ZMM7:
+    printRegName(OS, X86::ZMM6);
+    return;
+  case X86::ZMM8_ZMM9:
+    printRegName(OS, X86::ZMM8);
+    return;
+  case X86::ZMM10_ZMM11:
+    printRegName(OS, X86::ZMM10);
+    return;
+  case X86::ZMM12_ZMM13:
+    printRegName(OS, X86::ZMM12);
+    return;
+  case X86::ZMM14_ZMM15:
+    printRegName(OS, X86::ZMM14);
+    return;
+  case X86::ZMM16_ZMM17:
+    printRegName(OS, X86::ZMM16);
+    return;
+  case X86::ZMM18_ZMM19:
+    printRegName(OS, X86::ZMM18);
+    return;
+  case X86::ZMM20_ZMM21:
+    printRegName(OS, X86::ZMM20);
+    return;
+  case X86::ZMM22_ZMM23:
+    printRegName(OS, X86::ZMM22);
+    return;
+  case X86::ZMM24_ZMM25:
+    printRegName(OS, X86::ZMM24);
+    return;
+  case X86::ZMM26_ZMM27:
+    printRegName(OS, X86::ZMM26);
+    return;
+  case X86::ZMM28_ZMM29:
+    printRegName(OS, X86::ZMM28);
+    return;
+  case X86::ZMM30_ZMM31:
+    printRegName(OS, X86::ZMM30);
+    return;
+  }
+  llvm_unreachable("Unknown zmm pair register name");
+}
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION

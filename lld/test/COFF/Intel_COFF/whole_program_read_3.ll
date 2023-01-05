@@ -7,11 +7,6 @@
 ; RUN: llvm-as -o %t_wp3.bc %s
 ; RUN: lld-link /out:%t_wp3.exe /entry:main %t_wp3.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis /force:unresolved \
-; RUN:     /opt:noltonewpassmanager \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: lld-link /out:%t_wp3.exe /entry:main %t_wp3.bc /subsystem:console  \
-; RUN:     /mllvm:-debug-only=whole-program-analysis /force:unresolved \
 ; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 

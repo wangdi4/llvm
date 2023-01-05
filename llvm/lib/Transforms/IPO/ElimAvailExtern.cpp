@@ -30,8 +30,6 @@
 
 #include "llvm/Transforms/IPO/ElimAvailExtern.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_Andersens.h"         // INTEL
-#include "llvm/Analysis/Intel_WP.h"                // INTEL
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
@@ -41,6 +39,11 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

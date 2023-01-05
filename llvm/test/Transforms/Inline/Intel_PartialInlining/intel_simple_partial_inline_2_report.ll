@@ -10,7 +10,6 @@
 ; This test case is the same as intel_simple_partial_inline_2_ir.ll, but it
 ; checks that the inlining report was printed correctly.
 
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -inline-report=7 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: COMPILE FUNC: _Z3fooP4Node.1

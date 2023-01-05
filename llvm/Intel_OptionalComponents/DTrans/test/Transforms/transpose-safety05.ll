@@ -2,16 +2,15 @@
 ; loaded from a dope vector in called functions when tracing values
 ; through PHI and select instructions.
 
+target triple = "x86_64-unknown-linux-gnu"
+
 ; Run the test with all uses of the dope vector being supported.
-; RUN: sed -e s/.TEST_SAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 ; RUN: sed -e s/.TEST_SAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 
 ; Run the test with SelectInst that should invalidate the candidate
-; RUN: sed -e s/.TEST_UNSAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
-; RUN: sed -e s/.TEST_UNSAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
+; RUN: sed -e s/.TEST_UNSAFE_SELECT:// %s | sed -e s/.TEST_SAFE_PHI:// | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 
 ; Run the test with PHINode that should invalidate the candidate
-; RUN: sed -e s/.TEST_UNSAFE_PHI:// %s | sed -e s/.TEST_SAFE_SELECT:// | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 ; RUN: sed -e s/.TEST_UNSAFE_PHI:// %s | sed -e s/.TEST_SAFE_SELECT:// | opt -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck --check-prefix=CHECK-UNSAFE %s
 
 

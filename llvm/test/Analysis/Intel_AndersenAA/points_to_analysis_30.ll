@@ -2,8 +2,6 @@
 ; (__acrt_iob_func(i32 1)) and local allocated pointer (i.e %p1) when
 ; whole_program_safe is true.
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 

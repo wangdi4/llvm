@@ -1,8 +1,6 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
 ;
 ; This test checks that io channel is replaced with builtin correctly when
 ; user-defined functions are not inlined.

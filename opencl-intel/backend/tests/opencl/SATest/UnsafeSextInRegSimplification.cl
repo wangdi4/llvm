@@ -10,22 +10,21 @@
 */
 #define W 2
 
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable  // for double  
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable // for double
 
-int findOptimalK(float value, int index)
-{
+int findOptimalK(float value, int index) {
   int optK = -W;
   double WEIGHT0 = 0.73;
   double WEIGHT1 = -1.22;
-  double interpolVal = WEIGHT0 * ((index-W) * 10) + WEIGHT1 * ((index+W) * 10);
+  double interpolVal =
+      WEIGHT0 * ((index - W) * 10) + WEIGHT1 * ((index + W) * 10);
   double minDiff = value - interpolVal;
-  for (int k=-W+1; k<=W; k++)
-  {
+  for (int k = -W + 1; k <= W; k++) {
     double div_by = k != 0 ? k : 1;
-    interpolVal = WEIGHT0 * ((-index-W) * 10 / div_by) + WEIGHT1 * ((-index+W) * 10 / div_by);
+    interpolVal = WEIGHT0 * ((-index - W) * 10 / div_by) +
+                  WEIGHT1 * ((-index + W) * 10 / div_by);
     double diff = value - interpolVal;
-    if (diff<minDiff)
-    {
+    if (diff < minDiff) {
       optK = k;
       minDiff = diff;
     }
@@ -33,8 +32,7 @@ int findOptimalK(float value, int index)
   return optK;
 }
 
-__kernel void test(__global float *a, __global int* out) 
-{
+__kernel void test(__global float *a, __global int *out) {
   int gid = get_global_id(0);
   int optK = findOptimalK(a[gid], gid);
   out[gid] = optK;

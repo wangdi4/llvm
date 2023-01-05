@@ -17,15 +17,15 @@
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: DuplicateCalledKernels
-; CHECK:      Skipping pass FMASplitterPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK:      Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: DuplicateCalledKernels
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
@@ -49,6 +49,7 @@
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
 ; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -60,13 +61,12 @@
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 
 ; CHECK:      Running pass: AddTLSGlobalsPass
-; CHECK:      Running analysis: LocalBufferAnalysis
 ; CHECK:      Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: AlwaysInlinerPass

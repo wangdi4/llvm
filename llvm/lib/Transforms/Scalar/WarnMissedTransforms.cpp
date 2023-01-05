@@ -32,7 +32,10 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#include "llvm/Support/CommandLine.h" // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -83,9 +86,9 @@ static void warnAboutLeftoverTransformations(Loop *L,
 
   if (hasVectorizeTransformation(L) == TM_ForcedByUser) {
     LLVM_DEBUG(dbgs() << "Leftover vectorization transformation\n");
-    Optional<ElementCount> VectorizeWidth =
+    std::optional<ElementCount> VectorizeWidth =
         getOptionalElementCountLoopAttribute(L);
-    Optional<int> InterleaveCount =
+    std::optional<int> InterleaveCount =
         getOptionalIntLoopAttribute(L, "llvm.loop.interleave.count");
 
     if (!VectorizeWidth || VectorizeWidth->isVector())

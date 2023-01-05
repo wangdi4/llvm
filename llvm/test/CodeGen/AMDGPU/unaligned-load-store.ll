@@ -2,6 +2,7 @@
 ; RUN: llc -march=amdgcn -mcpu=bonaire -mattr=+unaligned-access-mode -verify-machineinstrs< %s | FileCheck -check-prefixes=SI,MUBUF,UNALIGNED %s
 ; RUN: llc -march=amdgcn -mcpu=tonga -mattr=-flat-for-global -verify-machineinstrs< %s | FileCheck -check-prefixes=SI,MUBUF,ALIGNED %s
 ; RUN: llc -march=amdgcn -mcpu=gfx900 -mattr=-flat-for-global -mattr=+enable-flat-scratch -verify-machineinstrs < %s | FileCheck -check-prefixes=SI,FLATSCR,ALIGNED %s
+; UNSUPPORTED: windows
 
 ; SI-LABEL: {{^}}local_unaligned_load_store_i16:
 ; SI: ds_read_u8

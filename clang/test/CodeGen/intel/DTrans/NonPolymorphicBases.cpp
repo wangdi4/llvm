@@ -3,7 +3,7 @@
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct default_ctor {
-  default_ctor () = default;
+  default_ctor () {};
 };
 
 struct NormalBase {

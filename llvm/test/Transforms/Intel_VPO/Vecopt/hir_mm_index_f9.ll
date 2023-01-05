@@ -1,7 +1,7 @@
 ; negative test: check that mm+index idiom analyzer bailouts in non-idiom cases.
 ; In this test we have non linear (invariant) value assigned for the index part
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert' -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -S < %s 2>&1 | FileCheck %s
 ; TODO: add RUN with enabled non-linear indexes after support is implemented.
 
 ; Input HIR. The statement <7> contains the invariant value (2) assigned to the

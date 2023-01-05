@@ -79,10 +79,6 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -106,11 +102,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
 #include "llvm/InitializePasses.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
@@ -122,11 +113,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
@@ -135,6 +121,15 @@
 #include <map>
 #include <set>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 #if INTEL_CUSTOMIZATION
@@ -939,8 +934,8 @@ void updatePublicTypeTestCalls(Module &M,
     for (Use &U : make_early_inc_range(PublicTypeTestFunc->uses())) {
       auto *CI = cast<CallInst>(U.getUser());
       auto *NewCI = CallInst::Create(
-          TypeTestFunc, {CI->getArgOperand(0), CI->getArgOperand(1)}, None, "",
-          CI);
+          TypeTestFunc, {CI->getArgOperand(0), CI->getArgOperand(1)},
+          std::nullopt, "", CI);
       CI->replaceAllUsesWith(NewCI);
       CI->eraseFromParent();
     }
@@ -2661,6 +2656,13 @@ void DevirtIndex::run() {
   DenseMap<GlobalValue::GUID, std::vector<StringRef>> NameByGUID;
   for (const auto &P : ExportSummary.typeIdCompatibleVtableMap()) {
     NameByGUID[GlobalValue::getGUID(P.first)].push_back(P.first);
+    // Create the type id summary resolution regardlness of whether we can
+    // devirtualize, so that lower type tests knows the type id is used on
+    // a global and not Unsat. We do this here rather than in the loop over the
+    // CallSlots, since that handling will only see type tests that directly
+    // feed assumes, and we would miss any that aren't currently handled by WPD
+    // (such as type tests that feed assumes via phis).
+    ExportSummary.getOrInsertTypeIdSummary(P.first);
   }
 
   // Collect information from summary about which calls to try to devirtualize.
@@ -2708,12 +2710,11 @@ void DevirtIndex::run() {
     std::vector<ValueInfo> TargetsForSlot;
     auto TidSummary = ExportSummary.getTypeIdCompatibleVtableSummary(S.first.TypeID);
     assert(TidSummary);
-    // Create the type id summary resolution regardlness of whether we can
-    // devirtualize, so that lower type tests knows the type id is used on
-    // a global and not Unsat.
+    // The type id summary would have been created while building the NameByGUID
+    // map earlier.
     WholeProgramDevirtResolution *Res =
-        &ExportSummary.getOrInsertTypeIdSummary(S.first.TypeID)
-             .WPDRes[S.first.ByteOffset];
+        &ExportSummary.getTypeIdSummary(S.first.TypeID)
+             ->WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, *TidSummary,
                                   S.first.ByteOffset)) {
 

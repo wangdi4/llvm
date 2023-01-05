@@ -7,7 +7,6 @@
 ; has more than 2 calls.
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s  -opaque-pointers -deadarrayopselimination -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s  -opaque-pointers -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DeadArrayOpsElimi: Considering qsort function: s_qsort

@@ -22,25 +22,23 @@ static void host_compile_link_internal(
     cl::Program unusedProgram, // This program is built with clBuildProgram,
                                // while we want to build it with
                                // clCompileProgram followed by clLinkProgram.
-    HostProgramExtraArgs extra_args)
-{
-    const char* src = "__kernel void foo() { size_t gid = get_global_id(0); }";
-    cl::Program program = cl::Program(context, src, /*build=*/ false,
-                                      /*err=*/ NULL);
-    program.compile("-g -cl-opt-disable -s compile_link.cl");
-    program = cl::linkProgram({program});
+    HostProgramExtraArgs extra_args) {
+  const char *src = "__kernel void foo() { size_t gid = get_global_id(0); }";
+  cl::Program program = cl::Program(context, src, /*build=*/false,
+                                    /*err=*/NULL);
+  program.compile("-g -cl-opt-disable -s compile_link.cl");
+  program = cl::linkProgram({program});
 
-    cl::CommandQueue queue(context, device);
-    cl::Kernel kernel(program, "foo");
+  cl::CommandQueue queue(context, device);
+  cl::Kernel kernel(program, "foo");
 
-    queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
 
-    DTT_LOG("[FPGA] Running application with device code built "
-            "by compile-and-link flow...");
+  DTT_LOG("[FPGA] Running application with device code built "
+          "by compile-and-link flow...");
 
-    queue.finish();
+  queue.finish();
 }
-
 
 // Export
 //

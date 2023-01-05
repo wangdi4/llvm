@@ -7,17 +7,17 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-and_ushort (	__global const float *in,
-		__global float *out)
+and_ushort (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	ushort temp1 = in[gid] * ARG1;
-	ushort temp2 = in[gid] * in[gid];
-	out[gid] = temp1 & temp2;
+  int gid = get_global_id(0);
+  ushort temp1 = in[gid] * ARG1;
+  ushort temp2 = in[gid] * in[gid];
+  out[gid] = temp1 & temp2;
 }

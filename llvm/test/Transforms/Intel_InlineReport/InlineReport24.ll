@@ -1,4 +1,5 @@
 ; RUN: opt -passes='argpromotion,cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,argpromotion,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -disable-output < %s -S 2>&1 | FileCheck %s
 
 ; This test does argument promotion and then inlining and dead static
 ; function elimination to prove that a function can be replaced with

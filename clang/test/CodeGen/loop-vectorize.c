@@ -3,8 +3,8 @@
 // used by community vectorizer.
 // RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -mllvm -enable-lv -vectorize-loops -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-ENABLE-VECT
 // RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -mllvm -enable-lv -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-DISABLE-VECT
-// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -fexperimental-new-pass-manager -S -O1 -mllvm -enable-lv -vectorize-loops -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-ENABLE-VECT
-// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -fexperimental-new-pass-manager -S -O1 -mllvm -enable-lv -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-DISABLE-VECT
+// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -mllvm -enable-lv -vectorize-loops -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-ENABLE-VECT
+// RUN: %clang_cc1 -triple x86_64 -target-cpu x86-64 -S -O1 -mllvm -enable-lv -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-DISABLE-VECT
 // end INTEL_CUSTOMIZATION
 // REQUIRES: x86-registered-target
 

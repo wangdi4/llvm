@@ -1,7 +1,6 @@
 ; This test verifies that "nabout" in load instructions are replaced
 ; with "stdout" by globalopt when whole-program-safe is true.
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -globalopt -whole-program-assume -S | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,globalopt' -whole-program-assume -S | FileCheck %s
 
 ; CHECK-DAG: %0 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8

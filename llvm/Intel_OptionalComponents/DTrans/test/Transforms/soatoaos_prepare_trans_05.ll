@@ -19,7 +19,6 @@
 ; _ZN1FC2Ev: Verifies that reverse argument promotion is done for
 ;  AppendElem (_ZN7BaseArrIPsE3addEPS0_).
 
-; RUN: opt < %s -dtrans-soatoaos-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-soatoaos-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate

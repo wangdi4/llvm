@@ -1,6 +1,4 @@
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-add-tls-globals -dpcpp-kernel-patch-callback-args -S %s | FileCheck %s
 ; RUN: opt -dpcpp-kernel-enable-tls-globals -passes='dpcpp-kernel-add-tls-globals,dpcpp-kernel-patch-callback-args' -S %s | FileCheck %s
-
 ; Check thread-local storage globals mode in PatchCallbackArgs pass
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -12,10 +10,10 @@ entry:
   %call = call i8* @__get_device_command_manager() #2
   %call1 = call i8* @__get_block_to_kernel_mapper() #2
   %call2 = call i8* @__get_runtime_handle() #2
-; CHECK: %0 = load { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }** @pWorkDim
-; CHECK-NEXT: %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %0, i32 0, i32 5
+; CHECK: %0 = load { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }** @pWorkDim
+; CHECK-NEXT: %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %0, i32 0, i32 5
 ; CHECK-NEXT: %RuntimeInterface = load {}*, {}** %1
-; CHECK-NEXT: %2 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %0, i32 0, i32 6
+; CHECK-NEXT: %2 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %0, i32 0, i32 6
 ; CHECK-NEXT: %Block2KernelMapper = load {}*, {}** %2
 ; CHECK-NEXT: %3 = load {}*, {}** @RuntimeHandle
 ; CHECK-NEXT: %4 = bitcast {}* %RuntimeInterface to i8*

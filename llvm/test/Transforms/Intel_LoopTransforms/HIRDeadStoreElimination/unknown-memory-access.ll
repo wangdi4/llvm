@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" -hir-cost-model-throttling=0 2>&1 < %s | FileCheck %s
 ;
 ; Skip the loop if it contains any calls with unknown memory access

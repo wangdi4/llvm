@@ -107,7 +107,7 @@ public:
   bool checkMemberFunctionCalls();
   bool isPotentialCandidateCopyCtor(Function *);
   bool checkHeuristics();
-  bool isCtorCapacityArgPositionPair(std::pair<Function *, int32_t> &);
+  bool isCtorCapacityArgPositionPair(const std::pair<Function *, int32_t> &);
   bool isClassGetCapacityFunction(Function *);
   void trimDowmMemInit();
 
@@ -158,7 +158,7 @@ private:
 // Returns true if CtorArgPosPair is pair of Ctor and position of capacity that
 // is passed as argument to the Ctor.
 bool MemInitClassInfo::isCtorCapacityArgPositionPair(
-    std::pair<Function *, int32_t> &CtorArgPosPair) {
+    const std::pair<Function *, int32_t> &CtorArgPosPair) {
   return (CtorArgPosPair.first == getCtorFunction() &&
           CtorArgPosPair.second == CapacityArgPos);
 }
@@ -600,7 +600,7 @@ private:
   // transformation.
   SmallSetVector<MemInitClassInfo *, 4> ClassInfoSet;
 
-  bool isEscapePointOkay(std::pair<Function *, int32_t> &);
+  bool isEscapePointOkay(const std::pair<Function *, int32_t> &);
   bool isAnyClassGetCapacityFunction(Function *F);
   bool gatherCandidateInfo(void);
   bool analyzeCandidate(SOACandidateInfo *);
@@ -638,7 +638,7 @@ void MemInitTrimDownImpl::transformMemInit(void) {
 // Return true if EP is just position of capacity value that is passed to Ctor
 // of some other class that is also selected for the transformation.
 bool MemInitTrimDownImpl::isEscapePointOkay(
-    std::pair<Function *, int32_t> &EP) {
+    const std::pair<Function *, int32_t> &EP) {
   for (auto *ClassI : ClassInfoSet)
     if (ClassI->isCtorCapacityArgPositionPair(EP))
       return true;
@@ -661,7 +661,7 @@ bool MemInitTrimDownImpl::verifyFinalSafetyChecks(void) {
   for (auto *ClassI : ClassInfoSet) {
     // Check all escaped capacity values are consumed by other
     // vector classes that are also selected for the transformation.
-    for (auto EP : ClassI->capacity_escape_points()) {
+    for (const auto &EP : ClassI->capacity_escape_points()) {
       if (!isEscapePointOkay(EP)) {
         DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWNOP,
                         { dbgs() << "  Failed: Escape point not okay\n"; });

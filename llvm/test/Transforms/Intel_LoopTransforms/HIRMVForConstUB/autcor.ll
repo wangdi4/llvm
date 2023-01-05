@@ -70,10 +70,8 @@
 ; <257>           + END LOOP
 ; <0>       END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-mv-const-ub -print-before=hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-mv-const-ub -print-before=hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ;
 ; CHECK: Function

@@ -7,23 +7,14 @@
 
 ; Makes sure "copy_inside_array" call in "foo" is not inlined when
 ; -pre-lto-inline-cost is passed.
-; RUN: opt -opaque-pointers < %s -disable-output -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-NOINL %s
-; Same as above except using metadata
-; RUN: opt -opaque-pointers < %s -disable-output -inlinereportsetup -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost -inlinereportemitter 2>&1 | FileCheck --check-prefix=CHECK-NOINL %s
 
-; New PM command
 ; RUN: opt -opaque-pointers < %s -disable-output  -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost  2>&1 | FileCheck --check-prefix=CHECK-NOINL %s
 ; Same as above except using metadata
 ; RUN: opt -opaque-pointers < %s -disable-output -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -pre-lto-inline-cost 2>&1 | FileCheck --check-prefix=CHECK-NOINL %s
 
-
 ; Makes sure "copy_inside_array" call in "foo" is inlined when
 ; -pre-lto-inline-cost is not passed.
-; RUN: opt -opaque-pointers < %s -disable-output -inline -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain  2>&1 | FileCheck --check-prefix=CHECK-INL %s
-; Same as above except using metadata
-; RUN: opt -opaque-pointers < %s -disable-output -inlinereportsetup -inline -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain -inlinereportemitter 2>&1 | FileCheck --check-prefix=CHECK-INL %s
 
-; New PM command
 ; RUN: opt -opaque-pointers < %s -disable-output  -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain  2>&1 | FileCheck --check-prefix=CHECK-INL %s
 ; Same as above except using metadata
 ; RUN: opt -opaque-pointers < %s -disable-output -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -inline-for-xmain 2>&1 | FileCheck --check-prefix=CHECK-INL %s

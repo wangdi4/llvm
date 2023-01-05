@@ -79,9 +79,9 @@ public:
       GTEST_SKIP();
 
     TargetOptions Options;
-    Machine = std::unique_ptr<TargetMachine>(
-        T->createTargetMachine(Triple::normalize("x86_64--"), "", "", Options,
-                               None, None, CodeGenOpt::Aggressive));
+    Machine = std::unique_ptr<TargetMachine>(T->createTargetMachine(
+        Triple::normalize("x86_64--"), "", "", Options, std::nullopt,
+        std::nullopt, CodeGenOpt::Aggressive));
 
     auto Type = FunctionType::get(Type::getVoidTy(Ctx), false);
     auto F =
@@ -100,7 +100,8 @@ public:
     OurFile = DIB.createFile("xyzzy.c", "/cave");
     OurCU =
         DIB.createCompileUnit(dwarf::DW_LANG_C99, OurFile, "nou", false, "", 0);
-    auto OurSubT = DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
+    auto OurSubT =
+        DIB.createSubroutineType(DIB.getOrCreateTypeArray(std::nullopt));
     OurFunc =
         DIB.createFunction(OurCU, "bees", "", OurFile, 1, OurSubT, 1,
                            DINode::FlagZero, DISubprogram::SPFlagDefinition);
@@ -1125,10 +1126,11 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
   // X86SubRegIdxRanges. We should change this value when upstream.
-  ASSERT_EQ(MTracker->getNumLocs(), 56u); // Tracks all possible stack locs.
+  const unsigned NumLoc = 67u;
 #else // INTEL_FEATURE_XISA_COMMON
-  ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
+  const unsigned NumLoc = 11u;
 #endif // INTEL_FEATURE_XISA_COMMON
+  ASSERT_EQ(MTracker->getNumLocs(), NumLoc); // Tracks all possible stack locs.
 #endif // INTEL_CUSTOMIZATION
   // Locations are: RSP, stack slots from 2^3 bits wide up to 2^9 for zmm regs,
   // then slots for sub_8bit_hi and sub_16bit_hi ({8, 8} and {16, 16}).
@@ -1152,7 +1154,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // ignore here.
 
   FuncValueTable MInLocs, MOutLocs;
-  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 11);
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, NumLoc); // INTEL
 
   // Transfer function: start with nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
@@ -1187,7 +1189,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // function.
   TransferFunc[1].insert({ALStackLoc, ALDefInBlk1});
   TransferFunc[1].insert({HAXStackLoc, HAXDefInBlk1});
-  initValueArray(MInLocs, 4, 11);
+  initValueArray(MInLocs, 4, NumLoc); // INTEL
   placeMLocPHIs(*MF, AllBlocks, MInLocs, TransferFunc);
   EXPECT_EQ(MInLocs[3][ALStackLoc.asU64()], ALPHI);
   EXPECT_EQ(MInLocs[3][AXStackLoc.asU64()], AXPHI);
@@ -1822,7 +1824,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   DbgOpID RaxPHIInBlk3ID = addValueDbgOp(RaxPHIInBlk3);
   DbgOpID ConstZeroID = addConstDbgOp(MachineOperand::CreateImm(0));
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   DIExpression *TwoOpExpr =
       DIExpression::get(Ctx, {dwarf::DW_OP_LLVM_arg, 0, dwarf::DW_OP_LLVM_arg,
@@ -2016,7 +2018,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   DbgOpID RspPHIInBlk1ID = addValueDbgOp(RspPHIInBlk1);
   DbgOpID RaxPHIInBlk1ID = addValueDbgOp(RaxPHIInBlk1);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   DIExpression *TwoOpExpr =
       DIExpression::get(Ctx, {dwarf::DW_OP_LLVM_arg, 0, dwarf::DW_OP_LLVM_arg,
@@ -2151,7 +2153,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   addValueDbgOp(RaxPHIInBlk1);
   DbgOpID RbxPHIInBlk1ID = addValueDbgOp(RbxPHIInBlk1);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   SmallVector<DbgValue, 32> VLiveOuts;
   VLiveOuts.resize(5, DbgValue(EmptyProps, DbgValue::Undef));
@@ -2285,7 +2287,7 @@ TEST_F(InstrRefLDVTest, vlocJoinDiamond) {
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   SmallVector<DbgValue, 32> VLiveOuts;
   VLiveOuts.resize(4, DbgValue(EmptyProps, DbgValue::Undef));
@@ -2469,7 +2471,7 @@ TEST_F(InstrRefLDVTest, vlocJoinLoops) {
   DbgOpID LiveInRspID = DbgOpID(false, 0);
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   SmallVector<DbgValue, 32> VLiveOuts;
   VLiveOuts.resize(3, DbgValue(EmptyProps, DbgValue::Undef));
@@ -2570,7 +2572,7 @@ TEST_F(InstrRefLDVTest, vlocJoinBadlyNestedLoops) {
   DbgOpID LiveInRaxID = DbgOpID(false, 1);
   DbgOpID LiveInRbxID = DbgOpID(false, 2);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   SmallVector<DbgValue, 32> VLiveOuts;
   VLiveOuts.resize(5, DbgValue(EmptyProps, DbgValue::Undef));
@@ -2656,7 +2658,7 @@ TEST_F(InstrRefLDVTest, VLocSingleBlock) {
   DbgOpID LiveInRspID = addValueDbgOp(LiveInRsp);
   MInLocs[0][0] = MOutLocs[0][0] = LiveInRsp;
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
 
   SmallSet<DebugVariable, 4> AllVars;
@@ -2719,7 +2721,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   initValueArray(MInLocs, 4, 2);
   initValueArray(MOutLocs, 4, 2);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
 
   SmallSet<DebugVariable, 4> AllVars;
@@ -2941,7 +2943,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   initValueArray(MInLocs, 3, 2);
   initValueArray(MOutLocs, 3, 2);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
   DIExpression *TwoOpExpr =
       DIExpression::get(Ctx, {dwarf::DW_OP_LLVM_arg, 0, dwarf::DW_OP_LLVM_arg,
@@ -3220,7 +3222,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   initValueArray(MInLocs, 5, 2);
   initValueArray(MOutLocs, 5, 2);
 
-  DebugVariable Var(FuncVariable, None, nullptr);
+  DebugVariable Var(FuncVariable, std::nullopt, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false, false);
 
   SmallSet<DebugVariable, 4> AllVars;

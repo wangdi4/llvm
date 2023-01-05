@@ -24,7 +24,6 @@
 ; %3 = fadd fast float %2, %t45.0
 ; %t45.0 has only one user and is considered as Phi1, while %t43.0 has two users and is considered as Phi2
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = fadd float %gepload43, %gepload

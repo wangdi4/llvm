@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt -whole-program-assume -intel-libirc-allowed -dtransanalysis -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that 'Bad mem func' is recorded as a safety check violation and

@@ -14,11 +14,9 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopPeeling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -142,7 +140,7 @@ private:
   /// TLS global local IDs.
   GlobalVariable *LocalIds = nullptr;
 
-  /// Number of WG dimensions.
+  /// Number of WG dimensions of current kernel.
   unsigned NumDim = MAX_WORK_DIM;
 
   /// The dimension by which we vectorize (usually 0).
@@ -315,8 +313,12 @@ bool WGLoopCreatorImpl::run() {
 
     unsigned VectWidth = 0;
     // Get the vectorized function
-    Function *VectKernel = KIMD.VectorizedKernel.get();
-    Function *MaskedKernel = KIMD.VectorizedMaskedKernel.get();
+    Function *VectKernel = KIMD.VectorizedKernel.hasValue()
+                               ? KIMD.VectorizedKernel.get()
+                               : nullptr;
+    Function *MaskedKernel = KIMD.VectorizedMaskedKernel.hasValue()
+                                 ? KIMD.VectorizedMaskedKernel.get()
+                                 : nullptr;
     // Need to check if vectorized kernel exists, it is not guaranteed that
     // vectorizer is running in all scenarios.
     Function *VectOrMaskedKernel = VectKernel     ? VectKernel
@@ -479,9 +481,14 @@ void WGLoopCreatorImpl::patchNotInlinedFuncs(FuncSet &KernelAndSyncFuncs,
       LIDArg = It->second.second;
     }
 
+    KernelInternalMetadataAPI KIMD(Caller);
+    unsigned NumDims = KIMD.MaxWGDimensions.hasValue()
+                           ? KIMD.MaxWGDimensions.get()
+                           : MAX_WORK_DIM;
+
     // TODO only do the stores once.
     Builder.SetInsertPoint(CI);
-    for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+    for (unsigned Dim = 0; Dim < NumDims; ++Dim) {
       auto *LIDCall = LoopUtils::getWICall(&M, mangledGetLID(), IndTy, Dim, CI,
                                            Twine("lid") + Twine(Dim));
       Builder.CreateStore(LIDCall, LIDs[Dim]);
@@ -1519,60 +1526,6 @@ PHINode *WGLoopCreatorImpl::createLIDPHI(Value *InitVal, Value *IncBy,
   DimTID->addIncoming(InitVal, PreHead);
   DimTID->addIncoming(IncTID, Latch);
   return DimTID;
-}
-
-namespace {
-
-class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
-public:
-  static char ID;
-
-  DPCPPKernelWGLoopCreatorLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-    initializeDPCPPKernelWGLoopCreatorLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
-  }
-
-private:
-  bool UseTLSGlobals;
-};
-
-} // namespace
-
-char DPCPPKernelWGLoopCreatorLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                      "Create loops over dpcpp kernels", false, false)
-INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
-INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                    "Create loops over dpcpp kernels", false, false)
-
-bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
-  FuncSet FSet = getAllKernels(M);
-  MapFunctionToReturnInst FuncReturn;
-  for (auto *F : FSet) {
-    bool Changed = false;
-    BasicBlock *SingleRetBB =
-        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
-            .getReturnBlock();
-    if (SingleRetBB)
-      FuncReturn[F] = cast<ReturnInst>(SingleRetBB->getTerminator());
-  }
-  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn);
-  return Impl.run();
-}
-
-llvm::ModulePass *
-llvm::createDPCPPKernelWGLoopCreatorLegacyPass(bool UseTLSGlobals) {
-  return new DPCPPKernelWGLoopCreatorLegacy(UseTLSGlobals);
 }
 
 PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,

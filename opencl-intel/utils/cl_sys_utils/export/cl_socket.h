@@ -22,14 +22,10 @@
 // Various methods of OclSocket throw OclSocketError in case of errors with the
 // socket APIs (where the low-level OS APIs return error codes).
 //
-class OclSocketError : public std::runtime_error
-{
+class OclSocketError : public std::runtime_error {
 public:
-    OclSocketError(const std::string & msg)
-        : std::runtime_error(msg)
-    {}
+  OclSocketError(const std::string &msg) : std::runtime_error(msg) {}
 };
-
 
 // Low level TCP/IP socket class.
 //
@@ -45,65 +41,62 @@ public:
 // * All network operations are blocking.
 // * Only IPv4 addresses are supported
 //
-class OclSocket
-{
+class OclSocket {
 public:
-    OclSocket();
-    ~OclSocket();
+  OclSocket();
+  ~OclSocket();
 
-    // Server socket initialization
-    //
-    void bind(char const* IPv4Addr, unsigned short port);
-    void listen(int backlog = 5);
+  OclSocket(const OclSocket &) = delete;
+  OclSocket &operator=(const OclSocket &) = delete;
 
-    // Close the socket manually.
-    // Note that if you don't do it, the destructor eventually will.
-    //
-    void close();
+  // Server socket initialization
+  //
+  void bind(char const *IPv4Addr, unsigned short port);
+  void listen(int backlog = 5);
 
-    // Accept a new connection on a listening socket. Return a pointer to a new
-    // OclSocket, initialized and ready to communicate.
-    // The caller should delete the new object when it's no longer needed.
-    //
-    OclSocket* accept();
+  // Close the socket manually.
+  // Note that if you don't do it, the destructor eventually will.
+  //
+  void close();
 
-    // Client socket initialization
-    //
-    void connect(const std::string& host, unsigned short port);
+  // Accept a new connection on a listening socket. Return a pointer to a new
+  // OclSocket, initialized and ready to communicate.
+  // The caller should delete the new object when it's no longer needed.
+  //
+  OclSocket *accept();
 
-    // Send the given buffer. Return the amount of bytes actually sent (due to
-    // the way sockets work, this may be less than the size of the buffer).
-    //
-    std::size_t send(const std::vector<char>& buf);
+  // Client socket initialization
+  //
+  void connect(const std::string &host, unsigned short port);
 
-    // Receive data and return it. To set the amount of data you ask
-    // to receive, call set_recv_buf_size(). The default amount is 1024 bytes.
-    // The actual amount received may be less than requested.
-    // An empty vector is returned if the peer has shut down the connection.
-    //
-    std::vector<char> recv();
+  // Send the given buffer. Return the amount of bytes actually sent (due to
+  // the way sockets work, this may be less than the size of the buffer).
+  //
+  std::size_t send(const std::vector<char> &buf);
 
-    // Receive exactly n bytes from the socket. Will not return until n bytes
-    // have been received, unless the connection has been closed (in which case
-    // less than n bytes may be returned).
-    //
-    std::vector<char> recv_n_bytes(std::size_t n);
+  // Receive data and return it. To set the amount of data you ask
+  // to receive, call set_recv_buf_size(). The default amount is 1024 bytes.
+  // The actual amount received may be less than requested.
+  // An empty vector is returned if the peer has shut down the connection.
+  //
+  std::vector<char> recv();
 
-    // Set the size of the receive buffer used in recv() calls
-    //
-    void set_recv_buf_size(std::size_t bufsize);
+  // Receive exactly n bytes from the socket. Will not return until n bytes
+  // have been received, unless the connection has been closed (in which case
+  // less than n bytes may be returned).
+  //
+  std::vector<char> recv_n_bytes(std::size_t n);
+
+  // Set the size of the receive buffer used in recv() calls
+  //
+  void set_recv_buf_size(std::size_t bufsize);
 
 private:
-    struct OSSocketDescriptor;
-    OclSocket(const OSSocketDescriptor& sock_fd);
+  struct OSSocketDescriptor;
+  OclSocket(const OSSocketDescriptor &sock_fd);
 
-    struct OclSocketImpl;
-    std::unique_ptr<OclSocketImpl> d;
-private:
-    // Disallow copying
-    OclSocket(const OclSocket&);
-    OclSocket& operator=(const OclSocket&);
+  struct OclSocketImpl;
+  std::unique_ptr<OclSocketImpl> d;
 };
-
 
 #endif // OCLSOCKET_H

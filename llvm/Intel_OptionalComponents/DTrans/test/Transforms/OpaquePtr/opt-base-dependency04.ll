@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
 
 ; Test for DTrans base class identification of type dependency mappings that map
 ; the set of types that need to be changed when DTrans is changing a type.
@@ -17,7 +18,7 @@
 %struct.test01b = type { i32, { i32, i32, %struct.test01a } }
 
 %struct.test02a = type { i32 }
-%struct.test02b = type { i32, {i32, %struct.test02a* } }
+%struct.test02b = type { i32, {i32, ptr } }
 
 define void @test03() {
   %local1b = alloca %struct.test01b

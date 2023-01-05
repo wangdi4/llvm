@@ -1,5 +1,3 @@
-; RUN: opt %s -dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization | FileCheck %s
 

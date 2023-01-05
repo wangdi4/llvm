@@ -396,16 +396,12 @@ let Class = TypedefType in {
   def : Property<"declaration", DeclRef> {
     let Read = [{ node->getDecl() }];
   }
-  def : Property<"canonicalType", Optional<QualType>> {
-    let Read = [{ makeOptionalFromNullable(node->getCanonicalTypeInternal()) }];
+  def : Property<"underlyingType", QualType> {
+    let Read = [{ node->desugar() }];
   }
 
   def : Creator<[{
-    QualType finalCanonicalType =
-      canonicalType ? ctx.getCanonicalType(*canonicalType)
-                    : QualType();
-    return ctx.getTypedefType(cast<TypedefNameDecl>(declaration),
-                              finalCanonicalType);
+    return ctx.getTypedefType(cast<TypedefNameDecl>(declaration), underlyingType);
   }]>;
 }
 
@@ -414,18 +410,26 @@ let Class = TypeOfExprType in {
     let Read = [{ node->getUnderlyingExpr() }];
   }
 
+  def : Property<"kind", TypeOfKind> {
+    let Read = [{ node->getKind() }];
+  }
+
   def : Creator<[{
-    return ctx.getTypeOfExprType(expression);
+    return ctx.getTypeOfExprType(expression, kind);
   }]>;
 }
 
 let Class = TypeOfType in {
-  def : Property<"underlyingType", QualType> {
-    let Read = [{ node->getUnderlyingType() }];
+  def : Property<"unmodifiedType", QualType> {
+    let Read = [{ node->getUnmodifiedType() }];
+  }
+
+  def : Property<"kind", TypeOfKind> {
+    let Read = [{ node->getKind() }];
   }
 
   def : Creator<[{
-    return ctx.getTypeOfType(underlyingType);
+    return ctx.getTypeOfType(unmodifiedType, kind);
   }]>;
 }
 
@@ -681,7 +685,7 @@ let Class = TemplateSpecializationType in {
       node->isTypeAlias()
         ? llvm::Optional<QualType>(node->getAliasedType())
         : node->isCanonicalUnqualified()
-            ? llvm::None
+            ? std::nullopt
             : llvm::Optional<QualType>(node->getCanonicalTypeInternal())
     }];
   }
@@ -745,18 +749,23 @@ let Class = TemplateTypeParmType in {
 }
 
 let Class = SubstTemplateTypeParmType in {
-  def : Property<"replacedParameter", QualType> {
-    let Read = [{ QualType(node->getReplacedParameter(), 0) }];
-  }
   def : Property<"replacementType", QualType> {
     let Read = [{ node->getReplacementType() }];
   }
+  def : Property<"associatedDecl", DeclRef> {
+    let Read = [{ node->getAssociatedDecl() }];
+  }
+  def : Property<"Index", UInt32> {
+    let Read = [{ node->getIndex() }];
+  }
+  def : Property<"PackIndex", Optional<UInt32>> {
+    let Read = [{ node->getPackIndex() }];
+  }
 
+  // The call to getCanonicalType here existed in ASTReader.cpp, too.
   def : Creator<[{
-    // The call to getCanonicalType here existed in ASTReader.cpp, too.
     return ctx.getSubstTemplateTypeParmType(
-        cast<TemplateTypeParmType>(replacedParameter),
-        ctx.getCanonicalType(replacementType));
+        replacementType, associatedDecl, Index, PackIndex);
   }]>;
 }
 
@@ -775,8 +784,14 @@ let Class = PackExpansionType in {
 }
 
 let Class = SubstTemplateTypeParmPackType in {
-  def : Property<"replacedParameter", QualType> {
-    let Read = [{ QualType(node->getReplacedParameter(), 0) }];
+  def : Property<"associatedDecl", DeclRef> {
+    let Read = [{ node->getAssociatedDecl() }];
+  }
+  def : Property<"Index", UInt32> {
+    let Read = [{ node->getIndex() }];
+  }
+  def : Property<"Final", Bool> {
+    let Read = [{ node->getFinal() }];
   }
   def : Property<"replacementPack", TemplateArgument> {
     let Read = [{ node->getArgumentPack() }];
@@ -784,8 +799,7 @@ let Class = SubstTemplateTypeParmPackType in {
 
   def : Creator<[{
     return ctx.getSubstTemplateTypeParmPackType(
-                         cast<TemplateTypeParmType>(replacedParameter),
-                        replacementPack);
+                        associatedDecl, Index, Final, replacementPack);
   }]>;
 }
 
@@ -843,7 +857,7 @@ let Class = DependentNameType in {
   def : Property<"underlyingType", Optional<QualType>> {
     let Read = [{
       node->isCanonicalUnqualified()
-        ? llvm::None
+        ? std::nullopt
         : llvm::Optional<QualType>(node->getCanonicalTypeInternal())
     }];
   }

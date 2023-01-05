@@ -10,10 +10,10 @@
       </Buffer>
       <Buffer length="1" type="vector" type_size_in_bytes="16" vectorWidth="4" vector_number_of_subtypes="1" vector0type="u32" vector0type_size_in_bytes="4" neat="0">
         <Vector id="0"> 0 0 0 0</Vector>
-      </Buffer>		
+      </Buffer>    
       <Buffer length="1" type="vector" type_size_in_bytes="16" vectorWidth="4" vector_number_of_subtypes="1" vector0type="f32" vector0type_size_in_bytes="4" neat="0">
         <Vector id="0">0.0 0.0 0.0 0.0</Vector>
-      </Buffer>	  
+      </Buffer>    
     </BufferContainer>
   </BufferContainerList>
 </ICSCData>

@@ -45,14 +45,10 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"          // INTEL
-#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/PostDominators.h"           // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -100,6 +96,16 @@
 #include <memory>
 #include <utility>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
+
 using namespace llvm;
 using namespace jumpthreading;
 
@@ -120,6 +126,11 @@ ImplicationSearchThreshold(
   cl::desc("The number of predecessors to search for a stronger "
            "condition to use to thread over a weaker condition"),
   cl::init(3), cl::Hidden);
+
+static cl::opt<unsigned> PhiDuplicateThreshold(
+    "jump-threading-phi-threshold",
+    cl::desc("Max PHIs in BB to duplicate for jump threading"), cl::init(76),
+    cl::Hidden);
 
 static cl::opt<bool> PrintLVIAfterJumpThreading(
     "print-lvi-after-jump-threading",
@@ -425,6 +436,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
+
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
                                 AliasAnalysis *AA_, DomTreeUpdater *DTU_,
@@ -605,6 +617,9 @@ static unsigned getJumpThreadDuplicationCost(
   unsigned Threshold) {
   const Instruction *BBTerm = RegionBottom->getTerminator();
 
+  // FIXME: THREADING will delete values that are just used to compute the
+  // branch, so they shouldn't count against the duplication cost.
+
   unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
   // block ends in a switch, decrease its cost to make it more likely to happen.
@@ -624,8 +639,22 @@ static unsigned getJumpThreadDuplicationCost(
   // include the terminator because the copy won't include it.
   unsigned Size = 0;
   for (auto BB : RegionBlocks) {
+    // Do not duplicate the BB if it has a lot of PHI nodes.
+    // If a threadable chain is too long then the number of PHI nodes can add up,
+    // leading to a substantial increase in compile time when rewriting the SSA.
+    unsigned PhiCount = 0;
+    Instruction *FirstNonPHI = nullptr;
+    for (Instruction &I : *BB) {
+      if (!isa<PHINode>(&I)) {
+        FirstNonPHI = &I;
+        break;
+      }
+      if (++PhiCount > PhiDuplicateThreshold)
+        return ~0U;
+    }
+
     /// Ignore PHI nodes, these will be flattened when duplication happens.
-    BasicBlock::const_iterator I(BB->getFirstNonPHI());
+    BasicBlock::const_iterator I(FirstNonPHI);
 
     // FIXME: THREADING will delete values that are just used to compute the
     // branch, so they shouldn't count against the duplication cost.
@@ -2596,6 +2625,20 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
       SinglePred == BB || hasAddressTakenAndUsed(BB))
     return false;
 
+#if INTEL_COLLAB
+  // If BB is a loop header and it is merged with its single pred, the loop
+  // has been deleted. Search the pred for a OpenMP loop directive and remove
+  // it, as well as the corresponding exit directive.
+  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*(BB->getParent())) &&
+      LoopHeaders.count(BB))
+    for (auto &I : *SinglePred)
+      if (vpo::VPOAnalysisUtils::isBeginLoopDirective(&I)) {
+        for (auto *U : llvm::make_early_inc_range(I.users()))
+          (cast<Instruction>(U))->eraseFromParent();
+        I.eraseFromParent();
+        break;
+      }
+#endif // INTEL_COLLAB
   // If SinglePred was a loop header, BB becomes one.
   if (LoopHeaders.erase(SinglePred))
     LoopHeaders.insert(BB);
@@ -2717,7 +2760,7 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
   for (; BI != BE; ++BI) {
     Instruction *New = BI->clone();
     New->setName(BI->getName());
-    NewBB->getInstList().push_back(New);
+    New->insertAt(NewBB, NewBB->end());
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
 
@@ -3866,7 +3909,7 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
     if (New) {
       // Otherwise, insert the new instruction into the block.
       New->setName(BI->getName());
-      PredBB->getInstList().insert(OldPredBranch->getIterator(), New);
+      New->insertAt(PredBB, OldPredBranch->getIterator());
       // Update Dominance from simplified New instruction operands.
       for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
         if (BasicBlock *SuccBB = dyn_cast<BasicBlock>(New->getOperand(i)))
@@ -3920,7 +3963,7 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
                                          BB->getParent(), BB);
   // Move the unconditional branch to NewBB.
   PredTerm->removeFromParent();
-  NewBB->getInstList().insert(NewBB->end(), PredTerm);
+  PredTerm->insertAt(NewBB, NewBB->end());
   // Create a conditional branch and update PHI nodes.
   auto *BI = BranchInst::Create(NewBB, BB, SI->getCondition(), Pred);
   BI->applyMergedLocation(PredTerm->getDebugLoc(), SI->getDebugLoc());

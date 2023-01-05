@@ -15,38 +15,34 @@
 #ifndef KERNELINFO_H
 #define KERNELINFO_H
 
-#include <QString>
 #include "CL/cl.h"
 #include "OpenCLProgramConfiguration.h"
+#include <QString>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 #define MAX_WORK_DIM 3
 /**
  * @brief The KernelInfo struct
- * @detailed contains all information about kernel whitch can read from *.cfg file
+ * @detailed contains all information about kernel whitch can read from *.cfg
+ * file
  */
-struct KernelInfo
-{
-    QString name;
-    QString infile;
-    QString reffile;
-    QString neatfile;
-    cl_uint workDimension;
-    const size_t* arrGlobalWorkOffset;
-    const size_t* arrGlobalWorkSize;
-    const size_t* arrLocalWorkSize;
-    DataFileType infileType;
-    DataFileType neatfileType;
-    DataFileType reffileType;
-
-
+struct KernelInfo {
+  QString name;
+  QString infile;
+  QString reffile;
+  QString neatfile;
+  cl_uint workDimension;
+  const size_t *arrGlobalWorkOffset;
+  const size_t *arrGlobalWorkSize;
+  const size_t *arrLocalWorkSize;
+  DataFileType infileType;
+  DataFileType neatfileType;
+  DataFileType reffileType;
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // KERNELINFO_H

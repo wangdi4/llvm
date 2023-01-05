@@ -35,6 +35,7 @@
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -54,16 +55,16 @@ std::string getMCPU();
 std::vector<std::string> getMAttrs();
 
 Reloc::Model getRelocModel();
-Optional<Reloc::Model> getExplicitRelocModel();
+std::optional<Reloc::Model> getExplicitRelocModel();
 
 ThreadModel::Model getThreadModel();
 
 CodeModel::Model getCodeModel();
-Optional<CodeModel::Model> getExplicitCodeModel();
+std::optional<CodeModel::Model> getExplicitCodeModel();
 
 llvm::ExceptionHandling getExceptionModel();
 
-Optional<CodeGenFileType> getExplicitFileType();
+std::optional<CodeGenFileType> getExplicitFileType();
 
 CodeGenFileType getFileType();
 
@@ -115,10 +116,10 @@ bool getLowerGlobalDtorsViaCxaAtExit();
 bool getRelaxELFRelocations();
 
 bool getDataSections();
-Optional<bool> getExplicitDataSections();
+std::optional<bool> getExplicitDataSections();
 
 bool getFunctionSections();
-Optional<bool> getExplicitFunctionSections();
+std::optional<bool> getExplicitFunctionSections();
 
 bool getIgnoreXCOFFVisibility();
 
@@ -157,6 +158,12 @@ bool getDoFMAOpt();
 bool getIntelSpillParms();
 
 bool getIntelABICompatible();
+
+#if INTEL_FEATURE_MARKERCOUNT
+MarkerCount::Flag getFunctionMarkerCount();
+MarkerCount::Flag getLoopMarkerCount();
+std::string getOverrideMarkerCountFile();
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
 bool getEmitCallSiteInfo();

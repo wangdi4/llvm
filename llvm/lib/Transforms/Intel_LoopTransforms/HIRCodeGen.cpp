@@ -376,6 +376,9 @@ private:
   // Returns true if we need to generate code for this region.
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
+  /// Refer to function definition for comments.
+  void attachOptRemarksToUnderlyingIR(HLRegion *Reg);
+
 public:
   HIRCodeGen(HIRFramework &HIRF)
       : HIRF(HIRF), SE(HIRF.getScopedSE()), ORBuilder(HIRF.getORBuilder()) {}
@@ -435,6 +438,58 @@ PreservedAnalyses HIRCodeGenPass::run(Function &F,
   return PA;
 }
 
+// This function attaches the negative opt report remarks attached to HLLoops
+// for which code will not be generated, to their corresponding LLVM loops.
+// There is a possibility of also reporting positive remarks added by
+// transformations which do not mark regions as modified but I think this is
+// acceptable. There probably is no correct solution for such cases in general.
+// For example, if we multiversion the loop but then do not vectorize it due to
+// profitability reasons, the opt-report remark emitted by vectorizer will
+// indicate non-profitability of the loop rather than legality so it may be okay
+// to also emit the remark stating that loop was multiversioned.
+void HIRCodeGen::attachOptRemarksToUnderlyingIR(HLRegion *Reg) {
+  // We only care about negative remarks which are added at medium verbosity or
+  // above.
+  if (ORBuilder.getVerbosity() < OptReportVerbosity::Medium) {
+    return;
+  }
+
+  SmallVector<HLLoop *, 16> Loops;
+
+  HLNodeUtils::gatherAllLoops(Reg, Loops);
+
+  SmallPtrSet<const Loop *, 16> VisitedLoops;
+
+  auto &Context = HIRF.getFunction().getContext();
+  for (auto *Lp : Loops) {
+
+    auto *LLVMLoop = Lp->getLLVMLoop();
+
+    // HLLoop was probably formed by loop materialization. There is nothing to
+    // do in this case.
+    if (!LLVMLoop) {
+      continue;
+    }
+
+    // Some HIR transformation may have cloned the loop without setting modified
+    // flag in which case multiple HLLoops will point to same underlying LLVM
+    // loop. We only process the first HLLoop in such cases. An example is
+    // RuntimeDD without any further transformations. This logic can be made
+    // smarter, if needed.
+    if (!VisitedLoops.insert(LLVMLoop).second) {
+      continue;
+    }
+
+    if (OptReport OR = Lp->getOptReport()) {
+      MDNode *LoopID =
+          OptReport::eraseOptReportFromLoopID(LLVMLoop->getLoopID(), Context);
+
+      LoopID = OptReport::addOptReportToLoopID(LoopID, OR, Context);
+      LLVMLoop->setLoopID(LoopID);
+    }
+  }
+}
+
 bool HIRCodeGen::run() {
   LLVM_DEBUG(dbgs().write_escaped(HIRF.getFunction().getName()) << "\n");
   LLVM_DEBUG(HIRF.getFunction().dump());
@@ -454,7 +509,9 @@ bool HIRCodeGen::run() {
       CG.visit(Reg);
       Transformed = true;
     } else {
-      // Clear HIR related metadata.
+
+      attachOptRemarksToUnderlyingIR(Reg);
+
       bool Cleared = clearHIRMetadataAndCopyInsts(Reg);
       Transformed = Transformed || Cleared;
     }
@@ -464,8 +521,6 @@ bool HIRCodeGen::run() {
 
   // No longer need to suppress scalar optimizations.
   HIRF.getFunction().resetPreLoopOpt();
-
-  HIRF.restoreOriginalAAResults();
 
   return Transformed;
 }
@@ -1234,7 +1289,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   BranchInst *RegionBranch = BranchInst::Create(
       RegionEntry, EntrySecondHalf,
       ConstantInt::get(IntegerType::get(F.getContext(), 1), 1));
-  ReplaceInstWithInst(Term->getParent()->getInstList(), It, RegionBranch);
+  ReplaceInstWithInst(Term->getParent(), It, RegionBranch);
 }
 
 Value *CGVisitor::visitRegion(HLRegion *Reg) {

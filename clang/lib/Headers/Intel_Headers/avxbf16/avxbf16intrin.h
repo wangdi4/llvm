@@ -42,6 +42,8 @@
 #error "Never use <avxbf16intrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVXBF16INTRIN_H
 #define __AVXBF16INTRIN_H
 
@@ -79,3 +81,4 @@ _mm256_dpbf16_avx_ps(__m256 __D, __m256bh __A, __m256bh __B) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif // __AVXBF16INTRIN_H
+#endif

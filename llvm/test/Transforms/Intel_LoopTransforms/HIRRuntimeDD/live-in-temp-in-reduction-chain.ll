@@ -1,6 +1,5 @@
 ; Test RTDD gets triggered when live-in temp %q.017 is in the reduction chain.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

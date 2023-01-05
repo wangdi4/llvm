@@ -21,6 +21,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCALLVECDECISIONS_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanAlignmentAnalysis.h"
 
 namespace llvm {
 
@@ -29,8 +30,6 @@ class TargetLibraryInfo;
 struct VFInfo;
 
 namespace vpo {
-
-extern bool VPlanVecNonReadonlyLibCalls;
 
 class VPlanCallVecDecisions {
 
@@ -78,10 +77,12 @@ private:
                    const TargetLibraryInfo *TLI,
                    const TargetTransformInfo *TTI);
 
-  /// Generates a VFInfo placeholder for TTI so that it can match the
+  /// Generates multiple candidate VFInfos for TTI so that it can match the
   /// most appropriate vector variant of the called function \p VPCall.
-  VFInfo getVectorVariantForCallParameters(const VPCallInstruction *VPCall,
-                                           bool Masked, int VF);
+  void getVectorVariantsForCallParameters(
+      const VPCallInstruction *VPCall, bool Masked, int VF,
+      SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
+      SmallVectorImpl<VFInfo> &VFInfos);
 
   VPlanVector &Plan;
 };

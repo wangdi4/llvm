@@ -180,7 +180,7 @@ private:
 
   /// Add an explicit linear.
   void addLinear(RegDDRef *LinearVal, Type *LinearTy, Type *PointeeTy,
-                 RegDDRef *Step) {
+                 RegDDRef *Step, bool IsIV) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
     LinearList.emplace_back(LinearVal, LinearTy, PointeeTy, Step);
   }
@@ -196,9 +196,12 @@ private:
   }
 
   /// Add an explicit user-defined reduction variable.
-  void addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr) {
-    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr);
+  void
+  addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
+               Function *Constr, Function *Destr,
+               Optional<InscanReductionKind> InscanRedKind = std::nullopt) {
+    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
+                         InscanRedKind);
   }
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
@@ -263,7 +266,8 @@ private:
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlanVector *Plan,
-                      HIRVectorizationLegality *Legality, const DDGraph &DDG);
+                      HIRVectorizationLegality *Legality, const DDGraph &DDG,
+                      const DominatorTree &DT, AssumptionCache &AC);
 };
 
 } // namespace vpo

@@ -4,7 +4,6 @@
 ; correctly to realloc with constant and non-constant sizes with and
 ; without sext/zext related to %struct.test.
 
-;  RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfields | FileCheck %s
 ;  RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfields | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

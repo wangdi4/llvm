@@ -28,11 +28,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/CtorUtils.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/BitVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -43,6 +38,12 @@
 #include <numeric>
 
 #define DEBUG_TYPE "ctor_utils"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

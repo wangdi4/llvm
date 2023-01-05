@@ -1,5 +1,4 @@
 ; Verify that IV predicate optimization attaches UB blob ddref if a self-blob UB becomes regular ddref.
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-opt-var-predicate -print-after=hir-opt-var-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR:

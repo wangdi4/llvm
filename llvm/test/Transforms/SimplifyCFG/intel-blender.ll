@@ -6,6 +6,8 @@
 ;{
 ;  float t1x = *pt1x; float t1y = *pt1y; float t1z = *pt1z;
 ;  float t2x = *pt2x; float t2y = *pt2y; float t2z = *pt2z;
+;  if (t1x > t2y  || t2x < t1y  || t1x > t2z ||
+;      t2x < t1z || t1y > t2z || t2y < t1z) return 0;
 ;  if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
 ;  if (t1x > dist->b || t1y > dist->b || t1z > dist->b) return 0;
 ;  return 1;
@@ -13,7 +15,7 @@
 ;
 ; =>
 ;
-;  if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
+;  if (t2x < 0.0f | t2y < 0.0f | t2z < 0.0f) return 0;  // "|" => select-cmp
 ;  if (t1x > dist->b || t1y > dist->b || t1z > dist->b) return 0;
 ;  if (t1x > t2y  || t2x < t1y  || t1x > t2z ||
 ;      t2x < t1z || t1y > t2z || t2y < t1z) return 0;

@@ -1,4 +1,21 @@
 //===- AssumptionCache.cpp - Cache finding @llvm.assume calls -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -62,7 +79,7 @@ findAffectedValues(CallBase *CI, TargetTransformInfo *TTI,
 
   auto AddAffected = [&Affected](Value *V, unsigned Idx =
                                                AssumptionCache::ExprResultIdx) {
-    if (isa<Argument>(V)) {
+    if (isa<Argument>(V) || isa<GlobalValue>(V)) { // INTEL
       Affected.push_back({V, Idx});
     } else if (auto *I = dyn_cast<Instruction>(V)) {
       Affected.push_back({I, Idx});

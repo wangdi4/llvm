@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that a function's argument is always aligned by a specific
 ; constant value and uses that to simplify tests in that function based on the
 ; alignment.
@@ -6,7 +6,6 @@
 ; This test is the same as argument_alignment_1.ll, but checks that the debug
 ; messages are printed correctly.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment  -disable-output  2>&1
 
 ; CHECK: Candidates for argument alignment: 1
@@ -17,7 +16,7 @@
 ; CHECK-NEXT:        %2 = ptrtoint i8* %0 to i64
 ; CHECK-NEXT:    Argument: i8* %0
 
-declare noalias i8* @calloc(i64, i64)
+declare noalias i8* @calloc(i64, i64) #0
 
 define internal fastcc void @foo(i8*, i64) {
 entry:
@@ -51,3 +50,5 @@ entry:
   tail call fastcc void @foo(i8* %2, i64 %1)
   ret void
 }
+
+attributes #0 = { inaccessiblememonly mustprogress nofree nounwind willreturn allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

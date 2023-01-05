@@ -25,6 +25,13 @@
 #define DEVICE_EXTERN_C DEVICE_EXTERNAL EXTERN_C
 #define DEVICE_EXTERN_C_INLINE                                                 \
   DEVICE_EXTERNAL EXTERN_C __attribute__((always_inline))
+#if defined(OMP_LIBDEVICE) && defined(INTEL_COLLAB)
+#define DEVICE_EXTERN_C_DECLSIMD_INLINE                                        \
+  DEVICE_EXTERN_C                                                              \
+  _Pragma("omp declare simd") __attribute__((always_inline))
+#else
+#define DEVICE_EXTERN_C_DECLSIMD_INLINE DEVICE_EXTERN_C_INLINE
+#endif
 #endif // __SPIR__ || __NVPTX__
 
 #if defined(__SPIR__) || defined(__LIBDEVICE_HOST_IMPL__)
@@ -38,6 +45,16 @@
 // all __device_imf_* functions, this will lead to crash.
 #define DEVICE_EXTERN_C EXTERN_C
 #define DEVICE_EXTERN_C_INLINE DEVICE_EXTERN_C __attribute__((always_inline))
+#define DEVICE_EXTERN_C_DECLSIMD_INLINE DEVICE_EXTERN_C_INLINE
 #endif // __LIBDEVICE_HOST_IMPL__
+
+// Rounding mode are used internally by type convert functions in imf libdevice
+//  and we don't want to include system's fenv.h, so we define ourselves'.
+typedef enum {
+  __IML_RTE, // round to nearest-even
+  __IML_RTZ, // round to zero
+  __IML_RTP, // round to +inf
+  __IML_RTN, // round to -inf
+} __iml_rounding_mode;
 
 #endif // __LIBDEVICE_DEVICE_H__

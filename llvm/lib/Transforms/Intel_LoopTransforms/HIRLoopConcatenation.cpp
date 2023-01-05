@@ -493,11 +493,7 @@ bool HIRLoopConcatenation::validTopLevelNodes(
         continue;
       }
 
-      auto Intrinsic = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
-
-      if (!Intrinsic ||
-          ((Intrinsic->getIntrinsicID() != Intrinsic::lifetime_start) &&
-           (Intrinsic->getIntrinsicID() != Intrinsic::lifetime_end))) {
+      if (!HInst->isLifetimeIntrinsic()) {
         return false;
       }
     } else {

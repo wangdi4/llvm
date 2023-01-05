@@ -17,27 +17,29 @@
 
 #include "Exception.h"
 
-namespace Validation { namespace Exception {
-    /// Exception for reporting test comparison failure
-    DEFINE_VALIDATION_EXCEPTION(TestFailException)
+namespace Validation {
+namespace Exception {
+/// Exception for reporting test comparison failure
+DEFINE_VALIDATION_EXCEPTION(TestFailException)
 
-    /// Exception for reporting test run process failure
-    DEFINE_VALIDATION_EXCEPTION(TestRunnerException)
+/// Exception for reporting test run process failure
+DEFINE_VALIDATION_EXCEPTION(TestRunnerException)
 
-    /// Exception for reporting reference run process failure
-    DEFINE_VALIDATION_EXCEPTION(TestReferenceRunnerException)
+/// Exception for reporting reference run process failure
+DEFINE_VALIDATION_EXCEPTION(TestReferenceRunnerException)
 
-    /// Exception for reporting general failures
-    DEFINE_VALIDATION_EXCEPTION(GeneralException)
+/// Exception for reporting general failures
+DEFINE_VALIDATION_EXCEPTION(GeneralException)
 
-    /// Exception for reporting COI library failure
-    DEFINE_VALIDATION_EXCEPTION(COIUsageException)
+/// Exception for reporting COI library failure
+DEFINE_VALIDATION_EXCEPTION(COIUsageException)
 
-    /// Exception for reporting back-end failure
-    DEFINE_VALIDATION_EXCEPTION(BackendException)
+/// Exception for reporting back-end failure
+DEFINE_VALIDATION_EXCEPTION(BackendException)
 
-    /// Exception for invalid execution environment
-    DEFINE_VALIDATION_EXCEPTION(InvalidEnvironmentException)
-}}
+/// Exception for invalid execution environment
+DEFINE_VALIDATION_EXCEPTION(InvalidEnvironmentException)
+} // namespace Exception
+} // namespace Validation
 
 #endif // SATest_EXCEPTION_H

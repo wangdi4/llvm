@@ -436,8 +436,8 @@ inline void createAndMapNewAppendFunc(
 inline void fixCallInfo(Function &OrigFunc, DTransSafetyInfo *DTInfo,
                         ValueToValueMapTy &NewVMap) {
   SmallPtrSet<dtrans::CallInfo *, 8> CallInfoSet;
-  for (auto CInfoVec : DTInfo->call_info_entries()) {
-    for (auto CInfo : CInfoVec) {
+  for (const auto &CInfoVec : DTInfo->call_info_entries()) {
+    for (auto *CInfo : CInfoVec) {
       if (&OrigFunc != CInfo->getInstruction()->getFunction())
         continue;
       CallInfoSet.insert(CInfo);
@@ -466,7 +466,7 @@ inline void replaceOrigFuncBodyWithClonedFuncBody(Function &OrigFunc,
   // Clone metadata to the OrigFunc, including debug info descriptor.
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
   Cloned.getAllMetadata(MDs);
-  for (auto MD : MDs)
+  for (const auto &MD : MDs)
     OrigFunc.addMetadata(MD.first, *MD.second);
   if (Cloned.hasPersonalityFn())
     OrigFunc.setPersonalityFn(Cloned.getPersonalityFn());

@@ -9,7 +9,12 @@ define void @func(i1 %p) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP_HEADER:%.*]]
 ; CHECK:       loop.header.loopexit:
-; CHECK-NEXT:    br label [[LOOP_HEADER]], !llvm.loop [[LOOP0:![0-9]+]]
+; INTEL_COLLAB
+; the copying of the loop MD cannot be proven correct. It depends if the MD
+; applies to the inner or outer loop. The block loop.latch has the backedges
+; for both loops.
+; CHECK-NEXT:    br label [[LOOP_HEADER]]
+; end INTEL_COLLAB
 ; CHECK:       loop.header:
 ; CHECK-NEXT:    br i1 [[P:%.*]], label [[BB1:%.*]], label [[EXIT:%.*]]
 ; CHECK:       bb1:
@@ -19,7 +24,9 @@ define void @func(i1 %p) {
 ; CHECK:       bb3:
 ; CHECK-NEXT:    br label [[LOOP_LATCH:%.*]]
 ; CHECK:       loop.latch:
-; CHECK-NEXT:    br i1 [[P]], label [[LOOP_LATCH]], label [[LOOP_HEADER_LOOPEXIT:%.*]], !llvm.loop [[LOOP0]]
+; INTEL_COLLAB
+; CHECK-NEXT:    br i1 [[P]], label [[LOOP_LATCH]], label [[LOOP_HEADER_LOOPEXIT:%.*]], !llvm.loop
+; end INTEL_COLLAB
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ;

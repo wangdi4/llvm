@@ -8,8 +8,8 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-// this file includes naming conventions and constant shared by the vectorizer passes
-// this file should NOT include any environment specific data
+// this file includes naming conventions and constant shared by the vectorizer
+// passes this file should NOT include any environment specific data
 
 #include "cl_cpu_detect.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -31,8 +31,8 @@ namespace VectorizerCommon {
 
 // Get ISAClass from CPUDetect object, use command line toggle if
 // it is not available.
-llvm::VFISAKind getCPUIdISA(
-  const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+llvm::VFISAKind
+getCPUIdISA(const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
 
 // Skip function when traversing CallGraph in VectorVariant passes.
 bool skipFunction(Function *F);

@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test checks the pass treats get_sub_group_local_id/get_sub_group_id as
 ; non-uniform and doesn't eliminate the branch.

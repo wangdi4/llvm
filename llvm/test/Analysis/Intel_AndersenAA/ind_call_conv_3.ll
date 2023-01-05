@@ -4,7 +4,6 @@
 ; is the same as @fptr, and the fallback case because the type of @add_fun is
 ; similar to @fptr.
 
-; RUN: opt -S -intel-ind-call-force-andersen -anders-aa -indirectcallconv %s | FileCheck %s
 ; RUN: opt -S -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }

@@ -1,6 +1,4 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-builtin-import %s -S | FileCheck %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-builtin-import %s -S | FileCheck %s
 
@@ -16,7 +14,7 @@ define spir_func float @test_copy_attr_basic(float %x) {
 
 declare spir_func float @_Z3cosf(float)
 ; CHECK: define {{.*}} @_Z3cosf
-; CHECK: attributes {{.*}} nounwind readnone
+; CHECK: attributes {{.*}} nounwind memory(none)
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z3cosf --  ret float %x
 ; DEBUGIFY-NOT: WARNING

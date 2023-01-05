@@ -22,43 +22,42 @@
 #include <assert.h>
 #include <string>
 
-namespace Intel{ namespace OpenCL{ namespace ELFUtils {
+namespace Intel {
+namespace OpenCL {
+namespace ELFUtils {
 //
 // ElfReaderDP- ElfReader delete policy for autoptr.
 //
-struct ElfReaderDP
-{
-    static void Delete(CLElfLib::CElfReader* pElfReader)
-    {
-        CLElfLib::CElfReader::Delete(pElfReader);
-    }
+struct ElfReaderDP {
+  static void Delete(CLElfLib::CElfReader *pElfReader) {
+    CLElfLib::CElfReader::Delete(pElfReader);
+  }
 };
 typedef Utils::auto_ptr_ex<CLElfLib::CElfReader, ElfReaderDP> ElfReaderPtr;
 
 //
 // ElfWriterDP- ElfWriter delete policy for autoptr.
 //
-struct ElfWriterDP
-{
-    static void Delete(CLElfLib::CElfWriter* pElfWriter)
-    {
-        CLElfLib::CElfWriter::Delete(pElfWriter);
-    }
+struct ElfWriterDP {
+  static void Delete(CLElfLib::CElfWriter *pElfWriter) {
+    CLElfLib::CElfWriter::Delete(pElfWriter);
+  }
 };
 typedef Utils::auto_ptr_ex<CLElfLib::CElfWriter, ElfWriterDP> ElfWriterPtr;
 
-class OCLElfBinaryReader
-{
+class OCLElfBinaryReader {
 public:
-    static bool IsValidOpenCLBinary(const char* pBinary, size_t uiBinarySize);
+  static bool IsValidOpenCLBinary(const char *pBinary, size_t uiBinarySize);
 
-    OCLElfBinaryReader(const char* pBinary, size_t uiBinarySize);
+  OCLElfBinaryReader(const char *pBinary, size_t uiBinarySize);
 
-    void GetIR(const char *&pData, size_t &uiSize) const;
+  void GetIR(const char *&pData, size_t &uiSize) const;
 
-    cl_prog_binary_type GetBinaryType() const;
+  cl_prog_binary_type GetBinaryType() const;
 
 private:
-    mutable ElfReaderPtr m_pReader;
+  mutable ElfReaderPtr m_pReader;
 };
-}}} //namespace Intel::OpenCL::ELFUtils
+} // namespace ELFUtils
+} // namespace OpenCL
+} // namespace Intel

@@ -219,7 +219,7 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     SmallString<128> LibDir(D.Dir);
     llvm::sys::path::append(LibDir, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(LibDir, "..",
+    llvm::sys::path::append(LibDir, "..", "opt", "compiler",
                             Arch == llvm::Triple::x86_64 ? "lib" : "lib32");
 #else
     llvm::sys::path::append(LibDir, "compiler", "lib",
@@ -350,14 +350,16 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   if (StringRef(D.Dir).startswith(SysRoot) &&
       (D.getVFS().exists(D.Dir + "/../lib/libc++.so") ||
        Args.hasArg(options::OPT_fsycl) ||
-       D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))) {
-    addPathIfExists(D, D.Dir + "/../lib", Paths);
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
+       D.getVFS().exists(D.Dir + "/../../lib/libsycl.so"))) {
     addPathIfExists(D, D.Dir + "/../../lib", Paths);
+#else
+       D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))) {
+    addPathIfExists(D, D.Dir + "/../lib", Paths);
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   addPathIfExists(D, concat(SysRoot, "/lib"), Paths);
   addPathIfExists(D, concat(SysRoot, "/usr/lib"), Paths);
@@ -520,16 +522,18 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
   }
   case llvm::Triple::loongarch32: {
     LibDir = "lib32";
-    Loader = ("ld-linux-loongarch-" +
-              tools::loongarch::getLoongArchABI(Args, Triple) + ".so.1")
-                 .str();
+    Loader =
+        ("ld-linux-loongarch-" +
+         tools::loongarch::getLoongArchABI(getDriver(), Args, Triple) + ".so.1")
+            .str();
     break;
   }
   case llvm::Triple::loongarch64: {
     LibDir = "lib64";
-    Loader = ("ld-linux-loongarch-" +
-              tools::loongarch::getLoongArchABI(Args, Triple) + ".so.1")
-                 .str();
+    Loader =
+        ("ld-linux-loongarch-" +
+         tools::loongarch::getLoongArchABI(getDriver(), Args, Triple) + ".so.1")
+            .str();
     break;
   }
   case llvm::Triple::m68k:
@@ -766,9 +770,13 @@ void Linux::AddHIPIncludeArgs(const ArgList &DriverArgs,
 
 void Linux::AddHIPRuntimeLibArgs(const ArgList &Args,
                                  ArgStringList &CmdArgs) const {
-  CmdArgs.append(
-      {Args.MakeArgString(StringRef("-L") + RocmInstallation.getLibPath()),
-       "-rpath", Args.MakeArgString(RocmInstallation.getLibPath())});
+  CmdArgs.push_back(
+      Args.MakeArgString(StringRef("-L") + RocmInstallation.getLibPath()));
+
+  if (Args.hasFlag(options::OPT_offload_add_rpath,
+                   options::OPT_no_offload_add_rpath, false))
+    CmdArgs.append(
+        {"-rpath", Args.MakeArgString(RocmInstallation.getLibPath())});
 
   CmdArgs.push_back("-lamdhip64");
 }
@@ -820,6 +828,7 @@ SanitizerMask Linux::getSupportedSanitizers() const {
                          getTriple().getArch() == llvm::Triple::thumb ||
                          getTriple().getArch() == llvm::Triple::armeb ||
                          getTriple().getArch() == llvm::Triple::thumbeb;
+  const bool IsLoongArch64 = getTriple().getArch() == llvm::Triple::loongarch64;
   const bool IsRISCV64 = getTriple().getArch() == llvm::Triple::riscv64;
   const bool IsSystemZ = getTriple().getArch() == llvm::Triple::systemz;
   const bool IsHexagon = getTriple().getArch() == llvm::Triple::hexagon;
@@ -838,14 +847,15 @@ SanitizerMask Linux::getSupportedSanitizers() const {
   if (IsX86_64 || IsMIPS64 || IsAArch64 || IsX86 || IsArmArch || IsPowerPC64 ||
       IsRISCV64 || IsSystemZ || IsHexagon)
     Res |= SanitizerKind::Leak;
-  if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64 || IsSystemZ)
+  if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64 || IsSystemZ ||
+      IsLoongArch64)
     Res |= SanitizerKind::Thread;
   if (IsX86_64)
     Res |= SanitizerKind::KernelMemory;
   if (IsX86 || IsX86_64)
     Res |= SanitizerKind::Function;
   if (IsX86_64 || IsMIPS64 || IsAArch64 || IsX86 || IsMIPS || IsArmArch ||
-      IsPowerPC64 || IsHexagon)
+      IsPowerPC64 || IsHexagon || IsLoongArch64)
     Res |= SanitizerKind::Scudo;
   if (IsX86_64 || IsAArch64) {
     Res |= SanitizerKind::HWAddress;
@@ -886,4 +896,10 @@ Linux::getDefaultDenormalModeForType(const llvm::opt::ArgList &DriverArgs,
 void Linux::addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {
   for (const auto &Opt : ExtraOpts)
     CmdArgs.push_back(Opt.c_str());
+}
+
+const char *Linux::getDefaultLinker() const {
+  if (getTriple().isAndroid())
+    return "ld.lld";
+  return Generic_ELF::getDefaultLinker();
 }

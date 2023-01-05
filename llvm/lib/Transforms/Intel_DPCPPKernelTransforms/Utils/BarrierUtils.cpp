@@ -14,6 +14,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ModRef.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -174,9 +175,9 @@ CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
 
   // Get the kernels using the barrier for work group loops.
   SmallVector<Function *, 4> KernelsWithBarrier;
-  for (auto Func : Kernels) {
+  for (auto *Func : Kernels) {
     auto kimd = KernelInternalMetadataAPI(Func);
-    if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get())
+    if (kimd.NoBarrierPath.get())
       continue;
 
     // Currently no check if kernel already added to the list!
@@ -185,9 +186,10 @@ CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
   KernelFunctions = getAllKernelsAndVectorizedCounterparts(KernelsWithBarrier);
 
   // collect functions to process
-  auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels.getList());
+  const auto &TodoList =
+      getAllKernelsAndVectorizedCounterparts(Kernels.getList());
 
-  for (auto Func : TodoList) {
+  for (auto *Func : TodoList) {
     auto kimd = KernelInternalMetadataAPI(Func);
     KernelVectorizationWidths[Func] =
         kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
@@ -270,15 +272,15 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
     // get_special_buffer() function is not initialized yet
     // There should not BE get_special_buffer function declaration in the
     // module
-    assert(!M->getFunction(GET_SPECIAL_BUFFER) &&
+    assert(!M->getFunction(CompilationUtils::nameSpecialBuffer()) &&
            "get_special_buffer() instruction is origanlity declared by the "
            "module!!!");
 
     // Create one
     Type *Result = PointerType::get(IntegerType::get(M->getContext(), 8),
                                     SPECIAL_BUFFER_ADDR_SPACE);
-    GetSpecialBufferFunc =
-        createFunctionDeclaration(GET_SPECIAL_BUFFER, Result, {});
+    GetSpecialBufferFunc = createFunctionDeclaration(
+        CompilationUtils::nameSpecialBuffer(), Result, {});
     SetFunctionAttributeReadNone(GetSpecialBufferFunc);
   }
   return CallInst::Create(GetSpecialBufferFunc, "pSB", InsertBefore);
@@ -308,7 +310,7 @@ CompilationUtils::InstVec &BarrierUtils::getAllGetGlobalId() {
 
 Instruction *BarrierUtils::createGetBaseGlobalId(Value *Dim,
                                                  Instruction *InsertBefore) {
-  const std::string FuncName = GET_BASE_GID;
+  StringRef FuncName = CompilationUtils::nameGetBaseGID();
   if (!GetBaseGIDFunc) {
     // Get existing get_global_id function
     GetBaseGIDFunc = M->getFunction(FuncName);
@@ -439,8 +441,7 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
       CompilationUtils::AppendWithDimension("LocalSize_", Dim), InsertBefore);
 }
 
-Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
-                                                  Type *Result,
+Function *BarrierUtils::createFunctionDeclaration(StringRef Name, Type *Result,
                                                   ArrayRef<Type *> FuncArgTys) {
   FunctionType *FuncTy = FunctionType::get(
       /*Result=*/Result,
@@ -460,9 +461,8 @@ Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
 
 void BarrierUtils::SetFunctionAttributeReadNone(Function *Func) {
   AttrBuilder attBuilder(Func->getContext());
-  attBuilder.addAttribute(Attribute::NoUnwind)
-      .addAttribute(
-          Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+  attBuilder.addAttribute(Attribute::NoUnwind); /* .addAttribute(Attribute::UWTable) */
+  attBuilder.addMemoryAttr(llvm::MemoryEffects::none());
   auto FuncFactorialPAL = AttributeList::get(
       Func->getContext(), AttributeList::FunctionIndex, attBuilder);
   Func->setAttributes(FuncFactorialPAL);

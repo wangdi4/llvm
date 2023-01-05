@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-mv-const-ub -print-after=hir-mv-const-ub -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-mv-const-ub,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Note that %tmp528 has 3 phis which results in the pass trying to MV where

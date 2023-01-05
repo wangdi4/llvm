@@ -76,6 +76,9 @@ public:
     return RefToConflictingIndex[LoadRef];
   }
 
+  // Method for `VPAssumptionCache::importExternalAssumptions()`
+  bool isValidExternalAssume(AssumeInst *I, const DominatorTree *DT) const;
+
 private:
   /// The VPlan we are working on.
   VPlanVector *Plan;
@@ -100,6 +103,10 @@ private:
 
   /// Map HLLoop to the VPPHI instruction representing its IV in VPlan.
   SmallDenseMap<loopopt::HLLoop *, VPPHINode *> HLLp2IVPhi;
+
+  /// Assumptions that reside in the HIR parent region and dominate the HLoop we
+  /// are vectorizing.
+  SmallPtrSet<const AssumeInst *, 4> ValidHIRAssumes;
 
   // Holds lists of induction descriptors, grouped by HLLoop.
   VPLoopInductionsHIRMap Inductions;
@@ -137,7 +144,7 @@ private:
   // Internal helper to obtain the ambiguous sink DDRef corresponding to a
   // tracked symbase for which empty PHIs were created.
   loopopt::DDRef *getDDRefForTrackedSymbase(unsigned Sym) const {
-    for (auto KeyVal : PhisToFix) {
+    for (const auto &KeyVal : PhisToFix) {
       if (Sym == KeyVal.first.second)
         return KeyVal.second.second;
     }
@@ -188,6 +195,8 @@ private:
                            const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
                            const SmallPtrSetImpl<VPBasicBlock *> &UsingBlocks,
                            SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
+
+  void computeValidHIRAssumes();
 
   void addIDFPhiNodes();
 
@@ -324,7 +333,9 @@ public:
                   HIRVectorizationLegality &HIRLegality)
       : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality),
         Idioms(
-            HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp))){};
+            HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp))) {
+    computeValidHIRAssumes();
+  };
 
   /// Create VPInstructions for the incoming \p Node and insert them into \p
   /// InsPointVPBB. \p Node will be decomposed into several VPInstructions if

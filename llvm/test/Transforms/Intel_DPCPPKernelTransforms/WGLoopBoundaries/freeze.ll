@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; Check that freeze instruction is removed and early exit boundary is computed.
 

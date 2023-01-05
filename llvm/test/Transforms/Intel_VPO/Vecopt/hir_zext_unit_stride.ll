@@ -2,7 +2,6 @@
 ; a zero extended value. It also checks VPValue based generated code matches
 ; code generated from mixed CG mode.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 define void @foo(i32* nocapture %arr) {
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

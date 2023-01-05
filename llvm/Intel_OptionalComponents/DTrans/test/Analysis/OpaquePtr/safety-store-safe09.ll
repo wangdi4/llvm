@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that storing a type that is an array of the expected type
 ; is treated as a safe compatible type.
@@ -15,7 +15,7 @@ define void @test() {
   %ar2 = alloca [2 x [128 x i8]]
   %field = getelementptr %struct.test, ptr @gv, i64 0, i32 3
   %elem = getelementptr inbounds [8192 x i8],  ptr %ar, i64 0, i64 0
-  store i8* %elem, i8** %field
+  store ptr %elem, ptr %field
   ret void
 }
 

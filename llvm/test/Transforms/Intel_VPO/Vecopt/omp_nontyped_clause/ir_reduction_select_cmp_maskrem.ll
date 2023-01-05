@@ -1,4 +1,4 @@
-;RUN: opt -vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-masked-remainder-gain-threshold=0 -S %s | FileCheck %s
+;RUN: opt -passes=vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-masked-remainder-gain-threshold=0 -S %s | FileCheck %s
 
 ; CHECK-LABEL: @reduc_select_icmp_var_maskrem
 ; CHECK: vector.body
@@ -10,8 +10,8 @@
 ; CHECK:  [[ICMP2:%.*]] = icmp ne <8 x i32> [[SEL1]], [[SPLAT1]]
 ; CHECK:  [[REDOR1:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[ICMP2]])
 ; CHECK:  [[SEL2:%.*]] = select i1 [[REDOR1]], i32 %b, i32 %a
-; CHECK: merge.blk15
-; CHECK:  [[PHI1:%.*]] = phi i32 [ [[SEL2]], %VPlannedBB9 ], [ %a, %VPlannedBB ]
+; CHECK:  [[MERGE_BLK0:merge.*]]:
+; CHECK:  [[PHI1:%.*]] = phi i32 [ [[SEL2]], [[VPLANNEDBB90:%.*]] ], [ %a, [[VPLANNEDBB9:%.*]] ]
 ; CHECK: VPlannedBB12
 ; CHECK:  [[INSERT2:%.*]] = insertelement <8 x i32> poison, i32 %a, i32 0
 ; CHECK:  [[SPLAT2:%.*]] = shufflevector <8 x i32> [[INSERT2]], <8 x i32> poison, <8 x i32> zeroinitializer
@@ -20,13 +20,13 @@
 ; CHECK: VPlannedBB17
 ; CHECK:  [[PHI2:%.*]] = phi <8 x i32> [ [[INSERT3]], %VPlannedBB13 ], [ [[BLEND:%.*]], %new_latch ]
 ; CHECK:  [[MASK:%.*]] = icmp ult <8 x i64>
-; CHECK: VPlannedBB23
+; CHECK: VPlannedBB25
 ; CHECK:  [[MLOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
 ; CHECK:  [[ICMP2:%.*]] = icmp eq <8 x i32> [[MLOAD]]
 ; CHECK:  [[SEL3:%.*]] = select <8 x i1> [[ICMP2]]
 ; CHECK: new_latch
 ; CHECK:  [[BLEND]] = select <8 x i1> [[MASK]], <8 x i32> [[SEL3]], <8 x i32> [[PHI2]]
-; CHECK: VPlannedBB27
+; CHECK: VPlannedBB29
 ; CHECK:  [[INSERT4:%.*]] = insertelement <8 x i32> poison, i32 [[PHI1]], i32 0
 ; CHECK:  [[SPLAT3:%.*]] = shufflevector <8 x i32> [[INSERT4]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK:  [[ICMP3:%.*]] = icmp ne <8 x i32> [[BLEND]], [[SPLAT3]]

@@ -2,16 +2,16 @@
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; INTEL - Enable loop vectorizer as it is needed.
 ; INTEL - Disable load coalescing.
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O1>' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O2>' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O2
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O3>' -S -unroll-threshold=150 -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O3>' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DEFAULT
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<Os>' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Os
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<Oz>' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Oz
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O1>,loop-vectorize' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC2
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<Oz>,loop-vectorize' -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC2
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O3>' -unroll-threshold=150 -vectorize-loops=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DIS
-; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes='default<O1>,loop-vectorize' -S -unroll-allow-partial=0 -enable-new-pm=1 | FileCheck %s --check-prefix=O1VEC2
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O1>" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O2>" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O2
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O3>" -S -unroll-threshold=150 -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O3>" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DEFAULT
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<Os>" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Os
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<Oz>" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Oz
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O1>,loop-vectorize" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC2
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<Oz>,loop-vectorize" -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC2
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O3>" -unroll-threshold=150 -vectorize-loops=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DIS
+; RUN: opt < %s -mcpu=corei7 -enable-lv -enable-load-coalescing=false -passes="default<O1>,loop-vectorize" -S -unroll-allow-partial=0 -enable-new-pm=1 | FileCheck %s --check-prefix=O1VEC2
 
 ; This file tests the llvm.loop.vectorize.enable metadata forcing
 ; vectorization even when optimization levels are too low, or when

@@ -1,7 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+
+; Test src:
 ;
-;Test src:
 ; void bar();
 ; void foo() {
 ;   #pragma omp parallel if (false)
@@ -12,19 +13,21 @@
 ;                 and @__kmpc_end_serialized_parallel
 ; are emitted for the serialized parallel under if(false)
 ;
-; CHECK: call void @__kmpc_serialized_parallel(%struct.ident_t* {{.*}}, i32 {{.*}})
-; CHECK: call void @__kmpc_end_serialized_parallel(%struct.ident_t* {{.*}}, i32 {{.*}})
+; CHECK: call void @__kmpc_serialized_parallel(ptr {{.*}}, i32 {{.*}})
+; CHECK: call void @__kmpc_end_serialized_parallel(ptr {{.*}}, i32 {{.*}})
 
-; ModuleID = 'lit.cpp'
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
 define dso_local void @_Z3foov() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.IF"(i1 false) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.IF"(i1 false) ]
+
   call void @_Z3barv() #1
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
+
   ret void
 }
 

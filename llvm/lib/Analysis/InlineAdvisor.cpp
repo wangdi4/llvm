@@ -80,7 +80,9 @@ static cl::opt<bool>
                         cl::desc("If true, annotate inline advisor remarks "
                                  "with LTO and pass information."));
 
+namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
+}
 
 namespace {
 using namespace llvm::ore;
@@ -200,13 +202,11 @@ llvm::InlineCost static getDefaultInlineAdvice(
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 DefaultInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                    WholeProgramInfo *WPI, InlineCost **IC) {
+                                    WholeProgramInfo *WPI) {
   InlineCost MIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, WPI);
-  auto UP = std::make_unique<DefaultInlineAdvice>(
+  return std::make_unique<DefaultInlineAdvice>(
       this, CB, MIC,
       FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
-  *IC = UP->getInlineCost();
-  return UP;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -254,7 +254,7 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
     }
     break;
   case InliningAdvisorMode::Development:
-#ifdef LLVM_HAVE_TF_API
+#ifdef LLVM_HAVE_TFLITE
     LLVM_DEBUG(dbgs() << "Using development-mode inliner policy.\n");
     Advisor =
         llvm::getDevelopmentModeAdvisor(M, MAM, [&FAM, Params](CallBase &CB) {
@@ -413,8 +413,8 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 
 /// Return the cost only if the inliner should attempt to inline at the given
 /// CallSite. If we return the cost, we will emit an optimisation remark later
-/// using that cost, so we won't do so from this function. Return None if
-/// inlining should not be attempted.
+/// using that cost, so we won't do so from this function. Return std::nullopt
+/// if inlining should not be attempted.
 #if INTEL_CUSTOMIZATION
 InlineCost llvm::shouldInline(
     CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
@@ -604,8 +604,7 @@ InlineAdvisor::~InlineAdvisor() {
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                  WholeProgramInfo *WPI, InlineCost **IC,
-                                  bool Advice) {
+                                  WholeProgramInfo *WPI, bool Advice) {
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
   auto &ORE = getCallerORE(CB); 
@@ -623,10 +622,7 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
           : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
   if (IsAlways)
     MIC.setIsRecommended(true);
-  auto UP =
-      std::make_unique<MandatoryInlineAdvice>(this, CB, MIC, ORE, Advice);
-  *IC = UP->getInlineCost();
-  return UP;
+  return std::make_unique<MandatoryInlineAdvice>(this, CB, MIC, ORE, Advice);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -698,13 +694,12 @@ InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                         WholeProgramInfo *WPI, InlineCost **IC,
-                         bool MandatoryOnly) {
+                         WholeProgramInfo *WPI, bool MandatoryOnly) {
   if (!MandatoryOnly) {
     bool NeedLocalILIC = !ILIC;
     if (NeedLocalILIC)
       ILIC = new InliningLoopInfoCache();
-    auto RV = getAdviceImpl(CB, ILIC, WPI, IC);
+    auto RV = getAdviceImpl(CB, ILIC, WPI);
     if (NeedLocalILIC) {
       delete ILIC;
       ILIC = nullptr;
@@ -719,7 +714,7 @@ InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool NeedLocalILIC = !ILIC;
   if (NeedLocalILIC)
     ILIC = new InliningLoopInfoCache();
-  auto RV = getMandatoryAdvice(CB, ILIC, WPI, IC, Advice);
+  auto RV = getMandatoryAdvice(CB, ILIC, WPI, Advice);
   if (NeedLocalILIC) {
     delete ILIC;
     ILIC = nullptr;

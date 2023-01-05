@@ -15,7 +15,6 @@
 ; from ATG Tests, reported by Youcef/John.
 ;
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ; CHECK: Function

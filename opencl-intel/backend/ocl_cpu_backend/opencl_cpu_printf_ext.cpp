@@ -14,7 +14,6 @@
 
 #define NOMINMAX
 
-#include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "exceptions.h"
 #include "opencl_printf_ext.h"
@@ -24,7 +23,8 @@
 using namespace std;
 using namespace Intel::OpenCL;
 
-int printFormatCommon(OutputAccumulator& output, const char* format, const char* args);
+int printFormatCommon(OutputAccumulator &output, const char *format,
+                      const char *args);
 
 // Used to ensure that only one thread executes __opencl_printf simultaneously,
 // to avoid intermingling of output from different threads.

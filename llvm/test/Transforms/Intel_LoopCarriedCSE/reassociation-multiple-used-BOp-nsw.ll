@@ -1,7 +1,6 @@
 ; %2 is in the instruction chain, and it has been used twice.
 ; We only clear nsw and nuw flag in the instruction chain when we do reassociation.
 ;
-; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = add i32 %gepload, %gepload59

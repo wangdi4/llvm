@@ -19,31 +19,37 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-  struct BlockLiteral;
+struct BlockLiteral;
 
-  /// OpenCL2.0.
-  /// BlockLiteral argument. Passed as 0th argument in enqueued kernel
-  class ExplicitBlockLiteralArgument : public ExplicitArgument {
-    const BlockLiteral *m_pBL;
-  public:
-    /// @brief Ctor saves BlockLiteral ptr to be used in setValue
-    /// @param pValue           Implict argument's value destination pointer
-    /// @param arg              OpenCL argument
-    /// @param pBL              BlockLiteral pointers
-    ExplicitBlockLiteralArgument (char* pValue, const KernelArgument& arg, const BlockLiteral* pBL)
-      : ExplicitArgument(pValue, arg), m_pBL(pBL) { }
+/// OpenCL2.0.
+/// BlockLiteral argument. Passed as 0th argument in enqueued kernel
+class ExplicitBlockLiteralArgument : public ExplicitArgument {
+  const BlockLiteral *m_pBL;
 
-    /// @brief Set argument as pointer to BlockLiteral structure. 
-    ///        Hack for using inside Binary::InitParams():
-    ///        actual BlockLiteral pointer is obtained via ctor
-    /// @param   is ignored
-    virtual void setValue(const char *) override {
-      ExplicitArgument::setValue((const char*)&m_pBL);
-    }
-  };
+public:
+  /// @brief Ctor saves BlockLiteral ptr to be used in setValue
+  /// @param pValue           Implict argument's value destination pointer
+  /// @param arg              OpenCL argument
+  /// @param pBL              BlockLiteral pointers
+  ExplicitBlockLiteralArgument(char *pValue, const KernelArgument &arg,
+                               const BlockLiteral *pBL)
+      : ExplicitArgument(pValue, arg), m_pBL(pBL) {}
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+  /// @brief Set argument as pointer to BlockLiteral structure.
+  ///        Hack for using inside Binary::InitParams():
+  ///        actual BlockLiteral pointer is obtained via ctor
+  /// @param   is ignored
+  virtual void setValue(const char *) override {
+    ExplicitArgument::setValue((const char *)&m_pBL);
+  }
+};
+
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
 
 #endif // __EXPLICITBLOCKLITERAL_ARGUMENT_H__

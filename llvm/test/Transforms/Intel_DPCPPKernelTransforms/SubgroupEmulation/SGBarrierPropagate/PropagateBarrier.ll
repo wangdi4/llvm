@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-sg-emu-barrier-propagate -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-sg-emu-barrier-propagate -S %s | FileCheck %s
 
 ; RUN: opt -passes=dpcpp-kernel-sg-emu-barrier-propagate -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-sg-emu-barrier-propagate -S %s | FileCheck %s

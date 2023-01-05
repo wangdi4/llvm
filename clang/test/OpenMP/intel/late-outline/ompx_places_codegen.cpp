@@ -355,7 +355,7 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP59]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"() ]
 // CHECK-NEXT:    [[TMP60:%.*]] = load i32, ptr [[START]], align 4
 // CHECK-NEXT:    [[TMP61:%.*]] = load i32, ptr [[LENGTH]], align 4
-// CHECK-NEXT:    [[TMP62:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[A]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP60]], i32 [[TMP61]], i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 0, i64 64, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP62:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP60]], i32 [[TMP61]], i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr %a) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP62]]) [ "DIR.OMP.END.TARGET.DATA"() ]
 // CHECK-NEXT:    [[TMP63:%.*]] = load i32, ptr [[N_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[TMP63]], ptr [[DOTCAPTURE_EXPR_20]], align 4

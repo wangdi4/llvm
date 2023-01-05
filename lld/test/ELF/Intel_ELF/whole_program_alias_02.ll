@@ -5,13 +5,6 @@
 
 ; RUN: opt %s -o %t_wp2alias.bc
 ; RUN: ld.lld -e main --lto-O2 \
-; RUN:     -plugin-opt=legacy-pass-manager \
-; RUN:     -mllvm -debug-only=whole-program-analysis \
-; RUN:     -mllvm -whole-program-assume-executable %t_wp2alias.bc -o %t_wp2alias \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: opt %s -o %t_wp2alias.bc
-; RUN: ld.lld -e main --lto-O2 \
 ; RUN:     -plugin-opt=new-pass-manager \
 ; RUN:     -mllvm -debug-only=whole-program-analysis \
 ; RUN:     -mllvm -whole-program-assume-executable %t_wp2alias.bc -o %t_wp2alias \

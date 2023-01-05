@@ -7,19 +7,19 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-fptrunc (	__global const float *in,
-		__global float *out)
+fptrunc (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	double tmp = ARG0;
-	// these add and mul are done to make sure that fptrunc double is used on tmp
-	tmp = tmp + 3;
-	tmp = tmp * 2;
-	out[gid] = tmp;
+  int gid = get_global_id(0);
+  double tmp = ARG0;
+  // these add and mul are done to make sure that fptrunc double is used on tmp
+  tmp = tmp + 3;
+  tmp = tmp * 2;
+  out[gid] = tmp;
 }

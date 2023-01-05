@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg %s -S | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg %s -S | FileCheck %s
 
 ;in cg for CE (-1 * %row.031 + umax((4 + %row.031), ((4 * sext.i32.i64(%n1))

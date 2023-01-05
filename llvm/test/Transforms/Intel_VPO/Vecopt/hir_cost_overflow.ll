@@ -1,6 +1,4 @@
 ; Test for overflow during cost modeling - check that the loop gets vectorized
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
-; RUN:     -debug -hir-cg -S  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
 ; RUN:     -debug -S  < %s 2>&1 | FileCheck %s
 

@@ -1,6 +1,5 @@
 ; CMPLRLLVM-9114: Verifies that points-to info for _Z4testv:%1 is not
 ; incorrectly computed as empty.
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s  -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; Andersens Analysis shouldn't ignore non-pointer landingpad instruction.

@@ -76,7 +76,7 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     OS = EnableEvaluatorsCostModelDumps ? &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-    auto CostModel = Planner.createCostModel(Plan, VF);
+    auto CostModel = Planner.createNoSLPCostModel(Plan, VF);
     VPInstructionCost IterCost, Overhead;
     std::tie(IterCost, Overhead) =
         CostModel->getCost(nullptr /* PeelingVariant */, OS);

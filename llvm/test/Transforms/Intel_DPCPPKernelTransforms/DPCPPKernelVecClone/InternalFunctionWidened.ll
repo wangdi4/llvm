@@ -1,6 +1,4 @@
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-enable-direct-subgroup-function-call-vectorization=true -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ;; Widened inner functions must have "widened-size" attribute so Barrier inserts
@@ -35,7 +33,7 @@ entry:
 }
 
 ; CHECK: define fastcc <4 x i64> @_ZGVeM4_foo(<4 x i64> %mask) #2 {
-; CHECK: attributes #2 = { "may-have-openmp-directive"="true" "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" "widened-size"="4" }
+; CHECK: attributes #2 = { memory(readwrite) "may-have-openmp-directive"="true" "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" "widened-size"="4" }
 
 attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 

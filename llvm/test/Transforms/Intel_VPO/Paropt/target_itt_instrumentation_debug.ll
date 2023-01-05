@@ -1,4 +1,5 @@
-; RUN: opt -SPIRITTAnnotations -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -SPIRITTAnnotations -S %s | FileCheck %s
+; RUN: opt -passes="SPIRITTAnnotations" -S %s | FileCheck %s
 
 ; Original code:
 ; __global int *res;

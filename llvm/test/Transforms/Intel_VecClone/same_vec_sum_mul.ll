@@ -2,7 +2,6 @@
 ; replacement transformation could miss some vecparam users due to the incorrect
 ; iterating over them
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4v_foo

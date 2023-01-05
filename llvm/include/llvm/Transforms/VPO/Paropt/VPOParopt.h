@@ -122,7 +122,7 @@ private:
 #if INTEL_CUSTOMIZATION
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
-  OptReportVerbosity::Level ORVerbosity;
+  OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
 #endif  // INTEL_CUSTOMIZATION
 };
 
@@ -151,7 +151,7 @@ private:
 #if INTEL_CUSTOMIZATION
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
-  OptReportVerbosity::Level ORVerbosity;
+  OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
 #endif  // INTEL_CUSTOMIZATION
 };
 

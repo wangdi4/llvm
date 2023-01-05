@@ -16,40 +16,40 @@
 
 #include "tracing_types.h"
 
+#include <assert.h>
 #include <bitset>
 #include <stdint.h>
-#include <assert.h>
 
 namespace HostSideTracing {
 
 struct TracingHandle {
-  public:
-    TracingHandle(cl_tracing_callback callback, void *userData) :
-        callback(callback), userData(userData) {}
+public:
+  TracingHandle(cl_tracing_callback callback, void *userData)
+      : callback(callback), userData(userData) {}
 
-    void call(cl_function_id fid, cl_callback_data *callbackData) {
-        callback(fid, callbackData, userData);
-    }
+  void call(cl_function_id fid, cl_callback_data *callbackData) {
+    callback(fid, callbackData, userData);
+  }
 
-    void setTracingPoint(cl_function_id fid, bool enable) {
-        assert(static_cast<uint32_t>(fid) < CL_FUNCTION_COUNT);
-        mask[static_cast<uint32_t>(fid)] = enable;
-    }
+  void setTracingPoint(cl_function_id fid, bool enable) {
+    assert(static_cast<uint32_t>(fid) < CL_FUNCTION_COUNT);
+    mask[static_cast<uint32_t>(fid)] = enable;
+  }
 
-    bool getTracingPoint(cl_function_id fid) const {
-        assert(static_cast<uint32_t>(fid) < CL_FUNCTION_COUNT);
-        return mask[static_cast<uint32_t>(fid)];
-    }
+  bool getTracingPoint(cl_function_id fid) const {
+    assert(static_cast<uint32_t>(fid) < CL_FUNCTION_COUNT);
+    return mask[static_cast<uint32_t>(fid)];
+  }
 
-  private:
-    cl_tracing_callback callback;
-    void *userData;
-    std::bitset<CL_FUNCTION_COUNT> mask;
+private:
+  cl_tracing_callback callback;
+  void *userData;
+  std::bitset<CL_FUNCTION_COUNT> mask;
 };
 
 } // namespace HostSideTracing
 
 struct _cl_tracing_handle {
-    cl_device_id device;
-    HostSideTracing::TracingHandle *handle;
+  cl_device_id device;
+  HostSideTracing::TracingHandle *handle;
 };

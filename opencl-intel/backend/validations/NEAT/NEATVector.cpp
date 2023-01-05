@@ -14,49 +14,33 @@
 
 #include "NEATVector.h"
 
-namespace Validation
-{
+namespace Validation {
 
-    NEATVector::NEATVector(VectorWidth width):
-    m_Width(width)
-    {
+NEATVector::NEATVector(VectorWidth width) : m_Width(width) {}
 
-    }
+NEATVector::~NEATVector() {}
 
-    NEATVector::~NEATVector()
-    {
-    }
+size_t NEATVector::GetSize() const { return m_Width.GetSize(); }
 
-    size_t NEATVector::GetSize() const
-    {
-        return m_Width.GetSize();
-    }
+VectorWidth NEATVector::GetWidth() const { return m_Width.GetValue(); }
 
-    VectorWidth NEATVector::GetWidth() const
-    {
-        return m_Width.GetValue();
-    }
+void NEATVector::SetWidth(VectorWidth in_width) { m_Width.SetValue(in_width); }
 
-    void NEATVector::SetWidth( VectorWidth in_width)
-    {
-        m_Width.SetValue(in_width);
-    }
-
-    NEATValue& NEATVector::operator[](int i)
-    {
-        if(m_Width.GetValue() == INVALID_WIDTH)
-            throw Exception::IllegalFunctionCall("Trying to get value from NEATVector with unspecified type");
-        if(m_Width.GetSize()<=(size_t)i)
-            throw Exception::OutOfRange("Index is out of range");
-        return m_Values[i];
-    }
-
-    const NEATValue& NEATVector::operator[](int i) const
-    {
-      if(m_Width.GetValue() == INVALID_WIDTH)
-        throw Exception::IllegalFunctionCall("Trying to get value from NEATVector with unspecified type");
-      if(m_Width.GetSize()<=(size_t)i)
-        throw Exception::OutOfRange("Index is out of range");
-      return m_Values[i];
-    }
+NEATValue &NEATVector::operator[](int i) {
+  if (m_Width.GetValue() == INVALID_WIDTH)
+    throw Exception::IllegalFunctionCall(
+        "Trying to get value from NEATVector with unspecified type");
+  if (m_Width.GetSize() <= (size_t)i)
+    throw Exception::OutOfRange("Index is out of range");
+  return m_Values[i];
 }
+
+const NEATValue &NEATVector::operator[](int i) const {
+  if (m_Width.GetValue() == INVALID_WIDTH)
+    throw Exception::IllegalFunctionCall(
+        "Trying to get value from NEATVector with unspecified type");
+  if (m_Width.GetSize() <= (size_t)i)
+    throw Exception::OutOfRange("Index is out of range");
+  return m_Values[i];
+}
+} // namespace Validation

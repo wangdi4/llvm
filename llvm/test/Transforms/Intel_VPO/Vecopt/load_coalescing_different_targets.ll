@@ -1,5 +1,3 @@
-; RUN: opt -enable-new-pm=0 -O2 -mtriple=x86_64-unknown-linux-gnu -mcpu=haswell -load-coalescing -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-HASWELL
-; RUN: opt -enable-new-pm=0 -O2 -mtriple=x86_64-unknown-linux-gnu -mcpu=silvermont -load-coalescing -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-SILVERMONT
 ; RUN: opt -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=haswell -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-HASWELL
 ; RUN: opt -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=silvermont -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-SILVERMONT
 

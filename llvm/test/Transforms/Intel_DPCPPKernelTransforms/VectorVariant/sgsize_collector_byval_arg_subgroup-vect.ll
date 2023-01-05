@@ -1,6 +1,4 @@
-; RUN: opt %s -dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S | FileCheck %s
-; RUN: opt %s -enable-debugify -disable-output -dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt %s -enable-debugify -disable-output -passes=dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ;; Have a has-sub-group function calling byref function.

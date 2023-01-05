@@ -142,9 +142,11 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 
-#include "llvm/IR/Intel_VPlanTemplateHelper.h" // INTEL
-
 #include <functional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/Intel_VPlanTemplateHelper.h"
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "sync-dependence"
 

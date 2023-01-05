@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -debug-only=dtrans-safetyanalyzer-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that %class.TestClass.Outer, %struct.test.a and
@@ -45,11 +44,11 @@ entry:
   %1 = getelementptr inbounds %struct.test.a, ptr %ptr2, i64 0, i32 0
   %2 = load i32, ptr %0
   %3 = load i32, ptr %1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr, ptr %ptr2, i64 4, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr, ptr %ptr2, i64 4, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 
 !llvm.module.flags = !{!0, !1, !2, !3}

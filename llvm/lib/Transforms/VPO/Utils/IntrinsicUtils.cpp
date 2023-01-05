@@ -517,7 +517,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
   class BitMatrix {
   private:
     BitVector BV;
-    unsigned RecLen;
+    unsigned RecLen = 0;
 
   public:
     BitMatrix(){};
@@ -734,6 +734,76 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
 }
 #endif // INTEL_CUSTOMIZATION
 
+/// Insert a call to the region entry directive for \p DirID before \p
+/// InsertBefore.
+static CallInst *CreateBeginDirectiveCall(OMP_DIRECTIVES DirID,
+                                          Instruction *InsertBefore,
+                                          const Twine &CallName = "") {
+  assert(InsertBefore && "Null insertion point.");
+  assert(VPOAnalysisUtils::isBeginDirective(DirID) &&
+         "ID is not for an entry directive");
+
+  Function *DirIntrin = Intrinsic::getDeclaration(
+      InsertBefore->getModule(), Intrinsic::directive_region_entry);
+
+  SmallVector<OperandBundleDef, 1> IntrinOpBundle;
+  OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(DirID)), {});
+  IntrinOpBundle.push_back(OpBundle);
+
+  return IRBuilder<>(InsertBefore)
+      .CreateCall(DirIntrin, /*Args=*/{}, IntrinOpBundle, CallName);
+}
+
+/// Emit a call to the region exit directive corresponding to the entry
+/// directive \p BeginDirective, before \p InsertBefore.
+static CallInst *CreateEndDirectiveCall(CallInst *BeginDirective,
+                                        Instruction *InsertBefore,
+                                        const Twine &CallName = "") {
+  assert(BeginDirective && VPOAnalysisUtils::isBeginDirective(BeginDirective) &&
+         "Invalid begin directive");
+  assert(InsertBefore && "Null insertion point.");
+
+  Function *DirIntrin = Intrinsic::getDeclaration(
+      InsertBefore->getModule(), Intrinsic::directive_region_exit);
+
+  int EndDirID = VPOAnalysisUtils::getMatchingEndDirective(
+      VPOAnalysisUtils::getDirectiveID(BeginDirective));
+
+  SmallVector<OperandBundleDef, 1> IntrinOpBundle;
+  OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(EndDirID)), {});
+  IntrinOpBundle.push_back(OpBundle);
+
+  return IRBuilder<>(InsertBefore)
+      .CreateCall(DirIntrin, /*Args=*/{BeginDirective}, IntrinOpBundle,
+                  CallName);
+}
+
+/// Obtain the first basic block of the loop body (LoopBodyBB).
+/// - \code
+///
+///   LoopHeaderBB:
+///    %iv = load i32, ptr %.omp.iv
+///    %ub = load i32, ptr %.omp.ub
+///    %cmp4 = icmp sle i32 %14, %15
+///    br i1 %cmp4, %LoopBodyBB, %LoopEnd
+///
+/// \endcode
+static BasicBlock *getFirstBodyBBForLoop(Loop *L) {
+  auto *LpHeader = L->getHeader();
+  BranchInst *BI = dyn_cast<BranchInst>(LpHeader->getTerminator());
+  assert(BI && !BI->isUnconditional() && "Expect Conditional BranchInst!");
+
+  auto *LoopBodyBB = BI->getSuccessor(0);
+  auto *ExitBB = BI->getSuccessor(1);
+  if (L->contains(ExitBB))
+    std::swap(LoopBodyBB, ExitBB);
+  assert(LoopBodyBB && "Loop is not expected to be empty!");
+
+  return LoopBodyBB;
+}
+
 /// Return the guard directive that is used to prohibit memory motion outside
 /// the given loop. If guard isn't found, then insert it in the following format
 /// - \code
@@ -766,41 +836,89 @@ CallInst *VPOUtils::getOrCreateLoopGuardForMemMotion(Loop *L) {
   if (DirID == DIR_VPO_GUARD_MEM_MOTION)
     return cast<CallInst>(FirstNonPHIInst);
 
-  IRBuilder<> Builder(LpHeader);
-
-  // Helper lambda to create directive calls at given insertion point using the
-  // provided args.
-  auto CreateDirectiveCall =
-      [&Builder](Instruction *InsertPt, Function *DirFn,
-                 ArrayRef<Value *> CallArgs, OMP_DIRECTIVES DirID,
-                 const Twine &CallName = "") -> CallInst * {
-    assert(DirFn && "Cannot get declaration for region directive.");
-
-    SmallVector<OperandBundleDef, 1> IntrinOpBundle;
-    OperandBundleDef OpBundle(
-        std::string(IntrinsicUtils::getDirectiveString(DirID)), {});
-    IntrinOpBundle.push_back(OpBundle);
-
-    Builder.SetInsertPoint(InsertPt);
-    return Builder.CreateCall(DirFn, CallArgs, IntrinOpBundle, CallName);
-  };
-
-  Module *M = LpHeader->getParent()->getParent();
   // Create @llvm.directive.region.entry(); [ DIR.VPO.GUARD.MEM.MOTION() ]
-  Function *BeginIntrin =
-      Intrinsic::getDeclaration(M, Intrinsic::directive_region_entry);
-  CallInst *GuardBegin =
-      CreateDirectiveCall(FirstNonPHIInst, BeginIntrin, {} /*Args*/,
-                          DIR_VPO_GUARD_MEM_MOTION, "guard.start");
+  CallInst *GuardBegin = CreateBeginDirectiveCall(
+      DIR_VPO_GUARD_MEM_MOTION, FirstNonPHIInst, "guard.start");
 
   // Create @llvm.directive.region.exit(); [ DIR.VPO.END.GUARD.MEM.MOTION() ]
-  Function *EndIntrin =
-      Intrinsic::getDeclaration(M, Intrinsic::directive_region_exit);
   auto *LatchCondInst = L->getLatchCmpInst();
   assert(LatchCondInst && "Latch condition not found for loop.");
-  CreateDirectiveCall(LatchCondInst, EndIntrin, {GuardBegin},
-                      DIR_VPO_END_GUARD_MEM_MOTION);
+  CreateEndDirectiveCall(GuardBegin, LatchCondInst);
 
   return GuardBegin;
+}
+
+/// Return the starting guard directives (DIR.VPO.GUARD.MEM.MOTION) created
+/// for the loop \p L to prohibit memory motion. Input and scan phase are
+/// enclosed in the guard directives:
+/// - \code
+///
+///  LoopHeaderBB:
+///    %iv = load i32, ptr %.omp.iv
+///    %ub = load i32, ptr %.omp.ub
+///    %cmp4 = icmp sle i32 %14, %15
+///    br i1 %cmp4, %LoopBody, %LoopEnd
+///
+///  LoopBody:
+///    %g1 = call @llvm.directive.region.entry() [ DIR.VPO.GUARD.MEM.MOTION() ]
+///
+///    ...
+///
+///    call @llvm.directive.region.exit(%g1) [ DIR.VPO.END.GUARD.MEM.MOTION() ]
+///    %s = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), ... ]
+///    call void @llvm.directive.region.exit(token %s) [ "DIR.OMP.END.SCAN"() ]
+///    %g2 = call @llvm.directive.region.entry() [ DIR.VPO.GUARD.MEM.MOTION() ]
+///
+///    ...
+///
+///    call @llvm.directive.region.exit(%g2) [ DIR.VPO.END.GUARD.MEM.MOTION() ]
+///    br %LoopLatchBB
+///
+///  LoopLatchBB:
+///    %iv = load i32, i32* %.omp.iv
+///    %iv.next = add nsw i32 %iv, 1
+///    store i32 %iv.next, i32* %.omp.iv
+///
+/// \endcode
+std::pair<CallInst *, CallInst *>
+VPOUtils::createInscanLoopGuardForMemMotion(Loop *L) {
+  // Guard directive is expected to be the first non-PHI instruction in loop's
+  // body block.
+  Instruction *BeginInsertPt = getFirstBodyBBForLoop(L)->getFirstNonPHI();
+
+  // Guard already exists for this loop.
+  assert(VPOAnalysisUtils::getRegionDirectiveID(BeginInsertPt) !=
+             DIR_VPO_GUARD_MEM_MOTION &&
+         "Do not expect Guard regions present!");
+
+  // Locate the separating pragma Begin and End.
+  Instruction *ScanBegin = nullptr;
+  Instruction *ScanEnd = nullptr;
+  for (auto *BB : L->blocks()) {
+    for (auto &I : *BB) {
+      int DirID = VPOAnalysisUtils::getRegionDirectiveID(&I);
+      if (DirID == DIR_OMP_SCAN) {
+        ScanBegin = &I;
+        assert(I.hasOneUser() && "Expect only END directive user for BEGIN");
+        ScanEnd = cast<Instruction>(*I.user_begin());
+        break;
+      }
+    }
+  }
+
+  // Create the first region.
+  CallInst *FirstGuardBegin = CreateBeginDirectiveCall(
+      DIR_VPO_GUARD_MEM_MOTION, BeginInsertPt, "phase1.guard.start");
+  CreateEndDirectiveCall(FirstGuardBegin, ScanBegin);
+
+  // Create the second region.
+  CallInst *SecondGuardBegin = CreateBeginDirectiveCall(
+      DIR_VPO_GUARD_MEM_MOTION, ScanEnd->getParent()->getTerminator(),
+      "phase2.guard.start");
+  auto *EndInstPoint =
+      L->getLoopLatch()->getSinglePredecessor()->getTerminator();
+  CreateEndDirectiveCall(SecondGuardBegin, EndInstPoint);
+
+  return std::make_pair(FirstGuardBegin, SecondGuardBegin);
 }
 #endif // INTEL_COLLAB

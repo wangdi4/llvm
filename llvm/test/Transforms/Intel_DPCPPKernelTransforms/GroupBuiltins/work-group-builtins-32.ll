@@ -844,9 +844,6 @@ declare <64 x i32> @_Z14work_group_anyDv64_iPS_(<64 x i32> %predicate, <64 x i32
 declare <64 x i32> @_Z19work_group_any_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
 
 ; Function Attrs: nounwind readnone
-declare i32 @_Z20work_group_broadcastim(i32 %src, i64 %local_id) #3
-
-; Function Attrs: nounwind readnone
 declare i32 @_Z20work_group_broadcastij(i32 %src, i32 %local_id) #3
 
 ; Function Attrs: nounwind readnone
@@ -1349,6 +1346,114 @@ declare <32 x double> @_Z20work_group_broadcastDv32_djjPS_(<32 x double> %src, i
 
 ; Function Attrs: nounwind
 declare <64 x double> @_Z20work_group_broadcastDv64_djjPS_(<64 x double> %src, i32 %linear_local_id, i32 %linear_id, <64 x double>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z30__finalize_work_group_identityi(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z30__finalize_work_group_identityDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z30__finalize_work_group_identityDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z30__finalize_work_group_identityDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z30__finalize_work_group_identityDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z30__finalize_work_group_identityDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z30__finalize_work_group_identityj(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z30__finalize_work_group_identityDv4_j(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z30__finalize_work_group_identityDv8_j(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z30__finalize_work_group_identityDv16_j(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z30__finalize_work_group_identityDv32_j(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z30__finalize_work_group_identityDv64_j(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z30__finalize_work_group_identityl(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z30__finalize_work_group_identityDv4_l(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z30__finalize_work_group_identityDv8_l(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z30__finalize_work_group_identityDv16_l(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z30__finalize_work_group_identityDv32_l(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z30__finalize_work_group_identityDv64_l(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z30__finalize_work_group_identitym(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z30__finalize_work_group_identityDv4_m(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z30__finalize_work_group_identityDv8_m(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z30__finalize_work_group_identityDv16_m(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z30__finalize_work_group_identityDv32_m(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z30__finalize_work_group_identityDv64_m(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z30__finalize_work_group_identityf(float %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z30__finalize_work_group_identityDv4_f(<4 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z30__finalize_work_group_identityDv8_f(<8 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z30__finalize_work_group_identityDv16_f(<16 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z30__finalize_work_group_identityDv32_f(<32 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z30__finalize_work_group_identityDv64_f(<64 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z30__finalize_work_group_identityd(double %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z30__finalize_work_group_identityDv4_d(<4 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z30__finalize_work_group_identityDv8_d(<8 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z30__finalize_work_group_identityDv16_d(<16 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z30__finalize_work_group_identityDv32_d(<32 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z30__finalize_work_group_identityDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_addi(i32 %src) #3

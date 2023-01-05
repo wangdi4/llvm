@@ -1,4 +1,3 @@
-; RUN: opt -debug-only=hir-loop-collapse -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -debug-only=hir-loop-collapse -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ;[Note]

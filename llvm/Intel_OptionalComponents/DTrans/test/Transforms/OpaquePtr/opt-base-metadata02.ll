@@ -1,11 +1,12 @@
-; RUN: opt -dtransop-allow-typed-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+
+target triple = "x86_64-unknown-linux-gnu"
 
 ; Test that metadata gets created for the new types created during
 ; type transformation for array types.
 
 %struct.test01a = type { i32 }
-%struct.test01b = type { %struct.test01a, %struct.test01a*, %struct.test01a**, [2 x %struct.test01a], [2 x [4 x %struct.test01a]], [8 x %struct.test01a*], [16 x %struct.test01a**]* }
+%struct.test01b = type { %struct.test01a, ptr, ptr, [2 x %struct.test01a], [2 x [4 x %struct.test01a]], [8 x ptr], ptr }
 
 @globVar01b = global %struct.test01b zeroinitializer
 

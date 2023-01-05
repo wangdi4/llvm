@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-resolve-var-tid-call -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-resolve-var-tid-call -enable-debugify -disable-output 2>&1 -S %s | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-resolve-var-tid-call -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-resolve-var-tid-call -enable-debugify -disable-output 2>&1 -S %s | FileCheck %s -check-prefix=DEBUGIFY
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

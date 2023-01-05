@@ -7,18 +7,18 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
-zext (	__global const float *in,
-		__global float *out)
+zext (  __global const float *in,
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	uchar temp1 = min(ARG0, in[gid]);
-	// the conversion to short should use zext
-	short temp2 = temp1 + 3;
-	out[gid] = temp2;
+  int gid = get_global_id(0);
+  uchar temp1 = min(ARG0, in[gid]);
+  // the conversion to short should use zext
+  short temp2 = temp1 + 3;
+  out[gid] = temp2;
 }

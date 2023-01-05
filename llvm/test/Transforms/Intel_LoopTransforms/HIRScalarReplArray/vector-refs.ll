@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -vplan-force-vf=4 -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to handle vector refs. In this case the inner loop is vectorized and completely unrolled. The vector refs of @B[][] are then scalar replaced.
@@ -18,23 +17,23 @@
 ; + END LOOP
 
 
-; CHECK: %scalarepl.vec = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][0];
+; CHECK: %scalarepl = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][0];
 
 ; CHECK: + DO i64 i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>
-; CHECK: |   %.vec = %scalarepl.vec;
-; CHECK: |   %scalarepl.vec[[NUM:3|6]] = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1 + 1];
-; CHECK: |   %.vec2 = %scalarepl.vec[[NUM]];
+; CHECK: |   %.vec = %scalarepl;
+; CHECK: |   %scalarepl[[NUM:3|6]] = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1 + 1];
+; CHECK: |   %.vec2 = %scalarepl[[NUM]];
 ; CHECK: |   [[ADDVEC:%.*]] = %.vec  +  %.vec2;
 ; CHECK: |   (<4 x float>*)(@A)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = [[ADDVEC]];
 ; CHECK: |   [[INCVEC:%.*]] = %.vec  +  1.000000e+00;
-; CHECK: |   %scalarepl.vec = [[INCVEC]];
-; CHECK: |   (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = %scalarepl.vec;
+; CHECK: |   %scalarepl = [[INCVEC]];
+; CHECK: |   (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = %scalarepl;
 ; CHECK: |   [[INCVEC2:%.*]] = %.vec2  +  1.000000e+00;
-; CHECK: |   %scalarepl.vec[[NUM]] = [[INCVEC2]];
-; CHECK: |   %scalarepl.vec = %scalarepl.vec[[NUM]];
+; CHECK: |   %scalarepl[[NUM]] = [[INCVEC2]];
+; CHECK: |   %scalarepl = %scalarepl[[NUM]];
 ; CHECK: + END LOOP
 
-; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][sext.i32.i64(%n)] = %scalarepl.vec;
+; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][sext.i32.i64(%n)] = %scalarepl;
 ; CHECK:  <LVAL-REG> {al:4}(<4 x float>*)(LINEAR [4 x [100 x float]]* @B)[<4 x i64> 0][<4 x i64> <i64 0, i64 1, i64 2, i64 3>][LINEAR <4 x i64> sext.i32.i64(%n)]
 
 

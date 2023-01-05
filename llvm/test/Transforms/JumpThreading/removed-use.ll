@@ -4,7 +4,7 @@
 ;       this code which is also valid but fails the specific checks this test
 ;       is doing.
 ; END INTEL_CUSTOMIZATION
-; RUN: opt -S < %s -jump-threading -jump-thread-loop-header=false | FileCheck %s
+; RUN: opt -S < %s -passes=jump-threading -jump-thread-loop-header=false | FileCheck %s
 ; CHECK-LABEL: @foo
 ; CHECK: bb6:
 ; CHECK-NEXT: ret void

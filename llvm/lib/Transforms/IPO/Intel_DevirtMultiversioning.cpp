@@ -322,10 +322,15 @@ bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
 
     // Replace the called function with the direct call
     CallBase *NewCB = cast<CallBase>(CloneCS);
-    if (TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
+    if (TargetFunc->getFunctionType() != VCallSite->getFunctionType())
       NewCB->setCalledOperand(ConstantExpr::getBitCast(
           TargetFunc, VCallSite->getCalledOperand()->getType()));
 
+    else
+      NewCB->setCalledFunction(TargetFunc);
+
+    if (!M.getContext().supportsTypedPointers() ||
+        TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
       // Because a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
       // analysis to treat the 'this' pointer argument as being the expected
@@ -333,8 +338,6 @@ bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
       NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
-    } else {
-      NewCB->setCalledFunction(TargetFunc);
     }
 
     // Save the new instruction for PHINode

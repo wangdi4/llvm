@@ -1,21 +1,4 @@
 //===- llvm/CodeGen/MachineBasicBlock.h -------------------------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -34,11 +17,6 @@
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/iterator_range.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-#include "llvm/CodeGen/Intel_MarkerCount.h"
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBundleIterator.h"
 #include "llvm/IR/DebugLoc.h"
@@ -148,13 +126,7 @@ private:
   using const_probability_iterator =
       std::vector<BranchProbability>::const_iterator;
 
-  Optional<uint64_t> IrrLoopHeaderWeight;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  MarkerCount Marker;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
+  std::optional<uint64_t> IrrLoopHeaderWeight;
 
   /// Keep track of the physical registers that are livein of the basicblock.
   using LiveInVector = std::vector<RegisterMaskPair>;
@@ -196,6 +168,10 @@ private:
 
   /// Indicate that this basic block is the entry block of a cleanup funclet.
   bool IsCleanupFuncletEntry = false;
+
+  /// Fixed unique ID assigned to this basic block upon creation. Used with
+  /// basic block sections and basic block labels.
+  Optional<unsigned> BBID;
 
   /// With basic block sections, this stores the Section ID of the basic block.
   MBBSectionID SectionID{0};
@@ -648,6 +624,14 @@ public:
 
   void setIsEndSection(bool V = true) { IsEndSection = V; }
 
+  Optional<unsigned> getBBID() const { return BBID; }
+
+  /// Returns the BBID of the block when BBAddrMapVersion >= 2, otherwise
+  /// returns `MachineBasicBlock::Number`.
+  /// TODO: Remove this function when version 1 is deprecated and replace its
+  /// uses with `getBBID()`.
+  unsigned getBBIDOrNumber() const;
+
   /// Returns the section ID of this basic block.
   MBBSectionID getSectionID() const { return SectionID; }
 
@@ -655,6 +639,12 @@ public:
   unsigned getSectionIDNum() const {
     return ((unsigned)MBBSectionID::SectionType::Cold) -
            ((unsigned)SectionID.Type) + SectionID.Number;
+  }
+
+  /// Sets the fixed BBID of this basic block.
+  void setBBID(unsigned V) {
+    assert(!BBID.has_value() && "Cannot change BBID.");
+    BBID = V;
   }
 
   /// Sets the section ID for this basic block.
@@ -842,6 +832,11 @@ public:
   /// Same getFirstTerminator but it ignores bundles and return an
   /// instr_iterator instead.
   instr_iterator getFirstInstrTerminator();
+
+  /// Finds the first terminator in a block by scanning forward. This can handle
+  /// cases in GlobalISel where there may be non-terminator instructions between
+  /// terminators, for which getFirstTerminator() will not work correctly.
+  iterator getFirstTerminatorForward();
 
   /// Returns an iterator to the first non-debug instruction in the basic block,
   /// or end(). Skip any pseudo probe operation if \c SkipPseudoOp is true.
@@ -1149,20 +1144,13 @@ public:
   /// Return the EHCatchret Symbol for this basic block.
   MCSymbol *getEHCatchretSymbol() const;
 
-  Optional<uint64_t> getIrrLoopHeaderWeight() const {
+  std::optional<uint64_t> getIrrLoopHeaderWeight() const {
     return IrrLoopHeaderWeight;
   }
 
   void setIrrLoopHeaderWeight(uint64_t Weight) {
     IrrLoopHeaderWeight = Weight;
   }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  const MarkerCount &getMarkerCount() const { return Marker; }
-  MarkerCount &getMarkerCount() { return Marker; }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
   /// Return probability of the edge from this block to MBB. This method should
   /// NOT be called directly, but by using getEdgeProbability method from

@@ -17,43 +17,38 @@
 #include <sstream>
 #include <stdexcept>
 
-static void host_fpga_fp16_internal(
-    cl::Context context, cl::Device device, cl::Program program,
-    HostProgramExtraArgs extra_args)
-{
-    cl::Kernel kernel(program, "fp16");
-    cl::CommandQueue queue(context, device, 0);
+static void host_fpga_fp16_internal(cl::Context context, cl::Device device,
+                                    cl::Program program,
+                                    HostProgramExtraArgs extra_args) {
+  cl::Kernel kernel(program, "fp16");
+  cl::CommandQueue queue(context, device, 0);
 
-    short input = 0x3555; // ~0.333 in half
-    short output = 0;
-    short output_ref = 0x3800; // ~0.5 in half
+  short input = 0x3555; // ~0.333 in half
+  short output = 0;
+  short output_ref = 0x3800; // ~0.5 in half
 
-    cl::Buffer buf_in(
-        context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(input), &input);
+  cl::Buffer buf_in(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                    sizeof(input), &input);
 
-    cl::Buffer buf_out(
-        context, CL_MEM_READ_WRITE, sizeof(output));
+  cl::Buffer buf_out(context, CL_MEM_READ_WRITE, sizeof(output));
 
-    kernel.setArg(0, buf_in);
-    kernel.setArg(1, buf_out);
+  kernel.setArg(0, buf_in);
+  kernel.setArg(1, buf_out);
 
-    DTT_LOG("Executing convert_fp16 kernel...");
+  DTT_LOG("Executing convert_fp16 kernel...");
 
-    queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
 
-    queue.enqueueReadBuffer(buf_out, CL_TRUE, 0,
-                            sizeof(output), &output);
+  queue.enqueueReadBuffer(buf_out, CL_TRUE, 0, sizeof(output), &output);
 
-    if (output != output_ref)
-    {
-        std::stringstream ss;
-        ss << "Mismatch error:\n";
-        ss << "Got:      " << output << "\n";
-        ss << "Expected: " << output_ref << "\n";
+  if (output != output_ref) {
+    std::stringstream ss;
+    ss << "Mismatch error:\n";
+    ss << "Got:      " << output << "\n";
+    ss << "Expected: " << output_ref << "\n";
 
-        throw std::runtime_error(ss.str());
-    }
+    throw std::runtime_error(ss.str());
+  }
 }
 
 // Export

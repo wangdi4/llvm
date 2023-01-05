@@ -6,13 +6,13 @@
 
 __m128bh test_mm_avx2_cvtne2ps2bf16(__m128 A, __m128 B) {
 // CHECK-LABEL: @test_mm_avx2_cvtne2ps2bf16
-// CHECK: call <8 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.128
+// CHECK: call <8 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.128
         return _mm_cvtne2ps_avx_pbh(A, B);
 }
 
 __m256bh test_mm256_avx2_cvtne2ps2bf16(__m256 A, __m256 B) {
 // CHECK-LABEL: @test_mm256_avx2_cvtne2ps2bf16
-// CHECK: call <16 x i16> @llvm.x86.avx2bf16.cvtne2ps2bf16.256
+// CHECK: call <16 x bfloat> @llvm.x86.avx2bf16.cvtne2ps2bf16.256
         return _mm256_cvtne2ps_avx_pbh(A, B);
 }
 

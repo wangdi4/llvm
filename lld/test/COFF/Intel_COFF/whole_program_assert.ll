@@ -7,14 +7,6 @@
 ; RUN:          -filetype=obj
 ; RUN: not lld-link /out:%t_wp2.exe /entry:main %t_wp2.bc %t_foo.obj /subsystem:console  \
 ; RUN:     /mllvm:-whole-program-assert \
-; RUN:     /opt:noltonewpassmanager \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: llvm-as -o %t_wp2.bc %s
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t_foo.obj \
-; RUN:          -filetype=obj
-; RUN: not lld-link /out:%t_wp2.exe /entry:main %t_wp2.bc %t_foo.obj /subsystem:console  \
-; RUN:     /mllvm:-whole-program-assert \
 ; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 

@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -mtriple=i686-- -mattr=+avx2 -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-nontemporal-marking -print-after=hir-nontemporal-marking -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -mtriple=i686-- -mattr=+avx2 -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 

@@ -4,7 +4,6 @@
 ; is set to main only when whole-program-safe is detected and no uses of
 ; main are noticed.
 
-; RUN: opt < %s -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -function-attrs -rpo-function-attrs -disable-output -stats 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,function-attrs,rpo-function-attrs' -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -disable-output -stats 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 

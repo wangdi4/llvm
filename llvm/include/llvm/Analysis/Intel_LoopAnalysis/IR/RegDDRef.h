@@ -615,6 +615,16 @@ public:
     return (BaseVal && isa<Argument>(BaseVal));
   }
 
+  /// Returns true if the Ref access function argument with noalias attribute.
+  bool accessesNoAliasFunctionArgument() const {
+    auto BaseVal = getTempBaseValue();
+    if (!BaseVal) {
+      return false;
+    }
+    auto *Arg = dyn_cast<Argument>(BaseVal);
+    return (Arg && Arg->hasNoAliasAttr());
+  }
+
   /// Returns true if Ref is an alloca access.
   bool accessesAlloca() const {
     auto BaseVal = getTempBaseValue();
@@ -769,6 +779,12 @@ public:
   /// Put the underlying LLVM Value in Val
   bool isFPConstant(ConstantFP **Val = nullptr) const {
     return isTerminalRef() && getSingleCanonExpr()->isFPConstant(Val);
+  }
+
+  /// Returns true if this RegDDRef represents a vector of constant FP values.
+  /// Put the underlying LLVM Value in Val.
+  bool isFPVectorConstant(Constant **Val = nullptr) const {
+    return isTerminalRef() && getSingleCanonExpr()->isFPVectorConstant(Val);
   }
 
   /// Returns true if this RegDDRef represents a vector of constants.

@@ -78,18 +78,22 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 
 # COMPONENT: CG
 # JIRA: CMPLRLLVM->LLVM Code Generator
-/clang/include/clang/Basic/BuiltinsX86.def @phoebewang
-/clang/include/clang/Basic/BuiltinsX86_64.def @phoebewang
-/clang/lib/Basic/Targets/X86.h @phoebewang
-/clang/lib/Basic/Targets/X86.cpp @phoebewang
-/clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
+/clang/include/clang/Basic/BuiltinsX86.def @phoebewang @FreddyLeaf
+/clang/include/clang/Basic/BuiltinsX86_64.def @phoebewang @FreddyLeaf
+/clang/lib/Basic/Targets/X86.h @phoebewang @FreddyLeaf
+/clang/lib/Basic/Targets/X86.cpp @phoebewang @FreddyLeaf
+/clang/lib/Headers/ @phoebewang @FreddyLeaf
+/clang/test/CodeGen/X86/ @phoebewang @FreddyLeaf
+/llvm/include/llvm/Support/X86TargetParser.def @phoebewang @FreddyLeaf
+/llvm/lib/Support/X86TargetParser.cpp @phoebewang @FreddyLeaf
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/Transforms/Utils/Intel_IMLUtils.cpp @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/utils/intel-add-code-markup.sh @KanRobert @phoebewang
+/llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang
+/llvm/test/tools/UpdateTestChecks/intel_update_markup/ @KanRobert @phoebewang
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
@@ -113,11 +117,31 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/tools/llvm-mca/X86/ @HaohaiWen
 /llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
 /llvm/test/tools/llvm-tli-checker/ps4-tli-check.yaml @robertcox-github @pvbattin
-/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
-/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
-/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
+/llvm/include/llvm/BinaryFormat/Intel_Trace.h @KanRobert
+/llvm/include/llvm/BinaryFormat/Intel_Trace.def @KanRobert
+/llvm/include/llvm/MC/Intel_MCTrace.h @KanRobert
+/llvm/test/DebugInfo/X86/Intel_TraceBack/ @KanRobert
+/llvm/test/DebugInfo/Inputs/Intel_TraceBack/ @KanRobert
+/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert @KanRobert
 /llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
 /llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
+/llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.h @KanRobert
+/llvm/lib/DebugInfo/Intel_TraceBack/ @KanRobert
+/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
+/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
+/llvm/unittests/DebugInfo/Intel_TraceBack/ @KanRobert
+/clang/test/CodeGen/Intel_traceback.c @KanRobert
+/clang/test/Driver/Intel_traceback.c @KanRobert
+/llvm/docs/Intel/TraceBack.rst @KanRobert
+/llvm/include/llvm/Analysis/Intel_MarkerCountInfo.h @KanRobert
+/llvm/lib/Analysis/Intel_MarkerCountInfo.cpp @KanRobert
+/llvm/lib/CodeGen/Intel_PseudoMarkerCountInserter.cpp @KanRobert
+/llvm/unittests/Analysis/Intel_MarkerCountInfoTest.cpp @KanRobert
+/llvm/test/CodeGen/X86/intel_markercount/ @KanRobert
+/llvm/include/llvm/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.h @KanRobert
+/llvm/lib/Transforms/Instrumentation/Intel_MarkerCountIntrinsicInserter.cpp @KanRobert
+/llvm/test/Transforms/Intel_MarkerCount @KanRobert
+/llvm/docs/Intel/MarkerCount/ @KanRobert
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders
@@ -303,17 +327,17 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_IPO/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPODeadArgElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_LoopAttrs/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_MathLibrariesDeclaration/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_MultiVersioning/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_QsortRecognition/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Internalize/ @robertcox-github @pvbattin
+/llvm/test/Transforms/OpenMP/ @robertcox-github @pvbattin @clin111
 /llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
-/compiler-rt/lib/profile/ @robertcox-github @pvbattin
-/compiler-rt/test/profile/ @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BlockFrequencyInfo.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/BranchProbabilityInfo.h @robertcox-github @pvbattin
@@ -507,7 +531,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/Analysis/CFG.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/ScalarEvolutionDivision.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/StackLifetime.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Analysis/VectorUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/VectorUtils.h @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/CFGPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/IVUsers.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/RegionIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -695,7 +719,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Analysis/DependenceGraphBuilder.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/DependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ScalarEvolutionDivision.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/lib/Analysis/VectorUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/VectorUtils.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Analysis/MemorySSAUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/RegionPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/PhiValues.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -810,6 +834,13 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 # JIRA: CMPLRLLVM->DPC++ Tools
 sycl-post-link/ @asudarsa
 # Temporarily removed @AlexeySachkov, @mlychkov
+
+# JIRA: COMPLRLLVM->LLVM Compiler Runtime Library
+/compiler-rt/ @zhaomaosu @jinge90
+
+# JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
+/compiler-rt/lib/profile/ @robertcox-github @pvbattin
+/compiler-rt/test/profile/ @robertcox-github @pvbattin
 
 # Override ownership by gatekeeper
 * @intel-restricted/xmain-gatekeeper @vkurkov

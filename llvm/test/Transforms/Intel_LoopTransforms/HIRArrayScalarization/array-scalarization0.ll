@@ -3,8 +3,7 @@
 ; while those in array-scalarization1.ll is i64.
 
 ; set of symbase using HIRTransformUtil's public API:
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-arrayscalarization-test-launcher -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42 -print-before=hir-arrayscalarization-test-launcher -print-after=hir-arrayscalarization-test-launcher -S < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42 -S < %s 2>&1  | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42 -S < %s 2>&1  | FileCheck %s
 ;
 ; This LIT models a testcase where array scalarization opportunities are available after loop unrolling and array contraction.
 ; E.g.

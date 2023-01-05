@@ -1,8 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-mc %p/Inputs/shared.s -o %t1.o -filetype=obj -triple=x86_64-unknown-linux
-; RUN: ld.lld %t1.o -o %t1.so -shared
+; RUN: ld.lld -mllvm -opaque-pointers %t1.o -o %t1.so -shared
 ; RUN: llvm-as %s -o %t2.o
-; RUN: ld.lld %t1.so %t2.o -o %t
+; RUN: ld.lld -mllvm -opaque-pointers %t1.so %t2.o -o %t
 ; RUN: llvm-readobj --dyn-syms --dyn-relocations %t | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -11,11 +11,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [6 x i8] c"blah\0A\00", align 1
 
 define i32 @_start() {
-  %str = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i32 0, i32 0))
+  %str = call i32 (ptr, ...) @printf(ptr @.str)
   ret i32 0
 }
 
-declare i32 @printf(i8*, ...)
+declare i32 @printf(ptr, ...)
 
 ; Check that puts symbol is present in the dynamic symbol table and
 ; there's a relocation for it.

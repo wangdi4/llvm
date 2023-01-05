@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -28,10 +28,10 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include <optional>
 
 namespace llvm {
 
@@ -49,6 +49,7 @@ struct VecDesc {
   ElementCount VectorizationFactor;
 #if INTEL_CUSTOMIZATION
   bool Masked;
+  bool IsOCLFn = false;
 #endif
 };
 
@@ -124,6 +125,9 @@ private:
   // Stores the vector math library the compiler is currently using.
   VectorLibrary CurVectorLibrary = NoLibrary;
 
+  // Indicates whether the GPU version of SVML must be used.
+  bool UseSVMLDevice = false;
+
 public:
 #endif // INTEL_CUSTOMIZATION
 
@@ -198,6 +202,13 @@ public:
 
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const;
+
+  bool getUseSVMLDevice(void) const { return UseSVMLDevice; }
+  void setUseSVMLDevice(bool Val) { UseSVMLDevice = Val; }
+
+  /// True if the provided function \p F is an OpenCL function that can be
+  /// vectorized using its vector library equivalent.
+  bool isOCLVectorFunction(StringRef F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -232,6 +243,9 @@ public:
   /// Returns the size of the wchar_t type in bytes or 0 if the size is unknown.
   /// This queries the 'wchar_size' metadata.
   unsigned getWCharSize(const Module &M) const;
+
+  /// Returns the size of the size_t type in bits.
+  unsigned getSizeTSize(const Module &M) const;
 
   /// Get size of a C-level int or unsigned int, in bits.
   unsigned getIntSize() const {
@@ -272,7 +286,7 @@ class TargetLibraryInfo {
 
 public:
   explicit TargetLibraryInfo(const TargetLibraryInfoImpl &Impl,
-                             Optional<const Function *> F = None)
+                             std::optional<const Function *> F = std::nullopt)
       : Impl(&Impl), OverrideAsUnavailable(NumLibFuncs) {
     if (!F)
       return;
@@ -375,6 +389,15 @@ public:
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
 
+  /// A wrapper method for isFunctionVectorizable where the scalar call
+  /// instruction is checked for following properties in addition to checking
+  /// for a valid entry the vector library table -
+  /// 1. Call allows substitution with approximate functions (afn FastMathFlag).
+  /// 2. Call is known to read memory only. This is optional and can be enforced
+  /// by -tli-vectorize-non-readonly-libcalls=0 switch.
+  bool isFunctionVectorizable(const CallBase &CB, const ElementCount &VF,
+                              bool IsMasked = false) const;
+
   /// \p IsMasked defaults to 'false'. This is to leave many of the current
   /// callsites which do not necessarily care about the availability of
   /// masked or unmasked version of a function, unchanged.
@@ -385,6 +408,12 @@ public:
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const {
     return Impl->isSVMLEnabled();
+  }
+
+  /// True if the provided function \p F is an OpenCL function that can be
+  /// vectorized using its vector library equivalent.
+  bool isOCLVectorFunction(StringRef F) const {
+    return Impl->isOCLVectorFunction(F);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -470,6 +499,9 @@ public:
     return Impl->getWCharSize(M);
   }
 
+  /// \copydoc TargetLibraryInfoImpl::getSizeTSize()
+  unsigned getSizeTSize(const Module &M) const { return Impl->getSizeTSize(M); }
+
   /// \copydoc TargetLibraryInfoImpl::getIntSize()
   unsigned getIntSize() const {
     return Impl->getIntSize();
@@ -526,12 +558,12 @@ private:
   friend AnalysisInfoMixin<TargetLibraryAnalysis>;
   static AnalysisKey Key;
 
-  Optional<TargetLibraryInfoImpl> BaselineInfoImpl;
+  std::optional<TargetLibraryInfoImpl> BaselineInfoImpl;
 };
 
 class TargetLibraryInfoWrapperPass : public ImmutablePass {
   TargetLibraryAnalysis TLA;
-  Optional<TargetLibraryInfo> TLI;
+  std::optional<TargetLibraryInfo> TLI;
 
   virtual void anchor();
 

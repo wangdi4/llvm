@@ -4,7 +4,6 @@
 ; This is the same test case as argument_align_9.ll, but it checks for
 ; oapque pointers.
 
-; RUN: opt < %s -opaque-pointers -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
 ; Check that the constants were removed

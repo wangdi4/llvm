@@ -1,7 +1,5 @@
 ; Check that filter-print-funcs option filters HIR output
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after-all -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-after-all -filter-print-funcs=foo -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK
 
 ; RUN: opt -passes="hir-ssa-deconstruction,print,hir-temp-cleanup,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print,hir-temp-cleanup,print<hir>" -filter-print-funcs=foo -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK

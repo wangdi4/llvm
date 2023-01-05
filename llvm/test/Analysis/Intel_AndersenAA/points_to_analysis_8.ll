@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -disable-output 2>/dev/null
 ; RUN: opt < %s -passes='require<anders-aa>'  -disable-output 2>/dev/null
 ; Test Andersens analysis that caused crash when calloc/malloc is called
 ; in invoke instruction. 

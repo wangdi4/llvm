@@ -37,7 +37,6 @@
 #include "X86Subtarget.h"
 #include "X86TargetObjectFile.h"
 #include "X86TargetTransformInfo.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -68,6 +67,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/CFGuard.h"
 #include <memory>
+#include <optional>
 #include <string>
 
 using namespace llvm;
@@ -80,13 +80,6 @@ static cl::opt<bool>
     EnableTileRAPass("x86-tile-ra",
                      cl::desc("Enable the tile register allocation pass"),
                      cl::init(true), cl::Hidden);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-extern cl::opt<bool> MarkPrologEpilog;
-extern cl::opt<bool> MarkLoopHeader;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
@@ -134,9 +127,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializePseudoProbeInserterPass(PR);
   initializeX86ReturnThunksPass(PR);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  initializeX86MarkerCountPassPass(PR);
-#endif // INTEL_FEATURE_MARKERCOUNT
   initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
   initializeX86CFMAPass(PR);
@@ -147,6 +137,8 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86FeatureInitPassPass(PR);
   initializeX86SplitLongBlockPassPass(PR);
   initializeX86PreISelIntrinsicLoweringPass(PR);
+  initializeX86StackRealignPass(PR);
+  initializeX86HeteroArchOptPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -207,9 +199,8 @@ static std::string computeDataLayout(const Triple &TT) {
   return Ret;
 }
 
-static Reloc::Model getEffectiveRelocModel(const Triple &TT,
-                                           bool JIT,
-                                           Optional<Reloc::Model> RM) {
+static Reloc::Model getEffectiveRelocModel(const Triple &TT, bool JIT,
+                                           std::optional<Reloc::Model> RM) {
   bool is64Bit = TT.getArch() == Triple::x86_64;
   if (!RM) {
     // JIT codegen should use static relocations by default, since it's
@@ -249,8 +240,9 @@ static Reloc::Model getEffectiveRelocModel(const Triple &TT,
   return *RM;
 }
 
-static CodeModel::Model getEffectiveX86CodeModel(Optional<CodeModel::Model> CM,
-                                                 bool JIT, bool Is64Bit) {
+static CodeModel::Model
+getEffectiveX86CodeModel(std::optional<CodeModel::Model> CM, bool JIT,
+                         bool Is64Bit) {
   if (CM) {
     if (*CM == CodeModel::Tiny)
       report_fatal_error("Target does not support the tiny CodeModel", false);
@@ -266,8 +258,8 @@ static CodeModel::Model getEffectiveX86CodeModel(Optional<CodeModel::Model> CM,
 X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
                                    StringRef CPU, StringRef FS,
                                    const TargetOptions &Options,
-                                   Optional<Reloc::Model> RM,
-                                   Optional<CodeModel::Model> CM,
+                                   std::optional<Reloc::Model> RM,
+                                   std::optional<CodeModel::Model> CM,
                                    CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(
           T, computeDataLayout(TT), TT, CPU, FS, Options,
@@ -512,8 +504,13 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXIntrinsicsPass());
   addPass(createX86LowerAMXTypePass());
 
-  if (TM->getOptLevel() == CodeGenOpt::Aggressive)             // INTEL
-    insertPass(&ExpandVectorPredicationID, &X86InstCombineID); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (TM->getOptLevel() == CodeGenOpt::Aggressive) {
+    insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
+    if (TM->Options.IntelAdvancedOptim)
+      insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
+  }
+#endif
 
   TargetPassConfig::addIRPasses();
 
@@ -731,14 +728,6 @@ void X86PassConfig::addPreEmitPass2() {
   // Insert pseudo probe annotation for callsite profiling
   addPass(createPseudoProbeInserter());
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Convert pseudo markercount to x86 instruction
-  if (MarkLoopHeader || MarkPrologEpilog)
-    addPass(createX86MarkerCountPass());
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   // KCFI indirect call checks are lowered to a bundle, and on Darwin platforms,
   // also CALL_RVMARKER.
   addPass(createUnpackMachineBundles([&TT](const MachineFunction &MF) {
@@ -768,6 +757,10 @@ static bool onlyAllocateTileRegisters(const TargetRegisterInfo &TRI,
 }
 
 bool X86PassConfig::addRegAssignAndRewriteOptimized() {
+#if INTEL_CUSTOMIZATION
+  if (getOptLevel() == CodeGenOpt::Aggressive && TM->Options.IntelAdvancedOptim)
+    addPass(createX86StackRealignPass());
+#endif // INTEL_CUSTOMIZATION
   // Don't support tile RA when RA is specified by command line "-regalloc".
   if (!isCustomizedRegAlloc() && EnableTileRAPass) {
     // Allocate tile register first.

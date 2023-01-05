@@ -5,4 +5,7 @@
 
 void test_amx(void *data) {
   _tile_dpbf8ps(4, 3, 3); // expected-error {{tile arguments must refer to different tiles}}
+  _tile_dpbhf8ps(4, 3, 3); // expected-error {{tile arguments must refer to different tiles}}
+  _tile_dphbf8ps(4, 3, 3); // expected-error {{tile arguments must refer to different tiles}}
+  _tile_dphf8ps(4, 3, 3); // expected-error {{tile arguments must refer to different tiles}}
 }

@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilderHIR.cpp --------------------------------------===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -674,7 +674,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
           return false;
 
         for (const CanonExpr *CE : Ref->canons()) {
-          for (auto BlobIt : CE->blobs()) {
+          for (const auto &BlobIt : CE->blobs()) {
             const BlobTy Blob = CE->getBlobUtils().getBlob(BlobIt.Index);
             // Not hoistable either.
             if (BlobUtils::mayContainUDivByZero(Blob))
@@ -1105,9 +1105,11 @@ bool PlainCFGBuilderHIR::buildPlainCFG() {
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlanVector *Plan,
                                          HIRVectorizationLegality *Legal,
-                                         const DDGraph &DDG)
+                                         const DDGraph &DDG,
+                                         const DominatorTree &DT,
+                                         AssumptionCache &AC)
     : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
-                       WRL, Plan, nullptr),
+                       WRL, Plan, nullptr, AC, DT),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
   Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
@@ -1146,6 +1148,7 @@ private:
       RKind = RecurKind::Add;
       break;
     case Instruction::FMul:
+    case Instruction::FDiv:
       RKind = RecurKind::FMul;
       break;
     case Instruction::Mul:
@@ -1280,9 +1283,34 @@ private:
         // reductions. For other reductions predicate is undefined.
         auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
         if (Opcode == Instruction::Select) {
-          Pred = isa<SelectInst>((*RedCurrent)->getLLVMInstruction())
-                     ? (*RedCurrent)->getPredicate().Kind
-                     : PredicateTy::FIRST_FCMP_PREDICATE;
+          if (isa<SelectInst>((*RedCurrent)->getLLVMInstruction())) {
+            Pred = (*RedCurrent)->getPredicate().Kind;
+          } else if (auto *IC = (*RedCurrent)->getIntrinCall()) {
+            auto Id = IC->getIntrinsicID();
+            switch (Id) {
+            case Intrinsic::minnum:
+            case Intrinsic::minimum:
+            case Intrinsic::maxnum:
+            case Intrinsic::maximum:
+              // Set predicate as floating point
+              Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              break;
+            case Intrinsic::smin:
+            case Intrinsic::smax:
+              // Set predicate as signed integer
+              Pred = PredicateTy::ICMP_SGT;
+              break;
+            case Intrinsic::umin:
+            case Intrinsic::umax:
+              // Set predicate as unsigned integer
+              Pred = PredicateTy::ICMP_UGT;
+              break;
+            default:
+              llvm_unreachable("Unsupported intrinsic for reduction");
+            }
+          } else {
+            Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+          }
         }
 
         Descriptor.fillReductionKinds(
@@ -1412,7 +1440,7 @@ private:
       TempVector.push_back({MainCurrent->first, HIRVectorIdioms::MinOrMax});
       auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
       if (LinkedList)
-        for (auto Linked : *LinkedList) {
+        for (const auto &Linked : *LinkedList) {
           HIRVectorIdioms::IdiomId Id = IdiomList.isIdiom(Linked);
           TempVector.push_back({Linked, Id});
         }
@@ -1468,7 +1496,7 @@ public:
                   const InductionList::value_type &CurValue) {
     VPDecomposerHIR::VPInductionHIR *ID = CurValue.get();
     Descriptor.setInductionOp(ID->getUpdateInstr());
-    Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+    Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     Type *IndTy = Descriptor.getInductionOp()->getType();
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
@@ -1832,7 +1860,20 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
   HLLoop *HL = TheLoop;
   Legal->getSRA()->computeSafeReductionChains(HL);
-  const SafeRedInfoList &SRCL = Legal->getSRA()->getSafeRedInfoList(HL);
+
+  // NOTE: Although all the entries in the list are considered safe reductions,
+  // not all entries are safe for the vectorizer. For example, division with
+  // integers can produce problems due to truncation.
+  SafeRedInfoList SRCL;
+  for (auto &SRI : Legal->getSRA()->getSafeRedInfoList(HL)) {
+    switch(SRI.OpCode) {
+    case Instruction::SDiv:
+    case Instruction::UDiv:
+      break;
+    default:
+      SRCL.push_back(SRI);
+    }
+  }
 
   // clang-format off
   LLVM_DEBUG(

@@ -162,9 +162,16 @@ public:
   // Dump the list of input parameter types detected for the function.
   void emitFunctionAnnot(const Function *F,
                          formatted_raw_ostream &OS) override {
+    auto PrintMDSignature = [&](const Function *F) {
+      if (DTransType *Ty = Analyzer.getDTransTypeFromMD(F))
+        OS << "; intel.dtrans.func.type = " << *Ty << "\n";
+    };
+
     // We don't have information for parameters of function declarations.
-    if (F->isDeclaration())
+    if (F->isDeclaration()) {
+      PrintMDSignature(F);
       return;
+    }
 
     OS << ";  Input Parameters: " << F->getName() << "\n";
     for (auto &A : F->args()) {
@@ -182,11 +189,40 @@ public:
         OS << ";    <NO PTR INFO AVAILABLE>\n";
       }
     }
+    PrintMDSignature(F);
+  }
+
+  // Print a comment before printing an instruction that has a DTrans type
+  // metadata attachment.
+  void emitInstructionAnnot(const Instruction *I,
+                            formatted_raw_ostream &OS) override {
+    if (DTransType *Ty = Analyzer.getDTransTypeFromMD(I))
+      OS << "; !intel_dtrans_type = " << *Ty << "\n";
   }
 
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
   void printInfoComment(const Value &CV, formatted_raw_ostream &OS) override {
+    auto ValueShouldHaveInfo = [](const Value *V) {
+      // PtrToInt should always track the source operand type
+      if (isa<PtrToIntInst>(V))
+        return true;
+
+      // Insert value instruction may be of interest depending on the type and
+      // operands.
+      if (isa<InsertValueInst>(V))
+        return true;
+
+      // Literal structures are types of interest, but only need to be reported
+      // when pointers are contained within them
+      llvm::Type *Ty = V->getType();
+      if (Ty->isStructTy() && cast<llvm::StructType>(Ty)->isLiteral() &&
+          !dtrans::hasPointerType(Ty))
+        return false;
+
+      return isTypeOfInterest(Ty);
+    };
+
     std::function<void(formatted_raw_ostream &, ConstantExpr *)>
         PrintConstantExpr =
             [&PrintConstantExpr, this](formatted_raw_ostream &OS,
@@ -217,12 +253,9 @@ public:
         if (auto *CE = dyn_cast<ConstantExpr>(Op))
           PrintConstantExpr(OS, CE);
 
-    // Report the information about the value produced by the instruction.
-    bool ExpectPointerInfo =
-        isTypeOfInterest(V->getType()) || isa<PtrToIntInst>(V);
-
     // The value is being produced by an instruction, so can use
     // getValueTypeInfo, without checking if it is 'null'/'undef' here.
+    bool ExpectPointerInfo = ValueShouldHaveInfo(V);
     auto *Info = Analyzer.getValueTypeInfo(V);
     if (ExpectPointerInfo && !Info) {
       OS << "\n;    <NO PTR INFO AVAILABLE>\n";
@@ -296,6 +329,8 @@ public:
   // Get the ValueTypeInfo object, if it exists.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
+
+  DTransType *getDTransTypeFromMD(const Value *V) const;
 
   // Record that the GEPOperator is using an i8* type to access the element at
   // 'Idx' of the specified aggregate type 'Ty'
@@ -478,8 +513,8 @@ private:
   // objects (uses 'nullptr' as the 'LocalMaps' lookup key) to avoid having to
   // search a single map of all Value objects when looking up the ValueTypeInfo
   // object for a Value.
-  using PerFunctionLocalMapType = std::map<const Value*, ValueTypeInfo*>;
-  std::map<const Function*, PerFunctionLocalMapType> LocalMaps;
+  using PerFunctionLocalMapType = std::map<const Value *, ValueTypeInfo *>;
+  std::map<const Function *, PerFunctionLocalMapType> LocalMaps;
 
   // Compiler constants such as 'undef' and 'null' need to have context
   // sensitive information. For example:
@@ -600,8 +635,67 @@ public:
     // Build the type that will be used when analyzing the instruction.
     DTransType *FieldTypes[2] = {
         PTA.getDTransI8PtrType(),
-        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx)) };
+        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx))};
     DTransLandingPadTy = TM.getOrCreateLiteralStructType(Ctx, FieldTypes);
+  }
+
+  // CFE is not attaching DTrans's metadata for GlobalVariables in rare case
+  // (CMPLRLLVM-41694). As a workaround for now, infer DTransType info for a
+  // GlobalVariable from Initializer if possible when metadata is missing for
+  // the GlobalVariable. Only literal struct with either integer or pointer type
+  // fields are allowed.
+  bool inferDTransTypeForGlobalVar(GlobalVariable &GV, ValueTypeInfo *Info) {
+
+    // Returns single alias type for "C" if there is one.
+    auto GetSingleAliasTypeForConstant = [&](Constant *C) -> DTransType * {
+      if (isCompilerConstant(C))
+        return nullptr;
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(C);
+      if (!Info || Info->getUnhandled() || !Info->isCompletelyAnalyzed())
+        return nullptr;
+      auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+      if (UseAliases.size() != 1)
+        return nullptr;
+      return *UseAliases.begin();
+    };
+
+    // Allow only literal structs.
+    auto *StTy = dyn_cast<StructType>(GV.getValueType());
+    if (!StTy || !StTy->isLiteral())
+      return false;
+    // Ignore if there is already metadata attached.
+    DTransType *DType = MDReader.getDTransTypeFromMD(&GV);
+    if (DType)
+      return false;
+    // Allow only simple structs with either int or ptr fields.
+    for (auto *ETy : StTy->elements())
+      if (!ETy->isIntOrPtrTy())
+        return false;
+    if (!GV.hasUniqueInitializer() || !GV.hasDefinitiveInitializer())
+      return false;
+    ConstantStruct *CS = dyn_cast<ConstantStruct>(GV.getInitializer());
+    if (!CS || CS->getNumOperands() != StTy->getNumElements())
+      return false;
+    // Infer type of struct fields from init values.
+    SmallVector<DTransType *, 4> FieldTypes;
+    for (unsigned I = 0, E = CS->getNumOperands(); I != E; ++I) {
+      Constant *CE = CS->getOperand(I);
+      if (CE->getType()->isIntegerTy()) {
+        FieldTypes.push_back(TM.getOrCreateSimpleType(CE->getType()));
+      } else if (CE->getType()->isPointerTy()) {
+        DTransType *DTy = GetSingleAliasTypeForConstant(CE);
+        if (!DTy)
+          return false;
+        FieldTypes.push_back(DTy);
+      } else {
+        llvm_unreachable("Expected int or ptr type\n");
+      }
+    }
+    DTransStructType *DTy =
+        TM.getOrCreateLiteralStructType(GV.getType()->getContext(), FieldTypes);
+    Info->addTypeAlias(ValueTypeInfo::VAT_Decl, TM.getOrCreatePointerType(DTy));
+    Info->setCompletelyAnalyzed();
+    return true;
   }
 
   void visitModule(Module &M) {
@@ -651,6 +745,8 @@ public:
                         << F.getName() << "\n");
     }
 
+    SmallVector<GlobalVariable *, 8> LiteralStructGVS;
+
     // Get the type of all the global variable pointers that were annotated with
     // metadata. Note, GlobalVariables are pointers to a value type. The type
     // recovered is the variable's value type, so we need to make a pointer to
@@ -676,6 +772,14 @@ public:
       if (GV.isDeclaration() && handleLibraryGlobal(GV, Info))
         continue;
 
+      // Literal structs without metadata are handled in
+      // inferDTransTypeForGlobalVar routine as a workaround.
+      auto *StTy = dyn_cast<StructType>(ValTy);
+      if (StTy && StTy->isLiteral()) {
+        LiteralStructGVS.push_back(&GV);
+        continue;
+      }
+
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unable to set declared type for global variable: "
                         << GV.getName() << "\n");
@@ -685,13 +789,25 @@ public:
     // the uses of them within constant expressions.
     for (auto &F : M)
       for (auto *U : F.users())
-        if (auto *CE = dyn_cast<ConstantExpr>(U))
-          analyzeConstantExpr(CE);
+        analyzeGVUser(U);
 
     for (auto &GV : M.globals())
       for (auto *U : GV.users())
-        if (auto *CE = dyn_cast<ConstantExpr>(U))
-          analyzeConstantExpr(CE);
+        analyzeGVUser(U);
+
+    // Trying to infer types for literal struct global variables without
+    // metadata after processing uses of Globals/Aliases since the inferring
+    // depends on types of Globals/Aliases.
+    // For now, not processing uses of literal struct global variables without
+    // metadata after inferring types.
+    for (auto *GV : LiteralStructGVS) {
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(GV);
+      if (!inferDTransTypeForGlobalVar(*GV, Info)) {
+        Info->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unable to set type for literal global variable: "
+                          << GV->getName() << "\n");
+      }
+    }
   }
 
   // For certain library global variables that are of known types, set them
@@ -870,8 +986,9 @@ public:
       }
       if (Pred != CmpInst::Predicate::ICMP_SGT &&
           Pred != CmpInst::Predicate::ICMP_UGT) {
-        DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
-                          dbgs() << "Not matched. icmp predicate isn't sgt/ugt!\n");
+        DEBUG_WITH_TYPE_P(
+            FNFilter, DTRANS_PARTIALPTR,
+            dbgs() << "Not matched. icmp predicate isn't sgt/ugt!\n");
         return false;
       }
 
@@ -1138,6 +1255,23 @@ public:
     }
   }
 
+  // Return 'true' if the Value may be tracked as a pointer type.
+  bool isValueOfInterest(Value *V) {
+    llvm::Type *Ty = V->getType();
+    if (dtrans::hasPointerType(Ty))
+      return true;
+
+    if (!isCompilerConstant(V)) {
+      // Check if the operand is derived from a pointer type, such as a PtrToInt
+      // operator of a global variable.
+      ValueTypeInfo *Info = PTA.getValueTypeInfo(V);
+      if (Info && !Info->empty())
+        return true;
+    }
+
+    return false;
+  }
+
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) { analyzeValue(&I); }
   void visitAtomicRMWInst(AtomicRMWInst &I) { analyzeValue(&I); }
@@ -1152,7 +1286,7 @@ public:
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
-  void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
+  void visitFreezeInst(FreezeInst &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitInsertValueInst(InsertValueInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
@@ -1240,8 +1374,8 @@ public:
               }
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
-                PointerInfo->addElementPointee(
-                    ValueTypeInfo::VAT_Use, ElemZeroPair.value().first, 0);
+                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                               ElemZeroPair.value().first, 0);
                 ValueInfo->addTypeAlias(Kind, ElemZeroPair.value().second);
 
                 // Need to defer updating the PointerInfo until the loop
@@ -1265,6 +1399,17 @@ public:
       PropagateDereferencedType(PtrInfo, ValInfo,
                                 ValueTypeInfo::ValueAnalysisType::VAT_Use);
       ValInfo->setCompletelyAnalyzed();
+    }
+  }
+
+  void visitCatchPad(CatchPadInst &I) {
+    // CatchPad can have pointer arguments that are used by personality
+    // function.
+    for (unsigned AI = 0, AE = I.arg_size(); AI < AE; AI++) {
+      Value *V = I.getArgOperand(AI);
+      if (isCompilerConstant(V) || !dtrans::hasPointerType(V->getType()))
+        continue;
+      analyzeValue(V);
     }
   }
 
@@ -1373,7 +1518,6 @@ private:
         PTA.setUnsupportedAddressSpaceSeen();
       }
     }
-
 
     // Check for the special DTrans type metadata, !dtrans-type, used to
     // communicate type information between DTrans passes because of IR
@@ -1719,8 +1863,8 @@ private:
     if (OtherOp == ValueToInfer)
       OtherOp = ICmp->getOperand(1);
 
-    // Disallow "icmp <pred> ptr %x, %x" since it should not occur, and we cannot
-    // get information about one argument by examining the other.
+    // Disallow "icmp <pred> ptr %x, %x" since it should not occur, and we
+    // cannot get information about one argument by examining the other.
     if (OtherOp == ValueToInfer)
       return;
 
@@ -1732,7 +1876,8 @@ private:
 
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(OtherOp);
     if (ValInfo)
-      for (auto *DType : ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      for (auto *DType :
+           ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
         addInferredType(ValueToInfer, DType);
   }
 
@@ -1777,7 +1922,7 @@ private:
     // because we are going to treat any types identified for the value operand
     // as being pointers to the type for the pointer operand, this can lead to
     // many levels of pointer indirection being tracked.
-    // 
+    //
     // For example:
     //   %141 = phi ptr [ %175, %183 ], ...
     //   %170 = ptr @someCall()
@@ -1913,9 +2058,9 @@ private:
               // pointer type, so the storage location should be a
               // pointer-to-pointer type. If that is the case, then add the
               // pointer's element type to the inference set. If the stored
-              // location is not a pointer-to-pointer, but rather a pointer to an
-              // aggregate type, then the store is writing the first field within
-              // the aggregate.
+              // location is not a pointer-to-pointer, but rather a pointer to
+              // an aggregate type, then the store is writing the first field
+              // within the aggregate.
               //
               // Case 1: Store a pointer to an allocated structure
               //   %struct.test03 = type { i32, i32 }
@@ -1940,8 +2085,8 @@ private:
                 auto ElemZeroTy = PTA.getElementZeroType(ElemTy);
                 if (ElemZeroTy && ElemZeroTy.value().second->isPointerTy())
                   addInferredType(PTI, ElemZeroTy.value().second);
+              }
             }
-          }
         }
       }
     }
@@ -2419,7 +2564,7 @@ private:
 
           return;
         }
-      
+
         ResultInfo->setUnhandled();
       }
       return;
@@ -2775,7 +2920,8 @@ private:
 
     DTransType *DType = nullptr;
     Function *Target = dtrans::getCalledFunction(*Call);
-    if (Call->isIndirectCall())
+    // Use type on original indirect call for Devirt's specialized calls.
+    if (Call->isIndirectCall() || Call->getMetadata("_Intel.Devirt.Call"))
       DType = MDReader.getDTransTypeFromMD(Call);
     else if (Target)
       DType = MDReader.getDTransTypeFromMD(Target);
@@ -2868,8 +3014,16 @@ private:
           Agg = DSeqTy->getTypeAtIndex(0);
         } else if (auto *DStTy = dyn_cast<DTransStructType>(Agg)) {
           Value *IndexValue = IdxList[CurIdx];
+          auto *IndexValueAsConstant = dyn_cast<Constant>(IndexValue);
+
+          // If the GEP index value is not a constant, then the indexing must
+          // not be for the expected structure type. Give up, and treat the
+          // addressing as UNHANDLED because we cannot tell what type is being
+          // indexed, or what the GEP result type would be.
+          if (!IndexValueAsConstant)
+            return nullptr;
           uint64_t Idx =
-              cast<Constant>(IndexValue)->getUniqueInteger().getZExtValue();
+              IndexValueAsConstant->getUniqueInteger().getZExtValue();
           if (DStTy->getNumFields() <= Idx)
             return nullptr;
 
@@ -2958,18 +3112,18 @@ private:
           if (IndexedStTy->getNumFields() == 0)
             return false;
 
-          DTransType* FieldTy = IndexedStTy->getFieldType(0);
+          DTransType *FieldTy = IndexedStTy->getFieldType(0);
           if (!FieldTy)
             return false;
 
-          llvm::Type* GEPSrcTy = GEP.getSourceElementType();
-          DTransType* ElemTy = FieldTy;
+          llvm::Type *GEPSrcTy = GEP.getSourceElementType();
+          DTransType *ElemTy = FieldTy;
           bool FoundType = false;
           while (ElemTy->isAggregateType()) {
             FieldTy = ElemTy;
             if (ElemTy->isArrayTy())
               ElemTy = ElemTy->getArrayElementType();
-            else if (auto* NestedStTy = dyn_cast<DTransStructType>(ElemTy))
+            else if (auto *NestedStTy = dyn_cast<DTransStructType>(ElemTy))
               ElemTy = NestedStTy->getFieldType(0);
             else
               llvm_unreachable("Expected Array or Structure type\n");
@@ -2982,7 +3136,7 @@ private:
           if (!FoundType)
             return false;
 
-          DTransType* PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
+          DTransType *PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
           ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, FieldTy, 0);
 
@@ -3110,7 +3264,6 @@ private:
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
                                  PTA.getDTransI8PtrType());
     }
-
 
     // When opaque pointers are used, the known type of pointer may not
     // match the indexed type, so add that type as one of the 'usage' types
@@ -3708,24 +3861,30 @@ private:
 
     // Returns true if "IV" is transitively used by ResumeInst only
     // through other InsertValue instructions or no real uses.
-    auto IsUsedByOnlyResumeInst = [] (InsertValueInst *IV) {
+    auto IsUsedByOnlyResumeInst = [](InsertValueInst *IV) {
       SmallVector<const User *, 4> WorkList(IV->user_begin(), IV->user_end());
       while (!WorkList.empty()) {
         const User *U = WorkList.pop_back_val();
         if (isa<InsertValueInst>(U))
           for (const User *UU : U->users())
             WorkList.push_back(UU);
-	else if (!isa<ResumeInst>(U))
+        else if (!isa<ResumeInst>(U))
           return false;
       }
       return true;
     };
 
+    // No need to collect types when the result type does not contain pointers
+    // or was derived from pointers.
+    if (!isValueOfInterest(IV) &&
+        !isValueOfInterest(IV->getInsertedValueOperand()))
+      return;
+
     // Currently, only handle cases with a single index value and return
     // type { i8*, i32 }.
     if (IV->getNumIndices() > 1 ||
         IV->getType() != getDTransLandingPadTy()->getLLVMType() ||
-	!IsUsedByOnlyResumeInst(IV)) {
+        !IsUsedByOnlyResumeInst(IV)) {
       ResultInfo->setUnhandled();
       LLVM_DEBUG(
           dbgs() << "Unhandled InsertValueInst due to number of indices: "
@@ -3739,8 +3898,7 @@ private:
       return;
     // Allow only I8* type for value operand.
     ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(Val);
-    for (auto Alias :
-         ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+    for (auto Alias : ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
       if (!Alias->isPointerTy())
         continue;
       if (Alias != PTA.getDTransI8PtrType()) {
@@ -3796,7 +3954,7 @@ private:
   }
 
   void analyzeExtractValueInst(ExtractValueInst *EV,
-    ValueTypeInfo *ResultInfo) {
+                               ValueTypeInfo *ResultInfo) {
     if (!isTypeOfInterest(EV->getType()))
       return;
 
@@ -3804,8 +3962,8 @@ private:
     if (EV->getNumIndices() > 1) {
       ResultInfo->setUnhandled();
       LLVM_DEBUG(
-        dbgs() << "Unhandled ExtractValueInst due to number of indices: "
-        << *EV << "\n");
+          dbgs() << "Unhandled ExtractValueInst due to number of indices: "
+                 << *EV << "\n");
       return;
     }
 
@@ -3813,7 +3971,7 @@ private:
     unsigned Idx = EV->getAggregateOperandIndex();
     ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
     for (auto Alias :
-      SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+         SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
       if (!Alias->isAggregateType())
         continue;
 
@@ -3822,12 +3980,10 @@ private:
         for (auto *FieldTTy : Field.getTypes())
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, FieldTTy);
         continue;
-      }
-      else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
+      } else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
-          DSeqTy->getTypeAtIndex(0));
-      }
-      else {
+                                 DSeqTy->getTypeAtIndex(0));
+      } else {
         ResultInfo->setUnhandled();
         LLVM_DEBUG(dbgs() << "Unahndled ExtractValue: " << *EV << "\n");
       }
@@ -3886,84 +4042,85 @@ private:
     //   structure should not be traversed as a potential zero-element load.
     //
     auto &LocalTM = this->TM;
-    auto PropagateDereferencedType =
-        [&LocalTM](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
-                   ValueTypeInfo::ValueAnalysisType Kind,
-                   bool LoadingAggregateType) {
-          // This may also identify that it appears that an element-zero
-          // location of an aggregate is being loaded. In this case the
-          // PointerInfo will be updated to reflect that the pointer operand is
-          // being used as an element-pointee.
-          SmallVector<DTransType *, 4> PendingTypes;
-          for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
-            DTransType *PropAlias = nullptr;
-            if (!Alias->isPointerTy())
-              continue;
+    auto PropagateDereferencedType = [&LocalTM](
+                                         ValueTypeInfo *PointerInfo,
+                                         ValueTypeInfo *ResultInfo,
+                                         ValueTypeInfo::ValueAnalysisType Kind,
+                                         bool LoadingAggregateType) {
+      // This may also identify that it appears that an element-zero
+      // location of an aggregate is being loaded. In this case the
+      // PointerInfo will be updated to reflect that the pointer operand is
+      // being used as an element-pointee.
+      SmallVector<DTransType *, 4> PendingTypes;
+      for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+        DTransType *PropAlias = nullptr;
+        if (!Alias->isPointerTy())
+          continue;
 
-            PropAlias = Alias->getPointerElementType();
-            // CMPLRLLVM-32994: If the structure is opaque (structure without
-            // body), then we can't collect field 0.
-            //
-            // TODO: We still need to expand this analysis to handle the case
-            // when a pointer to an opaque structure is being cast to a
-            // pointer to a structure with body. For example:
-            //
-            // %struct.test01 = type opaque
-            // %struct.test02 = type { %struct.test02*, i32 }
-            //
-            // define internal void @foo(%struct.test01* %arg) {
-            // entry:
-            //   %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
-            //   %tmp1 = load %struct.test02*, %struct.test02** %tmp0
-            //   ret void
-            // }
-            //
-            // Function @foo will look as follows in the case of opaque
-            // pointers:
-            //
-            // define internal void @foo(ptr %arg) {
-            // entry:
-            //   %tmp0 = load ptr, ptr %arg
-            //   ret void
-            // }
-            //
-            // Notice that the bitcast instruction is gone and the pointer
-            // analyzer will assume that instruction %tmp0 is loading a
-            // pointer to %struct.test01 rather than %struct.test02.
-            if (!LoadingAggregateType && PropAlias->isAggregateType() &&
-                PropAlias->getNumContainedElements() != 0) {
-              // If the pointer was a pointer to an aggregate and we are not
-              // expecting an aggregate type to be loaded (i.e. an array, such
-              // as [2xi16*], or a literal structure, such as {i32, i32}, then
-              // this could be an element zero load of a pointer within a nested
-              // type. Try to find the type.
-              DTransType *PrevNestedType = nullptr;
-              DTransType *NestedType = PropAlias;
-              while (NestedType && !NestedType->isPointerTy()) {
-                PrevNestedType = NestedType;
-                if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
-                  NestedType = StTy->getFieldType(0);
-                else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
-                  NestedType = ArTy->getElementType();
-                else
-                  NestedType = nullptr;
-              }
-
-              if (PrevNestedType->isAggregateType())
-                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
-                                               PrevNestedType, 0);
-              if (NestedType) {
-                ResultInfo->addTypeAlias(Kind, NestedType);
-                PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
-              }
-            } else {
-              ResultInfo->addTypeAlias(Kind, PropAlias);
-            }
+        PropAlias = Alias->getPointerElementType();
+        // CMPLRLLVM-32994: If the structure is opaque (structure without
+        // body), then we can't collect field 0.
+        //
+        // TODO: We still need to expand this analysis to handle the case
+        // when a pointer to an opaque structure is being cast to a
+        // pointer to a structure with body. For example:
+        //
+        // %struct.test01 = type opaque
+        // %struct.test02 = type { %struct.test02*, i32 }
+        //
+        // define internal void @foo(%struct.test01* %arg) {
+        // entry:
+        //   %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
+        //   %tmp1 = load %struct.test02*, %struct.test02** %tmp0
+        //   ret void
+        // }
+        //
+        // Function @foo will look as follows in the case of opaque
+        // pointers:
+        //
+        // define internal void @foo(ptr %arg) {
+        // entry:
+        //   %tmp0 = load ptr, ptr %arg
+        //   ret void
+        // }
+        //
+        // Notice that the bitcast instruction is gone and the pointer
+        // analyzer will assume that instruction %tmp0 is loading a
+        // pointer to %struct.test01 rather than %struct.test02.
+        if (!LoadingAggregateType && PropAlias->isAggregateType() &&
+            PropAlias->getNumContainedElements() != 0) {
+          // If the pointer was a pointer to an aggregate and we are not
+          // expecting an aggregate type to be loaded (i.e. an array, such
+          // as [2xi16*], or a literal structure, such as {i32, i32}, then
+          // this could be an element zero load of a pointer within a nested
+          // type. Try to find the type.
+          DTransType *PrevNestedType = nullptr;
+          DTransType *NestedType = PropAlias;
+          while (NestedType && !NestedType->isPointerTy()) {
+            PrevNestedType = NestedType;
+            if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+              NestedType = StTy->getFieldType(0);
+            else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+              NestedType = ArTy->getElementType();
+            else
+              NestedType = nullptr;
           }
 
-          for (auto *Ty : PendingTypes)
-            PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
-        };
+          if (PrevNestedType->isAggregateType())
+            PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                           PrevNestedType, 0);
+          if (NestedType) {
+            ResultInfo->addTypeAlias(Kind, NestedType);
+            PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
+          }
+        } else {
+          ResultInfo->addTypeAlias(Kind, PropAlias);
+        }
+      }
+
+      for (auto *Ty : PendingTypes)
+        PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
+    };
 
     llvm::Type *ValTy = LI->getType();
 
@@ -4062,7 +4219,7 @@ private:
       // %x contains a pointer alias type and an element pointee of a structure,
       // but %z is just being updated to be the pointee type from %x.
       if (DerefLevel == DerefType::DT_SameType)
-        for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
+        for (const auto &PointeePair : SrcInfo->getElementPointeeSet(Kind))
           LocalChanged |= DestInfo->addElementPointee(Kind, PointeePair);
 
       return LocalChanged;
@@ -4207,8 +4364,8 @@ private:
       // variables. In order to ensure the updates to ResultInfo are
       // deterministic, we need to check all the Globals against the ResultInfo
       // before we start adding types into the ResultInfo.
-      SmallPtrSet<ValueTypeInfo*, 4> InfosToMerge;
-      SmallPtrSet<DTransType*, 4> ElementZeroPointeesToAdd;
+      SmallPtrSet<ValueTypeInfo *, 4> InfosToMerge;
+      SmallPtrSet<DTransType *, 4> ElementZeroPointeesToAdd;
       for (auto *GO : PossibleGlobalWithElidedGEP) {
         ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(GO);
         bool IsElementZero = false;
@@ -4221,7 +4378,7 @@ private:
               if (AliasTy == GOType)
                 continue;
 
-              DTransType* AccessedType = nullptr;
+              DTransType *AccessedType = nullptr;
               if (PTA.isElementZeroAccess(GOType, AliasTy, &AccessedType)) {
                 IsElementZero = true;
                 ElementZeroPointeesToAdd.insert(AccessedType);
@@ -4272,6 +4429,20 @@ private:
       ResultInfo->setPartiallyAnalyzed();
   }
 
+  void analyzeGVUser(User *U) {
+    if (auto *CE = dyn_cast<ConstantExpr>(U)) {
+      analyzeConstantExpr(CE);
+    } else if (auto *GA = dyn_cast<GlobalAlias>(U)) {
+      ValueTypeInfo *DInfo = PTA.getOrCreateValueTypeInfo(GA);
+      ValueTypeInfo *SInfo = PTA.getOrCreateValueTypeInfo(GA->getAliasee());
+      propagate(SInfo, DInfo, /*Decl=*/true, /*Use=*/true,
+                DerefType::DT_SameType);
+      DInfo->setCompletelyAnalyzed();
+      for (auto *UU : GA->users())
+        analyzeGVUser(UU);
+    }
+  }
+
   // Perform pointer type analysis for constant operator expressions
   void analyzeConstantExpr(ConstantExpr *CE) {
     // This verbose trace is not using the filtering predicate test because
@@ -4299,8 +4470,7 @@ private:
     }
 
     for (auto *U : CE->users())
-      if (auto *UCE = dyn_cast<ConstantExpr>(U))
-        analyzeConstantExpr(UCE);
+      analyzeGVUser(U);
 
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
       dbgs() << "End analyzeConstantExpr for: ";
@@ -4309,9 +4479,7 @@ private:
     });
   }
 
-  DTransStructType *getDTransLandingPadTy() const {
-    return DTransLandingPadTy;
-  }
+  DTransStructType *getDTransLandingPadTy() const { return DTransLandingPadTy; }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -4698,7 +4866,7 @@ void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
       printValue(dbgs(), GEP);
       dbgs() << " - Multiplier = " << Multiplier;
       dbgs() << "\n";
-      });
+    });
 }
 
 llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
@@ -4706,8 +4874,8 @@ PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
   auto Entry = FlattenedGEPInfoMap.find(GEP);
   if (Entry != FlattenedGEPInfoMap.end())
     return Entry->second;
-    
-  return None;
+
+  return std::nullopt;
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
@@ -4774,6 +4942,10 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   }
 
   return getValueTypeInfo(V);
+}
+
+DTransType *PtrTypeAnalyzerImpl::getDTransTypeFromMD(const Value *V) const {
+  return MDReader.getDTransTypeFromMD(V);
 }
 
 void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, DTransType *Ty) {
@@ -5140,7 +5312,7 @@ bool PtrTypeAnalyzerImpl::isPointeeElementZeroAccess(
 Optional<PtrTypeAnalyzerImpl::AggregateElementPair>
 PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
   if (!Ty->isAggregateType())
-    return None;
+    return std::nullopt;
 
   DTransType *LastAggregateType = Ty;
   DTransType *NestedType = Ty;
@@ -5149,7 +5321,7 @@ PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
     if (auto *StTy = dyn_cast<DTransStructType>(NestedType)) {
       NestedType = StTy->getFieldType(0);
       if (!NestedType)
-        return None;
+        return std::nullopt;
 
       continue;
     }
@@ -5203,6 +5375,10 @@ ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Value *V) const {
 ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const User *U,
                                                  unsigned OpNum) const {
   return Impl->getValueTypeInfo(U, OpNum);
+}
+
+DTransType *PtrTypeAnalyzer::getDTransTypeFromMD(const Value *V) const {
+  return Impl->getDTransTypeFromMD(V);
 }
 
 bool PtrTypeAnalyzer::isElementZeroAccess(DTransType *SrcTy,

@@ -41,6 +41,12 @@ class ProfileSummaryInfo;
 
 using namespace InlineReportTypes;
 
+// Functions called at the beginning and end of analyzing a call site.
+
+extern void intelStartAnalysisForCall(CallBase &CB, const InlineParams &Params);
+
+extern void intelFinalizeAnalysisForCall(CallBase &CB, bool IsSuccess);
+
 // Return 'true' if 'F' is a huge function. In particular, huge functions
 // are less preferred for inlining, even if there is only one callsite.
 extern bool isHugeFunction(Function *F, InliningLoopInfoCache *ILIC,

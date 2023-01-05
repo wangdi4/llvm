@@ -1,5 +1,3 @@
-; RUN: opt %s -dpcpp-kernel-sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-kernel-sg-size-collector-indirect -S | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector-indirect -S | FileCheck %s
 

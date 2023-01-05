@@ -18,7 +18,9 @@
 #include "CL/cl_fpga_ext.h"
 #include "CL/cl_usm_ext.h"
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
 DECLARE_ALIAS(clGetPlatformIDs);
 DECLARE_ALIAS(clGetPlatformInfo);
@@ -169,4 +171,6 @@ DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
 DECLARE_ALIAS(clCreateBufferWithPropertiesINTEL);
 DECLARE_ALIAS(clSetContextDestructorCallback);
 DECLARE_ALIAS(clSetProgramReleaseCallback);
-}}}
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

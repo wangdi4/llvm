@@ -254,14 +254,17 @@ static bool isLoopInvariantAddressRef(const RegDDRef *Ref) {
   return Ref->isStructurallyInvariantAtLevel(NestingLevel);
 }
 
-/// Recognize following pattern in the Header:
+/// Recognize search loop idioms that require peeling for correctness.
+/// Currently we have two such idioms:  PtrEq and ValueCmp.
+///
+/// For the PtrEq idiom, recognize the following pattern in the Header:
 ///   if (a[i1] == &b[x])   // a[i1] can be executed speculatively and b[x] is
 ///                         // loop-invariant.
 ///
-/// If the above predicate is found in the loop header, then ensure that loop
-/// contains only the predicate along with optional  live-out instructions to
-/// capture the found result. Effectively we try to recognize a need-in-haystack
-/// search loop where an array of struct pointers is searched.
+/// If the above predicate is found in the loop header, then ensure the loop
+/// contains only the predicate along with optional live-out instructions to
+/// capture the found result. Effectively we try to recognize a needle-
+/// in-haystack search loop where an array of pointers is searched.
 ///
 ///  + DO i1 = 0, UB, 1 <DO_MULTI_EXIT_LOOP>
 ///  |   if ((%a)[i1] == &((%b)[0]))
@@ -271,12 +274,39 @@ static bool isLoopInvariantAddressRef(const RegDDRef *Ref) {
 ///  |   }
 ///  + END LOOP
 ///
+/// For the ValueCmp idiom, recognize the following pattern in the Header:
+///   if (a[i1] <cmpop> b)  // a[i1] can be executed speculatively, <cmpop>
+///                         // is any reasonable comparison operator, and b
+///                         // is loop-invariant.
+///
+/// If the above predicate is found in the loop header, then ensure that the
+/// loop contains only the predicate along with optional live-out instructions
+/// to capture the identified loop index.
+///
+///  + DO i1 = 0, UB, 1 <DO_MULTI_EXIT_LOOP>
+///  |   if ((%a)[i1] <cmpop> %b)   (*)
+///  |   {
+///  |      %index = i1;
+///  |      goto index_found;
+///  |   }
+///  + END LOOP
+///
+/// (*) Note that the DDRef could have more dimensions, e.g., (%a)[0][i1].
 VPlanIdioms::Opcode
-VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
-                               const bool AllowMemorySpeculation,
-                               RegDDRef *&PeelArrayRef) {
+VPlanIdioms::isSearchLoopNeedingPeeling(const VPBasicBlock *Block,
+                                        const bool AllowMemorySpeculation,
+                                        RegDDRef *&PeelArrayRef,
+                                        const VPlanIdioms::Opcode Idiom) {
+  bool CheckPtrEq = Idiom == VPlanIdioms::SearchLoopPtrEq;
+  bool CheckValueCmp = Idiom == VPlanIdioms::SearchLoopValueCmp;
+  assert((CheckPtrEq || CheckValueCmp)
+         && "Wrong idiom for peeled search loop");
+
   // Item that is found in the list being searched.
   const RegDDRef *ListItemRef = nullptr;
+
+  // For ValueCmp, index to be returned.
+  const CanonExpr *PredLhsIndex = nullptr;
 
   for (const VPInstruction &InstRef : *Block) {
     const auto Inst = cast<const VPInstruction>(&InstRef);
@@ -305,7 +335,7 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
     auto *If = dyn_cast<HLIf>(DDNode);
     if (!If) {
       LLVM_DEBUG(
-          dbgs() << "        Search loop expected to have only HLIf node.\n");
+          dbgs() << "        Search loop expected to have an HLIf node.\n");
       return VPlanIdioms::Unsafe;
     }
 
@@ -313,7 +343,7 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
 
     if (If->getNextNode() || If->getPrevNode()) {
       LLVM_DEBUG(
-          dbgs() << "        Search is expected to have HLIf node only\n.");
+          dbgs() << "        Search is expected to have only an HLIf node\n.");
       return VPlanIdioms::Unsafe;
     }
 
@@ -330,7 +360,11 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
 
     auto PredIt = If->pred_begin();
 
-    if (*PredIt != PredicateTy::ICMP_EQ) {
+    if ((CheckPtrEq && *PredIt != PredicateTy::ICMP_EQ)
+        || (CheckValueCmp && (*PredIt == PredicateTy::FCMP_FALSE
+                              || *PredIt == PredicateTy::FCMP_ORD
+                              || *PredIt == PredicateTy::FCMP_UNO
+                              || *PredIt == PredicateTy::FCMP_TRUE))) {
       LLVM_DEBUG(dbgs() << "        PredicateTy " << *PredIt;
                  dbgs() << " is unsafe.\n");
       return VPlanIdioms::Unsafe;
@@ -345,7 +379,7 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
                dbgs() << "\n");
 
     if (!canSpeculate(PredLhs, false /*CheckPadding*/) ||
-        !PredLhsType->isPointerTy()) {
+        (CheckPtrEq && !PredLhsType->isPointerTy())) {
       LLVM_DEBUG(dbgs() << "        RegDDRef "; PredLhs->dump();
                  dbgs() << " is unsafe.\n");
       return VPlanIdioms::Unsafe;
@@ -353,31 +387,72 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
     // LHS of predicate matched, save for later checks.
     ListItemRef = PredLhs;
 
-    // Check that struct pointer size is same as loop bound's size.
     const HLLoop *IfParLoop = If->getParentLoop();
     assert(IfParLoop && "Expected the HLIf to have a valid parent-loop");
     HLNodeUtils &HNU = IfParLoop->getHLNodeUtils();
     CanonExprUtils &CEU = HNU.getCanonExprUtils();
-    unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
     const RegDDRef *LoopUB = IfParLoop->getUpperDDRef();
     assert(LoopUB && "Cannot find UB DDRef of loop.");
     unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
 
-    if (PtrSize != LoopUBTypeSize) {
-      LLVM_DEBUG(dbgs() << "        Array ref to peel "; ListItemRef->dump();
-                 dbgs() << " is not same size as loop bounds.\n");
-      return VPlanIdioms::Unsafe;
+    if (CheckPtrEq) {
+      // Check that struct pointer size is same as loop bound's size.
+      // TODO: It would be good to relax this at some point.  See the TODO
+      // in HLLoop::generatePeelLoop().  We can miss opportunities when
+      // the pointer type is i64 and the LoopUB is i32, for example.
+      unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
+
+      if (PtrSize != LoopUBTypeSize) {
+        LLVM_DEBUG(dbgs() << "        Array ref to peel "; ListItemRef->dump();
+                   dbgs() << " is not same size as loop bounds.\n");
+        return VPlanIdioms::Unsafe;
+      }
+
+      if (!isLoopInvariantAddressRef(PredRhs)) {
+        // TODO: Should we check that the struct type match exactly?
+        LLVM_DEBUG(dbgs() << "        RegDDRef "; PredRhs->dump();
+                   dbgs() << " is unsafe.\n");
+        return VPlanIdioms::Unsafe;
+      }
+
+    } else {
+
+      if (!PredLhs->isMemRef()) {
+        LLVM_DEBUG(dbgs() << "        RegDDRef "; PredLhs->dump();
+                   dbgs() << " is not an array access.\n");
+        return VPlanIdioms::Unsafe;
+      }
+
+      // Check that the size of a pointer to an array element is the same
+      // as the loop bound's size, when the loop bound isn't constant.
+      // TODO: It would be good to relax this at some point.  See the TODO
+      // in HLLoop::generatePeelLoop().  We can miss opportunities when
+      // the pointer type is i64 and the LoopUB is i32, for example.
+      if (!LoopUB->isIntConstant()) {
+        const CanonExpr *PeelArrayBase = ListItemRef->getBaseCE();
+        if (CEU.getTypeSizeInBytes(PeelArrayBase->getSrcType())
+            != LoopUBTypeSize) {
+          LLVM_DEBUG(dbgs() << "        Array ref to peel ";
+                     ListItemRef->dump();
+                     dbgs() << " is not same size as loop bounds.\n");
+          return VPlanIdioms::Unsafe;
+        }
+      }
+
+      // The rightmost index is the expected search value.
+      PredLhsIndex = PredLhs->getDimensionIndex(1);
+
+      unsigned NestingLevel = If->getParentLoop()->getNestingLevel();
+      if (!PredRhs->isStructurallyInvariantAtLevel(NestingLevel)) {
+        LLVM_DEBUG(dbgs() << "        Comparand "; PredRhs->dump();
+                   dbgs() << " is unsafe.\n");
+        return VPlanIdioms::Unsafe;
+      }
     }
 
-    if (!isLoopInvariantAddressRef(PredRhs)) {
-      // TODO: Should we check that the struct type match exactly?
-      LLVM_DEBUG(dbgs() << "        RegDDRef "; PredRhs->dump();
-                 dbgs() << " is unsafe.\n");
-      return VPlanIdioms::Unsafe;
-    }
 
     // Predicate checks passed, now check for nodes in then branch of HLIf.
-    if (!checkPtrEqThenNodes(If, ListItemRef)) {
+    if (!checkThenNodes(If, ListItemRef, PredLhsIndex, Idiom)) {
       LLVM_DEBUG(
           dbgs() << "        Unsafe instructions in then branch of HLIf.\n");
       return VPlanIdioms::Unsafe;
@@ -391,24 +466,43 @@ VPlanIdioms::isPtrEqSearchLoop(const VPBasicBlock *Block,
   }
   // All checks passed, idiom is recognized.
   PeelArrayRef = const_cast<RegDDRef *>(ListItemRef);
-  return VPlanIdioms::SearchLoopPtrEq;
+  return Idiom;
 }
 
-/// Checks if the nodes in the then-branch of \p If match the PtrEq idiom.
-bool VPlanIdioms::checkPtrEqThenNodes(const HLIf *If,
-                                      const RegDDRef *ListItemRef) {
-  bool ListItemCaptured = false;
+/// Checks if the nodes in the then-branch of \p If match the expected
+/// idiom (either PtrEq or ValueCmp).  For PtrEq, the then-branch should
+/// be of the form:
+///  |   {
+///  |      %needle = &((%a)[i1]);
+///  |      goto needle_found;
+///  |   }
+/// For ValueCmp, the then-branch should be of the form:
+///  |   {
+///  |      %index = i1;
+///  |      goto index_found;
+///  |   }
+/// In both cases, i1 is the index of the search loop.
+bool VPlanIdioms::checkThenNodes(const HLIf *If,
+                                 const RegDDRef *ListItemRef,
+                                 const CanonExpr *LastIndex,
+                                 const VPlanIdioms::Opcode Idiom) {
+
+  bool CheckPtrEq = Idiom == VPlanIdioms::SearchLoopPtrEq;
+  bool CheckValueCmp = Idiom == VPlanIdioms::SearchLoopValueCmp;
+  bool ListItemOrLastIndexCaptured = false;
+
   for (const HLNode &ThenNode : make_range(If->then_begin(), If->then_end())) {
     if (const auto HInst = dyn_cast<const HLInst>(&ThenNode)) {
-      if (ListItemCaptured) {
-        LLVM_DEBUG(dbgs() << "        List item was already captured. More "
-                             "instructions in then-branch are unsafe.\n");
+      if (ListItemOrLastIndexCaptured) {
+        LLVM_DEBUG(dbgs() << "        List item or last index was already "
+                   "captured. More instructions in then-branch are unsafe.\n");
         return false;
       }
 
-      // Restrict allowed HLInsts to copy instructions or GEPs.
+      // Restrict allowed HLInsts to copy instructions, or GEPs for PtrEq.
       auto UnderlyingInst = HInst->getLLVMInstruction();
-      if (!HInst->isCopyInst() && !isa<GetElementPtrInst>(UnderlyingInst)) {
+      if (!(HInst->isCopyInst()
+            || (CheckPtrEq && isa<GetElementPtrInst>(UnderlyingInst)))) {
         LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
                    dbgs() << " is unsafe.\n");
         return false;
@@ -422,34 +516,45 @@ bool VPlanIdioms::checkPtrEqThenNodes(const HLIf *If,
       }
 
       const RegDDRef *RvalRef = HInst->getRvalDDRef();
-      if (!RvalRef->isAddressOf()) {
+      if (!((CheckPtrEq && RvalRef->isAddressOf())
+            || (CheckValueCmp && RvalRef->isTerminalRef()))) {
         LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
                    dbgs() << " is unsafe.\n");
         return false;
       }
 
-      if (!RvalRef->getDDRefUtils().areEqualWithoutAddressOf(RvalRef,
-                                                             ListItemRef)) {
-        LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
-                   dbgs() << " is unsafe.\n");
-        return false;
+      if (CheckPtrEq) {
+        if (!DDRefUtils::areEqualWithoutAddressOf(RvalRef,
+                                                  ListItemRef)) {
+          LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
+                     dbgs() << " is unsafe.\n");
+          return false;
+        }
+      } else {
+        const CanonExpr *CE = RvalRef->getSingleCanonExpr();
+        if (!CanonExprUtils::areEqual(CE, LastIndex)) {
+          LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
+                     dbgs() << " is unsafe.\n");
+          return false;
+        }
       }
 
-      // The found list item is captured inside the if-block.
-      ListItemCaptured = true;
+      // The found list item or last index is captured inside the if-block.
+      ListItemOrLastIndexCaptured = true;
 
     } else if (!isa<HLGoto>(&ThenNode)) {
       LLVM_DEBUG(dbgs() << "        Node "; ThenNode.dump();
                  dbgs() << " is unexpected.\n");
       return false;
-    } else if (!ListItemCaptured) {
+    } else if (!ListItemOrLastIndexCaptured) {
       LLVM_DEBUG(
-          dbgs() << "        Found list item is not captured inside loop.\n");
+          dbgs() << "        Found list item or last index is not "
+          "captured inside loop.\n");
       return false;
     }
   }
 
-  // All saefty checks passed.
+  // All safety checks passed.
   return true;
 }
 
@@ -535,19 +640,30 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
   // here.
   if (Opcode != VPlanIdioms::SearchLoopStrEq) {
     // Array being searched for if current search loop matches PtrEq
-    // idiom.
+    // or ValueCmp idiom.
     RegDDRef *ArrayRef = nullptr;
-    Opcode = isPtrEqSearchLoop(Header, false, ArrayRef);
-    if (Opcode != VPlanIdioms::SearchLoopPtrEq) {
-      LLVM_DEBUG(
-          dbgs() << "    StrEq and PtrEq loop was not recognized.\n");
-      return VPlanIdioms::Unsafe;
-    } else {
+    Opcode = isSearchLoopNeedingPeeling(Header, false, ArrayRef,
+                                        VPlanIdioms::SearchLoopPtrEq);
+    if (Opcode == VPlanIdioms::SearchLoopPtrEq) {
       // PtrEq was recognized, ArrayRef cannot be null
       assert(ArrayRef && "PtrEq loop does not have PeelArrayRef.\n");
       LLVM_DEBUG(dbgs() << "    PtrEq loop has PeelArray:";
                  ArrayRef->dump(); dbgs() << "\n");
       PeelArrayRef = ArrayRef;
+    } else {
+      ArrayRef = nullptr;
+      Opcode = isSearchLoopNeedingPeeling(Header, false, ArrayRef,
+                                    VPlanIdioms::SearchLoopValueCmp);
+      if (Opcode == VPlanIdioms::SearchLoopValueCmp) {
+        // ValueCmp was recognized, ArrayRef cannot be null
+        assert(ArrayRef && "ValueCmp loop does not have PeelArrayRef.\n");
+        LLVM_DEBUG(dbgs() << "    ValueCmp loop has PeelArray:";
+                   ArrayRef->dump(); dbgs() << "\n");
+        PeelArrayRef = ArrayRef;
+      } else {
+        LLVM_DEBUG(dbgs() << "    Search loop idiom was not recognized.\n");
+        return VPlanIdioms::Unsafe;
+      }
     }
   }
   IgnoreBlocks.insert(Header);

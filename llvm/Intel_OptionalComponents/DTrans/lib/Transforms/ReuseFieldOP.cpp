@@ -219,7 +219,7 @@ bool ReuseFieldOPImpl::collectCandidateStructFields(
   }
 
   LLVM_DEBUG({
-    for (auto CandidateStructFieldsPair : CandidateStructFields) {
+    for (const auto &CandidateStructFieldsPair : CandidateStructFields) {
       auto StInfo = CandidateStructFieldsPair.first;
       dbgs() << "Candidate structure for reuse field: ";
       StInfo->getLLVMType()->print(dbgs(), true, true);
@@ -422,9 +422,9 @@ bool ReuseFieldOPImpl::classifyCandStoreInst(
 // there is no partial store between SI1 and Load2, so we can make sure %40 is
 // equal to %38.
 void ReuseFieldOPImpl::foldToSameValue(SF2BP2VIMapTy &SF2BP2VIMap) {
-  for (auto SF2BP2VIPair : SF2BP2VIMap) {
+  for (const auto &SF2BP2VIPair : SF2BP2VIMap) {
     auto BP2VIMap = SF2BP2VIPair.getSecond();
-    for (auto BP2VIPair : BP2VIMap) {
+    for (const auto &BP2VIPair : BP2VIMap) {
       Value *BasePointer = BP2VIPair.getFirst();
       Value *StValue = BP2VIPair.getSecond().first;
       StoreInst *StInst = BP2VIPair.getSecond().second;
@@ -664,7 +664,7 @@ bool ReuseFieldOPImpl::isValidPtrOfPtr(Module &M, Value *V,
     return false;
 
   StoreInst *StoreStructIndex = nullptr;
-  for (auto GEPStructIndexUser : StructIndex->users()) {
+  for (auto *GEPStructIndexUser : StructIndex->users()) {
     if (auto ElemGEP = dyn_cast<GetElementPtrInst>(GEPStructIndexUser)) {
       if (ElemGEP->getNumIndices() != 2)
         return false;
@@ -712,7 +712,7 @@ bool ReuseFieldOPImpl::isValidPtrOfPtr(Module &M, Value *V,
   if (!GV)
     return false;
 
-  for (auto GVUser : GV->users()) {
+  for (auto *GVUser : GV->users()) {
     if (auto SI = dyn_cast<StoreInst>(GVUser)) {
       if (SI->getPointerOperand() != GV)
         return false;
@@ -758,7 +758,7 @@ bool ReuseFieldOPImpl::isValidPtrOfPtr(Module &M, Value *V,
     if (!IndexOfPtrOfPtr || IndexOfPtrOfPtr->getNumIndices() != 1)
       return false;
 
-    for (auto IndexOfPtrOfPtrUser : IndexOfPtrOfPtr->users()) {
+    for (auto *IndexOfPtrOfPtrUser : IndexOfPtrOfPtr->users()) {
       auto StructPtr = dyn_cast<LoadInst>(IndexOfPtrOfPtrUser);
       if (!StructPtr) {
         // Store is OK, if it is the pointer operand.
@@ -768,7 +768,7 @@ bool ReuseFieldOPImpl::isValidPtrOfPtr(Module &M, Value *V,
         return false;
       }
 
-      for (auto StructPtrUser : StructPtr->users()) {
+      for (auto *StructPtrUser : StructPtr->users()) {
         if (auto StructField = dyn_cast<GEPOperator>(StructPtrUser)) {
           // Limitation can be relaxed in the future.
           if (StructField->getNumIndices() != 2)
@@ -874,7 +874,7 @@ bool ReuseFieldOPImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
     if (GEP->getNumIndices() != 2)
       return false;
 
-    for (auto User : GEP->users()) {
+    for (auto *User : GEP->users()) {
       auto II = dyn_cast<Instruction>(User);
       if (!II)
         return false;
@@ -922,14 +922,14 @@ bool ReuseFieldOPImpl::isValidPtr(Module &M, Value *V, Value *CorePtr) {
 
       assert(NumIndices == 2);
 
-      for (auto GVFieldUser : GVField->users()) {
+      for (auto *GVFieldUser : GVField->users()) {
         if (auto LI = dyn_cast<LoadInst>(GVFieldUser)) {
           // Get the start address of the candidate structure array now.
           // It's still safe if it doesn't access candidate fields.
-          for (auto LoadUser : LI->users()) {
+          for (auto *LoadUser : LI->users()) {
             if (auto GEP = dyn_cast<GetElementPtrInst>(LoadUser)) {
               if (GEP->getNumIndices() == 1) {
-                for (auto GEPUser : GEP->users()) {
+                for (auto *GEPUser : GEP->users()) {
                   if (auto NextGEP = dyn_cast<GetElementPtrInst>(GEPUser)) {
                     if (!isValid2IndicesGEP(NextGEP))
                       return false;
@@ -1007,25 +1007,26 @@ void ReuseFieldOPImpl::calcFieldsIntersect(
     MissingFieldsListTy &MissingFieldsList) {
   SmallSet<Type *, 8> VisitedStruct;
 
-  LLVM_DEBUG(dbgs() << "======= StructField2FieldsMap =======\n";
-             for (auto Field2FeildsA
-                  : StructField2FieldsMap) {
-               StructFieldTy SF0 = Field2FeildsA.first;
-               SmallVector<size_t> MappingFields0 = Field2FeildsA.second;
+  LLVM_DEBUG({
+    dbgs() << "======= StructField2FieldsMap =======\n";
+    for (const auto &Field2FeildsA : StructField2FieldsMap) {
+      StructFieldTy SF0 = Field2FeildsA.first;
+      SmallVector<size_t> MappingFields0 = Field2FeildsA.second;
 
-               Type *StructTy = SF0.first;
-               size_t Field0 = SF0.second;
+      Type *StructTy = SF0.first;
+      size_t Field0 = SF0.second;
 
-               dbgs() << "LLVM Type: ";
-               StructTy->print(dbgs(), true);
-               dbgs() << " Field: " << Field0 << " Same value fields: { ";
-               for (auto Field : MappingFields0)
-                 dbgs() << Field << " ";
-               dbgs() << "}\n";
-             } dbgs()
-             << "======= calcFieldsIntersect =======\n";);
+      dbgs() << "LLVM Type: ";
+      StructTy->print(dbgs(), true);
+      dbgs() << " Field: " << Field0 << " Same value fields: { ";
+      for (const auto &Field : MappingFields0)
+        dbgs() << Field << " ";
+      dbgs() << "}\n";
+    }
+    dbgs() << "======= calcFieldsIntersect =======\n";
+  });
 
-  for (auto Field2FeildsA : StructField2FieldsMap) {
+  for (const auto &Field2FeildsA : StructField2FieldsMap) {
     StructFieldTy SF0 = Field2FeildsA.first;
     SmallVector<size_t> MappingFields0 = Field2FeildsA.second;
 
@@ -1125,13 +1126,13 @@ bool ReuseFieldOPImpl::doCollection(Module &M) {
   }
 
   LLVM_DEBUG({
-    for (auto StructFieldsPair : StructReuseFieldMap) {
+    for (const auto &StructFieldsPair : StructReuseFieldMap) {
       auto StTy = StructFieldsPair.first;
       dbgs() << "Reused structure: ";
       StTy->print(dbgs(), true, true);
       auto FieldsMap = StructFieldsPair.second;
       dbgs() << "\n    Field mapping are (From:To): { ";
-      for (auto FieldMap : FieldsMap)
+      for (const auto &FieldMap : FieldsMap)
         dbgs() << FieldMap.first << ":" << FieldMap.second << " ";
       dbgs() << "}\n";
     }
@@ -1147,7 +1148,7 @@ bool ReuseFieldOPImpl::doTransformation(Module &M) {
   bool Changed = false;
   auto DL = M.getDataLayout();
 
-  for (auto StructField2LoadsPair : StructField2Loads) {
+  for (const auto &StructField2LoadsPair : StructField2Loads) {
     auto SF = StructField2LoadsPair.first;
     auto &Loads = StructField2LoadsPair.second;
 
@@ -1161,7 +1162,7 @@ bool ReuseFieldOPImpl::doTransformation(Module &M) {
         ToFieldIt->first != ToFieldIt->second) {
 
       bool IsPacked = StructTy->isPacked();
-      for (auto LI : Loads) {
+      for (auto *LI : Loads) {
         auto GEP = cast<GEPOperator>(LI->getPointerOperand());
 
         LLVM_DEBUG(dbgs() << "GEP (before): \n"; GEP->dump(););

@@ -2,7 +2,7 @@
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ;
 ; RUN: opt -enable-new-pm=0 -hir-framework -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" %s 2>&1 | FileCheck %s
 
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **
@@ -10,146 +10,69 @@
 ; WARNING!!!
 
 ; Test src:
-;
-; void foo(int *a, int step) {
+; void foo(int *a, int step, short *p) {
 ;   int x = 10;
 ;   int n = 2;
-; #pragma omp simd linear(n : step) lastprivate(x)
-;   for (int i = 0; i < 100; i++) {
-;     x = i;
-;     a[i] = x;
-;     n += step;
-;   }
+; #pragma omp simd linear(n : step) linear(p : 2) lastprivate(x)
+;   for (int i = 0; i < 100; i++)
+;     ;
 ; }
 
-; Check for wregion-collection's prints to ensure clauses from HIR were parsed.
+; IR for the test was obtained by getting the IR from FE at O0,
+; removing all function attributes, and then running the following on it:
+; opt -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -S
 
-; CHECK: PRIVATE clause (size=1): (&((LINEAR ptr %x.priv)[i64 0]) {{.*}}) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: LINEAR clause (size=2): (&((LINEAR ptr %n.linear)[i64 0])
-; CHECK-SAME: LINEAR i32 %step
+; Check for wregion-collection's prints to ensure clauses from HIR were parsed.
+; CHECK:      LASTPRIVATE clause (size=1): (&((LINEAR ptr %x.lpriv)[i64 0])
+; CHECK:      LINEAR clause (size=3): (&((LINEAR ptr %n.linear)[i64 0]){{.*}}, LINEAR i32 %step{{[^)]*}})
+; CHECK-SAME:                         (&((LINEAR ptr %p.addr.linear)[i64 0]){{.*}}, i32 2{{[^)]*}})
+; CHECK-SAME:                         IV(&((LINEAR ptr %i.linear.iv)[i64 0]){{.*}}, i32 1{{[^)]*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define dso_local void @foo(ptr noundef %a, i32 noundef %step) local_unnamed_addr #0 {
-DIR.OMP.SIMD.28:
+define dso_local void @foo(ptr noundef %a, i32 noundef %step, ptr noundef %p) {
+entry:
+  %x.lpriv = alloca i32, align 4
   %n.linear = alloca i32, align 4
+  %p.addr.linear = alloca ptr, align 8
   %i.linear.iv = alloca i32, align 4
-  %x.priv = alloca i32, align 4
-  %x = alloca i32, align 4
-  %n = alloca i32, align 4
-  %.omp.iv = alloca i32, align 4
-  %.omp.ub = alloca i32, align 4
-  %i = alloca i32, align 4
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %x) #2
-  store i32 10, ptr %x, align 4, !tbaa !4
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %n) #2
-  store i32 2, ptr %n, align 4, !tbaa !4
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %.omp.iv) #2
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %.omp.ub) #2
-  store i32 99, ptr %.omp.ub, align 4, !tbaa !4
-  br label %DIR.OMP.SIMD.1
+  store i32 2, ptr %n.linear, align 4
+  store ptr %p, ptr %p.addr.linear, align 8
+  br i1 true, label %omp.inner.for.body.lr.ph, label %DIR.OMP.END.SIMD.3
 
-DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.28
-  %0 = load i32, ptr %n, align 4
-  store i32 %0, ptr %n.linear, align 4
-  br label %DIR.OMP.SIMD.1.split13
-
-DIR.OMP.SIMD.1.split13:                           ; preds = %DIR.OMP.SIMD.1
-  br label %DIR.OMP.SIMD.1.split
-
-DIR.OMP.SIMD.1.split:                             ; preds = %DIR.OMP.SIMD.1.split13
-  %1 = load i32, ptr %.omp.ub, align 4
-  br label %DIR.OMP.SIMD.29
-
-DIR.OMP.SIMD.29:                                  ; preds = %DIR.OMP.SIMD.1.split
-  br label %DIR.OMP.SIMD.2
-
-DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.29
-  %cmp.not11 = icmp sgt i32 0, %1
-  br i1 %cmp.not11, label %DIR.OMP.END.SIMD.4.loopexit, label %omp.inner.for.body.lr.ph
-
-omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.2
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+omp.inner.for.body.lr.ph:                         ; preds = %entry
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
     "QUAL.OMP.LINEAR:TYPED"(ptr %n.linear, i32 0, i32 1, i32 %step),
-    "QUAL.OMP.LASTPRIVATE:TYPED"(ptr null, i32 0, i32 1),
+    "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %p.addr.linear, i16 0, i32 1, i32 2),
+    "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %x.lpriv, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0),
-    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %x.priv, i32 0, i32 1) ]
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body
-  %.omp.iv.local.012 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add2, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0(i64 4, ptr %i.linear.iv) #2, !llvm.access.group !8
-  store i32 %.omp.iv.local.012, ptr %i.linear.iv, align 4, !tbaa !4, !llvm.access.group !8
-  store i32 %.omp.iv.local.012, ptr %x.priv, align 4, !tbaa !4, !llvm.access.group !8
-  %3 = load i32, ptr %i.linear.iv, align 4, !tbaa !4, !llvm.access.group !8
-  %idxprom = sext i32 %3 to i64
-  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %idxprom
-  store i32 %.omp.iv.local.012, ptr %arrayidx, align 4, !tbaa !4, !llvm.access.group !8
-  %4 = load i32, ptr %n.linear, align 4, !tbaa !4, !llvm.access.group !8
-  %add1 = add nsw i32 %4, %step
-  store i32 %add1, ptr %n.linear, align 4, !tbaa !4, !llvm.access.group !8
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv) #2, !llvm.access.group !8
-  %add2 = add nsw i32 %.omp.iv.local.012, 1
-  %5 = add i32 %1, 1
-  %cmp.not = icmp sgt i32 %5, %add2
-  br i1 %cmp.not, label %omp.inner.for.body, label %omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge, !llvm.loop !9
+  %.omp.iv.local.02 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add1, %omp.inner.for.body ]
+  store i32 %.omp.iv.local.02, ptr %i.linear.iv, align 4, !llvm.access.group !0
+  %add1 = add nuw nsw i32 %.omp.iv.local.02, 1
+  %cmp = icmp ult i32 %.omp.iv.local.02, 99
+  br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.cond.omp.inner.for.end_crit_edge, !llvm.loop !1
 
-omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge: ; preds = %omp.inner.for.body
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
-  %6 = load i32, ptr %n.linear, align 4
-  store i32 %6, ptr %n, align 4
-  br label %DIR.OMP.END.SIMD.4.loopexit
+omp.inner.for.cond.omp.inner.for.end_crit_edge:   ; preds = %omp.inner.for.body
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
 
-DIR.OMP.END.SIMD.4.loopexit:                      ; preds = %omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge, %DIR.OMP.SIMD.2
-  br label %DIR.OMP.END.SIMD.4
-
-DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.4.loopexit
   br label %DIR.OMP.END.SIMD.3
 
-DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
-  br label %DIR.OMP.END.SIMD.410
-
-DIR.OMP.END.SIMD.410:                             ; preds = %DIR.OMP.END.SIMD.3
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %.omp.ub) #2
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %.omp.iv) #2
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %n) #2
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %x) #2
+DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.cond.omp.inner.for.end_crit_edge, %entry
   ret void
 }
 
-; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
-
-attributes #0 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { argmemonly mustprogress nocallback nofree nosync nounwind willreturn }
-attributes #2 = { nounwind }
-
-!llvm.module.flags = !{!0, !1, !2}
-!nvvm.annotations = !{}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 2}
-!4 = !{!5, !5, i64 0}
-!5 = !{!"int", !6, i64 0}
-!6 = !{!"omnipotent char", !7, i64 0}
-!7 = !{!"Simple C/C++ TBAA"}
-!8 = distinct !{}
-!9 = distinct !{!9, !10, !11, !12}
-!10 = !{!"llvm.loop.vectorize.enable", i1 true}
-!11 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
-!12 = !{!"llvm.loop.parallel_accesses", !8}
+!0 = distinct !{}
+!1 = distinct !{!1, !2, !3}
+!2 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
+!3 = !{!"llvm.loop.parallel_accesses", !0}
 ; end INTEL_FEATURE_SW_ADVANCED

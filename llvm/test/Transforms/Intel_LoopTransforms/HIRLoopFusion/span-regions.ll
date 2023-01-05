@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-before=hir-loop-fusion -print-after=hir-loop-fusion -disable-hir-create-fusion-regions=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-fusion,print<hir>" -disable-output -disable-hir-create-fusion-regions=0 < %s 2>&1 | FileCheck %s
 
 ; Verify that two top loops are placed in the same region and then fused.

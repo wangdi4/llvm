@@ -1,6 +1,5 @@
 ; Check that unknown loops are skipped in RTDD pass
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-cost-model-throttling=0 -debug-only=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd" -aa-pipeline="basic-aa" -disable-output -hir-cost-model-throttling=0 -debug-only=hir-runtime-dd < %s 2>&1 | FileCheck %s
 
 ; Source:

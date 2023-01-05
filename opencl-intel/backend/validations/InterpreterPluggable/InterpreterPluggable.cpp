@@ -55,118 +55,110 @@ static struct RegisterInterp {
 #endif
 
 extern "C" void LLVMLinkInInterpreterPluggable() {
-    InterpreterPluggable::Register();
+  InterpreterPluggable::Register();
 }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M, std::string* ErrStr) {
-    // Tell this Module to materialize everything and release the GVMaterializer.
-    if (Error err = M->materializeAll()) {
-        // We got an error, just return 0
-        return nullptr;
-    }
+ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M,
+                                              std::string *ErrStr) {
+  // Tell this Module to materialize everything and release the GVMaterializer.
+  if (Error err = M->materializeAll()) {
+    // We got an error, just return 0
+    return nullptr;
+  }
 
-    return new InterpreterPluggable(std::move(M));
+  return new InterpreterPluggable(std::move(M));
 }
-
 
 /// run - Start execution with the specified function and arguments.
 /// It is copy paste from from base class Interpreter::runFunction() method
 /// except calling our own run() function
 GenericValue
 InterpreterPluggable::runFunction(Function *F,
-                                  ArrayRef<GenericValue> ArgValues)
-{
-    assert (F && "Function *F was null at entry to run()");
+                                  ArrayRef<GenericValue> ArgValues) {
+  assert(F && "Function *F was null at entry to run()");
 
-    // Try extra hard not to pass extra args to a function that isn't
-    // expecting them.  C programmers frequently bend the rules and
-    // declare main() with fewer parameters than it actually gets
-    // passed, and the interpreter barfs if you pass a function more
-    // parameters than it is declared to take. This does not attempt to
-    // take into account gratuitous differences in declared types,
-    // though.
-    std::vector<GenericValue> ActualArgs;
-    const unsigned ArgCount = F->getFunctionType()->getNumParams();
-    for (unsigned i = 0; i < ArgCount; ++i)
-        ActualArgs.push_back(ArgValues[i]);
+  // Try extra hard not to pass extra args to a function that isn't
+  // expecting them.  C programmers frequently bend the rules and
+  // declare main() with fewer parameters than it actually gets
+  // passed, and the interpreter barfs if you pass a function more
+  // parameters than it is declared to take. This does not attempt to
+  // take into account gratuitous differences in declared types,
+  // though.
+  std::vector<GenericValue> ActualArgs;
+  const unsigned ArgCount = F->getFunctionType()->getNumParams();
+  for (unsigned i = 0; i < ArgCount; ++i)
+    ActualArgs.push_back(ArgValues[i]);
 
-    // if first time call
-    if(m_stillRunning == false)
-    {
-        // Set up the function call.
-        callFunction(F, ActualArgs);
-        // call Plugins
-        for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
-            (*it)->handlePreFunctionRun(ECStack, *this);
-    }
+  // if first time call
+  if (m_stillRunning == false) {
+    // Set up the function call.
+    callFunction(F, ActualArgs);
+    // call Plugins
+    for (PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
+      (*it)->handlePreFunctionRun(ECStack, *this);
+  }
 
-    // Start executing the function.
-    InterpreterPluggable::RETCODE ret = runWithPlugins();
+  // Start executing the function.
+  InterpreterPluggable::RETCODE ret = runWithPlugins();
 
-    // if barrier mark flag still Running
-    if(ret == InterpreterPluggable::BARRIER || ret == InterpreterPluggable::BLOCKING_WG_FUNCTION)
-    {
-        m_stillRunning = true;
-        GenericValue retcode;
-        retcode.IntVal = APInt(8, ret);
-        return retcode;
-    }
+  // if barrier mark flag still Running
+  if (ret == InterpreterPluggable::BARRIER ||
+      ret == InterpreterPluggable::BLOCKING_WG_FUNCTION) {
+    m_stillRunning = true;
+    GenericValue retcode;
+    retcode.IntVal = APInt(8, ret);
+    return retcode;
+  }
 
-    // if not barrier it is function exit
-    // call post function methods
-    if(ret != InterpreterPluggable::BARRIER && ret != InterpreterPluggable::BLOCKING_WG_FUNCTION)
-    {
-       // if execution is not interrupted and it is normal exit
-       // set running flag to false
-        m_stillRunning = false;
-        // call post function event
-        for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
-            (*it)->handlePostFunctionRun();
+  // if not barrier it is function exit
+  // call post function methods
+  if (ret != InterpreterPluggable::BARRIER &&
+      ret != InterpreterPluggable::BLOCKING_WG_FUNCTION) {
+    // if execution is not interrupted and it is normal exit
+    // set running flag to false
+    m_stillRunning = false;
+    // call post function event
+    for (PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
+      (*it)->handlePostFunctionRun();
+  }
 
-    }
-
-    return ExitValue;
+  return ExitValue;
 }
 
 // checks if I is intrinsic then it can be lowered
 // at execution of Interpreter
-static bool IsLoweringPossible(Instruction& I)
-{
-    if(I.getOpcode() == Instruction::Call)
-    {
-        CallBase *CB = cast<CallBase>(&I);
-        // Check to see if this is an intrinsic function call...
-        Function *F = CB->getCalledFunction();
-        if (F && F->isDeclaration())
-        {
-            switch (F->getIntrinsicID())
-            {
-            case Intrinsic::not_intrinsic:
-                break;
-            case Intrinsic::vastart: // va_start
-                break;
-            case Intrinsic::vaend:    // va_end is a noop for the interpreter
-                break;
-            case Intrinsic::vacopy:   // va_copy: dest = src
-                break;
-            default:
-                // If it intrinsics it can be lowered
-                return true;
-            }
-        }
-        return false;
+static bool IsLoweringPossible(Instruction &I) {
+  if (I.getOpcode() == Instruction::Call) {
+    CallBase *CB = cast<CallBase>(&I);
+    // Check to see if this is an intrinsic function call...
+    Function *F = CB->getCalledFunction();
+    if (F && F->isDeclaration()) {
+      switch (F->getIntrinsicID()) {
+      case Intrinsic::not_intrinsic:
+        break;
+      case Intrinsic::vastart: // va_start
+        break;
+      case Intrinsic::vaend: // va_end is a noop for the interpreter
+        break;
+      case Intrinsic::vacopy: // va_copy: dest = src
+        break;
+      default:
+        // If it intrinsics it can be lowered
+        return true;
+      }
     }
     return false;
+  }
+  return false;
 }
 
-InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
-{
+InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins() {
   while (!ECStack.empty()) {
     // Interpret a single instruction & increment the "PC".
-    ExecutionContext &SF = ECStack.back();  // Current stack frame
-    Instruction &I = *SF.CurInst;         // Increment before execute
+    ExecutionContext &SF = ECStack.back(); // Current stack frame
+    Instruction &I = *SF.CurInst;          // Increment before execute
     const bool isLoweringPossible = IsLoweringPossible(I);
 
     // Track the number of dynamic instructions executed.
@@ -174,76 +166,81 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
 
     // hack to catch barrier instruction
     // note: in case of barrier instruction plug in methods are not called
-    if(I.getOpcode() == Instruction::Call)
-    {
-        CallInst *C= cast<CallInst>(&I);
-        // To handle indirect function call getOperandValue is used instead of casting to the Function pointer.
-        Function *f =
-            (Function *)GVTOP(getOperandValue(C->getCalledOperand(), SF));
-        std::string fName = std::string(f->getName());
-        std::size_t found = fName.find("barrier");
-        if (found!=std::string::npos)
+    if (I.getOpcode() == Instruction::Call) {
+      CallInst *C = cast<CallInst>(&I);
+      // To handle indirect function call getOperandValue is used instead of
+      // casting to the Function pointer.
+      Function *f =
+          (Function *)GVTOP(getOperandValue(C->getCalledOperand(), SF));
+      std::string fName = std::string(f->getName());
+      std::size_t found = fName.find("barrier");
+      if (found != std::string::npos) {
+        LLVM_DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
+        *SF.CurInst++;
+        return InterpreterPluggable::BARRIER;
+      } else if (m_WGBuiltinsNames.isWorkGroupBuiltin(fName)) {
+        LLVM_DEBUG(dbgs() << "Blocking Work Group function Detected: " << I
+                          << '\n');
+        //*SF.CurInst++; do not increment instruction counter
+        // if flag is false - break execution and wait for WI
+        // true - continue
+        if (m_needToExecutePreMethod) {
+          // create and execute call of _pre_exec method
+          std::string pre_method_name =
+              m_WGBuiltinsNames.getMangledPreExecMethodName(fName);
+          FunctionType *CalledFT = C->getCalledFunction()->getFunctionType();
+          std::vector<Type *> arg_types;
+          for (FunctionType::param_iterator I = CalledFT->param_begin(),
+                                            E = CalledFT->param_end();
+               I != E; ++I)
+            arg_types.push_back(*I);
+          // construct function with void return type, call params taken from
+          // built-in description
+          FunctionType *FT = FunctionType::get(Type::getVoidTy(C->getContext()),
+                                               arg_types, false);
+          Function *pre_method =
+              cast<Function>(this->Modules[0]
+                                 ->getOrInsertFunction(pre_method_name, FT)
+                                 .getCallee());
+          pre_method->setCallingConv(CallingConv::C);
+          std::vector<Value *> args;
+          // provide same param values as in Called built-in
+          for (uint32_t i = 0, e = C->arg_size(); i < e; ++i) {
+            args.push_back(C->getArgOperand(i));
+          }
+          Instruction *CIM = CallInst::Create(pre_method, args, "");
+          visit(CIM);               // call
+          CIM->dropAllReferences(); // cleanup. no-one is referencing to this
+                                    // instruction
+        } else                      // proceed to built-in execution
         {
-            LLVM_DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
-            *SF.CurInst++;
-            return InterpreterPluggable::BARRIER;
-        }
-        else if(m_WGBuiltinsNames.isWorkGroupBuiltin(fName))
-        {
-            LLVM_DEBUG(dbgs() << "Blocking Work Group function Detected: " << I << '\n');
-            //*SF.CurInst++; do not increment instruction counter
-            //if flag is false - break execution and wait for WI
-            //true - continue
-            if(m_needToExecutePreMethod)
-            {
-                //create and execute call of _pre_exec method
-                std::string pre_method_name = m_WGBuiltinsNames.getMangledPreExecMethodName(fName);
-                FunctionType *CalledFT = C->getCalledFunction()->getFunctionType();
-                std::vector<Type*> arg_types;
-                for(FunctionType::param_iterator I = CalledFT->param_begin(),
-                    E = CalledFT->param_end(); I!=E; ++I)
-                    arg_types.push_back(*I);
-                //construct function with void return type, call params taken from built-in description
-                FunctionType *FT = FunctionType::get(Type::getVoidTy(C->getContext()), arg_types, false);
-                Function *pre_method = cast<Function>(this->Modules[0]->getOrInsertFunction(pre_method_name, FT).getCallee());
-                pre_method->setCallingConv(CallingConv::C);
-                std::vector<Value*> args;
-                //provide same param values as in Called built-in
-                for(uint32_t i = 0, e = C->arg_size(); i<e; ++i)
-                {
-                    args.push_back(C->getArgOperand(i));
-                }
-                Instruction *CIM = CallInst::Create(pre_method, args, "");
-                visit(CIM);//call
-                CIM->dropAllReferences();//cleanup. no-one is referencing to this instruction
-            }
-            else//proceed to built-in execution
-            {
-                // note: do not move following CurInst++ prior to calling NEAT plug-in
-                // Plug ins depends on ExecutionContext unmodified prior to execution in interpreter
-                *SF.CurInst++;
+          // note: do not move following CurInst++ prior to calling NEAT plug-in
+          // Plug ins depends on ExecutionContext unmodified prior to execution
+          // in interpreter
+          *SF.CurInst++;
 
-                // Dispatch to one of the visit* methods...
-                visit(I);
-
-            }
-            //invert m_needToExecutePreMethod
-            //next iteration - return InterpreterPluggable::BLOCKING_WG_FUNCTION and
-            //execute function
-            m_needToExecutePreMethod = !m_needToExecutePreMethod;
-            return InterpreterPluggable::BLOCKING_WG_FUNCTION;
-            //as execution of built-in is finished - wait for other work items to proceed
+          // Dispatch to one of the visit* methods...
+          visit(I);
         }
+        // invert m_needToExecutePreMethod
+        // next iteration - return InterpreterPluggable::BLOCKING_WG_FUNCTION
+        // and execute function
+        m_needToExecutePreMethod = !m_needToExecutePreMethod;
+        return InterpreterPluggable::BLOCKING_WG_FUNCTION;
+        // as execution of built-in is finished - wait for other work items to
+        // proceed
+      }
     }
 
     // call Plug in pre-exec method
-    for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
+    for (PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
       (*it)->handlePreInstExecution(I);
 
     LLVM_DEBUG(dbgs() << "About to interpret: " << I << '\n');
 
     // note: do not move following CurInst++ prior to calling NEAT plug-in
-    // Plug ins depends on ExecutionContext unmodified prior to execution in interpreter
+    // Plug ins depends on ExecutionContext unmodified prior to execution in
+    // interpreter
     *SF.CurInst++;
 
     // Dispatch to one of the visit* methods...
@@ -253,13 +250,11 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
     // do not call post instruction method
     // since I can be already removed by visit(I) method
     // during lowering. In this case reference to I is not valid
-    if(isLoweringPossible == false)
-    {
-        // call Plug in post-exec method
-        for(PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
-            (*it)->handlePostInstExecution(I);
+    if (isLoweringPossible == false) {
+      // call Plug in post-exec method
+      for (PlugInIterator it = m_pPlugins.begin(); it != m_pPlugins.end(); ++it)
+        (*it)->handlePostInstExecution(I);
     }
-
   }
-    return InterpreterPluggable::OK;
+  return InterpreterPluggable::OK;
 }

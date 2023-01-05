@@ -16,17 +16,16 @@
 
 using namespace Validation;
 
-VectorWidthWrapper::VectorWidthMetadataMap VectorWidthWrapper::m_metaData(initStaticMap());
+VectorWidthWrapper::VectorWidthMetadataMap
+    VectorWidthWrapper::m_metaData(initStaticMap());
 
-VectorWidthWrapper::VectorWidthMetadataMap VectorWidthWrapper::initStaticMap() 
-{
-    VectorWidthMetadataMap metaData;
-    metaData[V1] = VectorWidthWrapper::VectorWidthMetadata(1, "v1");
-    metaData[V2] = VectorWidthWrapper::VectorWidthMetadata(2, "v2");
-    metaData[V3] = VectorWidthWrapper::VectorWidthMetadata(3, "v3");
-    metaData[V4] = VectorWidthWrapper::VectorWidthMetadata(4, "v4");
-    metaData[V8] = VectorWidthWrapper::VectorWidthMetadata(8, "v8");
-    metaData[V16] = VectorWidthWrapper::VectorWidthMetadata(16, "v16");
-    return metaData;
+VectorWidthWrapper::VectorWidthMetadataMap VectorWidthWrapper::initStaticMap() {
+  VectorWidthMetadataMap metaData;
+  metaData[V1] = VectorWidthWrapper::VectorWidthMetadata(1, "v1");
+  metaData[V2] = VectorWidthWrapper::VectorWidthMetadata(2, "v2");
+  metaData[V3] = VectorWidthWrapper::VectorWidthMetadata(3, "v3");
+  metaData[V4] = VectorWidthWrapper::VectorWidthMetadata(4, "v4");
+  metaData[V8] = VectorWidthWrapper::VectorWidthMetadata(8, "v8");
+  metaData[V16] = VectorWidthWrapper::VectorWidthMetadata(16, "v16");
+  return metaData;
 }
-

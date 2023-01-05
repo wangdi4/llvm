@@ -16,11 +16,12 @@
 //  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
-#include "cl_dev_backend_api.h"
-#include "cl_device_api.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
 #include "cl_config.h"
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include <memory>
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
@@ -47,10 +48,10 @@ public:
   virtual ~IKernelJITContainer() {}
 
   // Get kernel function name.
-  virtual const std::string& GetFunctionName() const = 0;
+  virtual const std::string &GetFunctionName() const = 0;
 
   // Set JIT address for a kernel function.
-  virtual void SetJITCode(const void* addr) = 0;
+  virtual void SetJITCode(const void *addr) = 0;
 
   /*
    * Free machine code
@@ -65,15 +66,16 @@ public:
   /**
    * Serialization methods for the class (used by the serialization service)
    */
-  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const = 0;
-  virtual void Deserialize(IInputStream& ist, SerializationStatus* stats) = 0;
+  virtual void Serialize(IOutputStream &ost,
+                         SerializationStatus *stats) const = 0;
+  virtual void Deserialize(IInputStream &ist, SerializationStatus *stats) = 0;
 };
 
 class Kernel : public ICLDevBackendKernel_, public ICLDevBackendKernelRunner {
 public:
   Kernel() : m_pProps(NULL) {
     using namespace Intel::OpenCL::Utils;
-    BasicCLConfigWrapper  basicConfig;
+    BasicCLConfigWrapper basicConfig;
     basicConfig.Initialize(GetConfigFilePath());
     m_stackDefaultSize = basicConfig.GetStackDefaultSize();
     m_stackExtraSize = basicConfig.GetStackExtraSize();
@@ -84,6 +86,9 @@ public:
          const std::vector<unsigned int> &memArgs, KernelProperties *pProps);
 
   virtual ~Kernel();
+
+  Kernel(const Kernel &) = delete;
+  Kernel &operator=(const Kernel &) = delete;
 
   /*
    * ICLDevBackendKernel interface implementation
@@ -164,14 +169,14 @@ public:
   virtual size_t GetArgumentBufferRequiredAlignment() const override;
 
   /**
-  * @returns the number of memory object arguments passed to the kernel
-  */
+   * @returns the number of memory object arguments passed to the kernel
+   */
   virtual unsigned int GetMemoryObjectArgumentCount() const override;
 
   /**
-  * @returns the array of indexes of memory object arguments passed to the
-  * kernel
-  */
+   * @returns the array of indexes of memory object arguments passed to the
+   * kernel
+   */
   virtual const unsigned int *GetMemoryObjectArgumentIndexes() const override;
 
   /**
@@ -323,7 +328,7 @@ public:
   /**
    * Serialization methods for the class (used by the serialization service)
    */
-  virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
+  virtual void Serialize(IOutputStream &ost, SerializationStatus *stats) const;
   virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
 protected:
@@ -334,12 +339,12 @@ protected:
   void ReleaseStack(void *, size_t) const;
 
   std::string m_name;
-  unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
-  unsigned int m_CSRFlags; // Flags to be set during execution
+  unsigned int m_CSRMask = 0;  // Mask to be applied to set the execution flags
+  unsigned int m_CSRFlags = 0; // Flags to be set during execution
   std::vector<KernelArgument> m_explicitArgs;
   std::vector<cl_kernel_argument_info> m_explicitArgsInfo;
-  unsigned int m_explicitArgsSizeInBytes;
-  unsigned int m_RequiredUniformKernelArgsAlignment;
+  unsigned int m_explicitArgsSizeInBytes = 0;
+  unsigned int m_RequiredUniformKernelArgsAlignment = 0;
   std::vector<unsigned int> m_memArgs;
   KernelProperties *m_pProps;
   std::vector<IKernelJITContainer *> m_JITs;
@@ -350,21 +355,19 @@ protected:
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
-  mutable size_t m_stackActualSize;
-  bool     m_useAutoMemory;
+  mutable size_t m_stackActualSize = 0;
+  bool m_useAutoMemory;
 
 private:
   // Minimum alignment in bytes for Kernel Uniform Args
   static const unsigned MinRequiredKernelArgAlignment = 8;
-  // Disable copy ctor and assignment operator
-  Kernel(const Kernel &);
-  bool operator=(const Kernel &);
+
 protected:
 #ifdef OCL_DEV_BACKEND_PLUGINS
-    // m_pluginManager is mutable to allow kernel's const methods,
-    // like Kernel::PrepareKernelArguments init m_pluginManager, which
-    // is initialised on each kernel
-    mutable Intel::OpenCL::PluginManager m_pluginManager;
+  // m_pluginManager is mutable to allow kernel's const methods,
+  // like Kernel::PrepareKernelArguments init m_pluginManager, which
+  // is initialised on each kernel
+  mutable Intel::OpenCL::PluginManager m_pluginManager;
 #endif
 };
 
@@ -378,9 +381,7 @@ class KernelSet {
 public:
   KernelSet();
 
-  ~KernelSet();
-
-  void AddKernel(Kernel *pKernel);
+  void AddKernel(std::unique_ptr<Kernel> pKernel);
 
   size_t GetCount() const { return m_kernels.size(); }
 
@@ -393,9 +394,9 @@ public:
   Kernel *GetKernel(const char *name) const;
 
 private:
-  std::vector<Kernel *> m_kernels;
-  size_t                m_blockKernelsCount;
+  std::vector<std::unique_ptr<Kernel>> m_kernels;
+  size_t m_blockKernelsCount;
 };
-}
-}
-}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

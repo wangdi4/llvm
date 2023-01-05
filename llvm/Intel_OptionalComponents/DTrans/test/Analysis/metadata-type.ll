@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test verifies that a store instruction tagged with metadata
 ; that explicitly marks the type to avoid an unsafe pointer store.

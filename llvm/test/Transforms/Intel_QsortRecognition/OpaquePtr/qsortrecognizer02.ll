@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -qsortrecognizer -debug-only=qsortrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -S 2>&1 | FileCheck %s
 
 ; Check that the qsortrecognizer does not recognize @spec_qsort.40 as a spec

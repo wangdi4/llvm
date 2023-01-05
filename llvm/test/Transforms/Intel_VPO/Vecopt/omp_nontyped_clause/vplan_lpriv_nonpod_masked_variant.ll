@@ -14,7 +14,7 @@
 ;  return x.a;
 ; }
 
-; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-vec-scenario="n0;v2;m2" -vplan-print-after-final-cond-transform -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-vec-scenario="n0;v2;m2" -vplan-print-after-final-cond-transform -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -26,7 +26,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
 ; CHECK:    new_latch: # preds: [[BB3:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD1:%.*]] = add i32 [[VP__OMP_IV_LOCAL_010:%.*]] i32 [[VP4:%.*]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_ADD1]] i32 10000
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_ADD1]] i32 [[VP_NORM_UB:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP6]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -44,7 +44,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after private finalization instructions transformation:
 ; CHECK:      new_latch: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_LOCAL_010]] i32 [[VP4]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP6]] = icmp ult i32 [[VP_ADD1]] i32 10000
+; CHECK-NEXT:       [DA: Div] i1 [[VP6]] = icmp ult i32 [[VP_ADD1]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP7]] = all-zero-check i1 [[VP6]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP7]], [[BB4]], [[BB2]]
 ; CHECK-EMPTY:

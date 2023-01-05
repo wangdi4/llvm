@@ -1,5 +1,4 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,dpcpp-kernel-vec-kernel-elim' -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-vec-kernel-elim -S %s | FileCheck %s
 
 ; This test checks that vectorized kernel is kept if intel_vec_len_hint
 ; attribute is present.

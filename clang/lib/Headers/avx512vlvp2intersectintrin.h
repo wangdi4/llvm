@@ -1,4 +1,20 @@
-/*===------ avx512vlvp2intersectintrin.h - VL VP2INTERSECT intrinsics ------===
+/*===------ avx512vlvp2intersectintrin.h - VL VP2INTERSECT intrinsics ------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  *
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +51,18 @@
 #define __DEFAULT_FN_ATTRS256 \
   __attribute__((__always_inline__, __nodebug__,  __target__("avx512vl,avx512vp2intersect"), \
                  __min_vector_width__(256)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
+
 /// Store, in an even/odd pair of mask registers, the indicators of the
 /// locations of value matches between dwords in operands __a and __b.
 ///

@@ -11,10 +11,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/GroupBuiltinPass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
@@ -48,29 +46,6 @@ typedef uint64_t cl_ulong __attribute__((aligned(8)));
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
 using namespace CompilationUtils;
-
-char GroupBuiltinLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(GroupBuiltinLegacy, DEBUG_TYPE,
-                      "Handle WorkGroup BI calls", false, false)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-INITIALIZE_PASS_END(GroupBuiltinLegacy, DEBUG_TYPE, "Handle WorkGroup BI calls",
-                    false, false)
-
-GroupBuiltinLegacy::GroupBuiltinLegacy() : ModulePass(ID) {
-  initializeGroupBuiltinLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool GroupBuiltinLegacy::runOnModule(Module &M) {
-  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                  .getResult()
-                  .getRuntimeService();
-  return Impl.runImpl(M, RTS);
-}
-
-void GroupBuiltinLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-}
 
 PreservedAnalyses GroupBuiltinPass::run(Module &M, ModuleAnalysisManager &MAM) {
   auto &RTS = MAM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
@@ -577,21 +552,23 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // 5. Create barrier() call immediately AFTER per-WI call.
     (void)Utils.createBarrier(WGCallInst);
 
-    // 6. For uniform & vectorized WG function (less broadcast WG) - finalize
+    // 6. For uniform & vectorized WG function - finalize
     // the result
-    if (isWorkGroupUniform(FuncName) && !IsBroadcast &&
-        RetType->isVectorTy()) {
+    if (isWorkGroupUniform(FuncName)) {
 
       // a. Load 'alloca' value of the accumulated result.
       LoadInst *LoadResult = new LoadInst(Result->getAllocatedType(), Result,
                                           "LoadWGFinalResult", WGCallInst);
 
       // b. Create finalization function object:
-      SmallVector<Value *, 8> Params;
-      Params.push_back(LoadResult);
       // Remangle with unique name (derived from original WG function name)
       // [Note that the signature is as of original WG function]
-      std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
+      std::string FinalizeFuncName;
+      if (!IsBroadcast && RetType->isVectorTy()) {
+        FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
+      } else {
+        FinalizeFuncName = getWorkGroupIdentityFinalize(FuncName);
+      }
       // Create function
       // Get the new function declaration out of built-in modules list.
       Function *LibFunc = RTS.findFunctionInBuiltinModules(FinalizeFuncName);
@@ -601,14 +578,16 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
                              "identified in the module");
 
       // c. Create call to finalization function object.
-      if (Params.size() < FinalizeFunc->arg_size()) {
-        auto *DummyMask =
-            UndefValue::get((FinalizeFunc->arg_end() - 1)->getType());
-        Params.push_back(DummyMask);
-      }
+      SmallVector<Value *, 8> Params;
+      assert(LoadResult->getType() == FinalizeFunc->arg_begin()->getType() &&
+             "First arg type of finalize helper doesn't match!");
+      Params.push_back(LoadResult);
+      // Create dummy (unused) undef args.
+      for (auto I = FinalizeFunc->arg_begin() + 1, E = FinalizeFunc->arg_end();
+           I != E; ++I)
+        Params.push_back(UndefValue::get(I->getType()));
       CallInst *FinalizeCall =
-          CallInst::Create(FinalizeFunc, ArrayRef<Value *>(Params),
-                           "CallFinalizeWG", WGCallInst);
+          CallInst::Create(FinalizeFunc, Params, "CallFinalizeWG", WGCallInst);
       assert(FinalizeCall && "Couldn't create CALL instruction!");
 
       NewCall = FinalizeCall;
@@ -625,8 +604,4 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
   }
 
   return !CallWGSimpleFunc.empty() || !CallWgFunc.empty();
-}
-
-ModulePass *llvm::createGroupBuiltinLegacyPass() {
-  return new llvm::GroupBuiltinLegacy();
 }

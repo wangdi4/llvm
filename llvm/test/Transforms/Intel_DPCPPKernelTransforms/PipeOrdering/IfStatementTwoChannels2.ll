@@ -22,8 +22,6 @@
 ; Optimizer options:
 ;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes --dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 

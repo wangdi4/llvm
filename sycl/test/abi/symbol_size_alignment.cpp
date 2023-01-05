@@ -1,5 +1,7 @@
 // RUN: %clangxx -fsycl %s -D__SYCL_INTERNAL_API -o %t
 // UNSUPPORTED: libcxx
+// Timeout tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41515
+// UNSUPPORTED: windows
 
 // Changing symbol size or alignment is a breaking change. If it happens, refer
 // to the ABI Policy Guide for further instructions on breaking ABI.

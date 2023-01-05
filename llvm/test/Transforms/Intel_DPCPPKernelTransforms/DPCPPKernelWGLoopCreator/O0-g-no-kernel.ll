@@ -1,4 +1,3 @@
-; RUN: opt -dpcpp-kernel-enable-tls-globals -enable-new-pm=0 -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
 ; RUN: opt -dpcpp-kernel-enable-tls-globals -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that get_*_id calls are replaced in O0 and -g mode in the

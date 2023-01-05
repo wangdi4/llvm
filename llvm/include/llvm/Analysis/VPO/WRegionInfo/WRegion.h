@@ -383,9 +383,9 @@ private:
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used from Fortran DO Concurrent
-  loopopt::HLNode *EntryHLNode; // for HIR only
-  loopopt::HLNode *ExitHLNode;  // for HIR only
-  loopopt::HLLoop *HLp;         // for HIR only
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+  loopopt::HLLoop *HLp = nullptr;         // for HIR only
 #if INTEL_FEATURE_CSA
   int NumWorkers;
   int PipelineDepth;
@@ -952,6 +952,7 @@ private:
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
+  LiveinClause Livein;
 
 public:
   WRNTargetDataNode(BasicBlock *BB);
@@ -964,6 +965,7 @@ public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
 
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
@@ -1119,10 +1121,13 @@ public:
 class WRNTargetVariantNode : public WRegionNode {
 private:
   MapClause Map;
+  NeedDevicePtrSet NeedDevicePtr;
+  NeedDevicePtrSet NeedDevicePtrToPtr;
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   SubdeviceClause Subdevice;
   bool Nowait = false;
+  CallInst *Call = nullptr; // The dispatch call; set in Paropt codegen
 
 public:
   WRNTargetVariantNode(BasicBlock *BB);
@@ -1130,13 +1135,17 @@ public:
 protected:
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+  void setCall(CallInst *CI) override { Call = CI; }
 
 public:
-  DEFINE_GETTER(MapClause,          getMap,          Map)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(MapClause,          getMap,                Map)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtr,      NeedDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtrToPtr, NeedDevicePtrToPtr)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr,       UseDevicePtr)
+  DEFINE_GETTER(SubdeviceClause,    getSubdevice,          Subdevice)
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
+  CallInst *getCall() const override { return Call; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1155,6 +1164,8 @@ class WRNDispatchNode : public WRegionNode {
 private:
   // No need to represent depend clause here; it's moved to the implicit task
   IsDevicePtrClause IsDevicePtr;
+  NeedDevicePtrSet NeedDevicePtr;
+  NeedDevicePtrSet NeedDevicePtrToPtr;
   SubdeviceClause Subdevice;
   InteropClause Interop;
   EXPR Device;
@@ -1163,7 +1174,7 @@ private:
   bool Nowait = false;
 
   // To be populated during Paropt codegen
-  CallInst *Call;                  // The dispatch call.
+  CallInst *Call = nullptr;        // The dispatch call.
   MapClause Map;                   // Map and UseDevicePtr clauses let us reuse
   UseDevicePtrClause UseDevicePtr; // the target data logic to use device ptrs.
 
@@ -1178,11 +1189,13 @@ protected:
   void setCall(CallInst *CI) override { Call = CI; }
 
 public:
-  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
-  DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
-  DEFINE_GETTER(InteropClause,      getInterop,      Interop)
-  DEFINE_GETTER(MapClause,          getMap,          Map)
-  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
+  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,        IsDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtr,      NeedDevicePtr)
+  DEFINE_GETTER(NeedDevicePtrSet,   getNeedDevicePtrToPtr, NeedDevicePtrToPtr)
+  DEFINE_GETTER(SubdeviceClause,    getSubdevice,          Subdevice)
+  DEFINE_GETTER(InteropClause,      getInterop,            Interop)
+  DEFINE_GETTER(MapClause,          getMap,                Map)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr,       UseDevicePtr)
   EXPR getDevice() const override { return Device; }
   EXPR getNocontext() const override { return Nocontext; }
   EXPR getNovariants() const override { return Novariants; }
@@ -1272,6 +1285,7 @@ private:
   EXPR IfExpr;
   EXPR Priority;
   WRNDefaultKind Default;
+  DetachClause Detach;
   bool Untied;
   bool Mergeable;
   bool IsTargetTask; // Task is the implicit task surrounding a target region.
@@ -1304,6 +1318,7 @@ public:
   DEFINE_GETTER(ReductionClause,    getInRed,    InReduction)
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
+  DEFINE_GETTER(DetachClause,       getDetach,   Detach)
 
   EXPR getDepArray() const override { return DepArray; }
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
@@ -1444,22 +1459,22 @@ private:
   UniformClause Uniform; // The simd construct does not take a uniform clause,
                          // so we won't get this from the front-end, but this
                          // list can/will be populated by the vector backend
-  EXPR IfExpr;
-  int Simdlen;
-  int Safelen;
-  int Collapse;
+  EXPR IfExpr = nullptr;
+  int Simdlen = 0;
+  int Safelen = 0;
+  int Collapse = 0;
 
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
-  bool IsAutoVec;
-  bool HasVectorAlways;
+  bool IsAutoVec = false;
+  bool HasVectorAlways = false;
   bool HasAligned = false; // SIMD aligned clause was specified
 
-  loopopt::HLNode *EntryHLNode; // for HIR only
-  loopopt::HLNode *ExitHLNode;  // for HIR only
-  loopopt::HLLoop *HLp;         // for HIR only
+  loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
+  loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
+  loopopt::HLLoop *HLp = nullptr;         // for HIR only
 #endif //INTEL_CUSTOMIZATION
 
 public:

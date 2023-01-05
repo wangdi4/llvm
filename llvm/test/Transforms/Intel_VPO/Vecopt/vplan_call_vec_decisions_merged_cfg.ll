@@ -2,7 +2,7 @@
 ; Test to check correctness of CallVecDecisions analysis for merged CFG containing
 ; VPPushVF and VPPopVF instructions.
 
-; RUN: opt < %s -vplan-vec -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
+; RUN: opt < %s -passes=vplan-vec -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -66,7 +66,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @src, i64 0, i64 %indvars.iv
   %1 = load float, float* %arrayidx, align 4
   %conv = fpext float %1 to double
-  %lib.call = call double @sin(double %conv) #1
+  %lib.call = call afn double @sin(double %conv) #1
   %lib.trunc = fptrunc double %lib.call to float
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @dst, i64 0, i64 %indvars.iv
   store float %lib.trunc, float* %arrayidx2

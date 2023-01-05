@@ -3,7 +3,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-arrays-with-const-entries -dtransanalysis -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the information for entries 0 and 1 in the

@@ -69,12 +69,12 @@ entry:
 ; CHECK-LABEL: test1_with_nowait
 ; CHECK-LABEL: if.then:
 ; BBlock "if.then" has the code for the variant call
-; CHECK: [[TASK1:%[^ ]+]] = call ptr @__kpmc_get_current_task(i32 %my.tid{{.*}})
+; CHECK: [[TASK1:%[^ ]+]] = call ptr @__kmpc_get_current_task(i32 %my.tid{{.*}})
 ; CHECK: [[IOP1:%[^ ]+]] = call ptr @__tgt_get_interop_obj(ptr @.kmpc_loc{{.*}}, i32 1, i32 3, ptr @.prefer.list{{.*}}, i64 0, i32 %my.tid{{.*}}, ptr [[TASK1]])
 ; CHECK: call void @_Z7foo_gpuiPv(i32 123, ptr [[IOP1]])
 
-; Since NOWAIT is specified, emit the __tgt_target_sync call after the variant call
-; CHECK: call void @__tgt_target_sync(ptr @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, ptr [[TASK1]], ptr null)
+; Since NOWAIT is specified, do not emit the __tgt_target_sync call after the variant call
+; CHECK-NEXT: br label %if.end
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.DISPATCH"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
@@ -115,7 +115,7 @@ entry:
 
 ; CHECK-LABEL: test2_with_depend
 ; CHECK-LABEL: if.then:
-; CHECK: [[TASK2:%[^ ]+]] = call ptr @__kpmc_get_current_task(i32 %my.tid{{.*}})
+; CHECK: [[TASK2:%[^ ]+]] = call ptr @__kmpc_get_current_task(i32 %my.tid{{.*}})
 ; CHECK: [[IOP2:%[^ ]+]] = call ptr @__tgt_get_interop_obj(ptr @.kmpc_loc{{.*}}, i32 1, i32 3, ptr @.prefer.list{{.*}}, i64 0, i32 %my.tid{{.*}}, ptr [[TASK2]])
 
 ; For the DEPEND clause emit call to __kmpc_omp_wait_deps but not the task_begin/complete_if0 calls
@@ -125,8 +125,8 @@ entry:
 
 ; CHECK: call void @_Z7foo_gpuiPv(i32 123, ptr [[IOP2]])
 
-; Since NOWAIT is not specified don't emit call to __tgt_target_sync
-; CHECK-NOT: call void @__tgt_target_sync
+; Since NOWAIT is not specified, emit the __tgt_target_sync call after the variant call
+; CHECK-NEXT: call void @__tgt_target_sync(ptr @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, ptr [[TASK2]], ptr null)
 
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.DISPATCH"() ]
   call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.TASK"() ]

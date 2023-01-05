@@ -437,8 +437,16 @@ void MachineFunction::deleteMachineInstr(MachineInstr *MI) {
 /// `new MachineBasicBlock'.
 MachineBasicBlock *
 MachineFunction::CreateMachineBasicBlock(const BasicBlock *bb) {
-  return new (BasicBlockRecycler.Allocate<MachineBasicBlock>(Allocator))
-             MachineBasicBlock(*this, bb);
+  MachineBasicBlock *MBB =
+      new (BasicBlockRecycler.Allocate<MachineBasicBlock>(Allocator))
+          MachineBasicBlock(*this, bb);
+  // Set BBID for `-basic-block=sections=labels` and
+  // `-basic-block-sections=list` to allow robust mapping of profiles to basic
+  // blocks.
+  if (Target.getBBSectionsType() == BasicBlockSection::Labels ||
+      Target.getBBSectionsType() == BasicBlockSection::List)
+    MBB->setBBID(NextBBID++);
+  return MBB;
 }
 
 /// Delete the given MachineBasicBlock.
@@ -779,7 +787,7 @@ MCSymbol *MachineFunction::addLandingPad(MachineBasicBlock *LandingPad) {
     }
 
   } else if (const auto *CPI = dyn_cast<CatchPadInst>(FirstI)) {
-    for (unsigned I = CPI->getNumArgOperands(); I != 0; --I) {
+    for (unsigned I = CPI->arg_size(); I != 0; --I) {
       Value *TypeInfo = CPI->getArgOperand(I - 1)->stripPointerCasts();
       addCatchTypeInfo(LandingPad, dyn_cast<GlobalValue>(TypeInfo));
     }

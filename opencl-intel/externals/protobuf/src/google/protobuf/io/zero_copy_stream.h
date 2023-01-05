@@ -107,8 +107,8 @@
 #ifndef GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_H__
 #define GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_H__
 
-#include <string>
 #include <google/protobuf/stubs/common.h>
+#include <string>
 
 namespace google {
 
@@ -122,7 +122,7 @@ class ZeroCopyOutputStream;
 // Abstract interface similar to an input stream but designed to minimize
 // copying.
 class LIBPROTOBUF_EXPORT ZeroCopyInputStream {
- public:
+public:
   ZeroCopyInputStream() {}
   virtual ~ZeroCopyInputStream() {}
 
@@ -142,7 +142,7 @@ class LIBPROTOBUF_EXPORT ZeroCopyInputStream {
   // * It is legal for the returned buffer to have zero size, as long
   //   as repeatedly calling Next() eventually yields a buffer with non-zero
   //   size.
-  virtual bool Next(const void** data, int* size) = 0;
+  virtual bool Next(const void **data, int *size) = 0;
 
   // Backs up a number of bytes, so that the next call to Next() returns
   // data again that was already returned by the last call to Next().  This
@@ -171,15 +171,14 @@ class LIBPROTOBUF_EXPORT ZeroCopyInputStream {
   // Returns the total number of bytes read since this object was created.
   virtual int64 ByteCount() const = 0;
 
-
- private:
+private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ZeroCopyInputStream);
 };
 
 // Abstract interface similar to an output stream but designed to minimize
 // copying.
 class LIBPROTOBUF_EXPORT ZeroCopyOutputStream {
- public:
+public:
   ZeroCopyOutputStream() {}
   virtual ~ZeroCopyOutputStream() {}
 
@@ -203,7 +202,7 @@ class LIBPROTOBUF_EXPORT ZeroCopyOutputStream {
   // * It is legal for the returned buffer to have zero size, as long
   //   as repeatedly calling Next() eventually yields a buffer with non-zero
   //   size.
-  virtual bool Next(void** data, int* size) = 0;
+  virtual bool Next(void **data, int *size) = 0;
 
   // Backs up a number of bytes, so that the end of the last buffer returned
   // by Next() is not actually written.  This is needed when you finish
@@ -228,21 +227,20 @@ class LIBPROTOBUF_EXPORT ZeroCopyOutputStream {
 
   // Write a given chunk of data to the output.  Some output streams may
   // implement this in a way that avoids copying. Check AllowsAliasing() before
-  // calling WriteAliasedRaw(). It will GOOGLE_CHECK fail if WriteAliasedRaw() is
-  // called on a stream that does not allow aliasing.
+  // calling WriteAliasedRaw(). It will GOOGLE_CHECK fail if WriteAliasedRaw()
+  // is called on a stream that does not allow aliasing.
   //
   // NOTE: It is caller's responsibility to ensure that the chunk of memory
   // remains live until all of the data has been consumed from the stream.
-  virtual bool WriteAliasedRaw(const void* data, int size);
+  virtual bool WriteAliasedRaw(const void *data, int size);
   virtual bool AllowsAliasing() const { return false; }
 
-
- private:
+private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ZeroCopyOutputStream);
 };
 
-}  // namespace io
-}  // namespace protobuf
+} // namespace io
+} // namespace protobuf
 
-}  // namespace google
-#endif  // GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_H__
+} // namespace google
+#endif // GOOGLE_PROTOBUF_IO_ZERO_COPY_STREAM_H__

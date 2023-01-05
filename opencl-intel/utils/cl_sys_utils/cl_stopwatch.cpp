@@ -19,44 +19,35 @@
 using namespace Intel::OpenCL::Utils;
 
 #ifdef WIN32
-#include<windows.h>
+#include <windows.h>
 #endif
 #include <assert.h>
 
-StopWatch::StopWatch()
-{
-	assert( 0 && "Deprecated code");
-	m_ullTime = 0;
-	m_uiCounter = 0;
+StopWatch::StopWatch() {
+  assert(0 && "Deprecated code");
+  m_ullTime = 0;
+  m_uiCounter = 0;
 }
 
-StopWatch::~StopWatch()
-{
+StopWatch::~StopWatch() {}
+
+void StopWatch::Start() { m_ullTime = RDTSC(); }
+
+unsigned long long StopWatch::Stop() {
+  unsigned long long ullPrevTime = m_ullTime;
+  m_ullTime = RDTSC();
+  m_uiCounter++;
+  return (m_ullTime - ullPrevTime);
 }
 
-void StopWatch::Start()
-{
-	m_ullTime = RDTSC();
+unsigned long long StopWatch::Reset() {
+  unsigned long long ullPrevTime = m_ullTime;
+  m_uiCounter = 0;
+  return ullPrevTime;
 }
 
-unsigned long long StopWatch::Stop()
-{
-	unsigned long long ullPrevTime = m_ullTime;
-	m_ullTime = RDTSC();
-	m_uiCounter++;
-	return (m_ullTime - ullPrevTime);
-}
-
-unsigned long long StopWatch::Reset()
-{
-	unsigned long long ullPrevTime = m_ullTime;
-	m_uiCounter = 0;
-	return ullPrevTime;
-}
-
-unsigned long long StopWatch::GetTime() const
-{
-	unsigned long long currTime;
-	currTime = RDTSC();
-	return currTime - m_ullTime;
+unsigned long long StopWatch::GetTime() const {
+  unsigned long long currTime;
+  currTime = RDTSC();
+  return currTime - m_ullTime;
 }

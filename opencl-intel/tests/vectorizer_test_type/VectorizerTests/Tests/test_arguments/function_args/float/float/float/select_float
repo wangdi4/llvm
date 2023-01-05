@@ -6,15 +6,15 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 select_float ( __global const float2 *in,
-		__global float *out, __global const float floatArg1, __global const float floatArg2, __global const float floatArg3)
+    __global float *out, __global const float floatArg1, __global const float floatArg2, __global const float floatArg3)
 {
-	int gid = get_global_id(0);
-	out[gid] = floatArg1 ? floatArg2 : floatArg3;
+  int gid = get_global_id(0);
+  out[gid] = floatArg1 ? floatArg2 : floatArg3;
 }

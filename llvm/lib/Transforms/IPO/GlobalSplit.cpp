@@ -31,15 +31,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/GlobalSplit.h"
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
-#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Analysis/Intel_WP.h"      // INTEL
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -59,6 +52,14 @@
 #include "llvm/Transforms/IPO.h"
 #include <cstdint>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

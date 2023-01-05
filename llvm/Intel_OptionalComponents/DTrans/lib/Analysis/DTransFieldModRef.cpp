@@ -255,6 +255,15 @@ void FieldModRefResult::unionModRefInfo(ModRefInfo &Status,
   if (Call->isIndirectCall())
     return;
 
+  // In the case of InlineAsm, go conservative.
+  // TODO: This may be able to be improved by checking the constraints for
+  // reads/writes of variables and memory.
+  if (auto *IA = dyn_cast<InlineAsm>(Call->getCalledOperand())) {
+    Status |= ModRefInfo::Mod;
+    Status |= ModRefInfo::Ref;
+    return;
+  }
+
   Function *Callee = Call->getCalledFunction();
   assert(Callee && "unexpected indirect call");
 
@@ -443,7 +452,6 @@ bool DTransModRefAnalyzerImpl<InfoClass>::runAnalysis(
     FieldModRefResult &FMRResult) {
   DTInfo = &DTransInfo;
   FMRResult.reset();
-
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
@@ -539,7 +547,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
       if (Call->isArgOperand(U))
         return std::make_pair(Call, Call->getDataOperandNo(U));
       else
-        return None;
+        return std::nullopt;
     }
     // If the use is a constant cast expression which itself has only one use,
     // we look through the constant cast expression to identify the Call.
@@ -551,7 +559,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
             return std::make_pair(Call, Call->getDataOperandNo(CastU));
       }
 
-    return None;
+    return std::nullopt;
   };
 
   // Check whether the argument at index \p ArgNum of Function \p F is a safe
@@ -1405,7 +1413,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::populateResults(
       ++FieldNum;
     }
 
-    for (auto It : IndirectFieldReaders) {
+    for (const auto &It : IndirectFieldReaders) {
       llvm::StructType *StTy = It.first.first;
       size_t FieldNum = It.first.second;
       if (FMRResult.isCandidate(StTy, FieldNum))
@@ -1413,7 +1421,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::populateResults(
           FMRResult.addValueReader(StTy, FieldNum, F);
     }
 
-    for (auto It : IndirectFieldWriters) {
+    for (const auto &It : IndirectFieldWriters) {
       llvm::StructType *StTy = It.first.first;
       size_t FieldNum = It.first.second;
       if (FMRResult.isCandidate(StTy, FieldNum))

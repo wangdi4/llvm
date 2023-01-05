@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-mv-variable-stride  -print-after=hir-mv-variable-stride -hir-details-dims -disable-output  <%s 2>&1 | FileCheck %s -check-prefix=ORIG
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-mv-variable-stride,print<hir>" -hir-details-dims <%s 2>&1 | FileCheck %s -check-prefix=ORIG
 
 ; Test checks that HIR Multiversioning for Variable Stride doesn't happen when there is a function call in the loop.

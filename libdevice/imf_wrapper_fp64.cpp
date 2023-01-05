@@ -469,6 +469,8 @@ double __devicelib_imf_nan (const char* x);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_nextafter (double x, double y);
 DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_norm (int n, const double* x);
+DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_norm3d (double x, double y, double z);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_norm4d (double x, double y, double z, double t);
@@ -480,6 +482,8 @@ DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_remquo (double x, double y, int* z);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_rhypot (double x, double y);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_rnorm (int n, const double* x);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_rnorm3d (double x, double y, double z);
 DEVICE_EXTERN_C_INLINE
@@ -504,6 +508,10 @@ DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_tan (double x);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_tanh (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_tgamma (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_lgamma (double x);
 
 // float64 imf wrappers
 DEVICE_EXTERN_C_INLINE
@@ -595,6 +603,8 @@ double __imf_nan (const char* x) { return __devicelib_imf_nan (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_nextafter (double x, double y) { return __devicelib_imf_nextafter (x, y); }
 DEVICE_EXTERN_C_INLINE
+double __imf_norm (int n, const double* x) { return __devicelib_imf_norm (n, x); }
+DEVICE_EXTERN_C_INLINE
 double __imf_norm3d (double x, double y, double z) { return __devicelib_imf_norm3d (x, y, z); }
 DEVICE_EXTERN_C_INLINE
 double __imf_norm4d (double x, double y, double z, double t) { return __devicelib_imf_norm4d (x, y, z, t); }
@@ -606,6 +616,8 @@ DEVICE_EXTERN_C_INLINE
 double __imf_remquo (double x, double y, int* z) { return __devicelib_imf_remquo (x, y, z); }
 DEVICE_EXTERN_C_INLINE
 double __imf_rhypot (double x, double y) { return __devicelib_imf_rhypot (x, y); }
+DEVICE_EXTERN_C_INLINE
+double __imf_rnorm (int n, const double* x) { return __devicelib_imf_rnorm (n, x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_rnorm3d (double x, double y, double z) { return __devicelib_imf_rnorm3d (x, y, z); }
 DEVICE_EXTERN_C_INLINE
@@ -630,5 +642,18 @@ DEVICE_EXTERN_C_INLINE
 double __imf_tan (double x) { return __devicelib_imf_tan (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_tanh (double x) { return __devicelib_imf_tanh (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_tgamma (double x) { return __devicelib_imf_tgamma (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_lgamma (double x) { return __devicelib_imf_lgamma (x); }
+
 #endif
+
+DEVICE_EXTERN_C_INLINE
+_iml_half_internal __devicelib_imf_double2half(double);
+
+DEVICE_EXTERN_C_INLINE
+_iml_half_internal __imf_double2half(double x) {
+  return __devicelib_imf_double2half(x);
+}
 #endif // __LIBDEVICE_IMF_ENABLED__

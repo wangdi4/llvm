@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that use of %t301.out in inner loop's upper bound is considered an

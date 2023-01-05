@@ -16,8 +16,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelPostVec.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -25,35 +23,6 @@
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-
-namespace {
-class DPCPPKernelPostVec : public ModulePass {
-  DPCPPKernelPostVecPass Impl;
-
-public:
-  static char ID;
-
-  DPCPPKernelPostVec() : ModulePass(ID) {
-    initializeDPCPPKernelPostVecPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  /// Returns the name of the pass
-  StringRef getPassName() const override {
-    return "VPlan post vectorization pass for DPCPP kernels";
-  }
-};
-} // namespace
-
-char DPCPPKernelPostVec::ID = 0;
-
-INITIALIZE_PASS(DPCPPKernelPostVec, DEBUG_TYPE, "VPlan post vectorization pass",
-                false, false)
-
-ModulePass *llvm::createDPCPPKernelPostVecPass() {
-  return new DPCPPKernelPostVec();
-}
 
 // Checks if the kernel has openmp directives. If not, then the kernel was
 // vectorized.
@@ -79,8 +48,11 @@ static void removeRecommendedVLMetadata(Function *F) {
 static bool rebindVectorizedKernel(Function *F) {
   bool Changed = false;
   auto FMD = KernelInternalMetadataAPI(F);
-  Function *ClonedKernel = FMD.VectorizedKernel.get();
-  Function *MaskedKernel = FMD.VectorizedMaskedKernel.get();
+  Function *ClonedKernel =
+      FMD.VectorizedKernel.hasValue() ? FMD.VectorizedKernel.get() : nullptr;
+  Function *MaskedKernel = FMD.VectorizedMaskedKernel.hasValue()
+                               ? FMD.VectorizedMaskedKernel.get()
+                               : nullptr;
   // Vectorized kernel already binded.
   if (ClonedKernel || MaskedKernel)
     return Changed;
@@ -145,10 +117,12 @@ bool DPCPPKernelPostVecPass::runImpl(Module &M) {
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
-                             FMD.VectorizedKernel.getID());
-    RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
-                             FMD.VectorizedMaskedKernel.getID());
+    if (FMD.VectorizedKernel.hasValue())
+      RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
+                               FMD.VectorizedKernel.getID());
+    if (FMD.VectorizedMaskedKernel.hasValue())
+      RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
+                               FMD.VectorizedMaskedKernel.getID());
   }
 
   return Changed;

@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -257,6 +257,15 @@ public:
     if (NewCandI)
       delete NewCandI;
   }
+
+  // Define these functions as unavailable due to resources being managed by the
+  // destructor.
+  SOAToAOSPrepCandidateInfo(const SOAToAOSPrepCandidateInfo &) = delete;
+  SOAToAOSPrepCandidateInfo(SOAToAOSPrepCandidateInfo &&) = delete;
+  SOAToAOSPrepCandidateInfo &
+  operator=(const SOAToAOSPrepCandidateInfo &) = delete;
+  SOAToAOSPrepCandidateInfo &operator=(SOAToAOSPrepCandidateInfo &&) = delete;
+
   bool isCandidateField(Type *, unsigned);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printCandidateInfo();
@@ -446,9 +455,9 @@ void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
                   { dbgs() << "  Before CB: " << *CB << "\n"; });
   if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
     NewCB = InvokeInst::Create(NewF, II->getNormalDest(), II->getUnwindDest(),
-                               NewArgs, None, "", CB->getParent());
+                               NewArgs, std::nullopt, "", CB->getParent());
   } else {
-    NewCB = CallInst::Create(NFTy, NewF, NewArgs, None, "", CB);
+    NewCB = CallInst::Create(NFTy, NewF, NewArgs, std::nullopt, "", CB);
     cast<CallInst>(NewCB)->setTailCallKind(
         cast<CallInst>(CB)->getTailCallKind());
   }
@@ -1369,9 +1378,9 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
 
       if (InvokeInst *II = dyn_cast<InvokeInst>(CB)) {
         NewCB = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
-                                   Args, None, "", CB->getParent());
+                                   Args, std::nullopt, "", CB->getParent());
       } else {
-        NewCB = CallInst::Create(NFTy, NF, Args, None, "", CB);
+        NewCB = CallInst::Create(NFTy, NF, Args, std::nullopt, "", CB);
         cast<CallInst>(NewCB)->setTailCallKind(
             cast<CallInst>(CB)->getTailCallKind());
       }

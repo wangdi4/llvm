@@ -1,4 +1,4 @@
-; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; Test src:
@@ -21,7 +21,7 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 ; Check that warning is emitted for the ignored construct.
-; CHECK: warning:{{.*}}'parallel' construct, in a declare target function, was ignored for calls from target regions.
+; CHECK: warning:{{.*}} do/for/loop construct, in a declare target function, was ignored for calls from target regions.
 
 ; Function Attrs: noinline nounwind optnone
 define hidden spir_func void @foo(i32 addrspace(4)* %x, i32 %n) #0 {

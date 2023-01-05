@@ -37,64 +37,59 @@ typedef uint64_t __ittx_uint64;
 #error Unsupported platform
 #endif
 
-
 /************************************************************************/
 /* Atomic increment                                                     */
 /************************************************************************/
 #ifndef INTEL_NO_ITTNOTIFY_API
 #if ITT_PLATFORM == ITT_PLATFORM_WIN
-#include <math.h> // Magical fix for x64 debug compile issue -- warning C4985: 'ceil': attributes not present on previous declaration.
 #include <intrin.h>
-#endif // ITT_PLATFORM
+#include <math.h> // Magical fix for x64 debug compile issue -- warning C4985: 'ceil': attributes not present on previous declaration.
+#endif            // ITT_PLATFORM
 
 #if ITT_PLATFORM == ITT_PLATFORM_WIN
-#if !defined(_M_X64) && !defined(_MANAGED) /* The asm really pisses off the clr compiler */ 
+#if !defined(_M_X64) &&                                                        \
+    !defined(_MANAGED) /* The asm really pisses off the clr compiler */
 
 // (Vista32)
-INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile* in_pAddend)
-{
-    __ittx_int32 result;
-    __asm {
+INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile *in_pAddend) {
+  __ittx_int32 result;
+  __asm {
         mov         ecx, dword ptr [in_pAddend]
         mov         eax, 1
         lock xadd   dword ptr [ecx], eax 
         inc         eax
         mov         result, eax
-    }
-    return result;
+  }
+  return result;
 }
 
 #else // defined(_M_X64) || defined(_MANAGED)
 
 // (Vista64)
-INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile* in_pAddend)
-{
-    return _InterlockedIncrement((long*)in_pAddend);
+INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile *in_pAddend) {
+  return _InterlockedIncrement((long *)in_pAddend);
 }
 
 #endif // _M_X64
 #elif ITT_PLATFORM == ITT_PLATFORM_POSIX
-INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile* in_pAddend)
-{
-    int32_t result;
-    __asm__("                \
+INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile *in_pAddend) {
+  int32_t result;
+  __asm__("                \
             movl       $1, %0;   \
             lock xaddl  %0, (%1); \
             incl       %0;       \
             "
-            : "=&r" (result)
-            : "r" (in_pAddend)
-            );
-    return result;
+          : "=&r"(result)
+          : "r"(in_pAddend));
+  return result;
 }
-#else 
+#else
 #error "Not defined for current platform"
 #endif // ITT_PLATFORM
 
 #else // INTEL_NO_ITTNOTIFY_API
 #define __ittx_atomic_increment(x) 0
 #endif // INTEL_NO_ITTNOTIFY_API
-
 
 /************************************************************************/
 /* RDTSC                                                                */
@@ -103,45 +98,39 @@ INLINE __ittx_int32 __ittx_atomic_increment(__ittx_int32 volatile* in_pAddend)
 
 #if ITT_PLATFORM == ITT_PLATFORM_WIN
 #ifdef _M_X64
-    __ittx_uint64 __rdtsc(void);
+__ittx_uint64 __rdtsc(void);
 #pragma intrinsic(__rdtsc)
 #define __ITTX_RDTSC __rdtsc
 #else
-#define __ITTX_RDTSC_STACK(ts) \
-    __asm rdtsc \
-    __asm mov DWORD PTR [ts], eax \
-    __asm mov DWORD PTR [ts+4], edx
+#define __ITTX_RDTSC_STACK(ts)                                                 \
+  __asm rdtsc __asm mov DWORD PTR[ts], eax __asm mov DWORD PTR[ts + 4], edx
 
-    __inline __ittx_uint64 __itt_rdtsc() 
-    {
-        __ittx_uint64 t;
-        __ITTX_RDTSC_STACK(t);
-        return t;
-    }
+__inline __ittx_uint64 __itt_rdtsc() {
+  __ittx_uint64 t;
+  __ITTX_RDTSC_STACK(t);
+  return t;
+}
 #define __ITTX_RDTSC __itt_rdtsc
 #endif
 #elif ITT_PLATFORM == ITT_PLATFORM_POSIX
-    INLINE __ittx_uint64 __itt_rdtsc(void) 
-    {
-        __ittx_uint64 result;
-#ifdef defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64)
-        unsigned int __a,__d;
-        __asm volatile("rdtsc" : "=a" (__a), "=d" (__d));
-        result = ((unsigned long long)__a) | (((unsigned long long)__d)<<32);
+INLINE __ittx_uint64 __itt_rdtsc(void) {
+  __ittx_uint64 result;
+#ifdef defined(__amd64__) || defined(__amd64) || defined(__x86_64__) ||        \
+    defined(__x86_64)
+  unsigned int __a, __d;
+  __asm volatile("rdtsc" : "=a"(__a), "=d"(__d));
+  result = ((unsigned long long)__a) | (((unsigned long long)__d) << 32);
 #else
-        __asm__ __volatile__("rdtsc" : "=A" (result));
+  __asm__ __volatile__("rdtsc" : "=A"(result));
 #endif
-        return result;
-    }
+  return result;
+}
 #define __ITTX_RDTSC __itt_rdtsc
 #else
 #error Unsupported platform
 #endif /*ITT_PLATFORM*/
 
-INLINE __ittx_uint64 __ittx_get_current_time()
-{
-    return __ITTX_RDTSC();
-}
+INLINE __ittx_uint64 __ittx_get_current_time() { return __ITTX_RDTSC(); }
 #else /*INTEL_NO_ITTNOTIFY_API*/
 #define __ittx_get_current_time() 0
 #endif /*INTEL_NO_ITTNOTIFY_API*/

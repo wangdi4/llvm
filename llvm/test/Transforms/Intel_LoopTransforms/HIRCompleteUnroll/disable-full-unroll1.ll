@@ -4,13 +4,11 @@
 ; ===-----------------------------------===
 ; *** Run0: Normal Complete Unrolling ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -S < %s  2>&1 |	FileCheck %s -check-prefix=UNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -S < %s  2>&1 |	FileCheck %s -check-prefix=UNROLL
 ;
 ; ===-----------------------------------===
 ; *** Run1: Disable Complete Unrolling with -disable-hir-post-vec-complete-unroll flag ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -disable-hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-cg -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>,hir-cg" -disable-hir-post-vec-complete-unroll -S < %s  2>&1 | FileCheck %s -check-prefix=NOUNROLL
 ;
 ;

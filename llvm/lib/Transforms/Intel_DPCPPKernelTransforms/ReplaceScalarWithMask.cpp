@@ -16,8 +16,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReplaceScalarWithMask.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
@@ -27,36 +25,6 @@ using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
 #define DEBUG_TYPE "dpcpp-kernel-replace-scalar-with-mask"
-
-namespace llvm {
-  /// ReplaceScalarWithMaskLegacy pass for legacy pass manager.
-  class ReplaceScalarWithMaskLegacy : public ModulePass {
-    ReplaceScalarWithMaskPass Impl;
-
-  public:
-    ReplaceScalarWithMaskLegacy() : ModulePass(ID) {
-      initializeReplaceScalarWithMaskLegacyPass(*PassRegistry::getPassRegistry());
-    }
-
-    static char ID;
-
-    StringRef getPassName() const override {
-      return "Intel DPCPP Kernel ReplaceScalarWithMask Pass";
-    }
-
-    bool runOnModule(Module &M) override {
-      return Impl.runImpl(M);
-    }
-  };
-} // namespace llvm
-
-INITIALIZE_PASS(
-    ReplaceScalarWithMaskLegacy, DEBUG_TYPE,
-    "ReplaceScalarWithMask Pass - Replace scalar kernel with masked kernel when"
-    " the kernel has barrier path and subgroup calls",
-    false, false)
-
-char ReplaceScalarWithMaskLegacy::ID = 0;
 
 PreservedAnalyses ReplaceScalarWithMaskPass::run(Module &M,
                                                  ModuleAnalysisManager &) {
@@ -75,7 +43,7 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
     if (ScalarKernel->hasOptNone())
       continue;
     auto SKIMD = KernelInternalMetadataAPI(ScalarKernel);
-    if ((SKIMD.NoBarrierPath.hasValue() && SKIMD.NoBarrierPath.get()) ||
+    if (SKIMD.NoBarrierPath.get() ||
         !(SKIMD.VectorizedMaskedKernel.hasValue() &&
           SKIMD.VectorizedMaskedKernel.get()))
       continue;
@@ -121,7 +89,7 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
     // Clone metadatas from the old function, including debug info descriptor.
     SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
     MaskKernel->getAllMetadata(MDs);
-    for (auto MD : MDs)
+    for (const auto &MD : MDs)
       ScalarKernel->addMetadata(MD.first, *MD.second);
 
     // Set the masked kernel to itself.
@@ -136,8 +104,4 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
   }
 
   return Changed;
-}
-
-ModulePass *llvm::createReplaceScalarWithMaskLegacyPass() {
-  return new llvm::ReplaceScalarWithMaskLegacy();
 }

@@ -1,4 +1,3 @@
-; RUN: opt -hir-cost-model-throttling=0 -hir-ssa-deconstruction -disable-output -hir-opt-predicate -print-after=hir-opt-predicate < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; OUTDATED: Check that node (*) in the DO i2 loop postexit will not be present after opt-predicate and dead node removal.

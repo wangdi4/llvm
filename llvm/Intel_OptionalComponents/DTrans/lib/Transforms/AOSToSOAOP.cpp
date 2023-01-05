@@ -972,7 +972,7 @@ void AOSCollector::visitPHINode(PHINode &I) {
     return;
 
   FuncInfo.InstructionsToMutate.push_back({&I, TypeInAddrSpace});
-  for (auto Elem : enumerate(I.incoming_values()))
+  for (const auto &Elem : enumerate(I.incoming_values()))
     if (isa<ConstantPointerNull>((Elem.value())))
       FuncInfo.ConstantsToReplace.push_back(
           {&I, Elem.index(), TypeInAddrSpace});
@@ -1189,7 +1189,7 @@ bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
                                           ? 32
                                           : PointerSizeInBits);
 
-  for (auto Elem : enumerate(TypesToTransform)) {
+  for (const auto &Elem : enumerate(TypesToTransform)) {
     dtrans::StructInfo *StInfo = Elem.value();
     LLVM_DEBUG(dbgs() << "AOS-to-SOA: Original structure: "
                       << *StInfo->getLLVMType() << "\n");
@@ -1341,8 +1341,8 @@ void AOSToSOAOPTransformImpl::prepareModule(Module &M) {
   // Find the functions that the base class cloned due to a pointer return or
   // parameter type being changed into an integer.
   for (auto &KV : OrigFuncToCloneFuncMap) {
-    for (auto Arg : zip(KV.first->getValueType()->subtypes(),
-                        KV.second->getValueType()->subtypes())) {
+    for (const auto &Arg : zip(KV.first->getValueType()->subtypes(),
+                               KV.second->getValueType()->subtypes())) {
       if (std::get<0>(Arg)->isPointerTy() && !std::get<1>(Arg)->isPointerTy()) {
         FnClonedForIndex.insert(KV.first);
         break;
@@ -1443,7 +1443,7 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
 
   // Convert 'ptr' objects to be 'ptr addrspace(n)' objects so the type
   // remapping will recognize them.
-  for (auto KV : FuncInfo->InstructionsToMutate)
+  for (const auto &KV : FuncInfo->InstructionsToMutate)
     if (auto *Call = dyn_cast<CallInst>(KV.first))
       Call->mutateFunctionType(cast<FunctionType>(KV.second));
     else
@@ -2103,6 +2103,7 @@ void AOSToSOAOPTransformImpl::convertByteGEP(GetElementPtrInst *GEP,
 // Update the GEP result element type on the GEPs because now the result of a
 // GEP will be an integer index instead of a pointer type.
 void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
+  assert(GEP->getNumIndices() >= 2 && "Invalid dependent GEP to convert");
   auto *LLVMStructTy = cast<llvm::StructType>(GEP->getSourceElementType());
   Value *FieldNum = GEP->getOperand(2);
   uint32_t FieldIdx = dyn_cast<ConstantInt>(FieldNum)->getLimitedValue();
@@ -3276,8 +3277,8 @@ bool AOSToSOAOPPass::qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
   SmallPtrSet<StructInfo *, 8> Disqualified;
   DenseMap<dtrans::StructInfo *, Instruction *> AllocTypeInfoToInstr;
   DenseMap<dtrans::StructInfo *, Instruction *> FreeTypeInfoToInstr;
-  for (auto CInfoVec : DTInfo.call_info_entries()) {
-    for (auto CInfo : CInfoVec ) {
+  for (const auto &CInfoVec : DTInfo.call_info_entries()) {
+    for (auto *CInfo : CInfoVec ) {
       if (!CInfo->getAliasesToAggregateType())
         continue;
 

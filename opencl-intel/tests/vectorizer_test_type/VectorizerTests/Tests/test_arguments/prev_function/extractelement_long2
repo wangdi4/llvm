@@ -7,19 +7,19 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 extractelement_long2 ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	long x = in[gid];
-	long y = acos(2 * in[gid]);
-	long2 tmp = (long2)(x, y);
-	tmp = tmp * tmp;
-	out[gid] = tmp.x * tmp.y;
+  int gid = get_global_id(0);
+  long x = in[gid];
+  long y = acos(2 * in[gid]);
+  long2 tmp = (long2)(x, y);
+  tmp = tmp * tmp;
+  out[gid] = tmp.x * tmp.y;
 }

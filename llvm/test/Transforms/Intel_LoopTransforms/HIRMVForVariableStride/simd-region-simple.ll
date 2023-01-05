@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-before=hir-mv-variable-stride -print-after=hir-mv-variable-stride -hir-print-only=0 -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -aa-pipeline="basic-aa" -hir-print-only=0 -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 
 ; Make sure simd-entry/exit are added around the right loops after MV for variable strides.

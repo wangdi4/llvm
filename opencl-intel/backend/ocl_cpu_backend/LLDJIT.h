@@ -29,10 +29,10 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 /// @brief LLDJIT executes code by building and using shared libraries.
-/// LLDJIT links the modules with LLD and loads them into the process with LoadLibrary().
-/// Compared to MCJIT, this allows to create debuggable JIT code for Visual
-/// Studio. Currently, its only used to debug natively with visual studio and
-/// other use-cases are not supported.
+/// LLDJIT links the modules with LLD and loads them into the process with
+/// LoadLibrary(). Compared to MCJIT, this allows to create debuggable JIT code
+/// for Visual Studio. Currently, its only used to debug natively with visual
+/// studio and other use-cases are not supported.
 /// 1. addModule(module) == Take ownership of module
 /// 2. addObjectFile(chkstk) == Add precompiled objects to the linker
 /// 3. generateCodeForModule(module) == build OBJ file
@@ -49,15 +49,14 @@ class LLDJIT : public llvm::ExecutionEngine {
   ///
   /// After playing with llvm::sys::fs:TempFile and llvm::ToolOutputFile, I have
   /// decided to create yet another version.
-  /// *::fs::TempFile was removing file on close on Windows and can't be opened a
-  /// second time, however it has nice interface.
-  /// llvm::ToolOutputFile is usable, but it is not giving access to the
-  /// filename, it can't generate unique file name and it is not movable. So I'm
-  /// wrapping ToolOutputfile to the needs of LLDJIT to make the code more
-  /// readable.
+  /// *::fs::TempFile was removing file on close on Windows and can't be opened
+  /// a second time, however it has nice interface. llvm::ToolOutputFile is
+  /// usable, but it is not giving access to the filename, it can't generate
+  /// unique file name and it is not movable. So I'm wrapping ToolOutputfile to
+  /// the needs of LLDJIT to make the code more readable.
   class TmpFile {
 
-	 // unique_ptr is needed to make it movable
+    // unique_ptr is needed to make it movable
     std::unique_ptr<llvm::ToolOutputFile> File;
     std::string Name;
 
@@ -312,9 +311,9 @@ public:
 
   llvm::TargetMachine *getTargetMachine() override { return TM.get(); }
 
-  static std::unique_ptr<ExecutionEngine> createJIT(
-      std::unique_ptr<llvm::Module> M, std::string * ErrorStr,
-      std::unique_ptr<llvm::TargetMachine> TM);
+  static std::unique_ptr<ExecutionEngine>
+  createJIT(std::unique_ptr<llvm::Module> M, std::string *ErrorStr,
+            std::unique_ptr<llvm::TargetMachine> TM);
 
   // Takes a mangled name and returns the corresponding JITSymbol (if a
   // definition of that mangled name has been added to the JIT).

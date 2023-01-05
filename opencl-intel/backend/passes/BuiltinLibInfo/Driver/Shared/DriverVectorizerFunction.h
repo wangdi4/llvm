@@ -21,7 +21,7 @@ namespace intel {
 
 class DriverVectorizerFunction : public VectorizerFunction {
 public:
-  DriverVectorizerFunction(const std::string& s);
+  DriverVectorizerFunction(const std::string &s);
 
   ~DriverVectorizerFunction();
 

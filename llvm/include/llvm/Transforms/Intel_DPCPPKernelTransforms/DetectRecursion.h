@@ -34,6 +34,8 @@ public:
 
   // Glue for old PM.
   bool runImpl(Module &M, CallGraph *CG);
+
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm

@@ -157,81 +157,131 @@ std::string llvm::VFInfo::encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
 namespace scores {
 // Scalar2VectorScore represents either a uniform or linear match with
 // vector.
-static constexpr unsigned Scalar2VectorScore = 2;
-static constexpr unsigned Uniform2UniformScore = 3;
-static constexpr unsigned UniformPtr2UniformPtrScore = 4;
-static constexpr unsigned Vector2VectorScore = 4;
-static constexpr unsigned Linear2LinearScore = 4;
+static constexpr int Scalar2VectorScore = 2;
+static constexpr int Uniform2UniformScore = 3;
+static constexpr int UniformPtr2UniformPtrScore = 4;
+static constexpr int Vector2VectorScore = 4;
+static constexpr int Linear2LinearScore = 4;
+
+static constexpr int Aligned2AlignedScore = 4;
+static constexpr int Unaligned2UnalignedScore = 4;
+static constexpr int Aligned2UnalignedScore = 3;
+static constexpr int Linear2VariableLinearScore = 3;
 
 // Indicate that a match was not found for a particular variant when doing
 // caller/callee variant matching.
 static constexpr int NoMatch = -1;
 
 int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
-                    const Module *M) {
+                    const Module *M,
+                    const ArrayRef<bool> ArgIsLinearPrivateMem) {
 
   // 'V1' refers to the variant for the call. Match parameters with 'V2',
   // which represents some available variant.
-  ArrayRef<VFParameter> Params = V1.getParameters();
-  ArrayRef<VFParameter> OtherParams = V2.getParameters();
+  ArrayRef<VFParameter> Caller = V1.getParameters();
+  ArrayRef<VFParameter> Callee = V2.getParameters();
 
-  assert(Params.size() == OtherParams.size() &&
-         "Number of parameters do not match");
+  assert(Caller.size() == Callee.size() && "Number of parameters do not match");
 
   Function *F = M->getFunction(V1.ScalarName);
   assert(F && "Function not found in module");
 
   LLVM_DEBUG(dbgs() << "Attempting parameter matching of " << V1.prefix()
                     << " with " << V2.prefix() << "\n");
-  int ParamScore = 0;
 
-  std::vector<int> ArgScores;
-  unsigned ArgIdx = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
-  for (unsigned I = 0; I < OtherParams.size(); ++I, ++ArgIdx) {
+  unsigned ArgStart = (F->getName().startswith("__intel_indirect_call")) ? 1 : 0;
+
+  auto ScoreParamAlignment = [&](unsigned I) {
+    if (Caller[I].isAligned() && Callee[I].isAligned()) {
+      if (Caller[I].getAlignment() < Callee[I].getAlignment())
+        return NoMatch;
+      return Aligned2AlignedScore;
+    }
+    if (!Caller[I].isAligned() && Callee[I].isAligned()) {
+      return NoMatch;
+    }
+    if (Caller[I].isAligned() && !Callee[I].isAligned()) {
+      return Aligned2UnalignedScore;
+    }
+    return Unaligned2UnalignedScore;
+  };
+
+  auto ScoreParamKind = [&](unsigned I) {
     // Linear and uniform arguments can always safely be put into vectors, but
     // reduce score in those cases because scalar is optimal.
-    int ArgScore;
-    if (OtherParams[I].isVector()) {
-      if (Params[I].isVector())
-        ArgScore = Vector2VectorScore;
-      else
-        ArgScore = Scalar2VectorScore; // uniform/linear -> vector
-      ArgScores.push_back(ArgScore);
-      ParamScore += ArgScore;
-      continue;
+    if (Callee[I].isVector()) {
+      if (Caller[I].isVector())
+        return Vector2VectorScore;
+      return Scalar2VectorScore; // uniform/linear -> vector
     }
 
-    // linear->linear matches occur when:
+    // Matching for linear integer/pointer/reference args.
+    // Matches occur when:
     // 1) both args are linear and have same constant stride
     // 2) caller side arg is recognized by DA as linear with constant stride
-    //    and available variant is variable integer strided.
+    //    and available variant is variable integer strided. As a result, a
+    //    lower score is assigned as a tie-breaker in case multiple variants
+    //    are available.
     // 3) both args are linear with variable stride.
-    if (OtherParams[I].isLinear() && Params[I].isLinear()) {
-      if ((OtherParams[I].isConstantStrideLinear() && // Case #1
-           Params[I].isConstantStrideLinear() &&
-           OtherParams[I].getStride() == Params[I].getStride()) ||
-          OtherParams[I].isVariableStride()) {        // Cases #2 and #3
-        ArgScore = Linear2LinearScore;
-        ArgScores.push_back(ArgScore);
-        ParamScore += ArgScore;
-        continue;
+    //
+    // When multiple variants are available for reference args and strides
+    // match, they are ranked to favor uval, val, and ref in that order.
+    //
+    auto ScoreAdjustment = [&](VFParameter Param) {
+      if (Param.isLinearVal())
+        return 1;
+      else if (Param.isLinearRef())
+        return 2;
+      else
+        return 0;
+    };
+    if ((Callee[I].isLinear() && Caller[I].isLinear()) ||
+        (Callee[I].isLinearRef() && Caller[I].isLinearRef()) ||
+        (Callee[I].isLinearUVal() && Caller[I].isLinearUVal()) ||
+        (Callee[I].isLinearVal() && Caller[I].isLinearVal())) {
+      if (Callee[I].isConstantStrideLinear() && // Case #1
+          Caller[I].isConstantStrideLinear() &&
+          Callee[I].getStride() == Caller[I].getStride()) {
+        return Linear2LinearScore - ScoreAdjustment(Caller[I]);
       }
+      if (Caller[I].isConstantStrideLinear() && // Case #2
+          Callee[I].isVariableStride())
+        return Linear2VariableLinearScore - ScoreAdjustment(Caller[I]);
+      if (Callee[I].isVariableStride() &&       // Case #3
+          Caller[I].isVariableStride())
+        return Linear2LinearScore - ScoreAdjustment(Caller[I]);
+      return NoMatch;
     }
 
-    if (OtherParams[I].isUniform() && Params[I].isUniform()) {
+    if (Callee[I].isUniform() && Caller[I].isUniform()) {
       // Uniform ptr arguments are more beneficial for performance, so weight
       // them accordingly.
-      if (isa<PointerType>(F->getArg(ArgIdx)->getType()))
-        ArgScore = UniformPtr2UniformPtrScore;
-      else
-        ArgScore = Uniform2UniformScore;
-      ArgScores.push_back(ArgScore);
-      ParamScore += ArgScore;
-      continue;
+      if (isa<PointerType>(F->getArg(ArgStart + I)->getType()))
+        return UniformPtr2UniformPtrScore;
+      return Uniform2UniformScore;
     }
 
     LLVM_DEBUG(dbgs() << "Arg did not match variant parameter!\n");
     return NoMatch;
+  };
+
+  int TotalScore = 0;
+  std::vector<int> ArgScores;
+  for (unsigned I = 0; I < Callee.size(); ++I) {
+    int ArgScore = 0;
+
+    int AlignScore = ScoreParamAlignment(I);
+    if (AlignScore == NoMatch)
+      return NoMatch;
+    ArgScore += AlignScore;
+
+    int KindScore = ScoreParamKind(I);
+    if (KindScore == NoMatch)
+      return NoMatch;
+    ArgScore += KindScore;
+
+    ArgScores.push_back(ArgScore);
+    TotalScore += ArgScore;
   }
 
   LLVM_DEBUG(dbgs() << "Args matched variant parameters\n");
@@ -239,18 +289,20 @@ int matchParameters(const VFInfo &V1, const VFInfo &V2, int &MaxArg,
   MaxArg =
       std::max_element(ArgScores.begin(), ArgScores.end()) - ArgScores.begin();
   LLVM_DEBUG(dbgs() << "MaxArg: " << MaxArg << "\n");
-  LLVM_DEBUG(dbgs() << "Score: " << ParamScore << "\n");
-  return ParamScore;
+  LLVM_DEBUG(dbgs() << "Score: " << TotalScore << "\n");
+  return TotalScore;
 }
 } // namespace scores
 
-int VFInfo::getMatchingScore(const VFInfo &Other, int &MaxArg,
-                             const Module *M) const {
+int VFInfo::getMatchingScore(
+    const VFInfo &Other, int &MaxArg, const Module *M,
+    const ArrayRef<bool> ArgIsLinearPrivateMem) const {
   if (getVF() != Other.getVF())
     return scores::NoMatch;
   if (isMasked() != Other.isMasked())
     return scores::NoMatch;
-  return scores::matchParameters(*this, Other, MaxArg, M);
+  return scores::matchParameters(*this, Other, MaxArg, M,
+                                 ArgIsLinearPrivateMem);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -659,6 +711,43 @@ bool llvm::isSplatValue(const Value *V, int Index, unsigned Depth) {
   // TODO: Add support for unary ops (fneg), casts, intrinsics (overflow ops).
 
   return false;
+}
+
+bool llvm::getShuffleDemandedElts(int SrcWidth, ArrayRef<int> Mask,
+                                  const APInt &DemandedElts, APInt &DemandedLHS,
+                                  APInt &DemandedRHS, bool AllowUndefElts) {
+  DemandedLHS = DemandedRHS = APInt::getZero(SrcWidth);
+
+  // Early out if we don't demand any elements.
+  if (DemandedElts.isZero())
+    return true;
+
+  // Simple case of a shuffle with zeroinitializer.
+  if (all_of(Mask, [](int Elt) { return Elt == 0; })) {
+    DemandedLHS.setBit(0);
+    return true;
+  }
+
+  for (unsigned I = 0, E = Mask.size(); I != E; ++I) {
+    int M = Mask[I];
+    assert((-1 <= M) && (M < (SrcWidth * 2)) &&
+           "Invalid shuffle mask constant");
+
+    if (!DemandedElts[I] || (AllowUndefElts && (M < 0)))
+      continue;
+
+    // For undef elements, we don't know anything about the common state of
+    // the shuffle result.
+    if (M < 0)
+      return false;
+
+    if (M < SrcWidth)
+      DemandedLHS.setBit(M);
+    else
+      DemandedRHS.setBit(M - SrcWidth);
+  }
+
+  return true;
 }
 
 void llvm::narrowShuffleMaskElts(int Scale, ArrayRef<int> Mask,
@@ -1176,10 +1265,25 @@ bool llvm::isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
   return TLI->isFunctionVectorizable(FnName) && VFnName.startswith("__svml_");
 }
 
-unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
+bool llvm::isSVMLDeviceScalarFunctionName(StringRef FnName) {
+  return FnName.startswith("__svml_device_");
+}
+
+bool llvm::isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
+                                StringRef VFnName) {
+  if (!TLI->isFunctionVectorizable(FnName))
+    return false;
+  auto DemanglingInfo = VFABI::tryDemangleForVFABI(VFnName);
+  return DemanglingInfo &&
+         isSVMLDeviceScalarFunctionName(DemanglingInfo->ScalarName);
+}
+
+unsigned llvm::getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
                              const TargetLibraryInfo *TLI) {
+  StringRef FnName = CB.getCalledFunction()->getName();
+
   // Call can already be vectorized for current VF, pumping not needed.
-  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF), IsMasked))
+  if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(VF), IsMasked))
     return 1;
 
   // TODO: Pumping is supported only for simple SVML functions.
@@ -1197,12 +1301,14 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
     return 1;
 
   // Pumping can be done if function can be vectorized for any LowerVF starting
-  // from VF/2 -> 2.
+  // from VF/2 -> 2. Since pumping is only done for library calls today, ensure
+  // that call passes restrictions imposed by TLI for vector library based
+  // vectorization.
   assert(isPowerOf2_32(VF) &&
          "Pumping analysis is not supported for non-power of two VF.");
   unsigned LowerVF;
   for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
-    if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(LowerVF),
+    if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(LowerVF),
                                     IsMasked))
       return VF / LowerVF;
   }
@@ -1266,9 +1372,16 @@ Function *llvm::getOrInsertVectorVariantFunction(
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
     VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     VectorF->copyAttributesFrom(OrigF);
-    // See notes in VecClone as to why we remove these attributes.
-    VectorF->removeFnAttr(Attribute::ReadOnly);
-    VectorF->removeFnAttr(Attribute::ArgMemOnly);
+    // Alias analysis models the high-level memory effects of functions
+    // using FunctionModRefBehavior.
+    // Explicitly set ModRef flag to force AA to behave conservatively
+    // and prevent any illegal code motion/elimination.
+    VectorF->setAttributes(
+        VectorF->getAttributes().addFnAttribute(
+              VectorF->getContext(),
+              Attribute::getWithMemoryEffects(VectorF->getContext(),
+					MemoryEffects::unknown())));
+    
     VectorF->setVisibility(OrigF->getVisibility());
   }
 
@@ -1313,7 +1426,6 @@ Function *llvm::getOrInsertVectorLibFunction(
 
   if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
     // TODO: Modify OpenCL read/write channel code to be CallInst independent.
-    // Check JR https://jira.devtools.intel.com/browse/CORC-4838
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
     AllocaInst *Alloca = getOpenCLReadWriteChannelAlloc(Call);
@@ -1885,6 +1997,12 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
         continue;
       Type *ElementTy = getLoadStoreType(&I);
 
+      // Currently, codegen doesn't support cases where the type size doesn't
+      // match the alloc size. Skip them for now.
+      uint64_t Size = DL.getTypeAllocSize(ElementTy);
+      if (Size * 8 != DL.getTypeSizeInBits(ElementTy))
+        continue;
+
       // We don't check wrapping here because we don't know yet if Ptr will be
       // part of a full group or a group with gaps. Checking wrapping for all
       // pointers (even those that end up in groups with no gaps) will be overly
@@ -1892,11 +2010,11 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
       // wrap around the address space we would do a memory access at nullptr
       // even without the transformation. The wrapping checks are therefore
       // deferred until after we've formed the interleaved groups.
-      int64_t Stride = getPtrStride(PSE, ElementTy, Ptr, TheLoop, Strides,
-                                    /*Assume=*/true, /*ShouldCheckWrap=*/false);
+      int64_t Stride =
+        getPtrStride(PSE, ElementTy, Ptr, TheLoop, Strides,
+                     /*Assume=*/true, /*ShouldCheckWrap=*/false).value_or(0);
 
       const SCEV *Scev = replaceSymbolicStrideSCEV(PSE, Strides, Ptr);
-      uint64_t Size = DL.getTypeAllocSize(ElementTy);
       AccessStrideInfo[&I] = StrideDescriptor(Stride, Scev, Size,
                                               getLoadStoreAlignment(&I));
     }
@@ -2116,7 +2234,7 @@ void InterleavedAccessInfo::analyzeInterleaving(
     Value *MemberPtr = getLoadStorePointerOperand(Member);
     Type *AccessTy = getLoadStoreType(Member);
     if (getPtrStride(PSE, AccessTy, MemberPtr, TheLoop, Strides,
-                     /*Assume=*/false, /*ShouldCheckWrap=*/true))
+                     /*Assume=*/false, /*ShouldCheckWrap=*/true).value_or(0))
       return false;
     LLVM_DEBUG(dbgs() << "LV: Invalidate candidate interleaved group due to "
                       << FirstOrLast

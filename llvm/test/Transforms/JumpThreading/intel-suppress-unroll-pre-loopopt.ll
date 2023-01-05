@@ -1,4 +1,3 @@
-; RUN: opt < %s -jump-threading -S | FileCheck %s
 ; RUN: opt < %s -passes=jump-threading -S | FileCheck %s
 
 ; Verify that a loop of trip count 2 is not 'unrolled' by jump threading if

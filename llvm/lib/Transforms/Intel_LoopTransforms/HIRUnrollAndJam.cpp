@@ -73,6 +73,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/SIMDIntrinsicChecker.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -468,7 +469,31 @@ bool LegalityChecker::canIgnoreRef(const RegDDRef *Ref,
   return true;
 }
 
+static bool isSIMDOrLifetimeIntrinsic(const HLNode *Node) {
+  auto *HInst = dyn_cast<HLInst>(Node);
+
+  if (!HInst) {
+    return false;
+  }
+
+  if (HInst->isSIMDDirective()) {
+    return true;
+  }
+
+  return HInst->isLifetimeIntrinsic();
+}
+
+static bool canIgnoreNode(const HLNode *Node) {
+  // We can ignore edges from/to SIMD and liftime intrinsics as unroll & jam
+  // will not violate their semantics.
+  return isSIMDOrLifetimeIntrinsic(Node);
+}
+
 void LegalityChecker::visit(const HLDDNode *Node) {
+
+  if (canIgnoreNode(Node)) {
+    return;
+  }
 
   auto *ParentLoop = Node->getLexicalParentLoop();
 
@@ -482,6 +507,12 @@ void LegalityChecker::visit(const HLDDNode *Node) {
     }
 
     for (auto *Edge : DDG.outgoing(Ref)) {
+
+      auto *SinkRef = Edge->getSink();
+
+      if (canIgnoreNode(SinkRef->getHLDDNode())) {
+        continue;
+      }
 
       if (!isLegalToPermute(Edge->getDV(), Ref, ParentLoop)) {
         LLVM_DEBUG(dbgs() << "Illegal edge found: ");
@@ -634,9 +665,25 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  if (Lp->isSIMD()) {
-    LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vectorizable loop!\n");
+  const HLInst *SIMDEntryDir = Lp->getSIMDEntryIntrinsic();
+  bool IsValidInnerLoop = !SIMDEntryDir;
+
+  if (SIMDEntryDir) {
+    SIMDIntrinsicChecker SIC(SIMDEntryDir, Lp);
+    // We do not handle any clauses which have associated pre/post instructions
+    // like reductions.
+    IsValidInnerLoop = SIC.isHandleable() && !SIC.hasReductions();
+  }
+
+  if (!IsValidInnerLoop) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll & jam of non-handleable SIMD loop "
+                         "and all its parent loops!\n");
     HUAJ.throttleRecursively(Lp);
+    return;
+
+  } else if (SIMDEntryDir) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll & jam of SIMD loop!\n");
+    HUAJ.throttle(Lp);
     return;
   }
 
@@ -651,7 +698,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  if (LS.hasCallsWithUnsafeSideEffects()) {
+  if (LS.hasNonSIMDCallsWithUnsafeSideEffects()) {
     LLVM_DEBUG(
         dbgs() << "Skipping unroll & jam of loopnest containing call(s) with "
                   "unsafe side effects!\n");
@@ -1102,6 +1149,19 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
       return;
     }
 
+    // Do another around of temporal locality check by taking aliasing into
+    // account. We do this after the legality check as it requires DDGraph which
+    // is built during legality check.
+    // TODO: refine unroll factor during legality check using dependencies
+    // carried by Lp and pass the refined factor here.
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true,
+                                              &HUAJ.DDA)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam as aliasing prevents us from "
+                           "exploiting temporal locality!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
+
     if (isNonProfitablePattern(Lp)) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam for non-profitable pattern!\n");
@@ -1454,10 +1514,22 @@ void UnrollHelper::renameTemps(RegDDRef *Ref) {
   }
 }
 
+static bool isSIMDDirective(HLNode *Node) {
+
+  auto *Inst = dyn_cast<HLInst>(Node);
+
+  if (!Inst) {
+    return false;
+  }
+
+  return Inst->isSIMDDirective() || Inst->isSIMDEndDirective();
+}
+
 HLNode *UnrollHelper::getLastNodeInUnrollRange(HLNode *FirstNode) {
   HLNode *LastNode = FirstNode;
 
-  for (HLNode *NextNode = FirstNode; (NextNode && !isa<HLLoop>(NextNode));
+  for (HLNode *NextNode = FirstNode;
+       (NextNode && !isa<HLLoop>(NextNode) && !isSIMDDirective(NextNode));
        NextNode = NextNode->getNextNode()) {
     LastNode = NextNode;
   }
@@ -1541,29 +1613,31 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
   }
 }
 
+enum LoopChildrenType { Preheader, Postexit, Body };
+
 static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
-                                UnrollHelper &UHelper, bool IsTopLoop) {
-  HLContainerTy NodeRange;
+                                UnrollHelper &UHelper, bool IsTopLoop);
 
-  if (!IsTopLoop) {
-    UHelper.setCurOrigLoop(OrigLoop->getParentLoop());
+static void createAndInsertUnrolledLoopChildren(HLLoop *OrigLoop,
+                                                HLLoop *NewLoop,
+                                                UnrollHelper &UHelper,
+                                                LoopChildrenType ChildrenTy) {
 
-    // Unroll preheader for non top level loops.
-    if (OrigLoop->hasPreheader()) {
-      createUnrolledNodeRange(OrigLoop->getFirstPreheaderNode(),
-                              OrigLoop->getLastPreheaderNode(), NodeRange,
-                              UHelper);
-      HLNodeUtils::insertAsFirstPreheaderNodes(NewLoop, &NodeRange);
-    }
+  HLNode *CurFirstNode = nullptr;
 
-    // Opt reports for inner loops in unroll & jam mode are moved here.
-    OptReportBuilder &ORBuilder =
-        OrigLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+  switch (ChildrenTy) {
+  case LoopChildrenType::Preheader:
+    CurFirstNode = OrigLoop->getFirstPreheaderNode();
+    break;
 
-    ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  case LoopChildrenType::Postexit:
+    CurFirstNode = OrigLoop->getFirstPostexitNode();
+    break;
+
+  case LoopChildrenType::Body:
+    CurFirstNode = OrigLoop->getFirstChild();
+    break;
   }
-
-  HLNode *CurFirstNode = OrigLoop->getFirstChild();
 
   if (UHelper.isUnknownLoopUnroll()) {
     // Skip loop label cloning for unknown loops.
@@ -1574,7 +1648,10 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
 
   // Avoid unnecessary node traversal for innermost loops and general unroll as
   // the body will be handled as a single node range.
-  bool NeedSingleNodeRange = (!IsUnrollJam || OrigLoop->isInnermost());
+  bool NeedSingleNodeRange = (ChildrenTy == LoopChildrenType::Body) &&
+                             (!IsUnrollJam || OrigLoop->isInnermost());
+
+  HLContainerTy NodeRange;
 
   while (CurFirstNode) {
     HLNode *CurLastNode =
@@ -1600,14 +1677,61 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
       unrollLoopRecursive(ChildLoop, NewInnerLoop, UHelper, false);
 
     } else {
-      UHelper.setCurOrigLoop(OrigLoop);
+      if (ChildrenTy == LoopChildrenType::Body) {
+        UHelper.setCurOrigLoop(OrigLoop);
+      }
 
-      createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
-      HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
+      if (!NeedSingleNodeRange && isSIMDDirective(CurFirstNode)) {
+        assert((CurFirstNode == CurLastNode) &&
+               "Single node range expected for SIMD directive!");
+
+        // We shouldn't replicate/unroll SIMD directive.
+        NodeRange.push_front(*CurFirstNode->clone());
+
+      } else {
+        createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
+      }
+
+      switch (ChildrenTy) {
+      case LoopChildrenType::Preheader:
+        HLNodeUtils::insertAsLastPreheaderNodes(NewLoop, &NodeRange);
+        break;
+
+      case LoopChildrenType::Postexit:
+        HLNodeUtils::insertAsLastPostexitNodes(NewLoop, &NodeRange);
+        break;
+
+      case LoopChildrenType::Body:
+        HLNodeUtils::insertAsLastChildren(NewLoop, &NodeRange);
+        break;
+      }
     }
 
     CurFirstNode = NextFirstNode;
   }
+}
+
+static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
+                                UnrollHelper &UHelper, bool IsTopLoop) {
+
+  if (!IsTopLoop) {
+    UHelper.setCurOrigLoop(OrigLoop->getParentLoop());
+
+    // Unroll preheader for non top level loops.
+    if (OrigLoop->hasPreheader()) {
+      createAndInsertUnrolledLoopChildren(OrigLoop, NewLoop, UHelper,
+                                          LoopChildrenType::Preheader);
+    }
+
+    // Opt reports for inner loops in unroll & jam mode are moved here.
+    OptReportBuilder &ORBuilder =
+        OrigLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+    ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  }
+
+  createAndInsertUnrolledLoopChildren(OrigLoop, NewLoop, UHelper,
+                                      LoopChildrenType::Body);
 
   // Top level loop's liveins/liveouts do not change.
   if (!IsTopLoop) {
@@ -1615,10 +1739,8 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
 
     // Unroll postexit for non top level loops.
     if (OrigLoop->hasPostexit()) {
-      createUnrolledNodeRange(OrigLoop->getFirstPostexitNode(),
-                              OrigLoop->getLastPostexitNode(), NodeRange,
-                              UHelper);
-      HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
+      createAndInsertUnrolledLoopChildren(OrigLoop, NewLoop, UHelper,
+                                          LoopChildrenType::Postexit);
     }
   }
 }

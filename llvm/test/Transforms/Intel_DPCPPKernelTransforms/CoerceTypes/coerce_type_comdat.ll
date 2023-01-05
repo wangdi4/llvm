@@ -1,18 +1,10 @@
-; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-NONOPAQUE
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-NONOPAQUE
 
-; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-OPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-OPAQUE
-; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-OPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-OPAQUE
 

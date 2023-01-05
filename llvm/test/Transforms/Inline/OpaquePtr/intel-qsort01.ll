@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers < %s -inline -S 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -S 2>&1 | FileCheck %s
 
 ; Ensure that @spec-qsort and the indirect calls through %cmp retain their

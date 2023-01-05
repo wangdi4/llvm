@@ -277,7 +277,7 @@ let isPseudo = 1, SchedRW = [WriteSystem] in {
 // Pseudo instructions used by KCFI.
 //===----------------------------------------------------------------------===//
 let
-  Defs = [R10, EFLAGS] in {
+  Defs = [R10, R11, EFLAGS] in {
 def KCFI_CHECK : PseudoI<
   (outs), (ins GR64:$ptr, i32imm:$type), []>, Sched<[]>;
 }
@@ -611,11 +611,23 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
     defm _FR32X  : CMOVrr_PSEUDO<FR32X, f32>;
     defm _FR64X  : CMOVrr_PSEUDO<FR64X, f64>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     defm _VR128  : CMOVrr_PSEUDO<VR128, v2i64>;
     defm _VR256  : CMOVrr_PSEUDO<VR256, v4i64>;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     defm _VR128X : CMOVrr_PSEUDO<VR128X, v2i64>;
     defm _VR256X : CMOVrr_PSEUDO<VR256X, v4i64>;
   }
@@ -632,7 +644,13 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
 def : Pat<(f128 (X86cmov VR128:$t, VR128:$f, timm:$cond, EFLAGS)),
           (CMOV_VR128 VR128:$t, VR128:$f, timm:$cond)>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [NoAVX256P_And_NoVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [NoVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i8 (X86cmov VR128:$t, VR128:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128 VR128:$t, VR128:$f, timm:$cond)>;
   def : Pat<(v8i16 (X86cmov VR128:$t, VR128:$f, timm:$cond, EFLAGS)),
@@ -655,7 +673,13 @@ let Predicates = [NoVLX] in {
   def : Pat<(v4f64 (X86cmov VR256:$t, VR256:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256 VR256:$t, VR256:$f, timm:$cond)>;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX256P_Or_HasVLX] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v16i8 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v8i16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
@@ -848,9 +872,9 @@ def X86lock_sub_nocf : PatFrag<(ops node:$lhs, node:$rhs),
   return hasNoCarryFlagUses(SDValue(N, 0));
 }]>;
 
-let Predicates = [UseIncDec] in {
-  let Defs = [EFLAGS], mayLoad = 1, mayStore = 1, isCodeGenOnly = 1,
-      SchedRW = [WriteALURMW]  in {
+let Defs = [EFLAGS], mayLoad = 1, mayStore = 1, isCodeGenOnly = 1,
+    SchedRW = [WriteALURMW]  in {
+  let Predicates = [UseIncDec] in {
     def LOCK_INC8m  : I<0xFE, MRM0m, (outs), (ins i8mem :$dst),
                         "inc{b}\t$dst",
                         [(set EFLAGS, (X86lock_add_nocf addr:$dst, (i8 1)))]>,
@@ -863,10 +887,6 @@ let Predicates = [UseIncDec] in {
                         "inc{l}\t$dst",
                         [(set EFLAGS, (X86lock_add_nocf addr:$dst, (i32 1)))]>,
                         OpSize32, LOCK;
-    def LOCK_INC64m : RI<0xFF, MRM0m, (outs), (ins i64mem:$dst),
-                         "inc{q}\t$dst",
-                         [(set EFLAGS, (X86lock_add_nocf addr:$dst, (i64 1)))]>,
-                         LOCK;
 
     def LOCK_DEC8m  : I<0xFE, MRM1m, (outs), (ins i8mem :$dst),
                         "dec{b}\t$dst",
@@ -880,20 +900,33 @@ let Predicates = [UseIncDec] in {
                         "dec{l}\t$dst",
                         [(set EFLAGS, (X86lock_sub_nocf addr:$dst, (i32 1)))]>,
                         OpSize32, LOCK;
+  }
+
+  let Predicates = [UseIncDec, In64BitMode] in {
+    def LOCK_INC64m : RI<0xFF, MRM0m, (outs), (ins i64mem:$dst),
+                         "inc{q}\t$dst",
+                         [(set EFLAGS, (X86lock_add_nocf addr:$dst, (i64 1)))]>,
+                         LOCK;
     def LOCK_DEC64m : RI<0xFF, MRM1m, (outs), (ins i64mem:$dst),
                          "dec{q}\t$dst",
                          [(set EFLAGS, (X86lock_sub_nocf addr:$dst, (i64 1)))]>,
                          LOCK;
   }
+}
 
+let Predicates = [UseIncDec] in {
   // Additional patterns for -1 constant.
   def : Pat<(X86lock_add addr:$dst, (i8  -1)), (LOCK_DEC8m  addr:$dst)>;
   def : Pat<(X86lock_add addr:$dst, (i16 -1)), (LOCK_DEC16m addr:$dst)>;
   def : Pat<(X86lock_add addr:$dst, (i32 -1)), (LOCK_DEC32m addr:$dst)>;
-  def : Pat<(X86lock_add addr:$dst, (i64 -1)), (LOCK_DEC64m addr:$dst)>;
   def : Pat<(X86lock_sub addr:$dst, (i8  -1)), (LOCK_INC8m  addr:$dst)>;
   def : Pat<(X86lock_sub addr:$dst, (i16 -1)), (LOCK_INC16m addr:$dst)>;
   def : Pat<(X86lock_sub addr:$dst, (i32 -1)), (LOCK_INC32m addr:$dst)>;
+}
+
+let Predicates = [UseIncDec, In64BitMode] in {
+  // Additional patterns for -1 constant.
+  def : Pat<(X86lock_add addr:$dst, (i64 -1)), (LOCK_DEC64m addr:$dst)>;
   def : Pat<(X86lock_sub addr:$dst, (i64 -1)), (LOCK_INC64m addr:$dst)>;
 }
 

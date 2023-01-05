@@ -1,4 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes="vpo-paropt" -S %s | FileCheck %s
 ;
 ; CHECK-NOT: @"sigma_kernel_$AQSN"
 ; CHECK-NOT: @"sigma_kernel_$AQSM"

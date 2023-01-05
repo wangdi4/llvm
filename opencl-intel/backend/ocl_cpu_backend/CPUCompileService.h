@@ -23,29 +23,31 @@
 
 #include <string>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-class CPUCompileService: public CompileService
-{
+class CPUCompileService : public CompileService {
 public:
-    CPUCompileService(std::unique_ptr<ICompilerConfig> config);
-    virtual ~CPUCompileService() { }
+  CPUCompileService(std::unique_ptr<ICompilerConfig> config);
+  virtual ~CPUCompileService() {}
 
-    const ProgramBuilder *GetProgramBuilder() const override {
-      return &m_programBuilder;
-    }
-    ProgramBuilder *GetProgramBuilder() override { return &m_programBuilder; }
+  const ProgramBuilder *GetProgramBuilder() const override {
+    return &m_programBuilder;
+  }
+  ProgramBuilder *GetProgramBuilder() override { return &m_programBuilder; }
 
-    cl_dev_err_code
-    DumpJITCodeContainer(ICLDevBackendProgram_ *program,
-                         const ICLDevBackendOptions *options,
-                         bool dumpBinary = false) const override;
+  cl_dev_err_code DumpJITCodeContainer(ICLDevBackendProgram_ *program,
+                                       const ICLDevBackendOptions *options,
+                                       bool dumpBinary = false) const override;
 
-    cl_dev_err_code CheckProgramBinary(const void *pBinary,
-                                       size_t uiBinarySize) override;
+  cl_dev_err_code CheckProgramBinary(const void *pBinary,
+                                     size_t uiBinarySize) override;
 
-  private:
-    CPUProgramBuilder m_programBuilder;
+private:
+  CPUProgramBuilder m_programBuilder;
 };
 
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

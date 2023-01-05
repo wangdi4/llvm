@@ -6,18 +6,18 @@
  * produced by previous NON vectorizable zext instruction (works on ushort).
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 zext_sitofp ( __global const float *in,
-		__global float2 *out)
+    __global float2 *out)
 {
-	int gid = get_global_id(0);
-	ushort inGidUshort = in[gid];
-	long arg1 = inGidUshort;
-	out[gid].x = inGidUshort;
-	out[gid].y = arg1;
+  int gid = get_global_id(0);
+  ushort inGidUshort = in[gid];
+  long arg1 = inGidUshort;
+  out[gid].x = inGidUshort;
+  out[gid].y = arg1;
 }

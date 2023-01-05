@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt-tpv' -S %s | FileCheck %s
 ;
 ; Make sure that vpo-paropt-tpv does not generate incorrect code

@@ -210,6 +210,41 @@ namespace OCLInterop {
 }
 #endif // INTEL_CUSTOMIZATION
 
+/// Tentative enumerators used with ompx_get_device_info() and the data type
+/// ompx_devinfo_name, char[N],
+/// ompx_devinfo_pci_id, uint32_t
+/// ompx_devinfo_tile_id, int32_t
+/// ompx_devinfo_ccs_id, int32_t
+/// ompx_devinfo_num_eus, uint32_t
+/// ompx_devinfo_num_threads_per_eu, uint32_t
+/// ompx_devinfo_eu_simd_width, uint32_t
+/// ompx_devinfo_num_eus_per_subslice, uint32_t
+/// ompx_devinfo_num_subslice_per_slice, uint32_t
+/// ompx_devinfo_num_slices, uint32_t
+/// ompx_devinfo_local_mem_size, size_t
+/// ompx_devinfo_global_mem_size, size_t
+/// ompx_devinfo_global_mem_cache_size, size_t
+/// ompx_devinfo_max_clock_frequency, uint32_t
+/// ompx_devinfo_plugin_name, char[N]
+/// We always need same definition in omp.h.
+enum {
+  ompx_devinfo_name = 0,
+  ompx_devinfo_pci_id,
+  ompx_devinfo_tile_id,
+  ompx_devinfo_ccs_id,
+  ompx_devinfo_num_eus,
+  ompx_devinfo_num_threads_per_eu,
+  ompx_devinfo_eu_simd_width,
+  ompx_devinfo_num_eus_per_subslice,
+  ompx_devinfo_num_subslices_per_slice,
+  ompx_devinfo_num_slices,
+  ompx_devinfo_local_mem_size,
+  ompx_devinfo_global_mem_size,
+  ompx_devinfo_global_mem_cache_size,
+  ompx_devinfo_max_clock_frequency,
+  ompx_devinfo_plugin_name
+};
+
 int DebugLevel = getDebugLevel();
 
 #ifdef __cplusplus
@@ -599,7 +634,7 @@ class OpenCLProgramTy {
   bool IsBinary = false;
 
   /// Target table
-  __tgt_target_table Table;
+  __tgt_target_table Table{nullptr, nullptr};
 
   /// Target entries
   std::vector<__tgt_offload_entry> Entries;
@@ -1352,14 +1387,24 @@ struct RTLOptionTy {
 
 /// Device property
 struct DevicePropertiesTy {
+  // Attributes that require cl_intel_device_attribute_query
   cl_uint DeviceId = 0;
   cl_uint NumSlices = 0;
   cl_uint NumSubslicesPerSlice = 0;
   cl_uint NumEUsPerSubslice = 0;
   cl_uint NumThreadsPerEU = 0;
   cl_uint NumHWThreads = 0;
+  // Attributes supported in OpenCL
+  cl_uint NumEUs = 0;
+  std::string Name;
+  size_t MaxWorkGroupSize = 0;
+  cl_ulong LocalMemSize = 0;
+  cl_ulong GlobalMemSize = 0;
+  cl_ulong GlobalMemCacheSize = 0;
+  cl_ulong MaxMemAllocSize = 0;
+  cl_uint MaxClockFrequency = 0;
 
-  int32_t getDeviceProperties(cl_device_id ID);
+  int32_t getDeviceProperties(cl_device_id ID, bool HasExtension);
 };
 
 /// Class containing all the device information.
@@ -1387,9 +1432,6 @@ public:
   std::vector<uint64_t> DeviceArchs;
 
   /// Device properties
-  std::vector<int32_t> maxExecutionUnits;
-  std::vector<size_t> maxWorkGroupSize;
-  std::vector<cl_ulong> MaxMemAllocSize;
   std::vector<DevicePropertiesTy> DeviceProperties;
 
   /// A vector of descriptors of OpenCL extensions for each device.
@@ -1414,8 +1456,6 @@ public:
 
   /// Whether each devices are initialized
   std::vector<bool> Initialized;
-
-  std::vector<cl_ulong> SLMSize;
 
   std::mutex *Mutexes;
 
@@ -1967,13 +2007,6 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
     AllocKind = TARGET_ALLOC_SVM;
     CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
   } else {
-    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
-                                                clDeviceMemAllocINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(DeviceId,
-                                              clDeviceMemAllocINTELId));
-      return nullptr;
-    }
     cl_int RC;
     auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
     CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
@@ -2021,11 +2054,6 @@ static void *dataAllocExplicit(
   case TARGET_ALLOC_HOST:
     if (DeviceInfo->Option.Flags.UseSingleContext)
       ID = DeviceInfo->NumDevices;
-    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
-                                                clHostMemAllocINTELId)) {
-      DP("Host memory allocator is not available\n");
-      return nullptr;
-    }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
                      AllocProp->data(), Size, Align);
     if (Mem) {
@@ -2035,11 +2063,6 @@ static void *dataAllocExplicit(
     }
     break;
   case TARGET_ALLOC_SHARED:
-    if (!DeviceInfo->isExtensionFunctionEnabled(
-          DeviceId, clSharedMemAllocINTELId)) {
-      DP("Shared memory allocator is not available\n");
-      return nullptr;
-    }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
                      AllocProp->data(), Size, Align);
     if (Mem) {
@@ -2057,181 +2080,151 @@ static void *dataAllocExplicit(
   return Mem;
 }
 
-static int32_t submitData(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                          int64_t size) {
-  if (size == 0)
+static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
+                          int64_t Size) {
+  if (Size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
     return OFFLOAD_SUCCESS;
 
-  cl_command_queue queue = DeviceInfo->Queues[device_id];
+  auto &Queue = DeviceInfo->Queues[DeviceId];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
   const char *ProfileKey = "DataWrite (Host to Device)";
+  cl_event Event = nullptr;
 
   if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
-      cl_event event;
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
-                       0, size, hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
+    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
+      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
+                       Size, HstPtr, 0, nullptr, &Event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
       if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
       return OFFLOAD_SUCCESS;
     }
   }
 
   if (!DeviceInfo->Option.Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
-                                                clEnqueueMemcpyINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(device_id,
-                                              clEnqueueMemcpyINTELId));
-      return OFFLOAD_FAIL;
-    }
-    cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
-                         tgt_ptr, hst_ptr, size, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
+                         TgtPtr, HstPtr, Size, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
-    cl_event event;
-    ProfileIntervalTy SubmitTime(ProfileKey, device_id);
+    ProfileIntervalTy SubmitTime(ProfileKey, DeviceId);
     SubmitTime.start();
-
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-    memcpy(tgt_ptr, hst_ptr, size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_WRITE, TgtPtr,
+                     Size, 0, nullptr, nullptr);
+    memcpy(TgtPtr, HstPtr, Size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     SubmitTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    cl_event event;
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
-                     size, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, TgtPtr, HstPtr, Size,
+                     0, nullptr, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
-    cl_event event;
-    cl_int rc;
-    cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
-                 CL_MEM_USE_HOST_PTR, size, tgt_ptr);
-    if (rc != CL_SUCCESS) {
+    cl_int RC;
+    cl_mem Mem = nullptr;
+    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
+                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
+    if (RC != CL_SUCCESS) {
       DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(tgt_ptr));
+         DPxPTR(TgtPtr));
       return OFFLOAD_FAIL;
     }
-    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
-                     hst_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, Mem, CL_FALSE, 0, Size,
+                     HstPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   }
   }
   return OFFLOAD_SUCCESS;
 }
 
-static int32_t retrieveData(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                            int64_t size) {
-  if (size == 0)
+static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
+                            int64_t Size) {
+  if (Size == 0)
     // All other plugins seem to be handling 0 size gracefully,
     // so we should do as well.
     return OFFLOAD_SUCCESS;
 
-  cl_command_queue queue = DeviceInfo->Queues[device_id];
+  auto &Queue = DeviceInfo->Queues[DeviceId];
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
   const char *ProfileKey = "DataRead (Device to Host)";
+  cl_event Event = nullptr;
 
   if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
-      cl_event event;
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
-                       0, size, hst_ptr, 0, nullptr, &event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
+    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
+      CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
+                       Size, HstPtr, 0, nullptr, &Event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
       if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
       return OFFLOAD_SUCCESS;
     }
   }
 
   if (!DeviceInfo->Option.Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
-                                                clEnqueueMemcpyINTELId)) {
-      DP("Error: Extension %s is not supported\n",
-         DeviceInfo->getExtensionFunctionName(device_id,
-                                              clEnqueueMemcpyINTELId));
-      return OFFLOAD_FAIL;
-    }
-    cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
-                         hst_ptr, tgt_ptr, size, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
+                         HstPtr, TgtPtr, Size, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
-
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->Option.DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
-    cl_event event;
-    ProfileIntervalTy RetrieveTime(ProfileKey, device_id);
+    ProfileIntervalTy RetrieveTime(ProfileKey, DeviceId);
     RetrieveTime.start();
-
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-    memcpy(hst_ptr, tgt_ptr, size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-
+    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_READ, TgtPtr, Size,
+                     0, nullptr, nullptr);
+    memcpy(HstPtr, TgtPtr, Size);
+    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     RetrieveTime.stop();
   } break;
   case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    cl_event event;
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
-                     size, 0, nullptr, &event);
+    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, HstPtr, TgtPtr, Size,
+                     0, nullptr, &Event);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
   default: {
-    cl_int rc;
-    cl_event event;
-    cl_mem mem = nullptr;
-    CALL_CL_RVRC(mem, clCreateBuffer, rc, DeviceInfo->getContext(device_id),
-                 CL_MEM_USE_HOST_PTR, size, tgt_ptr);
-    if (rc != CL_SUCCESS) {
+    cl_int RC;
+    cl_mem Mem = nullptr;
+    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
+                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
+    if (RC != CL_SUCCESS) {
       DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(tgt_ptr));
+         DPxPTR(TgtPtr));
       return OFFLOAD_FAIL;
     }
-    CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
-                     hst_ptr, 0, nullptr, &event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, mem);
+    CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, Mem, CL_FALSE, 0, Size, HstPtr,
+                     0, nullptr, &Event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
     if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(device_id).update(ProfileKey, event);
+      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   }
   }
   return OFFLOAD_SUCCESS;
@@ -2275,7 +2268,6 @@ static void decideLoopKernelGroupArguments(
     int32_t DeviceId, int32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
 
-  size_t MaxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
   auto &KernelPR = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t KernelWidth = KernelPR.Width;
   DP("Assumed kernel SIMD width is %zu\n", KernelPR.SIMDWidth);
@@ -2283,6 +2275,7 @@ static void decideLoopKernelGroupArguments(
 
   // Set correct max group size if the kernel was compiled with explicit SIMD
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  size_t MaxGroupSize = DevicePR.MaxWorkGroupSize;
   if (KernelPR.SIMDWidth == 1) {
     MaxGroupSize = DevicePR.NumEUsPerSubslice * DevicePR.NumThreadsPerEU;
   }
@@ -2458,20 +2451,20 @@ static void decideLoopKernelGroupArguments(
 static void decideKernelGroupArguments(
     int32_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
 #if INTEL_CUSTOMIZATION
   // Default to best GEN9 GT4 configuration initially.
   size_t NumSubslices = 9;
   size_t NumEUsPerSubslice= 8;
   size_t NumThreadsPerEU = 7;
-  size_t NumEUs = DeviceInfo->maxExecutionUnits[DeviceId];
+  size_t NumEUs = DevicePR.NumEUs;
   if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
     // Use cl_intel_device_attribute_query if available.
     if (DeviceInfo->Extensions[DeviceId].DeviceAttributeQuery ==
         ExtensionStatusEnabled) {
-      auto &P = DeviceInfo->DeviceProperties[DeviceId];
-      NumEUsPerSubslice = P.NumEUsPerSubslice;
-      NumThreadsPerEU = P.NumThreadsPerEU;
-      NumSubslices = P.NumSlices * P.NumSubslicesPerSlice;
+      NumEUsPerSubslice = DevicePR.NumEUsPerSubslice;
+      NumThreadsPerEU = DevicePR.NumThreadsPerEU;
+      NumSubslices = DevicePR.NumSlices * DevicePR.NumSubslicesPerSlice;
     } else if (NumEUs >= 256) {
       // Newer GPUs.
       NumEUsPerSubslice = 16;
@@ -2510,7 +2503,7 @@ static void decideKernelGroupArguments(
     DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
        DPxPTR(Kernel));
   }
-  size_t MaxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
+  size_t MaxGroupSize = DevicePR.MaxWorkGroupSize;
   bool MaxGroupSizeForced = false;
   bool MaxGroupCountForced = false;
 
@@ -2523,7 +2516,6 @@ static void decideKernelGroupArguments(
   DP("Preferred team size is multiple of %zu\n", KernelWidth);
 
   // Set correct max group size if the kernel was compiled with explicit SIMD
-  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
   if (KernelPR.SIMDWidth == 1) {
     MaxGroupSize = DevicePR.NumEUsPerSubslice * DevicePR.NumThreadsPerEU;
   }
@@ -2582,7 +2574,7 @@ static void decideKernelGroupArguments(
       MaxGroupSize = KernelWidth;
     }
   } else {
-    MaxGroupCount = DeviceInfo->maxExecutionUnits[DeviceId];
+    MaxGroupCount = DevicePR.NumEUs;
 #if INTEL_CUSTOMIZATION
     if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
       // A work group is partitioned into EU threads,
@@ -2705,7 +2697,8 @@ static inline int32_t runTargetTeamNDRegion(
   // TODO: kernels using to much SLM may limit the number of
   //       work groups running simultaneously on a sub slice.
   //       We may take this into account for computing the work partitioning.
-  size_t DeviceLocalMemSize = (size_t)DeviceInfo->SLMSize[DeviceId];
+  size_t DeviceLocalMemSize =
+      (size_t)DeviceInfo->DeviceProperties[DeviceId].LocalMemSize;
   DP("Device local mem size: %zu\n", DeviceLocalMemSize);
   cl_ulong LocalMemSizeTmp = 0;
   CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
@@ -2780,13 +2773,6 @@ static inline int32_t runTargetTeamNDRegion(
       } else if (DeviceInfo->Option.Flags.UseSVM) {
         CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
       } else {
-        if (!DeviceInfo->isExtensionFunctionEnabled(
-                DeviceId, clSetKernelArgMemPointerINTELId)) {
-          DP("Error: Extension %s is not supported\n",
-             DeviceInfo->getExtensionFunctionName(
-                 DeviceId, clSetKernelArgMemPointerINTELId));
-          return OFFLOAD_FAIL;
-        }
         CALL_CL_EXT_RET_FAIL(
             DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I, Ptr);
       }
@@ -2904,18 +2890,27 @@ static inline int32_t runTargetTeamNDRegion(
 #endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
+  bool IsDiscrete = DeviceInfo->isDiscreteDevice(DeviceId);
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
 #endif // INTEL_CUSTOMIZATION
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
-
-  DeviceInfo->Mutexes[DeviceId].unlock();
+  if (IsDiscrete)
+    DeviceInfo->Mutexes[DeviceId].unlock();
 
   DP("Started executing kernel.\n");
 
   CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+
+  // There seems to be subtle race condition when launching target regions with
+  // reduction from multiple host threads on integrated devices. We do not have
+  // overlapping kernel execution anyway with this plugin, so protect the kernel
+  // execution only on integrated devices.
+  if (!IsDiscrete)
+    DeviceInfo->Mutexes[DeviceId].unlock();
+
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
 #endif // INTEL_CUSTOMIZATION
@@ -3031,7 +3026,7 @@ std::unique_ptr<std::vector<cl_mem_properties_intel>>
 RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
   std::vector<cl_mem_properties_intel> Properties;
 #if INTEL_CUSTOMIZATION
-  size_t MaxSize = MaxMemAllocSize[DeviceId];
+  size_t MaxSize = DeviceProperties[DeviceId].MaxMemAllocSize;
   if (Option.DeviceType == CL_DEVICE_TYPE_GPU && Size > MaxSize) {
     Properties.push_back(CL_MEM_FLAGS_INTEL);
     Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
@@ -3140,21 +3135,65 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
   return CL_SUCCESS;
 }
 
-int32_t DevicePropertiesTy::getDeviceProperties(cl_device_id ID) {
-  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_ID_INTEL, sizeof(cl_uint),
-                   &DeviceId, nullptr);
-  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_SLICES_INTEL,
-                   sizeof(cl_uint), &NumSlices, nullptr);
-  CALL_CL_RET_FAIL(clGetDeviceInfo, ID,
-                   CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL, sizeof(cl_uint),
-                   &NumSubslicesPerSlice, nullptr);
-  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL,
-                   sizeof(cl_uint), &NumEUsPerSubslice, nullptr);
-  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_THREADS_PER_EU_INTEL,
-                   sizeof(cl_uint), &NumThreadsPerEU, nullptr);
+int32_t DevicePropertiesTy::getDeviceProperties(
+    cl_device_id ID, bool HasDeviceAttributeExtension) {
 
-  NumHWThreads =
-      NumSlices * NumSubslicesPerSlice * NumEUsPerSubslice * NumThreadsPerEU;
+  if (HasDeviceAttributeExtension) {
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_ID_INTEL, sizeof(DeviceId),
+                     &DeviceId, nullptr);
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_SLICES_INTEL,
+                     sizeof(NumSlices), &NumSlices, nullptr);
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID,
+                     CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL,
+                     sizeof(NumSubslicesPerSlice), &NumSubslicesPerSlice,
+                     nullptr);
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL,
+                     sizeof(NumEUsPerSubslice), &NumEUsPerSubslice, nullptr);
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_THREADS_PER_EU_INTEL,
+                     sizeof(NumThreadsPerEU), &NumThreadsPerEU, nullptr);
+  }
+
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_COMPUTE_UNITS,
+                   sizeof(NumEUs), &NumEUs, nullptr);
+  size_t BufSize = 0;
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NAME, 0, nullptr, &BufSize);
+  if (BufSize > 0) {
+    std::vector<char> Buf(BufSize);
+    CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NAME, BufSize, Buf.data(),
+                     nullptr);
+    Name.append(Buf.data());
+  }
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                   sizeof(MaxWorkGroupSize), &MaxWorkGroupSize, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_LOCAL_MEM_SIZE,
+                   sizeof(LocalMemSize), &LocalMemSize, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_GLOBAL_MEM_SIZE,
+                   sizeof(GlobalMemSize), &GlobalMemSize, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,
+                   sizeof(GlobalMemCacheSize), &GlobalMemCacheSize, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_MEM_ALLOC_SIZE,
+                   sizeof(MaxMemAllocSize), &MaxMemAllocSize, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_CLOCK_FREQUENCY,
+                   sizeof(MaxClockFrequency), &MaxClockFrequency, nullptr);
+
+  NumHWThreads = NumEUs * NumThreadsPerEU;
+
+  if (DebugLevel > 0) {
+    DP("Device Properties:\n");
+    DP("-- Name                         : %s\n", Name.c_str());
+    DP("-- PCI ID                       : 0x%" PRIx32 "\n", DeviceId);
+    DP("-- Number of total EUs          : %" PRIu32 "\n", NumEUs);
+    DP("-- Number of threads per EU     : %" PRIu32 "\n", NumThreadsPerEU);
+    DP("-- Number of EUs per subslice   : %" PRIu32 "\n", NumEUsPerSubslice);
+    DP("-- Number of subslices per slice: %" PRIu32 "\n", NumSubslicesPerSlice);
+    DP("-- Number of slices             : %" PRIu32 "\n", NumSlices);
+    DP("-- Local memory size (bytes)    : %" PRIu64 "\n", LocalMemSize);
+    DP("-- Global memory size (bytes)   : %" PRIu64 "\n", GlobalMemSize);
+    DP("-- Cache size (bytes)           : %" PRIu64 "\n", GlobalMemCacheSize);
+    DP("-- Max clock frequency (MHz)    : %" PRIu32 "\n", MaxClockFrequency);
+    DP("-- Max workgroup size           : %zu\n", MaxWorkGroupSize);
+    DP("-- Max allocation size (bytes)  : %" PRIu64 "\n", MaxMemAllocSize);
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -3776,7 +3815,7 @@ int32_t OpenCLProgramTy::initProgramData() {
     MemUB,               // Dynamic memory UB
     DeviceType,          // Device type (0 for GPU, 1 for CPU)
     MemPool,             // Dynamic memory pool
-    (int32_t)DeviceInfo->maxWorkGroupSize[DeviceId]
+    (int32_t)P.MaxWorkGroupSize
                          // Teams thread limit
   };
 
@@ -4173,9 +4212,6 @@ int32_t __tgt_rtl_number_of_devices() {
   if (!DeviceInfo->Option.Flags.UseSingleContext)
     DeviceInfo->Contexts.resize(DeviceInfo->NumDevices);
   DeviceInfo->Programs.resize(DeviceInfo->NumDevices);
-  DeviceInfo->maxExecutionUnits.resize(DeviceInfo->NumDevices);
-  DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->NumDevices);
-  DeviceInfo->MaxMemAllocSize.resize(DeviceInfo->NumDevices);
   DeviceInfo->DeviceProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->NumDevices);
   DeviceInfo->Queues.resize(DeviceInfo->NumDevices);
@@ -4186,8 +4222,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Names.resize(DeviceInfo->NumDevices);
   DeviceInfo->DeviceArchs.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
-  DeviceInfo->SLMSize.resize(DeviceInfo->NumDevices);
+  DeviceInfo->Initialized.resize(DeviceInfo->NumDevices, false);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
@@ -4197,39 +4232,6 @@ int32_t __tgt_rtl_number_of_devices() {
   for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
     DeviceInfo->MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
 
-  // get device specific information
-  for (unsigned I = 0; I < DeviceInfo->NumDevices; I++) {
-    size_t BufSize;
-    cl_int RC;
-    cl_device_id DeviceId = DeviceInfo->Devices[I];
-    CALL_CL(RC, clGetDeviceInfo, DeviceId, CL_DEVICE_NAME, 0, nullptr,
-            &BufSize);
-    if (RC != CL_SUCCESS || BufSize == 0)
-      continue;
-    DeviceInfo->Names[I].resize(BufSize);
-    CALL_CL(RC, clGetDeviceInfo, DeviceId, CL_DEVICE_NAME, BufSize,
-            DeviceInfo->Names[I].data(), nullptr);
-    if (RC != CL_SUCCESS)
-      continue;
-    DP("Device %d: %s\n", I, DeviceInfo->Names[I].data());
-    CALL_CL_RET_ZERO(clGetDeviceInfo, DeviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
-                     &DeviceInfo->maxExecutionUnits[I], nullptr);
-    DP("Number of execution units on the device is %d\n",
-       DeviceInfo->maxExecutionUnits[I]);
-    CALL_CL_RET_ZERO(clGetDeviceInfo, DeviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE,
-                     sizeof(size_t), &DeviceInfo->maxWorkGroupSize[I], nullptr);
-    DP("Maximum work group size for the device is %d\n",
-       static_cast<int32_t>(DeviceInfo->maxWorkGroupSize[I]));
-    CALL_CL_RET_ZERO(clGetDeviceInfo, DeviceId, CL_DEVICE_MAX_MEM_ALLOC_SIZE,
-                     sizeof(cl_ulong), &DeviceInfo->MaxMemAllocSize[I],
-                     nullptr);
-    DP("Maximum memory allocation size is %" PRIu64 "\n",
-       DeviceInfo->MaxMemAllocSize[I]);
-    CALL_CL_RET_ZERO(clGetDeviceInfo, DeviceId, CL_DEVICE_LOCAL_MEM_SIZE,
-                     sizeof(cl_ulong), &DeviceInfo->SLMSize[I], nullptr);
-    DP("Device local mem size: %zu\n", (size_t)DeviceInfo->SLMSize[I]);
-    DeviceInfo->Initialized[I] = false;
-  }
   if (DeviceInfo->NumDevices == 0) {
     DP("WARNING: No OpenCL devices found.\n");
   }
@@ -4276,11 +4278,18 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   auto &Extension = DeviceInfo->Extensions[DeviceId];
   Extension.getExtensionsInfoForDevice(DeviceId);
 
-  if (Extension.DeviceAttributeQuery == ExtensionStatusEnabled) {
-    if (OFFLOAD_SUCCESS !=
-        DeviceInfo->DeviceProperties[DeviceId].getDeviceProperties(CLDeviceId))
-      return OFFLOAD_FAIL;
+  // Check USM extension and fail fast if unavailable
+  if (Extension.UnifiedSharedMemory != ExtensionStatusEnabled) {
+    DP("Error: Required USM extension is not found\n");
+    return OFFLOAD_FAIL;
   }
+
+  bool HasDeviceAttributeExtension =
+      Extension.DeviceAttributeQuery == ExtensionStatusEnabled;
+  auto &DeviceProp = DeviceInfo->DeviceProperties[DeviceId];
+  if (OFFLOAD_SUCCESS !=
+      DeviceProp.getDeviceProperties(CLDeviceId, HasDeviceAttributeExtension))
+    return OFFLOAD_FAIL;
 
   DeviceInfo->DeviceArchs[DeviceId] = DeviceInfo->getDeviceArch(DeviceId);
 
@@ -4583,8 +4592,17 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
 
 // Allocate a base buffer with the given information.
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                void *HstBase, int32_t CachedPool) {
-  return dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
+                                void *HstBase, int32_t AllocOpt) {
+  void *TgtPtr = dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
+
+  // Handle new map type forcing zero initialization
+  if (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER) {
+    std::vector<char> ZeroInit(Size, 0);
+    int32_t RC = submitData(DeviceId, TgtPtr, ZeroInit.data(), Size);
+    if (RC != OFFLOAD_SUCCESS)
+      return nullptr;
+  }
+  return TgtPtr;
 }
 
 // Allocate a managed memory object.
@@ -5047,6 +5065,94 @@ void *__tgt_rtl_alloc_per_hw_thread_scratch(
 void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   auto Context = DeviceInfo->getContext(DeviceId);
   CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Ptr);
+}
+
+int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
+                                  size_t InfoSize, void *InfoValue,
+                                  size_t *InfoSizeRet) {
+  auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
+  const void *InfoSrc = nullptr;
+  size_t SizeRet = 0;
+  int32_t TileID = -1; // not used
+  int32_t CCSID = -1; // not used
+  const char *PlugInName = GETNAME(opencl);
+
+  switch (InfoID) {
+  case ompx_devinfo_name:
+    InfoSrc = DevicePR.Name.c_str();
+    SizeRet = DevicePR.Name.size() + 1;
+    break;
+  case ompx_devinfo_pci_id:
+    InfoSrc = &DevicePR.DeviceId;
+    SizeRet = sizeof(DevicePR.DeviceId);
+    break;
+  case ompx_devinfo_tile_id:
+    InfoSrc = &TileID;
+    SizeRet = sizeof(TileID);
+    break;
+  case ompx_devinfo_ccs_id:
+    InfoSrc = &CCSID;
+    SizeRet = sizeof(CCSID);
+    break;
+  case ompx_devinfo_num_eus:
+    InfoSrc = &DevicePR.NumEUs;
+    SizeRet = sizeof(DevicePR.NumEUs);
+    break;
+  case ompx_devinfo_num_threads_per_eu:
+    InfoSrc = &DevicePR.NumThreadsPerEU;
+    SizeRet = sizeof(DevicePR.NumThreadsPerEU);
+    break;
+  case ompx_devinfo_num_eus_per_subslice:
+    InfoSrc = &DevicePR.NumEUsPerSubslice;
+    SizeRet = sizeof(DevicePR.NumEUsPerSubslice);
+    break;
+  case ompx_devinfo_num_subslices_per_slice:
+    InfoSrc = &DevicePR.NumSubslicesPerSlice;
+    SizeRet = sizeof(DevicePR.NumSubslicesPerSlice);
+    break;
+  case ompx_devinfo_num_slices:
+    InfoSrc = &DevicePR.NumSlices;
+    SizeRet = sizeof(DevicePR.NumSlices);
+    break;
+  case ompx_devinfo_local_mem_size:
+    InfoSrc = &DevicePR.LocalMemSize;
+    SizeRet = sizeof(DevicePR.LocalMemSize);
+    break;
+  case ompx_devinfo_global_mem_size:
+    InfoSrc = &DevicePR.GlobalMemSize;
+    SizeRet = sizeof(DevicePR.GlobalMemSize);
+    break;
+  case ompx_devinfo_global_mem_cache_size:
+    InfoSrc = &DevicePR.GlobalMemCacheSize;
+    SizeRet = sizeof(DevicePR.GlobalMemCacheSize);
+    break;
+  case ompx_devinfo_max_clock_frequency:
+    InfoSrc = &DevicePR.MaxClockFrequency;
+    SizeRet = sizeof(DevicePR.MaxClockFrequency);
+    break;
+  case ompx_devinfo_plugin_name:
+    InfoSrc = PlugInName;
+    SizeRet = strlen(PlugInName) + 1;
+    break;
+  default:
+    DP("Unknown device info requested\n");
+    return OFFLOAD_FAIL;
+  }
+
+  if (InfoSize == 0 && !InfoValue && InfoSizeRet) {
+    *InfoSizeRet = SizeRet;
+  } else if (InfoSize > 0 && InfoValue) {
+    if (InfoSize < SizeRet) {
+      DP("Cannot copy device info due to insufficient output buffer\n");
+      return OFFLOAD_FAIL;
+    }
+    std::copy_n(static_cast<const char *>(InfoSrc), SizeRet,
+                static_cast<char *>(InfoValue));
+  } else {
+    return OFFLOAD_FAIL;
+  }
+
+  return OFFLOAD_SUCCESS;
 }
 
 #endif // INTEL_COLLAB

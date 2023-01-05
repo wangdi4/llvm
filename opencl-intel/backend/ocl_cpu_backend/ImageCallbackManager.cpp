@@ -21,42 +21,39 @@
 #include <memory>
 #include <string>
 
-//void RegisterBIFunctions(void);
+// void RegisterBIFunctions(void);
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
 
-ImageCallbackManager* ImageCallbackManager::s_pInstance = nullptr;
+ImageCallbackManager *ImageCallbackManager::s_pInstance = nullptr;
 
-ImageCallbackManager::ImageCallbackManager()
-{}
+ImageCallbackManager::ImageCallbackManager() {}
 
-ImageCallbackManager::~ImageCallbackManager()
-{
-    for( ImageCallbackMap::iterator i = m_ImageCallbackLibs.begin(), e = m_ImageCallbackLibs.end(); i != e; ++i )
-    {
-        delete i->second;
-    }
+ImageCallbackManager::~ImageCallbackManager() {
+  for (ImageCallbackMap::iterator i = m_ImageCallbackLibs.begin(),
+                                  e = m_ImageCallbackLibs.end();
+       i != e; ++i) {
+    delete i->second;
+  }
 }
 
-void ImageCallbackManager::Init()
-{
-    assert(!s_pInstance);
-    s_pInstance = new ImageCallbackManager();
+void ImageCallbackManager::Init() {
+  assert(!s_pInstance);
+  s_pInstance = new ImageCallbackManager();
 }
 
-void ImageCallbackManager::Terminate()
-{
-    if( nullptr != s_pInstance)
-    {
-        delete s_pInstance;
-        s_pInstance = nullptr;
-    }
+void ImageCallbackManager::Terminate() {
+  if (nullptr != s_pInstance) {
+    delete s_pInstance;
+    s_pInstance = nullptr;
+  }
 }
 
-ImageCallbackManager* ImageCallbackManager::GetInstance()
-{
-    assert(s_pInstance);
-    return s_pInstance;
+ImageCallbackManager *ImageCallbackManager::GetInstance() {
+  assert(s_pInstance);
+  return s_pInstance;
 }
 
 bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
@@ -75,16 +72,17 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
 
   // Find library for this platform if it has been built earlier
   ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId->GetCPU());
-  if( it != m_ImageCallbackLibs.end() )
-      return true;
+  if (it != m_ImageCallbackLibs.end())
+    return true;
 
-
-  // ImageCallbackLibrary becomes the owner of compiler. So release compiler here
-  std::unique_ptr<ImageCallbackLibrary> spLibrary(new ImageCallbackLibrary(cpuId, spCompiler.release()));
+  // ImageCallbackLibrary becomes the owner of compiler. So release compiler
+  // here
+  std::unique_ptr<ImageCallbackLibrary> spLibrary(
+      new ImageCallbackLibrary(cpuId, spCompiler.release()));
   spLibrary->Build();
 
-  if (! spLibrary->LoadExecutable()){
-      return false;   // failed to load library to the device
+  if (!spLibrary->LoadExecutable()) {
+    return false; // failed to load library to the device
   }
   m_ImageCallbackLibs[cpuId->GetCPU()] = spLibrary.release();
   return true;
@@ -100,4 +98,6 @@ ImageCallbackFunctions *ImageCallbackManager::getCallbackFunctions(
 
   return m_ImageCallbackLibs[cpuId->GetCPU()]->getImageCallbackFunctions();
 }
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel

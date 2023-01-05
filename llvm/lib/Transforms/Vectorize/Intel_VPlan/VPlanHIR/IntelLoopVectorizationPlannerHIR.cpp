@@ -91,7 +91,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
     VPExternalValues &Ext, VPUnlinkedInstructions &UVPI, std::string VPlanName,
-    ScalarEvolution *SE) {
+    AssumptionCache &AC, ScalarEvolution *SE) {
   // Create new empty VPlan
   std::shared_ptr<VPlanVector> SharedPlan =
       std::make_shared<VPlanNonMasked>(Ext, UVPI);
@@ -109,7 +109,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
-  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
+  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, *DT,
+                                  AC);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 
@@ -151,7 +152,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                  !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
         return false;
       }
       // Specialization for handling sincos functions in CG is done based on
@@ -175,16 +176,10 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
-        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
-      return false;
-
-  for (auto Ind : LE->vpinductions()) {
-    if (Ind->getKind() == InductionDescriptor::IK_PtrInduction) {
-      LLVM_DEBUG(dbgs() << "LVP: Pointer induction currently not supported.\n");
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
+      LLVM_DEBUG(dbgs() << "LVP: unsupported reduction kind.\n");
       return false;
     }
-  }
-
   // All checks passed.
   return true;
 }
@@ -263,7 +258,7 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
   CFGMerger.setIsSimpleConstTCScenario(VecScenario.isSimpleConstTCScenario());
 
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TopLoopDescrs, TheLoop);
 }
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(
@@ -281,6 +276,7 @@ void LoopVectorizationPlannerHIR::createMergerVPlans(
 
   VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                               *Plan, VPAF);
+  fillLoopDescrs();
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {

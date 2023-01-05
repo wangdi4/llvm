@@ -16,8 +16,8 @@
 #define BLT_GEOMETRIC_H
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/IR/DerivedTypes.h>
 
 #include "Helpers.h"
 #include "RefALU.h"
@@ -25,108 +25,97 @@
 namespace Validation {
 namespace OCLBuiltins {
 
-    template<typename T, int n>
-    llvm::GenericValue lle_X_dot(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
+template <typename T, int n>
+llvm::GenericValue lle_X_dot(llvm::FunctionType *FT,
+                             llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue R;
+  llvm::GenericValue arg0 = Args[0];
+  llvm::GenericValue arg1 = Args[1];
 
-        T a[n], b[n];
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            a[i] = getVal<T,n>(arg0, i);
-            b[i] = getVal<T,n>(arg1, i);
-        }
+  T a[n], b[n];
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = getVal<T, n>(arg0, i);
+    b[i] = getVal<T, n>(arg1, i);
+  }
 
-        T dot = RefALU::dot<T>(a, b, n);
-        
-        getRef<T>(R) = dot;
-        return R;
-    }
+  T dot = RefALU::dot<T>(a, b, n);
 
-    template<typename T, int n>
-    llvm::GenericValue lle_X_normalize(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        T a[n], out[n];
-        for (uint32_t i = 0; i < n; ++i)
-            a[i] = getVal<T,n>(arg0, i);
+  getRef<T>(R) = dot;
+  return R;
+}
 
-        RefALU::normalize(a, out, n);
-        
-        for (uint32_t i = 0; i < n; ++i)
-            getRef<T,n>(R, i) = out[i];
+template <typename T, int n>
+llvm::GenericValue lle_X_normalize(llvm::FunctionType *FT,
+                                   llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue R;
+  R.AggregateVal.resize(n);
+  llvm::GenericValue arg0 = Args[0];
+  T a[n], out[n];
+  for (uint32_t i = 0; i < n; ++i)
+    a[i] = getVal<T, n>(arg0, i);
 
-        return R;
-    }
+  RefALU::normalize(a, out, n);
 
-    template<typename T, int n>
-    llvm::GenericValue lle_X_length(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        T a[n];
-        for (uint32_t i = 0; i < n; ++i)
-            a[i] = getVal<T,n>(arg0, i);
+  for (uint32_t i = 0; i < n; ++i)
+    getRef<T, n>(R, i) = out[i];
 
-        getRef<T>(R) = RefALU::length(a, n);
-        return R;
-    }
+  return R;
+}
 
+template <typename T, int n>
+llvm::GenericValue lle_X_length(llvm::FunctionType *FT,
+                                llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue R;
+  llvm::GenericValue arg0 = Args[0];
+  T a[n];
+  for (uint32_t i = 0; i < n; ++i)
+    a[i] = getVal<T, n>(arg0, i);
 
-    template<typename T, int n>
-    llvm::GenericValue lle_X_distance(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args)
-    {
-        llvm::GenericValue R;
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
-        T a[n], b[n];
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            a[i] = getVal<T,n>(arg0, i);
-            b[i] = getVal<T,n>(arg1, i);
-        }
-        getRef<T>(R) = RefALU::distance(a, b, n);
-        return R;
-    }
+  getRef<T>(R) = RefALU::length(a, n);
+  return R;
+}
 
+template <typename T, int n>
+llvm::GenericValue lle_X_distance(llvm::FunctionType *FT,
+                                  llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue R;
+  llvm::GenericValue arg0 = Args[0];
+  llvm::GenericValue arg1 = Args[1];
+  T a[n], b[n];
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = getVal<T, n>(arg0, i);
+    b[i] = getVal<T, n>(arg1, i);
+  }
+  getRef<T>(R) = RefALU::distance(a, b, n);
+  return R;
+}
 
-    template<typename T, uint32_t n>
-    llvm::GenericValue lle_X_cross(llvm::FunctionType *FT,
-        llvm::ArrayRef<llvm::GenericValue> Args)
-    {
-        llvm::GenericValue R;
-        R.AggregateVal.resize(n);
-        llvm::GenericValue arg0 = Args[0];
-        llvm::GenericValue arg1 = Args[1];
+template <typename T, uint32_t n>
+llvm::GenericValue lle_X_cross(llvm::FunctionType *FT,
+                               llvm::ArrayRef<llvm::GenericValue> Args) {
+  llvm::GenericValue R;
+  R.AggregateVal.resize(n);
+  llvm::GenericValue arg0 = Args[0];
+  llvm::GenericValue arg1 = Args[1];
 
-        // outVector[ 0 ] = ( vecA[ 1 ] * vecB[ 2 ] ) - ( vecA[ 2 ] * vecB[ 1 ] );
-        // outVector[ 1 ] = ( vecA[ 2 ] * vecB[ 0 ] ) - ( vecA[ 0 ] * vecB[ 2 ] );
-		// outVector[ 2 ] = ( vecA[ 0 ] * vecB[ 1 ] ) - ( vecA[ 1 ] * vecB[ 0 ] );
-        T a[n], b[n], out[n];
+  // outVector[ 0 ] = ( vecA[ 1 ] * vecB[ 2 ] ) - ( vecA[ 2 ] * vecB[ 1 ] );
+  // outVector[ 1 ] = ( vecA[ 2 ] * vecB[ 0 ] ) - ( vecA[ 0 ] * vecB[ 2 ] );
+  // outVector[ 2 ] = ( vecA[ 0 ] * vecB[ 1 ] ) - ( vecA[ 1 ] * vecB[ 0 ] );
+  T a[n], b[n], out[n];
 
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            a[i] = getVal<T,n>(arg0, i);
-            b[i] = getVal<T,n>(arg1, i);
-        }
-        
-        RefALU::cross(a, b, out, n);
+  for (uint32_t i = 0; i < n; ++i) {
+    a[i] = getVal<T, n>(arg0, i);
+    b[i] = getVal<T, n>(arg1, i);
+  }
 
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            getRef<T,n>(R,i) = out[i];
-        }
+  RefALU::cross(a, b, out, n);
 
-        return R;
-    }
+  for (uint32_t i = 0; i < n; ++i) {
+    getRef<T, n>(R, i) = out[i];
+  }
+
+  return R;
+}
 
 } // namespace OCLBuiltins
 } // namespace Validation

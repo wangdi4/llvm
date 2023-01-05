@@ -1,5 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg"  -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" -opaque-pointers -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
 

@@ -1,11 +1,10 @@
-; RUN: opt --O2 %s -S 2>&1 | FileCheck %s
 ; RUN: opt --passes='default<O2>' %s -S 2>&1 | FileCheck %s
 
 ; This test case checks if the attribute "mustprogress" was added when
 ; the TargetLibraryInfo analysis runs.
 
 ; CHECK: declare dso_local i8* @__dynamic_cast(i8*, i8*, i8*, i64) local_unnamed_addr #0
-; CHECK: attributes #0 = { mustprogress nofree readonly willreturn }
+; CHECK: attributes #0 = { mustprogress nofree willreturn memory(read) }
 
 %test.class = type { i8 }
 

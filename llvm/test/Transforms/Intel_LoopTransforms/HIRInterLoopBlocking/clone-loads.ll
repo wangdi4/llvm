@@ -1,4 +1,3 @@
-; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
 
 ; Variables used in the LB/UB of loops, which are loaded after the non-leading spatial loops, are cloned at the beginning of the body of

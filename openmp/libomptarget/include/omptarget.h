@@ -96,6 +96,12 @@ enum tgt_map_type {
   // the structured region
   // This is an OpenMP extension for the sake of OpenACC support.
   OMP_TGT_MAPTYPE_OMPX_HOLD       = 0x2000,
+#if INTEL_COLLAB
+  // use zero initialized device memory
+  OMP_TGT_MAPTYPE_ZERO_INIT_MEM   = 0x4000,
+  // allocate memory in host USM
+  OMP_TGT_MAPTYPE_HOST_MEM        = 0x8000,
+#endif // INTEL_COLLAB
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
@@ -137,6 +143,15 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_SHARED,
   TARGET_ALLOC_DEFAULT
 };
+
+#if INTEL_COLLAB
+enum AllocOptionTy : int32_t {
+  ALLOC_OPT_NONE = 0,
+  ALLOC_OPT_REDUCTION_SCRATCH = 1,
+  ALLOC_OPT_REDUCTION_COUNTER = 2,
+  ALLOC_OPT_HOST_MEM = 3
+};
+#endif // INTEL_COLLAB
 
 /// This struct contains all of the arguments to a target kernel region launch.
 struct __tgt_kernel_arguments {
@@ -236,6 +251,25 @@ struct __tgt_interop {
   void *DeviceContext;
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
+
+  // for implicitly created Interop objects (e.g., from a dispatch construct) who
+  // owns the object
+  int   OwnerGtid;
+  void *OwnerTask;
+  bool Clean; // marks whether the object was requested since the last time it was synced
+
+  void setOwner ( int gtid, void *task );
+  bool isOwnedBy ( int gtid, void *current_task );
+  bool isCompatibleWith ( int32_t interop_type, uint32_t num_prefers, 
+		          int32_t *prefer_ids, int64_t device_num, 
+			  int gtid, void *current_task );
+  void markClean() { Clean = true; }
+  void markDirty() { Clean = false; }
+  bool isClean() const { return Clean; }
+  int32_t flush();
+  int32_t syncBarrier();
+  int32_t asyncBarrier();
+
   // The following field are temporary intel extensions
   // used for enabling transition from Original Intel interop extension
   // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
@@ -243,6 +277,14 @@ struct __tgt_interop {
   // require changes in plugin apis which will have to be obsoleted later.
   __tgt_interop_obj *IntelTmpExt;
 };
+
+
+inline void __tgt_interop :: setOwner ( int gtid, void *task )
+{
+   OwnerGtid = gtid;
+   OwnerTask = task;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 

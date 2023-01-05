@@ -15,42 +15,39 @@
 #ifndef EDITVARIABLEDIALOG_H
 #define EDITVARIABLEDIALOG_H
 
+#include <QDebug>
 #include <QDialog>
 #include <QString>
-#include <QDebug>
 
 namespace Ui {
 class EditVariableDialog;
 }
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The EditVariableDialog class
  * @detailed This dialog can add|update user specific enviroment variable
  */
-class EditVariableDialog : public QDialog
-{
-    Q_OBJECT
+class EditVariableDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    explicit EditVariableDialog(QWidget *parent = 0);
-    EditVariableDialog(QString name, QString value, QWidget *parent = 0);
-    ~EditVariableDialog();
-    QString name() {return m_name;}
-    QString value() {return m_value;}
+  explicit EditVariableDialog(QWidget *parent = 0);
+  EditVariableDialog(QString name, QString value, QWidget *parent = 0);
+  ~EditVariableDialog();
+  QString name() { return m_name; }
+  QString value() { return m_value; }
 
 private:
-    Ui::EditVariableDialog *ui;
-    QString m_name, m_value;
+  Ui::EditVariableDialog *ui;
+  QString m_name, m_value;
 private slots:
-    void updateFields();
+  void updateFields();
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // EDITVARIABLEDIALOG_H

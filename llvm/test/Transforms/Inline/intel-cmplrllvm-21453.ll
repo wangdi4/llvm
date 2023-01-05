@@ -1,4 +1,3 @@
-; RUN: opt < %s -partial-inliner -skip-partial-inlining-cost-analysis -disable-output
 ; RUN: opt < %s -passes=partial-inliner -skip-partial-inlining-cost-analysis -disable-output
 ; This testcase tests that an llvm.assume intrinsic inside the splinter
 ; function will not cause the compiler to assert because

@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-prevent-div-crashes -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-prevent-div-crashes -S %s -o - | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-prevent-div-crashes -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-prevent-div-crashes -S %s -o - | FileCheck %s
 
 ; CHECK: @sample_test
 define void @sample_test(<16 x i8> %x, <16 x i8> %y, <16 x i8> addrspace(1)* nocapture %res) nounwind {

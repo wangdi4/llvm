@@ -1,5 +1,7 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN:  -fopenmp-targets=spir64 \
+// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: foo_close
@@ -169,11 +171,19 @@ void ThreadsTeams(ThreadData* threads)
 // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
 }
 
+struct A;
+void bar(A *);
+
 struct A {
   A() : pt(&x), ptr(pt) {}
   int *pt;
   int x = 0;
   int *&ptr;
+  int NT, NT1, NT2;
+  int MT, MT1, MT2;
+  void zoo();
+  A operator+(const A&);
+  void moo(A &);
 
   void foo()
   {
@@ -195,8 +205,95 @@ struct A {
       // CHECK: load ptr, ptr [[PT_TMP_MAP]]
       ptr[0] = 1;
     }
-   // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
-   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[NT:%NT]] = getelementptr inbounds %struct.A, ptr [[THIS:%this1]], i32 0, i32 3
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-NOT "QUAL.OMP.MAP.TOFROM"(ptr [[THIS], ptr [[NT]]
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT; i++) {
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[NT2:%NT2]] = getelementptr inbounds %struct.A, ptr [[THIS:%this1]]
+  // CHECK: [[MT2:%MT2]] = getelementptr inbounds %struct.A, ptr [[THIS]]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-NOT "QUAL.OMP.MAP.TOFROM"(ptr [[THIS], ptr [[NT2]]
+  // CHECK "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[MT2]]
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT2; i++) {
+      MT2++;
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK-NEXT: [[NT1:%NT1]] = getelementptr inbounds %struct.A, ptr [[THIS:%this1]]
+  // CHECK: [[NT1:%NT1[0-9]+]] = getelementptr inbounds %struct.A, ptr [[THIS]]
+  // CHECK-NEXT: [[MT1:%MT1]] = getelementptr inbounds %struct.A, ptr [[THIS]]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[NT1]]
+  // CHECK: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[THIS]], ptr [[NT1]]
+  // CHECK: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[THIS]], ptr [[MT1]]
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      MT1++;NT1++;
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      bar(this);
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      zoo();
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target
+    #pragma omp parallel for
+    for (int i = 0; i < 10; i++) {
+      zoo();
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      *this + *this;
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[THIS]], ptr [[THIS]]
+  // CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[THIS]],
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+    A obj;
+    #pragma omp target parallel for
+    for (int i = 0; i < NT1; i++) {
+      obj.moo(*this);
+    }
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   }
 };
 

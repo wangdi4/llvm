@@ -1,4 +1,3 @@
-; RUN: opt -hir-inter-loop-blocking-force-test -hir-ssa-deconstruction -hir-temp-cleanup -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-inter-loop-blocking-force-test -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
 
 ; Notice that in input, i2-loop is a common ancestor of two i3-loops. Also, i2 & i3 loops are spatial loops. Verify that i3-loop is processed once and two-level by-strip loopnests are introduced.

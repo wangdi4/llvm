@@ -391,8 +391,10 @@ UseCaptureKind llvm::DetermineUseCaptureKind(
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (auto *II = dyn_cast<IntrinsicInst>(I)) {
-      // The region directive itself does not capture its arguments, and
-      // its use is not important here.
+      // Calls with op bundles capture all the operands by default. Capture
+      // is a strong effect, which prevents optimization across all
+      // unknown stores and calls that occur after the directive. We declare
+      // "nocapture" here, and then block illegal motion in BasicAA.
       if (II->getIntrinsicID() == Intrinsic::directive_region_entry)
         return UseCaptureKind::NO_CAPTURE;
     }

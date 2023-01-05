@@ -3,7 +3,6 @@
 ; but the number is too low.
 
 ; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-max-direct-callsites=5 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
-; RUN: opt < %s -call-tree-clone -call-tree-clone-max-direct-callsites=5 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | FileCheck %s
 
 ; CHECK: call void @foo({{.*}})
 ; CHECK: call void @foo({{.*}})

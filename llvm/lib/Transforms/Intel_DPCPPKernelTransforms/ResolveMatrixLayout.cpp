@@ -16,48 +16,13 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-layout"
-
-namespace {
-
-/// Legacy ResolveMatrixLayout pass.
-class ResolveMatrixLayoutLegacy : public ModulePass {
-  ResolveMatrixLayoutPass Impl;
-
-public:
-  static char ID;
-
-  ResolveMatrixLayoutLegacy() : ModulePass(ID) {
-    initializeResolveMatrixLayoutLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ResolveMatrixLayoutLegacy"; }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-} // namespace
-
-char ResolveMatrixLayoutLegacy::ID = 0;
-INITIALIZE_PASS(ResolveMatrixLayoutLegacy, DEBUG_TYPE,
-                "Resolve layout for matrix intrinsic", false, false)
-
-ModulePass *llvm::createResolveMatrixLayoutLegacyPass() {
-  return new ResolveMatrixLayoutLegacy();
-}
 
 static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
                               ArrayRef<Value *> Args, IRBuilder<> &Builder,
@@ -116,17 +81,36 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoadHelper(
 
 static std::pair<bool, Value *>
 resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
-  int64_t MRows = cast<ConstantInt>(CI->getOperand(3))->getSExtValue();
   int64_t MCols = cast<ConstantInt>(CI->getOperand(4))->getSExtValue();
   FixedVectorType *MatrixType = cast<FixedVectorType>(CI->getType());
   Metadata *MatL = cast<MetadataAsValue>(CI->getOperand(5))->getMetadata();
   Metadata *MemL = cast<MetadataAsValue>(CI->getOperand(6))->getMetadata();
-  if (cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString())
+  Metadata *MatUse = cast<MetadataAsValue>(CI->getOperand(8))->getMetadata();
+  bool IsMatUseUnnecessary =
+      cast<MDString>(MatUse)->getString().equals("matrix.use.unnecessary");
+  bool IsMatUseA = cast<MDString>(MatUse)->getString().equals("matrix.use.a");
+  bool IsMatUseB = cast<MDString>(MatUse)->getString().equals("matrix.use.b");
+  bool IsMatUseC =
+      cast<MDString>(MatUse)->getString().equals("matrix.use.accumulator");
+  bool IsMemLPacked = cast<MDString>(MemL)->getString().equals("matrix.packed");
+  bool IsMemLRowMajor =
+      cast<MDString>(MemL)->getString().equals("matrix.rowmajor");
+  bool IsMemLColMajor =
+      cast<MDString>(MemL)->getString().equals("matrix.columnmajor");
+  bool IsMatLPackedB =
+      cast<MDString>(MatL)->getString().equals("matrix.packed.b");
+  bool IsMatLRowMajor =
+      cast<MDString>(MatL)->getString().equals("matrix.rowmajor");
+  if ((cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString() &&
+       IsMatUseUnnecessary) ||
+      (IsMatUseB && IsMemLPacked) || (IsMatUseA && IsMemLRowMajor) ||
+      (IsMatUseC && IsMemLRowMajor))
     return std::make_pair(false, CI);
   IRBuilder<> Builder(CI);
   LLVMContext &Ctx = Builder.getContext();
-  if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-      cast<MDString>(MemL)->getString().equals("matrix.rowmajor") &&
+
+  if (((IsMatLPackedB && IsMemLRowMajor && IsMatUseUnnecessary) ||
+       (IsMatUseB && IsMemLRowMajor)) &&
       MatrixType->getElementType()->isIntegerTy(8)) {
     // Transform
     // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
@@ -141,71 +125,110 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
     //   metadata !"matrix.packed_b", metadata !"matrix.packed_b", metadata
     //   !"scope.subgroup")
+    // PLS: matrix_layout_transform_rowmajor_to_vnni's cols and rows are
+    // the real cols and rows of a matrix
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4cS0_iii",
-        Builder.getInt8PtrTy(), CI->getOperand(5), CI->getOperand(1),
-        Builder.getInt64(MCols * 4), false, WorkList);
-  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-             cast<MDString>(MemL)->getString().equals("matrix.rowmajor") &&
+        Builder.getInt8PtrTy(),
+        IsMatUseUnnecessary
+            ? MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed.b"))
+            : MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed")),
+        CI->getOperand(1), Builder.getInt64(MCols * 4), false, WorkList);
+  } else if (((IsMatLPackedB && IsMemLRowMajor && IsMatUseUnnecessary) ||
+              (IsMatUseB && IsMemLRowMajor)) &&
              MatrixType->getElementType()->isIntegerTy(16)) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
-        Type::getInt16PtrTy(Ctx), CI->getOperand(5),
+        Type::getInt16PtrTy(Ctx),
+        IsMatUseUnnecessary
+            ? MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed.b"))
+            : MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols * 2), false, WorkList);
-  } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
-             MatrixType->getElementType()->isIntegerTy(8)) {
-    // Transform
-    // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
-    //   i32* addressspace(4) %ptr, i64 stride, i1 false, i32 4, i32 2,
-    //   metadata !"matrix.rowmajor", metadata !"matrix.colmajor", metadata
-    //   !"scope.subgroup")
-    // =>
-    // %alloc = alloca [i8 x 8]
-    // %ptr2 = bitcast %alloc to i8*
-    // matrix_layout_transform_colmajor_to_rowmajor(ptr, %ptr2, rows, cols,
-    // stride) %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
-    //   i8% ptr2, i64 stride, i1 false, i32 4, i32 2,
-    //   metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata
-    //   !"scope.subgroup")
-    return resolveMatrixLayoutLoadHelper(
-        Builder, CI,
-        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
-        Builder.getInt8PtrTy(), CI->getOperand(5), CI->getOperand(1),
-        Builder.getInt64(MRows), false, WorkList);
-  } else if (cast<MDString>(MatL)->getString().equals("matrix.rowmajor") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
-             MatrixType->getElementType()->isIntegerTy(16)) {
-    return resolveMatrixLayoutLoadHelper(
-        Builder, CI,
-        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
-        Type::getInt16PtrTy(Ctx), CI->getOperand(5),
-        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
-        Builder.getInt64(MRows), false, WorkList);
-  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+  } else if (((IsMatLRowMajor && IsMemLColMajor && IsMatUseUnnecessary) ||
+              ((IsMatUseA || IsMatUseC) && IsMemLColMajor)) &&
              MatrixType->getElementType()->isIntegerTy(8)) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
         Builder.getInt8PtrTy(),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
-        CI->getOperand(1), Builder.getInt64(MRows), true, WorkList);
-  } else if (cast<MDString>(MatL)->getString().equals("matrix.packed.b") &&
-             cast<MDString>(MemL)->getString().equals("matrix.colmajor") &&
+        CI->getOperand(1), Builder.getInt64(MCols), false, WorkList);
+  } else if (((IsMatLRowMajor && IsMemLColMajor && IsMatUseUnnecessary) ||
+              ((IsMatUseA || IsMatUseC) && IsMemLColMajor)) &&
              MatrixType->getElementType()->isIntegerTy(16)) {
+    // Transform
+    //   %res = tail call <128 x i16>
+    //   @"llvm.experimental.matrix.load.v128i16.p4bfloat16"(%"bfloat16"
+    //   addrspace(4)* %call.ascast.i72.i, i64 16, i1 false, i32 8, i32 16,
+    //   metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata
+    //   !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    // into:
+    //   @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(i16*
+    //   %10, i16* %11, i32 8, i32 16, i64 32)
+    // %res = call <128 x i16> @llvm.experimental.matrix.load.v128i16.p0i16(i16*
+    // %11, i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor",
+    // metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata
+    // !"matrix.use.unnecessary")
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
         Type::getInt16PtrTy(Ctx),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
-        Builder.getInt64(MRows), true, WorkList);
+        Builder.getInt64(MCols), false, WorkList);
+  } else if (((IsMatLPackedB && IsMemLColMajor && IsMatUseUnnecessary) ||
+              (IsMatUseB && IsMemLColMajor)) &&
+             MatrixType->getElementType()->isIntegerTy(8)) {
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii",
+        Builder.getInt8PtrTy(),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        CI->getOperand(1), Builder.getInt64(MCols), true, WorkList);
+  } else if (((IsMatLPackedB && IsMemLColMajor && IsMatUseUnnecessary) ||
+              (IsMatUseB && IsMemLColMajor)) &&
+             MatrixType->getElementType()->isIntegerTy(16)) {
+    // Transform
+    //     %res = tail call <128 x i16>
+    //     @"llvm.experimental.matrix.load.v128i16.p4bfloat16(%"bfloat16"
+    //     addrspace(4)* %call.ascast.i77.i, i64 32, i1 false, i32 16, i32 8,
+    //     metadata !"matrix.packed.b", metadata !"matrix.columnmajor", metadata
+    //     !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    // into:
+    //  call void
+    //  @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(i16* %13,
+    //  i16* %14, i32 16, i32 8, i64 64)
+    // call void @_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii(i16*
+    // %14, i16* %15, i32 16, i32 8, i64 16)
+    // %res = call <128 x i16>
+    //@llvm.experimental.matrix.load.v128i16.p0i16(i16* %15, i64 16, i1 false,
+    // i32 16, i32 8, metadata !"matrix.packed.b", metadata !"matrix.packed.b",
+    // metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    //
+    // resolveMatrixLayoutLoadHelper's OldStride should be specified in int8
+    // since it is feed to
+    // _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii;
+    // NewStride should be specified in int16 since it is feed to matrix.load;
+    // _Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii's cols&rows
+    // are the real matrix's cols&rows instead of cols&rows of colmajor's
+    // matrix.
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
+        Type::getInt16PtrTy(Ctx),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
+        Builder.getInt64(MCols), true, WorkList);
   } else {
-    assert(false && "invalid matrix layout or memory layout!");
+    errs() << "Unsuppoted combination of matrix.use&matL&memL:\n"
+           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+           << "!\n"
+           << "Unsuppoted matL:" << cast<MDString>(MatL)->getString() << "!\n"
+           << "Unsuppoted memL:" << cast<MDString>(MemL)->getString() << "!\n";
+    llvm_unreachable(nullptr);
   }
 
   return std::make_pair(false, CI);

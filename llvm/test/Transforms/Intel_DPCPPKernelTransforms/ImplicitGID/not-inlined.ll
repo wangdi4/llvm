@@ -1,5 +1,4 @@
 ; RUN: opt -implicit-gid-handle-barrier=false -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
-; RUN: opt -implicit-gid-handle-barrier=false -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks that implicit gids are added to non-inlined function.
 

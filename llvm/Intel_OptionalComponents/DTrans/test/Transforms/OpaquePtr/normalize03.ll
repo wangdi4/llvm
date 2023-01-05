@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-normalizeop < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-normalizeop < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

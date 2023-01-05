@@ -20,10 +20,8 @@
 ;  }
 ;}
 ;
-; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -verify -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
 
-; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -verify -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 ; Check to see that the main vector loop was vectorized with svml and

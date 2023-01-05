@@ -1,5 +1,20 @@
-/*===----------- avx512fp16intrin.h - AVX512-FP16 intrinsics ---------------===
+/*===----------- avx512fp16intrin.h - AVX512-FP16 intrinsics --------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2022 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -16,17 +31,6 @@
 #define __AVX512FP16INTRIN_H
 
 /* Define the default attributes for the functions in this file. */
-typedef _Float16 __v32hf __attribute__((__vector_size__(64), __aligned__(64)));
-typedef _Float16 __m512h __attribute__((__vector_size__(64), __aligned__(64)));
-typedef _Float16 __m512h_u __attribute__((__vector_size__(64), __aligned__(1)));
-typedef _Float16 __v8hf __attribute__((__vector_size__(16), __aligned__(16)));
-typedef _Float16 __m128h __attribute__((__vector_size__(16), __aligned__(16)));
-typedef _Float16 __m128h_u __attribute__((__vector_size__(16), __aligned__(1)));
-typedef _Float16 __v16hf __attribute__((__vector_size__(32), __aligned__(32)));
-typedef _Float16 __m256h __attribute__((__vector_size__(32), __aligned__(32)));
-typedef _Float16 __m256h_u __attribute__((__vector_size__(32), __aligned__(1)));
-
-/* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("avx512fp16"),     \
                  __min_vector_width__(512)))
@@ -36,6 +40,17 @@ typedef _Float16 __m256h_u __attribute__((__vector_size__(32), __aligned__(1)));
 #define __DEFAULT_FN_ATTRS128                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("avx512fp16"),     \
                  __min_vector_width__(128)))
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX256P */
+#if defined(__AVX256P__)
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
+#endif
+/* end INTEL_FEATURE_ISA_AVX256P */
+/* end INTEL_CUSTOMIZATION */
 
 static __inline__ _Float16 __DEFAULT_FN_ATTRS512 _mm512_cvtsh_h(__m512h __a) {
   return __a[0];

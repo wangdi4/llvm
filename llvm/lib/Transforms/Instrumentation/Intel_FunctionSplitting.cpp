@@ -1,6 +1,6 @@
 //===----------------- Intel_FunctionSplitting.cpp ----------------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -423,7 +423,7 @@ FunctionSplitter::estimateRegionSize(const SplinterRegionT &Region) const {
 void FunctionSplitter::addRegionToSplitList(SplinterRegionT &Region) {
   unsigned int Num = RegionsToSplit.size() + 1;
 
-  for (auto BB : Region.getArrayRef()) {
+  for (const auto &BB : Region.getArrayRef()) {
     BlockToRegionMapping.insert(std::make_pair(BB, Num));
   }
 

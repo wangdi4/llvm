@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -55,8 +55,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/ScopeExit.h" // INTEL
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -69,8 +67,6 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -78,14 +74,10 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -113,7 +105,6 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/IR/Verifier.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -124,19 +115,31 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif // INTEL_COLLAB
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
 #define DEBUG_TYPE "instcombine"
 #include "llvm/Transforms/Utils/InstructionWorklist.h"
+#include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/IR/Verifier.h"
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -197,6 +200,14 @@ static cl::opt<bool> DisableFcmpMinMaxCombine(
 static cl::opt<bool> DisableUpcasting(
     "disable-combine-upcasting",
     cl::desc("disable the generation of pointer up casting"));
+
+// Used for LIT tests to unconditionally suppress canonicalizing GEP of GEP
+// constant indices
+static cl::opt<bool> DisableCanonicalizeSwap(
+    "disable-canonicalize-swap",
+    cl::desc("disable canonicalizing GEP of GEP constant indices to "
+             "have constants as the rightmost indices"),
+    cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
@@ -250,16 +261,16 @@ static bool TargetIsAVX2(TargetTransformInfo &TTI, Function *F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Optional<Instruction *>
+std::optional<Instruction *>
 InstCombiner::targetInstCombineIntrinsic(IntrinsicInst &II) {
   // Handle target specific intrinsics
   if (II.getCalledFunction()->isTargetIntrinsic()) {
     return TTI.instCombineIntrinsic(*this, II);
   }
-  return None;
+  return std::nullopt;
 }
 
-Optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
+std::optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
     IntrinsicInst &II, APInt DemandedMask, KnownBits &Known,
     bool &KnownBitsComputed) {
   // Handle target specific intrinsics
@@ -267,10 +278,10 @@ Optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
     return TTI.simplifyDemandedUseBitsIntrinsic(*this, II, DemandedMask, Known,
                                                 KnownBitsComputed);
   }
-  return None;
+  return std::nullopt;
 }
 
-Optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
+std::optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
     IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts, APInt &UndefElts2,
     APInt &UndefElts3,
     std::function<void(Instruction *, unsigned, APInt, APInt &)>
@@ -281,7 +292,7 @@ Optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
         *this, II, DemandedElts, UndefElts, UndefElts2, UndefElts3,
         SimplifyAndSetOp);
   }
-  return None;
+  return std::nullopt;
 }
 
 Value *InstCombinerImpl::EmitGEPOffset(User *GEP) {
@@ -306,11 +317,12 @@ bool InstCombinerImpl::isDesirableIntType(unsigned BitWidth) const {
 
 /// Return true if it is desirable to convert an integer computation from a
 /// given bit width to a new bit width.
-/// We don't want to convert from a legal to an illegal type or from a smaller
-/// to a larger illegal type. A width of '1' is always treated as a desirable
-/// type because i1 is a fundamental type in IR, and there are many specialized
-/// optimizations for i1 types. Common/desirable widths are equally treated as
-/// legal to convert to, in order to open up more combining opportunities.
+/// We don't want to convert from a legal or desirable type (like i8) to an
+/// illegal type or from a smaller to a larger illegal type. A width of '1'
+/// is always treated as a desirable type because i1 is a fundamental type in
+/// IR, and there are many specialized optimizations for i1 types.
+/// Common/desirable widths are equally treated as legal to convert to, in
+/// order to open up more combining opportunities.
 bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
                                         unsigned ToWidth) const {
   bool FromLegal = FromWidth == 1 || DL.isLegalInteger(FromWidth);
@@ -321,9 +333,9 @@ bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
   if (ToWidth < FromWidth && isDesirableIntType(ToWidth))
     return true;
 
-  // If this is a legal integer from type, and the result would be an illegal
-  // type, don't do the transformation.
-  if (FromLegal && !ToLegal)
+  // If this is a legal or desiable integer from type, and the result would be
+  // an illegal type, don't do the transformation.
+  if ((FromLegal || isDesirableIntType(FromWidth)) && !ToLegal)
     return false;
 
   // Otherwise, if both are illegal, do not increase the size of the result. We
@@ -715,10 +727,10 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
 
 /// This tries to simplify binary operations by factorizing out common terms
 /// (e. g. "(A*B)+(A*C)" -> "A*(B+C)").
-Value *InstCombinerImpl::tryFactorization(BinaryOperator &I,
-                                          Instruction::BinaryOps InnerOpcode,
-                                          Value *A, Value *B, Value *C,
-                                          Value *D) {
+static Value *tryFactorization(BinaryOperator &I, const SimplifyQuery &SQ,
+                               InstCombiner::BuilderTy &Builder,
+                               Instruction::BinaryOps InnerOpcode, Value *A,
+                               Value *B, Value *C, Value *D) {
   assert(A && B && C && D && "All values must be provided");
 
   Value *V = nullptr;
@@ -812,46 +824,58 @@ Value *InstCombinerImpl::tryFactorization(BinaryOperator &I,
   return RetVal;
 }
 
+Value *InstCombinerImpl::tryFactorizationFolds(BinaryOperator &I) {
+  Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
+  BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
+  BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
+  Instruction::BinaryOps TopLevelOpcode = I.getOpcode();
+  Value *A, *B, *C, *D;
+  Instruction::BinaryOps LHSOpcode, RHSOpcode;
+
+  if (Op0)
+    LHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op0, A, B);
+  if (Op1)
+    RHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op1, C, D);
+
+  // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
+  // a common term.
+  if (Op0 && Op1 && LHSOpcode == RHSOpcode)
+    if (Value *V = tryFactorization(I, SQ, Builder, LHSOpcode, A, B, C, D))
+      return V;
+
+  // The instruction has the form "(A op' B) op (C)".  Try to factorize common
+  // term.
+  if (Op0)
+    if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
+      if (Value *V =
+              tryFactorization(I, SQ, Builder, LHSOpcode, A, B, RHS, Ident))
+        return V;
+
+  // The instruction has the form "(B) op (C op' D)".  Try to factorize common
+  // term.
+  if (Op1)
+    if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
+      if (Value *V =
+              tryFactorization(I, SQ, Builder, RHSOpcode, LHS, Ident, C, D))
+        return V;
+
+  return nullptr;
+}
+
 /// This tries to simplify binary operations which some other binary operation
 /// distributes over either by factorizing out common terms
 /// (eg "(A*B)+(A*C)" -> "A*(B+C)") or expanding out if this results in
 /// simplifications (eg: "A & (B | C) -> (A&B) | (A&C)" if this is a win).
 /// Returns the simplified value, or null if it didn't simplify.
-Value *InstCombinerImpl::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
+Value *InstCombinerImpl::foldUsingDistributiveLaws(BinaryOperator &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
   BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
   BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
   Instruction::BinaryOps TopLevelOpcode = I.getOpcode();
 
-  {
-    // Factorization.
-    Value *A, *B, *C, *D;
-    Instruction::BinaryOps LHSOpcode, RHSOpcode;
-    if (Op0)
-      LHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op0, A, B);
-    if (Op1)
-      RHSOpcode = getBinOpsForFactorization(TopLevelOpcode, Op1, C, D);
-
-    // The instruction has the form "(A op' B) op (C op' D)".  Try to factorize
-    // a common term.
-    if (Op0 && Op1 && LHSOpcode == RHSOpcode)
-      if (Value *V = tryFactorization(I, LHSOpcode, A, B, C, D))
-        return V;
-
-    // The instruction has the form "(A op' B) op (C)".  Try to factorize common
-    // term.
-    if (Op0)
-      if (Value *Ident = getIdentityValue(LHSOpcode, RHS))
-        if (Value *V = tryFactorization(I, LHSOpcode, A, B, RHS, Ident))
-          return V;
-
-    // The instruction has the form "(B) op (C op' D)".  Try to factorize common
-    // term.
-    if (Op1)
-      if (Value *Ident = getIdentityValue(RHSOpcode, LHS))
-        if (Value *V = tryFactorization(I, RHSOpcode, LHS, Ident, C, D))
-          return V;
-  }
+  // Factorization.
+  if (Value *R = tryFactorizationFolds(I))
+    return R;
 
   // Expansion.
   if (Op0 && rightDistributesOverLeft(Op0->getOpcode(), TopLevelOpcode)) {
@@ -1138,6 +1162,9 @@ static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
     return Builder.CreateBinaryIntrinsic(IID, SO, II->getArgOperand(1));
   }
 
+  if (auto *EI = dyn_cast<ExtractElementInst>(&I))
+    return Builder.CreateExtractElement(SO, EI->getIndexOperand());
+
   assert(I.isBinaryOp() && "Unexpected opcode for select folding");
 
   // Figure out if the constant is the left or the right argument.
@@ -1238,22 +1265,6 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op, SelectInst *SI,
   return SelectInst::Create(SI->getCondition(), NewTV, NewFV, "", nullptr, SI);
 }
 
-static Value *foldOperationIntoPhiValue(BinaryOperator *I, Value *InV,
-                                        InstCombiner::BuilderTy &Builder) {
-  bool ConstIsRHS = isa<Constant>(I->getOperand(1));
-  Constant *C = cast<Constant>(I->getOperand(ConstIsRHS));
-
-  Value *Op0 = InV, *Op1 = C;
-  if (!ConstIsRHS)
-    std::swap(Op0, Op1);
-
-  Value *RI = Builder.CreateBinOp(I->getOpcode(), Op0, Op1, "phi.bo");
-  auto *FPInst = dyn_cast<Instruction>(RI);
-  if (FPInst && isa<FPMathOperator>(FPInst))
-    FPInst->copyFastMathFlags(I);
-  return RI;
-}
-
 Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
   unsigned NumPHIValues = PN->getNumIncomingValues();
   if (NumPHIValues == 0)
@@ -1272,48 +1283,69 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // Otherwise, we can replace *all* users with the new PHI we form.
   }
 
-  // Check to see if all of the operands of the PHI are simple constants
-  // (constantint/constantfp/undef).  If there is one non-constant value,
-  // remember the BB it is in.  If there is more than one or if *it* is a PHI,
-  // bail out.  We don't do arbitrary constant expressions here because moving
-  // their computation can be expensive without a cost model.
-  BasicBlock *NonConstBB = nullptr;
+  // Check to see whether the instruction can be folded into each phi operand.
+  // If there is one operand that does not fold, remember the BB it is in.
+  // If there is more than one or if *it* is a PHI, bail out.
+  SmallVector<Value *> NewPhiValues;
+  BasicBlock *NonSimplifiedBB = nullptr;
+  Value *NonSimplifiedInVal = nullptr;
   for (unsigned i = 0; i != NumPHIValues; ++i) {
     Value *InVal = PN->getIncomingValue(i);
-    // For non-freeze, require constant operand
-    // For freeze, require non-undef, non-poison operand
-    if (!isa<FreezeInst>(I) && match(InVal, m_ImmConstant()))
+    BasicBlock *InBB = PN->getIncomingBlock(i);
+
+    // NB: It is a precondition of this transform that the operands be
+    // phi translatable! This is usually trivially satisfied by limiting it
+    // to constant ops, and for selects we do a more sophisticated check.
+    SmallVector<Value *> Ops;
+    for (Value *Op : I.operands()) {
+      if (Op == PN)
+        Ops.push_back(InVal);
+      else
+        Ops.push_back(Op->DoPHITranslation(PN->getParent(), InBB));
+    }
+
+    // Don't consider the simplification successful if we get back a constant
+    // expression. That's just an instruction in hiding.
+    // Also reject the case where we simplify back to the phi node. We wouldn't
+    // be able to remove it in that case.
+    Value *NewVal = simplifyInstructionWithOperands(
+        &I, Ops, SQ.getWithInstruction(InBB->getTerminator()));
+    if (NewVal && NewVal != PN && !match(NewVal, m_ConstantExpr())) {
+      NewPhiValues.push_back(NewVal);
       continue;
-    if (isa<FreezeInst>(I) && isGuaranteedNotToBeUndefOrPoison(InVal))
-      continue;
+    }
 
     if (isa<PHINode>(InVal)) return nullptr;  // Itself a phi.
-    if (NonConstBB) return nullptr;  // More than one non-const value.
+    if (NonSimplifiedBB) return nullptr;  // More than one non-simplified value.
 
-    NonConstBB = PN->getIncomingBlock(i);
+    NonSimplifiedBB = InBB;
+    NonSimplifiedInVal = InVal;
+    NewPhiValues.push_back(nullptr);
 
     // If the InVal is an invoke at the end of the pred block, then we can't
     // insert a computation after it without breaking the edge.
     if (isa<InvokeInst>(InVal))
-      if (cast<Instruction>(InVal)->getParent() == NonConstBB)
+      if (cast<Instruction>(InVal)->getParent() == NonSimplifiedBB)
         return nullptr;
 
     // If the incoming non-constant value is reachable from the phis block,
     // we'll push the operation across a loop backedge. This could result in
     // an infinite combine loop, and is generally non-profitable (especially
     // if the operation was originally outside the loop).
-    if (isPotentiallyReachable(PN->getParent(), NonConstBB, nullptr, &DT, LI))
+    if (isPotentiallyReachable(PN->getParent(), NonSimplifiedBB, nullptr, &DT,
+                               LI))
       return nullptr;
   }
 
-  // If there is exactly one non-constant value, we can insert a copy of the
+  // If there is exactly one non-simplified value, we can insert a copy of the
   // operation in that block.  However, if this is a critical edge, we would be
   // inserting the computation on some other paths (e.g. inside a loop).  Only
   // do this if the pred block is unconditionally branching into the phi block.
   // Also, make sure that the pred block is not dead code.
-  if (NonConstBB != nullptr) {
-    BranchInst *BI = dyn_cast<BranchInst>(NonConstBB->getTerminator());
-    if (!BI || !BI->isUnconditional() || !DT.isReachableFromEntry(NonConstBB))
+  if (NonSimplifiedBB != nullptr) {
+    BranchInst *BI = dyn_cast<BranchInst>(NonSimplifiedBB->getTerminator());
+    if (!BI || !BI->isUnconditional() ||
+        !DT.isReachableFromEntry(NonSimplifiedBB))
       return nullptr;
   }
 
@@ -1324,88 +1356,23 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
 
   // If we are going to have to insert a new computation, do so right before the
   // predecessor's terminator.
-  if (NonConstBB)
-    Builder.SetInsertPoint(NonConstBB->getTerminator());
+  Instruction *Clone = nullptr;
+  if (NonSimplifiedBB) {
+    Clone = I.clone();
+    for (Use &U : Clone->operands()) {
+      if (U == PN)
+        U = NonSimplifiedInVal;
+      else
+        U = U->DoPHITranslation(PN->getParent(), NonSimplifiedBB);
+    }
+    InsertNewInstBefore(Clone, *NonSimplifiedBB->getTerminator());
+  }
 
-  // Next, add all of the operands to the PHI.
-  if (SelectInst *SI = dyn_cast<SelectInst>(&I)) {
-    // We only currently try to fold the condition of a select when it is a phi,
-    // not the true/false values.
-    Value *TrueV = SI->getTrueValue();
-    Value *FalseV = SI->getFalseValue();
-    BasicBlock *PhiTransBB = PN->getParent();
-    for (unsigned i = 0; i != NumPHIValues; ++i) {
-      BasicBlock *ThisBB = PN->getIncomingBlock(i);
-      Value *TrueVInPred = TrueV->DoPHITranslation(PhiTransBB, ThisBB);
-      Value *FalseVInPred = FalseV->DoPHITranslation(PhiTransBB, ThisBB);
-      Value *InV = nullptr;
-      // Beware of ConstantExpr:  it may eventually evaluate to getNullValue,
-      // even if currently isNullValue gives false.
-      Constant *InC = dyn_cast<Constant>(PN->getIncomingValue(i));
-      // For vector constants, we cannot use isNullValue to fold into
-      // FalseVInPred versus TrueVInPred. When we have individual nonzero
-      // elements in the vector, we will incorrectly fold InC to
-      // `TrueVInPred`.
-      if (InC && isa<ConstantInt>(InC))
-        InV = InC->isNullValue() ? FalseVInPred : TrueVInPred;
-      else {
-        // Generate the select in the same block as PN's current incoming block.
-        // Note: ThisBB need not be the NonConstBB because vector constants
-        // which are constants by definition are handled here.
-        // FIXME: This can lead to an increase in IR generation because we might
-        // generate selects for vector constant phi operand, that could not be
-        // folded to TrueVInPred or FalseVInPred as done for ConstantInt. For
-        // non-vector phis, this transformation was always profitable because
-        // the select would be generated exactly once in the NonConstBB.
-        Builder.SetInsertPoint(ThisBB->getTerminator());
-        InV = Builder.CreateSelect(PN->getIncomingValue(i), TrueVInPred,
-                                   FalseVInPred, "phi.sel");
-      }
-      NewPN->addIncoming(InV, ThisBB);
-    }
-  } else if (CmpInst *CI = dyn_cast<CmpInst>(&I)) {
-    Constant *C = cast<Constant>(I.getOperand(1));
-    for (unsigned i = 0; i != NumPHIValues; ++i) {
-      Value *InV = nullptr;
-      if (auto *InC = dyn_cast<Constant>(PN->getIncomingValue(i)))
-        InV = ConstantExpr::getCompare(CI->getPredicate(), InC, C);
-      else
-        InV = Builder.CreateCmp(CI->getPredicate(), PN->getIncomingValue(i),
-                                C, "phi.cmp");
-      NewPN->addIncoming(InV, PN->getIncomingBlock(i));
-    }
-  } else if (auto *BO = dyn_cast<BinaryOperator>(&I)) {
-    for (unsigned i = 0; i != NumPHIValues; ++i) {
-      Value *InV = foldOperationIntoPhiValue(BO, PN->getIncomingValue(i),
-                                             Builder);
-      NewPN->addIncoming(InV, PN->getIncomingBlock(i));
-    }
-  } else if (isa<FreezeInst>(&I)) {
-    for (unsigned i = 0; i != NumPHIValues; ++i) {
-      Value *InV;
-      if (NonConstBB == PN->getIncomingBlock(i))
-        InV = Builder.CreateFreeze(PN->getIncomingValue(i), "phi.fr");
-      else
-        InV = PN->getIncomingValue(i);
-      NewPN->addIncoming(InV, PN->getIncomingBlock(i));
-    }
-  } else if (auto *EV = dyn_cast<ExtractValueInst>(&I)) {
-    for (unsigned i = 0; i != NumPHIValues; ++i)
-      NewPN->addIncoming(Builder.CreateExtractValue(PN->getIncomingValue(i),
-                                                    EV->getIndices(), "phi.ev"),
-                         PN->getIncomingBlock(i));
-  } else {
-    CastInst *CI = cast<CastInst>(&I);
-    Type *RetTy = CI->getType();
-    for (unsigned i = 0; i != NumPHIValues; ++i) {
-      Value *InV;
-      if (Constant *InC = dyn_cast<Constant>(PN->getIncomingValue(i)))
-        InV = ConstantExpr::getCast(CI->getOpcode(), InC, RetTy);
-      else
-        InV = Builder.CreateCast(CI->getOpcode(), PN->getIncomingValue(i),
-                                 I.getType(), "phi.cast");
-      NewPN->addIncoming(InV, PN->getIncomingBlock(i));
-    }
+  for (unsigned i = 0; i != NumPHIValues; ++i) {
+    if (NewPhiValues[i])
+      NewPN->addIncoming(NewPhiValues[i], PN->getIncomingBlock(i));
+    else
+      NewPN->addIncoming(Clone, PN->getIncomingBlock(i));
   }
 
   for (User *U : make_early_inc_range(PN->users())) {
@@ -2539,7 +2506,7 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
         if (Instruction *I = visitBitCast(*BCI)) {
           if (I != BCI) {
             I->takeName(BCI);
-            BCI->getParent()->getInstList().insert(BCI->getIterator(), I);
+            I->insertAt(BCI->getParent(), BCI->getIterator());
             replaceInstUsesWith(*BCI, I);
           }
           return &GEP;
@@ -2838,8 +2805,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       NewGEP->setOperand(DI, NewPN);
     }
 
-    GEP.getParent()->getInstList().insert(
-        GEP.getParent()->getFirstInsertionPt(), NewGEP);
+    NewGEP->insertAt(GEP.getParent(), GEP.getParent()->getFirstInsertionPt());
     replaceOperand(GEP, 0, NewGEP);
     PtrOp = NewGEP;
   }
@@ -3137,7 +3103,7 @@ static bool isRemovableWrite(CallBase &CB, Value *UsedV,
   // If the only possible side effect of the call is writing to the alloca,
   // and the result isn't used, we can safely remove any reads implied by the
   // call including those which might read the alloca itself.
-  Optional<MemoryLocation> Dest = MemoryLocation::getForDest(&CB, TLI);
+  std::optional<MemoryLocation> Dest = MemoryLocation::getForDest(&CB, TLI);
   return Dest && Dest->Ptr == UsedV;
 }
 
@@ -3145,7 +3111,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
                                  SmallVectorImpl<WeakTrackingVH> &Users,
                                  const TargetLibraryInfo &TLI) {
   SmallVector<Instruction*, 4> Worklist;
-  const Optional<StringRef> Family = getAllocationFamily(AI, &TLI);
+  const std::optional<StringRef> Family = getAllocationFamily(AI, &TLI);
   Worklist.push_back(AI);
 
 #if INTEL_COLLAB
@@ -3248,7 +3214,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
           continue;
         }
 
-        if (getReallocatedOperand(cast<CallBase>(I), &TLI) == PI &&
+        if (getReallocatedOperand(cast<CallBase>(I)) == PI &&
             getAllocationFamily(I, &TLI) == Family) {
           assert(Family);
           Users.emplace_back(I);
@@ -3332,6 +3298,14 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
       } else {
         // Casts, GEP, or anything else: we're about to delete this instruction,
         // so it can not have any valid uses.
+#if INTEL_CUSTOMIZATION
+        if (auto CB = dyn_cast<CallBase>(I)) {
+          getInlineReport()->initFunctionClosure(CB->getFunction());
+          InlineReason Reason = NinlrDeletedDeadCode;
+          getInlineReport()->removeCallBaseReference(*CB, Reason);
+          getMDInlineReport()->removeCallBaseReference(*CB, Reason);
+        }
+#endif // INTEL_CUSTOMIZATION
         replaceInstUsesWith(*I, PoisonValue::get(I->getType()));
       }
       eraseInstFromFunction(*I);
@@ -3342,7 +3316,7 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
       Module *M = II->getModule();
       Function *F = Intrinsic::getDeclaration(M, Intrinsic::donothing);
       InvokeInst::Create(F, II->getNormalDest(), II->getUnwindDest(),
-                         None, "", II->getParent());
+                         std::nullopt, "", II->getParent());
     }
 
     // Remove debug intrinsics which describe the value contained within the
@@ -3497,7 +3471,7 @@ Instruction *InstCombinerImpl::visitFree(CallInst &FI, Value *Op) {
   // realloc() entirely.
   CallInst *CI = dyn_cast<CallInst>(Op);
   if (CI && CI->hasOneUse())
-    if (Value *ReallocatedOp = getReallocatedOperand(CI, &TLI))
+    if (Value *ReallocatedOp = getReallocatedOperand(CI))
       return eraseInstFromFunction(*replaceInstUsesWith(*CI, ReallocatedOp));
 
   // If we optimize for code size, try to move the call to free before the null
@@ -3611,31 +3585,41 @@ Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
     return visitUnconditionalBranchInst(BI);
 
   // Change br (not X), label True, label False to: br X, label False, True
-  Value *X = nullptr;
-  if (match(&BI, m_Br(m_Not(m_Value(X)), m_BasicBlock(), m_BasicBlock())) &&
-      !isa<Constant>(X)) {
+  Value *Cond = BI.getCondition();
+  Value *X;
+  if (match(Cond, m_Not(m_Value(X))) && !isa<Constant>(X)) {
     // Swap Destinations and condition...
     BI.swapSuccessors();
     return replaceOperand(BI, 0, X);
   }
 
+  // Canonicalize logical-and-with-invert as logical-or-with-invert.
+  // This is done by inverting the condition and swapping successors:
+  // br (X && !Y), T, F --> br !(X && !Y), F, T --> br (!X || Y), F, T
+  Value *Y;
+  if (isa<SelectInst>(Cond) &&
+      match(Cond,
+            m_OneUse(m_LogicalAnd(m_Value(X), m_OneUse(m_Not(m_Value(Y))))))) {
+    Value *NotX = Builder.CreateNot(X, "not." + X->getName());
+    Value *Or = Builder.CreateLogicalOr(NotX, Y);
+    BI.swapSuccessors();
+    return replaceOperand(BI, 0, Or);
+  }
+
   // If the condition is irrelevant, remove the use so that other
   // transforms on the condition become more effective.
-  if (!isa<ConstantInt>(BI.getCondition()) &&
-      BI.getSuccessor(0) == BI.getSuccessor(1))
-    return replaceOperand(
-        BI, 0, ConstantInt::getFalse(BI.getCondition()->getType()));
+  if (!isa<ConstantInt>(Cond) && BI.getSuccessor(0) == BI.getSuccessor(1))
+    return replaceOperand(BI, 0, ConstantInt::getFalse(Cond->getType()));
 
   // Canonicalize, for example, fcmp_one -> fcmp_oeq.
   CmpInst::Predicate Pred;
-  if (match(&BI, m_Br(m_OneUse(m_FCmp(Pred, m_Value(), m_Value())),
-                      m_BasicBlock(), m_BasicBlock())) &&
+  if (match(Cond, m_OneUse(m_FCmp(Pred, m_Value(), m_Value()))) &&
       !isCanonicalPredicate(Pred)) {
     // Swap destinations and condition.
-    CmpInst *Cond = cast<CmpInst>(BI.getCondition());
-    Cond->setPredicate(CmpInst::getInversePredicate(Pred));
+    auto *Cmp = cast<CmpInst>(Cond);
+    Cmp->setPredicate(CmpInst::getInversePredicate(Pred));
     BI.swapSuccessors();
-    Worklist.push(Cond);
+    Worklist.push(Cmp);
     return &BI;
   }
 
@@ -4491,7 +4475,7 @@ static bool SoleWriteToDeadLocal(Instruction *I, TargetLibraryInfo &TLI) {
     // to allow reload along used path as described below.  Otherwise, this
     // is simply a store to a dead allocation which will be removed.
     return false;
-  Optional<MemoryLocation> Dest = MemoryLocation::getForDest(CB, TLI);
+  std::optional<MemoryLocation> Dest = MemoryLocation::getForDest(CB, TLI);
   if (!Dest)
     return false;
   auto *AI = dyn_cast<AllocaInst>(getUnderlyingObject(Dest->Ptr));
@@ -4636,6 +4620,11 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock,
     if (!SunkVariables.insert(DbgUserVariable).second)
       continue;
 
+    // Leave dbg.assign intrinsics in their original positions and there should
+    // be no need to insert a clone.
+    if (isa<DbgAssignIntrinsic>(User))
+      continue;
+
     DIIClones.emplace_back(cast<DbgVariableIntrinsic>(User->clone()));
     if (isa<DbgDeclareInst>(User) && isa<CastInst>(I))
       DIIClones.back()->replaceVariableLocationOp(I, I->getOperand(0));
@@ -4708,9 +4697,9 @@ bool InstCombinerImpl::run() {
     // prove that the successor is not executed more frequently than our block.
     // Return the UserBlock if successful.
     auto getOptionalSinkBlockForInst =
-        [this](Instruction *I) -> Optional<BasicBlock *> {
+        [this](Instruction *I) -> std::optional<BasicBlock *> {
       if (!EnableCodeSinking)
-        return None;
+        return std::nullopt;
 
       BasicBlock *BB = I->getParent();
       BasicBlock *UserParent = nullptr;
@@ -4720,7 +4709,7 @@ bool InstCombinerImpl::run() {
         if (U->isDroppable())
           continue;
         if (NumUsers > MaxSinkNumUsers)
-          return None;
+          return std::nullopt;
 
         Instruction *UserInst = cast<Instruction>(U);
         // Special handling for Phi nodes - get the block the use occurs in.
@@ -4731,14 +4720,14 @@ bool InstCombinerImpl::run() {
               // sophisticated analysis (i.e finding NearestCommonDominator of
               // these use blocks).
               if (UserParent && UserParent != PN->getIncomingBlock(i))
-                return None;
+                return std::nullopt;
               UserParent = PN->getIncomingBlock(i);
             }
           }
           assert(UserParent && "expected to find user block!");
         } else {
           if (UserParent && UserParent != UserInst->getParent())
-            return None;
+            return std::nullopt;
           UserParent = UserInst->getParent();
         }
 
@@ -4748,7 +4737,7 @@ bool InstCombinerImpl::run() {
           // Try sinking to another block. If that block is unreachable, then do
           // not bother. SimplifyCFG should handle it.
           if (UserParent == BB || !DT.isReachableFromEntry(UserParent))
-            return None;
+            return std::nullopt;
 
           auto *Term = UserParent->getTerminator();
           // See if the user is one of our successors that has only one
@@ -4760,7 +4749,7 @@ bool InstCombinerImpl::run() {
           //   - the User will be executed at most once.
           // So sinking I down to User is always profitable or neutral.
           if (UserParent->getUniquePredecessor() != BB && !succ_empty(Term))
-            return None;
+            return std::nullopt;
 
           assert(DT.dominates(BB, UserParent) && "Dominance relation broken?");
         }
@@ -4770,7 +4759,7 @@ bool InstCombinerImpl::run() {
 
       // No user or only has droppable users.
       if (!UserParent)
-        return None;
+        return std::nullopt;
 
       return UserParent;
     };
@@ -4830,7 +4819,7 @@ bool InstCombinerImpl::run() {
             InsertPos = InstParent->getFirstNonPHI()->getIterator();
         }
 
-        InstParent->getInstList().insert(InsertPos, Result);
+        Result->insertAt(InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);
@@ -5045,18 +5034,22 @@ static bool combineInstructionsOverFunction(
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool PreserveForDTrans,
     bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-    bool EnableUpCasting, LoopInfo *LI) {
+    bool EnableUpCasting, bool EnableCanonicalizeSwap, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
-  if (EnablePreserveForDTrans)      // INTEL
-    PreserveForDTrans = true;       // INTEL
-  if (PreserveAddrComputations)     // INTEL
-    PreserveAddrCompute = true;     // INTEL
-  if (DisableFcmpMinMaxCombine)     // INTEL
-    EnableFcmpMinMaxCombine = false;  // INTEL
-  if (DisableUpcasting)       // INTEL
-    EnableUpCasting = false;  // INTEL
+#if INTEL_CUSTOMIZATION
+  if (EnablePreserveForDTrans)
+    PreserveForDTrans = true;
+  if (PreserveAddrComputations)
+    PreserveAddrCompute = true;
+  if (DisableFcmpMinMaxCombine)
+    EnableFcmpMinMaxCombine = false;
+  if (DisableUpcasting)
+    EnableUpCasting = false;
+  if (DisableCanonicalizeSwap)
+    EnableCanonicalizeSwap = false;
+#endif // INTEL_CUSTOMIZATION
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -5073,6 +5066,13 @@ static bool combineInstructionsOverFunction(
   bool MadeIRChange = false;
   if (ShouldLowerDbgDeclare)
     MadeIRChange = LowerDbgDeclare(F);
+  // LowerDbgDeclare calls RemoveRedundantDbgInstrs, but LowerDbgDeclare will
+  // almost never return true when running an assignment tracking build. Take
+  // this opportunity to do some clean up for assignment tracking builds too.
+  if (!MadeIRChange && getEnableAssignmentTracking()) {
+    for (auto &BB : F)
+      RemoveRedundantDbgInstrs(&BB);
+  }
 
   // Iterate while there is work to do.
   unsigned Iteration = 0;
@@ -5101,8 +5101,8 @@ static bool combineInstructionsOverFunction(
 #if INTEL_CUSTOMIZATION
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
-                        EnableUpCasting, AA, AC, TLI, TTI, DT,
-                        ORE, BFI, PSI, DL, LI);
+                        EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI,
+                        TTI, DT, ORE, BFI, PSI, DL, LI);
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
 
@@ -5119,22 +5119,26 @@ static bool combineInstructionsOverFunction(
 InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting)
+                                 bool EnableUpCasting,
+                                 bool EnableCanonicalizeSwap)
     : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       MaxIterations(LimitMaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting) {}
+      EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
 
 InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  unsigned MaxIterations,
                                  bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting)
+                                 bool EnableUpCasting,
+                                 bool EnableCanonicalizeSwap)
     : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting) {}
+      EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstCombinePass::run(Function &F,
@@ -5157,10 +5161,12 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
-                                       PreserveForDTrans,              // INTEL
+                                       PreserveForDTrans,             // INTEL
                                        EnableFcmpMinMaxCombine,       // INTEL
                                        PreserveAddrCompute,           // INTEL
-                                       EnableUpCasting, LI))    // INTEL
+                                       EnableUpCasting,               // INTEL
+                                       EnableCanonicalizeSwap,        // INTEL
+                                       LI))                           // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -5214,10 +5220,11 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
-                                         PreserveForDTrans,              // INTEL
+                                         PreserveForDTrans,             // INTEL
                                          EnableFcmpMinMaxCombine,       // INTEL
                                          PreserveAddrCompute,           // INTEL
-                                         EnableUpCasting, LI);    // INTEL
+                                         EnableUpCasting,               // INTEL
+                                         EnableCanonicalizeSwap, LI);   // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -5226,13 +5233,15 @@ char InstructionCombiningPass::ID = 0;
 InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    bool EnableFcmpMinMaxCombine,
-                                                   bool EnableUpCasting)
+                                                   bool EnableUpCasting,
+                                                   bool EnableCanonicalizeSwap)
     : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
 #endif // INTEL_CUSTOMIZATION
-      MaxIterations(InstCombineDefaultMaxIterations) {
+          MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5241,13 +5250,15 @@ InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    unsigned MaxIterations,
                                                    bool EnableFcmpMinMaxCombine,
-                                                   bool EnableUpCasting)
+                                                   bool EnableUpCasting,
+                                                   bool EnableCanonicalizeSwap)
     : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
 #endif // INTEL_CUSTOMIZATION
-      MaxIterations(MaxIterations) {
+          MaxIterations(MaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5276,22 +5287,22 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 }
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *
-llvm::createInstructionCombiningPass(bool PreserveForDTrans,
-                                     bool PreserveAddrCompute,
-                                     bool EnableFcmpMinMaxCombine,
-                                     bool EnableUpCasting) {
+FunctionPass *llvm::createInstructionCombiningPass(
+    bool PreserveForDTrans, bool PreserveAddrCompute,
+    bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
+    bool EnableCanonicalizeSwap) {
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
-                                      EnableFcmpMinMaxCombine,
-                                      EnableUpCasting);
+                                      EnableFcmpMinMaxCombine, EnableUpCasting,
+                                      EnableCanonicalizeSwap);
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(
     bool PreserveForDTrans, bool PreserveAddrCompute, unsigned MaxIterations,
-    bool EnableFcmpMinMaxCombine, bool EnableUpCasting) {
+    bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
+    bool EnableCanonicalizeSwap) {
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       MaxIterations, EnableFcmpMinMaxCombine,
-                                      EnableUpCasting);
+                                      EnableUpCasting, EnableCanonicalizeSwap);
 }
 #endif // INTEL_CUSTOMIZATION
 

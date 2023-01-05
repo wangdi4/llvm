@@ -33,13 +33,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/CFLAndersAliasAnalysis.h"
-#include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Analysis/Intel_StdContainerAA.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -67,11 +61,17 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" //INTEL
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include <cassert>
+#include <optional>
 #include <string>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -246,18 +246,6 @@ static cl::opt<bool> MISchedPostRA(
 static cl::opt<bool> EarlyLiveIntervals("early-live-intervals", cl::Hidden,
     cl::desc("Run live interval analysis earlier in the pipeline"));
 
-// Experimental option to use CFL-AA in codegen
-static cl::opt<CFLAAType> UseCFLAA(
-    "use-cfl-aa-in-codegen", cl::init(CFLAAType::None), cl::Hidden,
-    cl::desc("Enable the new, experimental CFL alias analysis in CodeGen"),
-    cl::values(clEnumValN(CFLAAType::None, "none", "Disable CFL-AA"),
-               clEnumValN(CFLAAType::Steensgaard, "steens",
-                          "Enable unification-based CFL-AA"),
-               clEnumValN(CFLAAType::Andersen, "anders",
-                          "Enable inclusion-based CFL-AA"),
-               clEnumValN(CFLAAType::Both, "both",
-                          "Enable both variants of CFL-AA")));
-
 /// Option names for limiting the codegen pipeline.
 /// Those are used in error reporting and we didn't want
 /// to duplicate their names all over the place.
@@ -301,13 +289,6 @@ static cl::opt<bool> DisableExpandReductions(
 static cl::opt<bool> DisableSelectOptimize(
     "disable-select-optimize", cl::init(true), cl::Hidden,
     cl::desc("Disable the select-optimization pass from running"));
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-extern cl::opt<bool> MarkPrologEpilog;
-extern cl::opt<bool> MarkLoopHeader;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 /// Allow standard passes to be disabled by command line options. This supports
 /// simple binary flags that either suppress the pass or do nothing.
@@ -384,8 +365,8 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
 static std::string getFSProfileFile(const TargetMachine *TM) {
   if (!FSProfileFile.empty())
     return FSProfileFile.getValue();
-  const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
-  if (PGOOpt == None || PGOOpt->Action != PGOOptions::SampleUse)
+  const std::optional<PGOOptions> &PGOOpt = TM->getPGOOption();
+  if (PGOOpt == std::nullopt || PGOOpt->Action != PGOOptions::SampleUse)
     return std::string();
   return PGOOpt->ProfileFile;
 }
@@ -395,8 +376,8 @@ static std::string getFSProfileFile(const TargetMachine *TM) {
 static std::string getFSRemappingFile(const TargetMachine *TM) {
   if (!FSRemappingFile.empty())
     return FSRemappingFile.getValue();
-  const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
-  if (PGOOpt == None || PGOOpt->Action != PGOOptions::SampleUse)
+  const std::optional<PGOOptions> &PGOOpt = TM->getPGOOption();
+  if (PGOOpt == std::nullopt || PGOOpt->Action != PGOOptions::SampleUse)
     return std::string();
   return PGOOpt->ProfileRemappingFile;
 }
@@ -537,7 +518,6 @@ CGPassBuilderOption llvm::getCGPassBuilderOption() {
   SET_BOOLEAN_OPTION(EnableImplicitNullChecks)
   SET_BOOLEAN_OPTION(EnableMachineOutliner)
   SET_BOOLEAN_OPTION(MISchedPostRA)
-  SET_BOOLEAN_OPTION(UseCFLAA)
   SET_BOOLEAN_OPTION(DisableMergeICmps)
   SET_BOOLEAN_OPTION(DisableLSR)
   SET_BOOLEAN_OPTION(DisableConstantHoisting)
@@ -593,7 +573,7 @@ static void registerPartialPipelineCallback(PassInstrumentationCallbacks &PIC,
 
   PIC.registerShouldRunOptionalPassCallback(
       [=, EnableCurrent = StartBefore.empty() && StartAfter.empty(),
-       EnableNext = Optional<bool>(), StartBeforeCount = 0u,
+       EnableNext = std::optional<bool>(), StartBeforeCount = 0u,
        StartAfterCount = 0u, StopBeforeCount = 0u,
        StopAfterCount = 0u](StringRef P, Any) mutable {
         bool StartBeforePass = !StartBefore.empty() && P.contains(StartBefore);
@@ -789,17 +769,6 @@ void TargetPassConfig::addPass(Pass *P) {
   // and shouldn't reference it.
   AnalysisID PassID = P->getPassID();
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Insert pseduo markercount before specified pass
-  if (MarkLoopHeader || MarkPrologEpilog) {
-    InsertPseudoMarkerCount = false;
-    if (PassID == &EarlyTailDuplicateID)
-      InsertPseudoMarkerCount = true;
-  }
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   if (StartBefore == PassID && StartBeforeCount++ == StartBeforeInstanceNum)
     Started = true;
   if (StopBefore == PassID && StopBeforeCount++ == StopBeforeInstanceNum)
@@ -890,22 +859,7 @@ void TargetPassConfig::addCheckDebugPass() {
   PM->add(createCheckDebugMachineModulePass());
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-void TargetPassConfig::addInsertPseudoMarkerCountPass() {
-  PM->add(createPseudoMarkerCountInserter());
-}
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
 void TargetPassConfig::addMachinePrePasses(bool AllowDebugify) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  if (InsertPseudoMarkerCount)
-    addInsertPseudoMarkerCountPass();
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   if (AllowDebugify && DebugifyIsSafe &&
       (DebugifyAndStripAll == cl::BOU_TRUE ||
        DebugifyCheckAndStripAll == cl::BOU_TRUE))
@@ -932,21 +886,6 @@ void TargetPassConfig::addIRPasses() {
     addPass(createVerifierPass());
 
   if (getOptLevel() != CodeGenOpt::None) {
-    switch (UseCFLAA) {
-    case CFLAAType::Steensgaard:
-      addPass(createCFLSteensAAWrapperPass());
-      break;
-    case CFLAAType::Andersen:
-      addPass(createCFLAndersAAWrapperPass());
-      break;
-    case CFLAAType::Both:
-      addPass(createCFLAndersAAWrapperPass());
-      addPass(createCFLSteensAAWrapperPass());
-      break;
-    default:
-      break;
-    }
-
     // Basic AliasAnalysis support.
     // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
     // BasicAliasAnalysis wins if they disagree. This is intended to help
@@ -980,7 +919,7 @@ void TargetPassConfig::addIRPasses() {
   addPass(&ShadowStackGCLoweringID);
   addPass(createLowerConstantIntrinsicsPass());
 
-  // For MachO, lower @llvm.global_dtors into @llvm_global_ctors with
+  // For MachO, lower @llvm.global_dtors into @llvm.global_ctors with
   // __cxa_atexit() calls to avoid emitting the deprecated __mod_term_func.
   if (TM->getTargetTriple().isOSBinFormatMachO() &&
       TM->Options.LowerGlobalDtorsViaCxaAtExit)
@@ -1010,14 +949,6 @@ void TargetPassConfig::addIRPasses() {
   // passes since it emits those kinds of intrinsics.
   addPass(createExpandVectorPredicationPass());
 
-#if INTEL_CUSTOMIZATION
-  if (TM->Options.IntelAdvancedOptim &&
-      getOptLevel() == CodeGenOpt::Aggressive) {
-    addPass(createLoopSimplifyPass());
-    addPass(createLCSSAPass());
-    addPass(createHeteroArchOptPass());
-  }
-#endif // INTEL_CUSTOMIZATION
   // Add scalarization of target's unsupported masked memory intrinsics pass.
   // the unsupported intrinsic will be replaced with a chain of basic blocks,
   // that stores/loads element one-by-one if the appropriate mask bit is set.
@@ -1154,13 +1085,13 @@ bool TargetPassConfig::addCoreISelPasses() {
   //        pass manager into two. GlobalISel with the fallback path disabled
   //        and -run-pass seem to be unaffected. The majority of GlobalISel
   //        testing uses -run-pass so this probably isn't too bad.
-  SaveAndRestore<bool> SavedDebugifyIsSafe(DebugifyIsSafe);
+  SaveAndRestore SavedDebugifyIsSafe(DebugifyIsSafe);
   if (Selector != SelectorType::GlobalISel || !isGlobalISelAbortEnabled())
     DebugifyIsSafe = false;
 
   // Add instruction selector passes.
   if (Selector == SelectorType::GlobalISel) {
-    SaveAndRestore<bool> SavedAddingMachinePasses(AddingMachinePasses, true);
+    SaveAndRestore SavedAddingMachinePasses(AddingMachinePasses, true);
     if (addIRTranslator())
       return true;
 
@@ -1210,6 +1141,7 @@ bool TargetPassConfig::addISelPasses() {
   addPass(createPreISelIntrinsicLoweringPass());
   PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
   addPass(createExpandLargeDivRemPass());
+  addPass(createExpandLargeFpConvertPass());
   addIRPasses();
   addCodeGenPrepare();
   addPassesToHandleExceptions();
@@ -1371,6 +1303,7 @@ void TargetPassConfig::addMachinePasses() {
 
   addPass(&StackMapLivenessID);
   addPass(&LiveDebugValuesID);
+  addPass(&MachineSanitizerBinaryMetadataID);
 
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
@@ -1413,6 +1346,17 @@ void TargetPassConfig::addMachinePasses() {
 
 /// Add passes that optimize machine instructions in SSA form.
 void TargetPassConfig::addMachineSSAOptimization() {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // TailDuplication destroys natural loop form, so insert marker count before
+  // it.
+  if (TM->Options.MarkerCountKind & MarkerCount::BE ||
+      !TM->Options.OverrideMarkerCountFile.empty())
+    addPass(createPseudoMarkerCountInserter(
+        TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   // Pre-ra tail duplication.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1641,6 +1585,9 @@ void TargetPassConfig::addOptimizedRegAlloc() {
 
 /// Add passes that optimize machine instructions after register allocation.
 void TargetPassConfig::addMachineLateOptimization() {
+  // Cleanup of redundant immediate/address loads.
+  addPass(&MachineLateInstrsCleanupID);
+
   // Branch folding must be run after regalloc and prolog/epilog insertion.
   addPass(&BranchFolderPassID);
 

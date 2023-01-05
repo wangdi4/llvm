@@ -20,12 +20,17 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <climits>
 
+#define DEBUG_TYPE "inlinereport"
+
 namespace llvm {
+
+using namespace InlineReportTypes;
 
 class InlineReportCallSite;
 
@@ -41,14 +46,14 @@ public:
   // Constructor for InlineReportCallSite
   // The source file is given by 'M'.  The line and column info by 'Dloc'
   explicit InlineReportCallSite(InlineReportFunction *IRCallee, bool IsInlined,
-                                InlineReportTypes::InlineReason Reason,
-                                Module *Module, DebugLoc *DLoc, CallBase *CB,
+                                InlineReason Reason, Module *Module,
+                                DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
-        IsInlined(IsInlined), Reason(Reason),
-        InlineCost(-1), OuterInlineCost(-1), InlineThreshold(-1),
-        EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX),
-        Call(CB), M(Module), SuppressPrint(SuppressPrint) {
+        IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
+        OuterInlineCost(-1), InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
+        EarlyExitInlineThreshold(INT_MAX), Call(CB), M(Module),
+        SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
     Children.clear();
@@ -74,10 +79,8 @@ public:
   InlineReportCallSite *getIRParent() const { return IRParent; }
   void setIRParent(InlineReportCallSite *IRCS) { IRParent = IRCS; }
 
-  InlineReportTypes::InlineReason getReason() const { return Reason; }
-  void setReason(InlineReportTypes::InlineReason MyReason) {
-    Reason = MyReason;
-  }
+  InlineReason getReason() const { return Reason; }
+  void setReason(InlineReason MyReason) { Reason = MyReason; }
   bool getIsInlined() const { return IsInlined; }
   void setIsInlined(bool Inlined) { IsInlined = Inlined; }
 
@@ -152,7 +155,7 @@ public:
   /// Move the callsite recursively in and under 'IRCSV' and attach
   /// them to 'NewIRCS' if they appear in 'OutFCBSet'.
   void moveOutlinedChildren(InlineReportCallSiteVector &IRCSV,
-                            SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet,
+                            SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet,
                             InlineReportCallSite *NewIRCS);
 
 private:
@@ -160,7 +163,7 @@ private:
   InlineReportFunction *IRCaller;
   InlineReportCallSite *IRParent;
   bool IsInlined;
-  InlineReportTypes::InlineReason Reason;
+  InlineReason Reason;
   int InlineCost;
   int OuterInlineCost;
   int InlineThreshold;
@@ -194,8 +197,8 @@ private:
 class InlineReportFunction {
 public:
   explicit InlineReportFunction(const Function *F, bool SuppressPrint = false)
-      : IsDead(false), IsCurrent(false), IsDeclaration(false),
-        LinkageChar(' '), LanguageChar(' '), SuppressPrint(SuppressPrint) {};
+      : IsDead(false), IsCurrent(false), IsDeclaration(false), LinkageChar(' '),
+        LanguageChar(' '), SuppressPrint(SuppressPrint){};
   ~InlineReportFunction(void);
   InlineReportFunction(const InlineReportFunction &) = delete;
   void operator=(const InlineReportFunction &) = delete;
@@ -249,10 +252,10 @@ public:
   void setLinkageChar(Function *F) {
     LinkageChar =
         (F->hasLocalLinkage()
-         ? 'L'
-         : (F->hasLinkOnceODRLinkage()
-            ? 'O'
-            : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+             ? 'L'
+             : (F->hasLinkOnceODRLinkage()
+                    ? 'O'
+                    : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
   }
 
   /// Set a single character indicating the language type
@@ -266,16 +269,24 @@ public:
 
   void setName(std::string FunctionName) { Name = FunctionName; }
 
+  void printName(formatted_raw_ostream &OS, unsigned Level) {
+    if ((Level & InlineReportOptions::Demangle) && getLanguageChar() == 'C')
+      OS << demangle(getName());
+    else
+      OS << getName();
+  }
+
   void print(formatted_raw_ostream &OS, unsigned Level) const;
 
   /// Populate 'OutFIRCSSet' with the InlineReportCallSites corresponding
   /// to the CallBases in 'OutFCBSet'
-  void findOutlinedIRCSes(SmallPtrSetImpl<CallBase*> &OutFCBSet,
-                          SmallPtrSetImpl<InlineReportCallSite*> &OutFIRCSSet);
+  void findOutlinedIRCSes(SmallPtrSetImpl<CallBase *> &OutFCBSet,
+                          SmallPtrSetImpl<InlineReportCallSite *> &OutFIRCSSet);
 
   /// Move the InlineReportCallSites 'OutFCBSet' under 'NewIRF'.
-  void moveOutlinedCallSites(InlineReportFunction *NewIRF,
-                             SmallPtrSetImpl<InlineReportCallSite*> &OutFCBSet);
+  void
+  moveOutlinedCallSites(InlineReportFunction *NewIRF,
+                        SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet);
 
 private:
   bool IsDead;
@@ -324,7 +335,7 @@ public:
     ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
-    ActiveIRCS = addNewCallSite(Call);
+    ActiveIRCS = getOrAddCallSite(Call);
     ActiveInlineCallBase = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
@@ -371,17 +382,15 @@ public:
 
   // Check if classic inline report should be created
   bool isClassicIREnabled() const {
-    return (Level && !(Level & InlineReportTypes::BasedOnMetadata));
+    return (Level && !(Level & BasedOnMetadata));
   }
 
   /// Record the reason a call site is or is not inlined.
-  void setReasonNotInlined(CallBase *Call,
-                           InlineReportTypes::InlineReason Reason);
+  void setReasonNotInlined(CallBase *Call, InlineReason Reason);
   void setReasonNotInlined(CallBase *Call, const InlineCost &IC);
   void setReasonNotInlined(CallBase *Call, const InlineCost &IC,
                            int TotalSecondaryCost);
-  void setReasonIsInlined(CallBase *Call,
-                          InlineReportTypes::InlineReason Reason);
+  void setReasonIsInlined(CallBase *Call, InlineReason Reason);
   void setReasonIsInlined(CallBase *Call, const InlineCost &IC);
 
   /// Replace 'OldFunction' with 'NewFunction' in the inlining report,
@@ -390,8 +399,10 @@ public:
                                    Function *NewFunction);
 
   /// Replace 'CB0' with 'CB1' in the inlining report, so that 'CB1'
-  /// inherits the properties of 'CB0'.
-  void replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1);
+  /// inherits the properties of 'CB0'. If 'UpdateReason', update
+  /// the inlining reason based on the callee of 'CB1'.
+  void replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
+                                   bool UpdateReason = false);
 
   /// Clone 'CB0' to produce 'CB1' in the inlining report, so that 'CB1'
   /// inherits the properties of 'CB0'.
@@ -442,9 +453,15 @@ public:
       }
   }
 
-  // Indicate that the CallSite whose CallBase is 'CB' has been
-  // eliminated as dead code.
-  void removeCallSiteReference(CallBase &CB) {
+  // Indicate that 'CB' has been eliminated as dead code with the
+  // indicated reason.
+  void removeCallBaseReference(CallBase &CB, InlineReason Reason = NinlrDeleted,
+                               bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeCallBaseReference: " << &CB << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << CB.getCaller()->getName() << " TO "
+                        << CB.getCalledFunction()->getName());
+    LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
     if (ActiveInlineCallBase != &CB) {
@@ -453,18 +470,23 @@ public:
         InlineReportCallSite *IRCS = MapIt->second;
         IRCallBaseCallSiteMap.erase(MapIt);
         IRCS->setCall(nullptr);
-        IRCS->setReason(InlineReportTypes::NinlrDeleted);
+        IRCS->setReason(Reason);
       }
     }
     // If necessary, remove any reference in the ActiveInlinedCalls
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
+    if (!FromCallback)
+      removeCallback(&CB);
   }
 
-  // Indicate that the Function 'F' has been eliminated as a dead static
-  // function.
-  void removeFunctionReference(Function &F) {
+  // Indicate that 'F' has been eliminated as a dead static function.
+  void removeFunctionReference(Function &F, bool FromCallback = false) {
+    LLVM_DEBUG(dbgs() << "removeFunctionReference: " << &F << " ");
+    if (!FromCallback)
+      LLVM_DEBUG(dbgs() << F.getName());
+    LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
     auto MapIt = IRFunctionMap.find(&F);
@@ -475,14 +497,12 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionSet.insert(IRF);
     }
+    if (!FromCallback)
+      removeCallback(&F);
   }
 
   // Create or update the exiting representation of 'F'.
-  void initFunction(Function *F) {
-    if (!isClassicIREnabled())
-      return;
-    addFunction(F, true /*MakeNewCurrent */);
-  }
+  InlineReportFunction *initFunction(Function *F);
 
   // Change the called Function of 'CB' to 'F'.
   void setCalledFunction(CallBase *CB, Function *F);
@@ -493,6 +513,10 @@ public:
   // Indicate that 'CB' calls a specialized version of its caller under
   // a multiversioning test.
   void addMultiversionedCallSite(CallBase *CB);
+
+  // Remove all of the CallBases in the 'BlocksToRemove' as dead code.
+  void
+  removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
 
 private:
   /// The Level is specified by the option -inline-report=N.
@@ -536,9 +560,6 @@ private:
   /// The output stream to print the inlining report to
   formatted_raw_ostream &OS;
 
-  /// Ensure that a current version of 'F' is in the inlining report.
-  void beginFunction(Function *F);
-
   /// Clone the vector of InlineReportCallSites for NewCallSite
   /// using the mapping of old calls to new calls IIMap
   void cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
@@ -548,8 +569,7 @@ private:
   /// Clone the call sites recursively in and under 'IRCSV' within
   /// 'OldIRCS' using 'VMap', placing them under 'NewIRCS'.
   void cloneCallSites(InlineReportCallSiteVector &IRCSV,
-                      ValueToValueMapTy &VMap,
-                      InlineReportCallSite *OldIRCS,
+                      ValueToValueMapTy &VMap, InlineReportCallSite *OldIRCS,
                       InlineReportCallSite *NewIRCS);
 
   ///
@@ -559,38 +579,38 @@ private:
     InlineReport *IR;
     void deleted() override {
       assert(IR);
-      if (isa<CallBase>(getValPtr())) {
+      if (auto CB = dyn_cast<CallBase>(getValPtr())) {
         /// Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
-        auto CB = cast<CallBase>(getValPtr());
-        IR->removeCallSiteReference(*CB);
-      } else if (isa<Function>(getValPtr())) {
+        InlineReason Reason = NinlrDeleted;
+        IR->removeCallBaseReference(*CB, Reason, true);
+      } else if (auto F = dyn_cast<Function>(getValPtr())) {
         /// Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
-        Function *F = cast<Function>(getValPtr());
-        IR->removeFunctionReference(*F);
+        IR->removeFunctionReference(*F, true);
       }
-      setValPtr(nullptr);
+      CallbackVH::deleted();
     }
 
   public:
     InlineReportCallback(Value *V, InlineReport *CBIR)
-        : CallbackVH(V), IR(CBIR) {};
-    virtual ~InlineReportCallback() {};
+        : CallbackVH(V), IR(CBIR){};
+    virtual ~InlineReportCallback(){};
   };
 
   DenseMap<Value *, InlineReportCallback *> CallbackMap;
 
-  // Create an InlineReportFunction to represent F
-  // If 'MakeNewCurrent', make the newly created InlineReportFunction current.
-  InlineReportFunction *addFunction(Function *F, bool MakeNewCurrent = false);
+  // Create an InlineReportFunction to represent 'F'
+  InlineReportFunction *addFunction(Function *F);
+
+  // Get the existing or create an InlineReportFunction to represent 'F'
+  InlineReportFunction *getOrAddFunction(Function *F);
 
   // Create an InlineReportCallSite to represent Call
   InlineReportCallSite *addCallSite(CallBase *Call);
 
-  // Create an InlineReportCallSite to represent Call, if one does
-  // not already exist
-  InlineReportCallSite *addNewCallSite(CallBase *Call);
+  // Get the existing or create an InlineReportCallSite to represent 'Call'
+  InlineReportCallSite *getOrAddCallSite(CallBase *Call);
 
 #ifndef NDEBUG
   /// Run some simple consistency checking on 'F'. For example,
@@ -613,20 +633,23 @@ private:
   void makeAllNotCurrent(void);
 
   void addCallback(Value *V) {
-    if (CallbackMap.count(V))
+    if (!V || CallbackMap.count(V))
       return;
+    LLVM_DEBUG(dbgs() << "addCallback: " << V << "\n");
     CallbackMap[V] = new InlineReportCallback(V, this);
   }
 
   void removeCallback(Value *V) {
-    if (!CallbackMap.count(V))
+    if (!V || !CallbackMap.count(V))
       return;
-    InlineReportCallback *CB = CallbackMap[V];
+    LLVM_DEBUG(dbgs() << "removeCallback: " << V << "\n");
+    InlineReportCallback *IRCB = CallbackMap[V];
     CallbackMap.erase(V);
-    delete CB;
+    delete IRCB;
   }
 
   InlineReportCallSite *getCallSite(CallBase *Call);
+  InlineReportFunction *getFunction(Function *F);
 
   // Create a new InlineReportCallSite which corresponds to the 'VMap'ped
   // version of 'IRCS', insert it into the 'IRCallBaseCallSiteMap', and
@@ -642,6 +665,16 @@ private:
 /// Get the single, active classic inlining report.
 InlineReport *getInlineReport();
 
-} // namespace llvm
+class InlineReportPass : public PassInfoMixin<InlineReportPass> {
+  static char PassID;
+
+public:
+  InlineReportPass(void);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
+
+} // end namespace llvm
+
+#undef DEBUG_TYPE
 
 #endif

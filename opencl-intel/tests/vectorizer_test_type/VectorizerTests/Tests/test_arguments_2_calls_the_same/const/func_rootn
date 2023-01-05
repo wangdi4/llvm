@@ -7,19 +7,19 @@
  * This function is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 
 __kernel void
 func_rootn ( __global const float *in,
-		__global float2 *out)
+    __global float2 *out)
 {
-	int gid = get_global_id(0);
-	float res1 = rootn(FLOAT1, INT1);
-	float res2 = rootn(FLOAT1, INT1);
-	out[gid].x = res1;
-	out[gid].y = res2;
+  int gid = get_global_id(0);
+  float res1 = rootn(FLOAT1, INT1);
+  float res2 = rootn(FLOAT1, INT1);
+  out[gid].x = res1;
+  out[gid].y = res2;
 }

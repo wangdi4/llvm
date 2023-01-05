@@ -12,8 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
-// This contains the C declarations for the functions in the file 
+// This contains the C declarations for the functions in the file
 // ll_intrinsics.ll ; Note that this file is included into other builtins
 // which already declare all of the OpenCL types.
 
@@ -125,5 +124,4 @@ _16i16 __ocl_trunc_v16i64_v16i16(_16i64);
 _16i64 __ocl_zext_v16i32_v16i64(_16i32);
 _16i64 __ocl_sext_v16i32_v16i64(_16i32);
 _16i32 __ocl_trunc_v16i64_v16i32(_16i64);
-void __ocl_expand_mask_4x16(ushort, ushort*, ushort*, ushort*, ushort*);
-
+void __ocl_expand_mask_4x16(ushort, ushort *, ushort *, ushort *, ushort *);

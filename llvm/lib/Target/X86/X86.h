@@ -90,6 +90,7 @@ FunctionPass *createX86PRAExpandPseudoPass();
 FunctionPass *createX86VecSpillPass();
 /// This pass performs x86 intrinsics lowering right before ISel.
 ModulePass *createX86PreISelIntrinsicLoweringPass();
+FunctionPass *createX86StackRealignPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -200,6 +201,10 @@ FunctionPass *createX86SplitLongBlockPass();
 /// Return a pass that avoids creating store forward block issues in the hardware.
 FunctionPass *createX86AvoidMemoryRenamingBlocks();
 
+/// Return a pass to optimize function for hetero arch cpu.
+extern char &X86HeteroArchOptID;
+FunctionPass *createX86HeteroArchOptPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -219,11 +224,6 @@ FunctionPass *createX86LoadValueInjectionLoadHardeningPass();
 FunctionPass *createX86LoadValueInjectionRetHardeningPass();
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 FunctionPass *createX86SpeculativeExecutionSideEffectSuppression();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-FunctionPass *createX86MarkerCountPass();
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
@@ -232,6 +232,7 @@ void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
 void initializeX86CFMAPass(PassRegistry&);      // INTEL
 void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeX86VecSpillPass(PassRegistry &); // INTEL
+void initializeX86HeteroArchOptPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
@@ -254,9 +255,6 @@ void initializeX86PartialReductionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-void initializeX86MarkerCountPassPass(PassRegistry &);
-#endif // INTEL_FEATURE_MARKERCOUNT
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
@@ -264,6 +262,7 @@ void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
+void initializeX86StackRealignPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastPreTileConfigPass(PassRegistry &);

@@ -1,121 +1,119 @@
-; RUN: opt < %s -call-tree-clone -force-print-inline-report-after-call-tree-cloning -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
-; RUN: opt < %s -passes='module(call-tree-clone)' -force-print-inline-report-after-call-tree-cloning -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -call-tree-clone -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='module(call-tree-clone)' -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt < %s -passes='module(call-tree-clone),print<inline-report>' -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
+; RUN: opt -passes='inlinereportsetup,module(call-tree-clone),inlinereportemitter' -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that call tree clones appear in the inlining report.
 
 ; Classic inline report output: 
 
 ; CHECK-LABEL: COMPILE FUNC: foo{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo {{.*}}Newly created callsite
 ; CHECK: foo {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|_.6.5.11{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: gee{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: bar {{.*}}Newly created callsite
 ; CHECK: bar {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: bar|_.5.6{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo {{.*}}Newly created callsite
 ; CHECK: foo|_.6.5.11 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|9.7.13.2{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: foo|15.9.5.14{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar|7.8.6{{ *$}}
-; CHECK: printf3{{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo|9.7.13.2 {{.*}}Newly created callsite
 ; CHECK: foo|15.9.5.14 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: main{{ *$}}
-; CHECK: printf0 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf0{{ *$}}
 ; CHECK: gee|2.4.5 {{.*}}Newly created callsite
 ; CHECK: gee|1.2.3 {{.*}}Newly created callsite
 ; CHECK: gee|2.4.5 {{.*}}Newly created callsite
 ; CHECK: gee|3.1.0 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: gee|2.4.5{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: bar|_.5.6 {{.*}}Newly created callsite
 ; CHECK: bar|7.8.6 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|_.4.5.7{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar|_.3.4{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo {{.*}}Newly created callsite
 ; CHECK: foo|_.4.5.7 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|9.7.10.2{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: foo|15.9.5.11{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar|7.8.3{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo|9.7.10.2 {{.*}}Newly created callsite
 ; CHECK: foo|15.9.5.11 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: gee|1.2.3{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: bar|_.3.4 {{.*}}Newly created callsite
 ; CHECK: bar|7.8.3 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|_.3.5.3{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar|_.2.1{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo {{.*}}Newly created callsite
 ; CHECK: foo|_.3.5.3 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: foo|9.7.11.2{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: foo|15.9.5.12{{ *$}}
-; CHECK: printf4 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
-; CHECK: printf1 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf4{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
+; CHECK: EXTERN: printf1{{ *$}}
 
 ; CHECK-LABEL: COMPILE FUNC: bar|7.8.4{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: foo|9.7.11.2 {{.*}}Newly created callsite
 ; CHECK: foo|15.9.5.12 {{.*}}Newly created callsite
 
 ; CHECK-LABEL: COMPILE FUNC: gee|3.1.0{{ *$}}
-; CHECK: printf3 {{.*}}Newly created callsite
+; CHECK: EXTERN: printf3{{ *$}}
 ; CHECK: bar|_.2.1 {{.*}}Newly created callsite
 ; CHECK: bar|7.8.4 {{.*}}Newly created callsite
 

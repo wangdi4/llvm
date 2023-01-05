@@ -1,7 +1,6 @@
 ; Test to verify that TLI mappings are inserted for @llvm.ldexp intrinsic calls
 ; when SVML library is available.
 
-; RUN: opt -vector-library=SVML       -inject-tli-mappings        -S < %s | FileCheck %s
 ; RUN: opt -vector-library=SVML       -passes=inject-tli-mappings -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @llvm.compiler.used = appending global

@@ -102,6 +102,9 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
+constexpr StringRef GuardedByThreadCheckMDStr =
+    "paropt_guarded_by_thread_check";
+
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
@@ -324,8 +327,10 @@ private:
     BasicBlock *UpdateBB = nullptr;
     BasicBlock *ExitBB = nullptr;
     PHINode *IVPhi = nullptr;
+    PHINode *TeamsIVPhi = nullptr;
     BasicBlock *ScalarUpdateBB = nullptr;
-    BasicBlock *LatchBB = nullptr;
+    BasicBlock *InnerLatchBB = nullptr;
+    BasicBlock *OuterLatchBB = nullptr;
   };
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
@@ -344,22 +349,22 @@ private:
   public:
     /// The array of base pointers passed to the runtime library.
     Value *BaseDataPtrs = nullptr;
-    Value *ResBaseDataPtrs;
+    Value *ResBaseDataPtrs = nullptr;
     /// The array of data pointers passed to the runtime library.
     Value *DataPtrs = nullptr;
-    Value *ResDataPtrs;
+    Value *ResDataPtrs = nullptr;
     /// The array of data sizes passed to the runtime library.
     Value *DataSizes = nullptr;
-    Value *ResDataSizes;
+    Value *ResDataSizes = nullptr;
     /// The array of data map types passed to the runtime library.
     Value *DataMapTypes = nullptr;
-    Value *ResDataMapTypes;
+    Value *ResDataMapTypes = nullptr;
     /// The array of mapper names passed to the runtime library.
     Value *Names = nullptr;
-    Value *ResNames;
+    Value *ResNames = nullptr;
     /// The array of mapper pointers passed to the runtime library.
     Value *Mappers = nullptr;
-    Value *ResMappers;
+    Value *ResMappers = nullptr;
     bool FoundValidMapper = false;
     /// The number of pointers passed to the runtime library.
     unsigned NumberOfPtrs = 0u;
@@ -459,7 +464,8 @@ private:
   void genPrivAggregateInitOrFini(Function *Fn, FunctionKind FuncKind,
                                   Type *ObjTy, Value *NumElements,
                                   Value *DestVal, Value *SrcVal,
-                                  Instruction *InsertPt, DominatorTree *DT);
+                                  Instruction *InsertPt, DominatorTree *DT,
+                                  StringRef NamePrefix = "priv");
 
   /// Generate code for calling constructor/destructor/copy assignment/copy
   /// constructor for privatized variables including scalar and arrays.
@@ -560,7 +566,7 @@ private:
   /// before \p InsertPt.
   /// \p AllocaAddrSpace specifies address space in which the memory
   /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
+  /// std::nullopt, then the address space matches the default alloca's
   /// address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
@@ -573,12 +579,12 @@ private:
   Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+      llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
       bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
-  /// If the return value is llvm::None, then the address space
+  /// If the return value is std::nullopt, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
   llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
@@ -593,13 +599,13 @@ private:
 
   /// For array sections, generate a base + offset GEP corresponding to the
   /// section's starting address. \p Orig is the base of the array section
-  /// coming from the frontend, \p ArrSecInfo is the data structure containg the
-  /// starting offset, size and stride for various dimensions of the section.
+  /// coming from the frontend.
   /// The generated GEP is inserted before \p InsertBefore.
-  static Value *
-  genBasePlusOffsetGEPForArraySection(Value *Orig,
-                                      const ArraySectionInfo &ArrSecInfo,
-                                      Instruction *InsertBefore);
+  Value *genBasePlusOffsetGEPForArraySection(Value *Orig,
+                                             Type *ArraySectionElementTy,
+                                             Value *ArraySectionOffset,
+                                             bool ArraySectionBaseIsPointer,
+                                             Instruction *InsertBefore);
 
   /// \name Reduction Specific Functions
   /// {@
@@ -696,15 +702,13 @@ private:
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  static Value *getClauseItemReplacementValue(const Item *I,
-                                              Instruction *InsertPt);
+  Value *getClauseItemReplacementValue(const Item *I, Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original Array Section
   /// Reduction operand inside the body of the associated WRegion. It may need
   /// to emit some Instructions, which is done \b before \p InsertPt.
-  static Value *
-  getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
-                                         Instruction *InsertPt);
+  Value *getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
+                                                Instruction *InsertPt);
 
   /// Generate the reduction initialization code.
   void genReductionInit(WRegionNode *W, ReductionItem *RedI,
@@ -803,6 +807,13 @@ private:
       WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
       Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
+
+  // Insert code to Reset the teams_counter to zero when generating code for
+  // the global (teams) stage of atomic-free reduction.
+  void resetTeamsCounterAfterCopyingBackRedItem(GlobalVariable *TeamsCounter,
+                                                bool IsArrayOrArraySection,
+                                                StoreInst *CopyoutStore,
+                                                BasicBlock *CopyoutLoopHeader);
 
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);
@@ -1290,7 +1301,8 @@ private:
                             SmallVectorImpl<uint64_t> &MapTypes,
                             SmallVectorImpl<GlobalVariable *> &Names,
                             SmallVectorImpl<Value *> &Mappers,
-                            bool hasRuntimeEvaluationCaptureSize);
+                            bool hasRuntimeEvaluationCaptureSize,
+                            Instruction *InsertPtForAllocas = nullptr);
 
   /// Utility to construct the assignment to the base pointers, section
   /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
@@ -1996,6 +2008,24 @@ private:
   bool simplifyLastprivateClauses(WRegionNode *W);
 #endif // INTEL_CUSTOMIZATION
 
+  /// Add "paropt_guarded_by_thread_check" metadata to the Instruction \p I to
+  /// mark that it is already is guarded by a check like `if (thread_id == xyz)`
+  /// to ensure that only one thread executes it. So, it can be ignored when
+  /// adding master-thread checks in guardSideEffectStatements().
+  /// TODO: We should add a way to drop this metadata after
+  /// guardSideEffectStatements() is done.
+  static void markAsGuardedByThreadCheck(Instruction *I);
+
+  /// Return true if the Instruction \p I has metadata indicating that it is
+  /// already guarded by a thread-check like `if (thread_id == xyz)` to ensure
+  /// that only one thread executes it.
+  static bool isGuardedByThreadCheck(const Instruction *I);
+
+  // Returns true if the instruction should be ignored when guarding
+  // side-effect statements with master-thread checks, even if it has
+  // side-effects.
+  static bool ignoreWhenGuardingSideEffectStatements(const Instruction *I);
+
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes
   /// the code, then put a barrier before the start and after the end of
@@ -2216,14 +2246,20 @@ private:
                            llvm::Optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
-  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
+  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall,
+                               Instruction *InsertPtForAllocas = nullptr);
 
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
 
-  /// Emit code to handle need_device_ptr for dispatch
+  /// Emit code to handle adjust_args(need_device_ptr:...) for dispatch
   void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
                             StringRef &NeedDevicePtrStr);
+
+  /// Emit code to handle need_device_ptr clause for dispatch and
+  /// target variant dispatch
+  void processNeedDevicePtrClause(WRegionNode *W, CallInst *VariantCall,
+                                  uint64_t InteropPosition);
 
   /// Emit code to handle depend clause for dispatch. If \p SupportOMPTTracing
   /// is true, also emit the runtime calls __kmpc_omp_task_begin/complete__if0

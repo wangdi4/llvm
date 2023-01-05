@@ -1,7 +1,5 @@
 ; This test checks that dependent instructions of peel target are cloned in the correct order.
 ;
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
@@ -22,7 +20,7 @@ entry:
   ret void
 }
 
-define void @_ZGVeN16uuu__ZTS18larger_sad_calc_16(i16 addrspace(1)* %_arg_blk_sad, i64 %_arg_image_width_macroblocks, i64 %_arg_image_height_macroblocks) !vectorized_width !3 {
+define void @_ZGVeN16uuu__ZTS18larger_sad_calc_16(i16 addrspace(1)* %_arg_blk_sad, i64 %_arg_image_width_macroblocks, i64 %_arg_image_height_macroblocks) !no_barrier_path !1 !vectorized_width !3 !vectorization_dimension !5 !can_unite_workgroups !1 {
 entry:
   %mul.i.i = mul i32 0, 0
   %mul3.i.i = mul i32 %mul.i.i, 0
@@ -45,6 +43,7 @@ entry:
 !2 = !{void (i16 addrspace(1)*, i64, i64)* @_ZGVeN16uuu__ZTS18larger_sad_calc_16}
 !3 = !{i32 16}
 !4 = !{i32 32}
+!5 = !{i32 0}
 
 ; DEBUGIFY-COUNT-60: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
 ; DEBUGIFY-NEXT: WARNING: Missing line 13

@@ -6,7 +6,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed  -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check "Bad casting" set for %struct.C

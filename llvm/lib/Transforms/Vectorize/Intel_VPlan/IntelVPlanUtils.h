@@ -151,6 +151,27 @@ inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
   return !ConstVal->isZero() && (!IsSigned || !ConstVal->isMinusOne());
 }
 
+// Return ID of the corresponding intrinsic for opcodes that are not
+// Instruction::BinaryOps.
+inline Intrinsic::ID getIntrinsicForMinMaxOpcode(unsigned BinOpcode) {
+  switch (BinOpcode) {
+  case VPInstruction::UMin:
+    return Intrinsic::umin;
+  case VPInstruction::SMin:
+    return Intrinsic::smin;
+  case VPInstruction::UMax:
+    return Intrinsic::umax;
+  case VPInstruction::SMax:
+    return Intrinsic::smax;
+  case VPInstruction::FMax:
+    return Intrinsic::maxnum;
+  case VPInstruction::FMin:
+    return Intrinsic::minnum;
+  default:
+    llvm_unreachable("Reduction opcode not supported.");
+  }
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// Helper function to return pointer operand for a VPInstruction representing
@@ -346,10 +367,15 @@ inline void setHLLoopMD(loopopt::HLLoop *Lp, const char *SzAddMD) {
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
 // of SESE region.
 template <typename BlockTy>
-class sese_df_iterator
-    : public std::iterator<std::forward_iterator_tag, BlockTy> {
+class sese_df_iterator {
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = BlockTy;
+  using difference_type = std::ptrdiff_t;
+  using pointer = BlockTy*;
+  using reference = BlockTy&;
+
   sese_df_iterator(df_iterator<BlockTy> Iter, BlockTy End)
       : Iter(Iter), End(End) {}
 
@@ -422,6 +448,50 @@ static const VPValue *getPtrThroughCast(const VPValue *Op) {
   }
 
   return Op;
+}
+
+inline bool isLoadInstruction(const Instruction *Inst) {
+  return Inst->getOpcode() == Instruction::Load;
+}
+inline bool isLoadInstruction(const VPInstruction *Inst) {
+  return VPLoadStoreInst::isLoadOpcode(Inst->getOpcode());
+}
+
+// Return true if the \p ExitI does not have any recurrent phi in its operand
+// chain, except inductions.
+//
+template <typename PHINode, typename Instruction, typename BasicBlock>
+inline bool
+checkUncondLastPrivOperands(const BasicBlock *HeaderBB, Instruction *ExitI,
+                            std::function<bool(PHINode *)> IsInduction) {
+  SmallVector<Instruction *, 4> Worklist;
+  SmallPtrSet<Instruction *, 4> Visited;
+
+  Worklist.push_back(ExitI);
+  while (!Worklist.empty()) {
+    Instruction *Cur = Worklist.pop_back_val();
+    if (auto Phi = dyn_cast<PHINode>(Cur)) {
+      if (Phi->getParent() == HeaderBB && !IsInduction(Phi)) {
+        DEBUG_WITH_TYPE("vploop-analysis",
+                        dbgs() << "Detected recurrent operand while checking "
+                                  "for unconditional private: \n");
+        DEBUG_WITH_TYPE("vploop-analysis", Cur->dump());
+        return false;
+      }
+    }
+    if (!Visited.insert(Cur).second)
+      continue;
+    for (auto &Op : Cur->operands())
+      if (auto *Inst = dyn_cast<Instruction>(Op)) {
+        if (isLoadInstruction(Inst)) {
+          // Skip a load, it produces a new value that does not use operands
+          // directly.
+          continue;
+        }
+        Worklist.push_back(Inst);
+      }
+  }
+  return true;
 }
 
 } // namespace vpo

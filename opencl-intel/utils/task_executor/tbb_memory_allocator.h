@@ -16,16 +16,20 @@
 
 #include "tbb/scalable_allocator.h"
 
-namespace Intel { namespace OpenCL { namespace TaskExecutor {
+namespace Intel {
+namespace OpenCL {
+namespace TaskExecutor {
 
-class ScalableMemAllocator
-{
+class ScalableMemAllocator {
 public:
-    static void* scalableMalloc( size_t size ) { return scalable_malloc( size ); };
-    static void scalableFree( void* ptr ) { scalable_free( ptr ); };
-    static void* scalableAlignedMalloc( size_t size, size_t alignment ) {return scalable_aligned_malloc( size, alignment); };
-    static void scalableAlignedFree( void* ptr ) { scalable_aligned_free( ptr ); };
+  static void *scalableMalloc(size_t size) { return scalable_malloc(size); };
+  static void scalableFree(void *ptr) { scalable_free(ptr); };
+  static void *scalableAlignedMalloc(size_t size, size_t alignment) {
+    return scalable_aligned_malloc(size, alignment);
+  };
+  static void scalableAlignedFree(void *ptr) { scalable_aligned_free(ptr); };
 };
 
-}}} 
-
+} // namespace TaskExecutor
+} // namespace OpenCL
+} // namespace Intel

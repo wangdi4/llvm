@@ -60,11 +60,19 @@ class VPLoopEntity {
 public:
   using LinkedVPValuesTy = SetVector<VPValue *>;
 
+  // The map links a VPValue (typically VPExternalDef), that was
+  // created for a private memory alias, with the pair <VPInstruction *,
+  // Instruction *>. The Instruction in this pair is underlying instruction that
+  // creates the alias in underlying IR, VPInstruction is its VPlan equivalent.
+  using VPEntityAliasesTy =
+      MapVector<VPValue *, std::pair<VPInstruction *, const Instruction *>>;
+
   enum {
     Reduction,
     IndexReduction,
     InscanReduction,
     UserDefinedReduction,
+    UserDefinedScanReduction,
     Induction,
     Private,
     PrivateNonPOD,
@@ -72,7 +80,7 @@ public:
   };
   unsigned char getID() const { return SubclassID; }
 
-  virtual ~VPLoopEntity() = 0;
+  virtual ~VPLoopEntity();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { dump(errs()); }
@@ -90,10 +98,23 @@ public:
 
   virtual Type *getAllocatedType() const = 0;
 
+  // Iterator-range for memory aliases.
+  iterator_range<VPEntityAliasesTy::const_iterator> aliases() const {
+    return iterator_range<VPEntityAliasesTy::const_iterator>(MemAliases.begin(),
+                                                             MemAliases.end());
+  }
+
+  // Getter for memory aliases.
+  VPEntityAliasesTy &getMemoryAliases() { return MemAliases; }
+
 protected:
   // No need for public constructor.
   explicit VPLoopEntity(unsigned char Id, bool IsMem)
       : IsMemOnly(IsMem), SubclassID(Id){};
+
+  explicit VPLoopEntity(unsigned char Id, bool IsMem,
+                        VPEntityAliasesTy &&MemAlias)
+      : IsMemOnly(IsMem), SubclassID(Id), MemAliases(std::move(MemAlias)){};
 
   bool IsMemOnly;
 
@@ -104,6 +125,27 @@ protected:
 private:
   const unsigned char SubclassID;
   LinkedVPValuesTy LinkedVPValues;
+
+  // Memory aliases created by instructions outside of the loop.
+  // Something like below
+  // entry:
+  //    %priv  = alloca i32
+  //    %alias = bitcast i32* %priv to float*
+  //    %alias2 = getelementptr i64* %priv, 0, 0
+  //    ...
+  // preheader:
+  //    %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+  //    "QUAL.OMP.LASTPRIVATE"(type* priv)
+  //    ...
+  // body:
+  //    store float %v1, float* alias
+  //    %v2 = load i64* alias2
+  //    ...
+  //
+  // We should have these aliases materialized in VPlan. W/o this we lose
+  // correctness using VPExternalDef in VPlan for them.
+  // Most often such aliases occur on private arrays.
+  VPEntityAliasesTy MemAliases;
 };
 
 /// Recurrence descriptor
@@ -114,9 +156,10 @@ class VPReduction
 
 public:
   VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
-              FastMathFlags FMF, Type *RT, bool Signed, bool IsMemOnly = false,
+              FastMathFlags FMF, Type *RT, bool Signed,
+              VPEntityAliasesTy &&InMemAliases, bool IsMemOnly = false,
               unsigned char Id = Reduction)
-      : VPLoopEntity(Id, IsMemOnly),
+      : VPLoopEntity(Id, IsMemOnly, std::move(InMemAliases)),
         RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -156,9 +199,11 @@ public:
   VPUserDefinedReduction(Function *Combiner, Function *Initializer,
                          Function *Ctor, Function *Dtor, VPValue *Start,
                          FastMathFlags FMF, Type *RT, bool Signed,
-                         bool IsMemOnly = false)
+                         VPEntityAliasesTy &&InMemAliases,
+                         bool IsMemOnly = false,
+                         unsigned char Id = UserDefinedReduction)
       : VPReduction(Start, nullptr /*Exit*/, RecurKind::Udr, FMF, RT, Signed,
-                    IsMemOnly, UserDefinedReduction),
+                    std::move(InMemAliases), IsMemOnly, Id),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
 
   Function *getCombiner() const { return Combiner; }
@@ -185,15 +230,47 @@ private:
   Function *Dtor;
 };
 
+/// Descriptor for user-defined inscan reduction.
+class VPUserDefinedScanReduction : public VPUserDefinedReduction {
+public:
+  VPUserDefinedScanReduction(Function *Combiner, Function *Initializer,
+                             Function *Ctor, Function *Dtor, VPValue *Start,
+                             FastMathFlags FMF, Type *RT, bool Signed,
+                             VPEntityAliasesTy &&InMemAliases,
+                             InscanReductionKind InscanRedKind,
+                             bool IsMemOnly = false)
+      : VPUserDefinedReduction(Combiner, Initializer, Ctor, Dtor, Start, FMF,
+                               RT, Signed, std::move(InMemAliases), IsMemOnly,
+                               UserDefinedScanReduction),
+        InscanRedKind(InscanRedKind) {}
+
+  InscanReductionKind getInscanKind() const { return InscanRedKind; }
+
+  virtual StringRef getNameSuffix() const override { return "uds"; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == UserDefinedScanReduction;
+  }
+
+private:
+  InscanReductionKind InscanRedKind;
+};
+
 /// Descriptor for inscan reduction.
 class VPInscanReduction : public VPReduction {
 public:
   VPInscanReduction(InscanReductionKind InscanRedKind, VPValue *Start,
                     VPInstruction *Exit, RecurKind RdxKind, FastMathFlags FMF,
-                    Type *RT, bool Signed, bool IsMemOnly = false)
-    : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed, IsMemOnly,
-                  InscanReduction),
-      InscanRedKind(InscanRedKind) {}
+                    Type *RT, bool Signed, VPEntityAliasesTy &&InMemAliases,
+                    bool IsMemOnly = false)
+      : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed,
+                    std::move(InMemAliases), IsMemOnly, InscanReduction),
+        InscanRedKind(InscanRedKind) {}
 
   InscanReductionKind getInscanKind() const { return InscanRedKind; }
 
@@ -220,13 +297,14 @@ private:
 class VPIndexReduction : public VPReduction {
 public:
   VPIndexReduction(const VPReduction *Parent, VPValue *Start,
-                   VPInstruction *Exit, Type *RT, bool Signed, bool ForLast,
+                   VPInstruction *Exit, Type *RT, bool Signed,
+                   VPEntityAliasesTy &&InMemAliases, bool ForLast,
                    bool IsLinIndex, bool IsMemOnly = false)
       : VPReduction(Start, Exit,
                     ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
                             : (Signed ? RecurKind::SMin : RecurKind::UMin),
-                    FastMathFlags(), RT, Signed, IsMemOnly,
-                    IndexReduction),
+                    FastMathFlags(), RT, Signed, std::move(InMemAliases),
+                    IsMemOnly, IndexReduction),
         ParentRed(Parent), IsLinearIndex(IsLinIndex) {
     assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
@@ -297,16 +375,17 @@ class VPInduction
   friend class VPLoopEntityList;
 
 public:
+  static const unsigned UnknownOpcode = 0;
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
               int StepMultiplier, Type *StepTy, const SCEV *StepSCEV,
               VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
-              bool IsMemOnly = false,
-              unsigned int Opc = Instruction::BinaryOpsEnd)
+              bool IsMemOnly = false, unsigned Opc = UnknownOpcode)
       : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
         StepMultiplier(StepMultiplier), StepTy(StepTy), StepSCEV(StepSCEV),
         StartVal(StartVal), EndVal(EndVal), IndOpcode(Opc) {
-    assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
+    assert((getInductionBinOp() || Instruction::isBinaryOp(IndOpcode) ||
+            IndOpcode == Instruction::GetElementPtr) &&
            "Induction opcode should be set");
   }
 
@@ -347,6 +426,9 @@ public:
 
   void setNeedCloseForm(bool Val) { NeedCloseForm = Val; }
 
+  bool isLinearIV() const { return IsLinearIV; }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
+
   /// Returns binary opcode of the induction operator. Hides parent's method.
   unsigned int getInductionOpcode() const;
 
@@ -366,6 +448,7 @@ private:
   VPValue *EndVal;
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
+  bool IsLinearIV = false;
 };
 
 /// Private descriptor. Privates can be declared explicitly or detected
@@ -391,32 +474,19 @@ public:
     PTNonPod,       // Non-POD private.
   };
 
-  // Explicit destructor to drop references to alias VPInstructions. This is
-  // needed to avoid memory leak in cases where aliases are not lowered into
-  // instructions in VPlan CFG.
-  ~VPPrivate();
-
-  // Currently only used for VPPrivates. In future, this can be hoisted to
-  // VPLoopEntity. The map links a VPValue (typically VPExternalDef), that was
-  // created for a private memory alias, with the pair <VPInstruction *,
-  // Instruction *>. The Instruction in this pair is underlying instruction that
-  // creates the alias in underlying IR, VPInstruction is its VPlan equivalent.
-  using VPEntityAliasesTy =
-      MapVector<VPValue *, std::pair<VPInstruction *, const Instruction *>>;
-
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedTy, bool IsMemOnly = false,
             bool IsF90 = false, unsigned char Id = Private)
-      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
-        TagOrExit(ExitI), Aliases(std::move(InAliases)),
-        AllocatedType(AllocatedTy), IsF90(IsF90) {}
+      : VPLoopEntity(Id, IsMemOnly, std::move(InAliases)), Kind(K),
+        IsExplicit(Explicit), TagOrExit(ExitI), AllocatedType(AllocatedTy),
+        IsF90(IsF90) {}
 
   VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedType, bool IsMemOnly = false,
             bool IsF90 = false, unsigned char Id = Private)
-      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
-        TagOrExit(PTag), Aliases(std::move(InAliases)),
-        AllocatedType(AllocatedType), IsF90(IsF90) {}
+      : VPLoopEntity(Id, IsMemOnly, std::move(InAliases)), Kind(K),
+        IsExplicit(Explicit), TagOrExit(PTag), AllocatedType(AllocatedType),
+        IsF90(IsF90) {}
 
   bool isConditional() const { return Kind == PrivateKind::Conditional; }
   bool isLast() const { return Kind != PrivateKind::NonLast; }
@@ -438,14 +508,6 @@ public:
 
   bool hasExitInstr() const { return TagOrExit.IsInstr; }
   bool hasPrivateTag() const { return !TagOrExit.IsInstr; }
-
-  // TODO: Consider making this method virtual and hence available to all
-  // entities.
-  // Iterator-range for the aliases-set.
-  iterator_range<VPEntityAliasesTy::const_iterator> aliases() const {
-    return iterator_range<VPEntityAliasesTy::const_iterator>(Aliases.begin(),
-                                                             Aliases.end());
-  }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -480,10 +542,6 @@ private:
 
   // The Exit Instruction or an additional classification flag
   PrivData TagOrExit;
-
-  // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
-  // instructions to existing loop-private, which are outside the loop-region.
-  VPEntityAliasesTy Aliases;
 
   // Type of the allocated memory.
   Type *AllocatedType;
@@ -644,8 +702,9 @@ public:
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
-                            VPInstruction *Exit, RecurKind K,
-                            FastMathFlags FMF, Type *RT, bool Signed,
+                            VPInstruction *Exit, RecurKind K, FastMathFlags FMF,
+                            Type *RT, bool Signed,
+                            VPEntityAliasesTy &MemAliases,
                             Optional<InscanReductionKind> InscanRedKind,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
@@ -654,21 +713,21 @@ public:
   /// exiting instruction \p Exit, \p Signed data type \p RT, and
   /// alloca-instruction \p AI. The \p ForLast flag indicates whether we need
   /// the last index or the first one.
-  VPIndexReduction *addIndexReduction(VPInstruction *Instr,
-                                      const VPReduction *Parent,
-                                      VPValue *Incoming, VPInstruction *Exit,
-                                      Type *RT, bool Signed, bool ForLast,
-                                      bool IsLinNdx, VPValue *AI = nullptr,
-                                      bool ValidMemOnly = false);
+  VPIndexReduction *
+  addIndexReduction(VPInstruction *Instr, const VPReduction *Parent,
+                    VPValue *Incoming, VPInstruction *Exit, Type *RT,
+                    bool Signed, VPEntityAliasesTy &MemAliases, bool ForLast,
+                    bool IsLinNdx, VPValue *AI = nullptr,
+                    bool ValidMemOnly = false);
 
   /// Add user-defined reduction described by \p Combiner, \p Initializer, \p
   /// RedTy and \p Signed, with incoming value \p Incoming and
   /// alloca-instruction \p AI.
-  VPUserDefinedReduction *
-  addUserDefinedReduction(Function *Combiner, Function *Initializer,
-                          Function *Ctor, Function *Dtor, VPValue *Incoming,
-                          FastMathFlags FMF, Type *RedTy, bool Signed,
-                          VPValue *AI, bool ValidMemOnly);
+  VPUserDefinedReduction *addUserDefinedReduction(
+      Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
+      VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
+      VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
+      Optional<InscanReductionKind> InscanRedKind);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionOp, starting instruction \pStart, incoming value
@@ -918,6 +977,8 @@ public:
       linkValue(ReductionMap, Red, Val);
     else if (auto Red = dyn_cast<VPUserDefinedReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPUserDefinedScanReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -1009,8 +1070,8 @@ private:
   // AI and nullptr is returned.
   // If the VPAlloca is created it is placed at the beginning of the
   // \p Preheader.
-  VPValue *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
-                               VPValue *&AI, VPBasicBlock* Preheader);
+  VPAllocatePrivate *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
+                                         VPValue *&AI, VPBasicBlock *Preheader);
 
   // Process initial value \p Init of entity \p E.
   // If the private memory \p PrivateMem is not null then an instruction
@@ -1124,11 +1185,28 @@ private:
       VPBasicBlock *Preheader,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
 
+  // Insert VPInstructions to initialize/finalize array reduction \p ArrRed and
+  // inserting the reduction into list of processed reductions \p
+  // ProcessedReductions.
+  void insertArrayRedVPInstructions(
+      VPReduction *ArrRed, VPBuilder &Builder, VPBasicBlock *PostExit,
+      VPBasicBlock *Preheader,
+      SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
   // Insert inscan-related reduction instructions and process
   // inclusive/exclusive pragmas in the loop body.
   void insertRunningInscanReductionInstrs(
-    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
-    VPBuilder &Builder);
+      const SmallVectorImpl<const VPReduction *> &InscanReductions,
+      VPBuilder &Builder);
+
+  // Insert reduction instructions for specific VPInscanReduction.
+  void processRunningInscanReduction(const VPInscanReduction *InscanReduction,
+                                     VPBasicBlock *FenceBlock,
+                                     VPBuilder &Builder);
+
+  // Insert reduction instructions for specific VPUserDefinedScanReduction.
+  void processRunningUDS(const VPUserDefinedScanReduction *UserDefinedScan,
+                         VPBasicBlock *FenceBlock, VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().
@@ -1166,6 +1244,7 @@ class VPEntityImportDescr {
     VPValue *Start = nullptr;
     SmallVector<VPInstruction *, 4> UpdateVPInsts;
   };
+  using VPEntityAliasesTy = VPLoopEntity::VPEntityAliasesTy;
 
 protected:
   VPEntityImportDescr() = default;
@@ -1192,14 +1271,29 @@ public:
   }
 
   // Return true if \p Val is used in the \p Loop or in its
-  // preheader, not in lifetimestart/end.
-  static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop);
+  // preheader, not in lifetimestart/end. Also accounts for memory aliases
+  // passedin \p MemAliases.
+  static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
+                                VPEntityAliasesTy &MemAliases);
 
   iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
   getUpdateVPInsts() {
     return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
   }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+
+  void addMemAlias(VPValue *Alias, VPInstruction *VPI, const Instruction *I) {
+    MemAliases[Alias] = std::make_pair(VPI, I);
+  }
+
+  bool isVPInstMemAlias(VPInstruction *VPI) {
+    for (auto &MapKeyVal : MemAliases) {
+      if (MapKeyVal.second.first == VPI)
+        return true;
+    }
+
+    return false;
+  }
 
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
@@ -1211,6 +1305,7 @@ protected:
     Alias.reset();
     HasAlias = false;
     UpdateVPInsts.clear();
+    MemAliases.clear();
   }
   VPValue *AllocaInst = nullptr;
   bool ValidMemOnly = false;
@@ -1220,6 +1315,9 @@ protected:
   bool HasAlias = false;
   /// Instruction(s) in VPlan that update the variable
   SmallVector<VPInstruction *, 4> UpdateVPInsts;
+
+  // Memory aliases
+  VPEntityAliasesTy MemAliases;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -1278,7 +1376,7 @@ public:
     LinkPhi = nullptr;
     LinkedVPVals.clear();
     IsLinearIndex = false;
-    InscanRedKind = None;
+    InscanRedKind = std::nullopt;
     Combiner = nullptr;
     Initializer = nullptr;
     Ctor = nullptr;
@@ -1375,6 +1473,7 @@ public:
   VPValue *getEndVal() const { return EndVal; }
   VPInstruction *getInductionOp() const { return InductionOp; }
   unsigned getIndOpcode() const { return IndOpcode; }
+  bool getIsLinearIV() const { return IsLinearIV; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setKind(InductionKind V) { K = V; }
@@ -1389,6 +1488,7 @@ public:
   void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+  void setIsLinearIV(bool V) { IsLinearIV = V; }
 
   // Get InductionKind and default induction opcode for the data type \p IndTy.
   static std::pair<unsigned, InductionKind>
@@ -1400,7 +1500,8 @@ public:
       return std::make_pair(Instruction::GetElementPtr,
                             InductionDescriptor::IK_PtrInduction);
     } else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
+      assert(IndTy->getScalarType()->isFloatingPointTy() &&
+             "unexpected induction type");
       return std::make_pair(Instruction::FAdd,
                             InductionDescriptor::IK_FpInduction);
     }
@@ -1428,8 +1529,9 @@ public:
     StartVal = nullptr;
     EndVal = nullptr;
     InductionOp = nullptr;
-    IndOpcode = Instruction::BinaryOpsEnd;
+    IndOpcode = VPInduction::UnknownOpcode;
     IsExplicitInduction = false;
+    IsLinearIV = false;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1467,15 +1569,15 @@ private:
   VPValue *StartVal = nullptr;
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
-  unsigned IndOpcode = Instruction::BinaryOpsEnd;
+  unsigned IndOpcode = VPInduction::UnknownOpcode;
   bool IsExplicitInduction = false;
+  bool IsLinearIV = false;
 };
 
 /// Intermediate private descriptor. Same as ReductionDescr above but for
 /// privates.
 class PrivateDescr : public VPEntityImportDescr {
   using BaseT = VPEntityImportDescr;
-  using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
   PrivateDescr() = default;
@@ -1492,7 +1594,6 @@ public:
   /// Clear the content.
   void clear() override {
     BaseT::clear();
-    PtrAliases.clear();
     ExitInst = nullptr;
     IsConditional = false;
     IsLast = false;
@@ -1519,9 +1620,6 @@ public:
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
   void setExitInst(VPInstruction *EI) { ExitInst = EI; }
-  void addAlias(VPValue *Alias, VPInstruction *VPI, const Instruction *I) {
-    PtrAliases[Alias] = std::make_pair(VPI, I);
-  }
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
@@ -1541,11 +1639,6 @@ private:
   // Type of memory.
   Type *AllocatedType = nullptr;
   VPInstruction *ExitInst = nullptr;
-  // These are Pointer-aliases. Each Loop-private memory descriptor can have
-  // multiple aliases as opposed to memory descriptors for inductions or
-  // reductions. Hence, we have a separate field. TODO: consider using a
-  // single/same field for every memory descriptor.
-  VPEntityAliasesTy PtrAliases;
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;

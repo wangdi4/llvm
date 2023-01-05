@@ -15,7 +15,6 @@
 ;    return t4;
 ;  }
 ;  
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert -S < %s 2>&1 | FileCheck %s
 ; RUN: opt --passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>" -S < %s 2>&1 | FileCheck %s
 ; HIR Test.
 ; CHECK: @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]

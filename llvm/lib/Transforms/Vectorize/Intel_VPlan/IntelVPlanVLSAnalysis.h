@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.h - -------------------------------------------===/
 //
-//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -28,6 +28,7 @@ namespace vpo {
 
 class VPlan;
 class VPlanScalarEvolutionLLVM;
+class VPlanVLSCostModel;
 
 /// VPlanVLSAnalysis class is used to collect all memory references in VPlan,
 /// pass them to OptVLS interface and store result internally, so there's no
@@ -52,18 +53,19 @@ protected:
   const DataLayout &DL;
   TargetTransformInfo *TTI;
 
+  // Context that serves as backing storage for OptVLS data.
+  OVLSContext OptVLSContext;
+
   /// Finds a group for a given VPInstruction.
   OVLSGroup *getGroupForInstruction(const VPlan *Plan,
                                     const VPInstruction *Inst) const {
     const VLSInfo &VlsInfoForVPlan = Plan2VLSInfo.find(Plan)->second;
-    auto MemrefIt = llvm::find_if(
-        VlsInfoForVPlan.Memrefs,
-        [Inst](const std::unique_ptr<OVLSMemref> &Memref) {
-          return cast<VPVLSClientMemref>(Memref.get())->getInstruction() ==
-                 Inst;
+    const auto *MemrefIt = llvm::find_if(
+        VlsInfoForVPlan.Memrefs, [Inst](const OVLSMemref *Memref) {
+          return cast<VPVLSClientMemref>(Memref)->getInstruction() == Inst;
         });
     if (MemrefIt != VlsInfoForVPlan.Memrefs.end()) {
-      auto GIt = VlsInfoForVPlan.Mem2Group.find(MemrefIt->get());
+      auto GIt = VlsInfoForVPlan.Mem2Group.find(*MemrefIt);
       if (GIt != VlsInfoForVPlan.Mem2Group.end())
         return GIt->second;
     }
@@ -71,11 +73,12 @@ protected:
   }
 
   virtual OVLSMemref *createVLSMemref(const VPLoadStoreInst *Inst,
-                                      const unsigned VF) const;
+                                      const unsigned VF,
+                                      const VPlanScalarEvolution *VPSE);
 
 private:
-  void collectMemrefs(OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVector,
-                      const VPlan *Plan, unsigned VF);
+  void collectMemrefs(OVLSMemrefVector &MemrefVector, const VPlan *Plan,
+                      unsigned VF);
 
   /// To call OptVLSInterface, vectorizer has to pass maximum physical
   /// vector length for a given target. From vectorization point of view,
@@ -85,7 +88,7 @@ private:
 
   /// Data structure to keep all needed information for each VPlan.
   struct VLSInfo {
-    OVLSVector<std::unique_ptr<OVLSMemref>> Memrefs;
+    OVLSMemrefVector Memrefs;
     OVLSGroupVector Groups;
     OVLSMemrefToGroupMap Mem2Group;
 
@@ -116,10 +119,8 @@ public:
     return getGroupForInstruction(Plan, Inst);
   }
 
-  auto groups(const VPlan *Plan) {
-    return map_range(
-        Plan2VLSInfo[Plan].Groups,
-        [](std::unique_ptr<OVLSGroup> &Group) { return Group.get(); });
+  const OVLSGroupVector &groups(const VPlan *Plan) {
+    return Plan2VLSInfo[Plan].Groups;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -129,11 +130,12 @@ public:
 
   const Loop *getMainLoop() const { return MainLoop; }
   LLVMContext &getContext() const { return Context; }
+  OVLSContext &getOVLSContext() { return OptVLSContext; }
   const DataLayout &getDL() const { return DL; }
 };
 
-int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group);
-int computeInterleaveFactor(OVLSMemref *Memref);
+int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group);
+int computeInterleaveFactor(const OVLSMemref *Memref);
 
 inline const VPLoadStoreInst *instruction(const OVLSMemref *Memref) {
   return cast<VPLoadStoreInst>(

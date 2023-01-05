@@ -1,6 +1,3 @@
-; RUN: opt -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 <%s -disable-output \
-; RUN:     -print-after=hir-vplan-vec 2>&1 | FileCheck %s
-
 ; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 \
 ; RUN:     <%s -disable-output 2>&1 | FileCheck %s
 

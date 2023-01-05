@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -debug-only=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll" -debug-only=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we bail out for multi-exit loops with too many liveouts as

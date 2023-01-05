@@ -5,7 +5,6 @@
 ; to trigger Field-reordering.
 
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -dtrans-reorderfields | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfields | FileCheck %s
 
 ; CHECK-DAG: %__DFR_struct.test1 = type { i64, i64, i64, i32, i32, i32, i16 }

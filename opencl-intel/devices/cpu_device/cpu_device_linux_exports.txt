@@ -4,12 +4,12 @@
         clDevGetDeviceInfo;
         clDevGetDeviceTimer;
         clDevErr2Txt;
-	clDevGetAvailableDeviceList;
-	clDevInitDeviceAgent;
-	RegisterGlobalAtExitNotification;
-	clDevGetAvailableDeviceList;
-	clDevInitDeviceAgent;
-		
+  clDevGetAvailableDeviceList;
+  clDevInitDeviceAgent;
+  RegisterGlobalAtExitNotification;
+  clDevGetAvailableDeviceList;
+  clDevInitDeviceAgent;
+    
     local:
         *;
 };

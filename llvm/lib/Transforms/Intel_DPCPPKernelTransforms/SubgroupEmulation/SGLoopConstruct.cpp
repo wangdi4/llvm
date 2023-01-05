@@ -11,9 +11,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGLoopConstruct.h"
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -24,49 +22,6 @@ using namespace DPCPPKernelMetadataAPI;
 using namespace CompilationUtils;
 
 extern bool DPCPPEnableSubGroupEmulation;
-
-namespace {
-/// Legacy SGLoopConstruct pass.
-class SGLoopConstructLegacy : public ModulePass {
-public:
-  static char ID;
-
-  SGLoopConstructLegacy();
-
-  StringRef getPassName() const override { return "SGLoopConstructLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<SGSizeAnalysisLegacy>();
-    AU.addPreserved<SGSizeAnalysisLegacy>();
-  }
-
-private:
-  SGLoopConstructPass Impl;
-};
-} // namespace
-
-char SGLoopConstructLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SGLoopConstructLegacy, DEBUG_TYPE, "Create subgroup loop",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysisLegacy)
-INITIALIZE_PASS_END(SGLoopConstructLegacy, DEBUG_TYPE, "Create subgroup loop",
-                    false, false)
-
-SGLoopConstructLegacy::SGLoopConstructLegacy() : ModulePass(ID) {
-  initializeSGLoopConstructLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool SGLoopConstructLegacy::runOnModule(Module &M) {
-  const SGSizeInfo *SSI = &getAnalysis<SGSizeAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, SSI);
-}
-
-ModulePass *llvm::createSGLoopConstructLegacyPass() {
-  return new SGLoopConstructLegacy();
-}
 
 PreservedAnalyses SGLoopConstructPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
@@ -368,7 +323,7 @@ void SGLoopConstructPass::hoistSGLIdCalls(Module &M) {
   for (auto *F : FuncsToBePatched) {
     LLVM_DEBUG(dbgs() << "Patching function: " << F->getName() << "\n");
     Function *PatchedFunc =
-        AddMoreArgsToFunc(F, SGLIdType, "sg.lid", None, "SGLoopConstruct");
+        AddMoreArgsToFunc(F, SGLIdType, "sg.lid", std::nullopt, "SGLoopConstruct");
     FuncToPatchedFunc[F] = PatchedFunc;
     PatchedFuncs.insert(PatchedFunc);
   }

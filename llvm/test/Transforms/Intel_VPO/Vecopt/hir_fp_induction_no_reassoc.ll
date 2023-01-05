@@ -1,7 +1,7 @@
 ; Test to verify that ParVecAnalysis does not auto-recognize a FP induction
 ; without reassoc flag.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert -debug-only=dd-utils -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>' -debug-only=dd-utils -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK: is unsafe to vectorize/parallelize (FP induction with reassoc flag off)

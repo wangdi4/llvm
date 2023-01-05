@@ -51,12 +51,15 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/CodeGen/MachineScheduler.h" //INTEL
-#include "MCTargetDesc/X86BaseInfo.h" // INTEL
 
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
+
+#if INTEL_CUSTOMIZATION
+#include "MCTargetDesc/X86BaseInfo.h"
+#include "llvm/CodeGen/MachineScheduler.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -163,7 +166,7 @@ unsigned char X86Subtarget::classifyGlobalReference(const GlobalValue *GV,
 
   // Absolute symbols can be referenced directly.
   if (GV) {
-    if (Optional<ConstantRange> CR = GV->getAbsoluteSymbolRange()) {
+    if (std::optional<ConstantRange> CR = GV->getAbsoluteSymbolRange()) {
       // See if we can use the 8-bit immediate form. Note that some instructions
       // will sign extend the immediate operand, so to be conservative we only
       // accept the range [0,128).

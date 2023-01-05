@@ -1,5 +1,5 @@
-; RUN: opt -S -loop-rotate -print-alias-sets -licm -o - < %s 2>&1 | FileCheck %s
-; RUN: opt -S -loop-rotate -print-alias-sets -o - < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='loop(loop-rotate),print-alias-sets,loop-mssa(licm)' -o - < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='loop(loop-rotate),print-alias-sets' -o - < %s 2>&1 | FileCheck %s
 
 
 ; CHECK: Alias sets for function 'main':

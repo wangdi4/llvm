@@ -3,7 +3,8 @@
 ; the uplevel in the function that created the uplevel, and is used
 ; in an unsupported way.
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; This test is similar to transpose-safety07.ll, but uses the new form of

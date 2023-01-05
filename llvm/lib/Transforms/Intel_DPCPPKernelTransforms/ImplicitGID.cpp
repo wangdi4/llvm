@@ -18,9 +18,8 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
@@ -103,13 +102,13 @@ private:
   CompilationUtils::FuncSet SGSyncFuncSet;
 
   /// This holds the insert point at entry block for the running function.
-  Instruction *InsertPoint;
+  Instruction *InsertPoint = nullptr;
 
   /// This holds the GID allocas.
-  Instruction *GIDAllocas[3];
+  Instruction *GIDAllocas[3] = {nullptr};
 
   /// This holds the Ind DIType for GID variables.
-  DIType *IndDIType;
+  DIType *IndDIType = nullptr;
 
   /// Skip insertDeclare if true.
   bool SkipInsertDbgDeclare = false;
@@ -160,7 +159,7 @@ bool ImplicitGIDImpl::run() {
   for (auto *F : KL) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (HandleBarrier) {
-      if (!(KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()))
+      if (!KIMD.NoBarrierPath.get())
         Changed |= runOnFunction(*F);
       continue;
     }
@@ -357,47 +356,6 @@ DIType *ImplicitGIDImpl::getOrCreateIndDIType() const {
   uint64_t IndTySize =
       M.getDataLayout().getTypeSizeInBits(IndTy).getFixedSize();
   return DIB->createBasicType("ind type", IndTySize, dwarf::DW_ATE_unsigned);
-}
-
-namespace {
-class ImplicitGIDLegacy : public ModulePass {
-  bool HandleBarrier;
-
-public:
-  static char ID;
-
-  ImplicitGIDLegacy(bool HandleBarrier = true)
-      : ModulePass(ID), HandleBarrier(HandleBarrier) {
-    initializeImplicitGIDLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override { return "ImplicitGIDLegacy"; }
-
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DataPerBarrierWrapper>();
-    AU.addPreserved<DataPerBarrierWrapper>();
-  }
-
-  bool runOnModule(Module &M) override {
-    auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
-    ImplicitGIDImpl Impl(M, HandleBarrier, DPB);
-    return Impl.run();
-  }
-};
-} // namespace
-
-char ImplicitGIDLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(ImplicitGIDLegacy, DEBUG_TYPE,
-                      "Add implicit gid for native OpenCL (gdb) debugging",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
-INITIALIZE_PASS_END(ImplicitGIDLegacy, DEBUG_TYPE,
-                    "Add implicit gid for native OpenCL (gdb) debugging", false,
-                    false)
-
-ModulePass *llvm::createImplicitGIDLegacyPass(bool HandleBarrier) {
-  return new ImplicitGIDLegacy(HandleBarrier);
 }
 
 PreservedAnalyses ImplicitGIDPass::run(Module &M, ModuleAnalysisManager &AM) {

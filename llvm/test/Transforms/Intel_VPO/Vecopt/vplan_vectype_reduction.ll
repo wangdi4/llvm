@@ -1,5 +1,3 @@
-; RUN: opt -enable-new-pm=0 -vplan-vec -S < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vplan-vec' -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,print<hir>,hir-vplan-vec,hir-cg' -S < %s 2>&1 | FileCheck %s
 ;

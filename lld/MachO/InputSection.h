@@ -64,11 +64,12 @@ public:
 protected:
   InputSection(Kind kind, const Section &section, ArrayRef<uint8_t> data,
                uint32_t align)
-      : sectionKind(kind), align(align), data(data), section(section) {}
+      : sectionKind(kind), keepUnique(false), hasAltEntry(false), align(align),
+        data(data), section(section) {}
 
   InputSection(const InputSection &rhs)
-      : sectionKind(rhs.sectionKind), align(rhs.align), data(rhs.data),
-        section(rhs.section) {}
+      : sectionKind(rhs.sectionKind), keepUnique(false), hasAltEntry(false),
+        align(rhs.align), data(rhs.data), section(rhs.section) {}
 
   Kind sectionKind;
 
@@ -77,13 +78,15 @@ public:
   bool isFinal = false;
   // keep the address of the symbol(s) in this section unique in the final
   // binary ?
-  bool keepUnique = false;
+  bool keepUnique : 1;
+  // Does this section have symbols at offsets other than zero? (NOTE: only
+  // applies to ConcatInputSections.)
+  bool hasAltEntry : 1;
   uint32_t align = 1;
 
   OutputSection *parent = nullptr;
   ArrayRef<uint8_t> data;
   std::vector<Reloc> relocs;
-  ArrayRef<OptimizationHint> optimizationHints;
   // The symbols that belong to this InputSection, sorted by value. With
   // .subsections_via_symbols, there is typically only one element here.
   llvm::TinyPtrVector<Defined *> symbols;
@@ -300,6 +303,7 @@ constexpr const char bitcodeBundle[] = "__bundle";
 constexpr const char cString[] = "__cstring";
 constexpr const char cfString[] = "__cfstring";
 constexpr const char cgProfile[] = "__cg_profile";
+constexpr const char chainFixups[] = "__chainfixups";
 constexpr const char codeSignature[] = "__code_signature";
 constexpr const char common[] = "__common";
 constexpr const char compactUnwind[] = "__compact_unwind";

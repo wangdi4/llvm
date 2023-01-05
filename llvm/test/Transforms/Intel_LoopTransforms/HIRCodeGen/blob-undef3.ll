@@ -1,5 +1,4 @@
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 ; Check HIR CG of cases with undefined values in CanonExpr (Blob Coef in Mul)
 ; |   (%A)[0][i1] = 5 * i1 + undef * %0 + 1;

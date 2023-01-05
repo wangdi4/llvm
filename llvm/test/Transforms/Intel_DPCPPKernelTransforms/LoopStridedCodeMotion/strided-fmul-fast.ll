@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; This test checks that stride is computed from operands of fast fmul.
 

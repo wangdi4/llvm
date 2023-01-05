@@ -4,7 +4,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-vec-dir-insert -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert -hir-cost-model-throttling=0 -debug-only=parvec-analysis -aa-pipeline=tbaa < %s 2>&1 | FileCheck %s
 declare void @foo(float * ) #1
 
 ;<0>          BEGIN REGION { }
@@ -45,4 +45,4 @@ for.body:                                         ; preds = %entry, %for.body
 }
 
 attributes #0 = { nofree norecurse nosync nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #1 = { readonly }
+attributes #1 = { memory(read) }

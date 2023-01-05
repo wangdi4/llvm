@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -auto-cpu-clone < %s -S | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; This lit test checks that the resolvers of ifuncs in user code

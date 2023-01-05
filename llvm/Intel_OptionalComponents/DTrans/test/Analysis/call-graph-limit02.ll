@@ -5,15 +5,12 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-NOT: Call graph too large
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -dtrans-maxinstructioncount=100 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -dtrans-maxinstructioncount=100 -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -dtrans-maxinstructioncount=100 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -dtrans-maxinstructioncount=100 -disable-output 2>&1 | FileCheck %s
 
 define internal dso_local i32 @foo() local_unnamed_addr {

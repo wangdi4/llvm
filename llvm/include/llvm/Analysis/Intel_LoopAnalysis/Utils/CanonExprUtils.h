@@ -236,6 +236,22 @@ public:
                                    const CanonExpr *CE2, bool IsSigned,
                                    bool RelaxedMode = false);
 
+  /// Returns true if standalone blob in \p CE1 represented by \p BlobIndex can
+  /// be replaced with \p CE2.
+  static bool canReplaceStandAloneBlobByCanonExpr(CanonExpr *CE1,
+                                                  unsigned BlobIndex,
+                                                  const CanonExpr *CE2);
+
+  /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
+  /// Replaces standalone blob in \p CE1 represented by \p BlobIndex with \p
+  /// CE2.
+  /// TODO: extend to handling top level blob with non-unit coefficient which
+  /// seems doable.
+  /// Note that non-unit denominator is not allowed in \p CE2.
+  static void replaceStandAloneBlobByCanonExpr(CanonExpr *CE1,
+                                               unsigned BlobIndex,
+                                               const CanonExpr *CE2);
+
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
   /// Distance, if it isn't null.
   ///

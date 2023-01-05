@@ -1680,7 +1680,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
           GID = Map->second;
         }
       } else if (DTy->isDoubleTy()) {
-        auto Map = GenXMath32.find(ID);
+        auto Map = GenXMath64.find(ID);
         if (Map != GenXMath64.end()) {
           GID = Map->second;
         }
@@ -1730,6 +1730,7 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
   bool isOmpSpirKernel = false;
 
   if ((F.getMetadata("omp_simd_kernel") != nullptr) ||
+      (F.getMetadata("omp_declare_target_simd_function") != nullptr) ||
       (F.getMetadata("sycl_explicit_simd") == nullptr &&
        F.getCallingConv() == CallingConv::SPIR_KERNEL)) {
     IRBuilder<> Builder(F.getEntryBlock().getFirstNonPHI());
@@ -1738,9 +1739,13 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
         ConstantAsMetadata::get(Builder.getInt32(simdWidth))};
     F.setMetadata("intel_reqd_sub_group_size",
                   MDNode::get(F.getContext(), AttrMDArgs));
-    isOmpSpirKernel = true;
-  } else
+    // for omp_declare_target_simd_function there's no need to generate all
+    // kernel-related MD but still necessary to perform the lowering
+    if (!F.getMetadata("omp_declare_target_simd_function"))
+      isOmpSpirKernel = true;
+  } else {
     return PreservedAnalyses::all();
+  }
 
   auto SLMSize = assignSLMOffset(*F.getParent());
 

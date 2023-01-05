@@ -17,16 +17,15 @@
 
 #include "IContainer.h"
 
-namespace Validation
-{
-    /// @brief Interface to a data file reader. It reads object IContainer from storage
-    class IDataReader
-    {
-    public:
-        /// @brief Loads from data file.
-        /// @param [OUT] pContainer pointer to object with IContainer interface
-        virtual void Read(IContainer * pContainer) = 0;
-        virtual ~IDataReader() {}
-    };
-} // End of Validation namespace
+namespace Validation {
+/// @brief Interface to a data file reader. It reads object IContainer from
+/// storage
+class IDataReader {
+public:
+  /// @brief Loads from data file.
+  /// @param [OUT] pContainer pointer to object with IContainer interface
+  virtual void Read(IContainer *pContainer) = 0;
+  virtual ~IDataReader() {}
+};
+} // namespace Validation
 #endif // __I_DATA_READER_H__

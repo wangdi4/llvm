@@ -68,6 +68,10 @@ protected:
 
   ScalarEvolution *SE;
 
+  const DominatorTree &DT;
+
+  AssumptionCache &AC;
+
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
   // an optimization opportunity for sinking their scalarized operands thus
@@ -92,8 +96,8 @@ protected:
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
-                   VPOVectorizationLegality *Legal,
-                   ScalarEvolution *SE = nullptr,
+                   VPOVectorizationLegality *Legal, AssumptionCache &AC,
+                   const DominatorTree &DT, ScalarEvolution *SE = nullptr,
                    BlockFrequencyInfo *BFI = nullptr);
 
   virtual ~VPlanHCFGBuilder();

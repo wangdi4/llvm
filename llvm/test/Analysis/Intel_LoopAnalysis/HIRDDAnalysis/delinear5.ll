@@ -14,7 +14,6 @@
 ; }
 ;  Check for IR after loop fusion is sufficent to indicate it passes
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function

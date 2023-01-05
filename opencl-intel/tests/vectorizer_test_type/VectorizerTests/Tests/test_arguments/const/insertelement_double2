@@ -6,19 +6,19 @@
  * This instruction is NOT vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 insertelement_double2 ( __global const float *in,
-		__global float *out)
+    __global float *out)
 {
-	int gid = get_global_id(0);
-	double2 vec = DOUBLE2_VEC1;
-	// these assignment and add are done to make sure that insertelement will be used (on vec)
-	vec.x = ARG0;
-	vec = vec + vec;
-	out[gid] = vec.x + vec.y;
+  int gid = get_global_id(0);
+  double2 vec = DOUBLE2_VEC1;
+  // these assignment and add are done to make sure that insertelement will be used (on vec)
+  vec.x = ARG0;
+  vec = vec + vec;
+  out[gid] = vec.x + vec.y;
 }

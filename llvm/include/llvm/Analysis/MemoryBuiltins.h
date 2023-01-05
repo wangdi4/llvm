@@ -40,6 +40,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/ValueHandle.h"
 #include <cstdint>
+#include <optional>
 #include <utility>
 
 namespace llvm {
@@ -73,52 +74,6 @@ bool isAllocationFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isAllocationFn(const Value *V,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
-#if INTEL_CUSTOMIZATION
-
-class IntelMemoryBuiltins {
-public:
-/// Tests if a value/function is a call or invoke to a library function that
-/// allocates uninitialized memory (such as malloc).
-static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-static bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates zero-filled memory (such as calloc).
-static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory similar to malloc or calloc.
-static bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that returns
-/// non-null result
-static bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a function is a call or invoke to a library function that
-/// allocates memory (e.g., new).
-static bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// Tests if a function is a call or invoke to a library function that
-/// frees memory (e.g., free).
-static bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// Tests if a function is a call or invoke to a library function that
-/// frees memory (e.g., delete).
-static bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// Returns indices of size arguments of Malloc-like functions.
-/// All functions except calloc return -1 as a second argument.
-static std::pair<unsigned, unsigned>
-getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
-
-/// Returns 'true' if the LibFunc is contained within the list of library
-/// functions that are known to allocate memory. The list is maintained
-/// within MemoryBuiltins.cpp as 'AllocationFnData'.
-static bool isAllocationLibFunc(LibFunc LF);
-};
-
-#endif // INTEL_CUSTOMIZATION
-
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
 bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
@@ -129,10 +84,10 @@ bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
-bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+bool isReallocLikeFn(const Function *F);
 
 /// If this is a call to a realloc function, return the reallocated operand.
-Value *getReallocatedOperand(const CallBase *CB, const TargetLibraryInfo *TLI);
+Value *getReallocatedOperand(const CallBase *CB);
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
@@ -163,6 +118,51 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+
+class IntelMemoryBuiltins {
+public:
+/// Tests if a value/function is a call or invoke to a library function that
+/// allocates uninitialized memory (such as malloc).
+static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+static bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates zero-filled memory (such as calloc).
+static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory similar to malloc or calloc.
+static bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+
+/// Tests if a value is a call or invoke to a library function that returns
+/// non-null result
+static bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
+
+/// Tests if a function is a call or invoke to a library function that
+/// allocates memory (e.g., new).
+static bool isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Tests if function 'F' is identified as one that allocates memory (e.g.,
+/// malloc, calloc, new, ...).
+static bool isAllocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Tests if a function is a call or invoke to a library function that
+/// frees memory (e.g., free).
+static bool isFreeFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Tests if a function is a call or invoke to a library function that
+/// frees memory (e.g., delete).
+static bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
+
+/// Returns indices of size arguments of Malloc-like functions.
+/// All functions except calloc return -1 as a second argument.
+static std::pair<unsigned, unsigned>
+getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
+};
+
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //  Properties of allocation functions
 //
@@ -189,7 +189,7 @@ Value *getAllocAlignment(const CallBase *V, const TargetLibraryInfo *TLI);
 /// calls that return their argument. A mapper function can be used to replace
 /// one Value* (operand to the allocation) with another. This is useful when
 /// doing abstract interpretation.
-Optional<APInt> getAllocSize(
+std::optional<APInt> getAllocSize(
     const CallBase *CB, const TargetLibraryInfo *TLI,
     function_ref<const Value *(const Value *)> Mapper = [](const Value *V) {
       return V;
@@ -205,8 +205,8 @@ Constant *getInitialValueOfAllocation(const Value *V,
 /// If a function is part of an allocation family (e.g.
 /// malloc/realloc/calloc/free), return the identifier for its family
 /// of functions.
-Optional<StringRef> getAllocationFamily(const Value *I,
-                                        const TargetLibraryInfo *TLI);
+std::optional<StringRef> getAllocationFamily(const Value *I,
+                                             const TargetLibraryInfo *TLI);
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
@@ -268,7 +268,7 @@ using SizeOffsetType = std::pair<APInt, APInt>;
 /// Evaluate the size and offset of an object pointed to by a Value*
 /// statically. Fails if size or offset are not known at compile time.
 class ObjectSizeOffsetVisitor
-    : public InstVisitor<ObjectSizeOffsetVisitor, SizeOffsetType> {
+  : public InstVisitor<ObjectSizeOffsetVisitor, SizeOffsetType> {
   const DataLayout &DL;
   const TargetLibraryInfo *TLI;
   ObjectSizeOpts Options;
@@ -310,11 +310,11 @@ public:
   SizeOffsetType visitExtractValueInst(ExtractValueInst &I);
   SizeOffsetType visitGlobalAlias(GlobalAlias &GA);
   SizeOffsetType visitGlobalVariable(GlobalVariable &GV);
-  SizeOffsetType visitIntToPtrInst(IntToPtrInst &);
+  SizeOffsetType visitIntToPtrInst(IntToPtrInst&);
   SizeOffsetType visitLoadInst(LoadInst &I);
-  SizeOffsetType visitPHINode(PHINode &);
+  SizeOffsetType visitPHINode(PHINode&);
   SizeOffsetType visitSelectInst(SelectInst &I);
-  SizeOffsetType visitUndefValue(UndefValue &);
+  SizeOffsetType visitUndefValue(UndefValue&);
   SizeOffsetType visitInstruction(Instruction &I);
 
 private:
@@ -332,7 +332,7 @@ using SizeOffsetEvalType = std::pair<Value *, Value *>;
 /// Evaluate the size and offset of an object pointed to by a Value*.
 /// May create code to compute the result at run-time.
 class ObjectSizeOffsetEvaluator
-    : public InstVisitor<ObjectSizeOffsetEvaluator, SizeOffsetEvalType> {
+  : public InstVisitor<ObjectSizeOffsetEvaluator, SizeOffsetEvalType> {
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   using WeakEvalType = std::pair<WeakTrackingVH, WeakTrackingVH>;
   using CacheMapTy = DenseMap<const Value *, WeakEvalType>;
@@ -383,7 +383,7 @@ public:
   SizeOffsetEvalType visitExtractElementInst(ExtractElementInst &I);
   SizeOffsetEvalType visitExtractValueInst(ExtractValueInst &I);
   SizeOffsetEvalType visitGEPOperator(GEPOperator &GEP);
-  SizeOffsetEvalType visitIntToPtrInst(IntToPtrInst &);
+  SizeOffsetEvalType visitIntToPtrInst(IntToPtrInst&);
   SizeOffsetEvalType visitLoadInst(LoadInst &I);
   SizeOffsetEvalType visitPHINode(PHINode &PHI);
   SizeOffsetEvalType visitSelectInst(SelectInst &I);

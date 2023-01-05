@@ -2,8 +2,8 @@
 ; This test uses a mix of middle end and codegen passes. It must be run with
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
-; (hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt < %s -enable-new-pm=0 -mtriple=x86_64-pc-windows -mcpu=alderlake --loop-simplify --lcssa --hetero-arch-opt --verify -S | FileCheck %s
+; (x86-hetero-arch-opt) uses the legacy pass manager.
+; RUN: opt < %s -enable-new-pm=0 -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
 
 %rtti.TypeDescriptor2 = type { i8**, i8*, [3 x i8] }
 

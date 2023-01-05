@@ -17,38 +17,28 @@
 
 #include <QWidget>
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The Tab class
  * @detailed parent-class for all tabs
  */
-class Tab : public QWidget
-{
-    Q_OBJECT
+class Tab : public QWidget {
+  Q_OBJECT
 public:
-    explicit Tab(QWidget *parent = 0);
-    /**
-     * @brief The TabType enum uses to identificate tab
-     */
-    enum TabType
-    {
-        Editor,
-        KernelInfo,
-        Buf,
-        Configuration
-    }type;
+  explicit Tab(QWidget *parent = 0);
+  /**
+   * @brief The TabType enum uses to identificate tab
+   */
+  enum TabType { Editor, KernelInfo, Buf, Configuration } type;
 
 signals:
 
 public slots:
-
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // TAB_H

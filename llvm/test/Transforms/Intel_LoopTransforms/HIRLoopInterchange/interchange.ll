@@ -5,7 +5,6 @@
 ;
 
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -debug-only=hir-loop-interchange -hir-loop-interchange -disable-output  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange -disable-output  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 1 )
@@ -15,7 +14,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #25444: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
+; OPTREPORT-NEXT:     remark #25444: Loopnest interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END

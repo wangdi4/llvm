@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -sroa -tti -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -S | FileCheck %s
 ; RUN: opt < %s -passes=sroa -mtriple=x86_64-unknown-linux-gnu  -mcpu=skylake-avx512 -S | FileCheck %s
 
 ; This lit test is intended to verify that 'alloca' instructions get removed by SROA.

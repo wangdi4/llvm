@@ -8,6 +8,14 @@
 // RUN: not diff %t-dir/random_shuffle_tmp_dir/out?
 // RUN: rm -rf %t-dir/random_shuffle_tmp_dir
 
+// INTEL_CUSTOMIZATION
+// This test fails with a couple, but not all, of builds on zsc2.
+// Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
+// for now pending further investigation.
+// CMPLRLLVM-42782
+// UNSUPPORTED: i386, x86_64
+// end INTEL_CUSTOMIZATION
+
 // Tests that the allocator shuffles the chunks before returning to the user.
 
 #include <stdio.h>

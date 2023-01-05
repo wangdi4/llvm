@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=IGNOREFP
+; RUN: opt -enable-new-pm=0 -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=IGNOREFP
 ; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=false -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=IGNOREFP
 
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=HANDLEFP
+; RUN: opt -enable-new-pm=0 -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=HANDLEFP
 ; RUN: opt -vpo-paropt-handle-firstprivate-on-teams=true -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=HANDLEFP
 
 ; Test src:
@@ -26,7 +26,7 @@
 ;
 ; IGNOREFP:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
 ; IGNOREFP: master.thread.code:
-; IGNOREFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* [[X_CAST]])
+; IGNOREFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[X_CAST]])
 
 
 ; With firstprivate handling on teams construct enabled, the clause is only
@@ -47,7 +47,7 @@
 ;
 ; HANDLEFP:   br i1 %is.master.thread, label %master.thread.code1, label %master.thread.fallthru{{.*}}
 ; HANDLEFP: master.thread.code1:
-; HANDLEFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2ci({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[X_TEAMFP]] to i32 addrspace(4)*))
+; HANDLEFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[X_TEAMFP]] to i32 addrspace(4)*))
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

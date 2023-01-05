@@ -1,4 +1,3 @@
-; RUN: opt < %s -globalopt -S | FileCheck %s
 ; RUN: opt < %s -S -passes="globalopt" | FileCheck %s
 
 @x = internal global [10 x i16] zeroinitializer, align 16

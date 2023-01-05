@@ -4,14 +4,6 @@
 
 ; RUN: opt %s -o %t.bc
 ; RUN: ld.lld -e main --lto-O2 \
-; RUN:     -plugin-opt=legacy-pass-manager \
-; RUN:     -mllvm -debug-only=whole-program-analysis \
-; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \
-; RUN:     --export-dynamic-symbol=add \
-; RUN:     2>&1 | FileCheck %s
-
-; RUN: opt %s -o %t.bc
-; RUN: ld.lld -e main --lto-O2 \
 ; RUN:     -plugin-opt=new-pass-manager  \
 ; RUN:     -mllvm -debug-only=whole-program-analysis \
 ; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \

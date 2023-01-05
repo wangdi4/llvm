@@ -12,61 +12,58 @@
 
 #include <stdint.h>
 
-
 class RandomInputGenerator {
 public:
+  static RandomInputGenerator &getInstance();
 
-	static RandomInputGenerator& getInstance();
+  virtual ~RandomInputGenerator();
 
-	virtual ~RandomInputGenerator();
+  // getters
 
-	// getters
+  unsigned int getSeed() { return seed; }
 
-	unsigned int getSeed()										{	return seed; 		}
+  // generator getters
 
-	// generator getters
+  Generator<bool> &getBoolGen() const { return *boolGen; }
 
-	Generator<bool>& getBoolGen() const 						{	return *boolGen;	}
+  Generator<int8_t> &getCharGen() const { return *charGen; }
 
-	Generator<int8_t>& getCharGen() const 						{	return *charGen;	}
+  Generator<uint8_t> &getUcharGen() const { return *ucharGen; }
 
-	Generator<uint8_t>& getUcharGen() const 					{	return *ucharGen;	}
+  Generator<int16_t> &getShortGen() const { return *shortGen; }
 
-	Generator<int16_t>& getShortGen() const 					{	return *shortGen;	}
+  Generator<uint16_t> &getUshortGen() const { return *ushortGen; }
 
-	Generator<uint16_t>& getUshortGen() const 					{	return *ushortGen;	}
+  Generator<int32_t> &getIntGen() const { return *intGen; }
 
-	Generator<int32_t>& getIntGen() const 						{	return *intGen;		}
+  Generator<uint32_t> &getUintGen() const { return *uintGen; }
 
-	Generator<uint32_t>& getUintGen() const 					{	return *uintGen;	}
+  Generator<int64_t> &getLongGen() const { return *longGen; }
 
-	Generator<int64_t>& getLongGen() const 						{	return *longGen;	}
+  Generator<uint64_t> &getUlongGen() const { return *ulongGen; }
 
-	Generator<uint64_t>& getUlongGen() const 					{	return *ulongGen;	}
+  Generator<float> &getFloatGen() const { return *floatGen; }
 
-	Generator<float>& getFloatGen() const 						{	return *floatGen;	}
-
-	Generator<double>& getDoubleGen() const 					{	return *doubleGen;	}
+  Generator<double> &getDoubleGen() const { return *doubleGen; }
 
 private:
+  unsigned int seed;
 
-	unsigned int seed;
+  RandomInputGenerator();
 
-	RandomInputGenerator();
+  static RandomInputGenerator *randomInputGenerator;
 
-	static RandomInputGenerator* randomInputGenerator;
-
-	Generator<bool>* boolGen;
-	Generator<int8_t>* charGen;
-	Generator<uint8_t>* ucharGen;
-	Generator<int16_t>* shortGen;
-	Generator<uint16_t>* ushortGen;
-	Generator<int32_t>* intGen;
-	Generator<uint32_t>* uintGen;
-	Generator<int64_t>* longGen;
-	Generator<uint64_t>* ulongGen;
-	Generator<float>* floatGen;
-	Generator<double>* doubleGen;
+  Generator<bool> *boolGen;
+  Generator<int8_t> *charGen;
+  Generator<uint8_t> *ucharGen;
+  Generator<int16_t> *shortGen;
+  Generator<uint16_t> *ushortGen;
+  Generator<int32_t> *intGen;
+  Generator<uint32_t> *uintGen;
+  Generator<int64_t> *longGen;
+  Generator<uint64_t> *ulongGen;
+  Generator<float> *floatGen;
+  Generator<double> *doubleGen;
 };
 
 #endif /* RANDOMINPUTGENERATOR_H_ */

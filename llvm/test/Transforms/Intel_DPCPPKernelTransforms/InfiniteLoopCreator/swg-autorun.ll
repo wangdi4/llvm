@@ -18,11 +18,8 @@
 ; Only single work-item (with max_global_work_dim(0) kernel attribute) kernels
 ; should be wrapped by while (true). Check that pass doesn't change the IR
 ; ----------------------------------------------------
-; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-analysis %s -S > %t1.ll
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S > %t2.ll
-; RUN: diff %t1.ll %t2.ll
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S > %t1.ll
 ; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S > %t3.ll
 ; RUN: diff %t1.ll %t3.ll

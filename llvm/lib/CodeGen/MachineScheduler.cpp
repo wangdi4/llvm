@@ -75,7 +75,6 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -86,6 +85,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Target/TargetMachine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -551,7 +554,8 @@ getSchedRegions(MachineBasicBlock *MBB,
         ++NumRegionInstrs;
       }
 #if INTEL_CUSTOMIZATION
-      if (MaxSchedRegionInstrs == NumRegionInstrs)
+      if (enableTargetSchedHeuristics(MF) &&
+          MaxSchedRegionInstrs == NumRegionInstrs)
         break;
 #endif // INTEL_CUSTOMIZATION
     }

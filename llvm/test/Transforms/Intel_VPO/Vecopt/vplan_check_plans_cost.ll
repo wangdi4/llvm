@@ -1,52 +1,46 @@
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NO-PEEL-SCALAR-REMAINDER
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator -vplan-enable-non-masked-vectorized-remainder -disable-output -vplan-enable-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NON-MASKED-VECTOR-REMAINDER
-; RUN: opt -S -mattr=+avx512f -vplan-vec -vplan-print-after-evaluator  -vplan-enable-masked-vectorized-remainder -disable-output -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=MASKED-VECTOR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NO-PEEL-SCALAR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator -vplan-enable-non-masked-vectorized-remainder -disable-output -vplan-enable-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=NON-MASKED-VECTOR-REMAINDER
+; RUN: opt -S -mattr=+avx512f -passes=vplan-vec -vplan-print-after-evaluator  -vplan-enable-masked-vectorized-remainder -disable-output -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s --check-prefix=MASKED-VECTOR-REMAINDER
 
 ; NO-PEEL-SCALAR-REMAINDER: Evaluators for VF=4
-; NO-PEEL-SCALAR-REMAINDER-NEXT: There is no peel loop.
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  There is no peel loop.
 ; NO-PEEL-SCALAR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 4. The vector cost is 194716(97358 x 2 + 0).
-; NO-PEEL-SCALAR-REMAINDER-NEXT: The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
-
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; NO-PEEL-SCALAR-REMAINDER: Evaluators for VF=8
-; NO-PEEL-SCALAR-REMAINDER-NEXT: There is no peel loop.
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  There is no peel loop.
 ; NO-PEEL-SCALAR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 8. The vector cost is 97358(48679 x 2 + 0).
-; NO-PEEL-SCALAR-REMAINDER-NEXT: The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
-
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; NO-PEEL-SCALAR-REMAINDER: Evaluators for VF=16
-; NO-PEEL-SCALAR-REMAINDER-NEXT: There is no peel loop.
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  There is no peel loop.
 ; NO-PEEL-SCALAR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 16. The vector cost is 48678(24339 x 2 + 0).
-; NO-PEEL-SCALAR-REMAINDER-NEXT: The remainder loop is scalar with known trip count 11. The scalar cost is 22(11 x 2).
+; NO-PEEL-SCALAR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 11. The scalar cost is 22(11 x 2).
 
 ; NON-MASKED-VECTOR-REMAINDER: Evaluators for VF=4
-; NON-MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 4. The vector cost is 194716(97358 x 2 + 0).
-; NON-MASKED-VECTOR-REMAINDER-NEXT:The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
-
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; NON-MASKED-VECTOR-REMAINDER: Evaluators for VF=8
-; NON-MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 8. The vector cost is 97358(48679 x 2 + 0).
-; NON-MASKED-VECTOR-REMAINDER-NEXT: The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
-
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; NON-MASKED-VECTOR-REMAINDER: Evaluators for VF=16
-; NON-MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 16. The vector cost is 48678(24339 x 2 + 0).
-; NON-MASKED-VECTOR-REMAINDER-NEXT: The remainder loop has known trip count 3 and it is vectorized with vector factor 4. The vector cost is 12.
-; NON-MASKED-VECTOR-REMAINDER-NEXT: The remainder loop has a new remainder loop with known trip count 3.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has known trip count 3 and it is vectorized with vector factor 4. The vector cost is 12.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has a new remainder loop with known trip count 3.
 
 ; MASKED-VECTOR-REMAINDER: Evaluators for VF=4
-; MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 4. The vector cost is 194716(97358 x 2 + 0).
-; MASKED-VECTOR-REMAINDER-NEXT: The remainder loop has known trip count 3 and it is vectorized with a mask. The vector cost is 5.
-
+; MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; MASKED-VECTOR-REMAINDER: Evaluators for VF=8
-; MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 8. The vector cost is 97358(48679 x 2 + 0).
-; MASKED-VECTOR-REMAINDER-NEXT: The remainder loop has known trip count 3 and it is vectorized with a mask. The vector cost is 5.
-
+; MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop is scalar with known trip count 3. The scalar cost is 6(3 x 2).
 ; MASKED-VECTOR-REMAINDER: Evaluators for VF=16
-; MASKED-VECTOR-REMAINDER-NEXT: There is no peel loop.
+; MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 16. The vector cost is 48678(24339 x 2 + 0).
-; MASKED-VECTOR-REMAINDER-NEXT: The remainder loop has known trip count 11 and it is vectorized with a mask. The vector cost is 5.
+; MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has known trip count 11 and it is vectorized with a mask. The vector cost is 7.
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"

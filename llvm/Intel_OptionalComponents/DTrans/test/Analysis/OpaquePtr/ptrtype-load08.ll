@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results -dtrans-pta-emit-combined-sets=false < %s 2>&1 | FileCheck %s
 
 ; Test that using %i4 to load from element zero of a nested type does not

@@ -9,12 +9,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ModuleSlotTracker.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>
@@ -170,7 +168,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   // Check if the function is in the table of functions
   Function *OrigFunc = Inst->getCalledFunction();
   if (!OrigFunc)
-    return !Inst->hasFnAttr(Attribute::ReadNone) || hasWIRelatedArgs();
+    return !Inst->doesNotAccessMemory() || hasWIRelatedArgs();
 
   StringRef OrigFuncName = OrigFunc->getName();
 
@@ -215,7 +213,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   // have readnone attribute?
   // 2) Can we further remove all assertion on function names above? I.e., Do
   // all WI-related built-ins have readnone attribute?
-  if ((OrigFunc->isDeclaration() || Inst->hasFnAttr(Attribute::ReadNone)) &&
+  if ((OrigFunc->isDeclaration() || Inst->doesNotAccessMemory()) &&
       !hasWIRelatedArgs()) {
     return false;
   }
@@ -474,21 +472,6 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-INITIALIZE_PASS(WIRelatedValueWrapper, "dpcpp-kernel-barrier-wi-analysis",
-                "Intel DPCPP Barrier Pass - Calculate WI relation per Value",
-                false, true)
-
-char WIRelatedValueWrapper::ID = 0;
-
-WIRelatedValueWrapper::WIRelatedValueWrapper() : ModulePass(ID) {
-  initializeWIRelatedValueWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-bool WIRelatedValueWrapper::runOnModule(Module &M) {
-  WRV.reset(new WIRelatedValue{M});
-  return false;
-}
-
 AnalysisKey WIRelatedValueAnalysis::Key;
 
 WIRelatedValue WIRelatedValueAnalysis::run(Module &M,
@@ -500,8 +483,4 @@ PreservedAnalyses WIRelatedValuePrinter::run(Module &M,
                                              ModuleAnalysisManager &MAM) {
   MAM.getResult<WIRelatedValueAnalysis>(M).print(OS, &M);
   return PreservedAnalyses::all();
-}
-
-ModulePass *llvm::createWIRelatedValueWrapperPass() {
-  return new WIRelatedValueWrapper();
 }

@@ -17,32 +17,41 @@
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include <map>
-#include <vector>
 #include <stdint.h>
+#include <vector>
 
-namespace Intel { namespace OpenCL { namespace Utils {
-#define GetModuleDirectory(str, strLen) GetModuleDirectoryImp(__FUNCTION__, str, strLen)
-    extern unsigned long long    TotalVirtualSize();
-    extern unsigned long long    TotalPhysicalSize();
-    extern unsigned long long    MaxClockFrequency();
-    extern unsigned long long    ProfilingTimerResolution();
-    extern unsigned long long    HostTime();
-    extern unsigned long long    AccurateHostTime();
-    extern void                  GetProcessName(char* pProcName, size_t strLen);
-    extern unsigned int          GetProcessId();
-    extern void                  GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);
-    extern int                   GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
-    extern std::string           GetClangRuntimePath();
-    extern unsigned long         GetNumberOfProcessors();
-    extern unsigned int          GetNumberOfCpuSockets();
-    extern bool                  IsHyperThreadingEnabled();
-    extern unsigned long         GetMaxNumaNode();
-    extern bool                  GetProcessorIndexFromNumaNode(unsigned long node, std::vector<cl_uint> &index);
-    extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = nullptr);
-    extern std::map<int, int>    GetProcessorToSocketMap();
-    extern unsigned int          GetCpuId();
-    extern const char*           GetFullModuleNameForLoad(const char* moduleName);
-    extern const char*           GetModuleProductVersion();
-    extern unsigned int          GetThreadId();
-}}}
-
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
+#define GetModuleDirectory(str, strLen)                                        \
+  GetModuleDirectoryImp(__FUNCTION__, str, strLen)
+extern unsigned long long TotalVirtualSize();
+extern unsigned long long TotalPhysicalSize();
+extern unsigned long long MaxClockFrequency();
+extern unsigned long long ProfilingTimerResolution();
+extern unsigned long long HostTime();
+extern unsigned long long AccurateHostTime();
+extern void GetProcessName(char *pProcName, size_t strLen);
+extern unsigned int GetProcessId();
+extern void GetModuleDirectoryImp(const void *addr, char *szModuleDir,
+                                  size_t strLen);
+extern int GetModulePathName(const void *modulePtr, char *fileName,
+                             size_t strLen);
+extern std::string GetClangRuntimePath();
+extern unsigned long GetNumberOfProcessors();
+extern unsigned int GetNumberOfCpuSockets();
+extern bool IsHyperThreadingEnabled();
+extern unsigned long GetMaxNumaNode();
+extern bool GetProcessorIndexFromNumaNode(unsigned long node,
+                                          std::vector<cl_uint> &index);
+extern bool GetProcessorMaskFromNumaNode(unsigned long node,
+                                         affinityMask_t *pMask,
+                                         unsigned int *nodeSize = nullptr);
+extern std::map<int, int> GetProcessorToSocketMap();
+extern unsigned int GetCpuId();
+extern const char *GetFullModuleNameForLoad(const char *moduleName);
+extern const char *GetModuleProductVersion();
+extern unsigned int GetThreadId();
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

@@ -1,8 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: asserts, intel_feature_sw_advanced
 
-target triple = "x86_64-unknown-linux-gnu"
-
 ; Test for checking the simple Intel partial inliner and the inlining
 ; heuristic for inlining recursive calls within extracted functions.
 ;
@@ -84,7 +82,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; the partial inlining trace, and that a call within _Z3fooP4Node.1.for.body
 ; is inlined because it is an extracted recursive call.
 ;
-; RUN: opt < %s -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -dtrans-inline-heuristics -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
 ; CHECK: Candidates for partial inlining: 1
@@ -96,6 +93,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: call{{.*}}_Z3barP4Node
 ; CHECK-NEW: COMPILE FUNC: _Z3fooP4Node.1.for.body
 ; CHECK-NEW: INLINE:{{.*}}<<Callee has extracted recursive call>>
+
+target triple = "x86_64-unknown-linux-gnu"
 
 %struct.Node = type { i32, %struct.Node* }
 

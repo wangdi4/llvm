@@ -20,14 +20,9 @@
 using namespace llvm;
 
 // List of supported devices that differs from the a given one in cl.h
-enum DeviceMode {
-  CPU_DEVICE      = 0,
-  FPGA_EMU_DEVICE = 1
-};
+enum DeviceMode { CPU_DEVICE = 0, FPGA_EMU_DEVICE = 1 };
 
 // List of supported vectorizers
-enum VectorizerType {
-  VPO_VECTORIZER, DEFAULT_VECTORIZER
-};
+enum VectorizerType { VPO_VECTORIZER, DEFAULT_VECTORIZER };
 
 #endif // __COMMON_DEV_LIMITES_H__

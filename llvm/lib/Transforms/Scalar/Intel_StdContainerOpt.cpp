@@ -151,7 +151,7 @@ namespace intel_std_container_opt {
 class BitMatrix {
 private:
   BitVector BV;
-  unsigned RecLen;
+  unsigned RecLen = 0;
 
 public:
   BitMatrix(){};

@@ -8,9 +8,9 @@
 ; check that linker selects different symbol definitions,
 ; but keeps `protected` visibility.
 
-; RUN: ld.lld %t1.o %t2.o -o %t.so -shared
+; RUN: ld.lld -mllvm -opaque-pointers %t1.o %t2.o -o %t.so -shared
 ; RUN: llvm-readobj --symbols %t.so | FileCheck %s
-; RUN: llvm-objdump -d %t.so | FileCheck %s --check-prefix=FIRST
+; RUN: llvm-objdump --no-print-imm-hex -d %t.so | FileCheck %s --check-prefix=FIRST
 ; CHECK:       Symbol {
 ; CHECK:        Name: foo
 ; CHECK-NEXT:   Value:
@@ -26,15 +26,15 @@
 ; FIRST-NEXT:   movl    $41, %eax
 
 ; Now swap the files order.
-; RUN: ld.lld %t2.o %t1.o -o %t.so -shared
+; RUN: ld.lld -mllvm -opaque-pointers %t2.o %t1.o -o %t.so -shared
 ; RUN: llvm-readobj --symbols %t.so | FileCheck %s
-; RUN: llvm-objdump -d %t.so | FileCheck %s --check-prefix=SECOND
+; RUN: llvm-objdump --no-print-imm-hex -d %t.so | FileCheck %s --check-prefix=SECOND
 ; SECOND:      <foo>:
 ; SECOND-NEXT:   movl    $42, %eax
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define weak_odr i32 @foo(i8* %this) {
+define weak_odr i32 @foo(ptr %this) {
   ret i32 41
 }

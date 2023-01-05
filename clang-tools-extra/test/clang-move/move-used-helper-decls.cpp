@@ -9,6 +9,11 @@
 // RUN: FileCheck -input-file=%T/used-helper-decls/new_helper_decls_test.cpp -check-prefix=CHECK-NEW-CLASS1-CPP %s
 // RUN: FileCheck -input-file=%T/used-helper-decls/helper_decls_test.cpp -check-prefix=CHECK-OLD-CLASS1-CPP %s
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42769
+// XFAIL: windows
+// end INTEL_CUSTOMIZATION
+
 // CHECK-NEW-CLASS1-CPP: #include "{{.*}}new_helper_decls_test.h"
 // CHECK-NEW-CLASS1-CPP-SAME: {{[[:space:]]}}
 // CHECK-NEW-CLASS1-CPP-NEXT: namespace {

@@ -26,7 +26,7 @@ public:
 private:
   bool setNTAttr(StoreInst *SI);
 
-  Function *F;
+  Function *F = nullptr;
 };
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_ADD_NT_ATTR_H

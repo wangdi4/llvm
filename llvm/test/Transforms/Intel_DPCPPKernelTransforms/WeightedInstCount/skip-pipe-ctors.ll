@@ -1,5 +1,4 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,function(require<dpcpp-kernel-weighted-inst-count-analysis>)' %s -S | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-info-analysis -dpcpp-kernel-weighted-inst-count-analysis %s -S | FileCheck %s
 
 ; FIXME move to a transform pass.
 

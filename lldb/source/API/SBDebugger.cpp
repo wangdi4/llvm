@@ -51,6 +51,7 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/TargetList.h"
 #include "lldb/Utility/Args.h"
+#include "lldb/Utility/Diagnostics.h"
 #include "lldb/Utility/State.h"
 #include "lldb/Version/Version.h"
 
@@ -218,6 +219,16 @@ void SBDebugger::PrintStackTraceOnError() {
   llvm::sys::PrintStackTraceOnErrorSignal(executable);
 }
 
+static void DumpDiagnostics(void *cookie) {
+  Diagnostics::Instance().Dump(llvm::errs());
+}
+
+void SBDebugger::PrintDiagnosticsOnError() {
+  LLDB_INSTRUMENT();
+
+  llvm::sys::AddSignalHandler(&DumpDiagnostics, nullptr);
+}
+
 void SBDebugger::Terminate() {
   LLDB_INSTRUMENT();
 
@@ -377,7 +388,11 @@ SBError SBDebugger::SetInputFile(SBFile file) {
     error.ref().SetErrorString("invalid debugger");
     return error;
   }
-  error.SetError(m_opaque_sp->SetInputFile(file.m_opaque_sp));
+  if (!file) {
+    error.ref().SetErrorString("invalid file");
+    return error;
+  }
+  m_opaque_sp->SetInputFile(file.m_opaque_sp);
   return error;
 }
 
@@ -1388,9 +1403,7 @@ void SBDebugger::SetPrompt(const char *prompt) {
 const char *SBDebugger::GetReproducerPath() const {
   LLDB_INSTRUMENT_VA(this);
 
-  return (m_opaque_sp
-              ? ConstString(m_opaque_sp->GetReproducerPath()).GetCString()
-              : nullptr);
+  return "GetReproducerPath has been deprecated";
 }
 
 ScriptLanguage SBDebugger::GetScriptLanguage() const {

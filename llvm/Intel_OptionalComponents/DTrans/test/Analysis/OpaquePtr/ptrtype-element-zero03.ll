@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct._ZTS12_ColorPacket._ColorPacket = type { %struct._ZTS12_PixelPacket._PixelPacket, i16, i64 }
 %struct._ZTS12_PixelPacket._PixelPacket = type { i16, i16, i16, i16 }
 
-define void @test1(%struct.outer* "intel_dtrans_func_index"="1" %arg, i64 %idx) !intel.dtrans.func.type !9 {
+define void @test1(ptr "intel_dtrans_func_index"="1" %arg, i64 %idx) !intel.dtrans.func.type !9 {
 
   ; Indexing into the element zero type, which is an array in the nested structure.
   ; This should resolve to the element type stored in the array, rather than being

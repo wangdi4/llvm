@@ -2,7 +2,7 @@
 ; Test for that there is no crash in vectorizer when a complicated upper bound requires
 ; an instruction emission in the loop preheader.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR input
 ; BEGIN REGION { }

@@ -18,34 +18,35 @@
 
 #include <string>
 
-using namespace::std;
+using namespace ::std;
 
-namespace Intel { namespace OpenCL { namespace Utils {
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
 
-	class StopWatch
-	{
-	public:
+class StopWatch {
+public:
+  StopWatch();
 
-		StopWatch();
+  ~StopWatch();
 
-		~StopWatch();
+  // start the timer
+  void Start();
 
-		// start the timer
-		void Start();
+  // stop the timer - return duration from last reset
+  unsigned long long Stop();
 
-		// stop the timer - return duration from last reset
-		unsigned long long Stop();
+  // reset the timer
+  unsigned long long Reset();
 
-		// reset the timer
-		unsigned long long Reset();
+  // get the current time
+  unsigned long long GetTime() const;
 
-		// get the current time
-		unsigned long long GetTime() const;
+private:
+  unsigned long long m_ullTime;
+  unsigned int m_uiCounter;
+};
 
-	private:
-
-		unsigned long long		m_ullTime;
-		unsigned int			m_uiCounter;
-	};
-	
-}}}
+} // namespace Utils
+} // namespace OpenCL
+} // namespace Intel

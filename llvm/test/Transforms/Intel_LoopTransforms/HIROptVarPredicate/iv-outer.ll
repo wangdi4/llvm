@@ -1,8 +1,6 @@
 ; Transformation of the outer loops considered non-benificial
 
-; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate < %s 2>&1 | FileCheck %s -check-prefix=CM-CHECK
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output < %s 2>&1 | FileCheck %s -check-prefix=CM-CHECK
 
 ; Source code:

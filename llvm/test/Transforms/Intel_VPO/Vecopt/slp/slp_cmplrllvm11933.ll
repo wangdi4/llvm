@@ -1,4 +1,4 @@
-; RUN: opt < %s -mtriple=x86_64-unknown -slp-vectorizer -S | FileCheck %s
+; RUN: opt < %s -passes=slp-vectorizer -mtriple=x86_64 -S | FileCheck %s
 
 ; Test originated from blender SPEC (routine rayobject_bb_intersect_test).
 ; After doing reassosiation in order to employ FMA instructions

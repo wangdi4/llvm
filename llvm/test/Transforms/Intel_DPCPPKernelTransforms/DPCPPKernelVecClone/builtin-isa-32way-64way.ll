@@ -1,12 +1,7 @@
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=CHECK,COMMON %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=CHECK,COMMON %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX2 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=CHECK,COMMON %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX2 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=CHECK,COMMON %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX1 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=AVX1_SSE,COMMON %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=AVX1 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=AVX1_SSE,COMMON %s
-; RUN: opt -dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=AVX1_SSE,COMMON %s
 ; RUN: opt -passes=dpcpp-kernel-vec-clone -dpcpp-vector-variant-isa-encoding-override=SSE42 -dpcpp-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck -check-prefixes=AVX1_SSE,COMMON %s
 
 ; This test checks that on avx1/sse42 only v32/v64 kernel-call-once builtin is used.

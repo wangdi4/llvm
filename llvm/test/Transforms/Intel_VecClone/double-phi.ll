@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers=0 -S -vec-clone %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -S -passes=vec-clone %s | FileCheck %s
 
 ; Checks that the gep/store of expanded return values are placed after all phi

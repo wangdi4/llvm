@@ -3,7 +3,7 @@
 ; This is enforced by planner: when scenario contains peel but peeling is disabled
 ; a static peel(1) is enforced.
 ; RUN: opt -vplan-vec-scenario="m4;v4;v2" \
-; RUN: -disable-output -vplan-vec \
+; RUN: -disable-output -passes=vplan-vec \
 ; RUN: -disable-vplan-codegen  \
 ; RUN: -vplan-print-after-create-in-merge -vplan-print-after-merge-pass2 \
 ; RUN: -vplan-enable-peeling=0 -vplan-print-after-merge-skeleton %s 2>&1 | FileCheck %s
@@ -23,26 +23,28 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_NORM_UB:%.*]] = sub i64 1024 i64 live-in0
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i64 [[VP_INDVARS_IV]] i64 1024
+; CHECK-NEXT:     [DA: Div] i64 [[VP_NEW_IND:%.*]] = add i64 [[VP_INDVARS_IV]] i64 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i64 [[VP_INDVARS_IV]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC:%.*]] = sext i32 [[C0:%.*]] to i64
-; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
 ; CHECK-NEXT:     [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = all-zero-check i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -120,11 +122,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
 ; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.cloned
-; CHECK-NEXT:    Kind: remainder VF:2
+; CHECK-NEXT:   Kind: remainder VF:2 TC:2
 ; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}
-; CHECK-NEXT:    Kind: main VF:4
+; CHECK-NEXT:   Kind: main VF:4 TC:256
 ; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.cloned.masked
-; CHECK-NEXT:    Kind: peel VF:4
+; CHECK-NEXT:   Kind: peel VF:4 TC:1
 ; CHECK-NEXT:  VPlan after merge skeleton creation:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[PEEL_CHECKZ0:peel.checkz[0-9]+]]: # preds:
@@ -213,24 +215,26 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP1]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_NORM_UB]] = sub i64 1 i64 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2]] = icmp ult i64 [[VP_INDVARS_IV]] i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_NEW_IND]] = add i64 [[VP_INDVARS_IV]] i64 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP2]] = icmp ult i64 [[VP_INDVARS_IV]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3]] = block-predicate i1 [[VP2]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC]] = sext i32 [[C0]] to i64
-; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
 ; CHECK-NEXT:     [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP4]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5]] = all-zero-check i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], [[BB4]], [[BB2]]
 ; CHECK-EMPTY:

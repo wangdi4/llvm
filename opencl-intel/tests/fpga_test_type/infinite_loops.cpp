@@ -55,4 +55,3 @@ TEST_F(TestInfiniteLoops, Basic) {
       << "readBuffer failed";
   ASSERT_EQ(1000, result) << "verification failed";
 }
-

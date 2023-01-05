@@ -6,7 +6,6 @@ class MultiNDRange1(DebuggerTestCase):
     CLNAME1 = 'nested_calls1.cl'
     CLNAME2 = 'simple_buffer_copy.cl'
 
-    @expectedFailureCDB
     def test_multi_ndrange1(self):
         # Well, this is a hack: CLNAME1 goes into the cl_name argument, which
         # the client converts automatically to absolute, but CLNAME2 has to

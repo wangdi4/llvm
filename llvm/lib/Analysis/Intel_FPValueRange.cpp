@@ -245,7 +245,7 @@ Optional<bool> FPValueRange::isInBitRange(unsigned BitRange) const {
     return true;
 
   if (isUnknown())
-    return None;
+    return std::nullopt;
 
   if (isConstantValue()) {
     APFloat C = getConstantValue();

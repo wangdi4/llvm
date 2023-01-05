@@ -30,10 +30,9 @@ unsigned CompilationFlags::getCLVersionFromMetadata(Module *M) {
 
   auto Op0 = OCLVersionMD->getOperand(0);
 
-  return
-    mdconst::extract<ConstantInt>(Op0->getOperand(0))->getZExtValue() * 100 +
-    mdconst::extract<ConstantInt>(Op0->getOperand(1))->getZExtValue() * 10;
-
+  return mdconst::extract<ConstantInt>(Op0->getOperand(0))->getZExtValue() *
+             100 +
+         mdconst::extract<ConstantInt>(Op0->getOperand(1))->getZExtValue() * 10;
 }
 
 unsigned CompilationFlags::getCLVersionFromFlags(const std::string &Flags) {
@@ -48,7 +47,6 @@ unsigned CompilationFlags::getCLVersionFromFlags(const std::string &Flags) {
 
   return std::stoi(Flags.substr(n + 10, 1)) * 100 +
          std::stoi(Flags.substr(n + 10 + 2, 1)) * 10;
-
 }
 
 bool CompilationFlags::hasFastRelaxedMathFlag(const std::string &Flags) {
@@ -65,4 +63,4 @@ bool CompilationFlags::hasUniformWGSizeFlag(const std::string &Flags) {
   return Flags.find("-cl-uniform-work-group-size") != std::string::npos;
 }
 
-}
+} // namespace Validation

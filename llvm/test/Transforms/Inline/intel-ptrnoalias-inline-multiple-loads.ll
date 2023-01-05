@@ -1,4 +1,3 @@
-; RUN: opt -inline < %s -S -o - | FileCheck %s
 ; RUN: opt -passes=inline < %s -S -o - | FileCheck %s
 
 ; Both stores after inlining should have the same !alias.scope metadata.

@@ -38,6 +38,9 @@
 ;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
 ;            Running pass: InlineListsPass on [module]
@@ -110,7 +113,7 @@
 ;CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ;CHECK-NEXT: Running analysis: BranchProbabilityAnalysis on foo
 ;CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Loop.*}}, {{.*Function.*}}> on foo
+;CHECK-NEXT: Running analysis: LoopAccessAnalysis on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo

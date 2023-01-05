@@ -20,6 +20,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -125,12 +126,12 @@ extern bool isUplevelVarType(Type *Ty);
 // value. If the LowerBound and Stride parameters are supplied, also
 // check those.
 //
-extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
-                                      const Value &Base,
-                                      uint32_t ArrayRank, uint32_t Rank,
-                                      bool CheckForTranspose,
-                                      Optional<uint64_t> LowerBound = None,
-                                      Optional<uint64_t> Stride = None);
+extern bool
+isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
+                          uint32_t ArrayRank, uint32_t Rank,
+                          bool CheckForTranspose,
+                          Optional<uint64_t> LowerBound = std::nullopt,
+                          Optional<uint64_t> Stride = std::nullopt);
 
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
@@ -171,7 +172,7 @@ public:
     return (*Stores.begin())->getValueOperand();
   }
   bool getIsSingleNonNullValue() const {
-    Optional<uint64_t> SIV = None;
+    Optional<uint64_t> SIV = std::nullopt;
     for (StoreInst *SI : stores()) {
       auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
       if (!CI)
@@ -189,7 +190,7 @@ public:
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
         !FieldAddr.empty() && FieldAddr[0] != V)
-        IsBottom = true;
+      IsBottom = true;
     FieldAddr.insert(V);
     if (IsNotForDVCP)
       NotForDVCPFieldAddr.insert(V);
@@ -215,8 +216,9 @@ public:
   }
 
   // Collect the load and store instructions that use the field address. Set the
-  // field to Bottom if there are any unsupported uses.
-  void analyzeUses();
+  // field to Bottom if there are any unsupported uses. Exclude 'CB' from the
+  // testing, if not 'nullptr'.
+  void analyzeUses(CallBase *CB = nullptr);
 
   // Collect the load and store instructions that access the field address
   // through a subscript.
@@ -340,8 +342,8 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy = nullptr,
-    std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
+  DopeVectorAnalyzer(Value *DVObject, const Type *DVTy,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
     DVObject(DVObject), GetTLI(GetTLI) {
     if (DVObject->getContext().supportsTypedPointers()) {
       assert(
@@ -661,7 +663,7 @@ private:
   // them.
   UplevelDVField Uplevel;
 
-  std::function<const TargetLibraryInfo &(Function &F)> *GetTLI;
+  std::function<const TargetLibraryInfo &(Function &F)> &GetTLI;
 };
 
 // Helper class to handle all the information related to one dope vector.
@@ -750,6 +752,18 @@ public:
 
   // Return true if one or more allocation sites were found
   bool hasAllocSite() const { return AllocSites.size(); }
+
+  // Return the unique AllcSite which is a CallBase, if there is one.
+  CallBase *uniqueCallAllocSite() {
+    CallBase *UCB = nullptr;
+    for (auto AS : AllocSites)
+      if (auto CB = dyn_cast<CallBase>(AS))
+        if (!UCB)
+          UCB = CB;
+        else
+          return nullptr;
+     return UCB;
+  }
 
   // Get the type that represents the current dope vector
   StructType *getLLVMStructType() { return LLVMDVType; }
@@ -1034,7 +1048,8 @@ public:
 
     NestedDopeVectors.clear();
   }
-
+  GlobalDopeVector(const GlobalDopeVector &) = delete;
+  GlobalDopeVector &operator=(const GlobalDopeVector &) = delete;
   // Return the dope vector information related to the global
   DopeVectorInfo *getGlobalDopeVectorInfo() {
     return GlobalDVInfo;
@@ -1154,7 +1169,7 @@ CallBase *castingUsedForDataAllocation(Value *Val,
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,
-// otherwise, return 'None'.
+// otherwise, return std::nullopt.
 //
 extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                                   const Value *Val);
@@ -1165,6 +1180,19 @@ extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
 // argument. Otherwise, return 'nullptr'.
 //
 extern Argument *isIPOPropagatable(const Value *V, const User *U);
+
+// Parse the StructTypeName of a dope vector type and if it is recognized,
+// return 'true' and set 'StartIndex' to where the type name starts, set
+// 'Size' to the number of characters in the type name and set 'IsPointer'
+// to true if it is recognized as a pointer type (which it should be).
+// For example, if 'Name" is "QNCA_a0$double*$rank2$", then FindDVTypeName()
+// returns true, and sets 'StartIndex' to 8, sets 'Size' to 6, and sets
+// 'IsPointer' to 'true', because the type name is "double".
+//
+extern bool FindDVTypeName(const StringRef &Name,
+                           unsigned &StartIndex,
+                           unsigned &Size,
+                           bool &IsPointer);
 
 } // end namespace dvanalysis
 

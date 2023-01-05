@@ -13,18 +13,18 @@
 // License.
 
 #include "cpu_dev_limits.h"
-#define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
-#define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
+#define MAX_WORK_GROUP_SIZE CPU_MAX_WORK_GROUP_SIZE
+#define MAX_WG_PRIVATE_SIZE CPU_DEV_MAX_WG_PRIVATE_SIZE
 
-#include "cl_dev_backend_api.h"
-#include "ICLDevBackendServiceFactory.h"
 #include "BlockLiteral.h"
 #include "IBlockToKernelMapper.h"
-#include "cl_device_api.h"
+#include "ICLDevBackendServiceFactory.h"
 #include "IDeviceCommandManager.h"
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "opencl20-ext-execution"
 #include "llvm/Support/Debug.h"
@@ -46,7 +46,7 @@ extern "C" LLVM_BACKEND_API queue_t
 __ocl20_get_default_queue(IDeviceCommandManager *DCM) {
   LLVM_DEBUG(dbgs() << "__ocl20_get_default_queue. Entry point \n");
   assert(DCM && "IDeviceCommandManager is NULL");
-  
+
   // todo: enable call to DeviceCommandManager
   queue_t res = DCM->GetDefaultQueueForDevice();
   LLVM_DEBUG(
@@ -57,10 +57,11 @@ __ocl20_get_default_queue(IDeviceCommandManager *DCM) {
 /// @brief common enqueue_kernel code for ALL enqueue_kernel built-ins
 /// @param queue - queue used
 /// @param flags - enqueue flags
-/// @param ndrange - pointer to cl_work_description_type which stores ndrange data
+/// @param ndrange - pointer to cl_work_description_type which stores ndrange
+/// data
 /// @param block_literal - pointer to block literal structure
 /// @param block_invoke - pointer to block invoke function
-/// @param num_events_in_wait_list - 
+/// @param num_events_in_wait_list -
 ///           number of events in wait list for the enqueued block
 /// @param in_wait_list - pointer to array of events in waitlist
 ///           in case of no events num_events_in_wait_list=0, in_wait_list=NULL
@@ -73,7 +74,7 @@ __ocl20_get_default_queue(IDeviceCommandManager *DCM) {
 static int enqueue_kernel_common(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     void *block_literal, void *block_invoke, unsigned num_events_in_wait_list,
-    clk_event_t*in_wait_list, clk_event_t*event_ret, size_t *localbuf_size,
+    clk_event_t *in_wait_list, clk_event_t *event_ret, size_t *localbuf_size,
     unsigned localbuf_size_len, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *pMapper, void *RuntimeHandle) {
   assert(DCM && "IDeviceCommandManager is NULL");
@@ -82,10 +83,10 @@ static int enqueue_kernel_common(
   assert(pMapper && "const IBlockToKernelMapper is NULL");
 
   const BlockLiteral *pBlockLiteral =
-    static_cast<BlockLiteral *>(block_literal);
+      static_cast<BlockLiteral *>(block_literal);
 
   // obtain Kernel object from mapper
-  const ICLDevBackendKernel_ * pKernel = pMapper->Map(block_invoke);
+  const ICLDevBackendKernel_ *pKernel = pMapper->Map(block_invoke);
 
   // call enqueue
   int res = DCM->EnqueueKernel(
@@ -101,7 +102,7 @@ static int enqueue_kernel_common(
       localbuf_size_len,        // size_t number of local buffers
       ndrange,                  // const cl_work_description_type* pNdrange
       RuntimeHandle             // pointer provided to RunWG
-      );
+  );
 
   return res;
 }
@@ -111,15 +112,14 @@ extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_basic(
     const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
   LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_basic. Entry point \n");
   LLVM_DEBUG(dbgs() << "Enqueued ndrange_1d \n"
-               << " workDimension " << ndrange->workDimension
-               << " globalWorkSize0 " << ndrange->globalWorkSize[0]
-               << " localWorkSize0 " << ndrange->localWorkSize[0]
-               << " globalWorkOffset0 " << ndrange->globalWorkOffset[0]
-               << "\n");
+                    << " workDimension " << ndrange->workDimension
+                    << " globalWorkSize0 " << ndrange->globalWorkSize[0]
+                    << " localWorkSize0 " << ndrange->localWorkSize[0]
+                    << " globalWorkOffset0 " << ndrange->globalWorkOffset[0]
+                    << "\n");
 
-  int res = enqueue_kernel_common(queue, flags, ndrange,
-                                  block_literal, block_invoke,
-                                  0, nullptr,
+  int res = enqueue_kernel_common(queue, flags, ndrange, block_literal,
+                                  block_invoke, 0, nullptr,
                                   nullptr,    // events
                                   nullptr, 0, // local buffers
                                   DCM, Mapper, RuntimeHandle);
@@ -135,11 +135,10 @@ extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_localmem(
     const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
   LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_localmem. Entry point \n");
   int res =
-    enqueue_kernel_common(queue, flags, ndrange,
-                          block_literal, block_invoke,
-                          0, nullptr, nullptr, // events
-                          localbuf_size, localbuf_size_len, // local buffers
-                          DCM, Mapper, RuntimeHandle);
+      enqueue_kernel_common(queue, flags, ndrange, block_literal, block_invoke,
+                            0, nullptr, nullptr,              // events
+                            localbuf_size, localbuf_size_len, // local buffers
+                            DCM, Mapper, RuntimeHandle);
   return res;
 }
 
@@ -151,8 +150,7 @@ extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_events(
     void *RuntimeHandle) {
   LLVM_DEBUG(dbgs() << "__ocl20_enqueue_kernel_events. Entry point \n");
   int res =
-      enqueue_kernel_common(queue, flags, ndrange,
-                            block_literal, block_invoke,
+      enqueue_kernel_common(queue, flags, ndrange, block_literal, block_invoke,
                             num_events_in_wait_list, in_wait_list, // events
                             event_ret,                             // event ret
                             nullptr, 0, // local buffers
@@ -170,12 +168,11 @@ extern "C" LLVM_BACKEND_API int __ocl20_enqueue_kernel_events_localmem(
   LLVM_DEBUG(
       dbgs() << "__ocl20_enqueue_kernel_events_localmem. Entry point \n");
   int res =
-    enqueue_kernel_common(queue, flags, ndrange,
-                          block_literal, block_invoke,
-                          num_events_in_wait_list, in_wait_list,  // events
-                          event_ret, // event ret
-                          localbuf_size, localbuf_size_len, // local buffers
-                          DCM, Mapper, RuntimeHandle);
+      enqueue_kernel_common(queue, flags, ndrange, block_literal, block_invoke,
+                            num_events_in_wait_list, in_wait_list, // events
+                            event_ret,                             // event ret
+                            localbuf_size, localbuf_size_len, // local buffers
+                            DCM, Mapper, RuntimeHandle);
   return res;
 }
 
@@ -190,7 +187,7 @@ __ocl20_enqueue_marker(queue_t queue, uint32_t num_events_in_wait_list,
                                num_events_in_wait_list, // EnqueueMarker
                                event_wait_list,         // pEventWaitList
                                event_ret                // pEventRet
-                               );
+  );
   LLVM_DEBUG(dbgs() << "__ocl20_enqueue_marker. Called EnqueueMarker\n");
   return res;
 }
@@ -222,7 +219,7 @@ __ocl20_release_event(clk_event_t event, IDeviceCommandManager *DCM) {
   // spec neither provides interface to return error code nor
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
-  if(CL_SUCCESS != err_code)
+  if (CL_SUCCESS != err_code)
     LLVM_DEBUG(dbgs() << "__ocl20_release_event. Failed to execute "
                          "ReleaseEvent with Error Code "
                       << err_code << "\n");
@@ -253,7 +250,7 @@ __ocl20_create_user_event(IDeviceCommandManager *DCM) {
   // spec neither provides interface to return error code nor
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
-  if(CL_SUCCESS != err_code)
+  if (CL_SUCCESS != err_code)
     LLVM_DEBUG(dbgs() << "__ocl20_create_user_event. Failed to execute "
                          "CreateUserEvent with Error Code "
                       << err_code << "\n");
@@ -272,7 +269,7 @@ __ocl20_set_user_event_status(clk_event_t event, uint32_t status,
   // spec neither provides interface to return error code nor
   // declares special behavior when error is occured.
   // Lets output error code in debug stream
-  if(CL_SUCCESS != err_code)
+  if (CL_SUCCESS != err_code)
     LLVM_DEBUG(dbgs() << "__ocl20_set_user_event_status. Failed to execute "
                          "CreateUserEvent with Error Code "
                       << err_code << "\n");
@@ -305,8 +302,8 @@ extern "C" LLVM_BACKEND_API uint32_t __ocl20_get_kernel_wg_size(
 
   // obtain entry point as block_invoke
   const ICLDevBackendKernel_ *pKernel = Mapper->Map(block_invoke);
-  const ICLDevBackendKernelProporties* pKernelProps =
-    pKernel->GetKernelProporties();
+  const ICLDevBackendKernelProporties *pKernelProps =
+      pKernel->GetKernelProporties();
 
   LLVM_DEBUG(
       dbgs() << "__ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
@@ -314,8 +311,8 @@ extern "C" LLVM_BACKEND_API uint32_t __ocl20_get_kernel_wg_size(
                     << pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE,
                                                          MAX_WG_PRIVATE_SIZE)
                     << "\n");
-  return
-    pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
+  return pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE,
+                                           MAX_WG_PRIVATE_SIZE);
 }
 
 extern "C" LLVM_BACKEND_API uint32_t
@@ -331,8 +328,8 @@ __ocl20_get_kernel_preferred_wg_size_multiple(
 
   // obtain entry point as block_invoke
   const ICLDevBackendKernel_ *pKernel = Mapper->Map(block_invoke);
-  const ICLDevBackendKernelProporties* pKernelProps =
-    pKernel->GetKernelProporties();
+  const ICLDevBackendKernelProporties *pKernelProps =
+      pKernel->GetKernelProporties();
 
   // logic taken from \cpu_device\program_service.cpp file
   // ProgramService::GetKernelInfo function. SVN rev. 74469

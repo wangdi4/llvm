@@ -6,7 +6,6 @@
 ; call by applying constant folding when two GEPs and GlobalAlias are
 ; involved.
 
-; RUN: opt -instcombine -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=instcombine -S < %s 2>&1 | FileCheck %s
 
 ; InstCombine can convert %i5 to @foo by applying constant folding.

@@ -46,7 +46,7 @@ public:
   static const StringRef TraceName;
 
   TraceContext(uint8_t PointerSize = 0,
-               Optional<object::SectionRef> TraceSectionOrNone = None,
+               Optional<object::SectionRef> TraceSectionOrNone = std::nullopt,
                const DenseMap<uint32_t, SmallString<32>> &RelMap =
                    DenseMap<uint32_t, SmallString<32>>())
       : PointerSize(PointerSize), TraceSectionOrNone(TraceSectionOrNone),

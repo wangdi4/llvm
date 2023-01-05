@@ -14,55 +14,60 @@
 // marker count at prolog/epilog of the function and loop headers.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_MarkerCountInfo.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/LineIterator.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Target/TargetMachine.h"
 
 #define DEBUG_TYPE "pseudo-markercount-inserter"
 
 using namespace llvm;
 
-static cl::opt<std::string> FilterMarkerCountFile(
-    "filtered-markercount-file",
-    cl::desc("Not insert markercount in functions listed in the file"),
-    cl::Optional, cl::Hidden);
-
 namespace {
 class PseudoMarkerCountInserter : public MachineFunctionPass {
 private:
-  // Avoid inserting instructions for markercount in these functions
-  std::set<std::string> FilterdFunctions;
+  std::map<std::string, unsigned> OverrideMarkerCount;
+  unsigned MarkerCountKind;
+
+  unsigned getMarkerCount(StringRef FunctionName) const {
+    std::string Name = FunctionName.str();
+    return OverrideMarkerCount.count(Name) ? OverrideMarkerCount.at(Name)
+                                           : MarkerCountKind;
+  }
 
 public:
   static char ID;
 
-  PseudoMarkerCountInserter() : MachineFunctionPass(ID) {
+  PseudoMarkerCountInserter(unsigned MarkerCountKind = 0,
+                            StringRef OverrideMarkerCountFile = "")
+      : MachineFunctionPass(ID), MarkerCountKind(MarkerCountKind) {
     initializePseudoMarkerCountInserterPass(*PassRegistry::getPassRegistry());
-
-    if (!FilterMarkerCountFile.empty()) {
-      ErrorOr<std::unique_ptr<MemoryBuffer>> Buffer =
-          llvm::MemoryBuffer::getFile(FilterMarkerCountFile, true);
-      if (!Buffer) {
-        errs() << DEBUG_TYPE << ": failed to read file " << FilterMarkerCountFile
-               << ": " << Buffer.getError().message() << "\n";
-        return;
-      }
-      for (line_iterator LI(*Buffer.get()); LI != line_iterator(); ++LI) {
-        std::string Function = LI->trim().str();
-        FilterdFunctions.insert(Function);
-      }
-    }
+    MarkerCount::parseMarkerCountFile(OverrideMarkerCount, MarkerCountKind,
+                                      OverrideMarkerCountFile);
   }
 
   StringRef getPassName() const override {
-    return "Pseudo markercount Inserter";
+    return "Pseudo marker count Inserter";
+  }
+
+  bool skipFunction(const Function &F) const override {
+    unsigned MCK = getMarkerCount(F.getName());
+    if (!(MCK & MarkerCount::BE))
+      return true;
+
+    return FunctionPass::skipFunction(F);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    if (MarkerCountKind & MarkerCount::Loop_BE ||
+        !OverrideMarkerCount.empty()) {
+      AU.addRequired<MachineLoopInfo>();
+      AU.addPreserved<MachineLoopInfo>();
+    }
     AU.setPreservesCFG();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -71,36 +76,37 @@ public:
     if (skipFunction(MF.getFunction()))
       return false;
 
-    if (FilterdFunctions.find(MF.getName().str()) != FilterdFunctions.end())
+    unsigned MCK = getMarkerCount(MF.getName());
+    bool MarkPrologEpilog = MCK & MarkerCount::Function_BE;
+    bool MarkLoopHeader = MCK & MarkerCount::Loop_BE;
+    assert((MarkPrologEpilog || MarkLoopHeader) &&
+           "expect at least one kind of marker count");
+    // Bail out early
+    if (!MarkPrologEpilog && getAnalysis<MachineLoopInfo>().empty())
       return false;
 
     const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
     bool Changed = false;
     DebugLoc DL;
+
+    // Loopless since function has only one entry basic block
+    if (MarkPrologEpilog) {
+      MachineBasicBlock &MBB = MF.front();
+      BuildMI(MBB, MBB.getFirstNonPHI(), DL,
+              TII->get(TargetOpcode::PSEUDO_FUNCTION_PROLOG));
+      Changed = true;
+    }
+
     for (MachineBasicBlock &MBB : MF) {
-      auto &K = MBB.getMarkerCount();
-      // Please gurantee the order:
-      //  PSEUDO_FUNCTION_PROLOG, PSEUDO_LOOP_HEADER, PSEUDO_FUNCTION_EPILOG
-      // if they occur in the same basic block.
-      //
-      // Remove the corresponding MCK of the bb after the pseudo
-      // instruction is inserted b/c the bb may be duplicated or removed later.
-      if (K.hasKind(MCK::Epilog)) {
-        BuildMI(MBB, MBB.getFirstNonPHI(), DL,
+      if (MBB.isReturnBlock() && MarkPrologEpilog) {
+        BuildMI(MBB, MBB.getFirstTerminator(), DL,
                 TII->get(TargetOpcode::PSEUDO_FUNCTION_EPILOG));
-        K.removeKinds(MCK::Epilog);
-        Changed = true;
+        assert(Changed &&
+               "should already be set due to the insertion in entry block");
       }
-      if (K.hasKind(MCK::LoopHeader)) {
+      if (MarkLoopHeader && getAnalysis<MachineLoopInfo>().isLoopHeader(&MBB)) {
         BuildMI(MBB, MBB.getFirstNonPHI(), DL,
                 TII->get(TargetOpcode::PSEUDO_LOOP_HEADER));
-        K.removeKinds(MCK::LoopHeader);
-        Changed = true;
-      }
-      if (K.hasKind(MCK::Prolog)) {
-        BuildMI(MBB, MBB.getFirstNonPHI(), DL,
-                TII->get(TargetOpcode::PSEUDO_FUNCTION_PROLOG));
-        K.removeKinds(MCK::Prolog);
         Changed = true;
       }
     }
@@ -110,6 +116,8 @@ public:
 } // namespace
 
 char PseudoMarkerCountInserter::ID = 0;
+char &llvm::PseudoMarkerCountInserterID = PseudoMarkerCountInserter::ID;
+
 INITIALIZE_PASS_BEGIN(
     PseudoMarkerCountInserter, DEBUG_TYPE,
     "Insert pseudo marker count at prolog, eplilog and loop header", false,
@@ -120,7 +128,10 @@ INITIALIZE_PASS_END(
     "Insert pseudo marker count at prolog, eplilog and loop header", false,
     false)
 
-FunctionPass *llvm::createPseudoMarkerCountInserter() {
-  return new PseudoMarkerCountInserter();
+FunctionPass *
+llvm::createPseudoMarkerCountInserter(unsigned MarkerCountKind,
+                                      StringRef OverrideMarkerCountFile) {
+  return new PseudoMarkerCountInserter(MarkerCountKind,
+                                       OverrideMarkerCountFile);
 }
 #endif // INTEL_FEATURE_MARKERCOUNT

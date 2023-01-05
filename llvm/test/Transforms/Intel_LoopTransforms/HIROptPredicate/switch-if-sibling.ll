@@ -1,4 +1,3 @@
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-opt-predicate -print-before=hir-opt-predicate -print-after=hir-opt-predicate %s 2>&1 | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir>,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" %s 2>&1 | FileCheck %s
 
 ; Check unswitching of the sibling switch and an if statements.

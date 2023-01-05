@@ -148,6 +148,10 @@ def SDT_X86AESENCDECKL : SDTypeProfile<2, 2, [SDTCisVT<0, v2i64>,
                                               SDTCisVT<2, v2i64>,
                                               SDTCisPtrTy<3>]>;
 
+def SDTX86Cmpccxadd : SDTypeProfile<1, 4, [SDTCisSameAs<0, 2>,
+                                           SDTCisPtrTy<1>, SDTCisSameAs<2, 3>,
+                                           SDTCisVT<4, i8>]>;
+
 def X86MemBarrier : SDNode<"X86ISD::MEMBARRIER", SDT_X86MEMBARRIER,
                             [SDNPHasChain,SDNPSideEffect]>;
 def X86MFence : SDNode<"X86ISD::MFENCE", SDT_X86MEMBARRIER,
@@ -357,6 +361,10 @@ def X86aesenc256kl : SDNode<"X86ISD::AESENC256KL", SDT_X86AESENCDECKL,
 def X86aesdec256kl : SDNode<"X86ISD::AESDEC256KL", SDT_X86AESENCDECKL,
                             [SDNPHasChain, SDNPMayLoad, SDNPSideEffect,
                              SDNPMemOperand]>;
+
+def X86cmpccxadd : SDNode<"X86ISD::CMPCCXADD", SDTX86Cmpccxadd,
+                          [SDNPHasChain, SDNPMayLoad, SDNPMayStore,
+                           SDNPMemOperand]>;
 
 //===----------------------------------------------------------------------===//
 // X86 Operand Definitions.
@@ -868,6 +876,32 @@ def ZMM16Tuples : RegisterOperand<VR512> {
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
+#if INTEL_FEATURE_XISA_COMMON
+let RenderMethod = "addXMMPairOperands" in {
+  def XMMPairAsmOperand : AsmOperandClass { let Name = "XMMPair"; }
+}
+
+def XMMPairX : RegisterOperand<XMMPAIRX, "printXMMPair"> {
+  let ParserMatchClass = XMMPairAsmOperand;
+}
+
+let RenderMethod = "addYMMPairOperands" in {
+  def YMMPairAsmOperand : AsmOperandClass { let Name = "YMMPair"; }
+}
+
+def YMMPairX : RegisterOperand<YMMPAIRX, "printYMMPair"> {
+  let ParserMatchClass = YMMPairAsmOperand;
+}
+
+let RenderMethod = "addZMMPairOperands" in {
+  def ZMMPairAsmOperand : AsmOperandClass { let Name = "ZMMPair"; }
+}
+
+def ZMMPairX : RegisterOperand<ZMMPAIRX, "printZMMPair"> {
+  let ParserMatchClass = ZMMPairAsmOperand;
+}
+#endif // INTEL_FEATURE_XISA_COMMON
+
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def TILEPairX : RegisterOperand<TILEPAIRX, "printTILEPair"> {
   let ParserMatchClass = TILEPairAsmOperand;
@@ -929,6 +963,7 @@ def TruePredicate : Predicate<"true">;
 def HasCMOV      : Predicate<"Subtarget->canUseCMOV()">;
 def NoCMOV       : Predicate<"!Subtarget->canUseCMOV()">;
 
+def HasNOPL      : Predicate<"Subtarget->hasNOPL()">;
 def HasMMX       : Predicate<"Subtarget->hasMMX()">;
 def Has3DNow     : Predicate<"Subtarget->hasThreeDNow()">;
 def Has3DNowA    : Predicate<"Subtarget->hasThreeDNowA()">;
@@ -967,6 +1002,9 @@ def NoVLX        : Predicate<"!Subtarget->hasVLX()">;
 def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+def HasAVX512VPMM  : Predicate<"Subtarget->hasAVX512VPMM()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM
 def IntelAdvOpt    : Predicate<"TM.Options.IntelAdvancedOptim">;
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def NoVLX_Or_NoVBMI2 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVBMI2()">;
@@ -975,8 +1013,8 @@ def NoVLX_Or_NoVPOPCNTDQ : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVPO
 def NoVLX_Or_NoBITALG    : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBITALG()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
-def PKU        : Predicate<"Subtarget->hasPKU()">;
-def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+def HasPKU       : Predicate<"Subtarget->hasPKU()">;
+def HasVNNI      : Predicate<"Subtarget->hasVNNI()">;
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
@@ -997,11 +1035,6 @@ def HasFP16      : Predicate<"Subtarget->hasFP16()">;
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 def HasAVX512VNNIINT8 : Predicate<"Subtarget->hasAVX512VNNIINT8()">;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
-def HasAVXVNNIINT8 : Predicate<"Subtarget->hasAVXVNNIINT8()">;
-def NoVLX_Or_NoAVX512VNNIINT8 :
-    Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIINT8()">;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 def HasAVX512VNNIFP16 : Predicate<"Subtarget->hasAVX512VNNIFP16()">;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
@@ -1037,6 +1070,7 @@ def HasAVX512MOVGET : Predicate<"Subtarget->hasAVX512MOVGET()">;
 def NoVLX_Or_NoMOVGET : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MOVGET()">;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 #endif // INTEL_CUSTOMIZATION
+def HasAVXVNNIINT8 : Predicate<"Subtarget->hasAVXVNNIINT8()">;
 def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
 def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
 
@@ -1046,6 +1080,7 @@ def HasAES       : Predicate<"Subtarget->hasAES()">;
 def HasVAES      : Predicate<"Subtarget->hasVAES()">;
 def NoVLX_Or_NoVAES : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVAES()">;
 def HasFXSR      : Predicate<"Subtarget->hasFXSR()">;
+def HasX87       : Predicate<"Subtarget->hasX87()">;
 def HasXSAVE     : Predicate<"Subtarget->hasXSAVE()">;
 def HasXSAVEOPT  : Predicate<"Subtarget->hasXSAVEOPT()">;
 def HasXSAVEC    : Predicate<"Subtarget->hasXSAVEC()">;
@@ -1073,12 +1108,8 @@ def NoBMI2       : Predicate<"!Subtarget->hasBMI2()">;
 def HasVBMI      : Predicate<"Subtarget->hasVBMI()">;
 def HasVBMI2     : Predicate<"Subtarget->hasVBMI2()">;
 def HasIFMA      : Predicate<"Subtarget->hasIFMA()">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
 def HasAVXIFMA   : Predicate<"Subtarget->hasAVXIFMA()">;
 def NoVLX_Or_NoIFMA : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasIFMA()">;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
 def HasRTM       : Predicate<"Subtarget->hasRTM()">;
 def HasADX       : Predicate<"Subtarget->hasADX()">;
 def HasSHA       : Predicate<"Subtarget->hasSHA()">;
@@ -1086,11 +1117,8 @@ def HasSGX       : Predicate<"Subtarget->hasSGX()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PREFETCHI
+def HasPRFCHW    : Predicate<"Subtarget->hasPRFCHW()">;
 def HasPREFETCHI : Predicate<"Subtarget->hasPREFETCHI()">;
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
 def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
 #if INTEL_CUSTOMIZATION
@@ -1099,6 +1127,7 @@ def HasPREFETCHST2 : Predicate<"Subtarget->hasPREFETCHST2()">;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
 def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
+def HasLAHFSAHF64 : Predicate<"Subtarget->hasLAHFSAHF64()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
 def HasCLZERO    : Predicate<"Subtarget->hasCLZERO()">;
 def HasCLDEMOTE  : Predicate<"Subtarget->hasCLDEMOTE()">;
@@ -1108,6 +1137,7 @@ def HasPTWRITE   : Predicate<"Subtarget->hasPTWRITE()">;
 def FPStackf32   : Predicate<"!Subtarget->hasSSE1()">;
 def FPStackf64   : Predicate<"!Subtarget->hasSSE2()">;
 def HasSHSTK     : Predicate<"Subtarget->hasSHSTK()">;
+def HasCLFLUSH   : Predicate<"Subtarget->hasCLFLUSH()">;
 def HasCLFLUSHOPT : Predicate<"Subtarget->hasCLFLUSHOPT()">;
 def HasCLWB      : Predicate<"Subtarget->hasCLWB()">;
 def HasWBNOINVD  : Predicate<"Subtarget->hasWBNOINVD()">;
@@ -1128,11 +1158,7 @@ def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
-def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_FP16
-def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
-#endif // INTEL_FEATURE_ISA_AMX_FP16
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def HasAMXMEMORY2    : Predicate<"Subtarget->hasAMXMEMORY2()">;
@@ -1184,9 +1210,6 @@ def HasGPRMOVGET : Predicate<"Subtarget->hasGPRMOVGET()">;
 #if INTEL_FEATURE_ISA_MOVGET64B
 def HasMOVGET64B : Predicate<"Subtarget->hasMOVGET64B()">;
 #endif // INTEL_FEATURE_ISA_MOVGET64B
-#if INTEL_FEATURE_ISA_RAO_INT
-def HasRAOINT : Predicate<"Subtarget->hasRAOINT()">;
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_ISA_AVX_RAO_INT
 def HasAVXRAOINT : Predicate<"Subtarget->hasAVXRAOINT()">;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
@@ -1207,16 +1230,14 @@ def HasAVX512RAOFP : Predicate<"Subtarget->hasAVX512RAOFP()">;
 def NoVLX_Or_NoRAOFP : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512RAOFP()">;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
-#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_AVX512
 // AUTO GENERATED BY TOOL
-def HasAMXAVX512CVTROW : Predicate<"Subtarget->hasAMXAVX512CVTROW()">;
+def HasAMXAVX512 : Predicate<"Subtarget->hasAMXAVX512()">;
 // end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-#if INTEL_FEATURE_ISA_AVX_NE_CONVERT
-// AUTO GENERATED BY TOOL
-def HasAVXNECONVERT : Predicate<"Subtarget->hasAVXNECONVERT()">;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_AVX_NE_CONVERT
+#endif // INTEL_FEATURE_ISA_AMX_AVX512
+#if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
+def HasAMXAVX512TILE16MOV : Predicate<"Subtarget->hasAMXAVX512TILE16MOV()">;
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 // AUTO GENERATED BY TOOL
 def HasAVX512NECONVERT : Predicate<"Subtarget->hasAVX512NECONVERT()">;
@@ -1267,11 +1288,6 @@ def HasAMXV3 : Predicate<"Subtarget->hasAMXV3()">;
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 def HasVPINSRVPEXTR : Predicate<"Subtarget->hasVPINSRVPEXTR()">;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
-#if INTEL_FEATURE_ISA_CMPCCXADD
-// AUTO GENERATED BY TOOL
-def HasCMPCCXADD : Predicate<"Subtarget->hasCMPCCXADD()">;
-// end AUTO GENERATED BY TOOL
-#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
 // AUTO GENERATED BY TOOL
 def HasAVX512SATCVT : Predicate<"Subtarget->hasAVX512SATCVT()">;
@@ -1296,10 +1312,50 @@ def HasAVX256P : Predicate<"Subtarget->hasAVX256P()">;
 def HasAVX256P_Or_HasAVX512 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasAVX512()">;
 def HasAVX256P_Or_HasVLX : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasVLX()">;
 def HasAVX256P_Or_HasFP16 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasFP16()">;
+def HasAVX256P_Or_HasFP16_NoVL  : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasFP16()">;
 def HasAVX256P_Or_HasDQI_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasDQI()">;
 def HasAVX256P_Or_HasDQI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasDQI() && Subtarget->hasVLX())">;
 def HasAVX256P_Or_HasBWI_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasBWI()">;
 def HasAVX256P_Or_HasBWI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasBWI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasCDI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasCDI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasIFMA : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasIFMA() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVAES : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVAES() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasBF16 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasBF16() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVBMI2 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVBMI2() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVBMI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVBMI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVNNI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVNNI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasNEBF16 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasNEBF16() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasNEBF16_NoVL : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasNEBF16()">;
+def HasAVX256P_Or_HasVP2INTERSECT : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVP2INTERSECT() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasAVX512VNNIINT16 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasAVX512VNNIINT16() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVPOPCNTDQ : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVPOPCNTDQ() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasBITALG : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasBITALG() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasAVX512MEDIAX : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasAVX512MEDIAX() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasAVX512NECONVERT : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasAVX512NECONVERT() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasAVX512VNNIFP16 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasAVX512VNNIFP16() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasGFNI : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasGFNI() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasVPCLMULQDQ : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasVPCLMULQDQ() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasAVX512VNNIINT8 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasAVX512VNNIINT8() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasSM4 : Predicate<"Subtarget->hasAVX256P() || (Subtarget->hasSM4() && Subtarget->hasVLX())">;
+def HasAVX256P_Or_HasBWI_And_HasDQI : Predicate<"(Subtarget->hasAVX256P() || (Subtarget->hasBWI() && Subtarget->hasDQI()))">;
+def NoAVX256P_And_NoVLX : Predicate<"!(Subtarget->hasAVX256P() || Subtarget->hasVLX())">;
+def NoAVX256P_And_NoDQI : Predicate<"!(Subtarget->hasAVX256P() || Subtarget->hasDQI())">;
+def NoAVX256P_And_NoBWI : Predicate<"!(Subtarget->hasAVX256P() || Subtarget->hasBWI())">;
+def NoAVX256P_And_NoVLX_Or_NoVPCLMULQDQ : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasVPCLMULQDQ())">;
+def NoAVX256P_And_NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasBWI())">;
+def NoAVX256P_And_NoVLX_Or_NoMEDIAX : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasAVX512MEDIAX())">;
+def NoAVX256P_And_NoVLX_Or_NoVAES : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasVAES())">;
+def NoAVX256P_And_NoVLX_Or_NoAVX512VNNIINT8 : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIINT8())">;
+def NoAVX256P_And_NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasVNNI())">;
+def NoAVX256P_And_NoVLX_Or_NoIFMA : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasIFMA())">;
+def NoAVX256P_And_NoVLX_Or_NoAVX512VNNIFP16 : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIFP16())">;
+def NoAVX256P_And_NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasBF16())">;
+def NoAVX256P_And_NoVLX_Or_NoCDI : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasCDI())">;
+def NoAVX256P_And_NoVLX_Or_NoBITALG : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasBITALG())">;
+def NoAVX256P_And_NoVLX_Or_NoVPOPCNTDQ : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasVPOPCNTDQ())">;
+def NoAVX256P_And_NoVLX_Or_NoVBMI2 : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasVBMI2())">;
+def NoAVX256P_And_NoVLX_Or_NoNECONVERT : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasAVX512NECONVERT())">;
+def NoAVX256P_And_NoVLX_Or_NoVNNIINT16 : Predicate<"!Subtarget->hasAVX256P() && (!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIINT16())">;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_AMX_FP8
 // AUTO GENERATED BY TOOL
@@ -1313,7 +1369,11 @@ def HasAVX512NECONVERTFP8 : Predicate<"Subtarget->hasAVX512NECONVERTFP8()">;
 def HasAVX512VNNIFP8 : Predicate<"Subtarget->hasAVX512VNNIFP8()">;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
+def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
+def HasCMPCCXADD : Predicate<"Subtarget->hasCMPCCXADD()">;
+def HasAVXNECONVERT : Predicate<"Subtarget->hasAVXNECONVERT()">;
 def HasKL        : Predicate<"Subtarget->hasKL()">;
+def HasRAOINT    : Predicate<"Subtarget->hasRAOINT()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
 def HasHRESET    : Predicate<"Subtarget->hasHRESET()">;
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
@@ -1323,6 +1383,8 @@ def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 def HasUINTR     : Predicate<"Subtarget->hasUINTR()">;
 def HasCRC32     : Predicate<"Subtarget->hasCRC32()">;
+
+def HasX86_64    : Predicate<"Subtarget->hasX86_64()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Is64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -1516,7 +1578,7 @@ def loadi16 : PatFrag<(ops node:$ptr), (i16 (unindexedload node:$ptr)), [{
   if (ExtType == ISD::NON_EXTLOAD)
     return true;
   if (ExtType == ISD::EXTLOAD && EnablePromoteAnyextLoad)
-    return LD->getAlignment() >= 2 && LD->isSimple();
+    return LD->getAlign() >= 2 && LD->isSimple();
   return false;
 }]>;
 
@@ -1526,7 +1588,7 @@ def loadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
   if (ExtType == ISD::NON_EXTLOAD)
     return true;
   if (ExtType == ISD::EXTLOAD && EnablePromoteAnyextLoad)
-    return LD->getAlignment() >= 4 && LD->isSimple();
+    return LD->getAlign() >= 4 && LD->isSimple();
   return false;
 }]>;
 
@@ -1543,12 +1605,12 @@ def loadf80  : PatFrag<(ops node:$ptr), (f80 (load node:$ptr))>;
 def loadf128 : PatFrag<(ops node:$ptr), (f128 (load node:$ptr))>;
 def alignedloadf128 : PatFrag<(ops node:$ptr), (f128 (load node:$ptr)), [{
   LoadSDNode *Ld = cast<LoadSDNode>(N);
-  return Ld->getAlignment() >= Ld->getMemoryVT().getStoreSize();
+  return Ld->getAlign() >= Ld->getMemoryVT().getStoreSize();
 }]>;
 def memopf128 : PatFrag<(ops node:$ptr), (f128 (load node:$ptr)), [{
   LoadSDNode *Ld = cast<LoadSDNode>(N);
   return Subtarget->hasSSEUnalignedMem() ||
-         Ld->getAlignment() >= Ld->getMemoryVT().getStoreSize();
+         Ld->getAlign() >= Ld->getMemoryVT().getStoreSize();
 }]>;
 
 def sextloadi16i8  : PatFrag<(ops node:$ptr), (i16 (sextloadi8 node:$ptr))>;
@@ -1589,7 +1651,7 @@ def extloadi64i32  : PatFrag<(ops node:$ptr), (i64 (unindexedload node:$ptr)), [
   if (LD->getMemoryVT() == MVT::i32)
     return true;
 
-  return LD->getAlignment() >= 4 && LD->isSimple();
+  return LD->getAlign() >= 4 && LD->isSimple();
 }]>;
 
 
@@ -3366,18 +3428,68 @@ let Predicates = [HasPREFETCHST2], SchedRW = [WriteLoad] in
   def PREFETCHST2 : I<0x18, MRM4m, (outs), (ins i8mem:$src),
     "prefetchst2\t$src", [(prefetch addr:$src, (i32 2), (i32 1), (i32 1))]>, TB;
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#if INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // PREFETCHIT0 and PREFETCHIT1 Instructions
-//
-let Predicates = [HasPREFETCHI], SchedRW = [WriteLoad] in {
+// prefetch ADDR, RW, Locality, Data
+let Predicates = [HasPREFETCHI, In64BitMode], SchedRW = [WriteLoad] in {
   def PREFETCHIT0 : I<0x18, MRM7m, (outs), (ins i8mem:$src),
-    "prefetchit0\t$src", [(prefetch addr:$src, (i32 1), (i32 3), (i32 0))]>, TB;
+    "prefetchit0\t$src", [(prefetch addr:$src, (i32 0), (i32 3), (i32 0))]>, TB;
   def PREFETCHIT1 : I<0x18, MRM6m, (outs), (ins i8mem:$src),
-    "prefetchit1\t$src", [(prefetch addr:$src, (i32 1), (i32 2), (i32 0))]>, TB;
+    "prefetchit1\t$src", [(prefetch addr:$src, (i32 0), (i32 2), (i32 0))]>, TB;
 }
-#endif // INTEL_FEATURE_ISA_PREFETCHI
-#endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// CMPCCXADD Instructions
+//
+let isCodeGenOnly = 1, ForceDisassemble = 1, mayLoad = 1, mayStore = 1,
+    Predicates = [HasCMPCCXADD, In64BitMode], Defs = [EFLAGS],
+    Constraints = "$dstsrc1 = $dst" in {
+def CMPCCXADDmr32 : I<0xe0, MRMDestMem4VOp3CC, (outs GR32:$dst),
+          (ins GR32:$dstsrc1, i32mem:$dstsrc2, GR32:$src3, ccode:$cond),
+          "cmp${cond}xadd\t{$src3, $dst, $dstsrc2|$dstsrc2, $dst, $src3}",
+          [(set GR32:$dst, (X86cmpccxadd addr:$dstsrc2,
+            GR32:$dstsrc1, GR32:$src3, timm:$cond))]>,
+          VEX_4V, T8PD, Sched<[WriteXCHG]>;
+
+def CMPCCXADDmr64 : I<0xe0, MRMDestMem4VOp3CC, (outs GR64:$dst),
+          (ins GR64:$dstsrc1, i64mem:$dstsrc2, GR64:$src3, ccode:$cond),
+          "cmp${cond}xadd\t{$src3, $dst, $dstsrc2|$dstsrc2, $dst, $src3}",
+          [(set GR64:$dst, (X86cmpccxadd addr:$dstsrc2,
+            GR64:$dstsrc1, GR64:$src3, timm:$cond))]>,
+          VEX_4V, VEX_W, T8PD, Sched<[WriteXCHG]>;
+}
+
+multiclass CMPCCXADD_Aliases<string Cond, int CC> {
+  def : InstAlias<"cmp"#Cond#"xadd"#"\t{$src3, $dst, $dstsrc2|$dstsrc2, $dst, $src3}",
+                  (CMPCCXADDmr32 GR32:$dst, i32mem:$dstsrc2, GR32:$src3, CC), 0>;
+  def : InstAlias<"cmp"#Cond#"xadd"#"\t{$src3, $dst, $dstsrc2|$dstsrc2, $dst, $src3}",
+                  (CMPCCXADDmr64 GR64:$dst, i64mem:$dstsrc2, GR64:$src3, CC), 0>;
+}
+
+defm : CMPCCXADD_Aliases<"o" ,  0>;
+defm : CMPCCXADD_Aliases<"no",  1>;
+defm : CMPCCXADD_Aliases<"b" ,  2>;
+defm : CMPCCXADD_Aliases<"ae",  3>;
+defm : CMPCCXADD_Aliases<"nb",  3>;
+defm : CMPCCXADD_Aliases<"e" ,  4>;
+defm : CMPCCXADD_Aliases<"z" ,  4>;
+defm : CMPCCXADD_Aliases<"ne",  5>;
+defm : CMPCCXADD_Aliases<"nz",  5>;
+defm : CMPCCXADD_Aliases<"be",  6>;
+defm : CMPCCXADD_Aliases<"nbe", 7>;
+defm : CMPCCXADD_Aliases<"a",   7>;
+defm : CMPCCXADD_Aliases<"s" ,  8>;
+defm : CMPCCXADD_Aliases<"ns",  9>;
+defm : CMPCCXADD_Aliases<"p" , 10>;
+defm : CMPCCXADD_Aliases<"np", 11>;
+defm : CMPCCXADD_Aliases<"l" , 12>;
+defm : CMPCCXADD_Aliases<"ge", 13>;
+defm : CMPCCXADD_Aliases<"nl", 13>;
+defm : CMPCCXADD_Aliases<"le", 14>;
+defm : CMPCCXADD_Aliases<"g",  15>;
+defm : CMPCCXADD_Aliases<"nle",15>;
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.
@@ -3561,9 +3673,6 @@ include "Intel_X86InstrAMX.td"
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 include "Intel_X86InstrMOVGET.td"
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET
-#if INTEL_FEATURE_ISA_RAO_INT
-include "Intel_X86InstrRAOINT.td"
-#endif // INTEL_FEATURE_ISA_RAO_INT
 #if INTEL_FEATURE_XUCC
 include "Intel_X86XuCC.td"
 #endif // INTEL_FEATURE_XUCC
@@ -3571,6 +3680,9 @@ include "Intel_X86XuCC.td"
 include "Intel_X86InstrAVX256P.td"
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+
+// RAO-INT instructions
+include "X86InstrRAOINT.td"
 
 // System instructions.
 include "X86InstrSystem.td"

@@ -1,4 +1,4 @@
-//===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
+//===----------- Intel_InlineReportEmitter.cpp - Inlining Report ----------===//
 //
 // Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
@@ -18,6 +18,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -49,19 +50,22 @@ public:
   bool runImpl();
 
 private:
-  Module &M;              // Module of Inline Report being emitted
-  unsigned Level;         // Level of Inline Report being emitted
-  unsigned OptLevel;      // Opt Level at which Module was compiled
-  unsigned SizeLevel;     // Opt For Size Level at which Module was compiled
-  bool PrepareForLTO;     // True in the LTO "Compile Step"
-  std::set<StringRef>            // Names of dead Fortran Functions, used
-     DeadFortranFunctionNames;   // to provide language char.
-  SmallDenseMap <StringRef, StringRef> // Map from dead function name to linkage
-     DeadFunctionLinkage; 
-  formatted_raw_ostream &OS;     // Stream to print Inline Report to
+  Module &M;          // Module of Inline Report being emitted
+  unsigned Level;     // Level of Inline Report being emitted
+  unsigned OptLevel;  // Opt Level at which Module was compiled
+  unsigned SizeLevel; // Opt For Size Level at which Module was compiled
+  bool PrepareForLTO; // True in the LTO "Compile Step"
+  std::set<StringRef> // Names of dead Fortran Functions, used
+      DeadFortranFunctionNames;       // to provide language char.
+  SmallDenseMap<StringRef, StringRef> // Map from dead function name to linkage
+      DeadFunctionLinkage;
+  formatted_raw_ostream &OS; // Stream to print Inline Report to
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
+
+  // Get the language character for the Function with name 'CalleeName'.
+  std::string getFunctionLanguageChar(StringRef CalleeName);
 
   // Print the language character for the Function with name 'CalleeName'.
   void printFunctionLanguageChar(StringRef CalleeName);
@@ -130,12 +134,25 @@ void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
   OS << (IsFortran ? "F" : "C") << ' ';
 }
 
+std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
+  if (Function *F = M.getFunction(CalleeName))
+    return llvm::getLanguageStr(F);
+  // If we can't find a function in the module, then it is dead.
+  // Use the DeadFortranFunctionNames set to find its language.
+  bool IsFortran = DeadFortranFunctionNames.count(CalleeName);
+  return IsFortran ? std::string("F") : std::string("C");
+}
+
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
   printFunctionLinkageChar(CalleeName);
   printFunctionLanguageChar(CalleeName);
-  OS << CalleeName;
+  if ((Level & InlineReportOptions::Demangle) &&
+      getFunctionLanguageChar(CalleeName) == "C")
+    OS << demangle(CalleeName.str());
+  else
+    OS << CalleeName;
   unsigned LineNum = 0, ColNum = 0;
   CSIR.getLineAndCol(&LineNum, &ColNum);
   if (Level & InlineReportOptions::File)
@@ -212,7 +229,7 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
                                               unsigned IndentCount) {
   MDTuple *CSIR = cast<MDTuple>(MD);
   assert((CSIR->getNumOperands() == CallSiteMDSize) &&
-      "Bad call site inlining report format");
+         "Bad call site inlining report format");
   int64_t SuppressPrint = 0;
   getOpVal(CSIR->getOperand(CSMDIR_SuppressPrintReport),
            "isSuppressPrint: ", &SuppressPrint);
@@ -238,12 +255,6 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   } else {
     if (InlineReasonText[Reason].Type == InlPrtSpecial) {
       switch (Reason) {
-      case NinlrDeleted:
-        printIndentCount(OS, IndentCount);
-        OS << "-> DELETE: ";
-        printCalleeNameModuleLineCol(CSIR);
-        OS << "\n";
-        break;
       case NinlrExtern:
         if (Level & InlineReportOptions::Externs) {
           printIndentCount(OS, IndentCount);
@@ -272,6 +283,15 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       default:
         assert(0);
       }
+    } else if (InlineReasonText[Reason].Type == InlPrtDeleted) {
+      printIndentCount(OS, IndentCount);
+      OS << "-> DELETE: ";
+      printCalleeNameModuleLineCol(CSIR);
+      if (InlineReasonText[Reason].Message)
+        printSimpleMessage(InlineReasonText[Reason].Message, false,
+                           IndentCount);
+      else
+        OS << "\n";
     } else {
       printIndentCount(OS, IndentCount);
       OS << "-> ";
@@ -313,12 +333,14 @@ void IREmitterInfo::findDeadFunctionInfo(NamedMDNode *MIR) {
     getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
     if (!IsDead)
       continue;
+    StringRef LangStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
-    StringRef LinkageStr = getOpStr(FuncReport->getOperand(FMDIR_LinkageStr),
-                                 "linkage: ");
+    if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+      SR = StringRef(demangle(SR.str()));
+    StringRef LinkageStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ");
     DeadFunctionLinkage[SR] = LinkageStr;
-    StringRef LangStr = getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
-                                 "language: ");
     bool IsFortran = LangStr == "F";
     if (!IsFortran)
       continue;
@@ -335,7 +357,7 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
     return;
   }
   assert((FuncReport->getNumOperands() == FunctionMDSize) &&
-      "Bad format of function inlining report");
+         "Bad format of function inlining report");
   int64_t SuppressPrint = 0;
   getOpVal(FuncReport->getOperand(FMDIR_SuppressPrintReport),
            "isSuppressPrint: ", &SuppressPrint);
@@ -355,12 +377,18 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
       OS << getOpStr(FuncReport->getOperand(FMDIR_LinkageStr), "linkage: ")
          << ' ';
     }
+    StringRef LangStr =
+        getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
     if (Level & InlineReportOptions::Language)
       // Language letter
-      OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
-         << ' ';
+      OS << LangStr << ' ';
     // Function name
-    OS << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    StringRef NameStr =
+        getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+      OS << demangle(NameStr.str());
+    else
+      OS << NameStr;
     // Module name
     if (Level & InlineReportOptions::File)
       OS << ' '
@@ -406,8 +434,12 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
       OS << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ")
          << ' ';
   }
-
-  OS << Name << '\n';
+  StringRef LangStr =
+      getOpStr(FuncReport->getOperand(FMDIR_LanguageStr), "language: ");
+  if ((Level & InlineReportOptions::Demangle) && LangStr == "C")
+    OS << demangle(Name) << '\n';
+  else
+    OS << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
   OS << '\n';
 
@@ -437,6 +469,7 @@ bool IREmitterInfo::runImpl() {
   }
 
   OS << "---- End Inlining Report ------ (via metadata)\n";
+  delete getMDInlineReport();
   return true;
 }
 
@@ -459,8 +492,8 @@ struct InlineReportEmitter : public ModulePass {
     if (skipModule(M))
       return false;
     unsigned Level = IntelInlineReportLevel;
-    return IREmitterInfo(M, Level, OptLevel, SizeLevel,
-        PrepareForLTO).runImpl();
+    return IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO)
+        .runImpl();
   }
 };
 } // namespace
@@ -481,4 +514,3 @@ PreservedAnalyses InlineReportEmitterPass::run(Module &M,
   IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO).runImpl();
   return PreservedAnalyses::all();
 }
-

@@ -3,6 +3,11 @@
 // RUN: clang-tidy %t.cpp -checks='-*,performance-trivially-destructible' -fix
 // RUN: clang-tidy %t.cpp -checks='-*,performance-trivially-destructible' -warnings-as-errors='-*,performance-trivially-destructible'
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-42773
+// XFAIL: windows
+// end INTEL_CUSTOMIZATION
+
 struct TriviallyDestructible1 {
   int a;
 };

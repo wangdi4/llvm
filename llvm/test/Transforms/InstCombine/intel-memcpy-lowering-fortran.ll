@@ -1,4 +1,3 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
 ; RUN: opt < %s -passes=instcombine -S | FileCheck %s
 
 ; Check memcpy lowering for Fortran

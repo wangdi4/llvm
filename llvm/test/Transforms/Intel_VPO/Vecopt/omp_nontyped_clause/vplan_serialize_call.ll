@@ -1,5 +1,5 @@
 ; Verify call serialized one per lane when it may have side effects.
-; RUN: opt -S -vplan-vec -vplan-force-vf=8 < %s | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-force-vf=8 < %s | FileCheck %s
 
 ; Function Attrs: nounwind
 declare i32 @foo_i32(i32 addrspace(1)*, i32) local_unnamed_addr #1

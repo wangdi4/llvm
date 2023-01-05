@@ -15,21 +15,19 @@
 #ifndef PERFORMANCEPRINTER_H
 #define PERFORMANCEPRINTER_H
 
-#include <string>
-#include <iostream>
-#include <fstream>
 #include "IPerformance.h"
-#include "IRunConfiguration.h"
 #include "IProgramConfiguration.h"
+#include "IRunConfiguration.h"
+#include <fstream>
+#include <iostream>
+#include <string>
 
-namespace Validation
-{
+namespace Validation {
 
-class PerformancePrinter: public IPerformanceVisitor
-{
+class PerformancePrinter : public IPerformanceVisitor {
 public:
-    PerformancePrinter( const IProgramConfiguration * pProgramConfiguration,
-                        const IRunComponentConfiguration* pRunConfiguration );
+  PerformancePrinter(const IProgramConfiguration *pProgramConfiguration,
+                     const IRunComponentConfiguration *pRunConfiguration);
 
 private:
   void OnKernelSample(const std::string &kernel, unsigned int vectorSize,
@@ -40,12 +38,12 @@ private:
                       double deserializationSDMean) override;
 
 private:
-    std::string m_IRFilename;
-    std::string m_JITFilename;
-    std::string m_programName;
-    std::fstream m_fOutStream;
-    std::ostream* m_pOutStream;
+  std::string m_IRFilename;
+  std::string m_JITFilename;
+  std::string m_programName;
+  std::fstream m_fOutStream;
+  std::ostream *m_pOutStream;
 };
 
-}
+} // namespace Validation
 #endif // PERFORMANCE_H

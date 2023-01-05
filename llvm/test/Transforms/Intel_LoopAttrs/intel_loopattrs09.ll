@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -intel-loop-attrs -force-intel-prefer-func-level-region -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-loop-attrs)' -force-intel-prefer-func-level-region -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the attribute "prefer-function-level-region"

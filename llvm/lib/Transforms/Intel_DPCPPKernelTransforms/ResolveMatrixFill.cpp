@@ -17,43 +17,12 @@
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-fill"
-
-namespace {
-
-/// Legacy ResolveMatrixFill pass.
-class ResolveMatrixFillLegacy : public ModulePass {
-  ResolveMatrixFillPass Impl;
-
-public:
-  static char ID;
-
-  ResolveMatrixFillLegacy() : ModulePass(ID) {
-    initializeResolveMatrixFillLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "ResolveMatrixFillLegacy"; }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-};
-
-} // namespace
-
-char ResolveMatrixFillLegacy::ID = 0;
-INITIALIZE_PASS(ResolveMatrixFillLegacy, DEBUG_TYPE,
-                "Resolve matrix fill intrinsic", false, false)
-
-ModulePass *llvm::createResolveMatrixFillLegacyPass() {
-  return new ResolveMatrixFillLegacy();
-}
 
 static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,
@@ -135,12 +104,17 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
 
   // Handle the first arg, if it's a pointer.
   if (Data->getType()->isPointerTy()) {
+    IRBuilder<> Builder(CI);
     // Get load type info from intrinsics return type
-    auto *LI =
-        new LoadInst(cast<FixedVectorType>(CI->getType())->getElementType(),
-                     Data, "loaded.fill.data", CI);
-    LI->setDebugLoc(CI->getDebugLoc());
-    Data = LI;
+    auto *ElemType = CI->getType()->getScalarType();
+    auto *PtrArgType = cast<PointerType>(Data->getType());
+    // The arg pointee type may mismatch with the returning element type.
+    // e.g. struct { i16 } vs. i16
+    // Create a bitcast in such case.
+    if (!PtrArgType->isOpaqueOrPointeeTypeMatches(ElemType))
+      Data = Builder.CreateBitCast(
+          Data, ElemType->getPointerTo(PtrArgType->getAddressSpace()));
+    Data = Builder.CreateLoad(ElemType, Data, "loaded.fill.data");
   }
 
   // Extract row, col size of the matrix from the second, third args.

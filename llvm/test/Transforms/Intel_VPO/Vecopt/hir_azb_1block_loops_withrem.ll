@@ -2,7 +2,6 @@
 ; Test to check that we dont crash in AZB when CFG contains loops followed by
 ; blocks with predicate only.
 ;
-; RUN: opt %s -disable-output -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-all-zero-bypass-region-threshold=1 -enable-intel-advanced-opts -vplan-vec-scenario="n0;v8;m8" -vplan-enable-masked-vectorized-remainder -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 ; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-all-zero-bypass-region-threshold=1 -enable-intel-advanced-opts -vplan-vec-scenario="n0;v8;m8" -vplan-enable-masked-vectorized-remainder -print-after=hir-vplan-vec 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -18,56 +18,58 @@
 
 #include <string>
 
-namespace CLElfLib
-{
-    class CElfReader;
-    class CElfWriter;
-}
+namespace CLElfLib {
+class CElfReader;
+class CElfWriter;
+} // namespace CLElfLib
 
-namespace Intel{ namespace OpenCL{ namespace ELFUtils {
-extern const char* g_metaSectionName;
-extern const char* g_irSectionName;
-extern const char* g_optSectionName;
-extern const char* g_objSectionName;
-extern const char* g_objVerSectionName;
+namespace Intel {
+namespace OpenCL {
+namespace ELFUtils {
+extern const char *g_metaSectionName;
+extern const char *g_irSectionName;
+extern const char *g_optSectionName;
+extern const char *g_objSectionName;
+extern const char *g_objVerSectionName;
 
-class CacheBinaryReader
-{
+class CacheBinaryReader {
 public:
-    CacheBinaryReader(const void* pBlob, size_t size);
-    virtual ~CacheBinaryReader();
+  CacheBinaryReader(const void *pBlob, size_t size);
+  virtual ~CacheBinaryReader();
 
-    static bool IsValidCacheObject(const void*pBlob, size_t size);
+  CacheBinaryReader(const CacheBinaryReader &) = delete;
+  CacheBinaryReader &operator=(const CacheBinaryReader &) = delete;
 
-    bool IsCachedObject() const;
+  static bool IsValidCacheObject(const void *pBlob, size_t size);
 
-    int GetSectionSize(const char* sectionName) const;
-    const void* GetSectionData(const char* sectionName) const;
-    const CLElfLib::SElf64Header* GetElfHeader();
+  bool IsCachedObject() const;
+
+  int GetSectionSize(const char *sectionName) const;
+  const void *GetSectionData(const char *sectionName) const;
+  const CLElfLib::SElf64Header *GetElfHeader();
 
 private:
-    // Disable copy ctor and assignment operator
-    CacheBinaryReader( const CacheBinaryReader& );
-    bool operator = (const CacheBinaryReader& );
-
-    static int GetSectionIndexByName(CLElfLib::CElfReader* pReader, std::string Name);
-    CLElfLib::CElfReader* m_pReader;
+  static int GetSectionIndexByName(CLElfLib::CElfReader *pReader,
+                                   std::string Name);
+  CLElfLib::CElfReader *m_pReader;
 };
 
-class CacheBinaryWriter
-{
+class CacheBinaryWriter {
 public:
-    CacheBinaryWriter(CLElfLib::E_EH_MACHINE machine, CLElfLib::E_EH_FLAGS flag);
-    virtual ~CacheBinaryWriter();
-    bool AddSection(const char* sectionName, const char* sectionData, size_t sectionSize);
-    size_t GetBinarySize() const;
-    bool GetBinary(char* pBinary) const;
+  CacheBinaryWriter(CLElfLib::E_EH_MACHINE machine, CLElfLib::E_EH_FLAGS flag);
+  virtual ~CacheBinaryWriter();
+
+  CacheBinaryWriter(const CacheBinaryWriter &) = delete;
+  CacheBinaryWriter &operator=(const CacheBinaryWriter &) = delete;
+
+  bool AddSection(const char *sectionName, const char *sectionData,
+                  size_t sectionSize);
+  size_t GetBinarySize() const;
+  bool GetBinary(char *pBinary) const;
 
 private:
-    // Disable copy ctor and assignment operator
-    CacheBinaryWriter( const CacheBinaryWriter& );
-    bool operator = (const CacheBinaryWriter& );
-
-    CLElfLib::CElfWriter* m_pWriter;
+  CLElfLib::CElfWriter *m_pWriter;
 };
-}}} // namespace
+} // namespace ELFUtils
+} // namespace OpenCL
+} // namespace Intel

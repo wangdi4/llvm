@@ -1,13 +1,13 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec -vplan-vec-scenario="m4;v8;v2s1" < %s 2>&1 | FileCheck %s --check-prefix=VECCHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -vplan-force-vf=4 -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -vplan-vec-scenario="m4;v8;v2s1" -vplan-enable-peel-rem-strip=0 < %s 2>&1 | FileCheck %s --check-prefix=VECCHECK
 ; LIT test to check emission of peel/remainder loop tags during vectorization.
 ;
 ; CHECK: DO i1 = 0, %peel.ub, 1   <DO_LOOP>  {{.*}} <vector-peel>
 ; CHECK: DO i1 = %ub.tmp, %loop.ub, 4   <DO_LOOP> <auto-vectorized>
 ; CHECK: DO i1 = %lb.tmp, 1023, 1   <DO_LOOP> {{.*}} <vector-remainder>
 ;
-; VECCHECK: DO i1 = 0, 2, 4 <DO_LOOP> <vector-peel>
-; VECCHECK: DO i1 = 3, %loop.ub, 8   <DO_LOOP> <auto-vectorized>
+; VECCHECK: DO i1 = 0, %loop.ub, 4 <DO_LOOP> <vector-peel>
+; VECCHECK: DO i1 = 3, %loop.ub13, 8   <DO_LOOP> <auto-vectorized>
 ; VECCHECK: DO i1 = {{.*}}, {{.*}}, 2  <DO_LOOP> {{.*}} <vector-remainder>
 ; VECCHECK: DO i1 = {{.*}}, 1023, 1  <DO_LOOP> {{.*}} <vector-remainder>
 ;

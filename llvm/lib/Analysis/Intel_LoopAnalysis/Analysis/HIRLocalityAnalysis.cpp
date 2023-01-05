@@ -41,6 +41,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -76,6 +77,11 @@ static cl::opt<bool> TemporalLocality(
 static cl::opt<unsigned> TemporalReuseThreshold(
     "hir-temporal-reuse-threhsold", cl::init(DefaultReuseThreshold), cl::Hidden,
     cl::desc("Specifies reuse threhsold for temporal reuse."));
+
+static cl::opt<unsigned> AssumeDefaultBlobValue(
+    "hir-locality-assume-blob-val", cl::init(4), cl::Hidden,
+    cl::desc("Value assumed for blobs encountered during locality analysis if "
+             "no info is available for them."));
 
 // Symbolic constant to denote unknown 'N' trip count.
 // TODO: Revisit this for scaling known loops.
@@ -330,10 +336,33 @@ uint64_t HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
   return ExtraCacheLines;
 }
 
+int64_t HIRLoopLocality::getAssumedBlobValue(unsigned BlobIndex,
+                                             BlobUtils &BU) const {
+
+  for (auto &Entry : AssumedUpperBlobConstVal) {
+    unsigned NewBlobIndex;
+    int64_t BlobConstVal;
+
+    if (BU.replaceTempBlob(BlobIndex, Entry.first, Entry.second, NewBlobIndex,
+                           BlobConstVal) &&
+        (NewBlobIndex == InvalidBlobIndex)) {
+      LLVM_DEBUG(dbgs() << " Assuming value of blob ";
+                 BU.printBlob(dbgs(), BU.getBlob(BlobIndex));
+                 dbgs() << " as " << BlobConstVal << "\n");
+      return BlobConstVal;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << " Assuming value of blob ";
+             BU.printBlob(dbgs(), BU.getBlob(BlobIndex));
+             dbgs() << " as " << AssumeDefaultBlobValue << "\n");
+  return AssumeDefaultBlobValue;
+}
+
 void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
                                                      const RefGroupTy &RefGroup,
                                                      unsigned Level,
-                                                     uint64_t TripCnt) {
+                                                     uint64_t TripCnt) const {
   const RegDDRef *Ref = RefGroup.front();
 
   auto BaseCE = Ref->getBaseCE();
@@ -372,8 +401,7 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
       if (!IVCoeff) {
         IVCoeff = 1;
       } else if (BlobIndex != InvalidBlobIndex) {
-        // Replace blob by 4. Can we do better?
-        IVCoeff *= 4;
+        IVCoeff *= getAssumedBlobValue(BlobIndex, Index->getBlobUtils());
       }
 
       // Dimension size is not available for the highest dimension so we assume
@@ -501,7 +529,7 @@ bool HIRLoopLocality::getStrideEstimateAtLevel(const RegDDRef *Ref,
     }
 
     if (BlobIndex != InvalidBlobIndex) {
-      Coeff *= 4;
+      Coeff *= getAssumedBlobValue(BlobIndex, IndexRef->getBlobUtils());
     }
 
     int64_t Denom = IndexRef->getDenominator();
@@ -594,6 +622,70 @@ void HIRLoopLocality::printLocalityInfo(raw_ostream &OS,
   FOS << "AvgStride: " << LI.getAvgStride() << "\n";
 }
 
+/// Given loop upper of the form:
+/// (coeff * %n + constant) / denom
+///
+/// We have the following equation:
+/// ((coeff * %n + constant) / denom) + 1 = AssumedTripCount
+///
+/// Using this equation, we map %n to this constant value:
+/// %n = (((AssumedTripCount - 1) * denom) - constant) / coeff
+///
+void HIRLoopLocality::mapUpperBlobToConstant(const HLLoop *Loop,
+                                             uint64_t AssumedTripCount) {
+  auto *UpperCE = Loop->getUpperCanonExpr();
+
+  if (UpperCE->hasIV() || UpperCE->numBlobs() != 1) {
+    return;
+  }
+
+  auto &BU = UpperCE->getBlobUtils();
+
+  unsigned BlobIndex = UpperCE->getSingleBlobIndex();
+  int64_t BlobCoeff = UpperCE->getSingleBlobCoeff();
+
+  // Do not try to handle trip count of the form 10 - 2 * b as there is a chance
+  // that b will get nonsensical value because of approximate analysis.
+  if (BlobCoeff < 0) {
+    return;
+  }
+
+  int64_t AssumedBlobValue =
+      (((AssumedTripCount - 1) * UpperCE->getDenominator()) -
+       UpperCE->getConstant()) /
+      BlobCoeff;
+
+  // Bail out on non-sensical values.
+  if (AssumedBlobValue < 1) {
+    return;
+  }
+
+  auto *Blob = BU.getBlob(BlobIndex);
+
+  if (BlobUtils::isSignExtendBlob(Blob, &Blob) ||
+      BlobUtils::isZeroExtendBlob(Blob, &Blob)) {
+    BlobIndex = BU.findBlob(Blob);
+  }
+
+  // Currently, only temp blobs are supported.
+  if (!BlobUtils::isTempBlob(Blob)) {
+    return;
+  }
+
+  auto Iter = AssumedUpperBlobConstVal.find(BlobIndex);
+
+  // If we have multiple assumed values for upper blobs, use the smallest one
+  // assuming it is the most refined value.
+  if (Iter != AssumedUpperBlobConstVal.end() &&
+      Iter->second <= AssumedBlobValue) {
+    return;
+  }
+
+  LLVM_DEBUG(dbgs() << " Assuming value of blob "; BU.printBlob(dbgs(), Blob);
+             dbgs() << " as " << AssumedBlobValue << "\n");
+  AssumedUpperBlobConstVal[BlobIndex] = AssumedBlobValue;
+}
+
 void HIRLoopLocality::initTripCountByLevel(
     const SmallVectorImpl<const HLLoop *> &Loops) {
 
@@ -629,6 +721,10 @@ void HIRLoopLocality::initTripCountByLevel(
     } else {
       TripCountByLevel[Level - 1] = SymbolicTC;
     }
+
+    LLVM_DEBUG(dbgs() << " Assuming trip count of loop at level " << Level
+                      << " as " << TripCountByLevel[Level - 1] << "\n");
+    mapUpperBlobToConstant(Loop, (TripCountByLevel[Level - 1] * LoopStrideVal));
   }
 }
 
@@ -767,8 +863,43 @@ void HIRLoopLocality::sortedLocalityLoops(
   std::sort(SortedLoops.begin(), SortedLoops.end(), Comp);
 }
 
+template <bool IsIncoming>
+static bool hasEdgeOutsideGroup(const RegDDRef *FirstRef,
+                                const HIRLoopLocality::RefGroupTy &CurGroup,
+                                DDGraph DDG, unsigned Level) {
+
+  for (auto *Edge :
+       IsIncoming ? DDG.incoming(FirstRef) : DDG.outgoing(FirstRef)) {
+    if (Edge->getDV().isIndepFromLevel(Level)) {
+      continue;
+    }
+
+    auto *OtherRef =
+        cast<RegDDRef>(IsIncoming ? Edge->getSrc() : Edge->getSink());
+
+    if (std::none_of(CurGroup.begin(), CurGroup.end(),
+                     [=](const RegDDRef *Ref) { return Ref == OtherRef; })) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/// Returns true if \p CurGroup has edges to a ref outside the group.
+/// Aliasing invalidates temporal locality analysis.
+static bool aliasesWithAnotherGroup(const HIRLoopLocality::RefGroupTy &CurGroup,
+                                    DDGraph DDG, unsigned Level) {
+
+  auto *FirstRef = CurGroup.front();
+
+  // For simplicity just check the edges of first ref.
+  return hasEdgeOutsideGroup<true>(FirstRef, CurGroup, DDG, Level) ||
+         hasEdgeOutsideGroup<false>(FirstRef, CurGroup, DDG, Level);
+}
+
 unsigned HIRLoopLocality::getTemporalLocalityImpl(
-    const HLLoop *Lp, unsigned ReuseThreshold,
+    const HLLoop *Lp, HIRDDAnalysis *HDDA, unsigned ReuseThreshold,
     TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
     bool IgnoreEqualRefs, bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
@@ -790,6 +921,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
   unsigned NumTemporal = 0;
   bool NeedInvariant = (LocalityType & TemporalLocalityType::Invariant);
   bool NeedReuse = (LocalityType & TemporalLocalityType::Reuse);
+  bool ComputedGraph = false;
+  DDGraph DDG;
 
   for (auto &RefVec : RefGroups) {
     if (CheckPresence && NumTemporal != 0) {
@@ -802,6 +935,17 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
     bool IsInvariant = PrevRef->isStructurallyInvariantAtLevel(Level, true);
     if (IsInvariant && !NeedInvariant) {
       continue;
+    }
+
+    if (HDDA) {
+      if (!ComputedGraph) {
+        DDG = HDDA->getGraph(Lp);
+        ComputedGraph = true;
+      }
+
+      if (aliasesWithAnotherGroup(RefVec, DDG, Level)) {
+        continue;
+      }
     }
 
     // Ideally, we should check that ref post-dominates the first child of

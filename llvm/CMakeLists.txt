@@ -18,17 +18,17 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
 cmake_minimum_required(VERSION 3.13.4)
+if ("${CMAKE_VERSION}" VERSION_LESS "3.20.0")
+  message(WARNING
+    "Your CMake version is ${CMAKE_VERSION}. Starting with LLVM 17.0.0, the "
+    "minimum version of CMake required to build LLVM will become 3.20.0, and "
+    "using an older CMake will become an error. Please upgrade your CMake to "
+    "at least 3.20.0 now to avoid issues in the future!")
+endif()
 
-# CMP0114: ExternalProject step targets fully adopt their steps.
-# New in CMake 3.19: https://cmake.org/cmake/help/latest/policy/CMP0114.html
-if(POLICY CMP0114)
-  cmake_policy(SET CMP0114 OLD)
-endif()
-# CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
-# New in CMake 3.20. https://cmake.org/cmake/help/latest/policy/CMP0116.html
-if(POLICY CMP0116)
-  cmake_policy(SET CMP0116 OLD)
-endif()
+set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
+  NO_POLICY_SCOPE)
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
@@ -85,7 +85,7 @@ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name 
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2023")
-  set(DPCPP_VERSION_MINOR "0")
+  set(DPCPP_VERSION_MINOR "1")
   set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
   set(DPCPP_PRODUCT_VERSION ${VERSION})
@@ -146,6 +146,20 @@ Learn more about these options in our documentation at https://llvm.org/docs/CMa
 ")
 endif()
 
+# Set default build type for cmake's try_compile module.
+# CMake 3.17 or newer sets CMAKE_DEFAULT_BUILD_TYPE to one of the
+# items from CMAKE_CONFIGURATION_TYPES. Logic below can be further
+# simplified once LLVM's minimum CMake version is updated to 3.17.
+if(CMAKE_DEFAULT_BUILD_TYPE)
+  set(CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_DEFAULT_BUILD_TYPE})
+else()
+  if(CMAKE_CONFIGURATION_TYPES)
+    list(GET CMAKE_CONFIGURATION_TYPES 0 CMAKE_TRY_COMPILE_CONFIGURATION)
+  elseif(CMAKE_BUILD_TYPE)
+    set(CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
+  endif()
+endif()
+
 # Side-by-side subprojects layout: automatically set the
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
@@ -170,13 +184,7 @@ if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
 endif()
 foreach(proj ${LLVM_ENABLE_PROJECTS})
   if (NOT proj STREQUAL "llvm" AND NOT "${proj}" IN_LIST LLVM_KNOWN_PROJECTS)
-     MESSAGE(FATAL_ERROR "${proj} isn't a known project: ${LLVM_KNOWN_PROJECTS}")
-  endif()
-endforeach()
-foreach(proj "libcxx" "libcxxabi" "libunwind")
-  if (${proj} IN_LIST LLVM_ENABLE_PROJECTS)
-    message(WARNING "Using LLVM_ENABLE_PROJECTS=${proj} is deprecated now, please use -DLLVM_ENABLE_RUNTIMES=${proj} or "
-                    "see the instructions at https://libcxx.llvm.org/BuildingLibcxx.html for building the runtimes.")
+     MESSAGE(FATAL_ERROR "${proj} isn't a known project: ${LLVM_KNOWN_PROJECTS}. Did you mean to enable it as a runtime in LLVM_ENABLE_RUNTIMES?")
   endif()
 endforeach()
 
@@ -204,7 +212,7 @@ if(LLVM_ENABLE_RUNTIMES STREQUAL "all")
 endif()
 foreach(proj IN LISTS LLVM_ENABLE_RUNTIMES)
   if (NOT "${proj}" IN_LIST LLVM_SUPPORTED_RUNTIMES)
-    message(FATAL_ERROR "Runtime ${proj} is not a supported runtime. Supported runtimes are: ${LLVM_SUPPORTED_RUNTIMES}")
+    message(FATAL_ERROR "Runtime \"${proj}\" is not a supported runtime. Supported runtimes are: ${LLVM_SUPPORTED_RUNTIMES}")
   endif()
 endforeach()
 
@@ -321,8 +329,6 @@ if(LLVM_ENABLE_GISEL_COV)
   set(LLVM_GISEL_COV_PREFIX "${CMAKE_BINARY_DIR}/gisel-coverage-" CACHE STRING "Provide a filename prefix to collect the GlobalISel rule coverage")
 endif()
 
-set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
-
 # Add path for custom modules
 list(INSERT CMAKE_MODULE_PATH 0
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
@@ -339,6 +345,11 @@ option(LLVM_INSTALL_BINUTILS_SYMLINKS
 
 option(LLVM_INSTALL_CCTOOLS_SYMLINKS
   "Install symlinks from the cctools tool names to the corresponding LLVM tools." OFF)
+
+# By default we use symlinks on Unix platforms and copy binaries on Windows
+# If you have the correct setup on Windows you can use this option to enable
+# symlinks and save a lot of diskspace.
+option(LLVM_USE_SYMLINKS "Use symlinks instead of copying binaries" ${CMAKE_HOST_UNIX})
 
 option(LLVM_INSTALL_UTILS "Include utility binaries in the 'install' target." OFF)
 
@@ -373,23 +384,31 @@ set(BUG_REPORT_URL "${PACKAGE_BUGREPORT}" CACHE STRING
   "Default URL where bug reports are to be submitted.")
 
 # Configure CPack.
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "LLVM")
-set(CPACK_PACKAGE_VENDOR "LLVM")
+if(NOT DEFINED CPACK_PACKAGE_INSTALL_DIRECTORY)
+  set(CPACK_PACKAGE_INSTALL_DIRECTORY "LLVM")
+endif()
+if(NOT DEFINED CPACK_PACKAGE_VENDOR)
+  set(CPACK_PACKAGE_VENDOR "LLVM")
+endif()
 set(CPACK_PACKAGE_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${LLVM_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${LLVM_VERSION_PATCH})
 set(CPACK_PACKAGE_VERSION ${PACKAGE_VERSION})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.TXT")
-set(CPACK_NSIS_COMPRESSOR "/SOLID lzma \r\n SetCompressorDictSize 32")
 if(WIN32 AND NOT UNIX)
-  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "LLVM")
+  set(CPACK_NSIS_COMPRESSOR "/SOLID lzma \r\n SetCompressorDictSize 32")
+  if(NOT DEFINED CPACK_PACKAGE_INSTALL_REGISTRY_KEY)
+    set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "LLVM")
+  endif()
   set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cmake\\\\nsis_logo.bmp")
   set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cmake\\\\nsis_icon.ico")
   set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}\\\\cmake\\\\nsis_icon.ico")
   set(CPACK_NSIS_MODIFY_PATH "ON")
   set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
   if( CMAKE_CL_64 )
-    set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+    if(NOT DEFINED CPACK_NSIS_INSTALL_ROOT)
+      set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+    endif()
   endif()
 endif()
 include(CPack)
@@ -475,7 +494,6 @@ set(LLVM_MAIN_SRC_DIR     ${CMAKE_CURRENT_SOURCE_DIR}  ) # --src-root
 set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/include ) # --includedir
 set(LLVM_BINARY_DIR       ${CMAKE_CURRENT_BINARY_DIR}  ) # --prefix
 
-set(LLVM_THIRD_PARTY_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/../third-party)
 
 # Note: LLVM_CMAKE_DIR does not include generated files
 set(LLVM_CMAKE_DIR ${LLVM_MAIN_SRC_DIR}/cmake/modules)
@@ -771,7 +789,6 @@ endif(LLVM_BUILD_EXAMPLES)
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
-option(LLVM_INCLUDE_GO_TESTS "Include the Go bindings tests in test build targets." OFF)
 
 option(LLVM_BUILD_BENCHMARKS "Add LLVM benchmark targets to the list of default
 targets. If OFF, benchmarks still could be built using Benchmarks target." OFF)
@@ -916,7 +933,10 @@ include(config-ix)
 if("${LLVM_HOST_TRIPLE}" MATCHES "^powerpc64-ibm-aix")
   string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
 else()
-  set(LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+  # Only set default triple when native target is enabled.
+  if (LLVM_NATIVE_TARGET)
+    set(LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+  endif()
 endif()
 
 set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE_default}" CACHE STRING
@@ -982,6 +1002,7 @@ include(HandleLLVMOptions)
 SET(INTEL_COLLAB ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_COLLAB=1")
 # end INTEL_COLLAB
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
@@ -1138,26 +1159,22 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-# INTEL_FEATURE_CPU_RPL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_RPL)
-# end INTEL_FEATURE_CPU_RPL
-# INTEL_FEATURE_CPU_GNR
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_GNR)
-# end INTEL_FEATURE_CPU_GNR
 # INTEL_FEATURE_CPU_DMR
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_DMR)
 # end INTEL_FEATURE_CPU_DMR
-# INTEL_FEATURE_CPU_MTL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_MTL)
-# end INTEL_FEATURE_CPU_MTL
 # INTEL_FEATURE_CPU_EMR
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
 # end INTEL_FEATURE_CPU_EMR
+# INTEL_FEATURE_CPU_RYL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
+# end INTEL_FEATURE_CPU_RYL
+# INTEL_FEATURE_MARKERCOUNT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
+# end INTEL_FEATURE_MARKERCOUNT
 
 # INTEL_FEATURE_XISA_COMMON
       # This is used to guard code that shared by more then one XISA features.
@@ -1191,10 +1208,10 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_AVX512)
 # end INTEL_FEATURE_ISA_AMX_AVX512
 
-# INTEL_FEATURE_ISA_AMX_FP16
+# INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP16)
-# end INTEL_FEATURE_ISA_AMX_FP16
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_AVX512_TILE16MOV)
+# end INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 
 # INTEL_FEATURE_ISA_AMX_MEMORY2
       list(APPEND features_enabled_by_default
@@ -1266,11 +1283,6 @@ list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_FP16)
 # end INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 
-# INTEL_FEATURE_ISA_AVX_VNNI_INT8
-list(APPEND features_enabled_by_default
-     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI_INT8)
-# end INTEL_FEATURE_ISA_AVX_VNNI_INT8
-
 # INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_PHPS)
@@ -1290,11 +1302,6 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16)
 # end INTEL_FEATURE_ISA_AVX_BF16
-
-# INTEL_FEATURE_ISA_AVX_IFMA
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA)
-# end INTEL_FEATURE_ISA_AVX_IFMA
 
 # INTEL_FEATURE_ISA_AVX_COMPRESS
       list(APPEND features_enabled_by_default
@@ -1333,10 +1340,6 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
 # end INTEL_FEATURE_ESIMD_EMBARGO
 
-# INTEL_FEATURE_ISA_RAO_INT
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_RAO_INT)
-# end INTEL_FEATURE_ISA_RAO_INT
 # INTEL_FEATURE_ISA_AVX_RAO_INT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_RAO_INT)
@@ -1353,18 +1356,6 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_RAO_FP)
 # end INTEL_FEATURE_ISA_AVX512_RAO_FP
-# INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-# AUTO GENERATED BY TOOL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_AVX512_CVTROW)
-# end AUTO GENERATED BY TOOL
-# end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-# INTEL_FEATURE_ISA_AVX_NE_CONVERT
-#AUTO GENERATED BY TOOL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_NE_CONVERT)
-# end AUTO GENERATED BY TOOL
-# end INTEL_FEATURE_ISA_AVX_NE_CONVERT
 # INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #AUTO GENERATED BY TOOL
       list(APPEND features_enabled_by_default
@@ -1431,20 +1422,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_VPINSR_VPEXTR)
 #end INTEL_FEATURE_ISA_VPINSR_VPEXTR
-# INTEL_FEATURE_ISA_CMPCCXADD
-# AUTO GENERATED BY TOOL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_CMPCCXADD)
-# end AUTO GENERATED BY TOOL
-# end INTEL_FEATURE_ISA_CMPCCXADD
 # INTEL_FEATURE_ISA_PREFETCHST2
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHST2)
 # end INTEL_FEATURE_ISA_PREFETCHST2
-# INTEL_FEATURE_ISA_PREFETCHI
-      list(APPEND features_enabled_by_default
-          ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHI)
-# end INTEL_FEATURE_ISA_PREFETCHI
 # INTEL_FEATURE_ISA_AVX512_SAT_CVT
 # AUTO GENERATED BY TOOL
       list(APPEND features_enabled_by_default
@@ -1475,20 +1456,16 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_PBNDKB)
 # end INTEL_FEATURE_ISA_PBNDKB
-# INTEL_FEATURE_ISA_WRMSRNS
-      list(APPEND features_enabled_by_default
-          ${LLVM_INTELFEATURE_PREFIX}_ISA_WRMSRNS)
-# end INTEL_FEATURE_ISA_WRMSRNS
-# INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
-      list(APPEND features_enabled_by_default
-          ${LLVM_INTELFEATURE_PREFIX}_ISA_RDMSRLIST_WRMSRLIST)
-# end INTEL_FEATURE_ISA_RDMSRLIST_WRMSRLIST
 # INTEL_FEATURE_ISA_AMX_FP8
 # AUTO GENERATED BY TOOL
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP8)
 # end AUTO GENERATED BY TOOL
 # end INTEL_FEATURE_ISA_AMX_FP8
+# INTEL_FEATURE_ISA_AMX_FP8_FUTURE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP8_FUTURE)
+# end INTEL_FEATURE_ISA_AMX_FP8_FUTURE
 
 # INTEL_FEATURE_ISA_AVX512_REDUCTION2
 # AUTO GENERATED BY TOOL
@@ -1504,6 +1481,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_FP8)
 # end INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+# INTEL_FEATURE_ISA_AVX512_VPMM
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM)
+# end INTEL_FEATURE_ISA_AVX512_VPMM
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1532,7 +1513,7 @@ list(APPEND features_enabled_by_default
       # Intel_SupportedFeatures.txt.  At the same time, the feature names
       # in LLVM_INTEL_FEATURES are prefixed.  Here, we strip the prefix
       # from the feature name before looking for it in the file.
-      string(CONCAT prefix "INTEL_FEATURE" "_")
+      string(CONCAT prefix "${LLVM_INTELFEATURE_PREFIX}" "_")
       string(REPLACE ${prefix} "" fname "${f}")
       string(REGEX MATCH ";${fname};" m ";${supported_features};")
       # If the enabled feature is not present in the features file, then
@@ -1581,6 +1562,7 @@ set(LLVM_ENUM_ASM_PRINTERS "")
 set(LLVM_ENUM_ASM_PARSERS "")
 set(LLVM_ENUM_DISASSEMBLERS "")
 set(LLVM_ENUM_TARGETMCAS "")
+set(LLVM_ENUM_EXEGESIS "")
 foreach(t ${LLVM_TARGETS_TO_BUILD})
   set( td ${LLVM_MAIN_SRC_DIR}/lib/Target/${t} )
   if(INTEL_CUSTOMIZATION)
@@ -1617,9 +1599,13 @@ foreach(t ${LLVM_TARGETS_TO_BUILD})
     set(LLVM_ENUM_DISASSEMBLERS
       "${LLVM_ENUM_DISASSEMBLERS}LLVM_DISASSEMBLER(${t})\n")
   endif()
-    if( EXISTS ${td}/MCA/CMakeLists.txt )
+  if( EXISTS ${td}/MCA/CMakeLists.txt )
     set(LLVM_ENUM_TARGETMCAS
       "${LLVM_ENUM_TARGETMCAS}LLVM_TARGETMCA(${t})\n")
+  endif()
+  if( EXISTS ${LLVM_MAIN_SRC_DIR}/tools/llvm-exegesis/lib/${t}/CMakeLists.txt )
+    set(LLVM_ENUM_EXEGESIS
+      "${LLVM_ENUM_EXEGESIS}LLVM_EXEGESIS(${t})\n")
   endif()
 endforeach(t)
 
@@ -1648,6 +1634,10 @@ configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/TargetMCAs.def.in
   ${LLVM_INCLUDE_DIR}/llvm/Config/TargetMCAs.def
   )
+configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/TargetExegesis.def.in
+  ${LLVM_INCLUDE_DIR}/llvm/Config/TargetExegesis.def
+  )
 
 # They are not referenced. See set_output_directory().
 set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_TOOLS_BINARY_DIR} )
@@ -1661,7 +1651,6 @@ endif()
 
 # For up-to-date instructions for installing the TFLite dependency, refer to
 # the bot setup script: https://github.com/google/ml-compiler-opt/blob/main/buildbot/buildbot_init.sh
-set(TENSORFLOW_C_LIB_PATH "" CACHE PATH "Path to TensorFlow C library install")
 set(LLVM_HAVE_TFLITE "" CACHE BOOL "Use tflite")
 if (LLVM_HAVE_TFLITE)
   find_package(protobuf REQUIRED)
@@ -1669,28 +1658,6 @@ if (LLVM_HAVE_TFLITE)
   set(LLVM_HAVE_TF_API "ON" CACHE BOOL "Full Tensorflow API available")
   set(LLVM_PROTOBUF_OUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/protobuf_gen)
   include_directories(${LLVM_PROTOBUF_OUT_DIR})
-elseif (TENSORFLOW_C_LIB_PATH)
-  find_library(tensorflow_c_api tensorflow PATHS ${TENSORFLOW_C_LIB_PATH}/lib NO_DEFAULT_PATH REQUIRED)
-  # Currently, the protobuf headers are distributed with the pip package that corresponds to the version
-  # of the C API library.
-  find_library(tensorflow_fx tensorflow_framework PATHS ${TENSORFLOW_C_LIB_PATH}/lib NO_DEFAULT_PATH REQUIRED)
-  set(LLVM_HAVE_TF_API "ON" CACHE BOOL "Full Tensorflow API available")
-  include_directories(${TENSORFLOW_C_LIB_PATH}/include)
-  if (NOT TF_PROTO_HEADERS)
-    message(STATUS "TF_PROTO_HEADERS not defined. Looking for tensorflow pip package.")
-    execute_process(COMMAND
-      ${Python3_EXECUTABLE} "-c" "import tensorflow as tf; import os; print(os.path.dirname(tf.__file__))"
-      OUTPUT_VARIABLE TF_PIP)
-    if ("${TF_PIP}" STREQUAL "")
-      message(FATAL ERROR "Tensorflow pip package is also required for 'development' mode (protobuf headers)")
-    endif()
-    string(STRIP ${TF_PIP} TF_PIP)
-    set(TF_PROTO_HEADERS "${TF_PIP}/include")
-  endif()
-  message(STATUS "Using Tensorflow headers under: ${TF_PROTO_HEADERS}")
-  include_directories(${TF_PROTO_HEADERS})
-  add_definitions("-DGOOGLE_PROTOBUF_NO_RTTI")
-  add_definitions("-D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 # For up-to-date instructions for installing the Tensorflow dependency, refer to
@@ -1711,7 +1678,7 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
   file(COPY ${TENSORFLOW_AOT_PATH}/include DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tensorflow
     NO_SOURCE_PERMISSIONS
     PATTERN "google/*" EXCLUDE
-    PATTERN "*.pb.h" EXCLUDE) 
+    PATTERN "*.pb.h" EXCLUDE)
   include_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tensorflow/include)
   add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
     ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
@@ -1889,7 +1856,7 @@ if( LLVM_INCLUDE_UTILS )
   add_subdirectory(utils/yaml-bench)
   add_subdirectory(utils/split-file)
   if( LLVM_INCLUDE_TESTS )
-    add_subdirectory(utils/unittest)
+    add_subdirectory(${LLVM_THIRD_PARTY_DIR}/unittest ${CMAKE_CURRENT_BINARY_DIR}/third-party/unittest)
   endif()
 else()
   if ( LLVM_INCLUDE_TESTS )
@@ -2086,7 +2053,11 @@ if (INTEL_CUSTOMIZATION)
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers llvm-cov clang-tidy llvm-ml clang-docs
+      clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
+      # Clang tools
+      clang-format clang-rename
+      # Clang tools extra
+      clangd clang-include-fixer clang-tidy modularize
       # XDEV components
       xdev-dpcpp xdev-icx xdev-icpx xdev-ifx xdev-fpp xdev-xfortcom
       xdev-fort-target-rtl xdev-compilervars xdev-il0-llvm-common-headers
@@ -2128,22 +2099,52 @@ if (INTEL_CUSTOMIZATION)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST icx-lto)
     endif()
 
-    if (";${LLVM_INTEL_FEATURES};" MATCHES ";INTEL_INTERNAL_BUILD;")
+    # Deploying sanitizers on Linux and Windows.
+    if (CMAKE_SYSTEM_NAME MATCHES "Linux" OR WIN32)
+      # These are the components available on both Linux and Windows.
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
-        # Deploy sanitizers for sanitized LIT testing.
-        # It should not harm to deploy them always for non-product builds.
-        clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64
-        clang_rt.msan-i386 clang_rt.msan_cxx-i386
+        # Header files
         compiler-rt-headers
+
+        # Address sanitizer
+        clang_rt.asan-x86_64 clang_rt.asan_cxx-x86_64
+        clang_rt.asan_static-x86_64 clang_rt.asan-preinit-x86_64
+        clang_rt.asan-dynamic-x86_64 asan
+
+        # Undefined behavior sanitizer
+        clang_rt.ubsan_standalone-x86_64
+        clang_rt.ubsan_standalone_cxx-x86_64
+
         # llvm-symbolizer improves traces from sanitizers.
         llvm-symbolizer
+      )
+      if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+        # These are Linux only components.
+        list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+          # Leak sanitizer
+          clang_rt.lsan-x86_64
+
+          # Memory sanitizer
+          clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64 msan
+
+          # Thread sanitizer
+          clang_rt.tsan-x86_64 clang_rt.tsan_cxx-x86_64
+          clang_rt.tsan-dynamic-x86_64
+
+          # Undefined behavior sanitizer
+          clang_rt.ubsan_minimal-x86_64
+          clang_rt.ubsan_standalone-dynamic-x86_64
+
+          # .syms files
+          sanitizer-rt-symbols
         )
+      endif()
     endif()
 
     set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
-      libdev-libistrconv libdev-svml libdev-libimf
+      libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
     )
 
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
@@ -2155,11 +2156,8 @@ if (INTEL_CUSTOMIZATION)
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
       ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
       ocl-svml ocl-gdb-plugin ocl-library-kernel
-      ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
-      ocl-cpu_device ocl-cpu_device_emu ocl-cpu_device32_emu ocl-cpu_device32 ocl-cpu_device64_emu ocl-cpu_device64
       ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
-      ocl-OclCpuBackEnd ocl-OclCpuBackEnd_emu ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd32_emu ocl-OclCpuBackEnd64_emu ocl-OclCpuBackEnd64
       )
 
     if (WIN32)

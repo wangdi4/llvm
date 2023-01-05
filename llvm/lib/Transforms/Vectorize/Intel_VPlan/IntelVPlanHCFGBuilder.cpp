@@ -55,10 +55,10 @@ bool VPlanPrintLegality = false;
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
-                                   ScalarEvolution *SE,
-                                   BlockFrequencyInfo *BFI)
+                                   AssumptionCache &AC, const DominatorTree &DT,
+                                   ScalarEvolution *SE, BlockFrequencyInfo *BFI)
     : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
-      SE(SE) {
+      SE(SE), DT(DT), AC(AC) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -150,6 +150,10 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
 
 bool VPlanHCFGBuilder::buildHierarchicalCFG() {
 
+  // Initialize the VPlan assumption cache in preparation for it being populated
+  // while building the plain CFG.
+  Plan->setVPAC(std::make_unique<VPAssumptionCache>(AC, DT));
+
   VPLoopEntityConverterList CvtVec;
 
   // Build Top Region enclosing the plain CFG
@@ -194,14 +198,14 @@ bool VPlanHCFGBuilder::buildHierarchicalCFG() {
   return true;
 }
 
-class PrivatesListCvt;
+class VPEntityConverterBase;
 
 namespace {
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions.
 class PlainCFGBuilder : public VPlanLoopCFGBuilder {
 public:
-  friend PrivatesListCvt;
+  friend VPEntityConverterBase;
 
   PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan,
                  BlockFrequencyInfo *BFI)
@@ -243,6 +247,78 @@ public:
 
 protected:
   PlainCFGBuilder &Builder;
+
+  bool AliasesWithinLoopImpl(Instruction *Inst,
+                             SmallPtrSetImpl<Value *> &Visited) {
+    // Here we use \p Visited to avoid infinite loop on reference-cycles. E.g.,
+    //    %0 = phi i1 [ %1, ... ], ...
+    //    %1 = phi i1 [ %0, ... ], ...
+    if (!Visited.insert(Inst).second)
+      return false;
+
+    return llvm::any_of(Inst->users(), [&](Value *User) {
+      Instruction *Inst = cast<Instruction>(User);
+      return Builder.contains(Inst) ||
+             ((isTrivialPointerAliasingInst(Inst) || isa<SelectInst>(Inst)) &&
+              AliasesWithinLoopImpl(Inst, Visited));
+    });
+  }
+
+  // Helper to recursively evaluate if there is any user of an alias \p Inst or
+  // any user of nested aliases *based on* this alias is inside the loop-region.
+  bool AliasesWithinLoop(Instruction *Inst) {
+    SmallPtrSet<Value *, 8> Visited;
+    return AliasesWithinLoopImpl(Inst, Visited);
+  }
+
+  // This method collects aliases that lie outside the loop-region. We are not
+  // concerned with aliases within the loop as they would be acquired
+  // when required (e.g., escape analysis).
+  void collectMemoryAliases(VPEntityImportDescr &Descriptor, Value *Alloca) {
+    SetVector<Value *> WorkList;
+    SmallPtrSet<const User *, 4> Visited;
+
+    // Start with the Alloca Inst.
+    WorkList.insert(Alloca);
+
+    while (!WorkList.empty()) {
+      Value *Head = WorkList.back();
+      WorkList.pop_back();
+      for (auto *Use : Head->users()) {
+        if (Visited.contains(Use) ||
+            (isa<IntrinsicInst>(Use) &&
+             VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use))))
+          continue;
+
+        // Check that the use of this alias is within the loop-region and it is
+        // an alias-able instruction to begin with.
+        // Rather than the more generic 'aliasing', we are more concerned here
+        // with finding if the pointer here is based on another pointer.
+        // LLVM Aliasing instructions -
+        // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
+        Visited.insert(Use);
+        Instruction *Inst = cast<Instruction>(Use);
+
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst) ||
+             isa<SelectInst>(Inst)) &&
+            AliasesWithinLoop(Inst)) {
+          auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
+          assert((isa<VPExternalDef>(NewVPOperand) ||
+                  isa<VPInstruction>(NewVPOperand)) &&
+                 "Expecting a VPExternalDef or a VPInstruction.");
+          if (isa<VPExternalDef>(NewVPOperand)) {
+            // Reset the insert-point. We do not want the instructions to be
+            // currently put into any existing basic block.
+            Builder.resetInsertPoint();
+            WorkList.insert(Inst);
+            VPInstruction *VPInst = Builder.createVPInstruction(Inst);
+            assert(VPInst && "Expect a valid VPInst to be created.");
+            Descriptor.addMemAlias(NewVPOperand, VPInst, Inst);
+          }
+        }
+      }
+    }
+  }
 };
 
 // Conversion functor for auto-recognized reductions
@@ -315,6 +391,11 @@ public:
     // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
     // non-arrays.
     auto *AI = cast<AllocaInst>(CurValue.first->stripPointerCasts());
+    // Array reductions can have memory alias due to partial registerization.
+    // TODO: This may be needed for non-array reductions as well, extend support
+    // based on use-case.
+    if (AI->getAllocatedType()->isArrayTy())
+      collectMemoryAliases(Descriptor, AI);
     Descriptor.setRecType(AI->getAllocatedType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
@@ -344,6 +425,7 @@ public:
     Descriptor.setInitializer(CurValue->getInitializer());
     Descriptor.setCtor(CurValue->getCtor());
     Descriptor.setDtor(CurValue->getDtor());
+    Descriptor.setInscanReductionKind(CurValue->getInscanReductionKind());
   }
 };
 
@@ -385,7 +467,7 @@ public:
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
-      Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+      Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     } else {
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");
@@ -456,7 +538,8 @@ public:
     Type *IndTy;
     Type *IndPointeeTy;
     Value *Step;
-    std::tie(IndTy, IndPointeeTy, Step) = CurValue.second;
+    bool IsIV;
+    std::tie(IndTy, IndPointeeTy, Step, IsIV) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
     Type *StepTy = IndTy;
@@ -492,84 +575,12 @@ public:
     // value. Explicit inductions always have a valid memory allocation.
     Descriptor.setAllocaInst(Descriptor.getStart());
     Descriptor.setIsExplicitInduction(true);
+    Descriptor.setIsLinearIV(IsIV);
   }
 };
 
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
-
-  bool AliasesWithinLoopImpl(Instruction *Inst,
-                             SmallPtrSetImpl<Value *> &Visited) {
-    // Here we use \p Visited to avoid infinite loop on reference-cycles. E.g.,
-    //    %0 = phi i1 [ %1, ... ], ...
-    //    %1 = phi i1 [ %0, ... ], ...
-    if (!Visited.insert(Inst).second)
-      return false;
-
-    return llvm::any_of(Inst->users(), [&](Value *User) {
-      Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) ||
-             ((isTrivialPointerAliasingInst(Inst) || isa<SelectInst>(Inst)) &&
-               AliasesWithinLoopImpl(Inst, Visited));
-    });
-  }
-
-  // Helper to recursively evaluate if there is any user of an alias \p Inst or
-  // any user of nested aliases *based on* this alias is inside the loop-region.
-  bool AliasesWithinLoop(Instruction *Inst) {
-    SmallPtrSet<Value *, 8> Visited;
-    return AliasesWithinLoopImpl(Inst, Visited);
-  }
-
-  // This method collects aliases that lie outside the loop-region. We are not
-  // concerned with aliases within the loop as they would be acquired
-  // when required (e.g., escape analysis).
-  void collectMemoryAliases(PrivateDescr &Descriptor, Value *Alloca) {
-    SetVector<Value *> WorkList;
-    SmallPtrSet<const User *, 4> Visited;
-
-    // Start with the Alloca Inst.
-    WorkList.insert(Alloca);
-
-    while (!WorkList.empty()) {
-      Value *Head = WorkList.back();
-      WorkList.pop_back();
-      for (auto *Use : Head->users()) {
-        if (Visited.contains(Use) ||
-            (isa<IntrinsicInst>(Use) &&
-              VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use))))
-          continue;
-
-        // Check that the use of this alias is within the loop-region and it is
-        // an alias-able instruction to begin with.
-        // Rather than the more generic 'aliasing', we are more concerned here
-        // with finding if the pointer here is based on another pointer.
-        // LLVM Aliasing instructions -
-        // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
-        Visited.insert(Use);
-        Instruction *Inst = cast<Instruction>(Use);
-
-        if ((isTrivialPointerAliasingInst(Inst) ||
-             isa<PtrToIntInst>(Inst) || isa<SelectInst>(Inst)) &&
-            AliasesWithinLoop(Inst)) {
-          auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
-          assert((isa<VPExternalDef>(NewVPOperand) ||
-                  isa<VPInstruction>(NewVPOperand)) &&
-                 "Expecting a VPExternalDef or a VPInstruction.");
-          if (isa<VPExternalDef>(NewVPOperand)) {
-            // Reset the insert-point. We do not want the instructions to be
-            // currently put into any existing basic block.
-            Builder.resetInsertPoint();
-            WorkList.insert(Inst);
-            VPInstruction *VPInst = Builder.createVPInstruction(Inst);
-            assert(VPInst && "Expect a valid VPInst to be created.");
-            Descriptor.addAlias(NewVPOperand, VPInst, Inst);
-          }
-        }
-      }
-    }
-  }
-
 public:
   PrivatesListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
 

@@ -1,6 +1,4 @@
-; RUN: opt -S -opaque-pointers -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -opaque-pointers -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

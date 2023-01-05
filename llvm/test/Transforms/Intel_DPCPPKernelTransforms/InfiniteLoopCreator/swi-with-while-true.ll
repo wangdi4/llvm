@@ -19,8 +19,6 @@
 ; ----------------------------------------------------
 ; -dpcpp-kernel-wgloop-creator creates early exit, we can create infinite loop inside a kernel
 ; ----------------------------------------------------
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
 

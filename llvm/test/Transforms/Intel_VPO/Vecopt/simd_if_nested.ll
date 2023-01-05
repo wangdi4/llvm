@@ -1,4 +1,3 @@
-; RUN: opt -S < %s -vplan-pragma-omp-simd-if | FileCheck %s
 ; RUN: opt -S < %s -passes="vplan-pragma-omp-simd-if" | FileCheck %s
 
 ; Tests whether vplan-pragma-omp-simd-if pass converts all if clauses for nested loops

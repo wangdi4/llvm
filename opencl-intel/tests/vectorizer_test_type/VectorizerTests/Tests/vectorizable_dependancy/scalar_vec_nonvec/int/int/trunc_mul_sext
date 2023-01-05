@@ -8,19 +8,19 @@
  * as input and therfore will have scalar value.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 trunc_mul_sext ( __global const float *in,
-		__global float *out, __global const int intArg1, __global const int intArg2)
+    __global float *out, __global const int intArg1, __global const int intArg2)
 {
-	int gid = get_global_id(0);
-	short arg1 = intArg1;
-	short arg3 = arg1 * arg1;
-	int arg4 = arg3;
-	out[gid] = convert_float(arg4);
+  int gid = get_global_id(0);
+  short arg1 = intArg1;
+  short arg3 = arg1 * arg1;
+  int arg4 = arg3;
+  out[gid] = convert_float(arg4);
 }
 

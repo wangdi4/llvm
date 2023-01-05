@@ -1,6 +1,5 @@
 ; CMPLRLLVM-8888: Verifies that points-to info for bar:%1 is not incorrectly
 ; computed as empty.
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; Andersens Analysis shouldn't ignore store instruction since it is actually

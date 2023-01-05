@@ -23,7 +23,7 @@ declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
 
 
-define void @widget(float addrspace(1)* %arg, %struct.pluto* %arg1, %struct.pluto* %arg2, %struct.pluto* %arg3, float addrspace(1)* %arg4, %struct.pluto* %arg5, %struct.pluto* %arg6, %struct.pluto* %arg7, i8 addrspace(3)* %arg8, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %arg9, i64* %arg10, [4 x i64] %arg11, i8* %arg12, {}* %arg13) local_unnamed_addr {
+define void @widget(float addrspace(1)* %arg, %struct.pluto* %arg1, %struct.pluto* %arg2, %struct.pluto* %arg3, float addrspace(1)* %arg4, %struct.pluto* %arg5, %struct.pluto* %arg6, %struct.pluto* %arg7, i8 addrspace(3)* %arg8, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* %arg9, i64* %arg10, [4 x i64] %arg11, i8* %arg12, {}* %arg13) local_unnamed_addr {
 bb:
   %tmp = alloca <16 x i32>, align 4
   br i1 undef, label %bb16, label %bb14

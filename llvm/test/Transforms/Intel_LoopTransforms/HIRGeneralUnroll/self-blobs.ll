@@ -1,6 +1,5 @@
 ; Check that self-blob symbases are set after general unroll
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-details < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" -hir-details < %s 2>&1 | FileCheck %s
 
 ; No source available;

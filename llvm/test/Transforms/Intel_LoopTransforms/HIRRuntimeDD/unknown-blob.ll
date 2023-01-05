@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -disable-hir-runtime-dd-cost-model -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output -disable-hir-runtime-dd-cost-model < %s 2>&1 | FileCheck %s
 
 ; Source:

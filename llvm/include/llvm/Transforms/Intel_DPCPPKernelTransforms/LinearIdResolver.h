@@ -29,6 +29,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, CallGraph *CG);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Generate calculation sequence of get_local_linear_id and replace.
   /// \param M module.
@@ -52,12 +54,12 @@ private:
                                  StringRef NameStr);
 
   /// Constant values used by function calls.
-  Value *Zero;
-  Value *One;
-  Value *Two;
+  Value *Zero = nullptr;
+  Value *One = nullptr;
+  Value *Two = nullptr;
 
   /// Return type for work-item functions.
-  Type *RetTy;
+  Type *RetTy = nullptr;
 };
 
 } // namespace llvm

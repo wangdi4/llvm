@@ -6,17 +6,16 @@
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Skipping pass FMASplitterPass
-; CHECK-NEXT: Skipping pass: FMASplitterPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK-NEXT: Running pass: SGRemapWICallPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
@@ -25,6 +24,7 @@
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
+; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
@@ -62,6 +62,7 @@
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -72,19 +73,16 @@
 ; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running pass: AddTLSGlobalsPass
+; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: SGSizeAnalysisPass
 ; CHECK:      Invalidating analysis: DataPerBarrierAnalysis
 ; CHECK:      Invalidating analysis: WIRelatedValueAnalysis
 ; CHECK:      Invalidating analysis: DataPerValueAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: VerifierPass

@@ -1,7 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,intel_feature_sw_dtrans
 ; UNSUPPORTED: windows
-; RUN: opt < %s -opaque-pointers -enable-dtrans -functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
 
 ; Test that the Linux form of @swapfunc is recognized as a qsort swapfunc().

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
+
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output -debug-only=dtrans-bca 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case where an alloc store
@@ -80,7 +80,7 @@ if.end:                                           ; preds = %if.then, %entry
   store i32 15, ptr %field03, align 8
   %field14 = getelementptr inbounds %struct._ZTS8mycoder1.mycoder1, ptr %i1, i64 0, i32 1
   %t15 = ptrtoint ptr %i1 to i64
-  store i64 %t15, i64* @mysloppyint
+  store i64 %t15, ptr @mysloppyint
   store ptr @myglobalint1, ptr %field14, align 8
   ret void
 }

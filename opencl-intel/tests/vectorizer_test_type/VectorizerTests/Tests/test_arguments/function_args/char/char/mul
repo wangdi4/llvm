@@ -6,17 +6,17 @@
  * This instruction is vectorizable.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 mul ( __global const float2 *in,
-		__global float *out, __global const char charArg1, __global const char charArg2)
+    __global float *out, __global const char charArg1, __global const char charArg2)
 {
-	int gid = get_global_id(0);
-	// these assignment to tmp and add are done to ensure that mul on chars is used
-	char tmp = charArg1 * charArg2;
-	out[gid] = tmp + 1;
+  int gid = get_global_id(0);
+  // these assignment to tmp and add are done to ensure that mul on chars is used
+  char tmp = charArg1 * charArg2;
+  out[gid] = tmp + 1;
 }

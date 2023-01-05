@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -87,7 +87,7 @@ define void @atest02c(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 define void @atest03a() {
   %st = call ptr @malloc(i64 16)
   store ptr %st, ptr @var03
-  call void @llvm.memset.p0i8.i64(ptr %st, i8 0, i64 16, i1 false)
+  call void @llvm.memset.p0.i64(ptr %st, i8 0, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest03
@@ -109,7 +109,7 @@ define void @atest04a() {
   %st = call ptr @malloc(i64 16)
   store ptr %st, ptr @var04
   %mem1 = getelementptr i8, ptr %st, i8 8
-  call void @llvm.memset.p0i8.i64(ptr %mem1, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %mem1, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest04
@@ -132,7 +132,7 @@ define void @atest04a() {
 define void @atest05a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !12 {
   %st = call ptr @malloc(i64 16)
   store ptr %st, ptr @var05
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %st, ptr %in, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %st, ptr %in, i64 16, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest05
@@ -155,7 +155,7 @@ define void @atest06a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
   store ptr %st, ptr @var06
   %field = getelementptr %struct.atest06, ptr %in, i64 0, i32 1
   %dst = getelementptr i8, ptr %st, i64 8
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %dst, ptr %field, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %field, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest06
@@ -177,7 +177,7 @@ define void @atest06a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 define void @atest07a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !16 {
   %st = call ptr @malloc(i64 16)
   store ptr %st, ptr @var07
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %st, ptr %in, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %st, ptr %in, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest07
@@ -197,7 +197,7 @@ define void @atest07a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 
 define void @atest08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.type !19 {
   %faddr = getelementptr inbounds %struct.atest08b, ptr %in1, i64 0, i32 1
-  call void @llvm.memset.p0i8.i64(ptr %faddr, i8 0, i64 8, i1 false)
+  call void @llvm.memset.p0.i64(ptr %faddr, i8 0, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest08a
@@ -228,7 +228,7 @@ define void @atest08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.
 define void @atest09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !22 {
   %src = getelementptr inbounds %struct.atest09b, ptr %in1, i64 0, i32 1
   %dst = getelementptr inbounds %struct.atest09b, ptr %in2, i64 0, i32 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %dst, ptr %src, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest09a
@@ -259,7 +259,7 @@ define void @atest09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 %struct.atest10b = type { i32, %struct.atest10a }
 define void @atest10(ptr "intel_dtrans_func_index"="1" %src, ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !26 {
   %dst = getelementptr inbounds %struct.atest10b, ptr %in2, i64 0, i32 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %dst, ptr %src, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest10a
@@ -292,7 +292,7 @@ define void @atest10(ptr "intel_dtrans_func_index"="1" %src, ptr "intel_dtrans_f
 %struct.atest11b = type { i32, %struct.atest11a }
 define void @atest11(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_func_index"="2" %dst) !intel.dtrans.func.type !30 {
   %src = getelementptr inbounds %struct.atest11b, ptr %in1, i64 0, i32 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %dst, ptr %src, i64 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 8, i1 false)
   ret void
 }
 ; CHECK-LABEL: LLVMType: %struct.atest11a
@@ -323,8 +323,8 @@ define void @atest11(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 
 
 declare !intel.dtrans.func.type !32 "intel_dtrans_func_index"="1" ptr @malloc(i64)
-declare !intel.dtrans.func.type !33 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
-declare !intel.dtrans.func.type !34 void @llvm.memset.p0i8.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
+declare !intel.dtrans.func.type !33 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !34 void @llvm.memset.p0.i64(ptr "intel_dtrans_func_index"="1", i8, i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32

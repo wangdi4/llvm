@@ -13,7 +13,6 @@
 ;  }
 ;}
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-identity-matrix-idiom-recognition -print-after=hir-identity-matrix-idiom-recognition < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Identity Matrix Idiom Recognition ***

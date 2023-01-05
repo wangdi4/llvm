@@ -28,7 +28,6 @@
 ; Recognized DestroyObject: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
 
 ;
-; RUN: opt < %s -dtrans-memmanagetrans -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts

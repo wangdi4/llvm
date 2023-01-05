@@ -413,7 +413,7 @@ public:
   }
 
   void dumpRTI() const { RTI.dump(); }
-#endif //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   // Collection of suitable StructInfo* types for field reordering
@@ -506,7 +506,7 @@ void ReorderFieldTransInfo::dump() const {
   // print InclusiveStructTypes
   dumpInclusiveStructTypes();
 }
-#endif //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // This class, which is derived from DTransOptBase, does all necessary
 // work for field-reorder transformation.
@@ -603,10 +603,11 @@ Type *ReorderFieldsOPImpl::getOrigTyOfTransformedType(Type *TType) {
   for (auto &TypesPair : Orig2NewTypeMap) {
     Type *OrigTy = TypesPair.first;
     Type *NewTy = TypesPair.second;
-    LLVM_DEBUG(dbgs() << "OrigTy: " << *OrigTy << "\nNewTy: " << *NewTy
-                      << "\n";);
-    if (NewTy == TType || OrigTy == TType)
+    if (NewTy == TType || OrigTy == TType) {
+      LLVM_DEBUG(dbgs() << "OrigTy: " << *OrigTy << "\nNewTy: " << *NewTy
+                        << "\n";);
       return OrigTy;
+    }
   }
 
   return nullptr;
@@ -907,15 +908,13 @@ void ReorderFieldsOPImpl::processByteFlattenedGetElementPtrInst(
   if (!StructTy)
     return;
 
-  LLVM_DEBUG({ GEP.dump(); });
-
   // Byte-Flatten GEP -- BFGEP
   bool BFGEPHandled = false;
   uint64_t NewOffset = 0;
   auto &TypesMap = RTI.getTypesMap();
 
   // OrigTy is a DTrans's Field-Reorder (DFR) transformed type
-  StructType *OrigLLVMTy = dyn_cast<StructType>(StructTy->getLLVMType());
+  StructType *OrigLLVMTy = cast<StructType>(StructTy->getLLVMType());
   if (TypesMap.find(StructTy) != TypesMap.end()) {
     StructType *NewLLVMTy = cast<StructType>(Orig2NewTypeMap[OrigLLVMTy]);
     if (!NewLLVMTy)
@@ -1064,10 +1063,6 @@ void ReorderFieldsOPImpl::transformDivOp(BinaryOperator &I) {
 
     (void)Replaced;
     LLVM_DEBUG(dbgs() << "SDiv/UDiv After:" << I << "\n");
-
-  } else {
-    // Unknown case
-    llvm_unreachable("Unknown BinOp case");
   }
 }
 
@@ -1273,14 +1268,14 @@ bool ReorderFieldsOPImpl::findInclusiveStructType(
     dbgs() << "BaseInclStTy: " << *BaseInclStTy << "\n"
            << "QualifiedStTypeV <: " << QualifiedStTypeV.size() << ">\n";
     unsigned Count = 0;
-    for (auto StTy : QualifiedStTypeV) {
+    for (auto *StTy : QualifiedStTypeV) {
       dbgs() << Count++ << " : " << *StTy << "\n";
     }
   });
   std::copy(QualifiedStTypeV.begin(), QualifiedStTypeV.end(),
             std::back_inserter(DerivedInclusiveStructTypeV));
 
-  for (auto StTy : QualifiedStTypeV) {
+  for (auto *StTy : QualifiedStTypeV) {
     LLVM_DEBUG(dbgs() << *StTy << "\n";);
     findInclusiveStructType(StTy, DerivedInclusiveStructTypeV);
   }
@@ -1290,7 +1285,7 @@ bool ReorderFieldsOPImpl::findInclusiveStructType(
            << "DerivedInclusiveStructTypeV <: "
            << DerivedInclusiveStructTypeV.size() << ">\n";
     unsigned Count = 0;
-    for (auto StTy : DerivedInclusiveStructTypeV) {
+    for (auto *StTy : DerivedInclusiveStructTypeV) {
       dbgs() << Count++ << " : " << *StTy << "\n";
     }
   });
@@ -1488,14 +1483,13 @@ static bool isAdvancedStructType(dtrans::TypeInfo *TI) {
   StructType *StructT = cast<StructType>(StInfo->getLLVMType());
 
   // Reject any struct type with a vector-type or array-type field:
-  if (StructT && std::any_of(StructT->element_begin(), StructT->element_end(),
-                             isArrayOrVectTy))
+  if (std::any_of(StructT->element_begin(), StructT->element_end(),
+                  isArrayOrVectTy))
     return false;
 
   // Expect the struct to have DTransReorderFieldsNumFieldsAdvPrecise (20)
   // fields
-  if (StructT &&
-      StructT->getNumElements() != DTransReorderFieldsOPNumFieldsAdvPrecise)
+  if (StructT->getNumElements() != DTransReorderFieldsOPNumFieldsAdvPrecise)
     return false;
 
   // Expect the struct to have 12 integer types, 5 struct types and
@@ -1989,6 +1983,10 @@ bool ReorderFieldsAnalyzer::isApplicable(dtrans::TypeInfo *TI,
       NumElems > MaxNumElems)
     return false;
 
+  // Skip if no fields of struct are accessed.
+  if (StInfo->getTotalFrequency() <= 0)
+    return false;
+
   if (isSimpleStructType(TI) || isAdvancedStructType(TI))
     return true;
 
@@ -2090,7 +2088,7 @@ ModulePass *llvm::createDTransReorderFieldsOPWrapperPass() {
 
 PreservedAnalyses ReorderFieldsOPPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
-    DTransSafetyInfo *DTInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
+  DTransSafetyInfo *DTInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {

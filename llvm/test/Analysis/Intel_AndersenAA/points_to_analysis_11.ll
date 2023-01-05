@@ -1,4 +1,3 @@
-; RUN: opt < %s -anders-aa -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; CHECK: foo:%3    --> same as (8) foo:%1
 ; Tests bitcast to vectortype is handled by Andersens analysis

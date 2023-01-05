@@ -23,7 +23,7 @@ using namespace CompilationUtils;
 namespace {
 
 class ConversionVisitor : public reflection::TypeVisitor {
-  Type *LLVMTy;
+  Type *LLVMTy{nullptr};
   LLVMContext &Ctx;
 
   bool isAddressSpace(const reflection::TypeAttributeEnum Attr) {

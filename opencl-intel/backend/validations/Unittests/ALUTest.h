@@ -23,26 +23,22 @@
 #include "DGHelper.h"
 
 // seed taken from command line
-extern uint64_t seedForValidation; 
+extern uint64_t seedForValidation;
 
 class ALUTest : public ::testing::Test {
 public:
-    uint64_t seed;
+  uint64_t seed;
 
-    ALUTest()
-    {
-        // take external seed from TestMain.cpp, if 0, produce seed inside generator
-        seed = Validation::SetSeed(seedForValidation);
+  ALUTest() {
+    // take external seed from TestMain.cpp, if 0, produce seed inside generator
+    seed = Validation::SetSeed(seedForValidation);
+  }
+
+  ~ALUTest() {
+    // if some test fails, print seed
+    if (HasFailure()) {
+      std::cout << "Seed: " << seed << std::endl;
     }
-
-    ~ALUTest()
-    {
-            // if some test fails, print seed
-            if (HasFailure())
-            {
-                std::cout << "Seed: " << seed << std::endl;
-            }
-    }
-
+  }
 };
 #endif // #ifndef __ALUTEST_H__

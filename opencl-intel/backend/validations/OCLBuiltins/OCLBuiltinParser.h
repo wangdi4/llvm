@@ -12,21 +12,21 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
 /* Parser of OpenCL builtin names compiled by Intel Clang to LLVM code.
 Example of buitlin name format "_Z10native_sinDv4_f"
 Works with clang 2.8 name mangling convention
 
-Attention(!): Apple clang has different naming convention of OpenCL builtin function
-This parser cannot be used for parsing OpenCL builtin names produced by Apple clang
+Attention(!): Apple clang has different naming convention of OpenCL builtin
+function This parser cannot be used for parsing OpenCL builtin names produced by
+Apple clang
 
 \*****************************************************************************/
 
 #ifndef OCL_BUILTIN_PARSER_H
 #define OCL_BUILTIN_PARSER_H
 
-#include <llvm/ADT/ArrayRef.h>
 #include "llvm/Support/DataTypes.h"
+#include <llvm/ADT/ArrayRef.h>
 
 #include <string>
 
@@ -177,5 +177,5 @@ public:
                                 const ArgVector &in_args, std::string &out_str);
 };
 
-} // llvm
+} // namespace llvm
 #endif // OCL_BUILTIN_PARSER_H

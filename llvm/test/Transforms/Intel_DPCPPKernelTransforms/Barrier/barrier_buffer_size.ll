@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-barrier -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -S < %s | FileCheck %s
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -14,7 +12,7 @@ target triple = "x86_64-pc-linux"
 ;;      2. Kernel "__Vectorized_.main" has barrier_buffer_size metadata set
 ;;*****************************************************************************
 
-define void @main(i64 %x) nounwind !vectorized_kernel !1 {
+define void @main(i64 %x) nounwind !vectorized_kernel !1 !no_barrier_path !3 {
 L1:
   call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -31,7 +29,7 @@ L3:
 
 ; CHECK: @main{{.*}} !barrier_buffer_size ![[SCAL:[0-9]+]] {{.*}} {
 
-define void @__Vectorized_.main(i64 %x) nounwind !vectorized_width !2 {
+define void @__Vectorized_.main(i64 %x) nounwind !vectorized_width !2 !no_barrier_path !3 {
 L1:
   call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -67,6 +65,7 @@ declare void @dummy_barrier.()
 !0 = !{void (i64)* @main}
 !1 = !{void (i64)* @__Vectorized_.main}
 !2 = !{i32 16}
+!3 = !{i1 false}
 
 ; CHECK-DAG: ![[SCAL]] = !{i32 24}
 ; CHECK-DAG: ![[VEC]] = !{i32 2}

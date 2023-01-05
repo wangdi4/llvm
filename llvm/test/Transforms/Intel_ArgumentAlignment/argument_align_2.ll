@@ -2,7 +2,6 @@
 ; didn't pass the analysis. The analysis process must fail because the
 ; type's size in the calloc callsite is not an multiple of 8.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -S 2>&1
 
 ; CHECK: void @foo

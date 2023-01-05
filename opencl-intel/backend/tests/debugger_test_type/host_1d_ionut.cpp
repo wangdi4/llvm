@@ -17,7 +17,6 @@
 
 using namespace std;
 
-
 // Run a 1-dimensional NDrange on the given kernel, with kernel arguments
 // uchar* buf_in, uchar* buf_out.
 //
@@ -26,50 +25,42 @@ using namespace std;
 // The extra arguments are:
 //    <data_size> <ndrange_global_size> <ndrange_local_size>
 //
-static void host_1d_inout_internal(
-    cl::Context context, cl::Device device, cl::Program program,
-    HostProgramExtraArgs extra_args)
-{
-    cl::Kernel kernel(program, "main_kernel");
-    cl::CommandQueue queue(context, device, 0);
+static void host_1d_inout_internal(cl::Context context, cl::Device device,
+                                   cl::Program program,
+                                   HostProgramExtraArgs extra_args) {
+  cl::Kernel kernel(program, "main_kernel");
+  cl::CommandQueue queue(context, device, 0);
 
-    int data_size = 1024;
-    int ndrange_global_size = 32;
-    int ndrange_local_size = 1;
+  int data_size = 1024;
+  int ndrange_global_size = 32;
+  int ndrange_local_size = 1;
 
-    if (extra_args.size() == 3) {
-        data_size = atoi(extra_args[0].c_str());
-        ndrange_global_size = atoi(extra_args[1].c_str());
-        ndrange_local_size = atoi(extra_args[2].c_str());
-    }
+  if (extra_args.size() == 3) {
+    data_size = atoi(extra_args[0].c_str());
+    ndrange_global_size = atoi(extra_args[1].c_str());
+    ndrange_local_size = atoi(extra_args[2].c_str());
+  }
 
-    // Data for the input buffer
-    vector<cl_uchar> databuf(data_size);
-    for (int i = 0; i < data_size; ++i) {
-        databuf[i] = i;
-    }
+  // Data for the input buffer
+  vector<cl_uchar> databuf(data_size);
+  for (int i = 0; i < data_size; ++i) {
+    databuf[i] = i;
+  }
 
-    cl::Buffer buf_in(context,
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(cl_uchar) * data_size,
-        &databuf[0],
-        0);
-    kernel.setArg(0, buf_in);
+  cl::Buffer buf_in(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                    sizeof(cl_uchar) * data_size, &databuf[0], 0);
+  kernel.setArg(0, buf_in);
 
-    cl::Buffer buf_out(context,
-        CL_MEM_READ_WRITE,
-        sizeof(cl_uchar) * data_size, 0);
-    kernel.setArg(1, buf_out);
+  cl::Buffer buf_out(context, CL_MEM_READ_WRITE, sizeof(cl_uchar) * data_size,
+                     0);
+  kernel.setArg(1, buf_out);
 
-    DTT_LOG("Executing kernel in NDRange...");
-    queue.enqueueNDRangeKernel(
-        kernel,
-        cl::NullRange,
-        cl::NDRange(ndrange_global_size),
-        cl::NDRange(ndrange_local_size));
-    queue.finish();
+  DTT_LOG("Executing kernel in NDRange...");
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange,
+                             cl::NDRange(ndrange_global_size),
+                             cl::NDRange(ndrange_local_size));
+  queue.finish();
 }
-
 
 // Export
 //

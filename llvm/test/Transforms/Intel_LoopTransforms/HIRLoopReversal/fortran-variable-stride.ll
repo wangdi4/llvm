@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |  FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s
 ;
 ; This test case is original from fortran code. It encountered arithmetic exception before the change because the ref does not have a constant stride for the dimension and get 0 for the stride leading to arithmetic exception in AccumuWeightPosIVs computation.

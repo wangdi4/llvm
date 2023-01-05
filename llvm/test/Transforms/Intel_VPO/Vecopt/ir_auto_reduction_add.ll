@@ -1,4 +1,4 @@
-; RUN: opt -S -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -S -passes=vplan-vec,instcombine -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

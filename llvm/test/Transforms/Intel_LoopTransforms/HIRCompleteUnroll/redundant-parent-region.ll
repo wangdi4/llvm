@@ -1,8 +1,5 @@
 ; Check that the region should be empty after unroll. All redundant nodes should be removed
 
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-post-vec-complete-unroll -print-after-all -stats < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-post-vec-complete-unroll -print-after-all -stats < %s 2>&1 | FileCheck %s --check-prefix=DEBUG
-
 ; RUN: opt -passes="hir-ssa-deconstruction,print,hir-post-vec-complete-unroll,print<hir>" -stats -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print,hir-post-vec-complete-unroll,print<hir>" -stats -disable-output < %s 2>&1 | FileCheck %s --check-prefix=DEBUG
 

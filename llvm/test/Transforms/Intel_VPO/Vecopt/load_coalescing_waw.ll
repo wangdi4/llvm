@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;    return 0;
 ;}
 
-; RUN: opt -S -load-coalescing %s | FileCheck %s
+; RUN: opt -S -passes=load-coalescing %s | FileCheck %s
 
 define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK-LABEL: @main(

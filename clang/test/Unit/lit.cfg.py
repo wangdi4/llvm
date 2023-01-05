@@ -34,6 +34,9 @@ if 'TMP' in os.environ:
 if 'TEMP' in os.environ:
     config.environment['TEMP'] = os.environ['TEMP']
 
+if 'HOME' in os.environ:
+    config.environment['HOME'] = os.environ['HOME']
+
 # Propagate sanitizer options.
 for var in [
     'ASAN_SYMBOLIZER_PATH',
@@ -51,7 +54,7 @@ for var in [
         config.environment[var] = os.environ[var]
 
 def find_shlibpath_var():
-    if platform.system() in ['Linux', 'FreeBSD', 'NetBSD', 'SunOS']:
+    if platform.system() in ['Linux', 'FreeBSD', 'NetBSD', 'OpenBSD', 'SunOS']:
         yield 'LD_LIBRARY_PATH'
     elif platform.system() == 'Darwin':
         yield 'DYLD_LIBRARY_PATH'
@@ -76,3 +79,8 @@ else:
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
+
+# It is not realistically possible to account for all options that could
+# possibly be present in system and user configuration files, so disable
+# default configs for the test runs.
+config.environment["CLANG_NO_DEFAULT_CONFIG"] = "1"

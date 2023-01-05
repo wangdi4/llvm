@@ -4,7 +4,6 @@
 ; CHECK-LABEL: test_amx:
 ; CHECK:       # %bb.0:
 ; amx-avx512
-; CHECK:    tile16move %zmm{{.*}}, %tmm4
 ; CHECK:    tilemovrow $9, %tmm7, %zmm{{.*}}
 ; CHECK:    tilemovrow %{{.*}}, %tmm7, %zmm{{.*}}
 ; CHECK:    tilemovrow %xmm{{.*}}, %tmm7, %zmm{{.*}}
@@ -19,9 +18,8 @@
 ; CHECK:    ttdpfp16ps      %tmm6, %tmm5, %tmm4
 ; CHECK:    ttransposed     %tmm3, %tmm1
 
-define void @test_amx(i64 %addr, i64 %addrx, i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1,i8* %addr2, <16 x float> %zmm, <4 x float> %xmm) {
+define void @test_amx(i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1, <4 x float> %xmm) {
 ; amx-avx512
-call void @llvm.x86.tile16move(i8 4, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm, <16 x float> %zmm)
 call <16 x float> @llvm.x86.tilemovei(i8 7, i8 9)
 call <16 x float> @llvm.x86.tilemovee(i8 7, i32 %rv32)
 call <16 x float> @llvm.x86.tilemovex(i8 7, <4 x float> %xmm)
@@ -40,7 +38,6 @@ ret void
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; amx-avx512
-declare void @llvm.x86.tile16move(i8 %tile0, <16 x float> %zmm0, <16 x float> %zmm1, <16 x float> %zmm2, <16 x float> %zmm3, <16 x float> %zmm4, <16 x float> %zmm5, <16 x float> %zmm6, <16 x float> %zmm7, <16 x float> %zmm8, <16 x float> %zmm9, <16 x float> %zmm10, <16 x float> %zmm11, <16 x float> %zmm12, <16 x float> %zmm13, <16 x float> %zmm14, <16 x float> %zmm15)
 declare <16 x float> @llvm.x86.tilemovei(i8 %tile0, i8 %tile1)
 declare <16 x float> @llvm.x86.tilemovee(i8 %tile0, i32 %rv32)
 declare <16 x float> @llvm.x86.tilemovex(i8 %tile0, <4 x float> %xmm)

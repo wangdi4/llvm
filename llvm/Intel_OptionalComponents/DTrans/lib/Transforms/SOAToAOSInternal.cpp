@@ -215,7 +215,7 @@ bool SOAToAOSLayoutInfo::populateLayoutInformation(Type *Ty) {
     unsigned NumIntFields = 0;
     unsigned Offset = -1U;
     auto *S = *fields_begin();
-    for (auto E : S->elements()) {
+    for (const auto &E : S->elements()) {
       ++Offset;
 
       if (IsPaddingFieldCandidate(E))
@@ -263,7 +263,7 @@ bool SOAToAOSLayoutInfo::populateLayoutInformation(Type *Ty) {
       if (S1->getNumElements() != S->getNumElements())
         return FALSE("array structures have different number of fields.");
 
-      for (auto Pair : zip_first(S->elements(), S1->elements())) {
+      for (const auto &Pair : zip_first(S->elements(), S1->elements())) {
         auto *E = std::get<1>(Pair);
 
         if (auto *F = ExtractStructTy(ExtractPointeeTy(E))) {
@@ -321,7 +321,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
 
       // Tolerating linear search, because ArrayFieldOffsets.size() is very
       // small.
-      for (auto Pair : zip_first(fields(), methodsets()))
+      for (const auto &Pair : zip_first(fields(), methodsets()))
         if (ThisTy == std::get<0>(Pair)) {
           if (!IsValidMethod(F))
             return FALSE("array method has no definition or is vararg.");
@@ -337,7 +337,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
     }
   }
 
-  for (auto Triple : zip_first(methodsets(), elements(), fields())) {
+  for (const auto &Triple : zip_first(methodsets(), elements(), fields())) {
     if (std::get<0>(Triple)->size() > MaxNumMethods)
       return FALSE("array has too many method to process.");
 

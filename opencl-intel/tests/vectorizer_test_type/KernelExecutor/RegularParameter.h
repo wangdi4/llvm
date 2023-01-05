@@ -17,107 +17,98 @@ using std::string;
 
 class RegularParameter {
 public:
+  /**
+   * @throws IllegalParameterException
+   */
+  RegularParameter(const string &type);
+  RegularParameter(const RegularParameter &paramToCopy);
+  RegularParameter &operator=(const RegularParameter &paramToCopy);
+  ~RegularParameter();
 
-	/**
-	 * @throws IllegalParameterException
-	 */
-	RegularParameter(const string& type);
-	RegularParameter(const RegularParameter& paramToCopy);
-	RegularParameter& operator=(const RegularParameter& paramToCopy);
-	~RegularParameter();
+  void *getValue() const { return value; }
 
-	void *getValue() const {
-		return value;
-	}
+  size_t getSize() const { return size; }
 
-	size_t getSize() const {
-		return size;
-	}
-
-	static bool isTypeLegal(const string& type) {
-		return mapping.count(type) > 0;
-	}
+  static bool isTypeLegal(const string &type) {
+    return mapping.count(type) > 0;
+  }
 
 private:
+  typedef enum {
 
-	typedef enum {
+    BOOL,
 
-		BOOL,
+    CHAR,
 
-		CHAR,
+    UCHAR,
 
-		UCHAR,
+    SHORT,
 
-		SHORT,
+    USHORT,
 
-		USHORT,
+    INT,
 
-		INT,
+    UINT,
 
-		UINT,
+    LONG,
 
-		LONG,
+    ULONG,
 
-		ULONG,
+    FLOAT,
 
-		FLOAT,
+    DOUBLE,
 
-		DOUBLE,
+    //    PTR,
 
-//		PTR,
+    PTRDIFF_T
 
-		PTRDIFF_T
+  } ParamType;
 
-	} ParamType;
+  typedef enum {
 
-	typedef enum {
+    NOT_VEC,
+    VEC_2,
+    VEC_4,
+    VEC_8,
+    VEC_16
 
-		NOT_VEC, VEC_2, VEC_4, VEC_8, VEC_16
+  } VectorType;
 
-	} VectorType;
+  class Properties {
 
-	class Properties {
+  public:
+    Properties(ParamType paramType = FLOAT, VectorType vecType = NOT_VEC) {
+      this->paramType = paramType;
+      this->vecType = vecType;
+    }
 
-	public:
-		Properties(ParamType paramType = FLOAT, VectorType vecType = NOT_VEC) {
-			this->paramType = paramType;
-			this->vecType = vecType;
-		}
+    ParamType getParamType() { return paramType; }
+    VectorType getVectorType() { return vecType; }
 
-		ParamType getParamType() {
-			return paramType;
-		}
-		VectorType getVectorType() {
-			return vecType;
-		}
+  private:
+    ParamType paramType;
+    VectorType vecType;
+  };
 
-	private:
+  void *value;
+  size_t size;
+  ParamType paramType;
+  VectorType vecType;
 
-		ParamType paramType;
-		VectorType vecType;
+  static map<string, Properties> mapping;
 
-	};
+  static map<string, RegularParameter::Properties> intiMapping();
 
-	void* value;
-	size_t size;
-	ParamType paramType;
-	VectorType vecType;
+  /**
+   * @throws IllegalParameterException
+   */
+  int getNumElements(VectorType vecType);
 
-	static map<string, Properties> mapping;
-
-	static map<string, RegularParameter::Properties> intiMapping();
-
-	/**
-	 * @throws IllegalParameterException
-	 */
-	int getNumElements(VectorType vecType);
-
-	/**
-	 * @throws IllegalParameterException
-	 */
-	void initParameter(ParamType paramType, VectorType vecType, void* value);
-	void deleteParameter();
-
+  /**
+   * @throws IllegalParameterException
+   */
+  void initParameter(ParamType paramType, VectorType vecType, void *value);
+  void deleteParameter();
 };
 
 #endif /* REGULARPARAMETER_H_ */

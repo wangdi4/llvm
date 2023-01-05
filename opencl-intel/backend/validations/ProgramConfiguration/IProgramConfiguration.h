@@ -17,24 +17,21 @@
 
 #include <string>
 
-namespace Validation
-{
-  /// @brief This class contains test run configuration
-  class IProgramConfiguration
-  {
-  public:
-    virtual ~IProgramConfiguration(void) {}
+namespace Validation {
+/// @brief This class contains test run configuration
+class IProgramConfiguration {
+public:
+  virtual ~IProgramConfiguration(void) {}
 
-    /// @brief Returns the program file path 
-    virtual std::string GetProgramFilePath() const = 0;
+  /// @brief Returns the program file path
+  virtual std::string GetProgramFilePath() const = 0;
 
-    /// @brief Returns the program name
-    virtual std::string GetProgramName() const = 0;
+  /// @brief Returns the program name
+  virtual std::string GetProgramName() const = 0;
 
-    /// @brief Return number of kernel configurations to run.
-    virtual size_t GetNumberOfKernelConfigurations() const = 0;
-
-  };
-}
+  /// @brief Return number of kernel configurations to run.
+  virtual size_t GetNumberOfKernelConfigurations() const = 0;
+};
+} // namespace Validation
 
 #endif // I_RUN_CONFIGURATION_H

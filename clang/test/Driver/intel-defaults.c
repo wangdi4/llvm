@@ -238,7 +238,7 @@
 // FP_MODEL_FAST_INTEL: "-menable-no-infs"
 // FP_MODEL_FAST_INTEL: "-menable-no-nans"
 // FP_MODEL_FAST_INTEL: "-fapprox-func"
-// FP_MODEL_FAST_INTEL: "-menable-unsafe-fp-math"
+// FP_MODEL_FAST_INTEL: "-funsafe-math-optimizations"
 // FP_MODEL_FAST_INTEL: "-fno-signed-zeros"
 // FP_MODEL_FAST_INTEL: "-mreassociate"
 // FP_MODEL_FAST_INTEL: "-freciprocal-math"
@@ -252,3 +252,8 @@
 // RUN: %clang_cl -### -c -Qfreestanding --intel %s 2>&1 | FileCheck -check-prefixes=CHECK_FREESTANDING %s
 // CHECK_FREESTANDING-NOT: "-fveclib=SVML"
 // CHECK-FREESTANDING-NOT: "-fintel-libirc-allowed"
+
+// C++17 is the default for VS2019 or higher
+// RUN: %clang_cl --intel -fmsc-version=1920 -TP -### -- %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CXX17 %s
+// CXX17: -std=c++17

@@ -42,6 +42,8 @@
 #error "Never use <avxconvertintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVXCONVERTINTRIN_H
 #define __AVXCONVERTINTRIN_H
 
@@ -85,3 +87,4 @@ _m256_vcvtneph2bf16_ph(__m256h __A) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif // __AVX512VLCONVERTINTRIN_H
+#endif // __SSE2__

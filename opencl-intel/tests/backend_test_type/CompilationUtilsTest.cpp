@@ -13,8 +13,7 @@
 
 using namespace llvm::CompilationUtils;
 
-class CompilationUtilsTest : public ::testing::Test {
-};
+class CompilationUtilsTest : public ::testing::Test {};
 
 TEST_F(CompilationUtilsTest, PipeKindReadWrite) {
   PipeKind Kind;

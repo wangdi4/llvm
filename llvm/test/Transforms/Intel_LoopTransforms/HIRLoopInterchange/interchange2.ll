@@ -5,10 +5,23 @@
 ;            A[j][i] = A[j+m][i+n] + 1;
 ;
 ; REQUIRES: asserts
-; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
+
+; Check the proper optreport is emitted for Loop Interchange.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=high --enable-debugify %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     remark #25445: Loop interchange not done due to: Data Dependencies
+; OPTREPORT-NEXT:     remark #25446: Dependencies found between following statements:
+; OPTREPORT-NEXT:     remark #25447: Loop interchange: assumed ANTI dependence between (8:1) and (11:1)
+; OPTREPORT-NEXT:     remark #25447: Loop interchange: assumed FLOW dependence between (11:1) and (8:1)
+; OPTREPORT-NEXT:     remark #25451: Advice: Loop interchange, if possible, might help loopnest. Suggested Permutation: ( 1 2 ) --> ( 2 1 )
+; OPTREPORT:          LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+
 ; ModuleID = 'interchange2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

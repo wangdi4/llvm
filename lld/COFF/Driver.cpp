@@ -40,7 +40,6 @@
 #include "lld/Common/Timer.h"
 #include "lld/Common/Version.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Magic.h"
@@ -69,6 +68,7 @@
 #include <algorithm>
 #include <future>
 #include <memory>
+#include <optional>
 
 using namespace llvm;
 using namespace llvm::object;
@@ -391,7 +391,20 @@ void LinkerDriver::parseDirectives(InputFile *file) {
         exp.name = saver().save("_" + exp.name);
       if (!exp.extName.empty() && !isDecorated(exp.extName))
         exp.extName = saver().save("_" + exp.extName);
+#if INTEL_CUSTOMIZATION
+    } else {
+      // CMPLRLLVM-39204: The information stored in the StringRef fields of
+      // the structure Export is getting deleted after the LTO process in
+      // some cases. We are going to make sure that the memory space is
+      // allocated, the string is copied to the new space, and that the
+      // pointer to the string points to to it. The function saver will
+      // return an llvm::StringSaver object, which will take care of
+      // handling the string.
+      exp.name = saver().save(exp.name);
+      exp.extName = saver().save(exp.extName);
+      exp.forwardTo = saver().save(exp.forwardTo);
     }
+#endif // INTEL_CUSTOMIZATION
     exp.directives = true;
     config->exports.push_back(exp);
   }
@@ -418,7 +431,7 @@ void LinkerDriver::parseDirectives(InputFile *file) {
       parseAlternateName(arg->getValue());
       break;
     case OPT_defaultlib:
-      if (Optional<StringRef> path = findLib(arg->getValue()))
+      if (std::optional<StringRef> path = findLib(arg->getValue()))
         enqueuePath(*path, false, false);
       break;
     case OPT_entry:
@@ -499,22 +512,22 @@ StringRef LinkerDriver::doFindFile(StringRef filename) {
   return filename;
 }
 
-static Optional<sys::fs::UniqueID> getUniqueID(StringRef path) {
+static std::optional<sys::fs::UniqueID> getUniqueID(StringRef path) {
   sys::fs::UniqueID ret;
   if (sys::fs::getUniqueID(path, ret))
-    return None;
+    return std::nullopt;
   return ret;
 }
 
 // Resolves a file path. This never returns the same path
-// (in that case, it returns None).
-Optional<StringRef> LinkerDriver::findFile(StringRef filename) {
+// (in that case, it returns std::nullopt).
+std::optional<StringRef> LinkerDriver::findFile(StringRef filename) {
   StringRef path = doFindFile(filename);
 
-  if (Optional<sys::fs::UniqueID> id = getUniqueID(path)) {
+  if (std::optional<sys::fs::UniqueID> id = getUniqueID(path)) {
     bool seen = !visitedFiles.insert(*id).second;
     if (seen)
-      return None;
+      return std::nullopt;
   }
 
   if (path.endswith_insensitive(".lib"))
@@ -550,20 +563,20 @@ StringRef LinkerDriver::doFindLib(StringRef filename) {
 
 // Resolves a library path. /nodefaultlib options are taken into
 // consideration. This never returns the same path (in that case,
-// it returns None).
-Optional<StringRef> LinkerDriver::findLib(StringRef filename) {
+// it returns std::nullopt).
+std::optional<StringRef> LinkerDriver::findLib(StringRef filename) {
   if (config->noDefaultLibAll)
-    return None;
+    return std::nullopt;
   if (!visitedLibs.insert(filename.lower()).second)
-    return None;
+    return std::nullopt;
 
   StringRef path = doFindLib(filename);
   if (config->noDefaultLibs.count(path.lower()))
-    return None;
+    return std::nullopt;
 
-  if (Optional<sys::fs::UniqueID> id = getUniqueID(path))
+  if (std::optional<sys::fs::UniqueID> id = getUniqueID(path))
     if (!visitedFiles.insert(*id).second)
-      return None;
+      return std::nullopt;
   return path;
 }
 
@@ -574,7 +587,7 @@ void LinkerDriver::detectWinSysRoot(const opt::InputArgList &Args) {
   // use. Check the environment next, in case we're being invoked from a VS
   // command prompt. Failing that, just try to find the newest Visual Studio
   // version we can and use its default VC toolchain.
-  Optional<StringRef> VCToolsDir, VCToolsVersion, WinSysRoot;
+  std::optional<StringRef> VCToolsDir, VCToolsVersion, WinSysRoot;
   if (auto *A = Args.getLastArg(OPT_vctoolsdir))
     VCToolsDir = A->getValue();
   if (auto *A = Args.getLastArg(OPT_vctoolsversion))
@@ -604,7 +617,7 @@ void LinkerDriver::detectWinSysRoot(const opt::InputArgList &Args) {
                          Args.getLastArg(OPT_vctoolsdir, OPT_winsysroot);
   if (Args.hasArg(OPT_lldignoreenv) || !Process::GetEnv("LIB") ||
       Args.getLastArg(OPT_winsdkdir, OPT_winsysroot)) {
-    Optional<StringRef> WinSdkDir, WinSdkVersion;
+    std::optional<StringRef> WinSdkDir, WinSdkVersion;
     if (auto *A = Args.getLastArg(OPT_winsdkdir))
       WinSdkDir = A->getValue();
     if (auto *A = Args.getLastArg(OPT_winsdkversion))
@@ -664,7 +677,7 @@ void LinkerDriver::addWinSysRootLibSearchPaths() {
 
 // Parses LIB environment which contains a list of search paths.
 void LinkerDriver::addLibSearchPaths() {
-  Optional<std::string> envOpt = Process::GetEnv("LIB");
+  std::optional<std::string> envOpt = Process::GetEnv("LIB");
   if (!envOpt)
     return;
   StringRef env = saver().save(*envOpt);
@@ -1098,7 +1111,7 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
   file_magic magic = identify_magic(mbref.getBuffer());
 
   if (magic == file_magic::bitcode)
-    return None;
+    return std::nullopt;
   if (magic != file_magic::archive)
     return path.str();
   if (!needsRebuilding(mbref))
@@ -1114,7 +1127,7 @@ filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
       New.emplace_back(member);
 
   if (New.empty())
-    return None;
+    return std::nullopt;
 
   log("Creating a temporary archive for " + path + " to remove bitcode files");
 
@@ -1491,7 +1504,7 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   AutoExporter exporter(excludedSymbols);
 
   for (auto *arg : args.filtered(OPT_wholearchive_file))
-    if (Optional<StringRef> path = doFindFile(arg->getValue()))
+    if (std::optional<StringRef> path = doFindFile(arg->getValue()))
       exporter.addWholeArchive(*path);
 
   for (auto *arg : args.filtered(OPT_exclude_symbols)) {
@@ -1563,7 +1576,7 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
 // /linkrepro and /reproduce are very similar, but /linkrepro takes a directory
 // name while /reproduce takes a full path. We have /linkrepro for compatibility
 // with Microsoft link.exe.
-Optional<std::string> getReproduceFile(const opt::InputArgList &args) {
+std::optional<std::string> getReproduceFile(const opt::InputArgList &args) {
   if (auto *arg = args.getLastArg(OPT_reproduce))
     return std::string(arg->getValue());
 
@@ -1578,7 +1591,7 @@ Optional<std::string> getReproduceFile(const opt::InputArgList &args) {
   if (auto *path = getenv("LLD_REPRODUCE"))
     return std::string(path);
 
-  return None;
+  return std::nullopt;
 }
 
 static std::unique_ptr<llvm::vfs::FileSystem>
@@ -1636,8 +1649,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // Parse and evaluate -mllvm options.
   std::vector<const char *> v;
   v.push_back("lld-link (LLVM option parsing)");
-  for (auto *arg : args.filtered(OPT_mllvm))
+  for (const auto *arg : args.filtered(OPT_mllvm)) {
     v.push_back(arg->getValue());
+    config->mllvmOpts.emplace_back(arg->getValue());
+  }
 #if INTEL_CUSTOMIZATION
   // Don't reset llvm::cl states if coff::link is embedded in the compiler.
   if (!args.hasArg(OPT_intel_embedded_linker))
@@ -1690,9 +1705,12 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // Handle /lldmingw early, since it can potentially affect how other
   // options are handled.
   config->mingw = args.hasArg(OPT_lldmingw);
+  if (config->mingw)
+    ctx.e.errorLimitExceededMsg = "too many errors emitted, stopping now"
+                                  " (use --error-limit=0 to see all errors)";
 
   // Handle /linkrepro and /reproduce.
-  if (Optional<std::string> path = getReproduceFile(args)) {
+  if (std::optional<std::string> path = getReproduceFile(args)) {
     Expected<std::unique_ptr<TarWriter>> errOrWriter =
         TarWriter::create(*path, sys::path::stem(*path));
 
@@ -1943,13 +1961,14 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   // Handle /opt.
   bool doGC = debug == DebugKind::None || args.hasArg(OPT_profile);
-  Optional<ICFLevel> icfLevel;
+  std::optional<ICFLevel> icfLevel;
   if (args.hasArg(OPT_profile))
     icfLevel = ICFLevel::None;
   unsigned tailMerge = 1;
   bool ltoNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
   bool ltoDebugPM = false;
   bool intelLibIRCAllowed = false; // INTEL
+  bool intelShouldDiscardValueNames = true; // INTEL
   for (auto *arg : args.filtered(OPT_opt)) {
     std::string str = StringRef(arg->getValue()).lower();
     SmallVector<StringRef, 1> vec;
@@ -1976,6 +1995,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
         ltoNewPM = false;
       } else if (s == "fintel-libirc-allowed") {
         intelLibIRCAllowed = true;
+      } else if (s == "fintel-preserve-value-names") {
+        intelShouldDiscardValueNames = false;
 #endif // INTEL_CUSTOMIZATION
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
@@ -2009,6 +2030,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   config->ltoNewPassManager = ltoNewPM; // INTEL
   config->ltoDebugPassManager = ltoDebugPM;
   config->intelLibIRCAllowed = intelLibIRCAllowed; // INTEL
+  config->intelShouldDiscardValueNames = intelShouldDiscardValueNames; // INTEL
 
   // Handle /lldsavetemps
   if (args.hasArg(OPT_lldsavetemps))
@@ -2144,15 +2166,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   if (config->mingw || config->debugDwarf)
     config->warnLongSectionNames = false;
 
-  config->lldmapFile = getMapFile(args, OPT_lldmap, OPT_lldmap_file);
-  config->mapFile = getMapFile(args, OPT_map, OPT_map_file);
-
-  if (config->lldmapFile != "" && config->lldmapFile == config->mapFile) {
-    warn("/lldmap and /map have the same output file '" + config->mapFile +
-         "'.\n>>> ignoring /lldmap");
-    config->lldmapFile.clear();
-  }
-
   if (config->incremental && args.hasArg(OPT_profile)) {
     warn("ignoring '/incremental' due to '/profile' specification");
     config->incremental = false;
@@ -2200,8 +2213,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   std::set<sys::fs::UniqueID> wholeArchives;
   for (auto *arg : args.filtered(OPT_wholearchive_file))
-    if (Optional<StringRef> path = doFindFile(arg->getValue()))
-      if (Optional<sys::fs::UniqueID> id = getUniqueID(*path))
+    if (std::optional<StringRef> path = doFindFile(arg->getValue()))
+      if (std::optional<sys::fs::UniqueID> id = getUniqueID(*path))
         wholeArchives.insert(*id);
 
   // A predicate returning true if a given path is an argument for
@@ -2211,7 +2224,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   auto isWholeArchive = [&](StringRef path) -> bool {
     if (args.hasArg(OPT_wholearchive_flag))
       return true;
-    if (Optional<sys::fs::UniqueID> id = getUniqueID(path))
+    if (std::optional<sys::fs::UniqueID> id = getUniqueID(path))
       return wholeArchives.count(*id);
     return false;
   };
@@ -2233,11 +2246,11 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       inLib = true;
       break;
     case OPT_wholearchive_file:
-      if (Optional<StringRef> path = findFile(arg->getValue()))
+      if (std::optional<StringRef> path = findFile(arg->getValue()))
         enqueuePath(*path, true, inLib);
       break;
     case OPT_INPUT:
-      if (Optional<StringRef> path = findFile(arg->getValue()))
+      if (std::optional<StringRef> path = findFile(arg->getValue()))
         enqueuePath(*path, isWholeArchive(*path), inLib);
       break;
     default:
@@ -2263,7 +2276,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // Process files specified as /defaultlib. These must be processed after
   // addWinSysRootLibSearchPaths(), which is why they are in a separate loop.
   for (auto *arg : args.filtered(OPT_defaultlib))
-    if (Optional<StringRef> path = findLib(arg->getValue()))
+    if (std::optional<StringRef> path = findLib(arg->getValue()))
       enqueuePath(*path, false, false);
   run();
   if (errorCount())
@@ -2376,6 +2389,25 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   if (auto e = tryCreateFile(config->outputFile)) {
     error("cannot open output file " + config->outputFile + ": " + e.message());
     return;
+  }
+
+  config->lldmapFile = getMapFile(args, OPT_lldmap, OPT_lldmap_file);
+  config->mapFile = getMapFile(args, OPT_map, OPT_map_file);
+
+  if (config->mapFile != "" && args.hasArg(OPT_map_info)) {
+    for (auto *arg : args.filtered(OPT_map_info)) {
+      std::string s = StringRef(arg->getValue()).lower();
+      if (s == "exports")
+        config->mapInfo = true;
+      else
+        error("unknown option: /mapinfo:" + s);
+    }
+  }
+
+  if (config->lldmapFile != "" && config->lldmapFile == config->mapFile) {
+    warn("/lldmap and /map have the same output file '" + config->mapFile +
+         "'.\n>>> ignoring /lldmap");
+    config->lldmapFile.clear();
   }
 
   if (shouldCreatePDB) {
@@ -2539,34 +2571,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     maybeExportMinGWSymbols(args);
   }
 
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-39204: The information stored in the StringRef fields of the
-  // structure Export is getting deteled after the LTO process in some cases.
-  // We are going to make sure that the memory space is allocated, the string
-  // is copied to the new space, and that the pointer to the string points to
-  // to it. The function saver will return an llvm::StringSaver object, which
-  // will take care of handling the string.
-#if INTEL_FEATURE_SW_ADVANCED
-  // NOTE: This is a workaround, we still need to investigate why LTO process
-  // is modifying the fields of the exported symbols. Also, the issue only
-  // happens when building Arnold-core.
-#endif // INTEL_FEATURE_SW_ADVANCED
-  for (Export& e : config->exports) {
-    if (!e.name.empty())
-      e.name = saver().save(e.name);
-    if (!e.extName.empty())
-      e.extName = saver().save(e.extName);
-    if (!e.aliasTarget.empty())
-      e.aliasTarget = saver().save(e.aliasTarget);
-    if (!e.forwardTo.empty())
-      e.forwardTo = saver().save(e.forwardTo);
-    if (!e.symbolName.empty())
-      e.symbolName = saver().save(e.symbolName);
-    if (!e.exportName.empty())
-      e.exportName = saver().save(e.exportName);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we
   // resolve symbols and write indices, but don't generate native code or link).
@@ -2685,7 +2689,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       // For now, just manually try to retain the known possible personality
       // functions. This doesn't bring in more object files, but only marks
       // functions that already have been included to be retained.
-      for (const char *n : {"__gxx_personality_v0", "__gcc_personality_v0"}) {
+      for (const char *n : {"__gxx_personality_v0", "__gcc_personality_v0",
+                            "rust_eh_personality"}) {
         Defined *d = dyn_cast_or_null<Defined>(ctx.symtab.findUnderscore(n));
         if (d && !d->isGCRoot) {
           d->isGCRoot = true;

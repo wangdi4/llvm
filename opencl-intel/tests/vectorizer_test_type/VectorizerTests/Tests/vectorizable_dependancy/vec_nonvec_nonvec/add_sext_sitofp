@@ -7,22 +7,22 @@
  * icmp instruction.
  *
  * @param in
- * 		The input array.
+ *     The input array.
  * @param out
- * 		The output array.
+ *     The output array.
  *
  */
 __kernel void
 add_sext_sitofp ( __global const float *in,
-		__global float2 *out)
+    __global float2 *out)
 {
-	int gid = get_global_id(0);
-	char arg1 = gid;
-	char arg2 = in[gid];
-	char arg3 = arg1 + arg2;
-	int arg4 = arg3;
-	arg4 = arg4 + 5;
-	float arg5 = arg3;
-	out[gid].x = arg4;
-	out[gid].y = arg5;
+  int gid = get_global_id(0);
+  char arg1 = gid;
+  char arg2 = in[gid];
+  char arg3 = arg1 + arg2;
+  int arg4 = arg3;
+  arg4 = arg4 + 5;
+  float arg5 = arg3;
+  out[gid].x = arg4;
+  out[gid].y = arg5;
 }

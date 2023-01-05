@@ -1,4 +1,3 @@
-; RUN: opt -ipsccp -S %s | FileCheck %s
 ; RUN: opt -passes=ipsccp -S %s | FileCheck %s
 ;
 ; Check that thread dependent constant is not propagated to the callback from

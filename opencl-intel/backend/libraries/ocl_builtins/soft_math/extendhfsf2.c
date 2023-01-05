@@ -29,11 +29,11 @@
 #endif
 #include "fp_extend_impl.inc"
 
-float __extendhfsf2(src_t a) {
-  return __extendXfYf2__(a);
-}
+float __extendhfsf2(src_t a) { return __extendXfYf2__(a); }
 
 #ifndef _WIN32
 __attribute__((weak))
 #endif
-float __gnu_h2f_ieee(src_t a) { return __extendhfsf2(a); }
+float __gnu_h2f_ieee(src_t a) {
+  return __extendhfsf2(a);
+}

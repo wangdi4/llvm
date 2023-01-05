@@ -54,7 +54,7 @@ void foo() {
 //CHECK: "DIR.OMP.END.TARGET"()
 
 //CHECK: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}}
-//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE_E7executeEv",{{.*}}}
-//CHECK: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE0_E7executeEv",{{.*}}}
+//CHECK-DAG: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE_E7executeEv",{{.*}}}
+//CHECK-DAG: !{{[0-9]+}} = !{{{.*}}!"_ZNK7ClosureIZ3foovEUliE0_E7executeEv",{{.*}}}
 
 // end INTEL_COLLAB

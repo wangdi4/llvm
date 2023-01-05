@@ -5,12 +5,12 @@
 
 TEST(FrameworkTestType, ConfigEnvSize) {
 #ifndef _WIN32
-  const char* devNull = "/dev/null";
+  const char *devNull = "/dev/null";
 #else
-  const char* devNull = "nul";
+  const char *devNull = "nul";
 #endif
 
-  const char* env = nullptr;
+  const char *env = nullptr;
   size_t expected = 0;
 
   if (sizeof(size_t) == 8) {

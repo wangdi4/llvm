@@ -29,9 +29,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/ValueLatticeUtils.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/AbstractCallSite.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION

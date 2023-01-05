@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the base-padded relationship between
@@ -33,7 +32,7 @@ define "intel_dtrans_func_index"="1" i32 @foo(ptr "intel_dtrans_func_index"="2" 
   %agep = getelementptr %struct.test.a, ptr %ptr, i64 0, i32 0
   %boostgep = getelementptr %"struct.test.array", ptr %agep, i64 0, i32 0
   %arrgep = getelementptr [4 x i32], ptr %boostgep, i64 0, i32 0
-  %ret = load i32, i32* %arrgep
+  %ret = load i32, ptr %arrgep
 
   ret i32 %ret
 }

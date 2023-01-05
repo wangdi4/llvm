@@ -52,6 +52,7 @@
 #include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstdint>
+#include <optional>
 
 namespace llvm {
 
@@ -108,6 +109,7 @@ public:
     case Intrinsic::assume:
     case Intrinsic::sideeffect:
     case Intrinsic::pseudoprobe:
+    case Intrinsic::dbg_assign:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_label:
@@ -139,6 +141,31 @@ public:
   }
 };
 
+/// Check if \p ID corresponds to a lifetime intrinsic.
+static inline bool isLifetimeIntrinsic(Intrinsic::ID ID) {
+  switch (ID) {
+  case Intrinsic::lifetime_start:
+  case Intrinsic::lifetime_end:
+    return true;
+  default:
+    return false;
+  }
+}
+
+/// This is the common base class for lifetime intrinsics.
+class LifetimeIntrinsic : public IntrinsicInst {
+public:
+  /// \name Casting methods
+  /// @{
+  static bool classof(const IntrinsicInst *I) {
+    return isLifetimeIntrinsic(I->getIntrinsicID());
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+  /// @}
+};
+
 /// Check if \p ID corresponds to a debug info intrinsic.
 static inline bool isDbgInfoIntrinsic(Intrinsic::ID ID) {
   switch (ID) {
@@ -146,6 +173,7 @@ static inline bool isDbgInfoIntrinsic(Intrinsic::ID ID) {
   case Intrinsic::dbg_value:
   case Intrinsic::dbg_addr:
   case Intrinsic::dbg_label:
+  case Intrinsic::dbg_assign:
     return true;
   default:
     return false;
@@ -248,10 +276,12 @@ public:
 
   bool hasArgList() const { return isa<DIArgList>(getRawLocation()); }
 
-  /// Does this describe the address of a local variable. True for dbg.addr
-  /// and dbg.declare, but not dbg.value, which describes its value.
+  /// Does this describe the address of a local variable. True for dbg.addr and
+  /// dbg.declare, but not dbg.value, which describes its value, or dbg.assign,
+  /// which describes a combination of the variable's value and address.
   bool isAddressOfVariable() const {
-    return getIntrinsicID() != Intrinsic::dbg_value;
+    return getIntrinsicID() != Intrinsic::dbg_value &&
+           getIntrinsicID() != Intrinsic::dbg_assign;
   }
 
   void setUndef() {
@@ -301,7 +331,12 @@ public:
 
   /// Get the size (in bits) of the variable, or fragment of the variable that
   /// is described.
-  Optional<uint64_t> getFragmentSizeInBits() const;
+  std::optional<uint64_t> getFragmentSizeInBits() const;
+
+  /// Get the FragmentInfo for the variable.
+  std::optional<DIExpression::FragmentInfo> getFragment() const {
+    return getExpression()->getFragmentInfo();
+  }
 
   /// \name Casting methods
   /// @{
@@ -310,6 +345,7 @@ public:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_addr:
+    case Intrinsic::dbg_assign:
       return true;
     default:
       return false;
@@ -319,7 +355,7 @@ public:
     return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
   }
   /// @}
-private:
+protected:
   void setArgOperand(unsigned i, Value *v) {
     DbgInfoIntrinsic::setArgOperand(i, v);
   }
@@ -380,7 +416,52 @@ public:
   /// \name Casting methods
   /// @{
   static bool classof(const IntrinsicInst *I) {
-    return I->getIntrinsicID() == Intrinsic::dbg_value;
+    return I->getIntrinsicID() == Intrinsic::dbg_value ||
+           I->getIntrinsicID() == Intrinsic::dbg_assign;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+  /// @}
+};
+
+/// This represents the llvm.dbg.assign instruction.
+class DbgAssignIntrinsic : public DbgValueInst {
+  enum Operands {
+    OpValue,
+    OpVar,
+    OpExpr,
+    OpAssignID,
+    OpAddress,
+    OpAddressExpr,
+  };
+
+public:
+  Value *getAddress() const;
+  Metadata *getRawAddress() const {
+    return cast<MetadataAsValue>(getArgOperand(OpAddress))->getMetadata();
+  }
+  Metadata *getRawAssignID() const {
+    return cast<MetadataAsValue>(getArgOperand(OpAssignID))->getMetadata();
+  }
+  DIAssignID *getAssignID() const { return cast<DIAssignID>(getRawAssignID()); }
+  Metadata *getRawAddressExpression() const {
+    return cast<MetadataAsValue>(getArgOperand(OpAddressExpr))->getMetadata();
+  }
+  DIExpression *getAddressExpression() const {
+    return cast<DIExpression>(getRawAddressExpression());
+  }
+  void setAddressExpression(DIExpression *NewExpr) {
+    setArgOperand(OpAddressExpr,
+                  MetadataAsValue::get(NewExpr->getContext(), NewExpr));
+  }
+  void setAssignId(DIAssignID *New);
+  void setAddress(Value *V);
+  void setValue(Value *V);
+  /// \name Casting methods
+  /// @{
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::dbg_assign;
   }
   static bool classof(const Value *V) {
     return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
@@ -418,8 +499,9 @@ public:
                                            Type *ReturnType,
                                            ArrayRef<Value *> Params);
 
-  static Optional<unsigned> getMaskParamPos(Intrinsic::ID IntrinsicID);
-  static Optional<unsigned> getVectorLengthParamPos(Intrinsic::ID IntrinsicID);
+  static std::optional<unsigned> getMaskParamPos(Intrinsic::ID IntrinsicID);
+  static std::optional<unsigned> getVectorLengthParamPos(
+      Intrinsic::ID IntrinsicID);
 
   /// The llvm.vp.* intrinsics for this instruction Opcode
   static Intrinsic::ID getForOpcode(unsigned OC);
@@ -449,11 +531,11 @@ public:
 
   /// \return The pointer operand of this load,store, gather or scatter.
   Value *getMemoryPointerParam() const;
-  static Optional<unsigned> getMemoryPointerParamPos(Intrinsic::ID);
+  static std::optional<unsigned> getMemoryPointerParamPos(Intrinsic::ID);
 
   /// \return The data (payload) operand of this store or scatter.
   Value *getMemoryDataParam() const;
-  static Optional<unsigned> getMemoryDataParamPos(Intrinsic::ID);
+  static std::optional<unsigned> getMemoryDataParamPos(Intrinsic::ID);
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:
   static bool classof(const IntrinsicInst *I) {
@@ -464,12 +546,12 @@ public:
   }
 
   // Equivalent non-predicated opcode
-  Optional<unsigned> getFunctionalOpcode() const {
+  std::optional<unsigned> getFunctionalOpcode() const {
     return getFunctionalOpcodeForVP(getIntrinsicID());
   }
 
   // Equivalent non-predicated opcode
-  static Optional<unsigned> getFunctionalOpcodeForVP(Intrinsic::ID ID);
+  static std::optional<unsigned> getFunctionalOpcodeForVP(Intrinsic::ID ID);
 };
 
 /// This represents vector predication reduction intrinsics.
@@ -480,8 +562,8 @@ public:
   unsigned getStartParamPos() const;
   unsigned getVectorParamPos() const;
 
-  static Optional<unsigned> getStartParamPos(Intrinsic::ID ID);
-  static Optional<unsigned> getVectorParamPos(Intrinsic::ID ID);
+  static std::optional<unsigned> getStartParamPos(Intrinsic::ID ID);
+  static std::optional<unsigned> getVectorParamPos(Intrinsic::ID ID);
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:
   /// @{
@@ -531,8 +613,8 @@ class ConstrainedFPIntrinsic : public IntrinsicInst {
 public:
   bool isUnaryOp() const;
   bool isTernaryOp() const;
-  Optional<RoundingMode> getRoundingMode() const;
-  Optional<fp::ExceptionBehavior> getExceptionBehavior() const;
+  std::optional<RoundingMode> getRoundingMode() const;
+  std::optional<fp::ExceptionBehavior> getExceptionBehavior() const;
   bool isDefaultFPEnvironment() const;
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:

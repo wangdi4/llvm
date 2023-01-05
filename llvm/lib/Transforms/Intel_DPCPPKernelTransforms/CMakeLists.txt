@@ -40,7 +40,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPEqualizer.cpp
   DPCPPKernelAnalysis.cpp
   DPCPPKernelPostVec.cpp
-  DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
   DPCPPKernelWGLoopCreator.cpp
   DPCPPPrepareKernelForVecClone.cpp
@@ -84,6 +83,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ResolveSubGroupWICall.cpp
   ResolveVarTIDCall.cpp
   ResolveWICall.cpp
+  SGRemapWICall.cpp
   SetPreferVectorWidth.cpp
   SetVectorizationFactor.cpp
   SinCosFold.cpp

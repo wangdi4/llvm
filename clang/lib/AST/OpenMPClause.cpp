@@ -141,6 +141,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_collapse:
 #if INTEL_COLLAB
   case OMPC_data:
+  case OMPC_need_device_ptr:
 #endif // INTEL_COLLAB`
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -188,6 +189,9 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+  case OMPC_at:
+  case OMPC_severity:
+  case OMPC_message:
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
@@ -282,11 +286,17 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
   case OMPC_has_device_addr:
+#if INTEL_COLLAB
+  case OMPC_need_device_ptr:
+#endif
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+  case OMPC_at:
+  case OMPC_severity:
+  case OMPC_message:
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
@@ -1648,6 +1658,26 @@ OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C, unsigned N) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
   return new (Mem) OMPDataClause(N);
 }
+
+OMPNeedDevicePtrClause *OMPNeedDevicePtrClause::Create(const ASTContext &C,
+                                                       SourceLocation StartLoc,
+                                                       SourceLocation LParenLoc,
+                                                       SourceLocation EndLoc,
+                                                       ArrayRef<Expr *> Args) {
+  OMPNeedDevicePtrClause *Clause = CreateEmpty(C, Args.size());
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
+  Clause->setArgsRefs(Args);
+  return Clause;
+}
+
+OMPNeedDevicePtrClause *OMPNeedDevicePtrClause::CreateEmpty(const ASTContext &C,
+                                                            unsigned NumArgs) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumArgs));
+  return new (Mem) OMPNeedDevicePtrClause(NumArgs);
+}
+
 #endif // INTEL_COLLAB
 
 OMPInclusiveClause *OMPInclusiveClause::Create(const ASTContext &C,
@@ -1886,6 +1916,19 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
   VisitOMPClauseList(Node, Hint ? ' ' : '(');
   OS << ")";
 }
+
+void OMPClausePrinter::VisitOMPNeedDevicePtrClause(
+    OMPNeedDevicePtrClause *Node) {
+  OS << "need_device_ptr(";
+  bool First = true;
+  for (auto *Arg : Node->getArgsRefs()) {
+    if (!First)
+      OS << ", ";
+    Arg->printPretty(OS, nullptr, Policy, 0);
+    First = false;
+  }
+  OS << ")";
+}
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
@@ -2050,6 +2093,22 @@ void OMPClausePrinter::VisitOMPAtomicDefaultMemOrderClause(
      << ")";
 }
 
+void OMPClausePrinter::VisitOMPAtClause(OMPAtClause *Node) {
+  OS << "at(" << getOpenMPSimpleClauseTypeName(OMPC_at, Node->getAtKind())
+     << ")";
+}
+
+void OMPClausePrinter::VisitOMPSeverityClause(OMPSeverityClause *Node) {
+  OS << "severity("
+     << getOpenMPSimpleClauseTypeName(OMPC_severity, Node->getSeverityKind())
+     << ")";
+}
+
+void OMPClausePrinter::VisitOMPMessageClause(OMPMessageClause *Node) {
+  OS << "message(\""
+     << cast<StringLiteral>(Node->getMessageString())->getString() << "\")";
+}
+
 void OMPClausePrinter::VisitOMPScheduleClause(OMPScheduleClause *Node) {
   OS << "schedule(";
   if (Node->getFirstScheduleModifier() != OMPC_SCHEDULE_MODIFIER_unknown) {
@@ -2174,12 +2233,22 @@ void OMPClausePrinter::VisitOMPPriorityClause(OMPPriorityClause *Node) {
 
 void OMPClausePrinter::VisitOMPGrainsizeClause(OMPGrainsizeClause *Node) {
   OS << "grainsize(";
+  OpenMPGrainsizeClauseModifier Modifier = Node->getModifier();
+  if (Modifier != OMPC_GRAINSIZE_unknown) {
+    OS << getOpenMPSimpleClauseTypeName(Node->getClauseKind(), Modifier)
+       << ": ";
+  }
   Node->getGrainsize()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
 
 void OMPClausePrinter::VisitOMPNumTasksClause(OMPNumTasksClause *Node) {
   OS << "num_tasks(";
+  OpenMPNumTasksClauseModifier Modifier = Node->getModifier();
+  if (Modifier != OMPC_NUMTASKS_unknown) {
+    OS << getOpenMPSimpleClauseTypeName(Node->getClauseKind(), Modifier)
+       << ": ";
+  }
   Node->getNumTasks()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
@@ -2641,8 +2710,12 @@ void OMPClausePrinter::VisitOMPNontemporalClause(OMPNontemporalClause *Node) {
 }
 
 void OMPClausePrinter::VisitOMPOrderClause(OMPOrderClause *Node) {
-  OS << "order(" << getOpenMPSimpleClauseTypeName(OMPC_order, Node->getKind())
-     << ")";
+  OS << "order(";
+  if (Node->getModifier() != OMPC_ORDER_MODIFIER_unknown) {
+    OS << getOpenMPSimpleClauseTypeName(OMPC_order, Node->getModifier());
+    OS << ": ";
+  }
+  OS << getOpenMPSimpleClauseTypeName(OMPC_order, Node->getKind()) << ")";
 }
 
 void OMPClausePrinter::VisitOMPInclusiveClause(OMPInclusiveClause *Node) {

@@ -20,18 +20,16 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
 /// Checks all vectorization factor related issues for kernels.
 /// The flow is:
-/// 1. hasMultipleVFConstraints(): Check whether there is more than one VF
-///    constraint. If more than one of ForceVF, intel_vec_len_hint
-///    and intel_reqd_sub_group_size is defined, emit a VFAnalysisDiagInfo of
-///    VFKD_ConstraintConflict kind, which should be handled outside the
-///    optimizer.
+/// 1. hasConflictVFConstraints(): Check whether there are multiple VF
+///    constraints and their values are conflicting. If true, emit a
+///    VFAnalysisDiagInfo of VFKD_ConstraintConflict kind, which should be
+///    handled outside the optimizer.
 /// 2. deduceVF(): Deduce initial VF according to given constraints. Initial
 ///    means this VF may be fallbacked. Currently just let intel_vec_len_hint
 ///    can be fallbacked.
@@ -81,7 +79,8 @@ private:
   /// - ForceVF
   /// - "intel_vec_len_hint" metadata
   /// - "intel_reqd_sub_group_size" metadata
-  bool hasMultipleVFConstraints(Function *Kernel);
+  /// and their values are different.
+  bool hasConflictVFConstraints(Function *Kernel);
 
   /// Return deduced VF according to the given constriant.
   /// - HeuristicVF Heuristic VF computed by WeightedInstCountAnalysis.
@@ -186,28 +185,6 @@ private:
   raw_ostream &OS;
 };
 
-/// Legacy VFAnalysis module pass.
-class VFAnalysisLegacy : public ModulePass {
-private:
-  VFAnalysisInfo Result;
-
-public:
-  static char ID;
-
-  VFAnalysisLegacy() : ModulePass(ID) {
-    initializeVFAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "VFAnalysisLegacy"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  const VFAnalysisInfo &getResult() const { return Result; }
-
-  void print(raw_ostream &OS, const Module *M) const override;
-};
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VF_ANALYSIS_H

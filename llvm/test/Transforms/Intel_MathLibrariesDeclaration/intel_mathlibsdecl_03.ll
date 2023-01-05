@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-math-libraries-decl -debug-only=intel-math-libraries-decl %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes=intel-math-libraries-decl -debug-only=intel-math-libraries-decl %s -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the declaration for exp (long) was

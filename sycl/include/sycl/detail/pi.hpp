@@ -67,12 +67,20 @@ bool trace(TraceLevel level);
 #define __SYCL_CUDA_PLUGIN_NAME "pi_cuda.dll"
 #define __SYCL_ESIMD_EMULATOR_PLUGIN_NAME "pi_esimd_emulator.dll"
 #define __SYCL_HIP_PLUGIN_NAME "libpi_hip.dll"
-#else
+#elif defined(__SYCL_RT_OS_LINUX)
 #define __SYCL_OPENCL_PLUGIN_NAME "libpi_opencl.so"
 #define __SYCL_LEVEL_ZERO_PLUGIN_NAME "libpi_level_zero.so"
 #define __SYCL_CUDA_PLUGIN_NAME "libpi_cuda.so"
 #define __SYCL_ESIMD_EMULATOR_PLUGIN_NAME "libpi_esimd_emulator.so"
 #define __SYCL_HIP_PLUGIN_NAME "libpi_hip.so"
+#elif defined(__SYCL_RT_OS_DARWIN)
+#define __SYCL_OPENCL_PLUGIN_NAME "libpi_opencl.dylib"
+#define __SYCL_LEVEL_ZERO_PLUGIN_NAME "libpi_level_zero.dylib"
+#define __SYCL_CUDA_PLUGIN_NAME "libpi_cuda.dylib"
+#define __SYCL_ESIMD_EMULATOR_PLUGIN_NAME "libpi_esimd_emulator.dylib"
+#define __SYCL_HIP_PLUGIN_NAME "libpi_hip.dylib"
+#else
+#error "Unsupported OS"
 #endif
 
 // Report error and no return (keeps compiler happy about no return statements).
@@ -105,6 +113,7 @@ using PiDeviceInfo = ::pi_device_info;
 using PiProgramInfo = ::pi_program_info;
 using PiDeviceBinaryType = ::pi_device_binary_type;
 using PiContext = ::pi_context;
+using PiContextInfo = ::pi_context_info;
 using PiProgram = ::pi_program;
 using PiKernel = ::pi_kernel;
 using PiQueue = ::pi_queue;
@@ -152,6 +161,7 @@ template <class To, class From> To cast(From value);
 // Holds the PluginInformation for the plugin that is bound.
 // Currently a global variable is used to store OpenCL plugin information to be
 // used with SYCL Interoperability Constructors.
+// TODO: GlobalPlugin does not seem to be needed anymore. Consider removing it!
 extern std::shared_ptr<plugin> GlobalPlugin;
 
 // Performs PI one-time initialization.

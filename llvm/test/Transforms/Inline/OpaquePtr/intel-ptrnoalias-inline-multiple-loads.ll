@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -inline < %s -S -o - | FileCheck %s
 ; RUN: opt -opaque-pointers -passes=inline < %s -S -o - | FileCheck %s
 
 ; Both stores after inlining should have the same !alias.scope metadata.

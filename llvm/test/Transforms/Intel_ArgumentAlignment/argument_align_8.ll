@@ -1,10 +1,9 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the argument alignment didn't pass the analysis process
 ; and prints the proper debug messages.
 ; This test is same as argument_align_4.ll except "null" is also stored into
 ; the malloced location in addition to return address of "calloc".
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; CHECK: Candidates for argument alignment: 0

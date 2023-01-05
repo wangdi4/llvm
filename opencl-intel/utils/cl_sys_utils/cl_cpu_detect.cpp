@@ -128,8 +128,8 @@ CPUId CPUDetect::GetCPUIdForKernelPropertiesSerialize() const {
 
 // This is to reset CPU according to ICompilerConfig when
 // CL_CONFIG_CPU_TARGET_ARCH env is set
-void CPUDetect::ResetCPU(ECPU cpuId,
-                    const llvm::SmallVectorImpl<std::string> &forcedFeatures) {
+void CPUDetect::ResetCPU(
+    ECPU cpuId, const llvm::SmallVectorImpl<std::string> &forcedFeatures) {
   // Set CPU arch according to config
   m_CPUArch = cpuId;
   m_CPUString = GetCPUName(m_CPUArch);
@@ -344,31 +344,29 @@ void CPUDetect::GetHostCPUBrandInfo() {
                  viCPUInfo, sizeof(viCPUInfo));
       }
     }
-    m_HostCPUBrandString = STRDUP(vcCPUBrandString);
+    m_HostCPUBrandString = vcCPUBrandString;
   }
 
   // detect CPU brand
-  if (nullptr != m_HostCPUBrandString) {
-    if (m_HostCPUBrandString ==
-        strstr(m_HostCPUBrandString, "Intel(R) Core(TM)")) {
+  if (!m_HostCPUBrandString.empty()) {
+    if (m_HostCPUBrandString.find("Intel(R) Core(TM)") !=
+        m_HostCPUBrandString.npos) {
       m_HostCPUBrand = BRAND_INTEL_CORE;
-    } else if (m_HostCPUBrandString ==
-               strstr(m_HostCPUBrandString, "Intel(R) Atom(TM)")) {
+    } else if (m_HostCPUBrandString.find("Intel(R) Atom(TM)") !=
+               m_HostCPUBrandString.npos) {
       m_HostCPUBrand = BRAND_INTEL_ATOM;
-    } else if (m_HostCPUBrandString ==
-               strstr(m_HostCPUBrandString, "Intel(R) Pentium(R)")) {
+    } else if (m_HostCPUBrandString.find("Intel(R) Pentium(R)") !=
+               m_HostCPUBrandString.npos) {
       m_HostCPUBrand = BRAND_INTEL_PENTIUM;
-    } else if (m_HostCPUBrandString ==
-               strstr(m_HostCPUBrandString, "Intel(R) Celeron(R)")) {
+    } else if (m_HostCPUBrandString.find("Intel(R) Celeron(R)") !=
+               m_HostCPUBrandString.npos) {
       m_HostCPUBrand = BRAND_INTEL_CELERON;
-    } else if (m_HostCPUBrandString ==
-               strstr(m_HostCPUBrandString, "Intel(R) Xeon(R)")) {
+    } else if (m_HostCPUBrandString.find("Intel(R) Xeon(R)") !=
+               m_HostCPUBrandString.npos) {
       m_HostCPUBrand = BRAND_INTEL_XEON;
     } else {
       // uknown brand name
       m_HostCPUBrand = BRAND_UNKNOWN;
     }
-  } else {
-    m_HostCPUBrandString = STRDUP("");
   }
 }

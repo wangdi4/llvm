@@ -1,8 +1,6 @@
 ; This test checks that a global with common, external, weak or weak_odr linkage
 ; in global address space is not internalized by the pass.
 
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-internalize-global-variables -globaldce %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-internalize-global-variables -globaldce %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-internalize-global-variables,globaldce %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-internalize-global-variables,globaldce %s -S | FileCheck %s
 

@@ -1,6 +1,4 @@
 ; RUN: llvm-as %S/builtin_lib.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-resolve-sub-group-wi-call -S < %s | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-resolve-sub-group-wi-call -enable-debugify -disable-output 2>&1 -S < %s | FileCheck %s --check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes='debugify,dpcpp-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes='dpcpp-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
 

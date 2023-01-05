@@ -1,4 +1,4 @@
-; RUN: opt -vplan-vec -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; CHECK-LABEL: @foo1
 ; CHECK:  %tmp.vec = alloca <8 x i32>, align 4

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-pre-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that the i3 loop which depends on both i1 and i2 loop is not unrolled.

@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s | FileCheck %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s | FileCheck %s
 
@@ -54,5 +52,5 @@ entry:
 !0 = !{void (i16, <2 x i16>, <2 x i16>, <3 x i16>, <16 x i16>, <4 x i16>, <8 x i16>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-54: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

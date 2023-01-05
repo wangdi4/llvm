@@ -2,7 +2,6 @@
 ; (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2] into two memref groups.
 ; RTDD happens in i2 loop in this case.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***

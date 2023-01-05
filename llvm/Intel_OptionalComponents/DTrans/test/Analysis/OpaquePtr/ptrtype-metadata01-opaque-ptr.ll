@@ -5,7 +5,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; TODO: Remove the -opaque-pointers option. It is currently needed
 ; because global variables are not recognized as being opaque pointers yet.
 
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s
 
 ; This test verifies that a getelementptr instruction tagged with
@@ -53,7 +52,7 @@ define i32 @test01() {
 ; what the pointer gets used as. When the safety analyzer is run on this
 ; it should produce a safety flag.
 %struct.test02a = type { i64, i64 }
-%struct.test02b = type { %struct.test02a**, %struct.test02a**}
+%struct.test02b = type { ptr, ptr}
 %struct.test02bad = type { i64, i64 }
 @glob_test02 = internal unnamed_addr global %struct.test02b zeroinitializer
 
@@ -85,7 +84,7 @@ define i32 @test02() {
 ; CHECK-NEXT:     i8*
 ; CHECK-NEXT:   No element pointees.
 
-declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
 !0 = !{ %struct.test01a zeroinitializer, i32 2}
 !1 = !{%struct.test02bad zeroinitializer, i32 2}

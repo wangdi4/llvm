@@ -106,18 +106,21 @@ public:
   /// Collect DVs for checking the legality of loop permutation (a.k.a
   /// interchange). Usable in any transformation for preparing checking
   /// validity of permutation. OutermostLoop is the outermost loop of
-  /// the loopnest being analyzed for permutation.
+  /// the loopnest being analyzed for permutation. Collect Edges that
+  /// prevent permutation for OptReport.
   static void computeDVsForPermuteWithSBs(
       SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
       const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
       HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
-      const SpecialSymbasesTy *SpecialSBs);
+      const SpecialSymbasesTy *SpecialSBs,
+      SmallVectorImpl<const DDEdge *> *PermutePreventEdges = nullptr);
 
   static void computeDVsForPermuteWithSBs(
-      SmallVectorImpl<DirectionVector> &DVs,
-      const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
-      HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
-      const SpecialSymbasesTy *SpecialSBs);
+      SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
+      unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
+      HIRSafeReductionAnalysis &SRA, bool RefineDV,
+      const SpecialSymbasesTy *SpecialSBs,
+      SmallVectorImpl<const DDEdge *> *PermutePreventEdges = nullptr);
 
   /// Looks for a single dominating (load inst) definition of the base pointer
   /// of \p MemRef. Returns the rval load ref if found, nullptr otherwise. Ex-

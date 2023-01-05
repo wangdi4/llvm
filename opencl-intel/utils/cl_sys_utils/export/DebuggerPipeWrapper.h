@@ -23,21 +23,19 @@
 
 class DebuggerPipeWrapper {
 public:
-    DebuggerPipeWrapper();
-    bool init(std::string pipeName);
-    bool isDebuggingEnabled() const;
-    unsigned int getDebuggingPort() const;
+  DebuggerPipeWrapper();
+  bool init(std::string pipeName);
+  bool isDebuggingEnabled() const;
+  unsigned int getDebuggingPort() const;
 
-  private:
-    bool m_isDeubggingEnabled;
-    unsigned int m_debuggingPort;
+private:
+  bool m_isDeubggingEnabled;
+  unsigned int m_debuggingPort;
 
-    bool readPipeContent(HANDLE pipeHanle, DWORD bytesToRead,
-                         std::string &content) const;
+  bool readPipeContent(HANDLE pipeHanle, DWORD bytesToRead,
+                       std::string &content) const;
 };
 
 #endif // _WIN32
 
 #endif // _DebuggerPipeWrapper_h_
-
-

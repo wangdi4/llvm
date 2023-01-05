@@ -1,4 +1,21 @@
 //===-- ModuleUtils.cpp - Functions to manipulate Modules -----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,13 +32,23 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/xxhash.h"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/Utils/GlobalStatus.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "moduleutils"
 
-static void appendToGlobalArray(const char *Array, Module &M, Function *F,
+static void appendToGlobalArray(StringRef ArrayName, Module &M, Function *F,
                                 int Priority, Constant *Data) {
   IRBuilder<> IRB(M.getContext());
   FunctionType *FnTy = FunctionType::get(IRB.getVoidTy(), false);
@@ -30,8 +57,10 @@ static void appendToGlobalArray(const char *Array, Module &M, Function *F,
   // to the list.
   SmallVector<Constant *, 16> CurrentCtors;
   StructType *EltTy = StructType::get(
-      IRB.getInt32Ty(), PointerType::getUnqual(FnTy), IRB.getInt8PtrTy());
-  if (GlobalVariable *GVCtor = M.getNamedGlobal(Array)) {
+      IRB.getInt32Ty(), PointerType::get(FnTy, F->getAddressSpace()),
+      IRB.getInt8PtrTy());
+
+  if (GlobalVariable *GVCtor = M.getNamedGlobal(ArrayName)) {
     if (Constant *Init = GVCtor->getInitializer()) {
       unsigned n = Init->getNumOperands();
       CurrentCtors.reserve(n + 1);
@@ -59,7 +88,7 @@ static void appendToGlobalArray(const char *Array, Module &M, Function *F,
   // Create the new global variable and replace all uses of
   // the old global variable with the new one.
   (void)new GlobalVariable(M, NewInit->getType(), false,
-                           GlobalValue::AppendingLinkage, NewInit, Array);
+                           GlobalValue::AppendingLinkage, NewInit, ArrayName);
 }
 
 void llvm::appendToGlobalCtors(Module &M, Function *F, int Priority, Constant *Data) {
@@ -77,11 +106,18 @@ static void appendToUsedList(Module &M, StringRef Name, ArrayRef<GlobalValue *> 
   if (GV) {
     if (GV->hasInitializer()) {
       auto *CA = cast<ConstantArray>(GV->getInitializer());
+#if INTEL_CUSTOMIZATION
+      GV->setInitializer(nullptr);
+#endif // INTEL_CUSTOMIZATION
       for (auto &Op : CA->operands()) {
         Constant *C = cast_or_null<Constant>(Op);
         if (InitAsSet.insert(C).second)
           Init.push_back(C);
       }
+#if INTEL_CUSTOMIZATION
+      if (isSafeToDestroyConstant(CA))
+        CA->destroyConstant();
+#endif // INTEL_CUSTOMIZATION
     }
     GV->eraseFromParent();
   }
@@ -100,6 +136,12 @@ static void appendToUsedList(Module &M, StringRef Name, ArrayRef<GlobalValue *> 
   GV = new llvm::GlobalVariable(M, ATy, false, GlobalValue::AppendingLinkage,
                                 ConstantArray::get(ATy, Init), Name);
   GV->setSection("llvm.metadata");
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  dtransOP::DTransTypeMetadataPropagator::setNewGlobVarArrayDTransMetadata(GV);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 void llvm::appendToUsed(Module &M, ArrayRef<GlobalValue *> Values) {
@@ -108,6 +150,19 @@ void llvm::appendToUsed(Module &M, ArrayRef<GlobalValue *> Values) {
 
 void llvm::appendToCompilerUsed(Module &M, ArrayRef<GlobalValue *> Values) {
   appendToUsedList(M, "llvm.compiler.used", Values);
+}
+
+static void setKCFIType(Module &M, Function &F, StringRef MangledType) {
+  if (!M.getModuleFlag("kcfi"))
+    return;
+  // Matches CodeGenModule::CreateKCFITypeId in Clang.
+  LLVMContext &Ctx = M.getContext();
+  MDBuilder MDB(Ctx);
+  F.setMetadata(
+      LLVMContext::MD_kcfi_type,
+      MDNode::get(Ctx, MDB.createConstant(ConstantInt::get(
+                           Type::getInt32Ty(Ctx),
+                           static_cast<uint32_t>(xxHash64(MangledType))))));
 }
 
 FunctionCallee
@@ -123,8 +178,10 @@ llvm::declareSanitizerInitFunction(Module &M, StringRef InitName,
 Function *llvm::createSanitizerCtor(Module &M, StringRef CtorName) {
   Function *Ctor = Function::createWithDefaultAttr(
       FunctionType::get(Type::getVoidTy(M.getContext()), false),
-      GlobalValue::InternalLinkage, 0, CtorName, &M);
+      GlobalValue::InternalLinkage, M.getDataLayout().getProgramAddressSpace(),
+      CtorName, &M);
   Ctor->addFnAttr(Attribute::NoUnwind);
+  setKCFIType(M, *Ctor, "_ZTSFvvE"); // void (*)(void)
   BasicBlock *CtorBB = BasicBlock::Create(M.getContext(), "", Ctor);
   ReturnInst::Create(M.getContext(), CtorBB);
   // Ensure Ctor cannot be discarded, even if in a comdat.

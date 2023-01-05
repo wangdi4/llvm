@@ -1,4 +1,21 @@
 //===-- CodeGen/AsmPrinter/WinCFGuard.cpp - Control Flow Guard Impl ------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -64,10 +81,22 @@ static bool isPossibleIndirectCallTarget(const Function *F) {
         // direct calls with mismatched prototypes don't end up in the CFG
         // table. Consider other constants, such as vtable initializers, to
         // escape the function.
-        if (C->stripPointerCasts() == F)
+#if INTEL_CUSTOMIZATION
+        if (C->stripPointerCasts() == F) {
           Users.push_back(FnUser);
-        else
+        } else {
+          // An SVML function that only appears at llvm.compiler.used may be a
+          // placeholder and shouldn't be treated as a candidate.
+          if (F->getName().starts_with("__svml") && C->hasOneUse()) {
+            const auto *MaybeLLVMCompilerUsed =
+                dyn_cast<GlobalVariable>(*C->user_begin());
+            if (MaybeLLVMCompilerUsed &&
+                MaybeLLVMCompilerUsed->getName() == "llvm.compiler.used")
+              continue;
+          }
           return true;
+        }
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }

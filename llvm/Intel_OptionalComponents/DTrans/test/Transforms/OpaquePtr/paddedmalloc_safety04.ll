@@ -3,7 +3,6 @@
 ; Test that identifies that the DTrans padded malloc optimization was applied
 ; outside the OpenMP region.
 
-; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -dtrans-paddedmallocop -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-paddedmallocop -dtrans-test-paddedmalloc -debug-only=dtrans-paddedmalloc -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: dtrans-paddedmalloc: Trace for DTrans Padded Malloc

@@ -16,7 +16,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -54,13 +53,14 @@ public:
                                  IRBuilder<> &Builder);
 
   Value *GenerateGetLocalSize(bool uniformWGSize, Value *WorkInfo, Value *pWGId,
-                              Value *Dimension, IRBuilder<> &Builder);
+                              bool IsUserRequired, Value *Dimension,
+                              IRBuilder<> &Builder);
 
-  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, unsigned Dimension,
-                                      IRBuilder<> &Builder);
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, bool IsUserRequired,
+                                      unsigned Dimension, IRBuilder<> &Builder);
 
-  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, Value *Dimension,
-                                      IRBuilder<> &Builder);
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, bool IsUserRequired,
+                                      Value *Dimension, IRBuilder<> &Builder);
 
   Value *GenerateGetGroupID(Value *GroupID, unsigned Dimension,
                             IRBuilder<> &Builder);
@@ -76,8 +76,9 @@ private:
 
   /// The following implementation is generic for get_local_size and
   /// get_enqueued_local_size.
-  Value *GenerateGetLocalSizeGeneric(Value *WorkInfo, Value *LocalSizeIdx,
-                                     Value *Dimension, IRBuilder<> &Builder);
+  Value *GenerateGetLocalSizeGeneric(Value *WorkInfo, bool IsUserRequired,
+                                     Value *LocalSizeIdx, Value *Dimension,
+                                     IRBuilder<> &Builder);
 
 private:
   // Each entry matches an IMPLICIT_ARGS enum
@@ -99,29 +100,6 @@ public:
   typedef ImplicitArgsInfo Result;
 
   ImplicitArgsInfo run(Module &M, AnalysisManager<Module> &AM);
-};
-
-// Legacy wrapper pass to provide image arugments info.
-class ImplicitArgsAnalysisLegacy : public ModulePass {
-  std::unique_ptr<ImplicitArgsInfo> Result;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  ImplicitArgsAnalysisLegacy();
-
-  StringRef getPassName() const override {
-    return "ImplicitArgsAnalysisLegacy";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  ImplicitArgsInfo &getResult() { return *Result; }
-  const ImplicitArgsInfo &getResult() const { return *Result; }
 };
 
 } // namespace llvm

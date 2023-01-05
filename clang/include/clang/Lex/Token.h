@@ -1,4 +1,21 @@
 //===--- Token.h - Token interface ------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,6 +32,7 @@
 
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include <cassert>
 
@@ -175,6 +193,8 @@ public:
     Loc = SourceLocation().getRawEncoding();
   }
 
+  bool hasPtrData() const { return PtrData != nullptr; }
+
   IdentifierInfo *getIdentifierInfo() const {
     assert(isNot(tok::raw_identifier) &&
            "getIdentifierInfo() on a tok::raw_identifier token!");
@@ -328,6 +348,20 @@ struct PPConditionalInfo {
   bool FoundElse;
 };
 
+// Extra information needed for annonation tokens.
+struct PragmaLoopHintInfo {
+  Token PragmaName;
+  Token Option;
+  ArrayRef<Token> Toks;
+#if INTEL_CUSTOMIZATION
+  ArrayRef<Token> ArrayToks;
+  PragmaLoopHintInfo() { Option.startToken(); }
+  PragmaLoopHintInfo(const Token &PragmaTok) {
+    PragmaName = PragmaTok;
+    Option.startToken();
+  }
+#endif // INTEL_CUSTOMIZATION
+};
 } // end namespace clang
 
 #endif // LLVM_CLANG_LEX_TOKEN_H

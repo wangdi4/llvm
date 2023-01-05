@@ -30,6 +30,8 @@ public:
   // Glue for old PM.
   bool runImpl(Module &M, LocalBufferInfo *LBInfo);
 
+  static bool isRequired() { return true; }
+
 private:
   /// @brief Resolves the internal local variables and map them to local buffer
   /// @param F The function which needs it handle its implicite local
@@ -53,36 +55,30 @@ private:
 
 private:
   /// @brief The llvm current processed module
-  Module *M;
+  Module *M = nullptr;
 
   /// @brief The llvm context
-  LLVMContext *Context;
+  LLVMContext *Context = nullptr;
 
   /// @brief instance of LocalBuffAnalysis pass
-  LocalBufferInfo *LBInfo;
+  LocalBufferInfo *LBInfo = nullptr;
 
   /// @brief use TLS globals instead of implicit arguments
-  bool UseTLSGlobals;
+  bool UseTLSGlobals = false;
 
   /// @brief save the first instruction as insert point for current function
-  Instruction *InsertPoint;
+  Instruction *InsertPoint = nullptr;
 
   /// @brief the DISubprogram of current function
   ///        when this equals to `nullptr`, then no need to handle debug info
-  DISubprogram *SP;
+  DISubprogram *SP = nullptr;
 
   /// @brief help to find all compile units in the module
   DebugInfoFinder DIFinder;
 
-  /// @brief Store all kernels in the module
-  CompilationUtils::FuncSet KernelsFunctionSet;
-
   /// @brief stores all the DIGlobalVariableExpression's need to be removed
   ///        in DICompileUnit.globals
   SmallPtrSet<DIGlobalVariableExpression *, 4> GVEToRemove;
-
-  /// @brief stores all the GlobalVariable's need to be removed
-  SmallPtrSet<GlobalVariable *, 4> GVToRemove;
 };
 
 } // namespace llvm

@@ -1,7 +1,13 @@
 RUN: mkdir -p %t.d
-RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -Wl,--gc-sections -o %t.d/a.shared -fPIC -shared %S/../Inputs/instrprof-dynamic-a.cpp
-RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -Wl,--gc-sections -o %t.d/b.shared -fPIC -shared %S/../Inputs/instrprof-dynamic-b.cpp
-RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -Wl,--gc-sections -o %t-shared -fPIC -rpath %t.d %t.d/a.shared %t.d/b.shared %S/../Inputs/instrprof-dynamic-main.cpp
+# INTEL_CUSTOMIZATION
+# Temporarily remove "-Wl,--gc-sections" from compiler command lines because
+# this is causing errors with the version of ld.gold in the binutils we use.
+# When our binutils is upgraded to at least version 2.37, this option can
+# be added back.
+RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -o %t.d/a.shared -fPIC -shared %S/../Inputs/instrprof-dynamic-a.cpp
+RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -o %t.d/b.shared -fPIC -shared %S/../Inputs/instrprof-dynamic-b.cpp
+RUN: %clang_profgen -fdata-sections -ffunction-sections -fuse-ld=gold -o %t-shared -fPIC -rpath %t.d %t.d/a.shared %t.d/b.shared %S/../Inputs/instrprof-dynamic-main.cpp
+# end INTEL_CUSTOMIZATION
 
 RUN: %clang_profgen -o %t-static %S/../Inputs/instrprof-dynamic-a.cpp %S/../Inputs/instrprof-dynamic-b.cpp %S/../Inputs/instrprof-dynamic-main.cpp
 

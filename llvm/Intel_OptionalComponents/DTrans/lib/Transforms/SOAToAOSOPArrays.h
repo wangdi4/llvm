@@ -1672,7 +1672,7 @@ public:
     }
 
     // Relink copies.
-    for (auto P : OrigToCopy) {
+    for (const auto &P : OrigToCopy) {
       auto *NewI = P.first;
       auto *CopyI = P.second;
       if (auto *CopyLoad = dyn_cast<LoadInst>(CopyI)) {
@@ -1749,6 +1749,10 @@ public:
         assert(!isa<PHINode>(U.getUser()) &&
                "PHINode should be element of ElementPtrGEP");
 
+	// Skip processing PHI value here if used in BasePtrInst (i.e not accessing
+	// elements).
+	if (InstsToTransform.BasePtrInst.count(cast<Instruction>(U.getUser())))
+          continue;
         auto *NewU = cast<Instruction>((Value *)VMap[U.getUser()]);
         if (Copy)
           NewU = cast<Instruction>(OrigToCopy.find(NewU)->second);

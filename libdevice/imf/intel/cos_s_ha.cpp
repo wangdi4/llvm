@@ -13,6 +13,9 @@
 * License.
 *******************************************************************************/
 #include "_imf_include_fp32.hpp"
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+#pragma omp declare target
+#endif
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_cos_s_ha {
 namespace {
@@ -194,10 +197,16 @@ inline int __devicelib_imf_internal_scos(const float *a, float *pres) {
 } /* namespace */
 } /* namespace __imf_impl_cos_s_ha */
 
-DEVICE_EXTERN_C_INLINE float __devicelib_imf_cosf(float a) {
+DEVICE_EXTERN_C_INLINE
+float __devicelib_imf_cosf(float a) {
   using namespace __imf_impl_cos_s_ha;
   float r;
   __devicelib_imf_internal_scos(&a, &r);
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
+#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+DEVICE_EXTERN_C_DECLSIMD_INLINE
+float __svml_device_cosf(float x) { return __devicelib_imf_cosf(x); }
+#pragma omp end declare target
+#endif

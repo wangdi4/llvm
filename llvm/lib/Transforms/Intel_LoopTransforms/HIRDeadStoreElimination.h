@@ -25,6 +25,7 @@
 
 namespace llvm {
 
+class Value;
 class DominatorTree;
 class FieldModRefResult;
 
@@ -66,6 +67,10 @@ class HIRDeadStoreElimination {
   // Region-level AddressOf Refs:
   SmallVector<RegDDRef *, 4> AddressOfRefVec;
 
+  // Map of base ptr value to a boolean indicating whether all uses of the
+  // base are in single region.
+  DenseMap<Value *, bool> AllUsesInSingleRegion;
+
   bool isValidParentChain(const HLNode *PostDomNode, const HLNode *PrevNode,
                           const RegDDRef *PostDomRef);
 
@@ -75,19 +80,23 @@ class HIRDeadStoreElimination {
     AddressOfRefVec.clear();
   }
 
-  // bool doPreliminaryTests(HLRegion &Region, HLLoop *Lp, bool IsRegion);
-  bool doCollection(HLRegion &Region, HLLoop *Lp, bool IsRegion);
+  // Collects memrefs and addressOf refs in the region. Returns false if no
+  // memrefs were found.
+  bool doCollection(HLRegion &Region);
 
-  // Special case: refgroup with only 1 item
-  bool doSingleItemGroup(HLRegion &Region,
-                         SmallVectorImpl<const RegDDRef *> &RefGroup);
+  /// Returns true if \p Ref escapes via an AddressOf ref and cannot be proven
+  /// to be safe for analysis.
+  bool basePtrEscapesAnalysis(const RegDDRef *Ref) const;
+
+  /// Returns true if all uses of the base ptr of \p Ref are within \p Region.
+  bool hasAllUsesWithinRegion(HLRegion &Region, const RegDDRef *Ref);
 
 public:
   HIRDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                           HIRLoopStatistics &HLS)
       : HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
 
-  bool run(HLRegion &Region, HLLoop *Lp, bool IsRegion);
+  bool run(HLRegion &Region);
 };
 
 // AddressOf Ref Collector:

@@ -1,6 +1,6 @@
 //=------------------ CreateSimdVariantPropagation.cpp -*- C++ -*------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,8 +15,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -65,7 +63,7 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
     }
   }
 
-  for (auto It : VariantsToAdd) {
+  for (const auto &It : VariantsToAdd) {
     Function *F = It.first;
     std::string Vars = join(It.second, ",");
     if (F->hasFnAttribute("vector-variants")) {
@@ -77,39 +75,4 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
   }
 
   return Modified;
-}
-
-// For legacy pass manager
-namespace {
-
-class CreateSimdVariantPropagationLegacy : public ModulePass {
-public:
-  static char ID;
-
-  CreateSimdVariantPropagationLegacy() : ModulePass(ID) {
-    initializeCreateSimdVariantPropagationLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  llvm::StringRef getPassName() const override {
-    return "CreateSimdVariantPropagationLegacy";
-  }
-
-protected:
-  bool runOnModule(llvm::Module &M) override {
-    return CreateSimdVariantPropagation().runImpl(M);
-  }
-};
-
-} // namespace
-
-char CreateSimdVariantPropagationLegacy::ID = 0;
-
-INITIALIZE_PASS(CreateSimdVariantPropagationLegacy,
-                "dpcpp-kernel-create-simd-variant-propagation",
-                "Propagate __intel_create_simd_variant attributes to callees",
-                false, false)
-
-ModulePass *llvm::createCreateSimdVariantPropagationLegacyPass() {
-  return new CreateSimdVariantPropagationLegacy();
 }

@@ -22,6 +22,7 @@
 #include "IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Support/CommandLine.h"
+#include <optional>
 
 extern cl::opt<uint64_t> VPlanDefaultEstTripHIR;
 
@@ -49,7 +50,7 @@ private:
 
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
-                    std::string VPlanName,
+                    std::string VPlanName, AssumptionCache &AC,
                     ScalarEvolution *SE = nullptr) override;
 
   /// Replace original upper bound of the loop with
@@ -75,12 +76,12 @@ public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
-                              const DataLayout *DL,
+                              const DataLayout *DL, DominatorTree *DT,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
                               bool LightWeightMode)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
-                                 DL, nullptr, nullptr, VLSA, nullptr /* BFI */),
+                                 DL, DT, nullptr, VLSA, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
         HIRLegality(HIRLegal) {
     // Set the flag in scenario to indicate if we are dealing with a constant
@@ -98,7 +99,7 @@ public:
 
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
-  ///  no such metadata, returns None.
+  ///  no such metadata, returns std::nullopt.
   Optional<bool> readVecRemainderEnabledHIR() {
     if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vecremainder")) {
       DEBUG_WITH_TYPE("VPlan_pragma_metadata",
@@ -112,7 +113,7 @@ public:
                                  "novecremainder\n");
       return false;
     }
-    return None;
+    return std::nullopt;
   }
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/

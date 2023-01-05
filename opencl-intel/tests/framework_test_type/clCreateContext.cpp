@@ -16,7 +16,7 @@ protected:
   cl_platform_id m_platform;
 };
 
-/**************************************************************************************************
+/*******************************************************************************
  * clCreateContextTest
  * -------------------
  * Get device ids (gDeviceType)
@@ -25,7 +25,7 @@ protected:
  * Retain context
  * Release context
  * Get context info (CL_CONTEXT_REFERENCE_COUNT)
- **************************************************************************************************/
+ ******************************************************************************/
 TEST_F(CreateContextTest, Basic) {
   printf("clCreateContextTest\n");
   cl_uint uiNumDevices = 0;

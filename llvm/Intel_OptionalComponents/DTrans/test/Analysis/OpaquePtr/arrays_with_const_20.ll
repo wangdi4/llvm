@@ -2,7 +2,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-outofboundsok=false -disable-output -debug-only=dtrans-arrays-with-const-entries -dtrans-print-types 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-arrays-with-const-entries -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test case checks that entries 0 and 1 in the field 1 for
@@ -46,11 +45,11 @@ bb2:                                              ; preds = %bb1
 }
 
 define void @bas(ptr nocapture readonly "intel_dtrans_func_index"="1" %0, ptr nocapture readonly "intel_dtrans_func_index"="1" %1) !intel.dtrans.func.type !10 {
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %0, ptr %1, i64 20, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %0, ptr %1, i64 20, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !9 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !9 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !intel.dtrans.types = !{!2, !6}
 

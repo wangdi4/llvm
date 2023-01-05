@@ -6,9 +6,7 @@
 
 ; It checks LICM to hoist invariant load out of loop using Andersens
 ; points-to info. 
-; RUN: opt < %s -S -anders-aa -licm -disable-output -stats 2>&1 | grep "1 licm"
 ; RUN: opt < %s -S -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output -stats 2>&1 | grep "1 licm"
-; RUN: opt < %s -convert-to-subscript -S | opt -S -anders-aa -licm -disable-output -stats 2>&1 | grep "1 licm"
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -S -passes='require<anders-aa>,function(loop-mssa(licm))' -aa-pipeline=anders-aa -disable-output -stats 2>&1 | grep "1 licm"
 ; REQUIRES: asserts
 

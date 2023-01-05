@@ -1,7 +1,5 @@
 ; RUN: opt -passes=dpcpp-kernel-barrier %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Check that prototypes and metadata for old functions with suffix added in
 ; barrier pass (including scalar and vectorized variants) are removed. And

@@ -1,6 +1,6 @@
 //===-- DDTests.h - Data dependence testing between two DDRefs --*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -254,6 +254,18 @@ private:
   friend class DDTest;
 };
 
+struct DirectionVectorInfo {
+  DirectionVector ForwardDV;
+  DirectionVector BackwardDV;
+  DistanceVector ForwardDistV;
+  DistanceVector BackwardDistV;
+  // Is set to true if the temp dependence is not cross-iteration dependence.
+  bool IsLoopIndepDepTemp = false;
+  // Is set to true if the dependence can be eliminated by peeling first
+  // iteration of innermost loop.
+  bool FirstIterPeelingRemovesDep = false;
+};
+
 /// DDtest - This class is the main dependence-analysis driver.
 ///
 
@@ -293,10 +305,7 @@ class DDTest {
 
   bool findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                         const DirectionVector &InputDV,
-                        DirectionVector &ForwardDV, DirectionVector &BackwardDV,
-                        DistanceVector &ForwardDistV,
-                        DistanceVector &BackwardDistV,
-                        bool *IsLoopIndepDepTemp);
+                        DirectionVectorInfo &DVInfo);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -397,6 +406,12 @@ class DDTest {
   /// analysis.
   void refineAAIndep(Dependences &Result, const RegDDRef *SrcRegDDRef,
                      const RegDDRef *DstRegDDRef);
+
+  /// Refine DV for refs that could not be delinearized. If difference between
+  /// refs is not more than 1, then we can refine the DV.
+  bool refineLinearizedMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
+                               Dependences &Result, const RegDDRef *SrcRegDDRef,
+                               const RegDDRef *DstRegDDRef);
 
   /// When IVDEP directive is present for a level, DV can be adjusted
   /// SameBase indicates if the base pointer of src/dst DD_REF are the same
@@ -550,7 +565,7 @@ class DDTest {
   unsigned MaxLevels = 0;
   bool NoCommonNest = false;
 
-  HLLoop *DeepestLoop;
+  HLLoop *DeepestLoop = nullptr;
   ///  LCALoop, corrsponding to LCALoopLevel
   HLLoop *LCALoop = nullptr;
 
@@ -732,7 +747,8 @@ class DDTest {
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                const DirectionVector &InputDV, const SmallBitVector &Loops,
                Dependences &Result, const HLLoop *SrcParentLoop,
-               const HLLoop *DstParentLoop);
+               const HLLoop *DstParentLoop, const RegDDRef *SrcRegDDRef,
+               const RegDDRef *DstRegDDRef);
 
   /// strongSIVtest - Tests the strong SIV subscript pair (Src and Dst)
   /// for dependence.

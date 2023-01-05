@@ -28,8 +28,6 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-channel-pipe-transformation -dpcpp-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-channel-pipe-transformation -dpcpp-kernel-builtin-lib=%t.rtl.bc -verify %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-channel-pipe-transformation -dpcpp-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-channel-pipe-transformation -dpcpp-kernel-builtin-lib=%t.rtl.bc %s -S | FileCheck %s
 

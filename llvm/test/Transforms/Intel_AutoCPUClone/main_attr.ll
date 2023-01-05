@@ -1,6 +1,4 @@
-
-; RUN: opt -opaque-pointers -auto-cpu-clone -function-attrs -inline < %s -S | FileCheck %s
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone,function-attrs,inline < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=auto-cpu-clone,function-attrs,inline  -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; The test checks that main()'s versions have their attributes modified/updated
 ; by those phases that modify/update main()'s attributes.
@@ -11,8 +9,8 @@
 ; CHECK-DAG: @main.a() #1 !llvm.acd.clone
 ; CHECK-DAG: @main.resolver
 
-; CHECK: attributes #0 = { mustprogress nofree norecurse nosync nounwind readnone willreturn
-; CHECK: attributes #1 = { mustprogress nofree norecurse nosync nounwind readnone willreturn 
+; CHECK: attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+; CHECK: attributes #1 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none)
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

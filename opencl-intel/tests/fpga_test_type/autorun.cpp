@@ -28,7 +28,8 @@ protected:
         input_data.size(), CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         &input_data.front());
     ASSERT_NE(nullptr, input_buffer) << "createBuffer failed";
-    m_output_buffer = createBuffer<cl_int>(input_data.size(), CL_MEM_WRITE_ONLY);
+    m_output_buffer =
+        createBuffer<cl_int>(input_data.size(), CL_MEM_WRITE_ONLY);
     ASSERT_NE(nullptr, m_output_buffer) << "createBuffer failed";
 
     cl_int num_elements = input_data.size();
@@ -41,7 +42,8 @@ protected:
   void verifyResults(const std::vector<cl_int> &reference_data) {
     std::vector<cl_int> data(reference_data.size());
     ASSERT_TRUE(readBuffer<cl_int>("reader", m_output_buffer, data.size(),
-                                   &data.front())) << "readBuffer failed";
+                                   &data.front()))
+        << "readBuffer failed";
     for (size_t i = 0; i < reference_data.size(); ++i) {
       ASSERT_EQ(reference_data[i], data[i])
           << " invalid value of " << i << "-th"

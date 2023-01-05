@@ -1,4 +1,4 @@
-  ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+  ; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we properly represent and external definition that is an IV.
 

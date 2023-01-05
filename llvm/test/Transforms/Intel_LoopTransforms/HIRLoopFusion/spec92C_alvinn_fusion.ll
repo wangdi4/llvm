@@ -1,4 +1,3 @@
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-loop-interchange -hir-pre-vec-complete-unroll -hir-lmm -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-pre-vec-complete-unroll,hir-lmm,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -vector-library=SVML -disable-output < %s 2>&1 | FileCheck %s
 
 ; The second inner loop with ub=29 was getting assertion fail

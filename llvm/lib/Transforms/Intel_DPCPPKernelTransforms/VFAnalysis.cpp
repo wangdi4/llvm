@@ -17,10 +17,8 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
@@ -60,14 +58,29 @@ VFAnalysisInfo::VFAnalysisInfo()
     : ISA(IsaEncodingOverride.getValue()), ForceVF(DPCPPForceVF.getValue()),
       CanFallBackToDefaultVF(false) {}
 
-bool VFAnalysisInfo::hasMultipleVFConstraints(Function *Kernel) {
+bool VFAnalysisInfo::hasConflictVFConstraints(Function *Kernel) {
   KernelMetadataAPI KMD(Kernel);
-  bool MultiConstraint =
-      (KMD.VecLenHint.hasValue() && KMD.ReqdIntelSGSize.hasValue()) ||
-      (isVFForced() && KMD.hasVecLength());
+  bool MultiConflictConstraints = false;
+  Optional<unsigned> VecLen;
+
+  if (KMD.VecLenHint.hasValue())
+    VecLen = KMD.VecLenHint.get();
+
+  if (KMD.ReqdIntelSGSize.hasValue()) {
+    unsigned ReqdIntelSGSize = KMD.ReqdIntelSGSize.get();
+    if (VecLen.has_value() && VecLen.value() != ReqdIntelSGSize)
+      MultiConflictConstraints = true;
+    VecLen = ReqdIntelSGSize;
+  }
+
+  if (isVFForced() && VecLen.has_value() && VecLen.value() != ForceVF)
+    MultiConflictConstraints = true;
+
   LLVM_DEBUG(dbgs() << "Function <" << Kernel->getName()
-                    << "> MultiConstraint = " << MultiConstraint << '\n');
-  return MultiConstraint;
+                    << "> MultiConflictConstraints = "
+                    << MultiConflictConstraints << '\n');
+
+  return MultiConflictConstraints;
 }
 
 /// Find the minimum VecLength found in the node or its children.
@@ -339,14 +352,14 @@ void VFAnalysisInfo::analyzeModule(
     KernelMetadataAPI KMD(Kernel);
     LLVM_DEBUG(dbgs() << "\nProcessing " << Kernel->getName() << '\n');
 
-    // Only one VF constraint can be specified.
+    // VF constraints should have the same value.
     // If not, emit a DiagInfo, which can be handled outside the optimizer by
     // a DiagnosticHandler.
-    if (hasMultipleVFConstraints(Kernel)) {
+    if (hasConflictVFConstraints(Kernel)) {
       M.getContext().diagnose(VFAnalysisDiagInfo(
           *Kernel,
-          "Only one of CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint "
-          "and intel_reqd_sub_group_size can be specified",
+          "Conflicting CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint "
+          "and intel_reqd_sub_group_size are specified",
           VFDK_Error_ConstraintConflict));
     }
 
@@ -384,43 +397,12 @@ void VFAnalysisInfo::analyzeModule(
 
 void VFAnalysisInfo::print(raw_ostream &OS) const {
   OS << "Kernel --> VF:\n";
-  for (auto P : KernelToVF)
+  for (const auto &P : KernelToVF)
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
 
   OS << "Kernel --> SGEmuSize:\n";
-  for (auto P : KernelToSGEmuSize)
+  for (const auto &P : KernelToSGEmuSize)
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
-}
-
-INITIALIZE_PASS_BEGIN(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
-                      /*analysis*/ true)
-INITIALIZE_PASS_DEPENDENCY(WeightedInstCountAnalysisLegacy)
-INITIALIZE_PASS_END(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
-                    /*analysis*/ true)
-
-ModulePass *llvm::createVFAnalysisLegacyPass() {
-  return new VFAnalysisLegacy();
-}
-
-char VFAnalysisLegacy::ID = 0;
-
-bool VFAnalysisLegacy::runOnModule(Module &M) {
-  auto GetHeuristicVF = [&](Function &F) {
-    return getAnalysis<WeightedInstCountAnalysisLegacy>(F)
-        .getResult()
-        .getDesiredVF();
-  };
-  Result.analyzeModule(M, GetHeuristicVF);
-  return false;
-}
-
-void VFAnalysisLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<WeightedInstCountAnalysisLegacy>();
-  AU.setPreservesAll();
-}
-
-void VFAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
-  getResult().print(OS);
 }
 
 // Provide a definition for the static class member used to identify passes.

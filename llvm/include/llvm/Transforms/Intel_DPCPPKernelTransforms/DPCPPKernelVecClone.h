@@ -31,7 +31,7 @@ public:
                           VFISAKind ISA, bool IsOCL);
 
   void setVectorizationDimensionMap(
-      const VectorizationDimensionAnalysisLegacy::Result *VDMap) {
+      const VectorizationDimensionAnalysis::Result *VDMap) {
     this->VDMap = VDMap;
   }
 

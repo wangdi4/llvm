@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018-2021 Intel Corporation.
+// Copyright 2018-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -80,7 +80,6 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
 }
 #endif // OCLFRONTEND_PLUGINS
 
-
 std::string GetCurrentDir() {
   char szCurrDirrPath[MAX_STR_BUFF];
   if (!GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath))
@@ -122,14 +121,15 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
 }
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
-  bool bProfiling   = false,
-       bRelaxedMath = false;
+  bool bProfiling = false, bRelaxedMath = false;
 
   llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
   llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
-  for (const auto opt : splittedOptions) {
-    if (opt.str() == "-profiling") bProfiling = true;
-    if (opt.str() == "-cl-fast-relaxed-math") bRelaxedMath = true;
+  for (const auto &opt : splittedOptions) {
+    if (opt.str() == "-profiling")
+      bProfiling = true;
+    if (opt.str() == "-cl-fast-relaxed-math")
+      bRelaxedMath = true;
   }
 
   std::stringstream options;
@@ -164,7 +164,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   llvm::SmallVector<llvm::StringRef, 16> ExtVec;
   ExtStr.split(ExtVec, ' ', -1, false);
   optionsEx << " -cl-ext=-all";
-  for (auto Ext : ExtVec)
+  for (const auto &Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
   optionsEx << " -Dcl_intel_device_attribute_query";
@@ -244,18 +244,20 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;
-  Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE");
-  if (IntermediateType == "SPIRV")
+  if (Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE") &&
+      IntermediateType == "SPIRV")
     optionsEx << " -emit-spirv";
 #endif // INTEL_PRODUCT_RELEASE
 
   // Reallocate headers to include another one
-  std::vector<const char*> InputHeaders;
-  std::vector<const char*> InputHeadersNames;
+  std::vector<const char *> InputHeaders;
+  std::vector<const char *> InputHeadersNames;
   InputHeaders.assign(m_pProgDesc->pInputHeaders,
-                      m_pProgDesc->pInputHeaders + m_pProgDesc->uiNumInputHeaders);
+                      m_pProgDesc->pInputHeaders +
+                          m_pProgDesc->uiNumInputHeaders);
   InputHeadersNames.assign(m_pProgDesc->pszInputHeadersNames,
-                           m_pProgDesc->pszInputHeadersNames + m_pProgDesc->uiNumInputHeaders);
+                           m_pProgDesc->pszInputHeadersNames +
+                               m_pProgDesc->uiNumInputHeaders);
 
   // Input header with OpenCL pre-release extensions
   // Skip Emulator devices
@@ -267,13 +269,12 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
   }
 
+  optionsEx << " -no-opaque-pointers";
+
   IOCLFEBinaryResultPtr spBinaryResult;
 
-  int res = ::Compile(m_pProgDesc->pProgramSource,
-                      InputHeaders.data(),
-                      InputHeaders.size(),
-                      InputHeadersNames.data(),
-                      0, 0,
+  int res = ::Compile(m_pProgDesc->pProgramSource, InputHeaders.data(),
+                      InputHeaders.size(), InputHeadersNames.data(), 0, 0,
                       options.str().c_str(),   // pszOptions
                       optionsEx.str().c_str(), // pszOptionsEx
                       GetOpenCLVersionStr(m_config.GetOpenCLVersion()),

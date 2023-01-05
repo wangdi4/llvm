@@ -21,76 +21,43 @@ extern "C" {
 #endif
 
 /* cl_command_type */
-#define CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL   0x418E
-#define CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL  0x418F
+#define CL_COMMAND_READ_GLOBAL_VARIABLE_INTEL 0x418E
+#define CL_COMMAND_WRITE_GLOBAL_VARIABLE_INTEL 0x418F
 
-extern CL_API_ENTRY cl_int
-CL_API_CALL clGetDeviceGlobalVariablePointerINTEL(
-    cl_device_id    device,
-    cl_program      program,
-    const char *    global_variable_name,
-    size_t *        global_variable_size_ret,
-    void **         global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
+extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceGlobalVariablePointerINTEL(
+    cl_device_id device, cl_program program, const char *global_variable_name,
+    size_t *global_variable_size_ret,
+    void **global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
 
-typedef CL_API_ENTRY cl_int
-(CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
-    cl_device_id    device,
-    cl_program      program,
-    const char *    global_variable_name,
-    size_t *        global_variable_size_ret,
-    void **         global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
+typedef CL_API_ENTRY
+cl_int(CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
+    cl_device_id device, cl_program program, const char *global_variable_name,
+    size_t *global_variable_size_ret,
+    void **global_variable_pointer_ret) CL_API_SUFFIX__VERSION_2_2;
 
-extern CL_API_ENTRY cl_int
-CL_API_CALL clEnqueueReadGlobalVariableINTEL(
-    cl_command_queue command_queue,
-    cl_program       program,
-    const char *     name,
-    cl_bool          blocking_read,
-    size_t           size,
-    size_t           offset,
-    void *           ptr,
-    cl_uint          num_events_in_wait_list,
-    const cl_event * event_wait_list,
-    cl_event *       event) CL_API_SUFFIX__VERSION_3_0;
+extern CL_API_ENTRY cl_int CL_API_CALL clEnqueueReadGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) CL_API_SUFFIX__VERSION_3_0;
 
-typedef  CL_API_ENTRY cl_int
-(CL_API_CALL *clEnqueueReadGlobalVariableINTEL_fn)(
-    cl_command_queue command_queue,
-    cl_program       program,
-    const char *     name,
-    cl_bool          blocking_read,
-    size_t           size,
-    size_t           offset,
-    void *           ptr,
-    cl_uint          num_events_in_wait_list,
-    const cl_event * event_wait_list,
-    cl_event *       event) CL_API_SUFFIX__VERSION_3_0;
+typedef CL_API_ENTRY cl_int(CL_API_CALL *clEnqueueReadGlobalVariableINTEL_fn)(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) CL_API_SUFFIX__VERSION_3_0;
 
-extern CL_API_ENTRY cl_int
-CL_API_CALL clEnqueueWriteGlobalVariableINTEL(
-    cl_command_queue command_queue,
-    cl_program       program,
-    const char *     name,
-    cl_bool          blocking_write,
-    size_t           size,
-    size_t           offset,
-    const void *     ptr,
-    cl_uint          num_events_in_wait_list,
-    const cl_event * event_wait_list,
-    cl_event *       event) CL_API_SUFFIX__VERSION_3_0;
+extern CL_API_ENTRY cl_int CL_API_CALL clEnqueueWriteGlobalVariableINTEL(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_write, size_t size, size_t offset, const void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) CL_API_SUFFIX__VERSION_3_0;
 
-typedef  CL_API_ENTRY cl_int
-(CL_API_CALL *clEnqueueWriteGlobalVariableINTEL_fn)(
-    cl_command_queue command_queue,
-    cl_program       program,
-    const char *     name,
-    cl_bool          blocking_write,
-    size_t           size,
-    size_t           offset,
-    const void *     ptr,
-    cl_uint          num_events_in_wait_list,
-    const cl_event * event_wait_list,
-    cl_event *       event) CL_API_SUFFIX__VERSION_3_0;
+typedef CL_API_ENTRY cl_int(CL_API_CALL *clEnqueueWriteGlobalVariableINTEL_fn)(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    cl_bool blocking_write, size_t size, size_t offset, const void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) CL_API_SUFFIX__VERSION_3_0;
 
 #ifdef __cplusplus
 }

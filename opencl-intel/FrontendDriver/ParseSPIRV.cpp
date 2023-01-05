@@ -12,25 +12,25 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "clang_device_info.h"
-#include "common_clang.h" //IOCLFEBinaryResult
-#include "FrontendResultImpl.h"
 #include "ParseSPIRV.h"
+#include "FrontendResultImpl.h"
 #include "SPIRMaterializer.h"
 #include "SPIRVMaterializer.h"
+#include "clang_device_info.h"
+#include "common_clang.h" //IOCLFEBinaryResult
 
+#include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
+#include <LLVMSPIRVLib.h>                    // llvm::ReadSPIRV
+#include <LLVMSPIRVOpts.h>                   // SPIRV::TranslatorOpts
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
-#include <LLVMSPIRVLib.h> // llvm::ReadSPIRV
-#include <LLVMSPIRVOpts.h> // SPIRV::TranslatorOpts
 #include <llvm/Support/SwapByteOrder.h>
-#include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
 
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 
 using namespace std;
 
@@ -53,11 +53,10 @@ std::uint32_t ClangFECompilerParseSPIRVTask::getSPIRVWord(
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
-                                            const size_t BinarySize)
-{
-  if (!pBinary || BinarySize < sizeof (std::uint32_t))
+                                            const size_t BinarySize) {
+  if (!pBinary || BinarySize < sizeof(std::uint32_t))
     return false;
-  auto Magic = *static_cast<const std::uint32_t*>(pBinary);
+  auto Magic = *static_cast<const std::uint32_t *>(pBinary);
   // Also try with other endianness. See the tip in SPIR-V spec s3.1
   return spv::MagicNumber == Magic ||
          spv::MagicNumber == llvm::ByteSwap_32(Magic);
@@ -144,15 +143,22 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityImageReadWrite:
       if (!m_sDeviceInfo.bImageSupport) {
         error = "SPIRV module requires image capabilities,"
-          " but device doesn't support it";
+                " but device doesn't support it";
         return false;
       }
       break;
 
+    case spv::CapabilityFloat16:
+      if (!m_sDeviceInfo.bHalfSupport) {
+        error = "SPIRV module requires fp16 data type,"
+                " but device doesn't support it";
+        return false;
+      }
+      break;
     case spv::CapabilityFloat64:
       if (!m_sDeviceInfo.bDoubleSupport) {
         error = "SPIRV module requires fp64 data type,"
-          " but device doesn't support it";
+                " but device doesn't support it";
         return false;
       }
       break;
@@ -209,7 +215,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // SPV_INTEL_matrix
     case spv::internal::CapabilityJointMatrixINTEL:
       // SPV_INTEL_runtime_aligned
-    case spv::internal::CapabilityRuntimeAlignedAttributeINTEL:
+    case spv::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
       // SPV_INTEL_bf16_conversion
     case spv::internal::CapabilityBfloat16ConversionINTEL:
@@ -217,11 +223,11 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
     case spv::CapabilityGroupNonUniformBallot:
     case spv::internal::CapabilityMaskedGatherScatterINTEL:
+    case spv::CapabilityAtomicFloat64AddEXT:
       break;
     case spv::CapabilityInt64Atomics:
-    case spv::CapabilityAtomicFloat64AddEXT:
       if (m_sDeviceInfo.bIsFPGAEmu) {
-        error = "64bit atomics are not supported on FPGA emulator.";
+        error = "int 64bit atomics are not supported on FPGA emulator.";
         return false;
       }
       break;
@@ -240,8 +246,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGABufferLocationINTEL:
     case spv::CapabilityFPGAClusterAttributesINTEL:
     case spv::CapabilityLoopFuseINTEL:
-    case spv::internal::CapabilityFPGADSPControlINTEL:
-    case spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL:
+    case spv::CapabilityFPGADSPControlINTEL:
+    case spv::CapabilityFPGAInvocationPipeliningAttributesINTEL:
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {
@@ -321,7 +327,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-
   SPIRV::TranslatorOpts opts;
   opts.enableAllExtensions();
   for (size_t i = 0; i < m_pProgDesc->uiSpecConstCount; ++i) {
@@ -382,8 +387,8 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     assert(!verifyModule(*pModule, &llvm::errs()) &&
            "SPIR-V consumer returned a broken module!");
     // Adapts the output of SPIR-V consumer to backend-friendly format.
-    success = ClangFECompilerMaterializeSPIRVTask(opts)
-                   .MaterializeSPIRV(pModule);
+    success =
+        ClangFECompilerMaterializeSPIRVTask(opts).MaterializeSPIRV(pModule);
     assert(!verifyModule(*pModule, &llvm::errs()) &&
            "SPIRVMaterializer broke the module!");
     // serialize to LLVM bitcode
@@ -423,20 +428,16 @@ struct strbuf : public std::stringbuf {
   }
 };
 
-void ClangFECompilerParseSPIRVTask::getSpecConstInfo(
-     IOCLFESpecConstInfo** pSpecConstInfo) {
-  if (!pSpecConstInfo) {
-    return;
-  }
+std::unique_ptr<IOCLFESpecConstInfo>
+ClangFECompilerParseSPIRVTask::getSpecConstInfo() {
   auto pResult = std::make_unique<OCLFESpecConstInfo>();
 
   char *pSPIRVData =
-    static_cast<char *>(const_cast<void *>(m_pProgDesc->pSPIRVContainer));
+      static_cast<char *>(const_cast<void *>(m_pProgDesc->pSPIRVContainer));
   size_t uiSPIRVSize = m_pProgDesc->uiSPIRVContainerSize;
   strbuf SPIRVbuffer(pSPIRVData, uiSPIRVSize);
   std::istream SPIRVStream(&SPIRVbuffer);
 
   llvm::getSpecConstInfo(SPIRVStream, pResult->getRef());
-  *pSpecConstInfo = pResult.release();
+  return pResult;
 }
-

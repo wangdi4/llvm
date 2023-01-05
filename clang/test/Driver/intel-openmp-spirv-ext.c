@@ -32,7 +32,9 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_joint_matrix
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_hw_thread_queries
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing
-// CHECK-DEFAULT-SAME:,+SPV_KHR_uniform_group_instructions"
+// CHECK-DEFAULT-SAME:,+SPV_KHR_uniform_group_instructions
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_masked_gather_scatter
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_tensor_float32_conversion"
 // CHECK-SIMD: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_min_max
@@ -59,4 +61,6 @@
 // CHECK-SIMD-SAME:,+SPV_INTEL_joint_matrix
 // CHECK-SIND-SAME:,+SPV_INTEL_hw_thread_queries
 // CHECK-SIMD-SAME:,+SPV_INTEL_memory_access_aliasing
-// CHECK-SIMD-SAME:,+SPV_KHR_uniform_group_instructions"
+// CHECK-SIMD-SAME:,+SPV_KHR_uniform_group_instructions
+// CHECK-SIMD-SAME:,+SPV_INTEL_masked_gather_scatter
+// CHECK-SIMD-SAME:,+SPV_INTEL_tensor_float32_conversion"

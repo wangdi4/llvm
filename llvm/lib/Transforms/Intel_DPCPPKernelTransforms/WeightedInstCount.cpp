@@ -20,14 +20,14 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InstructionCost.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/PostDominanceFrontier.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/Predicator.h"
+#include <cmath>
 
 using namespace llvm;
 using namespace CompilationUtils;
@@ -64,10 +64,6 @@ static constexpr int InsertWeight = 2;
 static constexpr int MemOpWeight = 6;
 static constexpr int CheapMemOpWeight = 2;
 static constexpr int ExpensiveMemOpWeight = 30;
-// scatter latency on SKX ~ 10.
-static constexpr int ScatterWeight = 10;
-// gather latency on SKX 20-30.
-static constexpr int GatherWeight = 20;
 // Conditional branches are potentially expensive...
 // misprediction penalty.
 static constexpr int CondBranchWeight = 4;
@@ -78,9 +74,6 @@ static constexpr int CallMinMaxWeight = 1;
 static constexpr int CallFloorWeight = 2;
 static constexpr int CallFakeInsertExtractWeight = 2;
 static constexpr int CallRelational = 3;
-
-static constexpr int PenaltyFactorForGEPWithSixParams = 7;
-static constexpr unsigned NumParamsInGEPPenaltyHack = 6;
 
 namespace llvm {
 class InstCountResultImpl {
@@ -190,8 +183,8 @@ private:
   // Desired vectorization width
   int DesiredVF = 1;
 
-  // Total weight of all instructions
-  float TotalWeight;
+  // Total weight of all instructions. Initialize to 1 for safety.
+  float TotalWeight = 1.0f;
 
   // for statistical purposes, cost of
   // basic block (without probability and trip count)
@@ -292,9 +285,6 @@ void InstCountResultImpl::analyze() {
 
   // for statistics:
   DPCPP_STAT_GATHER_CHECK(BlockCosts.clear(););
-
-  // This is for safety - don't return 0.
-  TotalWeight = 1;
 
   // Check if this is the "pre" stage.
   // If it is, compute things that are relevant only here.
@@ -552,116 +542,43 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
   StringRef Name = Callee->getName();
   bool IsIntrinsic = Callee->isIntrinsic();
 
-  // For volcano
-  bool IsOCLLoad = Predicator::isMangledLoad(Name);
-  bool IsOCLStore = Predicator::isMangledStore(Name);
-  // For VPlan
   bool IsLoadIntrinsic =
       IsIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_load;
   bool IsStoreIntrinsic =
       IsIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_store;
-
-  // Since we run before the resolver, masked load/stores should count
-  // as load/stores, not calls. Maybe slightly better or worse.
-  if (IsOCLLoad || IsOCLStore || IsLoadIntrinsic || IsStoreIntrinsic) {
-    // If the mask is non-scalar, this will become a lot of memops,
-    // since the CPU doesn't have gathers.
-    unsigned MaskIdx;
-    if (IsOCLLoad || IsOCLStore) {
-      MaskIdx = 0;
-    } else if (IsLoadIntrinsic) {
-      MaskIdx = 2;
-    } else { // IsStoreIntrinsic
-      MaskIdx = 3;
-    }
-    Value *Mask = CI->getArgOperand(MaskIdx);
-    Type *MaskType = Mask->getType();
-
-    // apperently, masked stores to a memory location that was retrieved via
-    // a get element pointer instruction with 6 parameters,
-    // inside a block which is a loop of a single block, are
-    // surprisingly expensive (about 7 times that of a usual MEM_OP).
-    // alternatively...
-    // this could be the result of an outragous over-fitting, designed
-    // to prevent LuxMark::Sampler from vectorizing.
-    // So yes, this is a hack for this purpose.
-    // The check is very specific trying to catch LuxMark::Sampler.
-    // alone without causing collateral damage.
-    //
-    // FIXME:
-    // I checked the IR in LuxMark/Luxball_HDR and LuxMark/Microphone, and
-    // there's no call to masked_load/maskd_store with this kind of GEP at
-    // all. This kind of GEP's are directly used by 'load' instructions. I
-    // suggest removing this piece of code or making it fit in more general
-    // cases. E.g., penalize GEP's with more than 6 operands instead of exact
-    // 6 operands.
-    if ((IsOCLStore || IsStoreIntrinsic) && !MaskType->isVectorTy()) {
-      assert(CI->arg_size() == 3 && "expected 3 params in masked store");
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(CI->getArgOperand(1))) {
-        if (GEP->getNumOperands() == NumParamsInGEPPenaltyHack) {
-          BasicBlock *BB = CI->getParent();
-          for (auto *Succ : successors(BB))
-            if (Succ == BB)
-              return MemOpWeight * PenaltyFactorForGEPWithSixParams;
-        }
-      }
-    }
-
-    // For scalar masks, it'll be a pretty little vector store/load
-    if (!MaskType->isVectorTy())
-      return MemOpWeight;
-
-    // This is a vector type, it'll be ugly.
-    int NumElements = cast<FixedVectorType>(MaskType)->getNumElements();
-    return MemOpWeight * NumElements;
-    // TODO: if the vector is really large, still need to multiply...
+  if (IsLoadIntrinsic || IsStoreIntrinsic) {
+    unsigned Opcode = IsLoadIntrinsic ? Instruction::Load : Instruction::Store;
+    const Value *Ptr =
+        IsLoadIntrinsic ? CI->getArgOperand(0) : CI->getArgOperand(1);
+    Type *Ty = Ptr->getType();
+    auto *Alignment =
+        IsLoadIntrinsic ? CI->getArgOperand(1) : CI->getArgOperand(2);
+    InstructionCost IC = TTI.getMaskedMemoryOpCost(
+        Opcode, Ty, Align(cast<ConstantInt>(Alignment)->getZExtValue()),
+        cast<PointerType>(Ty)->getAddressSpace(),
+        TargetTransformInfo::TCK_RecipThroughput);
+    return *IC.getValue();
   }
 
-  // For volcano
-  bool IsOCLGather = Predicator::isMangledGather(Name);
-  bool IsOCLScatter = Predicator::isMangledScatter(Name);
-  // For VPlan
   bool IsGatherIntrinsic =
       IsIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_gather;
   bool IsScatterIntrinsic =
       IsIntrinsic && Callee->getIntrinsicID() == Intrinsic::masked_scatter;
-
-  if (IsOCLGather || IsOCLScatter || IsGatherIntrinsic || IsScatterIntrinsic) {
-    // 16 x 32bit element gather/scatter with 64 bit indices will turn
-    // into 2 gathers/scatters, so adjust weight accordingly.
-
-    int Weight;
-    if (IsOCLGather || IsGatherIntrinsic)
-      Weight = GatherWeight;
-    else
-      Weight = ScatterWeight;
-
-    // FIXME: For Volcano-style ocl_masked_gather/scatter, the address is
-    // calculated by ptr + indices, so we can check if the indices are in 64
-    // bits; while LLVM gather/scatter intrinsic simply accepts a vector of
-    // address, so we simply return the Weight.
-    if (IsGatherIntrinsic || IsScatterIntrinsic) {
-      unsigned Opcode =
-          IsGatherIntrinsic ? Instruction::Load : Instruction::Store;
-      Type *DataTy =
-          IsGatherIntrinsic ? CI->getType() : CI->getArgOperand(0)->getType();
-      const Value *Ptr =
-          IsGatherIntrinsic ? CI->getArgOperand(0) : CI->getArgOperand(1);
-      bool VariableMask = !isa<ConstantVector>(
-          IsGatherIntrinsic ? CI->getArgOperand(2) : CI->getArgOperand(3));
-      auto *Alignment =
-          IsGatherIntrinsic ? CI->getArgOperand(1) : CI->getArgOperand(2);
-      InstructionCost IC = TTI.getGatherScatterOpCost(
-          Opcode, DataTy, Ptr, VariableMask,
-          Align(cast<ConstantInt>(Alignment)->getZExtValue()));
-      return *IC.getValue();
-    }
-
-    // TODO remove after volcano vectorizer is removed.
-    Value *Index = CI->getArgOperand(2);
-    auto *Ty = cast<VectorType>(Index->getType());
-    // return doubled weight for 64 bit indices
-    return Ty->getScalarSizeInBits() > 32 ? (2 * Weight) : Weight;
+  if (IsGatherIntrinsic || IsScatterIntrinsic) {
+    unsigned Opcode =
+        IsGatherIntrinsic ? Instruction::Load : Instruction::Store;
+    Type *DataTy =
+        IsGatherIntrinsic ? CI->getType() : CI->getArgOperand(0)->getType();
+    const Value *Ptr =
+        IsGatherIntrinsic ? CI->getArgOperand(0) : CI->getArgOperand(1);
+    bool VariableMask = !isa<ConstantVector>(
+        IsGatherIntrinsic ? CI->getArgOperand(2) : CI->getArgOperand(3));
+    auto *Alignment =
+        IsGatherIntrinsic ? CI->getArgOperand(1) : CI->getArgOperand(2);
+    InstructionCost IC = TTI.getGatherScatterOpCost(
+        Opcode, DataTy, Ptr, VariableMask,
+        Align(cast<ConstantInt>(Alignment)->getZExtValue()));
+    return *IC.getValue();
   }
 
   // vloads and vstores also count as loads/stores.
@@ -717,6 +634,14 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
 
   if (Predicator::isAllOne(Name))
     return NoopWeight;
+
+  if (IsIntrinsic) {
+    IntrinsicCostAttributes CostAttrs(cast<IntrinsicInst>(CI)->getIntrinsicID(),
+                                      *CI);
+    InstructionCost IC = TTI.getIntrinsicInstrCost(
+        CostAttrs, TargetTransformInfo::TCK_RecipThroughput);
+    return *IC.getValue();
+  }
 
   // See if we can find the function in the function cost table
   return getFuncCost(Name);
@@ -1459,6 +1384,11 @@ InstCountResult::InstCountResult(Function &F, TargetTransformInfo &TTI,
 InstCountResult::InstCountResult(InstCountResult &&Other)
     : Impl(std::move(Other.Impl)) {}
 
+InstCountResult& InstCountResult::operator=(InstCountResult &&Other) {
+  Impl = std::move(Other.Impl);
+  return *this;
+}
+
 InstCountResult::~InstCountResult() = default;
 
 void InstCountResult::print(raw_ostream &OS) { return Impl->print(OS); }
@@ -1478,50 +1408,6 @@ void InstCountResult::countPerBlockHeuristics(
 
 void InstCountResult::copyBlockCosts(std::map<BasicBlock *, int> *Dest) {
   Impl->copyBlockCosts(Dest);
-}
-
-INITIALIZE_PASS_BEGIN(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
-                      "Weighted instruction count analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
-                    "Weighted instruction count analysis", false, true)
-
-char WeightedInstCountAnalysisLegacy::ID = 0;
-
-WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
-    VFISAKind ISA, bool PreVec)
-    : FunctionPass(ID), ISA(ISA), PreVec(PreVec) {
-  initializeWeightedInstCountAnalysisLegacyPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.addRequired<PostDominatorTreeWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool WeightedInstCountAnalysisLegacy::runOnFunction(Function &F) {
-  TargetTransformInfo &TTI =
-      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  PostDominatorTree &DT =
-      getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  Result.reset(new InstCountResult(F, TTI, DT, LI, SE, ISA, PreVec));
-  return false;
-}
-
-FunctionPass *
-llvm::createWeightedInstCountAnalysisLegacyPass(VFISAKind ISA,
-                                                bool PreVec) {
-  return new WeightedInstCountAnalysisLegacy(ISA, PreVec);
 }
 
 AnalysisKey WeightedInstCountAnalysis::Key;

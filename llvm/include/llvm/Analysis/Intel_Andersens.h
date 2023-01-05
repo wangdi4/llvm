@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -65,9 +65,8 @@ class IntelModRef;
 /// An alias analysis result set for Andersens points-to.
 ///
 /// This focuses on handling aliasing properties using Andersens points-to.
-class AndersensAAResult : public AAResultBase<AndersensAAResult>, 
+class AndersensAAResult : public AAResultBase,
                           private InstVisitor<AndersensAAResult> {
-  friend AAResultBase<AndersensAAResult>;
   friend IntelModRefImpl;
 
   struct BitmapKeyInfo {
@@ -451,6 +450,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   public:
     IntelModRef(AndersensAAResult *AnderAA, AndersGetTLITy GetTLI);
     ~IntelModRef();
+    IntelModRef(const IntelModRef &) = delete;
+    IntelModRef &operator=(const IntelModRef &) = delete;
 
     void runAnalysis(Module &M);
     ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
@@ -485,6 +486,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 public:
   AndersensAAResult(AndersensAAResult &&Arg);
   ~AndersensAAResult();
+  AndersensAAResult(const AndersensAAResult &) = delete;
+  AndersensAAResult &operator=(const AndersensAAResult &) = delete;
 
   enum AndersenSetResult {
     Complete,                // All targets have the same type
@@ -520,8 +523,8 @@ public:
   bool mayEscape(const MemoryLocation &LocB);
 
   // Chases pointers until we find a (constant global) or not.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
-                              bool OrLocal);
+  ModRefInfo getModRefInfoMask(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool IgnoreLocals);
   // Returns true if the given value V does not escape from
   // the current routine.
   bool escapes(const Value *V);
@@ -591,10 +594,8 @@ private:
   void InitIndirectCallActualsToUniversalSet(CallBase *CB);
   void AddEdgeInGraph(unsigned N1, unsigned N2);
 
-  // Return true if the type of a function pointer (FPType) matches with
-  // the type of the target (TargetType).
-  bool isSimilarType(Type *FPType, Type *TargetType,
-      DenseSet<std::pair<Type *, Type *>> &TypesUsed);
+  // Return true if CallTy and TargetTy
+  bool areTypesIsomorphicWithOpaquePtrs(Type *CallTy, Type *TargetTy);
 
   bool IsLibFunction(const Function *F);
   void CreateInOutEdgesforNodes();
@@ -626,8 +627,9 @@ private:
   bool graphNodeEscapes(Node *N);
   // Analyze whether the given global escapes or not
   bool analyzeGlobalEscape(const Value *V,
-               SmallPtrSet<const PHINode *, 16> PhiUsers,
-               const Function **SinlgeAcessingFunction);
+                           SmallPtrSet<const PHINode *, 16> PhiUsers,
+                           const Function **SinlgeAcessingFunction,
+                           DenseMap<const Value *, bool> &Cache);
   void PrintNonEscapes() const;
 
   void ProcessIndirectCall(CallBase *CB);

@@ -29,11 +29,11 @@
 #endif
 #include "fp_trunc_impl.inc"
 
-dst_t __truncsfhf2(float a) {
-  return __truncXfYf2__(a);
-}
+dst_t __truncsfhf2(float a) { return __truncXfYf2__(a); }
 
 #ifndef _WIN32
 __attribute__((weak))
 #endif
-dst_t __gnu_f2h_ieee(float a) { return __truncsfhf2(a); }
+dst_t __gnu_f2h_ieee(float a) {
+  return __truncsfhf2(a);
+}

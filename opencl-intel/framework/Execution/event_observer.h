@@ -14,32 +14,36 @@
 
 #pragma once
 
-#include <cl_types.h>
 #include "cl_shared_ptr.h"
+#include <cl_types.h>
 
 using Intel::OpenCL::Utils::SharedPtr;
 
-namespace Intel { namespace OpenCL { namespace Framework {
-    
-    // Forward declaration
-    class OclEvent;
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-    /************************************************************************
-     * Pure interface class 
-     * 
-    ************************************************************************/     
-    class IEventObserver : virtual public Intel::OpenCL::Utils::ReferenceCountedObject
-    {
-    public:
+// Forward declaration
+class OclEvent;
 
-        PREPARE_SHARED_PTR(IEventObserver)
+/************************************************************************
+ * Pure interface class
+ *
+ ************************************************************************/
+class IEventObserver
+    : virtual public Intel::OpenCL::Utils::ReferenceCountedObject {
+public:
+  PREPARE_SHARED_PTR(IEventObserver)
 
-    	virtual ~IEventObserver()
-        {}
+  virtual ~IEventObserver() {}
 
-        virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode) = 0;
+  virtual cl_err_code
+  ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                            cl_int returnCode) = 0;
 
-        virtual cl_int  GetExpectedExecState() const = 0;
-    };
+  virtual cl_int GetExpectedExecState() const = 0;
+};
 
-}}}    // Intel::OpenCL::Framework
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

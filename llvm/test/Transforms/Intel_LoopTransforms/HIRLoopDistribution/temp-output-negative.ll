@@ -1,4 +1,3 @@
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-loopnest -print-after=hir-loop-distribute-loopnest  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-loopnest,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; Loop DO i2 should not be distributed because of output temp dependency on %jp.2.lcssa.

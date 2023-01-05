@@ -4,6 +4,8 @@
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
+; The LPM equivalent for the test, opt-O0-pipeline-paropt.ll, was removed in
+; PR #8608 after llorg removed support for opt-level flags for LPM (D137663).
 ;CHECK:      Running pass: XmainOptLevelAnalysisInit on [module]
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on [module]
 ;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module]
@@ -44,6 +46,9 @@
 ;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo

@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-;RUN: opt < %s -vplan-vec -S | FileCheck %s
 ;RUN: opt < %s -passes="vplan-vec" -S | FileCheck %s
 
 

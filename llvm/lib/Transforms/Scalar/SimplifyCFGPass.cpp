@@ -45,8 +45,6 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
-#include "llvm/Analysis/Intel_WP.h"                         // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
@@ -62,10 +60,16 @@
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
+#include <utility>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
-#include <utility>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "simplifycfg"
@@ -130,12 +134,12 @@ performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
       std::get<1>(I) = PHINode::Create(std::get<0>(I)->getType(),
                                        /*NumReservedValues=*/BBs.size(),
                                        CanonicalBB->getName() + ".op");
-      CanonicalBB->getInstList().push_back(std::get<1>(I));
+      std::get<1>(I)->insertAt(CanonicalBB, CanonicalBB->end());
     }
     // Make it so that this canonical block actually has the right
     // terminator.
     CanonicalTerm = Term->clone();
-    CanonicalBB->getInstList().push_back(CanonicalTerm);
+    CanonicalTerm->insertAt(CanonicalBB, CanonicalBB->end());
     // If the canonical terminator has operands, rewrite it to take PHI's.
     for (auto I : zip(NewOps, CanonicalTerm->operands()))
       std::get<1>(I) = std::get<0>(I);

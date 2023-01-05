@@ -16,11 +16,11 @@
 // ALGORITHM DESCRIPTION:
 //   ---------------------
 //  The method consists of three cases.
-// 
+//
 //  If       2 <= x < OVERFLOW_BOUNDARY
 //  else if  0 < x < 2
 //  else if  -(i+1) <  x < -i, i = 0...43
-// 
+//
 //  Case 2 <= x < OVERFLOW_BOUNDARY
 //  -------------------------------
 //    Here we use algorithm based on the recursive formula
@@ -34,23 +34,23 @@
 //    = (x-1)*(x-2)*...*(x-i)*GAMMA(x-i) =
 //    = (x-1)*(x-2)*...*(x-i)*GAMMA(8*n+r) ~
 //    ~ (x-1)*(x-2)*...*(x-i)*P12n(r).
-// 
+//
 //    Step 1: Reduction
 //    -----------------
 //     N = [x] with truncate
 //     r = x - N, note 0 <= r < 1
-// 
+//
 //     n = N & ~0x7 - index of table that contains coefficient of
 //                    polynomial approximation
 //     i = N & 0x7  - is used in recursive formula
-// 
-// 
+//
+//
 //    Step 2: Approximation
 //    ---------------------
 //     We use factorized minimax approximation polynomials
 //     P12n(r) = A12*(r^2+C01(n)*r+C00(n))*
 //               *(r^2+C11(n)*r+C10(n))*...*(r^2+C51(n)*r+C50(n))
-// 
+//
 //    Step 3: Recursion
 //    -----------------
 //     In case when i > 0 we need to multiply P12n(r) by product
@@ -63,12 +63,12 @@
 //     = ((x^2-x)+2*(1-x))*((x^2-x)+6*(2-x))*...*((x^2-x)+2*(2*j-1)*(j-x)) =
 //     = (RA+2*RB)*(RA+6*(1-RB))*...*(RA+2*(2*j-1)*(j-1+RB))
 //     where j = 1..[i/2], RA = x^2-x, RB = 1-x.
-// 
+//
 //    Step 4: Reconstruction
 //    ----------------------
 //     Reconstruction is just simple multiplication i.e.
 //     GAMMA(x) = P12n(r)*R(i,x)
-// 
+//
 //  Case 0 < x < 2
 //  --------------
 //     To calculate GAMMA(x) on this interval we do following
@@ -79,690 +79,714 @@
 //         if 1.75 <= x < 2.0   than  GAMMA(x) = P7(x-1)
 //     and
 //         if 0 < x < 1 than GAMMA(x) = GAMMA(x+1)/x
-// 
+//
 //  Case -(i+1) <  x < -i, i = 0...43
 //  ----------------------------------
 //     Here we use the fact that GAMMA(-x) = PI/(x*GAMMA(x)*sin(PI*x)) and
 //     so we need to calculate GAMMA(x), sin(PI*x)/PI. Calculation of
 //     GAMMA(x) is described above.
-// 
+//
 //    Step 1: Reduction
 //    -----------------
 //     Note that period of sin(PI*x) is 2 and range reduction for
 //     sin(PI*x) is like to range reduction for GAMMA(x)
 //     i.e rs = x - round(x) and |rs| <= 0.5.
-// 
+//
 //    Step 2: Approximation
 //    ---------------------
 //     To approximate sin(PI*x)/PI = sin(PI*(2*n+rs))/PI =
 //     = (-1)^n*sin(PI*rs)/PI Taylor series is used.
 //     sin(PI*rs)/PI ~ S17(rs).
-// 
+//
 //    Step 3: Division
 //    ----------------
 //     1/x and 1/(GAMMA(x)*S12(rs))
 // --
-// 
+//
 */
 #include "_imf_include_fp32.hpp"
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_tgamma_s_la {
 namespace {
-static const float __stgamma_la__neg_underflow[2] = {43.0, -43.0};
-static const float __stgamma_la__neg_half_overflow[2] = {40.0, -40.0};
-/* overflow boundary (35.04010009765625)*/
-static const unsigned int __stgamma_la__overflow_boundary[] = {0x00000000,
-                                                               0x40418522};
-/* point of local minium (0.461632144968362356785)*/
-static const unsigned int __stgamma_la__local_minimum[] = {0x8D5AF8FE,
-                                                           0x3FDD8B61};
-static const unsigned int __stgamma_la__tgamma_A_table[] = {
-    /*[2; 8)*/
-    0xBA0CB3B4,
-    0x4009EFD1 /* C01*/
-    ,
-    0x78FF4822,
-    0x3FFFB353 /* C11*/
-    ,
-    0xF695B198,
-    0x3FD9CE68 /* C21*/
-    ,
-    0xC900DA03,
-    0xBFF8C30A /* C31*/
-    ,
-    0x0413B896,
-    0xC0103227 /* C41*/
-    ,
-    0x4C0D6827,
-    0xC01F171A /* C51*/
-    ,
-    0xF0535C02,
-    0x400E17D2 /* C00*/
-    ,
-    0x40F7FAC8,
-    0x40106892 /* C10*/
-    ,
-    0x197396AC,
-    0x40148F8E /* C20*/
-    ,
-    0x59F1249C,
-    0x401C6019 /* C30*/
-    ,
-    0x7DDCCF8D,
-    0x40256314 /* C40*/
-    ,
-    0x0480A21C,
-    0x4033406D /* C50*/
-    ,
-    0x81741977,
-    0x3EE21AD8 /* An*/
-    /*[8; 16)*/
-    ,
-    0xAE0B793B,
-    0x4006222B /* C01*/
-    ,
-    0x33473EDA,
-    0x40024527 /* C11*/
-    ,
-    0x8F7B73C5,
-    0x3FF54582 /* C21*/
-    ,
-    0x578764DF,
-    0xBFBBD210 /* C31*/
-    ,
-    0x326FDDB3,
-    0xC0010EF3 /* C41*/
-    ,
-    0x17F99C0F,
-    0xC01492B8 /* C51*/
-    ,
-    0x98F53CFC,
-    0x40005420 /* C00*/
-    ,
-    0x09AD6C81,
-    0x40032C13 /* C10*/
-    ,
-    0x5A249B75,
-    0x40099C90 /* C20*/
-    ,
-    0xAE0E533D,
-    0x4012B972 /* C30*/
-    ,
-    0xE19BD2E1,
-    0x401D7331 /* C40*/
-    ,
-    0x7295EF57,
-    0x402A0680 /* C50*/
-    ,
-    0x91D0D4CC,
-    0x3FE6F6DB /* An*/
-    /*[16; 24)*/
-    ,
-    0x02867596,
-    0x40001310 /* C01*/
-    ,
-    0xD5D1B6F2,
-    0x3FFAA362 /* C11*/
-    ,
-    0x45BC2769,
-    0x3FEEB1F3 /* C21*/
-    ,
-    0xE7F3316F,
-    0xBFC3BBE6 /* C31*/
-    ,
-    0x5697DB6D,
-    0xBFFCB698 /* C41*/
-    ,
-    0x3BFC3B3B,
-    0xC0115BEE /* C51*/
-    ,
-    0xDA5E9983,
-    0x3FF14E07 /* C00*/
-    ,
-    0xBF81E2C0,
-    0x3FF53B76 /* C10*/
-    ,
-    0x83456F73,
-    0x3FFE62FF /* C20*/
-    ,
-    0x78A114C4,
-    0x4007E334 /* C30*/
-    ,
-    0x0269A3DC,
-    0x4014051E /* C40*/
-    ,
-    0x27468EDB,
-    0x40229D42 /* C50*/
-    ,
-    0x3795ED57,
-    0x41E9B2B7 /* An*/
-    /*[24; 32)*/
-    ,
-    0x498384DE,
-    0x3FFAF7BD /* C01*/
-    ,
-    0xB4D1C3D2,
-    0x3FF62AD8 /* C11*/
-    ,
-    0xBBB4B727,
-    0x3FE8943C /* C21*/
-    ,
-    0x66E11756,
-    0xBFCB39D4 /* C31*/
-    ,
-    0xCD004C32,
-    0xBFFABCAD /* C41*/
-    ,
-    0x7C097EC9,
-    0xC00FADE9 /* C51*/
-    ,
-    0x3243D8C1,
-    0x3FE879AF /* C00*/
-    ,
-    0xBB14CE1E,
-    0x3FEEC7DE /* C10*/
-    ,
-    0xD737707E,
-    0x3FF6DA9E /* C20*/
-    ,
-    0x9E0C782C,
-    0x4002A29E /* C30*/
-    ,
-    0x9BA80BCB,
-    0x401017B7 /* C40*/
-    ,
-    0xC3C4DE80,
-    0x401E941D /* C50*/
-    ,
-    0x5167C6C3,
-    0x44329D5B /* An*/
-    /*[32; 40)*/
-    ,
-    0xA0E8FE5C,
-    0x3FF7ECB3 /* C01*/
-    ,
-    0x8516316B,
-    0x3FF3815A /* C11*/
-    ,
-    0xDA1B5783,
-    0x3FE4CE76 /* C21*/
-    ,
-    0xB460BC4E,
-    0xBFD0524D /* C31*/
-    ,
-    0xFCC000C3,
-    0xBFF9ABD8 /* C41*/
-    ,
-    0x69A4195B,
-    0xC00DD899 /* C51*/
-    ,
-    0xDF14E200,
-    0x3FE35852 /* C00*/
-    ,
-    0x0359F642,
-    0x3FE8C761 /* C10*/
-    ,
-    0x39CBF563,
-    0x3FF2E431 /* C20*/
-    ,
-    0x3474A606,
-    0x3FFF96DC /* C30*/
-    ,
-    0x0EC16173,
-    0x400BCF75 /* C40*/
-    ,
-    0x02EA701C,
-    0x401AC14E /* C50*/
-    ,
-    0x9B0DDDF0,
-    0x46AFF4CA /* An*/
-    /*[40; 48)*/
-    ,
-    0xD8193097,
-    0x3FF5DCE4 /* C01*/
-    ,
-    0xC4974FFA,
-    0x3FF1B0D8 /* C11*/
-    ,
-    0xB11D847A,
-    0x3FE231DE /* C21*/
-    ,
-    0xAFD7E935,
-    0xBFD251EC /* C31*/
-    ,
-    0x0194CAEA,
-    0xBFF8FB45 /* C41*/
-    ,
-    0xE030A6C4,
-    0xC00C9658 /* C51*/
-    ,
-    0xE288F6BF,
-    0x3FE0368A /* C00*/
-    ,
-    0x4215A70C,
-    0x3FE513AE /* C10*/
-    ,
-    0x1118AB46,
-    0x3FF06885 /* C20*/
-    ,
-    0xBB46BF7D,
-    0x3FFBF7C7 /* C30*/
-    ,
-    0xF7141B8B,
-    0x4008F960 /* C40*/
-    ,
-    0x8134397B,
-    0x40183BA0 /* C50*/
-    ,
-    0x00000000,
-    0x3FF00000 /* An*/
-};
-/* sin(pi*x)/pi*/
-static const unsigned int __stgamma_la__tgamma_sin_table[] = {
-    0x760626E2,
-    0xBEC144B2 /* S31*/
-    ,
-    0x2FF39E13,
-    0x3E90FC99 /* S32*/
-    ,
-    0xABECEFCA,
-    0x405541D7 /* S00*/
-    ,
-    0x377656CC,
-    0xC026FB0D /* S01*/
-    ,
-    0x4A41C6E7,
-    0x406CE58F /* S10*/
-    ,
-    0x95A22324,
-    0x3FFFB15F /* S11*/
-    ,
-    0x6302C61E,
-    0x40445378 /* S20*/
-    ,
-    0x47DBFCD3,
-    0xC023D59A /* S21*/
-};
-/* [1.0;1.25]*/
-static const unsigned int __stgamma_la__tgamma_A100_table[] = {
-    0xFFE9209E,
-    0x3FEFFFFF /* A0*/
-    ,
-    0xCD545AA4,
-    0xBFE2788C /* A1*/
-    ,
-    0xD144911C,
-    0x3FEFA648 /* A2*/
-    ,
-    0xD93449B8,
-    0xBFED0800 /* A3*/
-    ,
-    0xA010CA3B,
-    0x3FEF4857 /* A4*/
-    ,
-    0xF7720B4D,
-    0xBFEE3720 /* A5*/
-    ,
-    0xEEA8520F,
-    0x3FE96FFE /* A6*/
-    ,
-    0x48921868,
-    0xBFD99096 /* A7*/
-};
-/* [1.25;1.5]*/
-static const unsigned int __stgamma_la__tgamma_A125_table[] = {
-    0x82A39AA2,
-    0x3FEC56DC /* A0*/
-    ,
-    0x9D8452EB,
-    0xBDEE86A3 /* A1*/
-    ,
-    0x65BBEF1F,
-    0x3FDB6C54 /* A2*/
-    ,
-    0x710A10B9,
-    0xBFC0BADE /* A3*/
-    ,
-    0x1A545163,
-    0x3FC496A0 /* A4*/
-    ,
-    0x3A546EBE,
-    0xBFB7E7F8 /* A5*/
-    ,
-    0x14F36691,
-    0x3FAF2375 /* A6*/
-    ,
-    0x6426936C,
-    0xBFB42123 /* A7*/
-};
-/*[1.5; 1.75)*/
-static const unsigned int __stgamma_la__tgamma_A150_table[] = {
-    0x3AE7FBC8,
-    0x3FEFFC61 /* A0*/
-    ,
-    0x1DF735B8,
-    0xBFE24597 /* A1*/
-    ,
-    0x7AB26771,
-    0x3FEE6555 /* A2*/
-    ,
-    0x7DBD23E4,
-    0xBFE85B42 /* A3*/
-    ,
-    0xC8F09147,
-    0x3FE3C90C /* A4*/
-    ,
-    0xBE3AB42A,
-    0xBFD59D31 /* A5*/
-    ,
-    0xE3816C7B,
-    0x3FBF4203 /* A6*/
-    ,
-    0x51795867,
-    0xBF94730B /* A7*/
-};
-/*[1.75; 2.0)*/
-static const unsigned int __stgamma_la__tgamma_A175_table[] = {
-    0x644B2022,
-    0x3FEFEE1E /* A0*/
-    ,
-    0xDFB25495,
-    0xBFE1C1AE /* A1*/
-    ,
-    0x0A977CA5,
-    0x3FEC56A8 /* A2*/
-    ,
-    0xC40AC0BB,
-    0xBFE3C24A /* A3*/
-    ,
-    0x949175BE,
-    0x3FDB262D /* A4*/
-    ,
-    0x07560916,
-    0xBFC6F0E7 /* A5*/
-    ,
-    0xD09735F3,
-    0x3FA96E37 /* A6*/
-    ,
-    0x5137617E,
-    0xBF7746A8 /* A7*/
-};
-/* Right shifter */
-static const unsigned __stgamma_la__two_23h[] = {0x4b000000}; /* 2^23 */
-/* Special values */
-static const unsigned int __stgamma_la__own_large_value_32[] = {
-    0x71800000, 0xf1800000}; /* +2^100,-2^100 */
-static const unsigned int __stgamma_la__own_small_value_32[] = {
-    0x0d800000, 0x8d800000}; /* +2^(-100),-2^(-100) */
-/* constants */
-static const unsigned int __stgamma_la__zeros[] = {0x00000000, 0x80000000};
-static const unsigned int __stgamma_la__ones[] = {0x3f800000, 0xbf800000};
-static const unsigned int __stgamma_la__infs[] = {0x7f800000, 0xff800000};
-static const float __stgamma_la_twos[] = {2.0, -2.0};
-static const float __stgamma_la_ones_5[] = {1.5, -1.5};
-static const float __stgamma_la_ones_25[] = {1.25, -1.25};
-static const float __stgamma_la_ones_75[] = {1.75, -1.75};
-extern float exp2f(float);
-inline int __devicelib_imf_internal_stgamma(const float *a, float *r) {
+
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g9 = {0xbab6176du};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g9l = {0xae714a6cu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g8 = {0x3b1d38b7u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g8l = {0x2dded6e2u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g7 = {0xbb2eb2f6u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g7l = {0xae5beafbu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g6 = {0x3c35c4efu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g6l = {0xafdb433bu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g5 = {0xb99a96dau};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g5l = {0xacf746afu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g4 = {0x3d98127du};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g4l = {0xb16eb15bu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g3 = {0x3da712a1u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g3l = {0x3118f2c2u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g2 = {0x3ed2dcb7u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g2l = {0x3220405du};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g1 = {0x3ed8772fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g1l = {0x324fa556u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g0 = {0x3f800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___g0l = {0x304df064u};
+// log2() coefficients
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg10 = {0x3e33f722u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg10l = {0xb1e71721u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg9 = {0xbe40bc25u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg9l = {0xb0303e2eu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg8 = {0x3e1e1fe6u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg8l = {0x319418ffu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg7 = {0xbe335ec0u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg7l = {0xb189b659u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg6 = {0x3e536662u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg6l = {0xb10a9fcfu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg5 = {0xbe767c1eu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg5l = {0x31024e0eu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg4 = {0x3e93ba33u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg4l = {0xb27d981au};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg3 = {0xbeb8a98cu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg3l = {0x31099373u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg2 = {0x3ef63852u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg2l = {0xb1f29daeu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg1 = {0xbf38aa3cu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg1l = {0x32b1212fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg0 = {0x3fb8aa3bu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___lg0l = {0x32a451aeu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___mL2E = {0xbfb8aa3bu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___mL2EL = {0xb2a57060u};
+
+// using intepolation interval over [__fxmax+1, __fxmax+2]
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___fxmax = {0x3EEC5A00u};
+// __fxmax+1
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___fxmax_p1 = {0x3FBB1680u};
+// __fxmax+2
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___fxmax_p2 = {0x401D8B40u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___small_thres = {0x01000000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___scale_smallx = {0x5f800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___scale_corr = {0x42800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___qnan_indef = {0xffc00000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___Inf = {0x7f800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___Shifter = {0x4b40007fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___minShifter = {0x4b400000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___maxShifter = {0x4b4000f0u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce8 = {0x39b3ff0fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce7 = {0x3b01e213u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce6 = {0x3c217f67u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce5 = {0x3d2ebe2fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce4 = {0x3e1d9564u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce4l = {0xb110a789u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce3 = {0x3ee35854u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce3l = {0xb230eac0u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce2 = {0x3f75fdf0u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce2l = {0xb1bc3d42u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce1 = {0x3fb17218u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce1l = {0xb23db304u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce0 = {0x3f800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___ce0l = {0x2df51500u};
+// poly(z) ~ GAMMA(1/z)*exp(1/z)/(1/z)^(1/z-.5)
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p5 = {0x3a9a5493u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p4 = {0xb8dc3482u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p3 = {0xbbdfc448u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p2 = {0x3c0ec610u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p1 = {0x3e55e608u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___p0 = {0x3f01b264u};
+// poly(r) ~ sin(pi*r)/(pi*r)
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp5 = {0xbb127cd6u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp5l = {0xae3fb1cau};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp4 = {0x3cd5f1a7u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp4l = {0xae78ae4fu};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp3 = {0xbe435358u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp3l = {0xb1898a74u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp2 = {0x3f4fce56u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp2l = {0xb28778f2u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp1 = {0xbfd28d33u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp1l = {0xb14abc67u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp0 = {0x3f800000u};
+static const union {
+  uint32_t w;
+  float f;
+} __stgamma_la___sp0l = {0xadba0bc0u};
+
+inline int __devicelib_imf_internal_stgamma(const float *px, float *pres) 
+{
   int nRet = 0;
-  int t = 0, i = 0, j = 0, irsign = 0;
-  int ix = 0, iabsx_n = 0, iabsx_t = 0, ixsign = 0, ixexp = 0;
-  float dix = 0.0f, diabsx_n = 0.0f, diabsx_t = 0.0f;
-  float tv = 0.0f;
-  float x = 0.0f;
-  float absx = 0.0f, res = 0.0f;
-  double resf = 0.0;
-  double s = 0.0, r2 = 0.0, r3 = 0.0, rrr = 0.0;
-  double curabsx = 0.0;
-  double p = 0.0, pr = 0.0;
-  const double *A;
-  x = *(a);
-  absx = x;
-  res = ((const float *)__stgamma_la__zeros)[0];
-  /* get arg sign */
-  ixsign = (((_iml_sp_union_t *)&x)->bits.sign);
-  /* get arg exponent */
-  ixexp = (((_iml_sp_union_t *)&x)->bits.exponent);
-  /* normal values */
-  if (ixexp != 0xFF) {
-    /* create absolute value */
-    (((_iml_sp_union_t *)&absx)->bits.sign = 0);
-    ix = *((int *)(&absx));
-    /* if x == 0 - zero divide exception */
-    if (x == ((const float *)__stgamma_la__zeros)[0]) {
-      *r = (((const float *)__stgamma_la__ones)[(ixsign)] /
-            ((const float *)__stgamma_la__zeros)[0]);
-      nRet = 2;
-      return nRet;
-    }
-    if (ix <= 0x00200000) /* if |x| < denorm_overflow */
-    {
-      {
-        float tz = ((const float *)__stgamma_la__own_large_value_32)[0];
-        ((*r)) =
-            (((const float *)__stgamma_la__own_large_value_32)[(ixsign)] * tz);
-      }; /* raise overflow */
-      nRet = 3;
-      return nRet;
-    }
-    /* singularity at negative integer points */
-    if (ixsign) {
-      /* if |x| >= 2^23 - only integer values */
-      if (ixexp >= 0x00000096) {
-        {
-          float tz = ((const float *)__stgamma_la__zeros)[0];
-          ((*r)) = (((const float *)__stgamma_la__zeros)[(0)] / tz);
-        };
-        nRet = 1;
-        return nRet;
-      } // if(ixexp >= 0x00000096)
-      else {
-        /* get integer value of arg (truncated) */
-        tv = absx + (*(const float *)__stgamma_la__two_23h);
-        diabsx_t = tv - (*(const float *)__stgamma_la__two_23h);
-        iabsx_t = (0x000fffff) & (*((int *)(&tv)));
-        if (diabsx_t > absx) {
-          diabsx_t -= ((const float *)__stgamma_la__ones)[0];
-          iabsx_t -= 1;
-        }
-      } // else if(ixexp >= 0x00000096)
-      /* if arg - integer then singularity */
-      if (absx == diabsx_t) {
-        {
-          float tz = ((const float *)__stgamma_la__zeros)[0];
-          ((*r)) = (((const float *)__stgamma_la__zeros)[(0)] / tz);
-        };
-        nRet = 1;
+  float x = *px;
+  float fn, fx, Ph, Pl, x_next, Qh, Ql, fx0, eps, lR, lpoly;
+  float poly_h, poly_l, G0h, G0l, Gh, Gl, Rh, Rl, Kh, poly, res;
+  float zr_h, zr_l, spoly_h, spoly_l, p0, fN, y, xL_h, xL_l;
+  union {
+    uint32_t w;
+    float f;
+  } iGh, iGl, R_h, R_l, ix, ix0, fS, ires;
+  int32_t iexpon, iN, sgn;
+  ix0.f = ix.f = x;
+  // |x|
+  ix.w &= 0x7fffffffu;
+  // filter out Inf/NaN inputs
+  if (ix.w >= 0x7f800000u) {
+    *pres = x + __stgamma_la___Inf.f;
+    nRet = (ix0.w != 0xff800000) ? nRet : 1;
+    return nRet;
+  }
+  // integer and fractional parts of x
+  fn = __rint(x);
+  fx0 = x - fn;
+  if (ix.f < __stgamma_la___fxmax_p2.f) {
+    // adjust fraction range to [__fxmax-1, __fxmax]
+    fx = (fx0 <= __stgamma_la___fxmax.f) ? fx0 : (fx0 - 1.0f);
+    Qh = 1.0f;
+    Ql = 0;
+    if (x <= __stgamma_la___fxmax_p1.f) {
+      if (fx0 == 0.0f) {
+        *pres = ((x < 0) ? __stgamma_la___qnan_indef.f : 1.0f / (x));
+        nRet = (x < 0) ? 1 : nRet;
+        nRet = (x == 0.0f) ? 2 : nRet;
         return nRet;
       }
-      /* if arg < -185.0 then underflow (values rounded to zero) */
-      if (x < __stgamma_la__neg_underflow[1]) {
-        (*r) = (((const float *)
-                     __stgamma_la__own_small_value_32)[((~iabsx_t) & 1)] *
-                ((const float *)
-                     __stgamma_la__own_small_value_32)[0]); /* raise underflow
-                                                               and inexact */
-        nRet = 4;
-        return nRet;
-      }
-    } // if(ixsign)
-    /* big positive values overflow domain (res rounded to INF) */
-    if (x >= (*((const double *)__stgamma_la__overflow_boundary))) {
-      {
-        float tz = ((const float *)__stgamma_la__own_large_value_32)[0];
-        ((*r)) = (((const float *)__stgamma_la__own_large_value_32)[(0)] * tz);
-      }; /* raise overflow and inexact */
-      nRet = 3;
-      return nRet;
-    }
-    /* compute sin(Pi*x)/x for negative values */
-    if (ixsign) {
-      /* get rounded to nearest abs arg */
-      tv = absx + (*(const float *)__stgamma_la__two_23h);
-      diabsx_n = tv - (*(const float *)__stgamma_la__two_23h);
-      iabsx_n = (0x000fffff) & (*((int *)(&tv)));
-      rrr = absx - diabsx_n; /* reduced argument */
-      if (rrr < 0)
-        rrr = (-rrr); // IML_ABS_DP(rrr);  /* remove sign */
-      r2 = rrr * rrr; /* rrr^2 */
-      /* Tailor series */
-      s = rrr +
-          rrr * ((r2 *
-                  (((const double *)__stgamma_la__tgamma_sin_table)[0] +
-                   r2 * ((const double *)__stgamma_la__tgamma_sin_table)[1])) *
-                 (((const double *)__stgamma_la__tgamma_sin_table)[2] +
-                  r2 * (r2 +
-                        ((const double *)__stgamma_la__tgamma_sin_table)[3])) *
-                 (((const double *)__stgamma_la__tgamma_sin_table)[4] +
-                  r2 * (r2 +
-                        ((const double *)__stgamma_la__tgamma_sin_table)[5])) *
-                 (((const double *)__stgamma_la__tgamma_sin_table)[6] +
-                  r2 * (r2 +
-                        ((const double *)__stgamma_la__tgamma_sin_table)[7])));
-    } // if(ixsign)
-    /* get truncated integer argument */
-    tv = absx + (*(const float *)__stgamma_la__two_23h);
-    diabsx_t = tv - (*(const float *)__stgamma_la__two_23h);
-    iabsx_t = (0x000fffff) & (*((int *)(&tv)));
-    if (diabsx_t > absx) {
-      diabsx_t -= ((const float *)__stgamma_la__ones)[0];
-      iabsx_t -= 1;
-    }
-    /* get result sign */
-    irsign = ((iabsx_t + 1) & 1);
-    /* if x > 2.0 - simple polynomials */
-    if (absx >= __stgamma_la_twos[0]) {
-      t = iabsx_t & (~0x7); /* index of table of coefficient */
-      i = iabsx_t & (0x7);  /* used in recursive formula */
-                            /* for 2 <= x < 8 - shift index*/
-      if (iabsx_t < 8)
-        i = i - 2;
-      rrr = absx - diabsx_t; /* reduced argument */
-      A = &(((const double *)
-                 __stgamma_la__tgamma_A_table)[t + (t >> 1) +
-                                               (t >> 3)]); /* table address */
-      r2 = rrr * rrr;                                      /* rrr^2 */
-      /* factorized polynomial */
-      p = A[12] * (r2 + A[0] * rrr + A[6 + 0]) * (r2 + A[1] * rrr + A[6 + 1]) *
-          (r2 + A[2] * rrr + A[6 + 2]) * (r2 + A[3] * rrr + A[6 + 3]) *
-          (r2 + A[4] * rrr + A[6 + 4]) * (r2 + A[5] * rrr + A[6 + 5]);
-      /* if no recursion - p = 1.0 */
-      pr = ((const float *)__stgamma_la__ones)[0];
-      /* if i > 0 - recursies */
-      if (i) {
-        for (j = 1; j <= i; j++) {
-          pr *= (absx - j);
-        }
-      }
-      if (ixsign) /* for negatives rrr = 1/(x*s*gamma*recursies)*/
-      {
-        unsigned int __stgamma_la__tgamma_A40_inv[] = {
-            0xEDBCC440, 0x368954EA /* 1/An*/
+      // For x=N+fx (N<2), compute x*(x+1)*(x+2)* ...*fx*(fx+1)
+      Ph = x_next = x;
+      Pl = 0;
+      // correction for very small |x|
+      Ph = (__fabs(x) <= __stgamma_la___small_thres.f)
+               ? (Ph * __stgamma_la___scale_smallx.f)
+               : Ph;
+      while (x_next <= __stgamma_la___fxmax.f) {
+        x_next = x_next + 1.0f;
+        // (Ph + Pl)*= x_next
+        {
+          float __ph, __phl;
+          __ph = __fma(Ph, x_next, 0.0f);
+          __phl = __fma(Ph, x_next, -__ph);
+          Pl = __fma(Pl, x_next, __phl);
+          Ph = __ph;
         };
-        double resd = (double)((const float *)__stgamma_la__ones)[0] /
-                      ((double)absx * s * p * pr);
-        if (x < __stgamma_la__neg_half_overflow[1]) {
-          resd *= (*((double *)__stgamma_la__tgamma_A40_inv));
-        }
-        /* set sign */
-        if (irsign)
-          resd = -resd;
-        (*r) = (float)resd;
-      } else /* for positives rrr = gamma*recursies */
-      {
-        (*r) = p * pr;
       }
-      return nRet;
-    } // if(absx >= _VSTATIC(twos)[0])
-    else {
-      /* if |x| < 1 - calculate gamma(x+1) */
-      if (absx < ((const float *)__stgamma_la__ones)[0]) {
-        curabsx = absx + ((double)((const float *)__stgamma_la__ones)[0]);
-      } else {
-        curabsx = absx;
-      }
-      /* split intervals: */
-      /* x >= 1.75 */
-      if (curabsx >= __stgamma_la_ones_75[0]) {
-        rrr = curabsx - ((double)((const float *)__stgamma_la__ones)[0]);
-        A = ((const double *)__stgamma_la__tgamma_A175_table);
-      } else if (curabsx >= __stgamma_la_ones_5[0]) /* x >= 1.5 */
-      {
-        rrr = curabsx - ((double)((const float *)__stgamma_la__ones)[0]);
-        A = ((const double *)__stgamma_la__tgamma_A150_table);
-      } else if (curabsx >= __stgamma_la_ones_25[0]) /* 1.5 > x >= 1.25 */
-      {
-        rrr = curabsx - (((double)((const float *)__stgamma_la__ones)[0]) +
-                         (*((const double *)__stgamma_la__local_minimum)));
-        A = ((const double *)__stgamma_la__tgamma_A125_table);
-      } else if (curabsx < __stgamma_la_ones_25[0]) /* 0 < x < 1.25 */
-      {
-        rrr = curabsx - ((double)((const float *)__stgamma_la__ones)[0]);
-        A = ((const double *)__stgamma_la__tgamma_A100_table);
-      }
-      if (ixexp) /* for normal values - compute whole polynomial */
-      {
-        p = A[0] +
-            rrr * (A[1] +
-                   rrr * (A[2] +
-                          rrr * (A[3] +
-                                 rrr * (A[4] +
-                                        rrr * (A[5] +
-                                               rrr * (A[6] + rrr * (A[7])))))));
-      } else /* for denormal - return just A[0] */
-      {
-        p = A[0];
-      }
-      if (absx < ((const float *)__stgamma_la__ones)[0]) /* |x| < 1.0 */
-      {
-        if (ixsign) /* if x < 0 then rrr = 1/(s*p) */
-        {
-          resf = ((double)((const float *)__stgamma_la__ones)[0]) / (s * p);
-          if (irsign)
-            resf = -resf;
-        } else /* if x > 0 then rrr = p/x */
-        {
-          resf = p / ((double)absx);
-        }
-      }    // if(absx < ones[0]) /* |x| < 1.0 */
-      else /* |x| > 1.0 */
-      {
-        if (ixsign) /* rrr = 1/(x*s*p); */
-        {
-          resf = ((double)((const float *)__stgamma_la__ones)[0]) /
-                 (((double)absx) * s * p);
-        } else /* rrr = p */
-        {
-          resf = p;
-        }
-      } // else if(absx < ones[0]) /* |x| < 1.0 */
-      (*r) = (float)resf;
-      return nRet;
-    }  // else if(absx >= _VSTATIC(twos)[0])
-  }    // if (ixexp != IML_EXPINF_32)
-  else /* INF or NAN */
+      // Qh + Ql = 1/(Ph+Pl)
+      Qh = 1.0f / (Ph);
+      eps = __fma(Qh, -Ph, 1.0f);
+      eps = __fma(Qh, -Pl, eps);
+      // Ql = eps*(1+eps)*Qh
+      Ql = __fma(eps, __fma(eps, Qh, Qh),
+                                  0.0f);
+    }
+    // polynomial evaluation
+    poly_h = __stgamma_la___g9.f;
+    poly_h = __fma(poly_h, fx, __stgamma_la___g8.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g7.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g6.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g5.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g4.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g3.f);
+    lpoly = __fma(poly_h, fx, __stgamma_la___g2.f);
+    poly_h = __fma(lpoly, fx, __stgamma_la___g1.f);
+    poly_h = __fma(poly_h, fx, __stgamma_la___g0.f);
+    res = __fma(Qh, poly_h,
+                                 __fma(Ql, poly_h, 0.0f));
+    res = (__fabs(x) <= __stgamma_la___small_thres.f)
+              ? (res * __stgamma_la___scale_smallx.f)
+              : res;
+    *pres = res;
+    return nRet;
+  }
+  // separating HA/LA and EP paths here, for better readability
+  else // |x| > = __fxmax_p2 ~ 2.46
   {
-    /* Singularity at negative INF */
-    if (ixsign && (!((((_iml_sp_union_t *)&x)->bits.significand) != 0))) {
+    // Compute x*log(x) - 0.5*log(x) - x
+    // log(x)
+    iGh.f = ix.f;
+    // unbiased exponent, mantissa normalized to [2/3, 4/3]
+    iexpon = (iGh.w + 0xc0d55555u);
+    // signed shift
+    iexpon >>= 23;
+    R_h.w = iGh.w - (iexpon << 23);
+    // reduced argument
+    lR = R_h.f - 1.0f;
+    // unbiased_expon
+    Kh = (float)iexpon;
+    // log2 polynomial
+    poly_h = __stgamma_la___lg10.f;
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg9.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg8.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg7.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg6.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg5.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg4.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg3.f);
+    poly_h = __fma(poly_h, lR, __stgamma_la___lg2.f);
+    Ph = __fma(poly_h, lR, 0.0f);
+    poly_l = __fma(poly_h, lR, -Ph);
+    poly_h = Ph;
+    {
+      float __ph, __ahl, __ahh;
+      __ph = __fma(poly_h, 1.0f, __stgamma_la___lg1.f);
+      __ahh = __fma(__ph, 1.0f, -__stgamma_la___lg1.f);
+      __ahl = __fma(poly_h, 1.0f, -__ahh);
+      poly_l = (poly_l + __stgamma_la___lg1l.f) + __ahl;
+      poly_h = __ph;
+    };
+    {
+      float __ph, __phl;
+      __ph = __fma(poly_h, lR, 0.0f);
+      __phl = __fma(poly_h, lR, -__ph);
+      poly_l = __fma(poly_l, lR, __phl);
+      poly_h = __ph;
+    };
+    {
+      float __ph, __ahl, __ahh;
+      __ph = __fma(poly_h, 1.0f, __stgamma_la___lg0.f);
+      __ahh = __fma(__ph, 1.0f, -__stgamma_la___lg0.f);
+      __ahl = __fma(poly_h, 1.0f, -__ahh);
+      poly_l = (poly_l + __stgamma_la___lg0l.f) + __ahl;
+      poly_h = __ph;
+    };
+    {
+      float __ph, __phl;
+      __ph = __fma(poly_h, lR, 0.0f);
+      __phl = __fma(poly_h, lR, -__ph);
+      poly_l = __fma(poly_l, lR, __phl);
+      poly_h = __ph;
+    };
+    {
+      float __ph, __ahl, __ahh;
+      __ph = __fma(poly_h, 1.0f, Kh);
+      __ahh = __fma(__ph, 1.0f, -Kh);
+      __ahl = __fma(poly_h, 1.0f, -__ahh);
+      poly_l = poly_l + __ahl;
+      poly_h = __ph;
+    };
+    // x*log2(x)
+    // clamp ix.f
+    ix.f = __fmin(ix.f, 512.0f);
+    xL_h = poly_h;
+    xL_l = poly_l;
+    {
+      float __ph, __phl;
+      __ph = __fma(xL_h, ix.f, 0.0f);
+      __phl = __fma(xL_h, ix.f, -__ph);
+      xL_l = __fma(xL_l, ix.f, __phl);
+      xL_h = __ph;
+    };
+    // -0.5*log2(x)
+    poly_h = __fma(poly_h, -0.5f, 0.0f);
+    poly_l = __fma(poly_l, -0.5f, 0.0f);
+    // -x *log2(e)
+    Rh = __fma(ix.f, __stgamma_la___mL2E.f, 0.0f);
+    Rl = __fma(ix.f, __stgamma_la___mL2E.f, -Rh);
+    Rl = __fma(ix.f, __stgamma_la___mL2EL.f, Rl);
+    {
+      float __ph, __ahl, __ahh;
+      __ph = __fma(poly_h, 1.0f, Rh);
+      __ahh = __fma(__ph, 1.0f, -Rh);
+      __ahl = __fma(poly_h, 1.0f, -__ahh);
+      poly_l = (poly_l + Rl) + __ahl;
+      poly_h = __ph;
+    };
+    // x*log(x) - 0.5*log(x) - x
+    {
+      float __ph, __ahl, __ahh;
+      float __ah, __bh;
+      __bh = (__fabs(poly_h) <= __fabs(xL_h))
+                 ? (xL_h)
+                 : (poly_h);
+      __ah = (__fabs(poly_h) <= __fabs(xL_h))
+                 ? (poly_h)
+                 : (xL_h);
+      __ph = __fma(__ah, 1.0f, __bh);
+      __ahh = __fma(__ph, 1.0f, -__bh);
+      __ahl = __fma(__ah, 1.0f, -__ahh);
+      poly_l = (poly_l + xL_l) + __ahl;
+      poly_h = __ph;
+    };
+    {
+      float __alh;
+      xL_h = __fma(poly_h, 1.0f, poly_l);
+      __alh = __fma(xL_h, 1.0f, -poly_h);
+      xL_l = __fma(poly_l, 1.0f, -__alh);
+    };
+    // 2^(xL_h + xL_l)
+    fS.f = __fma(xL_h, 0.5f, __stgamma_la___Shifter.f);
+    fN = __fma(fS.f, 1.0f, -(__stgamma_la___Shifter.f));
+    // reduced argument
+    R_h.f = __fma(xL_h, 0.5f, -fN);
+    Rh = __fma(xL_l, 0.5f, R_h.f);
+    // clamp range of integer exponent
+    fS.f = __fmin(fS.f, __stgamma_la___maxShifter.f);
+    fS.f = __fmax(fS.f, __stgamma_la___minShifter.f);
+    fS.w <<= 23;
+    // exp2 polynomial
+    poly_h = __stgamma_la___ce8.f;
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce7.f);
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce6.f);
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce5.f);
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce4.f);
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce3.f);
+    poly_h = __fma(poly_h, Rh, __stgamma_la___ce2.f);
+    lpoly = __fma(poly_h, Rh, __stgamma_la___ce1.f);
+    /// 	poly_h = SP_FMA(lpoly, Rh, _VSTATIC(__ce0).f);
+    // Boost accuracy
+    poly_h = __fma(lpoly, Rh, 0.0f);
+    poly_l = __fma(lpoly, Rh, -poly_h);
+    // poly(1/x) ~ GAMMA(x)*exp(x)/(x)^(x-.5)
+    y = 1.0f / (ix.f);
+    poly = __stgamma_la___p5.f;
+    poly = __fma(poly, y, __stgamma_la___p4.f);
+    poly = __fma(poly, y, __stgamma_la___p3.f);
+    poly = __fma(poly, y, __stgamma_la___p2.f);
+    poly = __fma(poly, y, __stgamma_la___p1.f);
+    poly = __fma(poly, y, __stgamma_la___p0.f);
+    // (2+poly)*(1+poly_h+poly_l)
+    ////
+    // Boost accuracy
+    poly_l += poly_l;
+    res = __fma(poly_h, poly, poly_l);
+    res = __fma(res, 1.0f, poly);
+    poly_h += poly_h;
+    res = __fma(res, 1.0f, poly_h);
+    res = __fma(res, 1.0f, 2.0f);
+    /////
+    if (x < 0) {
+      // tgamma(-x)= 1/(tgamma(x)*x*frac(x)*(sin(pi*frac(x))/(pi*frac(x)))
+      // sin(pi*frac(x)/(pi*frac(x))
+      spoly_h = __stgamma_la___sp5.f;
+      Rh = __fma(fx0, fx0, 0.0f);
+      Rl = __fma(fx0, fx0, -Rh);
+      spoly_h = __fma(spoly_h, Rh, __stgamma_la___sp4.f);
+      spoly_h = __fma(spoly_h, Rh, __stgamma_la___sp3.f);
+      lpoly = __fma(spoly_h, Rh, __stgamma_la___sp2.f);
+      spoly_h = __fma(lpoly, Rh, 0.0f);
+      spoly_l = __fma(lpoly, Rh, -spoly_h);
+      spoly_l = __fma(lpoly, Rl, spoly_l);
       {
-        float tz = ((const float *)__stgamma_la__zeros)[0];
-        ((*r)) = (((const float *)__stgamma_la__zeros)[(1)] / tz);
+        float __ph, __ahl, __ahh;
+        __ph = __fma(spoly_h, 1.0f, __stgamma_la___sp1.f);
+        __ahh = __fma(__ph, 1.0f, -__stgamma_la___sp1.f);
+        __ahl = __fma(spoly_h, 1.0f, -__ahh);
+        spoly_l = (spoly_l + __stgamma_la___sp1l.f) + __ahl;
+        spoly_h = __ph;
       };
-      nRet = 1;
-      return nRet;
-    } else {
-      (*r) = x + x; /* raise invalid on SNaN */
-      return nRet;
+      {
+        float __ph, __phl;
+        __ph = __fma(spoly_h, Rh, 0.0f);
+        __phl = __fma(spoly_h, Rh, -__ph);
+        spoly_l = __fma(spoly_l, Rh, __phl);
+        spoly_l = __fma(spoly_h, Rl, spoly_l);
+        spoly_h = __ph;
+      };
+      {
+        float __ph, __ahl, __ahh;
+        __ph = __fma(spoly_h, 1.0f, __stgamma_la___sp0.f);
+        __ahh = __fma(__ph, 1.0f, -__stgamma_la___sp0.f);
+        __ahl = __fma(spoly_h, 1.0f, -__ahh);
+        spoly_l = (spoly_l + __stgamma_la___sp0l.f) + __ahl;
+        spoly_h = __ph;
+      };
+      // |x|*frac(x)
+      zr_h = __fma(ix.f, fx0, 0.0f);
+      zr_l = __fma(ix.f, fx0, -zr_h);
+      // x*frac(x)*(sin(pi*frac(x))/(pi*frac(x))
+      {
+        float __ph, __phl;
+        __ph = __fma(spoly_h, zr_h, 0.0f);
+        __phl = __fma(spoly_h, zr_h, -__ph);
+        spoly_l = __fma(spoly_l, zr_h, __phl);
+        spoly_l = __fma(spoly_h, zr_l, spoly_l);
+        spoly_h = __ph;
+      };
+      // tgamma(x)*x*frac(x)*(sin(pi*frac(x))/(pi*frac(x))
+      R_h.f = __fma(
+          spoly_h, res, __fma(spoly_l, res, 0.0f));
+      // adjust sign of sin(pi*x)
+      iN = (int)fn;
+      sgn = iN << 31;
+      R_h.w ^= sgn;
+      res = 1.0f / (R_h.f);
+      eps = __fma(-res, R_h.f, 1.0f);
+      res = __fma(res, eps, res);
+      // for negative integer inputs
+      nRet = (fx0 == 0.0f) ? 1 : nRet;
+      // adjust scale factor
+      fS.w = 0x7f000000 - fS.w;
     }
-  } // else if (ixexp != IML_EXPINF_32)
+    // final scaling
+    res = __fma(res, fS.f, 0.0f);
+    ires.f = res = __fma(res, fS.f, 0.0f);
+    // overflow ?
+    nRet = ((ires.w & 0x7fffffffu) == 0x7f800000u) ? 3 : nRet;
+    // underflow ?
+    nRet = (res == 0.0f) ? 4 : nRet;
+    *pres = res;
+    return nRet;
+  }
+  *pres = res;
+  return nRet;
 }
+
 } /* namespace */
 } /* namespace __imf_impl_tgamma_s_la */
 
-DEVICE_EXTERN_C_INLINE float __devicelib_imf_tgammaf(float a) {
+DEVICE_EXTERN_C_INLINE float __devicelib_imf_tgammaf(float x) 
+{
   using namespace __imf_impl_tgamma_s_la;
   float r;
-  __devicelib_imf_internal_stgamma(&a, &r);
+  __devicelib_imf_internal_stgamma(&x, &r);
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/

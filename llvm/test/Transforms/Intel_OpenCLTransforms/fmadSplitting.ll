@@ -1,4 +1,3 @@
-; RUN: opt -fma-splitter -S %s | FileCheck %s
 ; RUN: opt -passes=fma-splitter -S %s | FileCheck %s
 ;
 ; The test checks the llvm.fmuladd was split to fmul + fadd pair.

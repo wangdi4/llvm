@@ -42,6 +42,8 @@
 #error "Never use <avx512convertintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#ifdef __SSE2__
+
 #ifndef __AVX512CONVERTINTRIN_H
 #define __AVX512CONVERTINTRIN_H
 
@@ -128,3 +130,4 @@ _m512_maskz_vcvtneph2bf16_ph(__mmask32 __U, __m512h __A) {
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // __AVX512CONVERTINTRIN_H
+#endif // __SSE2__

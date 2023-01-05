@@ -1,8 +1,5 @@
 
 ; Verify that we get the same IR output for the same input. This test case was resulting in IR differences across runs because we were traversing a SmallPtrSet of bblocks in SSA deconstruction.
-; RUN: opt < %s -hir-ssa-deconstruction -S > %t1.out
-; RUN: opt < %s -hir-ssa-deconstruction -S > %t2.out
-; RUN: diff %t1.out %t2.out
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction" > %t1.newpm
 ; RUN: opt %s -passes="hir-ssa-deconstruction" > %t2.newpm

@@ -1,4 +1,4 @@
-;RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -analyze -hir-framework -hir-cg -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s
+
 ;RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s
 
 ;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg -hir-details-dims 2>&1 %s | FileCheck %s --check-prefix=OPAQUE

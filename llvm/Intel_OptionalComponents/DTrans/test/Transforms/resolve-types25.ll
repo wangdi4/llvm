@@ -1,5 +1,4 @@
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -internalize -dtrans-resolvetypes %s | FileCheck %s
 ; RUN:  opt -S -o - -whole-program-assume -intel-libirc-allowed -passes='internalize,dtrans-resolvetypes' %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"

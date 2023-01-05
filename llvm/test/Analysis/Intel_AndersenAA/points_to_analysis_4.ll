@@ -1,4 +1,3 @@
-; RUN: opt < %s -O2 -disable-output 2>/dev/null
 ; RUN: opt < %s -aa-pipeline=anders-aa -passes="default<O2>" -disable-output 2>/dev/null
 ; Test for a bug (CQ377860) in Andersens analysis that caused crash when 
 ; Instruction::Select is used as operand in Instruction::Store

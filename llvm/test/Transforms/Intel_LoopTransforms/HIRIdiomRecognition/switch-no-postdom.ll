@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-idiom -print-after=hir-idiom -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-idiom,print<hir>" -aa-pipeline="basic-aa" -disable-output -S < %s 2>&1 | FileCheck %s
 
 ; Check that the store will not be transformed into memset because it's not executed on every iteration.

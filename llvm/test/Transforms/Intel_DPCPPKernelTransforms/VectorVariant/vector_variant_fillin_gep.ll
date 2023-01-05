@@ -1,5 +1,3 @@
-; RUN: opt %s -dpcpp-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -instnamer -dpcpp-kernel-vector-variant-fillin -S | FileCheck %s
 ; RUN: opt %s -passes=dpcpp-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt %s -passes="function(instnamer),dpcpp-kernel-vector-variant-fillin" -S | FileCheck %s
 

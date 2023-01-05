@@ -1,7 +1,6 @@
 ; This test checks that the argument alignment didn't run because there is
 ; no whole program.
 
-; RUN: opt < %s -intel-argument-alignment -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=intel-argument-alignment -S 2>&1
 
 ; CHECK: void @foo

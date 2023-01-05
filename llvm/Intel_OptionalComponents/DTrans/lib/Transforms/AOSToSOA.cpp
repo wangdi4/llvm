@@ -2748,8 +2748,8 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   // instruction, if one exists. If there are multiple allocations or an
   // unsupported allocation, map the type to 'nullptr'.
   DenseMap<dtrans::StructInfo *, Instruction *> TypeToAllocInstr;
-  for (auto CallVec : DTInfo.call_info_entries()) {
-    for (auto Call : CallVec ) {
+  for (const auto &CallVec : DTInfo.call_info_entries()) {
+    for (auto *Call : CallVec ) {
       auto *ACI = dyn_cast<dtrans::AllocCallInfo>(Call);
       if (!ACI || !ACI->getAliasesToAggregateType())
         continue;

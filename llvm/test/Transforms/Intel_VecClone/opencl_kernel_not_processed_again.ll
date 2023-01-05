@@ -1,6 +1,5 @@
 ; Check if VecClone processes OpenCL kernels again.
 
-; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 

@@ -19,31 +19,31 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:    br label [[DOTSPLIT9:%.*]]
 ; CHECK:       .split9:
 ; CHECK-NEXT:    [[MERGE11:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ [[X_LOOPBACK:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i32 13, i32* @effect, align 4
+; CHECK-NEXT:    store i32 13, ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT6:%.*]]
 ; CHECK:       case_42:
 ; CHECK-NEXT:    br label [[DOTSPLIT6]]
 ; CHECK:       .split6:
 ; CHECK-NEXT:    [[MERGE8:%.*]] = phi i32 [ [[X]], [[CASE_42]] ], [ [[MERGE11]], [[DOTSPLIT9]] ]
-; CHECK-NEXT:    store i32 [[MERGE8]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE8]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_50_51:
 ; CHECK-NEXT:    br label [[DOTSPLIT1]]
 ; CHECK:       .split1:
 ; CHECK-NEXT:    [[MERGE3:%.*]] = phi i32 [ 50, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
 ; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32 [ 51, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
-; CHECK-NEXT:    store i32 [[MERGE3]], i32* @effect, align 4
-; CHECK-NEXT:    store i32 [[MERGE5]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE3]], ptr @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE5]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 42, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
-; CHECK-NEXT:    store i32 [[MERGE]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE]], ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
-; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, i32* @g, align 4
-; CHECK-NEXT:    store i32 7, i32* @effect, align 4
+; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, ptr @g, align 4
+; CHECK-NEXT:    store i32 7, ptr @effect, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT9]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
@@ -62,21 +62,21 @@ bb0:
 case_13:
   ; We should replace 13 with %x
   %x0 = phi i32 [ 13, %bb0 ], [ %x_loopback, %case_7 ]
-  store i32 13, i32* @effect, align 4
+  store i32 13, ptr @effect, align 4
   br label %case_42
 
 case_42:
   ; We should replace 42 with %x
   %x1 = phi i32 [ 42, %bb0 ], [ %x0, %case_13 ]
-  store i32 %x1, i32* @effect, align 4
+  store i32 %x1, ptr @effect, align 4
   br label %case_50_51
 
 case_50_51:
   ; Must not replace the PHI argument: Case values 50 and 51 jump here.
   %x2 = phi i32 [ 50, %bb0 ], [ 50, %bb0 ], [ %x1, %case_42 ]
   %x2.2 = phi i32 [ 51, %bb0 ], [ 51, %bb0 ], [ %x1, %case_42 ]
-  store i32 %x2, i32* @effect, align 4
-  store i32 %x2.2, i32* @effect, align 4
+  store i32 %x2, ptr @effect, align 4
+  store i32 %x2.2, ptr @effect, align 4
   br label %case_55
 
 case_55:
@@ -84,12 +84,12 @@ case_55:
   ; - 42 is the wrong constant
   ; - %case_42 is not the switch predecessor block.
   %x3 = phi i32 [ 42, %bb0 ], [ 55, %case_50_51 ]
-  store i32 %x3, i32* @effect, align 4
+  store i32 %x3, ptr @effect, align 4
   br label %default
 
 case_7:
-  %x_loopback = load i32, i32* @g, align 4
-  store i32 7, i32* @effect, align 4
+  %x_loopback = load i32, ptr @g, align 4
+  store i32 7, ptr @effect, align 4
   br label %case_13
 
 default:
@@ -110,9 +110,9 @@ define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 1, [[BB0:%.*]] ]
 ; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 14, [[CASE_13]] ], [ 1, [[BB0]] ]
 ; CHECK-NEXT:    [[MERGE4:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 27, [[BB0]] ]
-; CHECK-NEXT:    store volatile i32 [[MERGE]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[MERGE2]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[MERGE4]], i32* @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE]], ptr @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE2]], ptr @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE4]], ptr @effect, align 4
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret void
 ; CHECK:       default:
@@ -132,9 +132,9 @@ case_13:
   %x0 = phi i32 [13, %bb1], [1, %bb0]
   %n0 = phi i32 [14, %bb1], [1, %bb0]
   %x1 = phi i32 [27, %bb0], [13, %bb1]
-  store volatile i32 %x0, i32* @effect, align 4
-  store volatile i32 %n0, i32* @effect, align 4
-  store volatile i32 %x1, i32* @effect, align 4
+  store volatile i32 %x0, ptr @effect, align 4
+  store volatile i32 %n0, ptr @effect, align 4
+  store volatile i32 %x1, ptr @effect, align 4
   ret void
 
 default:
@@ -149,7 +149,7 @@ define void @switch_phi_const_degenerate() {
 ; CHECK-NEXT:    br label [[CASE_42]]
 ; CHECK:       case_42:
 ; CHECK-NEXT:    [[X:%.*]] = phi i32 [ 0, [[BB0:%.*]] ], [ 42, [[BB1]] ]
-; CHECK-NEXT:    store volatile i32 [[X]], i32* @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[X]], ptr @effect, align 4
 ; CHECK-NEXT:    ret void
 ;
 bb0:
@@ -163,7 +163,7 @@ bb1:
 case_42:
   ; We should not end up in an endless loop 42 with the switch condition 42.
   %x = phi i32 [0, %bb0], [42, %bb1]
-  store volatile i32 %x, i32* @effect, align 4
+  store volatile i32 %x, ptr @effect, align 4
   ret void
 
 unreachable:
@@ -189,23 +189,23 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    br label [[DOTSPLIT4:%.*]]
 ; CHECK:       .split4:
 ; CHECK-NEXT:    [[MERGE6:%.*]] = phi i64 [ [[TMP0]], [[CASE_13]] ], [ [[X7:%.*]], [[CASE_7]] ]
-; CHECK-NEXT:    store i64 13, i64* @effect64, align 4
+; CHECK-NEXT:    store i64 13, ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_42:
 ; CHECK-NEXT:    br label [[DOTSPLIT1]]
 ; CHECK:       .split1:
 ; CHECK-NEXT:    [[MERGE3:%.*]] = phi i64 [ [[TMP1]], [[CASE_42]] ], [ [[MERGE6]], [[DOTSPLIT4]] ]
-; CHECK-NEXT:    store i64 [[MERGE3]], i64* @effect64, align 4
+; CHECK-NEXT:    store i64 [[MERGE3]], ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
 ; CHECK-NEXT:    br label [[DOTSPLIT]]
 ; CHECK:       .split:
 ; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ 3895, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
-; CHECK-NEXT:    store i64 [[MERGE]], i64* @effect64, align 4
+; CHECK-NEXT:    store i64 [[MERGE]], ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
-; CHECK-NEXT:    [[X7]] = load i64, i64* @g64, align 4
-; CHECK-NEXT:    store i64 7, i64* @effect64, align 4
+; CHECK-NEXT:    [[X7]] = load i64, ptr @g64, align 4
+; CHECK-NEXT:    store i64 7, ptr @effect64, align 4
 ; CHECK-NEXT:    br label [[DOTSPLIT4]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
@@ -222,24 +222,24 @@ bb0:
 case_13:
   ; We should replace 13 with zext %x to i64
   %x0 = phi i64 [ 13, %bb0 ], [ %x7, %case_7 ]
-  store i64 13, i64* @effect64, align 4
+  store i64 13, ptr @effect64, align 4
   br label %case_42
 
 case_42:
   ; We should replace 42 with zext i32 %x to i64
   %x1 = phi i64 [ 42, %bb0 ], [ %x0, %case_13 ]
-  store i64 %x1, i64* @effect64, align 4
+  store i64 %x1, ptr @effect64, align 4
   br label %case_55
 
 case_55:
   ; We must not replace any of the PHI arguments! (3898 == 0xf00 + 55)
   %x2 = phi i64 [ 3895, %bb0 ], [ 55, %case_42 ]
-  store i64 %x2, i64* @effect64, align 4
+  store i64 %x2, ptr @effect64, align 4
   br label %default
 
 case_7:
-  %x7 = load i64, i64* @g64, align 4
-  store i64 7, i64* @effect64, align 4
+  %x7 = load i64, ptr @g64, align 4
+  store i64 7, ptr @effect64, align 4
   br label %case_13
 
 default:

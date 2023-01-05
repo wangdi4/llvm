@@ -1,6 +1,6 @@
 //=---------------------- VectorVariantFillIn.cpp -*- C++ -*-----------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,10 +14,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "VectorVariantFillIn"
 
@@ -93,7 +91,7 @@ bool VectorVariantFillIn::runImpl(Module &M) {
         GlobalVariable *GV = M.getGlobalVariable(VarName);
         if (GV && GV->hasInitializer() && !UpdatedGV.count(GV)) {
           SmallVector<Constant *, 2> Init;
-          for (auto Variant : Variants) {
+          for (const auto &Variant : Variants) {
             Function *F = M.getFunction(Variant);
             assert(F && "Function expected to be exist");
 
@@ -181,28 +179,3 @@ bool VectorVariantFillIn::runImpl(Module &M) {
 }
 
 } // namespace llvm
-
-// For legacy pass manager
-namespace {
-class VectorVariantFillInLegacy : public ModulePass {
-public:
-  static char ID;
-
-  VectorVariantFillInLegacy() : ModulePass(ID) {
-    initializeVectorVariantFillInLegacyPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    return llvm::VectorVariantFillIn().runImpl(M);
-  }
-};
-} // namespace
-
-INITIALIZE_PASS(VectorVariantFillInLegacy, "dpcpp-kernel-vector-variant-fillin",
-                "Fill-in addresses of vector variants", false, false)
-
-char VectorVariantFillInLegacy::ID = 0;
-
-ModulePass *llvm::createVectorVariantFillInLegacyPass() {
-  return new VectorVariantFillInLegacy();
-}

@@ -273,8 +273,8 @@ public:
                               unsigned AccessSize) override {
     HexagonMCELFStreamer &HexagonELFStreamer =
         static_cast<HexagonMCELFStreamer &>(getStreamer());
-    HexagonELFStreamer.HexagonMCEmitCommonSymbol(Symbol, Size, ByteAlignment,
-                                                 AccessSize);
+    HexagonELFStreamer.HexagonMCEmitCommonSymbol(
+        Symbol, Size, Align(ByteAlignment), AccessSize);
   }
 
   void emitLocalCommonSymbolSorted(MCSymbol *Symbol, uint64_t Size,
@@ -283,7 +283,7 @@ public:
     HexagonMCELFStreamer &HexagonELFStreamer =
         static_cast<HexagonMCELFStreamer &>(getStreamer());
     HexagonELFStreamer.HexagonMCEmitLocalCommonSymbol(
-        Symbol, Size, ByteAlignment, AccessSize);
+        Symbol, Size, Align(ByteAlignment), AccessSize);
   }
 };
 
@@ -297,7 +297,8 @@ llvm::MCInstrInfo *llvm::createHexagonMCInstrInfo() {
 
 static MCRegisterInfo *createHexagonMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitHexagonMCRegisterInfo(X, Hexagon::R31);
+  InitHexagonMCRegisterInfo(X, Hexagon::R31, /*DwarfFlavour=*/0,
+                            /*EHFlavour=*/0, /*PC=*/Hexagon::PC);
   return X;
 }
 
@@ -344,6 +345,10 @@ static MCStreamer *createMCStreamer(Triple const &T, MCContext &Context,
 static MCTargetStreamer *
 createHexagonObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
   return new HexagonTargetELFStreamer(S, STI);
+}
+
+static MCTargetStreamer *createHexagonNullTargetStreamer(MCStreamer &S) {
+  return new HexagonTargetStreamer(S);
 }
 
 static void LLVM_ATTRIBUTE_UNUSED clearFeature(MCSubtargetInfo* STI, uint64_t F) {
@@ -659,6 +664,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeHexagonTargetMC() {
   // Register the asm streamer
   TargetRegistry::RegisterAsmTargetStreamer(getTheHexagonTarget(),
                                             createMCAsmTargetStreamer);
+
+  // Register the null streamer
+  TargetRegistry::RegisterNullTargetStreamer(getTheHexagonTarget(),
+                                             createHexagonNullTargetStreamer);
 
   // Register the MC Inst Printer
   TargetRegistry::RegisterMCInstPrinter(getTheHexagonTarget(),

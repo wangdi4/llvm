@@ -63,17 +63,17 @@ define void @f3(double %a, float %b, half %c) {
 ; CHECK-LABEL: @f3
 ; CHECK: call double @exp(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc double @__svml_exp1_ha(
+; CHECK: call svml_cc <1 x double> @__svml_exp1_ha(
 ; CHECK: call double @llvm.exp.f64(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc double @__svml_exp1_ha(
+; CHECK: call svml_cc <1 x double> @__svml_exp1_ha(
 
 ; CHECK: call float @expf(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc float @__svml_expf1_ha(
+; CHECK: call svml_cc <1 x float> @__svml_expf1_ha(
 ; CHECK: call float @llvm.exp.f32(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc float @__svml_expf1_ha(
+; CHECK: call svml_cc <1 x float> @__svml_expf1_ha(
 
 ; FP16 functions currently have no BWR variant.
 ; TODO: libimf_attr is not working correctly with FP16 + imf-use-svml

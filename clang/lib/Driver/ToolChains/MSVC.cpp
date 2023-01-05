@@ -26,7 +26,6 @@
 #include "MSVC.h"
 #include "CommonArgs.h"
 #include "Darwin.h"
-#include "Arch/X86.h" // INTEL
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
@@ -36,7 +35,6 @@
 #include "clang/Driver/Options.h"
 #include "clang/Driver/SanitizerArgs.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/ConvertUTF.h"
@@ -57,6 +55,10 @@
   #endif
   #include <windows.h>
 #endif
+
+#if INTEL_CUSTOMIZATION
+#include "Arch/X86.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
@@ -116,7 +118,7 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
   SmallString<128> ExecPath(getToolChain().GetProgramPath("lib.exe"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileUTF16(), Exec, CmdArgs, None));
+      JA, *this, ResponseFileSupport::AtFileUTF16(), Exec, CmdArgs, std::nullopt));
 }
 
 void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -220,7 +222,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_F)) {
     StringRef Value(A->getValue());
     unsigned SSize;
-    if (!Value.getAsInteger(10, SSize)) {
+    if (!Value.getAsInteger(0, SSize)) {
       CmdArgs.push_back(Args.MakeArgString(Twine("-stack:") + Value));
       A->claim();
     }
@@ -428,8 +430,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
     SmallString<128> LibPath(TC.getDriver().Dir);
-    LibPath.append(TC.getArch() == llvm::Triple::x86_64 ? "/../../lib"
-                                                        : "/../../lib32");
+    LibPath.append(TC.getArch() == llvm::Triple::x86_64
+                       ? "/../../opt/compiler/lib"
+                       : "/../../opt/compiler/lib32");
 #else
     SmallString<128> LibPath(TC.getDriver().Dir + "/../lib");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
@@ -660,7 +663,7 @@ MSVCToolChain::MSVCToolChain(const Driver &D, const llvm::Triple &Triple,
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
 
-  Optional<llvm::StringRef> VCToolsDir, VCToolsVersion;
+  std::optional<llvm::StringRef> VCToolsDir, VCToolsVersion;
   if (Arg *A = Args.getLastArg(options::OPT__SLASH_vctoolsdir))
     VCToolsDir = A->getValue();
   if (Arg *A = Args.getLastArg(options::OPT__SLASH_vctoolsversion))
@@ -700,16 +703,20 @@ bool MSVCToolChain::IsIntegratedAssemblerDefault() const {
   return true;
 }
 
-bool MSVCToolChain::IsUnwindTablesDefault(const ArgList &Args) const {
+ToolChain::UnwindTableLevel
+MSVCToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
   // Don't emit unwind tables by default for MachO targets.
   if (getTriple().isOSBinFormatMachO())
-    return false;
+    return UnwindTableLevel::None;
 
   // All non-x86_32 Windows targets require unwind tables. However, LLVM
   // doesn't know how to generate them for all targets, so only enable
   // the ones that are actually implemented.
-  return getArch() == llvm::Triple::x86_64 || getArch() == llvm::Triple::arm ||
-         getArch() == llvm::Triple::thumb || getArch() == llvm::Triple::aarch64;
+  if (getArch() == llvm::Triple::x86_64 || getArch() == llvm::Triple::arm ||
+      getArch() == llvm::Triple::thumb || getArch() == llvm::Triple::aarch64)
+    return UnwindTableLevel::Asynchronous;
+
+  return UnwindTableLevel::None;
 }
 
 bool MSVCToolChain::isPICDefault() const {
@@ -912,7 +919,8 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (getDriver().IsIntelMode()) {
     SmallString<128> HeaderDir(getDriver().Dir);
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(HeaderDir, "..", "..", "include");
+    llvm::sys::path::append(HeaderDir, "..", "..", "opt", "compiler");
+    llvm::sys::path::append(HeaderDir, "include");
 #else
     llvm::sys::path::append(HeaderDir, "..", "compiler", "include");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT

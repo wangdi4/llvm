@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -dtrans-fieldmodref-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodref-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck %s
 
 ; This test is to check the getModRefInfo interface results that indicates

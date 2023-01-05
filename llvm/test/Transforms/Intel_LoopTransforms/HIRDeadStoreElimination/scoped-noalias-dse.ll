@@ -1,4 +1,3 @@
-; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that DSE eliminates the first store to (@b)[0][i1] inside the

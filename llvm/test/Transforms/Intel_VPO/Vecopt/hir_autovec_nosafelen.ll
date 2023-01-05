@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis -print-after=hir-vec-dir-insert -disable-output -mattr=avx2 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>' -debug-only=parvec-analysis -disable-output -mattr=avx2 < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that loop with a backward dependence of unknown distance

@@ -282,6 +282,11 @@ public:
   /// two weights operands.
   void swapProfileData();
 
+  /// Returns true if this node is always executed, unless parent is included in
+  // IgnoreSet.
+  bool isUnconditionallyExecutedinRegion(
+      SmallPtrSetImpl<const HLNode *> const &IgnoreSet) const;
+
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
     HLRegionVal,

@@ -1,4 +1,3 @@
-; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-cross-loop-array-contraction,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that the first loop is not eliminated as dead by contraction pass.

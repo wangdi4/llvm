@@ -67,29 +67,29 @@ define dso_local void @test_3(i32 *%arr, i32 *%arr2, i32 %a, i32 %b, i32 %c, i32
 ; CHECK-NEXT:    testb %al, %al
 ; CHECK-NEXT:    jne .LBB2_5
 ; CHECK-NEXT:  # %bb.1: # %while.body.preheader
-; CHECK-NEXT:    movl %edx, %r8d
+; CHECK-NEXT:    movl %edx, %ecx
 ; CHECK-NEXT:    xorl %esi, %esi
 ; CHECK-NEXT:  .LBB2_2: # %while.body
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    movslq %esi, %r10
-; CHECK-NEXT:    leaq (%rdi,%r10,4), %rax
+; CHECK-NEXT:    movslq %esi, %r8
+; CHECK-NEXT:    leaq (%rdi,%r8,4), %rax
 ; CHECK-NEXT:    movl (%rax), %eax
 ; CHECK-NEXT:    xorl %edx, %edx
-; CHECK-NEXT:    divl %r8d
+; CHECK-NEXT:    divl %ecx
 ; CHECK-NEXT:    movl %eax, %edx
 ; CHECK-NEXT:    movl $11, %eax
-; CHECK-NEXT:    movl %r8d, %ecx
-; CHECK-NEXT:    subl %r8d, %edx
+; CHECK-NEXT:    movl %ecx, %r10d
+; CHECK-NEXT:    subl %ecx, %edx
 ; CHECK-NEXT:    ja .LBB2_4
 ; CHECK-NEXT:  # %bb.3: # %while.body
 ; CHECK-NEXT:    # in Loop: Header=BB2_2 Depth=1
 ; CHECK-NEXT:    movl $22, %eax
-; CHECK-NEXT:    movl $22, %ecx
+; CHECK-NEXT:    movl $22, %r10d
 ; CHECK-NEXT:  .LBB2_4: # %while.body
 ; CHECK-NEXT:    # in Loop: Header=BB2_2 Depth=1
 ; CHECK-NEXT:    xorl %edx, %edx
-; CHECK-NEXT:    divl %ecx
-; CHECK-NEXT:    leaq (%rdi,%r10,4), %rax
+; CHECK-NEXT:    divl %r10d
+; CHECK-NEXT:    leaq (%rdi,%r8,4), %rax
 ; CHECK-NEXT:    movl %edx, (%rax)
 ; CHECK-NEXT:    incl %esi
 ; CHECK-NEXT:    movl %esi, %eax

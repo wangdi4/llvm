@@ -12,66 +12,63 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#pragma once 
+#pragma once
 
 #if defined(_WIN32)
 #define NOMINMAX
-#include <windows.h>
 #include <process.h>
+#include <windows.h>
 #endif
 
-#if defined (_MSC_VER)
-    #pragma warning(disable:654)
+#if defined(_MSC_VER)
+#pragma warning(disable : 654)
 #endif
 
-class OutputAccumulator
-{
+class OutputAccumulator {
 public:
-    // Append character c to output
-    //
-    virtual void append(char c) = 0;
+  // Append character c to output
+  //
+  virtual void append(char c) = 0;
 
-    // Append a whole NUL-terminated C-string to output.
-    //
-    virtual void append(const char* cstr)
-    {
-        while (*cstr) {
-            append(*cstr++);
-        }
+  // Append a whole NUL-terminated C-string to output.
+  //
+  virtual void append(const char *cstr) {
+    while (*cstr) {
+      append(*cstr++);
     }
+  }
 
-    // Finalize output
-    //
-    virtual void finalize() = 0;
+  // Finalize output
+  //
+  virtual void finalize() = 0;
 
-    // The amount of characters requested to output so far.
-    //
-    virtual int output_count() = 0;
+  // The amount of characters requested to output so far.
+  //
+  virtual int output_count() = 0;
 
-    virtual ~OutputAccumulator() {}
+  virtual ~OutputAccumulator() {}
 };
 
 // An accumulator that writes into a FILE* stream.
 //
-class StreamOutputAccumulator : public OutputAccumulator
-{
+class StreamOutputAccumulator : public OutputAccumulator {
 public:
-    StreamOutputAccumulator(FILE* stream);
+  StreamOutputAccumulator(FILE *stream);
 
-    virtual void append(char c) override;
+  virtual void append(char c) override;
 
-    virtual void finalize() override;
+  virtual void finalize() override;
 
-    virtual int output_count() override;
+  virtual int output_count() override;
 
-  private:
+private:
 #if !defined(_WIN32)
-    FILE* stream;
+  FILE *stream;
 #endif
 
-    int count;
-#if (defined(_WIN32) || defined(_WIN64)) 
-    HANDLE hStdout;
+  int count;
+#if (defined(_WIN32) || defined(_WIN64))
+  HANDLE hStdout;
 #endif
 };
 
@@ -79,25 +76,22 @@ public:
 // chars will ever be written into the buffer. finalize() inserts the final
 // '\0'.
 //
-class StringOutputAccumulator : public OutputAccumulator
-{
+class StringOutputAccumulator : public OutputAccumulator {
 public:
-    StringOutputAccumulator(char* outstr_, size_t outstr_size_);
+  StringOutputAccumulator(char *outstr_, size_t outstr_size_);
 
-    virtual void append(char c) override;
+  virtual void append(char c) override;
 
-    virtual void finalize() override;
+  virtual void finalize() override;
 
-    virtual int output_count() override;
+  virtual int output_count() override;
 
-  private:
-    char* outstr;
-    size_t outstr_size;
-    size_t outstr_ptr;
-    int count;
+private:
+  char *outstr;
+  size_t outstr_size;
+  size_t outstr_ptr;
+  int count;
 };
 
-extern "C" int printFormatCommon(OutputAccumulator& output, const char* format, 
-    const char* args);
-
-
+extern "C" int printFormatCommon(OutputAccumulator &output, const char *format,
+                                 const char *args);

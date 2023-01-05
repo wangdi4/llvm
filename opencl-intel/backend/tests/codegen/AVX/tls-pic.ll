@@ -5,8 +5,8 @@
 
 define i32 @f1() {
 entry:
-	%tmp1 = load i32, i32* @i
-	ret i32 %tmp1
+  %tmp1 = load i32, i32* @i
+  ret i32 %tmp1
 }
 
 ; X32: f1:
@@ -22,7 +22,7 @@ entry:
 
 define i32* @f2() {
 entry:
-	ret i32* @i
+  ret i32* @i
 }
 
 ; X32: f2:
@@ -37,12 +37,12 @@ entry:
 
 define i32 @f3() {
 entry:
-	%tmp1 = load i32, i32* @i		; <i32> [#uses=1]
-	ret i32 %tmp1
+  %tmp1 = load i32, i32* @i    ; <i32> [#uses=1]
+  ret i32 %tmp1
 }
 
 ; X32: f3:
-; X32:   leal	i@TLSGD(,%ebx), %eax
+; X32:   leal  i@TLSGD(,%ebx), %eax
 ; X32:   call ___tls_get_addr@PLT
 
 ; X64: f3:
@@ -52,11 +52,11 @@ entry:
 
 define i32* @f4() nounwind {
 entry:
-	ret i32* @i
+  ret i32* @i
 }
 
 ; X32: f4:
-; X32:   leal	i@TLSGD(,%ebx), %eax
+; X32:   leal  i@TLSGD(,%ebx), %eax
 ; X32:   call ___tls_get_addr@PLT
 
 ; X64: f4:

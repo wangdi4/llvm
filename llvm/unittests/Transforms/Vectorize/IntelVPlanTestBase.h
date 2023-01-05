@@ -58,6 +58,8 @@ protected:
   Module &parseModule(const char *ModuleString) {
     SMDiagnostic Err;
     M = parseAssemblyString(ModuleString, Err, *Ctx);
+    if (!M)
+      Err.print("", errs());
     EXPECT_TRUE(M);
     return *M;
   }
@@ -91,18 +93,17 @@ protected:
     Legal.get()->canVectorize(*DT, nullptr /* use auto induction detection */);
 
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
+
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get(),
-                                 SE.get());
+                                 *AC, *DT.get(), SE.get());
     HCFGBuilder.buildHierarchicalCFG();
-    Plan->setVPSE(
-        std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin(),
-                                                  *Plan->getLLVMContext(),
-                                                  DL.get()));
+    Plan->setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(
+        *SE, *LI->begin(), *Plan->getLLVMContext(), DL.get()));
     auto &VPSE =
         *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
-    Plan->setVPVT(
-        std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, &*AC, &*DT));
+    Plan->setVPVT(std::make_unique<VPlanValueTrackingLLVM>(
+        VPSE, *DL, Plan->getVPAC(), &*DT, Plan->getDT()));
 
     LVP->runInitialVecSpecificTransforms(Plan.get());
     LVP->createLiveInOutLists(*Plan.get());
@@ -113,7 +114,7 @@ protected:
   std::unique_ptr<VPlanNonMasked> buildFCFG(Function *F) {
     doAnalysis(*F, &F->getEntryBlock());
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
-    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F);
+    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F, *AC.get(), *DT.get());
     FCFGBuilder.buildCFG();
     return Plan;
   }
@@ -124,11 +125,20 @@ protected:
     auto Plan = buildHCFG(LoopHeader);
     auto VPOCG = std::make_unique<VPOCodeGen>(
         LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
-        TLI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/, Plan.get(),
+        TLI.get(), TTI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/, Plan.get(),
         ORBuilder);
     return VPOCG;
   }
 };
+
+// Helper to drop all references before instruction is deleted.
+struct DropAllReferencesDeleter {
+  void operator()(VPInstruction *I) {
+    I->dropAllReferences();
+    delete I;
+  }
+};
+
 } // namespace vpo
 } // namespace llvm
 

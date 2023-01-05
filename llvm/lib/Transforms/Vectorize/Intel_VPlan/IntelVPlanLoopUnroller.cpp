@@ -10,23 +10,78 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanLoopUnroller.h"
+#include "IntelVPlanBuilder.h"
 #include "IntelVPlanClone.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "VPlanLoopUnroller"
 
+static cl::opt<bool> EnablePartialSums(
+    "vplan-enable-partial-sums", cl::Hidden, cl::init(false),
+    cl::desc("Enable partial sum optimization in loop unroller"));
+
 using namespace llvm::vpo;
 
 static LoopVPlanDumpControl UnrollDumpControl("unroll", "VPlan loop unrolling");
 
+namespace {
+/// Describes a partial sum candidate, i.e. a reduction which, after
+/// unrolling, can be reassociated to use multiple parallel accumulators
+/// in the unrolled loop, which are then reduced in the post-exit
+/// to produce the final result.
+/// We only handle cases where the reduction operation is a single
+/// binary instruction, meaning the post-exit code can be generated as
+/// (a_0 op (a_1 op .. )) for accumulators a_0 .. a_N.
+struct PSumCandidate {
+  /// Identifies a candidate reduction operation, given the loop-defined
+  /// and initial values of a recurrent PHI.
+  /// Returns the VPReductionFinal for the candidate if valid, or null o/w.
+  static VPReductionFinal *getReductionFinal(const VPInstruction *LoopVal,
+                                             const VPInstruction *InitVal);
+
+  /// Create a candidate given the VPReductionInit and VPReductionFinal
+  /// returned from getReductionFinal.
+  PSumCandidate(VPReductionInit &RedInit, VPReductionFinal &RedFinal);
+  PSumCandidate() = default;
+
+  // The reduction opcode, used to generate the post-exit reductions.
+  unsigned Opcode;
+  // The VPReductionInit (with the identity element) to use
+  // for parallel accumulators.
+  VPReductionInit *Init;
+  // The type of the recurrence.
+  Type *ReductionType;
+  // The fast-math flags on the recurrent instruction(s).
+  FastMathFlags FMF;
+  // The accumulator values, initially just the single reduction.
+  SmallVector<VPValue *, 4> Accum;
+};
+} // namespace
+
 void VPlanLoopUnroller::run() {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
+  VPBuilder VPBldr;
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
   VPLoop *VPL = Plan.getMainLoop(true);
   assert(VPL->getSubLoops().empty() &&
          "Unrolling of loops with subloops is not supported");
+
+  // Given a PHI with two operands, return the operand values as a pair
+  // with the loop-defined operand first, or a pair of nullptrs if none
+  // are loop-defined.
+  auto getHeaderPhiOperands = [VPL](VPPHINode *Phi) {
+    assert(Phi->getNumOperands() == 2 &&
+           "All PHIs in loop header block should have only 2 value operands");
+    VPInstruction *Op0 = dyn_cast<VPInstruction>(Phi->getOperand(0));
+    VPInstruction *Op1 = dyn_cast<VPInstruction>(Phi->getOperand(1));
+    if (Op0 && VPL->isLiveOut(Op0) && (!Op1 || !VPL->contains(Op1)))
+      return std::make_pair(Op0, Op1);
+    else if (Op1 && VPL->isLiveOut(Op1) && (!Op0 || !VPL->contains(Op0)))
+      return std::make_pair(Op1, Op0);
+    return std::make_pair((VPInstruction *)nullptr, (VPInstruction *)nullptr);
+  };
 
   // Collect loop live-out users to process them after the unroll.
   // Two containers, the first one is map for cases when we can have only one
@@ -61,6 +116,8 @@ void VPlanLoopUnroller::run() {
 
   VPBasicBlock *Header = VPL->getHeader();
   assert(Header && "Expected single header block");
+  VPBasicBlock *Exit = VPL->getUniqueExitBlock();
+  assert(Exit && "expected unique exit");
   VPBasicBlock *Latch = VPL->getLoopLatch();
   assert(Latch && "Expected single latch block");
   VPBasicBlock *CurrentLatch = Latch;
@@ -78,6 +135,36 @@ void VPlanLoopUnroller::run() {
 
   // Hold the current last update instruction for each header PHI node.
   DenseMap<VPInstruction *, VPValue *> PHILastUpdate;
+
+  // Hold the reduction operations for each header PHI node for
+  // which we will perform the partial sum optimization.
+  SmallMapVector<VPPHINode *, PSumCandidate, 8> PSumCandidates;
+
+  // Identify partial sum candidates by their VPReductions, and keep
+  // a list of values to be reduced in the exit block.
+  if (EnablePartialSums)
+    for (VPPHINode &Phi : Header->getVPPhis()) {
+      auto PhiOpnds = getHeaderPhiOperands(&Phi);
+      if (PhiOpnds.first)
+        if (VPReductionFinal *ReducFinal = PSumCandidate::getReductionFinal(
+                PhiOpnds.first, PhiOpnds.second)) {
+          // If the original VPReductionInit uses a start value, we'll need
+          // to generate one with just the identity.
+          VPReductionInit *ReducInit = cast<VPReductionInit>(PhiOpnds.second);
+          if (ReducInit->usesStartValue()) {
+            VPBldr.setInsertPoint(ReducInit);
+            auto IdInit = VPBldr.createReductionInit(
+                ReducInit->getIdentityOperand(),
+                /*Start=*/nullptr, /*UseStart=*/false, ReducInit->isScalar());
+            ReducInit = cast<VPReductionInit>(IdInit);
+          }
+          // Record the candidate and the original loop-defined result.
+          auto It = PSumCandidates.insert(
+              std::make_pair(&Phi, PSumCandidate(*ReducInit, *ReducFinal)));
+          assert(It.second && "expected unique PHI nodes");
+          It.first->second.Accum.push_back(PhiOpnds.first);
+        }
+    }
 
   // Main loop. Repeats the loop N times (where N = UF - 1).
   //   For example:
@@ -109,7 +196,6 @@ void VPlanLoopUnroller::run() {
   //     Latch Clone #2 ---+
   for (unsigned Part = 0; Part < UF - 1; Part++) {
     VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[Part];
-
     VPCloneUtils::Value2ValueMapTy ReverseMap;
     for (auto It : ValueMap)
       ReverseMap[It.second] = It.first;
@@ -129,23 +215,39 @@ void VPlanLoopUnroller::run() {
       VPPHINode *OrigInst = dyn_cast<VPPHINode>(It->second);
       assert(OrigInst &&
              "The clone of VPPHINode expected to be a VPPHINode too");
-      assert(OrigInst->getNumOperands() == 2 &&
-             "All PHIs in loop header block should have only 2 value operands");
 
       // Try to deduce induction/reduction PHI node.
-      VPInstruction *Op0 = dyn_cast<VPInstruction>(OrigInst->getOperand(0));
-      VPInstruction *Op1 = dyn_cast<VPInstruction>(OrigInst->getOperand(1));
-
-      VPInstruction *LastUpdate = nullptr;
-      if (Op0 && VPL->contains(Op0) && (!Op1 || !VPL->contains(Op1)))
-        LastUpdate = Op0;
-      else if (Op1 && VPL->contains(Op1) && (!Op0 || !VPL->contains(Op0)))
-        LastUpdate = Op1;
+      VPInstruction *LastUpdate = getHeaderPhiOperands(OrigInst).first;
       assert(LastUpdate &&
              "Expecting to have only induction/reduction PHIs here");
 
       if (PHILastUpdate.find(OrigInst) == PHILastUpdate.end())
         PHILastUpdate[OrigInst] = LastUpdate;
+
+      // For partial sum candidates, generate a new PHI in the header
+      // and stash the accumulator value for reduction in the exit.
+      auto PSIt = PSumCandidates.find(OrigInst);
+      if (PSIt != PSumCandidates.end()) {
+        auto PhiOpnds = getHeaderPhiOperands(&ClonedInst);
+        VPInstruction *ClonedReduc =
+            cast<VPInstruction>(ValueMap[PhiOpnds.first]);
+
+        // Generate the new PHI in the header to use the candidate's
+        // initializer and the current iteration's result.
+        VPBldr.setInsertPoint(OrigInst);
+        VPPHINode *Phi =
+            cast<VPPHINode>(VPBldr.createPhiInstruction(ClonedInst.getType()));
+        Phi->addIncoming(PSIt->second.Init, PSIt->second.Init->getParent());
+        Phi->addIncoming(ClonedReduc,
+                         cast<VPBasicBlock>(Clones[UF - 2][Latch]));
+        ClonedReduc->replaceUsesOfWith(OrigInst, Phi);
+
+        // Queue the cloned PHI for deletion, and the split accumulator for
+        // post-loop reduction.
+        PSIt->second.Accum.push_back(ClonedReduc);
+        InstToRemove.insert(&ClonedInst);
+        continue;
+      }
 
       // Update the unrolled loop header PHI's incoming block
       // to cloned loop latch.
@@ -194,13 +296,31 @@ void VPlanLoopUnroller::run() {
       if (isa<VPBasicBlock>(Pair.first))
         VPL->addBasicBlockToLoop(cast<VPBasicBlock>(Pair.second), *VPLI);
 
-  // Replace uses of live-outs with the last unrolling part clone of them.
+  // Get the last iteration's value map for live-out fixup.
   VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[UF - 2];
-  for (auto It : LiveOutExtUsers)
-    It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
-  for (auto It : LiveOutInstUsers)
-    It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
 
+  // Reduce the partial sum values for each candidate to a single
+  // value to replace the original reduction's live-outs.
+  for (auto It : PSumCandidates) {
+    const PSumCandidate &PS = It.second;
+    VPValue *A = PS.Accum[0];
+    VPBldr.setInsertPointFirstNonPhi(Exit);
+    for (unsigned i = 1, n = PS.Accum.size(); i < n; ++i) {
+      VPInstruction *VPI =
+          VPBldr.createNaryOp(PS.Opcode, PS.ReductionType, {A, PS.Accum[i]});
+      if (VPI->hasFastMathFlags())
+        VPI->setFastMathFlags(PS.FMF);
+      A = VPI;
+    }
+    // Replace the last-iteration result with the reduced value.
+    ValueMap[PS.Accum[0]] = A;
+  }
+
+  // Replace uses of live-outs with the last unrolling part clone of them.
+  for (const auto &It : LiveOutExtUsers)
+    It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
+  for (const auto &It : LiveOutInstUsers)
+    It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
 
@@ -208,4 +328,50 @@ void VPlanLoopUnroller::run() {
   Plan.invalidateAnalyses({VPAnalysisID::SVA});
 
   VPLAN_DUMP(UnrollDumpControl, Plan);
+}
+
+VPReductionFinal *
+PSumCandidate::getReductionFinal(const VPInstruction *LoopVal,
+                                 const VPInstruction *InitVal) {
+  assert(LoopVal && "Candidates cannot be null");
+  // Ensure the initial value is a reduction init, and
+  // filter out the in-scan reductions.
+  auto RedInit = dyn_cast<VPReductionInit>(InitVal);
+  if (!InitVal || !RedInit || RedInit->isScalar())
+    return nullptr;
+  // Locate the VPReductionFinal and filter out unsupported cases
+  // based on the opcode/FMF.
+  auto Iter = llvm::find_if(LoopVal->users(), [](const VPUser *U) {
+    return isa<VPReductionFinal>(U);
+  });
+  assert(Iter != LoopVal->user_end() && "Expected non-null ReductionFinal");
+  VPReductionFinal *RedFinal = cast<VPReductionFinal>(*Iter);
+  switch (RedFinal->getBinOpcode()) {
+  // Floating point reduction operators, which require that the fast math
+  // flags permit reassociation.
+  case Instruction::FAdd:
+  case Instruction::FSub:
+    if (LoopVal->hasFastMathFlags() &&
+        LoopVal->getFastMathFlags().allowReassoc())
+      return RedFinal;
+    break;
+  // Integer reduction operators are only limited to single-instruction cases.
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Or:
+  case Instruction::Xor:
+  case Instruction::And:
+    return RedFinal;
+  default:
+    break;
+  }
+  return nullptr;
+}
+
+PSumCandidate::PSumCandidate(VPReductionInit &RedInit,
+                             VPReductionFinal &RedFinal)
+    : Opcode(RedFinal.getBinOpcode()), Init(&RedInit),
+      ReductionType(RedFinal.getType()) {
+  if (RedFinal.hasFastMathFlags())
+    FMF = RedFinal.getFastMathFlags();
 }

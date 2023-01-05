@@ -12,8 +12,6 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2 -finclude-default-header
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-channel-pipe-transformation -verify %s -S | FileCheck %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation %s -S | FileCheck %s
 

@@ -24,8 +24,8 @@ namespace DeviceBackend {
 class LLDJITBuilder {
 public:
   /// @brief Creates an LLDJIT instance, that owns the passed module.
-  static std::unique_ptr<llvm::ExecutionEngine> CreateExecutionEngine(
-      llvm::Module * M, llvm::TargetMachine * TM);
+  static std::unique_ptr<llvm::ExecutionEngine>
+  CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM);
 
   /// @brief Makes the module linkable.
   /// This includes adding DllMain() and exporting kernel symbols, etc.

@@ -1,8 +1,4 @@
-; RUN: opt -S -skip-partial-inlining-cost-analysis -partial-inliner < %s \
-; RUN:   | FileCheck %s
-; RUN: opt -S -skip-partial-inlining-cost-analysis \
-; RUN:     -passes=partial-inliner < %s \
-; RUN:   | FileCheck %s
+; RUN: opt -S -skip-partial-inlining-cost-analysis -passes=partial-inliner < %s | FileCheck %s
 ;
 ; During partial inlining, ensure nested global types are not duplicated.
 ;

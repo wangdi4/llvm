@@ -18,6 +18,9 @@
 #ifdef __x86_64__
 
 #define _tile_dpbf8ps __builtin_ia32_tdpbf8ps
+#define _tile_dpbhf8ps __builtin_ia32_tdpbhf8ps
+#define _tile_dphbf8ps __builtin_ia32_tdphbf8ps
+#define _tile_dphf8ps __builtin_ia32_tdphf8ps
 
 #endif /* __x86_64__ */
 #endif /* __AMXFP8INTRIN_H */

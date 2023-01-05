@@ -27,9 +27,7 @@
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
-namespace ext {
-namespace oneapi {
-namespace experimental {
+namespace ext::oneapi::experimental {
 
 namespace detail {
 // Type-trait for checking if a type defines `operator->`.
@@ -115,15 +113,20 @@ public:
   device_global &operator=(const device_global &) = delete;
   device_global &operator=(const device_global &&) = delete;
 
-  multi_ptr<T, access::address_space::global_space> get_multi_ptr() noexcept {
+  template <access::decorated IsDecorated>
+  multi_ptr<T, access::address_space::global_space, IsDecorated>
+  get_multi_ptr() noexcept {
     __SYCL_HOST_NOT_SUPPORTED("get_multi_ptr()")
-    return {this->get_ptr()};
+    return address_space_cast<access::address_space::global_space, IsDecorated>(
+        this->get_ptr());
   }
 
-  multi_ptr<const T, access::address_space::global_space> get_multi_ptr()
-      const noexcept {
+  template <access::decorated IsDecorated>
+  multi_ptr<const T, access::address_space::global_space, IsDecorated>
+  get_multi_ptr() const noexcept {
     __SYCL_HOST_NOT_SUPPORTED("get_multi_ptr()")
-    return {this->get_ptr()};
+    return address_space_cast<access::address_space::global_space, IsDecorated,
+                              const T>(this->get_ptr());
   }
 
   T &get() noexcept {
@@ -195,9 +198,7 @@ public:
   }
 };
 
-} // namespace experimental
-} // namespace oneapi
-} // namespace ext
+} // namespace ext::oneapi::experimental
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
 

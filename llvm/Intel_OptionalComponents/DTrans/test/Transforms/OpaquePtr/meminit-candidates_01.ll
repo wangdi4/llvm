@@ -4,9 +4,6 @@
 ; Makes sure Unused_declare_ZN4Arr1IPfEC2Ev is not considered as member
 ; function of %struct._ZTS4Arr1IPfE.Arr1 since it is unused prototype.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
@@ -94,92 +91,88 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%class._ZTS1F.F = type { %struct._ZTS3Mem.Mem*, %struct._ZTS3ArrIPiE.Arr*, %struct._ZTS4Arr1IPfE.Arr1* }
-%struct._ZTS3Mem.Mem = type { i32 (...)** }
-%struct._ZTS3ArrIPiE.Arr = type { i8, i32, i32, i32***, %struct._ZTS3Mem.Mem* }
+%class._ZTS1F.F = type { ptr, ptr, ptr }
 %struct._ZTS4Arr1IPfE.Arr1 = type { %struct._ZTS3ArrIPfE.Arr }
-%struct._ZTS3ArrIPfE.Arr = type { i8, i32, i32, float***, %struct._ZTS3Mem.Mem* }
-@_Z3foov = internal unnamed_addr alias void (), void ()* @_Z3barv
+%struct._ZTS3ArrIPfE.Arr = type { i8, i32, i32, ptr, ptr }
+%struct._ZTS3Mem.Mem = type { ptr }
+%struct._ZTS3ArrIPiE.Arr = type { i8, i32, i32, ptr, ptr }
 
+@_Z3foov = internal unnamed_addr alias void (), ptr @_Z3barv
 
 define dso_local i32 @main() {
 entry:
-  %call = call i8* @_Znwm(i64 24)
-  %0 = bitcast i8* %call to %class._ZTS1F.F*
-  call void @_ZN1FC2Ev(%class._ZTS1F.F* %0)
+  %call = call ptr @_Znwm(i64 24)
+  call void @_ZN1FC2Ev(ptr %call)
   ret i32 0
 }
 
-define void @_ZN1FC2Ev(%class._ZTS1F.F* "intel_dtrans_func_index"="1" %this)  !intel.dtrans.func.type !22 {
+define void @_ZN1FC2Ev(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !15 {
 entry:
-  %call = tail call i8* @_Znwm(i64 32)
-  %0 = bitcast i8* %call to %struct._ZTS3ArrIPiE.Arr*
-  tail call void @_ZN3ArrIPiEC2EiP3Mem(%struct._ZTS3ArrIPiE.Arr* nonnull %0, i32 10, %struct._ZTS3Mem.Mem* null)
-  %f1 = getelementptr inbounds %class._ZTS1F.F, %class._ZTS1F.F* %this, i64 0, i32 1
-  store %struct._ZTS3ArrIPiE.Arr* %0, %struct._ZTS3ArrIPiE.Arr** %f1, align 8
-  %call2 = tail call i8* @_Znwm(i64 32)
-  %1 = bitcast i8* %call2 to %struct._ZTS4Arr1IPfE.Arr1*
-  call void @_ZN4Arr1IPfEC2Ev(%struct._ZTS4Arr1IPfE.Arr1* nonnull %1)
-  %f2 = getelementptr inbounds %class._ZTS1F.F, %class._ZTS1F.F* %this, i64 0, i32 2
-  store %struct._ZTS4Arr1IPfE.Arr1* %1, %struct._ZTS4Arr1IPfE.Arr1** %f2, align 8
-  %2 = load %struct._ZTS3ArrIPiE.Arr*, %struct._ZTS3ArrIPiE.Arr** %f1, align 8
-  tail call void @_ZN3ArrIPiE3setEiPS0_(%struct._ZTS3ArrIPiE.Arr* %2, i32 0, i32** null)
-  %3 = bitcast %struct._ZTS4Arr1IPfE.Arr1** %f2 to %struct._ZTS3ArrIPfE.Arr**
-  %4 = load %struct._ZTS3ArrIPfE.Arr*, %struct._ZTS3ArrIPfE.Arr** %3, align 8
-  tail call void @_ZN3ArrIPfE3setEiPS0_(%struct._ZTS3ArrIPfE.Arr* %4, i32 0, float** null)
-  %5 = load %struct._ZTS3ArrIPfE.Arr*, %struct._ZTS3ArrIPfE.Arr** %3, align 8
-  tail call void @_ZN3ArrIPfE3addEPS0_(%struct._ZTS3ArrIPfE.Arr* %5, float** null)
-  %6 = load %struct._ZTS3ArrIPiE.Arr*, %struct._ZTS3ArrIPiE.Arr** %f1, align 8
-  tail call void @_ZN3ArrIPiE3addEPS0_(%struct._ZTS3ArrIPiE.Arr* %6, i32** null)
+  %call = tail call ptr @_Znwm(i64 32)
+  tail call void @_ZN3ArrIPiEC2EiP3Mem(ptr nonnull %call, i32 10, ptr null)
+  %f1 = getelementptr inbounds %class._ZTS1F.F, ptr %this, i64 0, i32 1
+  store ptr %call, ptr %f1, align 8
+  %call2 = tail call ptr @_Znwm(i64 32)
+  call void @_ZN4Arr1IPfEC2Ev(ptr nonnull %call2)
+  %f2 = getelementptr inbounds %class._ZTS1F.F, ptr %this, i64 0, i32 2
+  store ptr %call2, ptr %f2, align 8
+  %i = load ptr, ptr %f1, align 8
+  tail call void @_ZN3ArrIPiE3setEiPS0_(ptr %i, i32 0, ptr null)
+  %i4 = load ptr, ptr %f2, align 8
+  tail call void @_ZN3ArrIPfE3setEiPS0_(ptr %i4, i32 0, ptr null)
+  %i5 = load ptr, ptr %f2, align 8
+  tail call void @_ZN3ArrIPfE3addEPS0_(ptr %i5, ptr null)
+  %i6 = load ptr, ptr %f1, align 8
+  tail call void @_ZN3ArrIPiE3addEPS0_(ptr %i6, ptr null)
   call void @_Z3foov()
   ret void
 }
 
-define void @_ZN3ArrIPiEC2EiP3Mem(%struct._ZTS3ArrIPiE.Arr*  "intel_dtrans_func_index"="1" %this, i32 %c, %struct._ZTS3Mem.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !26 {
+define void @_ZN3ArrIPiEC2EiP3Mem(ptr "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !17 {
 entry:
   ret void
 }
 
-define void @_ZN4Arr1IPfEC2Ev(%struct._ZTS4Arr1IPfE.Arr1* "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !27 {
+define void @_ZN4Arr1IPfEC2Ev(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !18 {
 entry:
-  %0 = getelementptr inbounds %struct._ZTS4Arr1IPfE.Arr1, %struct._ZTS4Arr1IPfE.Arr1* %this, i64 0, i32 0
-  tail call void @_ZN3ArrIPfEC2EiP3Mem(%struct._ZTS3ArrIPfE.Arr* %0, i32 1, %struct._ZTS3Mem.Mem* null)
+  %0 = getelementptr inbounds %struct._ZTS4Arr1IPfE.Arr1, ptr %this, i64 0, i32 0
+  tail call void @_ZN3ArrIPfEC2EiP3Mem(ptr %0, i32 1, ptr null)
   ret void
 }
 
-define void @_ZN3ArrIPiE3setEiPS0_(%struct._ZTS3ArrIPiE.Arr* "intel_dtrans_func_index"="1" %this, i32 %i, i32**  "intel_dtrans_func_index"="2" %val)  !intel.dtrans.func.type !28 {
-entry:
-  ret void
-}
-
-define void @_ZN3ArrIPfE3setEiPS0_(%struct._ZTS3ArrIPfE.Arr* "intel_dtrans_func_index"="1" %this, i32 %i, float** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !30 {
+define void @_ZN3ArrIPiE3setEiPS0_(ptr "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !19 {
 entry:
   ret void
 }
 
-define void @_ZN3ArrIPfE3addEPS0_(%struct._ZTS3ArrIPfE.Arr* "intel_dtrans_func_index"="1" %this, float** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !33 {
-entry:
-  tail call void @_ZN3ArrIPfE6resizeEv(%struct._ZTS3ArrIPfE.Arr* %this)
-  ret void
-}
-
-define void @_ZN3ArrIPiE3addEPS0_(%struct._ZTS3ArrIPiE.Arr* "intel_dtrans_func_index"="1" %this, i32** "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !34 {
-entry:
-  tail call void @_ZN3ArrIPiE6resizeEv(%struct._ZTS3ArrIPiE.Arr* %this)
-  ret void
-}
-
-define void @_ZN3ArrIPfEC2EiP3Mem(%struct._ZTS3ArrIPfE.Arr* "intel_dtrans_func_index"="1" %this, i32 %c, %struct._ZTS3Mem.Mem* "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !35 {
+define void @_ZN3ArrIPfE3setEiPS0_(ptr "intel_dtrans_func_index"="1" %this, i32 %i, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !21 {
 entry:
   ret void
 }
 
-define void @_ZN3ArrIPfE6resizeEv(%struct._ZTS3ArrIPfE.Arr* "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !36 {
+define void @_ZN3ArrIPfE3addEPS0_(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !24 {
+entry:
+  tail call void @_ZN3ArrIPfE6resizeEv(ptr %this)
+  ret void
+}
+
+define void @_ZN3ArrIPiE3addEPS0_(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !25 {
+entry:
+  tail call void @_ZN3ArrIPiE6resizeEv(ptr %this)
+  ret void
+}
+
+define void @_ZN3ArrIPfEC2EiP3Mem(ptr "intel_dtrans_func_index"="1" %this, i32 %c, ptr "intel_dtrans_func_index"="2" %mem) !intel.dtrans.func.type !26 {
 entry:
   ret void
 }
 
-define void @_ZN3ArrIPiE6resizeEv(%struct._ZTS3ArrIPiE.Arr* "intel_dtrans_func_index"="1"  %this) !intel.dtrans.func.type !37 {
+define void @_ZN3ArrIPfE6resizeEv(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !27 {
+entry:
+  ret void
+}
+
+define void @_ZN3ArrIPiE6resizeEv(ptr "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !28 {
 entry:
   ret void
 }
@@ -189,43 +182,40 @@ entry:
   ret void
 }
 
-declare !intel.dtrans.func.type !20 dso_local noalias "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
-declare !intel.dtrans.func.type !27 void @Unused_declare_ZN4Arr1IPfEC2Ev(%struct._ZTS4Arr1IPfE.Arr1* "intel_dtrans_func_index"="1" )
+declare !intel.dtrans.func.type !29 dso_local noalias "intel_dtrans_func_index"="1" ptr @_Znwm(i64)
 
-!intel.dtrans.types = !{!3, !7, !11, !14, !16}
+declare !intel.dtrans.func.type !18 void @Unused_declare_ZN4Arr1IPfEC2Ev(ptr "intel_dtrans_func_index"="1")
 
-!3 = !{!"S", %class._ZTS1F.F zeroinitializer, i32 3, !4, !5, !6}
-!4 = !{%struct._ZTS3Mem.Mem zeroinitializer, i32 1}
-!5 = !{%struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 1}
-!6 = !{%struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1}
-!7 = !{!"S", %struct._ZTS3Mem.Mem zeroinitializer, i32 1, !8}
-!8 = !{!9, i32 2}
-!9 = !{!"F", i1 true, i32 0, !10}
-!10 = !{i32 0, i32 0}
-!11 = !{!"S", %struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 5, !12, !10, !10, !13, !4}
-!12 = !{i8 0, i32 0}
-!13 = !{i32 0, i32 3}
-!14 = !{!"S", %struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1, !15}
-!15 = !{%struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 0}
-!16 = !{!"S", %struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 5, !12, !10, !10, !17, !4}
-!17 = !{float 0.000000e+00, i32 3}
-!18 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!19 = !{%class._ZTS1F.F zeroinitializer, i32 1}
-!20 = distinct !{!21}
-!21 = !{i8 0, i32 1}
-!22 = distinct !{!19}
-!23 = !{!"F", i1 false, i32 0, !24}
-!24 = !{!"void", i32 0}
-!25 = distinct !{!21}
-!26 = distinct !{!5, !4}
-!27 = distinct !{!6}
-!28 = distinct !{!5, !29}
-!29 = !{i32 0, i32 2}
-!30 = distinct !{!31, !32}
-!31 = !{%struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 1}
-!32 = !{float 0.000000e+00, i32 2}
-!33 = distinct !{!31, !32}
-!34 = distinct !{!5, !29}
-!35 = distinct !{!31, !4}
-!36 = distinct !{!31}
-!37 = distinct !{!5}
+!intel.dtrans.types = !{!0, !4, !8, !11, !13}
+
+!0 = !{!"S", %class._ZTS1F.F zeroinitializer, i32 3, !1, !2, !3}
+!1 = !{%struct._ZTS3Mem.Mem zeroinitializer, i32 1}
+!2 = !{%struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 1}
+!3 = !{%struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1}
+!4 = !{!"S", %struct._ZTS3Mem.Mem zeroinitializer, i32 1, !5}
+!5 = !{!6, i32 2}
+!6 = !{!"F", i1 true, i32 0, !7}
+!7 = !{i32 0, i32 0}
+!8 = !{!"S", %struct._ZTS3ArrIPiE.Arr zeroinitializer, i32 5, !9, !7, !7, !10, !1}
+!9 = !{i8 0, i32 0}
+!10 = !{i32 0, i32 3}
+!11 = !{!"S", %struct._ZTS4Arr1IPfE.Arr1 zeroinitializer, i32 1, !12}
+!12 = !{%struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 0}
+!13 = !{!"S", %struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 5, !9, !7, !7, !14, !1}
+!14 = !{float 0.000000e+00, i32 3}
+!15 = distinct !{!16}
+!16 = !{%class._ZTS1F.F zeroinitializer, i32 1}
+!17 = distinct !{!2, !1}
+!18 = distinct !{!3}
+!19 = distinct !{!2, !20}
+!20 = !{i32 0, i32 2}
+!21 = distinct !{!22, !23}
+!22 = !{%struct._ZTS3ArrIPfE.Arr zeroinitializer, i32 1}
+!23 = !{float 0.000000e+00, i32 2}
+!24 = distinct !{!22, !23}
+!25 = distinct !{!2, !20}
+!26 = distinct !{!22, !1}
+!27 = distinct !{!22}
+!28 = distinct !{!2}
+!29 = distinct !{!30}
+!30 = !{i8 0, i32 1}

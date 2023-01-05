@@ -249,6 +249,8 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
       return false;
     CLI = cast<CallInst>(CB);
   }
+  if (!CLI)
+    return false;
   bool SawBasis = false;
   bool SawRecCall = false;
   // Check for the basis call and recursive call.

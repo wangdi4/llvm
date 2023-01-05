@@ -16,48 +16,41 @@
 #include "IContainerVisitor.h"
 #include "llvm/Support/DataTypes.h"
 
-namespace Validation
-{
+namespace Validation {
 
-    ///////////////////////////////////
-    /// Buffer implementation
-    ///////////////////////////////////////
-    void Buffer::AllocateMemoryForData()
-    {
-        // Compute size of memory to allocate
-        std::size_t buffSize = m_desc.GetSizeInBytes();
-        // Allocate memory
-        m_data = new uint8_t[buffSize];
-    }
+///////////////////////////////////
+/// Buffer implementation
+///////////////////////////////////////
+void Buffer::AllocateMemoryForData() {
+  // Compute size of memory to allocate
+  std::size_t buffSize = m_desc.GetSizeInBytes();
+  // Allocate memory
+  m_data = new uint8_t[buffSize];
+}
 
-    Buffer::Buffer( const BufferDesc& desc ) : m_desc(desc)
-    {
-        if (!m_desc.IsFloatingPoint() && m_desc.IsNEAT())
-        {
-            throw Exception::InvalidArgument("NEAT Buffer without floating point couldn't be created.");
-        }
-        // Allocate memory
-        AllocateMemoryForData();
-    }
+Buffer::Buffer(const BufferDesc &desc) : m_desc(desc) {
+  if (!m_desc.IsFloatingPoint() && m_desc.IsNEAT()) {
+    throw Exception::InvalidArgument(
+        "NEAT Buffer without floating point couldn't be created.");
+  }
+  // Allocate memory
+  AllocateMemoryForData();
+}
 
-    Buffer::~Buffer()
-    {
-        if (0 != m_data)
-        {
-            delete[] m_data;
-        }
-    }
+Buffer::~Buffer() {
+  if (0 != m_data) {
+    delete[] m_data;
+  }
+}
 
-    void Buffer::Accept( IContainerVisitor& visitor ) const
-    {
-        visitor.visitBuffer(this);
-    }
+void Buffer::Accept(IContainerVisitor &visitor) const {
+  visitor.visitBuffer(this);
+}
 
-    BufferDesc GetBufferDescription( const IMemoryObjectDesc* iDesc )
-    {
-        //assert(NULL != dynamic_cast<const BufferDesc *>(iDesc) && "BufferDesc is expected");
-        return *static_cast<const BufferDesc *>(iDesc);
-    }
+BufferDesc GetBufferDescription(const IMemoryObjectDesc *iDesc) {
+  // assert(NULL != dynamic_cast<const BufferDesc *>(iDesc) && "BufferDesc is
+  // expected");
+  return *static_cast<const BufferDesc *>(iDesc);
+}
 
-} // End of Validation namespace
-
+} // namespace Validation

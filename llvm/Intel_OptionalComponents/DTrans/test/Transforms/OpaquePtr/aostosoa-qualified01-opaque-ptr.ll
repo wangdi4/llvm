@@ -5,7 +5,6 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
 ; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA conversion when the type is selected based
@@ -42,7 +41,7 @@ define void @test01() {
 
  ; Verify the store for original allocation is changed to storing index
  ; element 1.
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %field, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0.p0(ptr %field, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 1, ptr %field
 
   %fa0 = getelementptr %struct.test01, ptr %st, i64 0, i32 0
@@ -59,7 +58,7 @@ define void @test01() {
 ; CHECK: %[[SOA_ADDR1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 1
 ; CHECK: %[[FIELD1_BASE:[0-9]+]] = load ptr, ptr %[[SOA_ADDR1]]
 ; CHECK: %fa1 = getelementptr i64, ptr %[[FIELD1_BASE]], i64 1
-; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
+; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0.p0(ptr %fa1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 0, ptr %fa1
 
   %fa2 = getelementptr %struct.test01, ptr %st, i64 0, i32 2

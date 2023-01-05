@@ -1,24 +1,11 @@
-; REQUIRES: system-windows
-
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.
 
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop                  \
-; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false | FileCheck %s
-; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop           \
-; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false | FileCheck %s
-
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-soatoaosop \
-; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                    \
-; RUN:          -dtrans-soatoaosop-size-heuristic=false                      \
-; RUN:          2>&1 | FileCheck --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed                    \
 ; RUN:          -passes=dtrans-soatoaosop                                    \
 ; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                      \
-; RUN:          2>&1 | FileCheck --check-prefix=CHECK-OP %s
+; RUN:          2>&1 | FileCheck %s
 ;  // icx /GX m7.cpp -O1 -Ob0 -S -emit-llvm
 ;  // Attributess cleanup.
 ;
@@ -173,18 +160,14 @@
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-; CHECK-DAG: %__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64, %struct.Mem*  }
-; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, %__SOADT_EL_class.F*, i32, %struct.Mem* }
-; CHECK-DAG: %__SOADT_EL_class.F = type { i32*, float* }
+; CHECK-DAG: %__SOADT_class.F = type { ptr, i64, ptr  }
+; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, ptr, i32, ptr }
+; CHECK-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
 
-; CHECK-OP-DAG: %__SOADT_class.F = type { ptr, i64, ptr  }
-; CHECK-OP-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, ptr, i32, ptr }
-; CHECK-OP-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
-
-%class.F = type { %struct.Arr*, %struct.Arr.0*, %struct.Mem* }
-%struct.Arr = type { i8, i32, i32**, i32, %struct.Mem* }
-%struct.Arr.0 = type { i8, i32, float**, i32, %struct.Mem* }
-%struct.Mem = type { i32 (...)** }
+%class.F = type { ptr, ptr, ptr }
+%struct.Arr = type { i8, i32, ptr, i32, ptr }
+%struct.Arr.0 = type { i8, i32, ptr, i32, ptr }
+%struct.Mem = type { ptr }
 %eh.ThrowInfo = type { i32, i32, i32, i32 }
 
 @"?v1@@3HA" = dso_local global i32 20, align 4
@@ -192,28 +175,28 @@ target triple = "x86_64-pc-windows-msvc"
 @"?v3@@3MA" = dso_local global float 3.500000e+00, align 4
 @"?v4@@3MA" = dso_local global float 7.500000e+00, align 4
 
-define dso_local zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %f) !intel.dtrans.func.type !15 {
+define dso_local zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(ptr nocapture "intel_dtrans_func_index"="1" %f) !intel.dtrans.func.type !15 {
 entry:
-  %call = call i32 @"?get1@F@@QEAAHH@Z"(%class.F* %f, i32 0)
-  %i = load i32, i32* @"?v2@@3HA", align 4
+  %call = call i32 @"?get1@F@@QEAAHH@Z"(ptr %f, i32 0)
+  %i = load i32, ptr @"?v2@@3HA", align 4
   %cmp = icmp eq i32 %call, %i
   br i1 %cmp, label %if.end, label %return
 
 if.end:                                           ; preds = %entry
-  %call1 = call float @"?get2@F@@QEAAMH@Z"(%class.F* %f, i32 0)
-  %i1 = load float, float* @"?v4@@3MA", align 4
+  %call1 = call float @"?get2@F@@QEAAMH@Z"(ptr %f, i32 0)
+  %i1 = load float, ptr @"?v4@@3MA", align 4
   %cmp2 = fcmp une float %call1, %i1
   br i1 %cmp2, label %return, label %if.end4
 
 if.end4:                                          ; preds = %if.end
-  %call5 = call i32 @"?get1@F@@QEAAHH@Z"(%class.F* %f, i32 1)
-  %i2 = load i32, i32* @"?v2@@3HA", align 4
+  %call5 = call i32 @"?get1@F@@QEAAHH@Z"(ptr %f, i32 1)
+  %i2 = load i32, ptr @"?v2@@3HA", align 4
   %cmp6 = icmp eq i32 %call5, %i2
   br i1 %cmp6, label %if.end8, label %return
 
 if.end8:                                          ; preds = %if.end4
-  %call9 = call float @"?get2@F@@QEAAMH@Z"(%class.F* %f, i32 1)
-  %i3 = load float, float* @"?v4@@3MA", align 4
+  %call9 = call float @"?get2@F@@QEAAMH@Z"(ptr %f, i32 1)
+  %i3 = load float, ptr @"?v4@@3MA", align 4
   %cmp10 = fcmp oeq float %call9, %i3
   br label %return
 
@@ -222,100 +205,98 @@ return:                                           ; preds = %if.end8, %if.end4, 
   ret i1 %retval.0
 }
 
-define linkonce_odr dso_local i32 @"?get1@F@@QEAAHH@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %this, i32 %i) !intel.dtrans.func.type !17 {
+define linkonce_odr dso_local i32 @"?get1@F@@QEAAHH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i) !intel.dtrans.func.type !17 {
 entry:
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %i1 = load %struct.Arr*, %struct.Arr** %f1, align 8
-  %call = call nonnull align 8 dereferenceable(8) i32** @"?get@?$Arr@PEAH@@QEAAAEAPEAHH@Z"(%struct.Arr* %i1, i32 %i)
-  %i2 = load i32*, i32** %call, align 8
-  %i3 = load i32, i32* %i2, align 4
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  %i1 = load ptr, ptr %f1, align 8
+  %call = call nonnull align 8 dereferenceable(8) ptr @"?get@?$Arr@PEAH@@QEAAAEAPEAHH@Z"(ptr %i1, i32 %i)
+  %i2 = load ptr, ptr %call, align 8
+  %i3 = load i32, ptr %i2, align 4
   ret i32 %i3
 }
 
-define linkonce_odr dso_local float @"?get2@F@@QEAAMH@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %this, i32 %i) !intel.dtrans.func.type !17 {
+define linkonce_odr dso_local float @"?get2@F@@QEAAMH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i) !intel.dtrans.func.type !17 {
 entry:
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %i1 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8
-  %call = call nonnull align 8 dereferenceable(8) float** @"?get@?$Arr@PEAM@@QEAAAEAPEAMH@Z"(%struct.Arr.0* %i1, i32 %i)
-  %i2 = load float*, float** %call, align 8
-  %i3 = load float, float* %i2, align 4
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  %i1 = load ptr, ptr %f2, align 8
+  %call = call nonnull align 8 dereferenceable(8) ptr @"?get@?$Arr@PEAM@@QEAAAEAPEAMH@Z"(ptr %i1, i32 %i)
+  %i2 = load ptr, ptr %call, align 8
+  %i3 = load float, ptr %i2, align 4
   ret float %i3
 }
 
-define dso_local i32 @main() local_unnamed_addr personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define dso_local i32 @main() local_unnamed_addr personality ptr @__CxxFrameHandler3 {
 entry:
-  %call = call noalias nonnull dereferenceable(24) i8* @"??2@YAPEAX_K@Z"(i64 24)
-  %i = bitcast i8* %call to %class.F*
-  %call1 = invoke %class.F* @"??0F@@QEAA@XZ"(%class.F* nonnull %i)
+  %call = call noalias nonnull dereferenceable(24) ptr @"??2@YAPEAX_K@Z"(i64 24)
+  %call1 = invoke ptr @"??0F@@QEAA@XZ"(ptr nonnull %call)
           to label %invoke.cont unwind label %ehcleanup
 
 invoke.cont:                                      ; preds = %entry
-  call void @"?put@F@@QEAAXPEAHPEAM@Z"(%class.F* nonnull %i, i32* nonnull @"?v1@@3HA", float* nonnull @"?v3@@3MA")
-  %call2 = call i32 @"?get1@F@@QEAAHH@Z"(%class.F* nonnull %i, i32 0)
-  %i1 = load i32, i32* @"?v1@@3HA", align 4
+  call void @"?put@F@@QEAAXPEAHPEAM@Z"(ptr nonnull %call, ptr nonnull @"?v1@@3HA", ptr nonnull @"?v3@@3MA")
+  %call2 = call i32 @"?get1@F@@QEAAHH@Z"(ptr nonnull %call, i32 0)
+  %i1 = load i32, ptr @"?v1@@3HA", align 4
   %cmp = icmp eq i32 %call2, %i1
   br i1 %cmp, label %if.end, label %cleanup37
 
 ehcleanup:                                        ; preds = %entry
   %i2 = cleanuppad within none []
-  call void @"??3@YAXPEAX@Z"(i8* %call) [ "funclet"(token %i2) ]
+  call void @"??3@YAXPEAX@Z"(ptr %call) [ "funclet"(token %i2) ]
   cleanupret from %i2 unwind label %ehcleanup38
 
 if.end:                                           ; preds = %invoke.cont
-  %call3 = call float @"?get2@F@@QEAAMH@Z"(%class.F* nonnull %i, i32 0)
-  %i3 = load float, float* @"?v3@@3MA", align 4
+  %call3 = call float @"?get2@F@@QEAAMH@Z"(ptr nonnull %call, i32 0)
+  %i3 = load float, ptr @"?v3@@3MA", align 4
   %cmp4 = fcmp une float %call3, %i3
   br i1 %cmp4, label %cleanup37, label %if.end6
 
 if.end6:                                          ; preds = %if.end
-  call void @"?put@F@@QEAAXPEAHPEAM@Z"(%class.F* nonnull %i, i32* nonnull @"?v2@@3HA", float* nonnull @"?v4@@3MA")
-  %call7 = call i32 @"?get1@F@@QEAAHH@Z"(%class.F* nonnull %i, i32 0)
-  %i4 = load i32, i32* @"?v1@@3HA", align 4
+  call void @"?put@F@@QEAAXPEAHPEAM@Z"(ptr nonnull %call, ptr nonnull @"?v2@@3HA", ptr nonnull @"?v4@@3MA")
+  %call7 = call i32 @"?get1@F@@QEAAHH@Z"(ptr nonnull %call, i32 0)
+  %i4 = load i32, ptr @"?v1@@3HA", align 4
   %cmp8 = icmp eq i32 %call7, %i4
   br i1 %cmp8, label %if.end10, label %cleanup37
 
 if.end10:                                         ; preds = %if.end6
-  %call11 = call float @"?get2@F@@QEAAMH@Z"(%class.F* nonnull %i, i32 0)
-  %i5 = load float, float* @"?v3@@3MA", align 4
+  %call11 = call float @"?get2@F@@QEAAMH@Z"(ptr nonnull %call, i32 0)
+  %i5 = load float, ptr @"?v3@@3MA", align 4
   %cmp12 = fcmp une float %call11, %i5
   br i1 %cmp12, label %cleanup37, label %if.end14
 
 if.end14:                                         ; preds = %if.end10
-  %call15 = call i32 @"?get1@F@@QEAAHH@Z"(%class.F* nonnull %i, i32 1)
-  %i6 = load i32, i32* @"?v2@@3HA", align 4
+  %call15 = call i32 @"?get1@F@@QEAAHH@Z"(ptr nonnull %call, i32 1)
+  %i6 = load i32, ptr @"?v2@@3HA", align 4
   %cmp16 = icmp eq i32 %call15, %i6
   br i1 %cmp16, label %if.end18, label %cleanup37
 
 if.end18:                                         ; preds = %if.end14
-  %call19 = call float @"?get2@F@@QEAAMH@Z"(%class.F* nonnull %i, i32 1)
-  %i7 = load float, float* @"?v4@@3MA", align 4
+  %call19 = call float @"?get2@F@@QEAAMH@Z"(ptr nonnull %call, i32 1)
+  %i7 = load float, ptr @"?v4@@3MA", align 4
   %cmp20 = fcmp une float %call19, %i7
   br i1 %cmp20, label %cleanup37, label %if.end22
 
 if.end22:                                         ; preds = %if.end18
-  call void @"?set1@F@@QEAAXHPEAH@Z"(%class.F* nonnull %i, i32 0, i32* nonnull @"?v2@@3HA")
-  call void @"?set2@F@@QEAAXHPEAM@Z"(%class.F* nonnull %i, i32 0, float* nonnull @"?v4@@3MA")
-  %call23 = call zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(%class.F* nonnull %i)
+  call void @"?set1@F@@QEAAXHPEAH@Z"(ptr nonnull %call, i32 0, ptr nonnull @"?v2@@3HA")
+  call void @"?set2@F@@QEAAXHPEAM@Z"(ptr nonnull %call, i32 0, ptr nonnull @"?v4@@3MA")
+  %call23 = call zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(ptr nonnull %call)
   br i1 %call23, label %if.end25, label %cleanup37
 
 if.end25:                                         ; preds = %if.end22
-  %call26 = call noalias nonnull dereferenceable(24) i8* @"??2@YAPEAX_K@Z"(i64 24)
-  %i8 = bitcast i8* %call26 to %class.F*
-  %call28 = invoke %class.F* @"??0F@@QEAA@AEBV0@@Z"(%class.F* nonnull %i8, %class.F* nonnull align 8 dereferenceable(24) %i)
+  %call26 = call noalias nonnull dereferenceable(24) ptr @"??2@YAPEAX_K@Z"(i64 24)
+  %call28 = invoke ptr @"??0F@@QEAA@AEBV0@@Z"(ptr nonnull %call26, ptr nonnull align 8 dereferenceable(24) %call)
           to label %invoke.cont27 unwind label %ehcleanup29
 
 invoke.cont27:                                    ; preds = %if.end25
-  %call30 = call zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(%class.F* nonnull %i8)
+  %call30 = call zeroext i1 @"?check1@@YA_NPEAVF@@@Z"(ptr nonnull %call26)
   br i1 %call30, label %delete.notnull, label %cleanup37
 
 ehcleanup29:                                      ; preds = %if.end25
   %i9 = cleanuppad within none []
-  call void @"??3@YAXPEAX@Z"(i8* %call26) [ "funclet"(token %i9) ]
+  call void @"??3@YAXPEAX@Z"(ptr %call26) [ "funclet"(token %i9) ]
   cleanupret from %i9 unwind label %ehcleanup38
 
 delete.notnull:                                   ; preds = %invoke.cont27
-  call void @"??3@YAXPEAX@Z"(i8* %call)
-  call void @"??3@YAXPEAX@Z"(i8* %call26)
+  call void @"??3@YAXPEAX@Z"(ptr %call)
+  call void @"??3@YAXPEAX@Z"(ptr %call26)
   br label %cleanup37
 
 cleanup37:                                        ; preds = %delete.notnull, %invoke.cont27, %if.end22, %if.end18, %if.end14, %if.end10, %if.end6, %if.end, %invoke.cont
@@ -327,217 +308,210 @@ ehcleanup38:                                      ; preds = %ehcleanup29, %ehcle
   cleanupret from %i10 unwind to caller
 }
 
-declare !intel.dtrans.func.type !18 dso_local noalias nonnull "intel_dtrans_func_index"="1" i8* @"??2@YAPEAX_K@Z"(i64) local_unnamed_addr
+declare !intel.dtrans.func.type !18 dso_local noalias nonnull "intel_dtrans_func_index"="1" ptr @"??2@YAPEAX_K@Z"(i64) local_unnamed_addr
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %class.F* @"??0F@@QEAA@XZ"(%class.F* returned "intel_dtrans_func_index"="2" %this) personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) !intel.dtrans.func.type !20 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0F@@QEAA@XZ"(ptr returned "intel_dtrans_func_index"="2" %this) personality ptr @__CxxFrameHandler3 !intel.dtrans.func.type !20 {
 entry:
-  %call = call noalias nonnull dereferenceable(32) i8* @"??2@YAPEAX_K@Z"(i64 32)
-  %i = bitcast i8* %call to %struct.Arr*
-  %call2 = call %struct.Arr* @"??0?$Arr@PEAH@@QEAA@H@Z"(%struct.Arr* nonnull %i, i32 1, %struct.Mem* null)
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %i1 = bitcast %struct.Arr** %f1 to i8**
-  store %struct.Arr* %i, %struct.Arr** %f1, align 8
-  %call3 = call noalias nonnull dereferenceable(32) i8* @"??2@YAPEAX_K@Z"(i64 32)
-  %i2 = bitcast i8* %call3 to %struct.Arr.0*
-  %call5 = call %struct.Arr.0* @"??0?$Arr@PEAM@@QEAA@H@Z"(%struct.Arr.0* nonnull %i2, i32 1, %struct.Mem* null)
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %i3 = bitcast %struct.Arr.0** %f2 to i8**
-  store %struct.Arr.0* %i2, %struct.Arr.0** %f2, align 8
-  ret %class.F* %this
+  %call = call noalias nonnull dereferenceable(32) ptr @"??2@YAPEAX_K@Z"(i64 32)
+  %call2 = call ptr @"??0?$Arr@PEAH@@QEAA@H@Z"(ptr nonnull %call, i32 1, ptr null)
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  store ptr %call, ptr %f1, align 8
+  %call3 = call noalias nonnull dereferenceable(32) ptr @"??2@YAPEAX_K@Z"(i64 32)
+  %call5 = call ptr @"??0?$Arr@PEAM@@QEAA@H@Z"(ptr nonnull %call3, i32 1, ptr null)
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  store ptr %call3, ptr %f2, align 8
+  ret ptr %this
 }
 
 declare dso_local i32 @__CxxFrameHandler3(...)
 
-declare !intel.dtrans.func.type !21 dso_local void @"??3@YAXPEAX@Z"(i8* "intel_dtrans_func_index"="1") local_unnamed_addr
+declare !intel.dtrans.func.type !21 dso_local void @"??3@YAXPEAX@Z"(ptr "intel_dtrans_func_index"="1") local_unnamed_addr
 
-define linkonce_odr dso_local void @"?put@F@@QEAAXPEAHPEAM@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %this, i32* nocapture "intel_dtrans_func_index"="2" %a, float* nocapture "intel_dtrans_func_index"="3" %b) align 2 !intel.dtrans.func.type !22 {
+define linkonce_odr dso_local void @"?put@F@@QEAAXPEAHPEAM@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture "intel_dtrans_func_index"="2" %a, ptr nocapture "intel_dtrans_func_index"="3" %b) align 2 !intel.dtrans.func.type !22 {
 entry:
-  %b.addr = alloca float*, align 8, !intel_dtrans_type !24
-  %a.addr = alloca i32*, align 8, !intel_dtrans_type !23
-  store float* %b, float** %b.addr, align 8
-  store i32* %a, i32** %a.addr, align 8
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %i = load %struct.Arr*, %struct.Arr** %f1, align 8
-  call void @"?add@?$Arr@PEAH@@QEAAXAEBQEAH@Z"(%struct.Arr* %i, i32** nonnull align 8 dereferenceable(8) %a.addr)
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %i1 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8
-  call void @"?add@?$Arr@PEAM@@QEAAXAEBQEAM@Z"(%struct.Arr.0* %i1, float** nonnull align 8 dereferenceable(8) %b.addr)
+  %b.addr = alloca ptr, align 8, !intel_dtrans_type !24
+  %a.addr = alloca ptr, align 8, !intel_dtrans_type !23
+  store ptr %b, ptr %b.addr, align 8
+  store ptr %a, ptr %a.addr, align 8
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  %i = load ptr, ptr %f1, align 8
+  call void @"?add@?$Arr@PEAH@@QEAAXAEBQEAH@Z"(ptr %i, ptr nonnull align 8 dereferenceable(8) %a.addr)
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  %i1 = load ptr, ptr %f2, align 8
+  call void @"?add@?$Arr@PEAM@@QEAAXAEBQEAM@Z"(ptr %i1, ptr nonnull align 8 dereferenceable(8) %b.addr)
   ret void
 }
 
-define linkonce_odr dso_local void @"?set1@F@@QEAAXHPEAH@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %this, i32 %i, i32* nocapture "intel_dtrans_func_index"="2" %a) !intel.dtrans.func.type !25 {
+define linkonce_odr dso_local void @"?set1@F@@QEAAXHPEAH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i, ptr nocapture "intel_dtrans_func_index"="2" %a) !intel.dtrans.func.type !25 {
 entry:
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %i1 = load %struct.Arr*, %struct.Arr** %f1, align 8
-  call void @"?set@?$Arr@PEAH@@QEAAXHPEAH@Z"(%struct.Arr* %i1, i32 %i, i32* %a)
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  %i1 = load ptr, ptr %f1, align 8
+  call void @"?set@?$Arr@PEAH@@QEAAXHPEAH@Z"(ptr %i1, i32 %i, ptr %a)
   ret void
 }
 
-define linkonce_odr dso_local void @"?set2@F@@QEAAXHPEAM@Z"(%class.F* nocapture "intel_dtrans_func_index"="1" %this, i32 %i, float* nocapture "intel_dtrans_func_index"="2" %b) !intel.dtrans.func.type !26 {
+define linkonce_odr dso_local void @"?set2@F@@QEAAXHPEAM@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i, ptr nocapture "intel_dtrans_func_index"="2" %b) !intel.dtrans.func.type !26 {
 entry:
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %i1 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8
-  call void @"?set@?$Arr@PEAM@@QEAAXHPEAM@Z"(%struct.Arr.0* %i1, i32 %i, float* %b)
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  %i1 = load ptr, ptr %f2, align 8
+  call void @"?set@?$Arr@PEAM@@QEAAXHPEAM@Z"(ptr %i1, i32 %i, ptr %b)
   ret void
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %class.F* @"??0F@@QEAA@AEBV0@@Z"(%class.F* returned "intel_dtrans_func_index"="2" %this, %class.F* nocapture nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %f) personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) !intel.dtrans.func.type !27 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0F@@QEAA@AEBV0@@Z"(ptr returned "intel_dtrans_func_index"="2" %this, ptr nocapture nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %f) personality ptr @__CxxFrameHandler3 !intel.dtrans.func.type !27 {
 entry:
-  %call = invoke noalias nonnull dereferenceable(32) i8* @"??2@YAPEAX_K@Z"(i64 32)
+  %call = invoke noalias nonnull dereferenceable(32) ptr @"??2@YAPEAX_K@Z"(i64 32)
           to label %invoke.cont unwind label %catch.dispatch
 
 invoke.cont:                                      ; preds = %entry
-  %i0 = bitcast i8* %call to %struct.Arr*
-  %f1 = getelementptr inbounds %class.F, %class.F* %f, i64 0, i32 0
-  %i1 = load %struct.Arr*, %struct.Arr** %f1, align 8
-  %call3 = call %struct.Arr* @"??0?$Arr@PEAH@@QEAA@AEBU0@@Z"(%struct.Arr* nonnull %i0, %struct.Arr* nonnull align 8 dereferenceable(32) %i1)
-  %f11 = getelementptr inbounds %class.F, %class.F* %f, i64 0, i32 0
-  store %struct.Arr* %i0, %struct.Arr** %f11, align 8
-  %call6 = invoke noalias nonnull dereferenceable(32) i8* @"??2@YAPEAX_K@Z"(i64 32)
+  %f1 = getelementptr inbounds %class.F, ptr %f, i64 0, i32 0
+  %i1 = load ptr, ptr %f1, align 8
+  %call3 = call ptr @"??0?$Arr@PEAH@@QEAA@AEBU0@@Z"(ptr nonnull %call, ptr nonnull align 8 dereferenceable(32) %i1)
+  %f11 = getelementptr inbounds %class.F, ptr %f, i64 0, i32 0
+  store ptr %call, ptr %f11, align 8
+  %call6 = invoke noalias nonnull dereferenceable(32) ptr @"??2@YAPEAX_K@Z"(i64 32)
           to label %invoke.cont5 unwind label %catch.dispatch
 
 invoke.cont5:                                     ; preds = %invoke.cont
-  %i3 = bitcast i8* %call6 to %struct.Arr.0*
-  %f2 = getelementptr inbounds %class.F, %class.F* %f, i64 0, i32 1
-  %i4 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8
-  %call8 = call %struct.Arr.0* @"??0?$Arr@PEAM@@QEAA@AEBU0@@Z"(%struct.Arr.0* nonnull %i3, %struct.Arr.0* nonnull align 8 dereferenceable(32) %i4)
-  %f210 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  store %struct.Arr.0* %i3, %struct.Arr.0** %f210, align 8
-  ret %class.F* %this
+  %f2 = getelementptr inbounds %class.F, ptr %f, i64 0, i32 1
+  %i4 = load ptr, ptr %f2, align 8
+  %call8 = call ptr @"??0?$Arr@PEAM@@QEAA@AEBU0@@Z"(ptr nonnull %call6, ptr nonnull align 8 dereferenceable(32) %i4)
+  %f210 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  store ptr %call6, ptr %f210, align 8
+  ret ptr %this
 
 catch.dispatch:                                   ; preds = %invoke.cont, %entry
   %i6 = catchswitch within none [label %catch] unwind to caller
 
 catch:                                            ; preds = %catch.dispatch
-  %i7 = catchpad within %i6 [i32* null, i32 0, i32* null]
-  call void @"?cleanup@F@@QEAAXXZ"(%class.F* %this) [ "funclet"(token %i7) ]
-  call void @_CxxThrowException(i8* null, %eh.ThrowInfo* null) [ "funclet"(token %i7) ]
+  %i7 = catchpad within %i6 [ptr null, i32 0, ptr null]
+  call void @"?cleanup@F@@QEAAXXZ"(ptr %this) [ "funclet"(token %i7) ]
+  call void @_CxxThrowException(ptr null, ptr null) [ "funclet"(token %i7) ]
   unreachable
 }
 
-define linkonce_odr dso_local nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" i32** @"?get@?$Arr@PEAH@@QEAAAEAPEAHH@Z"(%struct.Arr* nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !28 {
+define linkonce_odr dso_local nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" ptr @"?get@?$Arr@PEAH@@QEAAAEAPEAHH@Z"(ptr nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !28 {
 entry:
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %cmp = icmp ugt i32 %tmp, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  call void @_CxxThrowException(i8* null, %eh.ThrowInfo* null)
+  call void @_CxxThrowException(ptr null, ptr null)
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2
-  %tmp3 = load i32**, i32*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom3
-  ret i32** %arrayidx4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom3
+  ret ptr %arrayidx4
 }
 
-declare !intel.dtrans.func.type !29 dso_local void @_CxxThrowException(i8* "intel_dtrans_func_index"="1", %eh.ThrowInfo* "intel_dtrans_func_index"="2") local_unnamed_addr
+declare !intel.dtrans.func.type !29 dso_local void @_CxxThrowException(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2") local_unnamed_addr
 
-define linkonce_odr dso_local nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" float** @"?get@?$Arr@PEAM@@QEAAAEAPEAMH@Z"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !31 {
+define linkonce_odr dso_local nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="1" ptr @"?get@?$Arr@PEAM@@QEAAAEAPEAMH@Z"(ptr nocapture "intel_dtrans_func_index"="2" %this, i32 %i) !intel.dtrans.func.type !31 {
 entry:
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %cmp = icmp ugt i32 %tmp, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  call void @_CxxThrowException(i8* null, %eh.ThrowInfo* null)
+  call void @_CxxThrowException(ptr null, ptr null)
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2
-  %tmp3 = load float**, float*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds float*, float** %tmp3, i64 %idxprom3
-  ret float** %arrayidx4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom3
+  ret ptr %arrayidx4
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %struct.Arr* @"??0?$Arr@PEAH@@QEAA@H@Z"(%struct.Arr* returned "intel_dtrans_func_index"="2" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="3" %mem) !intel.dtrans.func.type !32 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0?$Arr@PEAH@@QEAA@H@Z"(ptr returned "intel_dtrans_func_index"="2" %this, i32 %c, ptr "intel_dtrans_func_index"="3" %mem) !intel.dtrans.func.type !32 {
 entry:
-  %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0
-  store i8 0, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
-  store i32 %c, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  store i32** null, i32*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
-  store i32 0, i32* %size, align 8
-  %mem2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
-  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  %flag = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 0
+  store i8 0, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 1
+  store i32 %c, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 3
+  store i32 0, ptr %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 4
+  store ptr %mem, ptr %mem2, align 8
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i8* %call to i32**
-  store i32** %i, i32*** %base, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
-  ret %struct.Arr* %this
+  %call = call noalias ptr @malloc(i64 %mul)
+  store ptr %call, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
+  ret ptr %this
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %struct.Arr.0* @"??0?$Arr@PEAM@@QEAA@H@Z"(%struct.Arr.0* returned "intel_dtrans_func_index"="2" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="3" %mem) !intel.dtrans.func.type !33 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0?$Arr@PEAM@@QEAA@H@Z"(ptr returned "intel_dtrans_func_index"="2" %this, i32 %c, ptr "intel_dtrans_func_index"="3" %mem) !intel.dtrans.func.type !33 {
 entry:
-  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0
-  store i8 0, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
-  store i32 %c, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  store float** null, float*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
-  store i32 0, i32* %size, align 8
-  %mem2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
-  store %struct.Mem* %mem, %struct.Mem** %mem2, align 8
+  %flag = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 0
+  store i8 0, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 1
+  store i32 %c, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 3
+  store i32 0, ptr %size, align 8
+  %mem2 = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 4
+  store ptr %mem, ptr %mem2, align 8
   %conv = zext i32 %c to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i = bitcast i8* %call to float**
-  store float** %i, float*** %base, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
-  ret %struct.Arr.0* %this
+  %call = call noalias ptr @malloc(i64 %mul)
+  store ptr %call, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
+  ret ptr %this
 }
 
-declare !intel.dtrans.func.type !34 dso_local noalias "intel_dtrans_func_index"="1" i8* @malloc(i64) local_unnamed_addr #1
+; Function Attrs: allockind("alloc,uninitialized") allocsize(0)
+declare !intel.dtrans.func.type !34 dso_local noalias "intel_dtrans_func_index"="1" ptr @malloc(i64) local_unnamed_addr #0
 
-define linkonce_odr dso_local void @"?add@?$Arr@PEAH@@QEAAXAEBQEAH@Z"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32** nocapture nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %e) !intel.dtrans.func.type !35 {
+define linkonce_odr dso_local void @"?add@?$Arr@PEAH@@QEAAXAEBQEAH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %e) !intel.dtrans.func.type !35 {
 entry:
-  call void @"?realloc@?$Arr@PEAH@@QEAAXH@Z"(%struct.Arr* %this, i32 1)
-  %tmp2 = load i32*, i32** %e, align 8
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2
-  %tmp3 = load i32**, i32*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
-  %tmp4 = load i32, i32* %size, align 8
+  call void @"?realloc@?$Arr@PEAH@@QEAAXH@Z"(ptr %this, i32 1)
+  %tmp2 = load ptr, ptr %e, align 8
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3
+  %tmp4 = load i32, ptr %size, align 8
   %idxprom = zext i32 %tmp4 to i64
-  %arrayidx = getelementptr inbounds i32*, i32** %tmp3, i64 %idxprom
-  store i32* %tmp2, i32** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom
+  store ptr %tmp2, ptr %arrayidx, align 8
   %inc = add nsw i32 %tmp4, 1
-  store i32 %inc, i32* %size, align 8
+  store i32 %inc, ptr %size, align 8
   ret void
 }
 
-define linkonce_odr dso_local void @"?add@?$Arr@PEAM@@QEAAXAEBQEAM@Z"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, float** nocapture nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %e) !intel.dtrans.func.type !36 {
+define linkonce_odr dso_local void @"?add@?$Arr@PEAM@@QEAAXAEBQEAM@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, ptr nocapture nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %e) !intel.dtrans.func.type !36 {
 entry:
-  call void @"?realloc@?$Arr@PEAM@@QEAAXH@Z"(%struct.Arr.0* %this, i32 1)
-  %tmp2 = load float*, float** %e, align 8
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2
-  %tmp3 = load float**, float*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
-  %tmp4 = load i32, i32* %size, align 8
+  call void @"?realloc@?$Arr@PEAM@@QEAAXH@Z"(ptr %this, i32 1)
+  %tmp2 = load ptr, ptr %e, align 8
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2
+  %tmp3 = load ptr, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3
+  %tmp4 = load i32, ptr %size, align 8
   %idxprom = zext i32 %tmp4 to i64
-  %arrayidx = getelementptr inbounds float*, float** %tmp3, i64 %idxprom
-  store float* %tmp2, float** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %tmp3, i64 %idxprom
+  store ptr %tmp2, ptr %arrayidx, align 8
   %inc = add nsw i32 %tmp4, 1
-  store i32 %inc, i32* %size, align 8
+  store i32 %inc, ptr %size, align 8
   ret void
 }
 
-define linkonce_odr dso_local void @"?realloc@?$Arr@PEAH@@QEAAXH@Z"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !37 {
+define linkonce_odr dso_local void @"?realloc@?$Arr@PEAH@@QEAAXH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !37 {
 entry:
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %add = add nsw i32 %tmp, 1
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 1
-  %tmp2 = load i32, i32* %capacity, align 8
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 1
+  %tmp2 = load i32, ptr %capacity, align 8
   %cmp = icmp ugt i32 %add, %tmp2
   br i1 %cmp, label %if.end, label %cleanup
 
@@ -549,32 +523,30 @@ if.end:                                           ; preds = %entry
   %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
   %conv7 = zext i32 %spec.select to i64
   %mul8 = shl nuw nsw i64 %conv7, 3
-  %call = call noalias i8* @malloc(i64 %mul8)
-  %i2 = bitcast i8* %call to i32**
+  %call = call noalias ptr @malloc(i64 %mul8)
   %cmp1029 = icmp eq i32 %tmp, 0
   br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %if.end
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  %i3 = load i32**, i32*** %base, align 8
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  %i3 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %tmp to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %if.end
-  %base14 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  %i4 = bitcast i32*** %base14 to i8**
-  %i5 = load i8*, i8** %i4, align 8
-  call void @free(i8* %i5)
-  store i8* %call, i8** %i4, align 8
-  store i32 %spec.select, i32* %capacity, align 4
+  %base14 = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  %i5 = load ptr, ptr %base14, align 8
+  call void @free(ptr %i5)
+  store ptr %call, ptr %base14, align 8
+  store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32*, i32** %i3, i64 %indvars.iv
-  %i6 = load i32*, i32** %ptridx, align 8
-  %ptridx12 = getelementptr inbounds i32*, i32** %i2, i64 %indvars.iv
-  store i32* %i6, i32** %ptridx12, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
+  %i6 = load ptr, ptr %ptridx, align 8
+  %ptridx12 = getelementptr inbounds ptr, ptr %call, i64 %indvars.iv
+  store ptr %i6, ptr %ptridx12, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
@@ -583,18 +555,16 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void
 }
 
-declare !intel.dtrans.func.type !38 dso_local void @free(i8* nocapture "intel_dtrans_func_index"="1") local_unnamed_addr #2
+; Function Attrs: allockind("free")
+declare !intel.dtrans.func.type !38 dso_local void @free(ptr nocapture "intel_dtrans_func_index"="1") local_unnamed_addr #1
 
-; Function Attrs: argmemonly nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #0
-
-define linkonce_odr dso_local void @"?realloc@?$Arr@PEAM@@QEAAXH@Z"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !39 {
+define linkonce_odr dso_local void @"?realloc@?$Arr@PEAM@@QEAAXH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %inc) !intel.dtrans.func.type !39 {
 entry:
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %add = add nsw i32 %tmp, 1
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 1
-  %tmp2 = load i32, i32* %capacity, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 1
+  %tmp2 = load i32, ptr %capacity, align 8
   %cmp = icmp ugt i32 %add, %tmp2
   br i1 %cmp, label %if.end, label %cleanup
 
@@ -606,32 +576,30 @@ if.end:                                           ; preds = %entry
   %spec.select = select i1 %cmp4, i32 %conv3, i32 %add
   %conv7 = zext i32 %spec.select to i64
   %mul8 = shl nuw nsw i64 %conv7, 3
-  %call = call noalias i8* @malloc(i64 %mul8)
-  %i2 = bitcast i8* %call to float**
+  %call = call noalias ptr @malloc(i64 %mul8)
   %cmp1029 = icmp eq i32 %tmp, 0
   br i1 %cmp1029, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %if.end
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  %i3 = load float**, float*** %base, align 8
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  %i3 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %tmp to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %if.end
-  %base14 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  %i4 = bitcast float*** %base14 to i8**
-  %i5 = load i8*, i8** %i4, align 8
-  call void @free(i8* %i5)
-  store i8* %call, i8** %i4, align 8
-  store i32 %spec.select, i32* %capacity, align 4
+  %base14 = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  %i5 = load ptr, ptr %base14, align 8
+  call void @free(ptr %i5)
+  store ptr %call, ptr %base14, align 8
+  store i32 %spec.select, ptr %capacity, align 4
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds float*, float** %i3, i64 %indvars.iv
-  %i6 = load float*, float** %ptridx, align 8
-  %ptridx12 = getelementptr inbounds float*, float** %i2, i64 %indvars.iv
-  store float* %i6, float** %ptridx12, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i3, i64 %indvars.iv
+  %i6 = load ptr, ptr %ptridx, align 8
+  %ptridx12 = getelementptr inbounds ptr, ptr %call, i64 %indvars.iv
+  store ptr %i6, ptr %ptridx12, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
@@ -640,196 +608,193 @@ cleanup:                                          ; preds = %for.cond.cleanup, %
   ret void
 }
 
-define linkonce_odr dso_local void @"?set@?$Arr@PEAH@@QEAAXHPEAH@Z"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %i, i32* nocapture "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !40 {
+define linkonce_odr dso_local void @"?set@?$Arr@PEAH@@QEAAXHPEAH@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i, ptr nocapture "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !40 {
 entry:
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %cmp = icmp ugt i32 %tmp, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  call void @_CxxThrowException(i8* null, %eh.ThrowInfo* null)
+  call void @_CxxThrowException(ptr null, ptr null)
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 2
-  %tmp5 = load i32**, i32*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr, ptr %this, i32 0, i32 2
+  %tmp5 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds i32*, i32** %tmp5, i64 %idxprom3
-  store i32* %val, i32** %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp5, i64 %idxprom3
+  store ptr %val, ptr %arrayidx4, align 8
   ret void
 }
 
-define linkonce_odr dso_local void @"?set@?$Arr@PEAM@@QEAAXHPEAM@Z"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %i, float* nocapture "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !41 {
+define linkonce_odr dso_local void @"?set@?$Arr@PEAM@@QEAAXHPEAM@Z"(ptr nocapture "intel_dtrans_func_index"="1" %this, i32 %i, ptr nocapture "intel_dtrans_func_index"="2" %val) !intel.dtrans.func.type !41 {
 entry:
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
-  %tmp = load i32, i32* %size, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 3
+  %tmp = load i32, ptr %size, align 8
   %cmp = icmp ugt i32 %tmp, %i
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  call void @_CxxThrowException(i8* null, %eh.ThrowInfo* null)
+  call void @_CxxThrowException(ptr null, ptr null)
   unreachable
 
 if.end:                                           ; preds = %entry
-  %base2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 2
-  %tmp5 = load float**, float*** %base2, align 8
+  %base2 = getelementptr inbounds %struct.Arr.0, ptr %this, i32 0, i32 2
+  %tmp5 = load ptr, ptr %base2, align 8
   %idxprom3 = zext i32 %i to i64
-  %arrayidx4 = getelementptr inbounds float*, float** %tmp5, i64 %idxprom3
-  store float* %val, float** %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds ptr, ptr %tmp5, i64 %idxprom3
+  store ptr %val, ptr %arrayidx4, align 8
   ret void
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %struct.Arr* @"??0?$Arr@PEAH@@QEAA@AEBU0@@Z"(%struct.Arr* returned "intel_dtrans_func_index"="2" %this, %struct.Arr* nocapture nonnull align 8 dereferenceable(32) "intel_dtrans_func_index"="3" %A) !intel.dtrans.func.type !42 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0?$Arr@PEAH@@QEAA@AEBU0@@Z"(ptr returned "intel_dtrans_func_index"="2" %this, ptr nocapture nonnull align 8 dereferenceable(32) "intel_dtrans_func_index"="3" %A) !intel.dtrans.func.type !42 {
 entry:
-  %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0
-  %flag2 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 0
-  %i = load i8, i8* %flag2, align 8
-  store i8 %i, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
-  %capacity3 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 1
-  %i1 = load i32, i32* %capacity3, align 4
-  store i32 %i1, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  store i32** null, i32*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
-  %size4 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 3
-  %i2 = load i32, i32* %size4, align 8
-  store i32 %i2, i32* %size, align 8
-  %mem = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 4
-  %mem5 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 4
-  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
-  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  %flag = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 0
+  %flag2 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 0
+  %i = load i8, ptr %flag2, align 8
+  store i8 %i, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 1
+  %i1 = load i32, ptr %capacity3, align 4
+  store i32 %i1, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 3
+  %i2 = load i32, ptr %size4, align 8
+  store i32 %i2, ptr %size, align 8
+  %mem = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 4
+  %i3 = load ptr, ptr %mem5, align 8
+  store ptr %i3, ptr %mem, align 8
   %conv = zext i32 %i1 to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i4 = bitcast i32*** %base to i8**
-  store i8* %call, i8** %i4, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  store ptr %call, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   %cmp25 = icmp eq i32 %i2, 0
   br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %base13 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 2
-  %i5 = load i32**, i32*** %base13, align 8
-  %i6 = load i32**, i32*** %base, align 8
+  %base13 = getelementptr inbounds %struct.Arr, ptr %A, i64 0, i32 2
+  %i5 = load ptr, ptr %base13, align 8
+  %i6 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %i2 to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  ret %struct.Arr* %this
+  ret ptr %this
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32*, i32** %i5, i64 %indvars.iv
-  %i7 = load i32*, i32** %ptridx, align 8
-  %ptridx16 = getelementptr inbounds i32*, i32** %i6, i64 %indvars.iv
-  store i32* %i7, i32** %ptridx16, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i5, i64 %indvars.iv
+  %i7 = load ptr, ptr %ptridx, align 8
+  %ptridx16 = getelementptr inbounds ptr, ptr %i6, i64 %indvars.iv
+  store ptr %i7, ptr %ptridx16, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
-define linkonce_odr dso_local "intel_dtrans_func_index"="1" %struct.Arr.0* @"??0?$Arr@PEAM@@QEAA@AEBU0@@Z"(%struct.Arr.0* returned "intel_dtrans_func_index"="2" %this, %struct.Arr.0* nocapture nonnull align 8 dereferenceable(32) "intel_dtrans_func_index"="3" %A) !intel.dtrans.func.type !43 {
+define linkonce_odr dso_local "intel_dtrans_func_index"="1" ptr @"??0?$Arr@PEAM@@QEAA@AEBU0@@Z"(ptr returned "intel_dtrans_func_index"="2" %this, ptr nocapture nonnull align 8 dereferenceable(32) "intel_dtrans_func_index"="3" %A) !intel.dtrans.func.type !43 {
 entry:
-  %flag = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 0
-  %flag2 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 0
-  %i = load i8, i8* %flag2, align 8
-  store i8 %i, i8* %flag, align 8
-  %capacity = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 1
-  %capacity3 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 1
-  %i1 = load i32, i32* %capacity3, align 4
-  store i32 %i1, i32* %capacity, align 4
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  store float** null, float*** %base, align 8
-  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
-  %size4 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 3
-  %i2 = load i32, i32* %size4, align 8
-  store i32 %i2, i32* %size, align 8
-  %mem = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 4
-  %mem5 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 4
-  %i3 = load %struct.Mem*, %struct.Mem** %mem5, align 8
-  store %struct.Mem* %i3, %struct.Mem** %mem, align 8
+  %flag = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 0
+  %flag2 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 0
+  %i = load i8, ptr %flag2, align 8
+  store i8 %i, ptr %flag, align 8
+  %capacity = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 1
+  %capacity3 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 1
+  %i1 = load i32, ptr %capacity3, align 4
+  store i32 %i1, ptr %capacity, align 4
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  store ptr null, ptr %base, align 8
+  %size = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 3
+  %size4 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 3
+  %i2 = load i32, ptr %size4, align 8
+  store i32 %i2, ptr %size, align 8
+  %mem = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 4
+  %mem5 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 4
+  %i3 = load ptr, ptr %mem5, align 8
+  store ptr %i3, ptr %mem, align 8
   %conv = zext i32 %i1 to i64
   %mul = shl nuw nsw i64 %conv, 3
-  %call = call noalias i8* @malloc(i64 %mul)
-  %i4 = bitcast float*** %base to i8**
-  store i8* %call, i8** %i4, align 8
-  call void @llvm.memset.p0i8.i64(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+  %call = call noalias ptr @malloc(i64 %mul)
+  store ptr %call, ptr %base, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %call, i8 0, i64 %mul, i1 false)
   %cmp25 = icmp eq i32 %i2, 0
   br i1 %cmp25, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %base13 = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %A, i64 0, i32 2
-  %i5 = load float**, float*** %base13, align 8
-  %i6 = load float**, float*** %base, align 8
+  %base13 = getelementptr inbounds %struct.Arr.0, ptr %A, i64 0, i32 2
+  %i5 = load ptr, ptr %base13, align 8
+  %i6 = load ptr, ptr %base, align 8
   %wide.trip.count = zext i32 %i2 to i64
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body, %entry
-  ret %struct.Arr.0* %this
+  ret ptr %this
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds float*, float** %i5, i64 %indvars.iv
-  %i7 = load float*, float** %ptridx, align 8
-  %ptridx16 = getelementptr inbounds float*, float** %i6, i64 %indvars.iv
-  store float* %i7, float** %ptridx16, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %i5, i64 %indvars.iv
+  %i7 = load ptr, ptr %ptridx, align 8
+  %ptridx16 = getelementptr inbounds ptr, ptr %i6, i64 %indvars.iv
+  store ptr %i7, ptr %ptridx16, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
-define linkonce_odr dso_local void @"?cleanup@F@@QEAAXXZ"(%class.F* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !44 {
+define linkonce_odr dso_local void @"?cleanup@F@@QEAAXXZ"(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !44 {
 entry:
-  %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 0
-  %i = load %struct.Arr*, %struct.Arr** %f1, align 8
-  %isnull = icmp eq %struct.Arr* %i, null
+  %f1 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 0
+  %i = load ptr, ptr %f1, align 8
+  %isnull = icmp eq ptr %i, null
   br i1 %isnull, label %delete.end, label %delete.notnull
 
 delete.notnull:                                   ; preds = %entry
-  call void @"??1?$Arr@PEAH@@QEAA@XZ"(%struct.Arr* nonnull %i)
-  %i1 = bitcast %struct.Arr* %i to i8*
-  call void @"??3@YAXPEAX@Z"(i8* %i1)
+  call void @"??1?$Arr@PEAH@@QEAA@XZ"(ptr nonnull %i)
+  call void @"??3@YAXPEAX@Z"(ptr %i)
   br label %delete.end
 
 delete.end:                                       ; preds = %delete.notnull, %entry
-  %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
-  %i2 = load %struct.Arr.0*, %struct.Arr.0** %f2, align 8
-  %isnull2 = icmp eq %struct.Arr.0* %i2, null
+  %f2 = getelementptr inbounds %class.F, ptr %this, i64 0, i32 1
+  %i2 = load ptr, ptr %f2, align 8
+  %isnull2 = icmp eq ptr %i2, null
   br i1 %isnull2, label %delete.end4, label %delete.notnull3
 
 delete.notnull3:                                  ; preds = %delete.end
-  call void @"??1?$Arr@PEAM@@QEAA@XZ"(%struct.Arr.0* nonnull %i2)
-  %i3 = bitcast %struct.Arr.0* %i2 to i8*
-  call void @"??3@YAXPEAX@Z"(i8* %i3)
+  call void @"??1?$Arr@PEAM@@QEAA@XZ"(ptr nonnull %i2)
+  call void @"??3@YAXPEAX@Z"(ptr %i2)
   br label %delete.end4
 
 delete.end4:                                      ; preds = %delete.notnull3, %delete.end
   ret void
 }
 
-define linkonce_odr dso_local void @"??1?$Arr@PEAH@@QEAA@XZ"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !45 {
+define linkonce_odr dso_local void @"??1?$Arr@PEAH@@QEAA@XZ"(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !45 {
 entry:
-  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
-  %i = bitcast i32*** %base to i8**
-  %i1 = load i8*, i8** %i, align 8
-  call void @free(i8* %i1)
+  %base = getelementptr inbounds %struct.Arr, ptr %this, i64 0, i32 2
+  %i1 = load ptr, ptr %base, align 8
+  call void @free(ptr %i1)
   ret void
 }
 
-define linkonce_odr dso_local void @"??1?$Arr@PEAM@@QEAA@XZ"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !46 {
+define linkonce_odr dso_local void @"??1?$Arr@PEAM@@QEAA@XZ"(ptr nocapture "intel_dtrans_func_index"="1" %this) !intel.dtrans.func.type !46 {
 entry:
-  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
-  %i = bitcast float*** %base to i8**
-  %i1 = load i8*, i8** %i, align 8
-  call void @free(i8* %i1)
+  %base = getelementptr inbounds %struct.Arr.0, ptr %this, i64 0, i32 2
+  %i1 = load ptr, ptr %base, align 8
+  call void @free(ptr %i1)
   ret void
 }
 
-attributes #0 = { argmemonly nofree nounwind willreturn writeonly }
-attributes #1 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
-attributes #2 = { allockind("free") "alloc-family"="malloc" }
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
+
+attributes #0 = { allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" }
+attributes #1 = { allockind("free") "alloc-family"="malloc" }
+attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !intel.dtrans.types = !{!0, !4, !8, !12, !14}
 

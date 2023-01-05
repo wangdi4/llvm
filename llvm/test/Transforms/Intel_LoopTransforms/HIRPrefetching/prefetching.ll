@@ -22,10 +22,8 @@
 ; Prefetching can probably refine this by using more analysis/heuristics
 ; but it is always hard to know whether prefetching for one of them is sufficient.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -hir-cg -force-hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;*** IR Dump Before HIR Prefetching ***
@@ -51,7 +49,7 @@
 ;<0>          END REGION
 ;
 ;*** IR Dump After HIR Prefetching ***
-; CHECK:     BEGIN REGION { }
+; CHECK:     BEGIN REGION { modified }
 ; CHECK-NEXT:      + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; CHECK-NEXT:      |   %0 = (@A)[0][i1 + 1];
 ; CHECK-NEXT:      |   %3 = (@A)[0][2 * i1 + 2];

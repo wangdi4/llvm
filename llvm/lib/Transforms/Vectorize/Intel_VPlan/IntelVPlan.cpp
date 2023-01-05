@@ -36,14 +36,15 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationPlanner.h"
+#include "IntelVPAssumptionCache.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanUtils.h"
 #include "IntelVPlanScalarEvolution.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
@@ -94,12 +95,6 @@ static cl::opt<bool> VPlanDumpInductionInitDetails(
   "vplan-dump-induction-init-details", cl::init(false), cl::Hidden,
   cl::desc("Print induction value range information."));
 
-static cl::opt<bool> UseGetType(
-  "vplan-cost-model-use-gettype", cl::init(true), cl::Hidden,
-  cl::desc("Use getType() instead of getCMType() if true. "
-           "The knob is temporal and should be removed once every "
-           "getCMType() is replaced with getType()."));
-
 static cl::opt<bool> VPlanDumpSubscriptDetails(
     "vplan-dump-subscript-details", cl::init(false), cl::Hidden,
     cl::desc("Print details for subscript instructions like lower, stride and "
@@ -124,6 +119,10 @@ static cl::opt<bool>
     VPlanDumpDAShapes("vplan-dump-da-shapes", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan instructions' DA shape "
                                "instead of simple Uni/Div."));
+
+static cl::opt<bool>
+    VPlanDumpKnownBits("vplan-dump-known-bits", cl::init(false), cl::Hidden,
+                       cl::desc("Print VPlan instructions' known bits"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
@@ -186,46 +185,7 @@ void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
-#if INTEL_CUSTOMIZATION
   State.ILV->processInstruction(this);
-  return;
-#endif
-  IRBuilder<> &Builder = State.Builder;
-
-  switch (getOpcode()) {
-  case Instruction::UDiv:
-  case Instruction::SDiv:
-  case Instruction::SRem:
-  case Instruction::URem:
-  case Instruction::Add:
-  case Instruction::FAdd:
-  case Instruction::Sub:
-  case Instruction::FSub:
-  case Instruction::Mul:
-  case Instruction::FMul:
-  case Instruction::FDiv:
-  case Instruction::FRem:
-  case Instruction::Shl:
-  case Instruction::LShr:
-  case Instruction::AShr:
-  case Instruction::And:
-  case Instruction::Or:
-  case Instruction::Xor: {
-    Value *A = State.get(getOperand(0), Part);
-    Value *B = State.get(getOperand(1), Part);
-    Value *V = Builder.CreateBinOp((Instruction::BinaryOps)getOpcode(), A, B);
-    State.set(this, V, Part);
-    break;
-  }
-  case VPInstruction::Not: {
-    Value *A = State.get(getOperand(0), Part);
-    Value *V = Builder.CreateNot(A);
-    State.set(this, V, Part);
-    break;
-  }
-  default:
-    llvm_unreachable("Unsupported opcode for instruction");
-  }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -240,29 +200,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   CG->widenNode(this, nullptr);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
-}
-
-Type *VPInstruction::getCMType() const {
-  if (UseGetType)
-    return getType();
-
-  if (getUnderlyingValue())
-    return getUnderlyingValue()->getType();
-
-  if (!HIR().isMaster())
-    return nullptr;
-
-  const loopopt::HLNode *Node = HIR().getUnderlyingNode();
-  const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
-
-  if (!Inst)
-    return nullptr;
-
-  const Instruction *LLVMInst = Inst->getLLVMInstruction();
-  if (!LLVMInst)
-    return nullptr;
-
-  return LLVMInst->getType();
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -345,12 +282,16 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
+  case VPInstruction::ReductionInitArr:
+    return "reduction-init-arr";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
   case VPInstruction::ReductionFinalUdr:
     return "reduction-final-udr";
   case VPInstruction::ReductionFinalInscan:
     return "reduction-final-inscan";
+  case VPInstruction::ReductionFinalArr:
+    return "reduction-final-arr";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
   case VPInstruction::Subscript:
@@ -427,6 +368,14 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-last-value-nonpod";
   case VPInstruction::PrivateLastValueNonPODMasked:
     return "private-last-value-nonpod-masked";
+  case VPInstruction::PrivateArrayNonPODCtor:
+    return "private-nonpod-array-ctor";
+  case VPInstruction::PrivateArrayNonPODDtor:
+    return "private-nonpod-array-dtor";
+  case VPInstruction::PrivateLastValueArrayNonPOD:
+    return "private-last-value-nonpod-array";
+  case VPInstruction::PrivateLastValueArrayNonPODMasked:
+    return "private-last-value-nonpod-array-masked";
   case VPInstruction::CvtMaskToInt:
     return "convert-mask-to-int";
   case VPInstruction::ExpandLoad:
@@ -451,6 +400,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "running-inclusive-reduction";
   case VPInstruction::RunningExclusiveReduction:
     return "running-exclusive-reduction";
+  case VPInstruction::RunningInclusiveUDS:
+    return "running-inclusive-uds";
+  case VPInstruction::RunningExclusiveUDS:
+    return "running-exclusive-uds";
   case VPInstruction::ExtractLastVectorLane:
     return "extract-last-vector-lane";
   case VPInstruction::TransformLibraryCall:
@@ -476,8 +429,11 @@ void VPInstruction::print(raw_ostream &O) const {
   }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
   VPlanScalVecAnalysisBase *SVA = nullptr;
-  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
+  const VPlanValueTracking *VPVT = nullptr;
+  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan)) {
     SVA = VecVPlan->getVPlanSVA();
+    VPVT = VecVPlan->getVPVT();
+  }
 
   if (DA || SVA)
     O << "[";
@@ -514,6 +470,17 @@ void VPInstruction::print(raw_ostream &O) const {
       O << " ";
     }
     O << ")";
+  }
+
+  // Print known bits for int/ptr values, if requested and we have the analysis.
+  if (VPlanDumpKnownBits && VPVT) {
+    if (getType()->isIntOrPtrTy()) {
+      // Demarker if SVA ops were already printed.
+      if (SVA)
+        O << ", ";
+      O << "KnownBits: ";
+      VPVT->getKnownBits(this, this).print(O);
+    }
   }
 
   if (VPlanDumpDetails || VPlanDumpDebugLoc) {
@@ -623,6 +590,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       << "}";
     break;
   }
+  case VPInstruction::ReductionFinalArr: {
+    O << getOpcodeName(getOpcode()) << "{";
+    O << getOpcodeName(cast<const VPReductionFinalArray>(this)->getBinOpcode())
+      << "}";
+    break;
+  }
   case Instruction::ICmp:
   case Instruction::FCmp: {
     O << getOpcodeName(getOpcode()) << ' '
@@ -634,6 +607,17 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     auto *CopyAssignFn =
         cast<VPPrivateLastValueNonPODInst>(this)->getCopyAssign();
     O << "CopyAssign: " << CopyAssignFn->getName();
+    break;
+  }
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    O << getOpcodeName(getOpcode()) << "{";
+    auto BinOpcode =
+        isa<VPRunningExclusiveReduction>(this)
+            ? cast<const VPRunningExclusiveReduction>(this)->getBinOpcode()
+            : cast<const VPRunningInclusiveReduction>(this)->getBinOpcode();
+    O << getOpcodeName(BinOpcode);
+    O << "}";
     break;
   }
   default:
@@ -1087,19 +1071,16 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
 
   VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-  VPValue *OrigTC;
-  VPCmpInst *Cond;
-  std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
-  VPBasicBlock *Header = TopVPLoop->getHeader();
-  // Replace OrigTC in the latch condition and in the header
-  // top condition.
-  OrigTC->replaceUsesWithIf(TC, [Header, Cond](auto *VUse) {
-    if (VUse == Cond)
-      return true;
-    if (auto VCmp = dyn_cast<VPCmpInst>(VUse))
-      return VCmp->getParent() == Header;
-    return false;
-  });
+  VPValue *OrigTC =
+      TopVPLoop
+          ->getLoopUpperBound(true /*AssumeNormalizedIV*/, true /*GetOrig*/)
+          .first;
+  auto *NewTC = cast<VPInstruction>(TopVPLoop->getLoopUpperBound().first);
+  // Replace OrigTC in the NewTC calculation with the passed TC.
+  // Note: we expect VPlanMasked here, see the assertion above. And it's
+  // expected to have a normalized upper bound which is calculated as
+  // OrigUpper - OrigLower.
+  NewTC->replaceUsesOfWith(OrigTC, TC);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1660,8 +1641,12 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   // Set SCEV to Cloned Plan
   TargetPlan->setVPSE(VPAF.createVPSE());
 
-  // Set Value Tracking to Cloned Plan
-  TargetPlan->setVPVT(VPAF.createVPVT(TargetPlan->getVPSE()));
+  // Clone VPAssumptionCache for the new Plan.
+  TargetPlan->setVPAC(getVPAC()->clone(Mapper));
+
+  // Create ValueTracking for the new VPlan.
+  TargetPlan->setVPVT(VPAF.createVPVT(
+      TargetPlan->getVPSE(), TargetPlan->getVPAC(), TargetPlan->getDT()));
 
   // Update dominator tree and post-dominator tree of new VPlan
   TargetPlan->computeDT();

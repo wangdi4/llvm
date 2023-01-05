@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-
 // Summary
 // ------------
 //
@@ -91,7 +90,6 @@
 // writes or reads are not allowed, because we do not have free memory
 // to guarantee non-blocking flush.
 
-
 #include "pipes-defines.h"
 #include "pipes-internal.h"
 
@@ -119,30 +117,36 @@ void __ovld atomic_store_explicit(__global volatile atomic_int *object,
 #define STRINGIFY(x) _STRINGIFY(x)
 
 #if DEBUG_ASSERTS
-#define ASSERT(cond) { if (!(cond)) {printf(">> ASSERT at "              \
-                                          STRINGIFY(__FILE__) ":"        \
-                                          STRINGIFY(__LINE__) ": " #cond \
-                                          "\n");                         \
-                                   *((volatile int*)NULL) = 0xbeef;}}
+#define ASSERT(cond)                                                           \
+  {                                                                            \
+    if (!(cond)) {                                                             \
+      printf(">> ASSERT at " STRINGIFY(__FILE__) ":" STRINGIFY(                \
+          __LINE__) ": " #cond "\n");                                          \
+      *((volatile int *)NULL) = 0xbeef;                                        \
+    }                                                                          \
+  }
 #else
-#define ASSERT(cond) do {} while(0);
+#define ASSERT(cond)                                                           \
+  do {                                                                         \
+  } while (0);
 #endif
 
-static bool is_buffer_full(__global const struct __pipe_internal_buf* b) {
+static bool is_buffer_full(__global const struct __pipe_internal_buf *b) {
   return b->size >= b->limit;
 }
 
-int get_buffer_capacity(const __global struct __pipe_internal_buf* b) {
-    return b->limit - b->size;
+int get_buffer_capacity(const __global struct __pipe_internal_buf *b) {
+  return b->limit - b->size;
 }
 
-__global void* get_packet_ptr(__global struct __pipe_t* p, int index) {
+__global void *get_packet_ptr(__global struct __pipe_t *p, int index) {
   // memory for packets is co-allocated *after* the __pipe_t struct
-  __global char* packets_begin = (__global char*)(p + 1);
+  __global char *packets_begin = (__global char *)(p + 1);
   return packets_begin + index * p->packet_size;
 }
 
-bool reserve_write_buffer(__global struct __pipe_internal_buf* b, int capacity) {
+bool reserve_write_buffer(__global struct __pipe_internal_buf *b,
+                          int capacity) {
   if (!(capacity >= b->limit))
     return false; // pipe is full
 
@@ -150,7 +154,7 @@ bool reserve_write_buffer(__global struct __pipe_internal_buf* b, int capacity) 
   return true;
 }
 
-bool reserve_read_buffer(__global struct __pipe_internal_buf* b, int capacity) {
+bool reserve_read_buffer(__global struct __pipe_internal_buf *b, int capacity) {
   b->limit = min(capacity, PIPE_READ_BUF_PREFERRED_LIMIT);
   if (!(b->limit))
     return false; // pipe doesn't contain enough elements to read
@@ -160,7 +164,7 @@ bool reserve_read_buffer(__global struct __pipe_internal_buf* b, int capacity) {
 }
 
 /// Return next nth item from circular buffer
-int advance(const __global struct __pipe_t* p, int index, int offset) {
+int advance(const __global struct __pipe_t *p, int index, int offset) {
   ASSERT(offset < p->max_packets);
   ASSERT(offset >= 0);
   int new = index + offset;
@@ -172,14 +176,14 @@ int advance(const __global struct __pipe_t* p, int index, int offset) {
 
 /// For given \p index_from and \p index_to compute the number of elements
 /// between them. The function behaves exactly as std::distance.
-static int dist(__global const struct __pipe_t* p,
-                int index_from, int index_to) {
+static int dist(__global const struct __pipe_t *p, int index_from,
+                int index_to) {
   int res = index_from <= index_to ? index_to - index_from
-    : p->max_packets - index_from + index_to;
+                                   : p->max_packets - index_from + index_to;
   ASSERT(res >= 0);
   return res;
 }
-int get_read_capacity(__global struct __pipe_t* p) {
+int get_read_capacity(__global struct __pipe_t *p) {
   int head = atomic_load_explicit(&p->head, memory_order_relaxed);
   int tail = atomic_load_explicit(&p->tail, memory_order_acquire);
 
@@ -187,18 +191,18 @@ int get_read_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-int get_write_capacity(__global struct __pipe_t* p) {
+int get_write_capacity(__global struct __pipe_t *p) {
   int head = atomic_load_explicit(&p->head, memory_order_acquire);
   int tail = atomic_load_explicit(&p->tail, memory_order_relaxed);
 
-  int result = (tail == head)
-    ? p->max_packets - 1 // pipe is empty
-    : dist(p, tail, head) - 1; // reserve one element b/w head and tail
+  int result = (tail == head) ? p->max_packets - 1 // pipe is empty
+                              : dist(p, tail, head) -
+                                    1; // reserve one element b/w head and tail
   return result;
 }
 
-void __pipe_init_fpga(__global void* pp, int packet_size, int depth, int mode) {
-  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
+void __pipe_init_fpga(__global void *pp, int packet_size, int depth, int mode) {
+  __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   p->packet_size = packet_size;
   p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
   p->io = NULL;
@@ -220,36 +224,36 @@ void __pipe_init_fpga(__global void* pp, int packet_size, int depth, int mode) {
   } else {
     // Limit pipe write buffer by pipe write capacity, which is a maximum
     // capacity, since the pipe is empty.
-    int write_buf_limit = min(get_write_capacity(p),
-                              PIPE_WRITE_BUF_PREFERRED_LIMIT);
+    int write_buf_limit =
+        min(get_write_capacity(p), PIPE_WRITE_BUF_PREFERRED_LIMIT);
     // Ensure that write buffer limit is a multiple of max supported vector
     // length
     p->write_buf.limit =
-               write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+        write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
   }
 }
 
-void __pipe_release_fpga(__global void* pp) {
-  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
+void __pipe_release_fpga(__global void *pp) {
+  __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   if (p->io != NULL)
     fclose(p->io);
 }
 
-void __pipe_init_array_fpga(__global void* __global* p, int array_size,
+void __pipe_init_array_fpga(__global void *__global *p, int array_size,
                             int packet_size, int depth, int mode) {
   for (int i = 0; i < array_size; ++i) {
     __pipe_init_fpga(p[i], packet_size, depth, mode);
   }
 }
 
-void __flush_read_pipe(__global void* pp) {
-  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
+void __flush_read_pipe(__global void *pp) {
+  __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   p->read_buf.size = -1;
   atomic_store_explicit(&p->head, p->read_buf.end, memory_order_release);
 }
 
-void __flush_write_pipe(__global void* pp) {
-  __global struct __pipe_t* p = (__global struct __pipe_t*)pp;
+void __flush_write_pipe(__global void *pp) {
+  __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   p->write_buf.size = -1;
   atomic_store_explicit(&p->tail, p->write_buf.end, memory_order_release);
 }
@@ -257,8 +261,8 @@ void __flush_write_pipe(__global void* pp) {
 DEBUG_NOINLINE
 int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
                        uint align) {
-  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
-  __global struct __pipe_internal_buf* buf = &p->read_buf;
+  __global struct __pipe_t *p = __ocl_rpipe2ptr(pp);
+  __global struct __pipe_internal_buf *buf = &p->read_buf;
 
   if (buf->size < 0) {
     // Try to reserve a buffer
@@ -282,8 +286,8 @@ int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
 DEBUG_NOINLINE
 int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
                         uint align) {
-  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
-  __global struct __pipe_internal_buf* buf = &p->write_buf;
+  __global struct __pipe_t *p = __ocl_wpipe2ptr(pp);
+  __global struct __pipe_internal_buf *buf = &p->write_buf;
 
   if (buf->size < 0) {
     // Try to reserve a buffer
@@ -305,9 +309,9 @@ int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
 }
 
 DEBUG_NOINLINE
-int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
-                          const char* dstName, uint size, uint align) {
-  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
+int __read_pipe_2_io_fpga(read_only pipe uchar pp, void *dst,
+                          const char *dstName, uint size, uint align) {
+  __global struct __pipe_t *p = __ocl_rpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(dstName, "rb");
   if (p->io == NULL)
@@ -321,9 +325,9 @@ int __read_pipe_2_io_fpga(read_only pipe uchar pp, void* dst,
 }
 
 DEBUG_NOINLINE
-int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
-                           const char* srcName, uint size, uint align) {
-  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
+int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void *src,
+                           const char *srcName, uint size, uint align) {
+  __global struct __pipe_t *p = __ocl_wpipe2ptr(pp);
   if (p->io == NULL)
     p->io = fopen(srcName, "wb");
   if (p->io == NULL)
@@ -339,9 +343,9 @@ int __write_pipe_2_io_fpga(write_only pipe uchar pp, const void* src,
 }
 
 DEBUG_NOINLINE
-void __store_write_pipe_use(__global void* __private* __private arr,
-                            __private int* size, write_only pipe uchar pp) {
-  __global struct __pipe_t* p = __ocl_wpipe2ptr(pp);
+void __store_write_pipe_use(__global void *__private *__private arr,
+                            __private int *size, write_only pipe uchar pp) {
+  __global struct __pipe_t *p = __ocl_wpipe2ptr(pp);
   for (int i = 0; i < *size; i++) {
     if (arr[i] == p)
       return;
@@ -351,9 +355,9 @@ void __store_write_pipe_use(__global void* __private* __private arr,
 }
 
 DEBUG_NOINLINE
-void __store_read_pipe_use(__global void* __private* __private arr,
-                           __private int* size, read_only pipe uchar pp) {
-  __global struct __pipe_t* p = __ocl_rpipe2ptr(pp);
+void __store_read_pipe_use(__global void *__private *__private arr,
+                           __private int *size, read_only pipe uchar pp) {
+  __global struct __pipe_t *p = __ocl_rpipe2ptr(pp);
   for (int i = 0; i < *size; i++) {
     if (arr[i] == p)
       return;
@@ -363,16 +367,15 @@ void __store_read_pipe_use(__global void* __private* __private arr,
 }
 
 DEBUG_NOINLINE
-void __flush_pipe_read_array(__global void* __private* arr,
-                             __private int* size) {
+void __flush_pipe_read_array(__global void *__private *arr,
+                             __private int *size) {
   for (int i = 0; i < *size; ++i)
     __flush_read_pipe(arr[i]);
 }
 
 DEBUG_NOINLINE
-void __flush_pipe_write_array(__global void* __private* arr,
-                              __private int* size) {
+void __flush_pipe_write_array(__global void *__private *arr,
+                              __private int *size) {
   for (int i = 0; i < *size; ++i)
     __flush_write_pipe(arr[i]);
 }
-

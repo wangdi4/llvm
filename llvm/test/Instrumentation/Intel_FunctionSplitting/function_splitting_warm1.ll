@@ -1,5 +1,5 @@
-; RUN: opt < %s -function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=true -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITHOTONLY
-; RUN: opt < %s -function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITANY
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=true -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITHOTONLY
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITANY
 
 ; This is a basic test for the Intel Function Splitting pass.
 ;

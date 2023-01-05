@@ -2,7 +2,6 @@
 ; enabled for struct.test based on profitability heuristic.
 
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
 ; RUN: opt  -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
 
 ; CHECK: %struct.test = type { i8, i8, i64 }

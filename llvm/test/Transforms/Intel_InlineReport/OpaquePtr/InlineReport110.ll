@@ -4,10 +4,8 @@
 ; RUN: opt -opaque-pointers -passes='lto-pre-link<O2>' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL-PRE %s
 ; RUN: opt -opaque-pointers -passes='lto<O2>' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL-POST %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto-pre-link<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-PRE
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='lto<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-POST
-
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt -opaque-pointers -passes='lto-pre-link<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-PRE
+; RUN: opt -opaque-pointers -passes='lto<O2>' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -pre-lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD-POST
 
 ; This test case checks that the function _ZN12cMessageHeap7shiftupEi was
 ; selected for delay inlining by the inliner in the new pass manager.
@@ -31,6 +29,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-MD-POST: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
 ; CHECK-MD-POST: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed
 ; CHECK-MD-POST: call void @_ZN12cMessageHeap7shiftupEi
+
+target triple = "x86_64-unknown-linux-gnu"
 
 %class.cMessageHeap = type { %class.cOwnedObject.base, ptr, i32, i32, i64 }
 %class.cOwnedObject.base = type <{ %class.cNamedObject.base, [4 x i8], ptr, i32 }>

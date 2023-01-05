@@ -41,7 +41,7 @@ struct FunctionDescriptor {
   // Parameter list of the function
   TypeVector Parameters;
   //'version width'; the width to which this function is suitable for
-  width::V Width;
+  width::V Width = width::NONE;
 
   bool operator==(const FunctionDescriptor &) const;
 

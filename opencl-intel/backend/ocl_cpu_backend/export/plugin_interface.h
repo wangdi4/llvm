@@ -13,18 +13,17 @@
 // License.
 
 /*
-*
-* File plugin_interface.h
-* IPlugin is an interface that each plugin should implement
-*
-*/
+ *
+ * File plugin_interface.h
+ * IPlugin is an interface that each plugin should implement
+ *
+ */
 #pragma once
 
 #include <cstdlib>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 struct _cl_prog_container_header;
@@ -34,80 +33,78 @@ struct _cl_work_description_type;
 }
 #endif
 
-namespace llvm
-{
-    class Function;
+namespace llvm {
+class Function;
 }
 
-namespace Intel { namespace OpenCL {
+namespace Intel {
+namespace OpenCL {
 namespace DeviceBackend {
-    class ICLDevBackendKernel_;
-    class ICLDevBackendProgram_;
+class ICLDevBackendKernel_;
+class ICLDevBackendProgram_;
 
-    /**
-     * ICLDevBackendPlugin is an interface that each plugin should implement
-     */
-    class ICLDevBackendPlugin
-    {
-    public:
-        virtual ~ICLDevBackendPlugin(){}
+/**
+ * ICLDevBackendPlugin is an interface that each plugin should implement
+ */
+class ICLDevBackendPlugin {
+public:
+  virtual ~ICLDevBackendPlugin() {}
 
-        virtual void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
-                                    const _cl_work_description_type* pWorkDesc,
-                                    size_t bufSize,
-                                    void* pArgsBuffer) =0;
+  virtual void OnCreateBinary(const ICLDevBackendKernel_ *pKernel,
+                              const _cl_work_description_type *pWorkDesc,
+                              size_t bufSize, void *pArgsBuffer) = 0;
 
-        virtual void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
-                                    const ICLDevBackendKernel_* pKernel,
-                                    const void* pFunction) = 0;
+  virtual void OnCreateKernel(const ICLDevBackendProgram_ *pProgram,
+                              const ICLDevBackendKernel_ *pKernel,
+                              const void *pFunction) = 0;
 
-        virtual void OnCreateProgram(const void * pBinary,
-                                     size_t uiBinarySize,
-                                     const ICLDevBackendProgram_* pProgram) =0;
+  virtual void OnCreateProgram(const void *pBinary, size_t uiBinarySize,
+                               const ICLDevBackendProgram_ *pProgram) = 0;
 
-        virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram) =0;
-    };
-}//DeviceBackend
+  virtual void OnReleaseProgram(const ICLDevBackendProgram_ *pProgram) = 0;
+};
+} // namespace DeviceBackend
 
 namespace Frontend {
-    class LinkData;
-    class CompileData;
-    /*
-    * interface for Front end pluging to implement
-    */
-    struct ICLFrontendPlugin{
-        //
-        //invoked when a program is being linked
-        virtual void OnLink(const LinkData* linkData) = 0;
-        //
-        //invoked when a program is being compiled
-        virtual void OnCompile(const CompileData* compileData) = 0;
+class LinkData;
+class CompileData;
+/*
+ * interface for Front end pluging to implement
+ */
+struct ICLFrontendPlugin {
+  //
+  // invoked when a program is being linked
+  virtual void OnLink(const LinkData *linkData) = 0;
+  //
+  // invoked when a program is being compiled
+  virtual void OnCompile(const CompileData *compileData) = 0;
 
-        virtual ~ICLFrontendPlugin(){}
-    };
-}//Forntend
-
-//Serves as a query system for BE/FE plugin
-struct IPlugin{
-    //When implemented in derived classes, should return a pointer to a backend
-    //pluging. Note: NULL valude is not legal.
-    virtual DeviceBackend::ICLDevBackendPlugin* getBackendPlugin() = 0;
-    //When implemented in derived classes, should return a pointer to a frontend
-    //pluging. Note: NULL valude is not legal.
-    virtual Frontend::ICLFrontendPlugin* getFrontendPlugin() = 0;
-    virtual ~IPlugin() {}
+  virtual ~ICLFrontendPlugin() {}
 };
-}}
+} // namespace Frontend
+
+// Serves as a query system for BE/FE plugin
+struct IPlugin {
+  // When implemented in derived classes, should return a pointer to a backend
+  // pluging. Note: NULL valude is not legal.
+  virtual DeviceBackend::ICLDevBackendPlugin *getBackendPlugin() = 0;
+  // When implemented in derived classes, should return a pointer to a frontend
+  // pluging. Note: NULL valude is not legal.
+  virtual Frontend::ICLFrontendPlugin *getFrontendPlugin() = 0;
+  virtual ~IPlugin() {}
+};
+} // namespace OpenCL
+} // namespace Intel
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 //
-//BE factory/release methods
+// BE factory/release methods
 //
-typedef Intel::OpenCL::IPlugin* (*PLUGIN_CREATE_FUNCPTR)(void);
-typedef void (*PLUGIN_RELEASE_FUNCPTR)(Intel::OpenCL::IPlugin*);
+typedef Intel::OpenCL::IPlugin *(*PLUGIN_CREATE_FUNCPTR)(void);
+typedef void (*PLUGIN_RELEASE_FUNCPTR)(Intel::OpenCL::IPlugin *);
 
 #ifdef __cplusplus
 }

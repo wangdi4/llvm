@@ -1,4 +1,4 @@
-; RUN: opt < %s -dope-vector-local-const-prop=false -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
+; RUN: opt < %s -dope-vector-local-const-prop=false -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
 
 ; The test checks correctness of OpaquePointerTypeMapper constructor
 ; when a CallBase is a User of a pointer, but the pointer is not an argument of the CallBase.

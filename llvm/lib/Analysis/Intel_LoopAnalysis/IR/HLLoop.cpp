@@ -46,6 +46,13 @@ static cl::opt<bool>
                              cl::desc("Allow creation of explicit lower bound "
                                       "instruction when normalizing the loop"));
 
+// Useful for experimentation with small trip count loops.
+static cl::opt<unsigned>
+    SmallTCThresholdOpt("hir-loop-small-trip-count-threshold", cl::init(16),
+                        cl::Hidden,
+                        cl::desc("Threshold for what should be considered "
+                                 "small as the tripcount of loop."));
+
 void HLLoop::initialize() {
   unsigned NumOp;
 
@@ -116,6 +123,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType), HasSignedIV(HLLoopObj.HasSignedIV),
+      MVTag(HLLoopObj.MVTag),
+      MVDelinearizableBlobIndices(HLLoopObj.MVDelinearizableBlobIndices),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
@@ -1996,32 +2005,17 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   HLLoop *PeelLoop = clone();
   HLNodeUtils::insertBefore(this, PeelLoop);
 
-  if (IsUnknown) {
-    // Change the peel loop's bottom test condition to false to force loop to
-    // exit after one iteration.
-    auto *PeelBottomTest = PeelLoop->getBottomTest();
-    auto *PredI = PeelBottomTest->pred_begin();
-    PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
-
-    auto *LHS = PeelBottomTest->getLHSPredicateOperandDDRef(PredI);
-    auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
-
-    PeelBottomTest->setLHSPredicateOperandDDRef(UndefOp, PredI);
-    PeelBottomTest->setRHSPredicateOperandDDRef(UndefOp->clone(), PredI);
-
-  } else {
-    // Since the loop is normalized, set peel loop UB to 0 so that it executes
-    // just one iteration.
-    PeelLoop->getUpperDDRef()->clear();
-  }
-
   // Update this loop's UB and DDRefs to avoid execution of peeled iteration
   // only if UpdateMainLoop is true.
   if (UpdateMainLoop) {
     if (!IsUnknown) {
       auto *Upper = getUpperDDRef();
       Upper->getSingleCanonExpr()->addConstant(-1, true /*IsMath*/);
-      Upper->makeConsistent();
+      // At this point peel loop is a clone of this loop so we can use its upper
+      // to make new upper consistent. This is needed for the case where
+      // original upper was a self-blob but new (upper - 1) is not so it
+      // requires a blob ddref.
+      Upper->makeConsistent(PeelLoop->getUpperDDRef());
 
       shiftLoopBodyRegDDRefs(1);
 
@@ -2045,6 +2039,25 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
 
       shiftLoopBodyRegDDRefs(1);
     }
+  }
+
+  if (IsUnknown) {
+    // Change the peel loop's bottom test condition to false to force loop to
+    // exit after one iteration.
+    auto *PeelBottomTest = PeelLoop->getBottomTest();
+    auto *PredI = PeelBottomTest->pred_begin();
+    PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
+
+    auto *LHS = PeelBottomTest->getLHSPredicateOperandDDRef(PredI);
+    auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
+
+    PeelBottomTest->setLHSPredicateOperandDDRef(UndefOp, PredI);
+    PeelBottomTest->setRHSPredicateOperandDDRef(UndefOp->clone(), PredI);
+
+  } else {
+    // Since the loop is normalized, set peel loop UB to 0 so that it executes
+    // just one iteration.
+    PeelLoop->getUpperDDRef()->clear();
   }
 
   HLNodeUtils::addCloningInducedLiveouts(PeelLoop, this);
@@ -2103,8 +2116,9 @@ void HLLoop::undefInitializeUnconditionalLiveoutTemps() {
 
 HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   assert(!isUnknown() && isNormalized() && "Unsupported loop for peeling.");
+  unsigned LoopLevel = getNestingLevel();
   assert(PeelArrayRef && PeelArrayRef->isMemRef() &&
-         PeelArrayRef->isLinearAtLevel(getNestingLevel()) &&
+         PeelArrayRef->isLinearAtLevel(LoopLevel) &&
          "Unsupported PeelArrayRef.");
 
   auto &CEU = getCanonExprUtils();
@@ -2141,8 +2155,9 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   // %alignment = &(%arr)[0] & (needed_alignment - 1)
   // Here %arr is array that we align access to via the peel loop.
   RegDDRef *PeelArrayBaseRef = PeelArrayRef->clone();
-  PeelArrayBaseRef->replaceIVByConstant(getNestingLevel(), 0);
+  PeelArrayBaseRef->replaceIVByConstant(LoopLevel, 0);
   PeelArrayBaseRef->setAddressOf(true);
+  PeelArrayBaseRef->makeConsistent({}, LoopLevel - 1);
   HLInst *PeelArrayBaseCast =
       HNU.createPtrToInt(IntTy, PeelArrayBaseRef, "arr.base.cast");
   PeelLoopInsts.push_back(*PeelArrayBaseCast);
@@ -2188,8 +2203,6 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   PeelLoop->addLiveInTemp(PeelFactorSym);
 
   // Updates to cloned peel loop.
-  unsigned LoopLevel = getNestingLevel();
-
   // Upper bound of peel loop will be PeelFactor-1
   auto *PeelLpUB = PeelFactorMin->getLvalDDRef()->clone();
   auto *PeelLpUBCanonExpr = PeelLpUB->getSingleCanonExpr();
@@ -2488,4 +2501,20 @@ bool HLLoop::canTripCountEqualIVTypeRangeSize() const {
   // Ztt may not be part of the region (especially for multi-exit loops) or may
   // have been extracted by a transformation. This check helps catch more cases.
   return !hasIRZtt(Lp, HIRF.getDomTree(), SE);
+}
+
+bool HLLoop::hasLikelySmallTripCount(unsigned SmallTCThreshold) const {
+
+  SmallTCThreshold = SmallTCThreshold ? SmallTCThreshold : SmallTCThresholdOpt;
+
+  uint64_t ConstTrip;
+  if (isConstTripLoop(&ConstTrip) && (ConstTrip <= SmallTCThreshold)) {
+    return true;
+  }
+
+  if (MaxTripCountEstimate && (MaxTripCountEstimate <= SmallTCThreshold)) {
+    return true;
+  }
+
+  return false;
 }

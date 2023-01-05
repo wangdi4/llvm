@@ -1,4 +1,4 @@
-; RUN: opt -debugify -loop-simplify -loop-extract -intel-codeextractor-debug=false -S < %s | FileCheck %s ;INTEL
+; RUN: opt -passes=debugify,loop-simplify,loop-extract -S < %s | FileCheck %s
 
 ; This tests 2 cases:
 ; 1. loop1 should be extracted into a function, without extracting %v1 alloca.
@@ -22,7 +22,10 @@
 
 ; CHECK-LABEL: define internal void @test.loop1(i8* %p1)
 ; CHECK-NEXT: newFuncRoot:
-; CHECK-NEXT:   br
+; INTEL_CUSTOMIZATION
+; xmain has debug information here
+; end INTEL_CUSTOMIZATION
+; CHECK:   br
 
 define void @test() {
 entry:

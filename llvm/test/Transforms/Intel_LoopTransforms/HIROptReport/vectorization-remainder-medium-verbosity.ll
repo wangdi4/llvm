@@ -10,8 +10,8 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-opt-report=medium -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-opt-report=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=4 -intel-opt-report=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter,hir-cg" -vplan-force-vf=4 -intel-opt-report=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #15553: loop was not vectorized: outer loop is not an auto-vectorization candidate.{{[[:space:]]}}
@@ -26,7 +26,7 @@
 
 ; TODO: There is still a small issue where the merged CFG-based HIR causes
 ; the opt report layout to mismatch slightly with the loop layout.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-opt-report=medium < %s -S | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=medium < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
 ; MERGED-CFG: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
 ; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}

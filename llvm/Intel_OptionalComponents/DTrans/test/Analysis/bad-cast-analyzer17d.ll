@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; UNSUPPORTED: enable-opaque-pointers
-; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis 2>&1 | FileCheck %s
+
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis 2>&1 | FileCheck %s
 
 ; This test case gets a Bad casting safety violation for %struct.mycoder1

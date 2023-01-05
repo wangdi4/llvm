@@ -656,6 +656,11 @@ private:
   llvm::DenseMap<const llvm::Constant *, llvm::GlobalVariable *> RTTIProxyMap;
 
   llvm::DenseMap<StringRef, const RecordDecl *> TypesWithAspects;
+  const EnumDecl *AspectsEnumDecl = nullptr;
+  // Helps squashing blocks of TopLevelStmtDecl into a single llvm::Function
+  // when used with -fincremental-extensions.
+  std::pair<std::unique_ptr<CodeGenFunction>, const TopLevelStmtDecl *>
+      GlobalTopLevelStmtBlockInFlight;
 
 public:
   CodeGenModule(ASTContext &C, IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
@@ -787,7 +792,8 @@ public:
 
   llvm::MDNode *getNoObjCARCExceptionsMetadata() {
     if (!NoObjCARCExceptionsMetadata)
-      NoObjCARCExceptionsMetadata = llvm::MDNode::get(getLLVMContext(), None);
+      NoObjCARCExceptionsMetadata =
+          llvm::MDNode::get(getLLVMContext(), std::nullopt);
     return NoObjCARCExceptionsMetadata;
   }
 
@@ -848,6 +854,10 @@ public:
   CodeGenVTables &getVTables() { return VTables; }
 
   ItaniumVTableContext &getItaniumVTableContext() {
+    return VTables.getItaniumVTableContext();
+  }
+
+  const ItaniumVTableContext &getItaniumVTableContext() const {
     return VTables.getItaniumVTableContext();
   }
 
@@ -1290,6 +1300,8 @@ public:
     TypesWithAspects[TypeName] = RD;
   }
 
+  void setAspectsEnumDecl(const EnumDecl *ED);
+
   void generateIntelFPGAAnnotation(const Decl *D,
                                      llvm::SmallString<256> &AnnotStr);
   void addGlobalIntelFPGAAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
@@ -1299,7 +1311,8 @@ public:
   llvm::Constant *getBuiltinLibFunction(const FunctionDecl *FD,
                                         unsigned BuiltinID);
 
-  llvm::Function *getIntrinsic(unsigned IID, ArrayRef<llvm::Type*> Tys = None);
+  llvm::Function *getIntrinsic(unsigned IID,
+                               ArrayRef<llvm::Type *> Tys = std::nullopt);
 
   /// Emit code for a single top level declaration.
   void EmitTopLevelDecl(Decl *D);
@@ -1398,9 +1411,17 @@ public:
   llvm::GlobalVariable *addDTransInfoToGlobal(const VarDecl *VD,
                                               llvm::GlobalVariable *GV,
                                               llvm::Type *LLVMType);
+
   llvm::GlobalVariable *addDTransInfoToGlobal(QualType Ty, const Expr *Init,
                                               llvm::GlobalVariable *GV,
-                                              llvm::Type *LLVMType);
+                                              llvm::Type *LLVMType) {
+    return cast<llvm::GlobalVariable>(addDTransInfoToGlobal(
+        Ty, Init, cast<llvm::GlobalObject>(GV), LLVMType));
+  }
+
+  llvm::GlobalObject *addDTransInfoToGlobal(QualType Ty, const Expr *Init,
+                                            llvm::GlobalObject *GO,
+                                            llvm::Type *LLVMType);
   llvm::GlobalVariable *addDTransVTableInfo(llvm::GlobalVariable *GV,
                                             const VTableLayout &Layout);
   llvm::GlobalVariable *
@@ -1408,6 +1429,8 @@ public:
                     const SmallVectorImpl<llvm::Constant *> &Fields);
   llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
                                             const CGFunctionInfo &CallInfo);
+  llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
+                                            const FunctionDecl *FD);
 #endif // INTEL_FEATURE_SW_DTRANS
 
 #endif // INTEL_CUSTOMIZATION
@@ -1706,6 +1729,8 @@ public:
                               llvm::GlobalVariable *VTable,
                               const VTableLayout &VTLayout);
 
+  llvm::Type *getVTableComponentType() const;
+
   /// Generate a cross-DSO type identifier for MD.
   llvm::ConstantInt *CreateCrossDsoCfiTypeId(llvm::Metadata *MD);
 
@@ -1738,7 +1763,8 @@ public:
 
   /// Whether this function's return type has no side effects, and thus may
   /// be trivially discarded if it is unused.
-  bool MayDropFunctionReturn(const ASTContext &Context, QualType ReturnType);
+  bool MayDropFunctionReturn(const ASTContext &Context,
+                             QualType ReturnType) const;
 
   /// Returns whether this module needs the "all-vtables" type identifier.
   bool NeedAllVtablesTypeId() const;
@@ -1801,6 +1827,16 @@ public:
                                   const OMPDeclareVariantAttr *Attr);
   /// Return a valid OpenMP prefer_type value from the expression.
   unsigned getValidInteropPreferTypeValue(const Expr *E);
+  /// Maps the arguments in the need_device_ptr to the index of the LLVM
+  /// argument register usage by the variant function and then group them in
+  /// two categories based on their types (reference to pointer type vs pointer
+  /// type)
+  void
+  createNeedDevicePtrArgsMapping(const CGFunctionInfo *CallInfo,
+                                 const FunctionDecl *BaseFunc,
+                                 llvm::SmallSet<int64_t, 1> &ArgsSet,
+                                 llvm::SmallVectorImpl<unsigned> &PtrToPtrArgs,
+                                 llvm::SmallVectorImpl<unsigned> &NormalArgs);
 #endif // INTEL_COLLAB
   /// Print the postfix for externalized static variable or kernels for single
   /// source offloading languages CUDA and HIP. The unique postfix is created
@@ -1867,6 +1903,7 @@ private:
 
   void EmitDeclContext(const DeclContext *DC);
   void EmitLinkageSpec(const LinkageSpecDecl *D);
+  void EmitTopLevelStmt(const TopLevelStmtDecl *D);
 
   /// Emit the function that initializes C++ thread_local variables.
   void EmitCXXThreadLocalInitFunc();

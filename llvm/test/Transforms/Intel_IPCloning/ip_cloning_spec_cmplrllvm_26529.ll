@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -ip-cloning -ip-specialization-cloning -debug-only=ipcloning -S  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-26529: Ensure that 3 unique clones are created, due to three

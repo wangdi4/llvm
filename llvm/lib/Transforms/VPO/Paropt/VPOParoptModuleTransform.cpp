@@ -299,7 +299,7 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 // Create the corresponding decl for OCL printf called from offload kernels:
 //
 //   declare dso_local spir_func i32
-//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
+//     @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)*, ...)
 //
 // Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
 // in the \b VPOParoptModuleTransform class.
@@ -315,7 +315,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
   // Get the function prototype from the module symbol table.
   // If absent, create and insert it into the symbol table first.
   FunctionCallee FnC =
-      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2ci", FnTy);
+      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2cz", FnTy);
   OCLPrintfDecl = cast<Function>(FnC.getCallee());
   OCLPrintfDecl->copyAttributesFrom(PrintfDecl);
 
@@ -825,6 +825,22 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     if (IsFETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsFETargetDeclare == true\n");
+      // For fopenmp-target-simd we need to process not only outlined functions
+      // (i.e. target regions) but also functions which satisfy IsFETargetDeclare
+      // (see its comment above) because they may be called from some kernel
+      // and not have any WRegion to be processed by Paropt transforms and hence
+      // not getting any MD to tell ParoptLowerSimd pass to take care of such function.
+      if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
+        if (!IsBETargetDeclare) {
+          assert(!F.getMetadata("omp_simd_kernel"));
+          F.setMetadata("omp_declare_target_simd_function",
+                        MDNode::get(F.getContext(), {}));
+          Metadata *AttrMDArgs[] = {ConstantAsMetadata::get(
+              ConstantInt::get(IntegerType::getInt32Ty(F.getContext()), 1))};
+          F.setMetadata("intel_reqd_sub_group_size",
+                        MDNode::get(F.getContext(), AttrMDArgs));
+        }
+      }
       continue;
     }
 

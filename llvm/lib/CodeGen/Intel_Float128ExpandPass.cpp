@@ -832,9 +832,10 @@ bool Float128Expand::runOnFunction(Function &F) {
   // order and check if each SCC has a USE of fp128 PX
   for (scc_iterator<Function *> SCCI = scc_begin(&F); !SCCI.isAtEnd(); ++SCCI) {
     const std::vector<BasicBlock *> &CurSCC = *SCCI;
-    std::unique_ptr<SCCNode> CurSCCNode = std::make_unique<SCCNode>();
+    SCCList.push_back(std::move(std::make_unique<SCCNode>()));
+    SCCNode *CurSCCNode = SCCList.back().get();
     for (auto *BI : CurSCC) {
-      BB2SCC[BI] = CurSCCNode.get();
+      BB2SCC[BI] = CurSCCNode;
       CurSCCNode->BBList.insert(BI);
     }
     for (auto *BI : CurSCC) {
@@ -844,15 +845,14 @@ bool Float128Expand::runOnFunction(Function &F) {
                "reverse topological order, BB2SCC[CurBB] should never be "
                "nullptr");
         SCCNode *SCCOut = BB2SCC[CurBB];
-        if (SCCOut == CurSCCNode.get())
+        if (SCCOut == CurSCCNode)
           continue;
         CurSCCNode->Succs.insert(SCCOut);
-        SCCOut->Preds.insert(CurSCCNode.get());
+        SCCOut->Preds.insert(CurSCCNode);
       }
       if (SCCI.hasCycle())
         CurSCCNode->HasLoop = true;
     }
-    SCCList.push_back(std::move(CurSCCNode));
   }
 
   DominatorTree DT(F);

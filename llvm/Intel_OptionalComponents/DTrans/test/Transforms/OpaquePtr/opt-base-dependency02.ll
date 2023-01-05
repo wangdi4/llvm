@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
 
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
-; RUN: opt -dtransop-allow-typed-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+target triple = "x86_64-unknown-linux-gnu"
+
+; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
 
 ; Test for DTrans base class identification of type dependency mappings that map
 ; the set of types that need to be changed when DTrans is changing a type.
@@ -23,21 +24,21 @@
 
 ; Case where type is used as a pointer type within an array in another type
 %struct.test02a = type { i32, i32 }
-%struct.test02b = type { i32, [4 x %struct.test02a*] }
+%struct.test02b = type { i32, [4 x ptr] }
 
 ; Case where type is used as a pointer type within a pointer to an array.
 %struct.test03a = type { i32, i32 }
-%struct.test03b = type { i32, [8 x %struct.test03a*]* }
+%struct.test03b = type { i32, ptr }
 
 ; Case where type is used as an array within a pointer to an array. In this
 ; case, even though the type is not a pointer, it is a pointer dependency
 ; because the pointer to the array.
 %struct.test04a = type { i32, i32 }
-%struct.test04b = type { i32, [8 x %struct.test04a]* }
+%struct.test04b = type { i32, ptr }
 
 ; Case where type is used as a pointer within a vector type
 %struct.test05a = type { i32, i32 }
-%struct.test05b = type { i32, <2 x %struct.test05a*> }
+%struct.test05b = type { i32, <2 x ptr> }
 
 define void @test01() {
   %local1b = alloca %struct.test01b

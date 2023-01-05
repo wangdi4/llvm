@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -237,11 +237,15 @@ bool isValidMixOfOpcodes(unsigned OpCode1, unsigned OpCode2) {
 //     t1 = t1 +
 //     t1 = t1 +
 //     t1 = t1 +
+// d.
+//     t1 = t2 + t3
+//     t3 = t1
 bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
                                          const HLLoop *Loop, HLInst **SinkInst,
                                          DDRef **SinkDDRef,
                                          unsigned ReductionOpCode,
-                                         DDGraph DDG) {
+                                         DDGraph DDG,
+                                         unsigned FirstRvalSB) {
   HLNode *UseNode = nullptr;
   HLInst *SingleOutputDepInst = nullptr;
   bool FlowEdgeFound = false;
@@ -318,10 +322,17 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     if (!(*SinkInst)->isReductionOp(&ReductionOpCode)) {
       return false;
     }
+
     if ((ReductionOpCode == Instruction::FSub ||
-         ReductionOpCode == Instruction::Sub) &&
+         ReductionOpCode == Instruction::Sub ||
+         ReductionOpCode == Instruction::SDiv ||
+         ReductionOpCode == Instruction::UDiv ||
+         ReductionOpCode == Instruction::FDiv) &&
         (*SinkDDRef) == (*SinkInst)->getOperandDDRef(2)) {
       // S = .. - S, we bail out
+      //
+      // Also, bail out for division operations if they aren't in the form of
+      // t1 = t1 / x
       return false;
     }
     if (!isValidMixOfOpcodes(ReductionOpCode, ReductionOpCodeSave)) {
@@ -351,11 +362,30 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
     }
   }
 
-  // The destination of that single output edge should be same as the flow edge
-  // destination
-  if (!FlowEdgeFound ||
-      (SingleOutputDepInst && (*SinkInst != SingleOutputDepInst))) {
+  if (!FlowEdgeFound) {
     return false;
+  }
+
+  if (SingleOutputDepInst) {
+    // The destination of that single output edge should be same as the flow
+    // edge destination
+    bool IsSameOutputAndFlowDest = *SinkInst == SingleOutputDepInst;
+    // Or it should be an output edge for intermediate reduction temp which goes
+    // after its use in the reduction chain:
+    //   t1 = ... + t2    <first reduction chain>
+    //   t2 = t1          <first reduction chain>
+    //   ...
+    //   t1 = ... + t3    <second reduction chain>
+    //   t3 = t1          <second reduction chain>
+    //
+    // t1 is intermediate reduction temp.
+    bool IsIntermedTempOutputEdge =
+        (LRef->getSymbase() != FirstRvalSB) &&
+        (SingleOutputDepInst->getTopSortNum() > (*SinkInst)->getTopSortNum());
+
+    if (!IsSameOutputAndFlowDest && !IsIntermedTempOutputEdge) {
+      return false;
+    }
   }
 
   return true;
@@ -421,7 +451,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
 
           const RegDDRef *LRef = Inst->getLvalDDRef();
           if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode,
-                         DDG)) {
+                         DDG, FirstRvalSB)) {
             break;
           }
           if (FirstRvalSB == SinkDDRef->getSymbase() &&
@@ -466,6 +496,10 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   //  S1: t1 = t3
   //   ..
   //  S3: t3 = t2 + a[i];
+  // (4)
+  //  S1: %t1 = %t2 + %t3;
+  //  S2: %t3 = %t1
+  //
   //  Look for incoming flow edge (<) into S1.
   //  S3 needs to be a reduction stmt
   //
@@ -478,8 +512,9 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
   unsigned ReductionOpCodeSave = 0;
   *SingleStmtReduction = false;
+  bool IsInstCopyInst = Inst->isCopyInst();
 
-  if (!Inst->isCopyInst()) {
+  if (!IsInstCopyInst) {
     if (!Inst->isReductionOp(ReductionOpCode)) {
       return false;
     }
@@ -514,18 +549,31 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
         HLInst *SrcInst = dyn_cast<HLInst>(DDRefSrc->getHLDDNode());
         assert(SrcInst && "Source of flow edge is not an instruction!");
 
-        if (!SrcInst->isReductionOp(ReductionOpCode)) {
+        bool IsSrcCopyInst = SrcInst->isCopyInst();
+        // Do not consider
+        //    t1 = t2
+        //    t2 = t1
+        //      a safe reduction.
+        if (IsSrcCopyInst && IsInstCopyInst) {
+          continue;
+        }
+
+
+        if (!IsSrcCopyInst &&
+            !SrcInst->isReductionOp(ReductionOpCode)) {
           return SKIPTONEXT;
         }
 
         // First stmt could be   a.  t1 = t2
         //          or           b.  t1 = t2 + ..
 
-        if (!Inst->isCopyInst() &&
+        if (!IsInstCopyInst && !IsSrcCopyInst &&
             !isValidMixOfOpcodes(ReductionOpCodeSave, *ReductionOpCode)) {
           return SKIPTONEXT;
         }
 
+        // A copy instruction is not allowed in the  single instruction
+        // reduction chain.
         if (Inst == SrcInst) {
           const RegDDRef *LRef = Inst->getLvalDDRef();
           if (DDUtils::maxUsesInLoop(
@@ -548,6 +596,11 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
         }
 
         *FirstRvalSB = DDRefSrc->getSymbase();
+
+        if (IsSrcCopyInst) {
+          *ReductionOpCode = ReductionOpCodeSave;
+        }
+
         return POTENTIAL_REDUCTION;
       }
       return SKIPTONEXT;
@@ -601,6 +654,10 @@ getConditionalAndUnsafeAlgebraInfo(SafeRedChain &RedInsts, const HLLoop *Lp) {
     // Check whether it is safe/unsafe to vectorize if we are dealing with a
     // Floating point reduction.
     //
+
+    if (Inst->isCopyInst()) {
+      continue;
+    }
     // For any SafeRedInst on partial path, Fast is enforced. Otherwise, can
     // relax it to reassoc only.
     const auto *FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());

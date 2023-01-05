@@ -15,81 +15,79 @@
 #ifndef FILETREE_H
 #define FILETREE_H
 
+#include "ConfigManager.h"
+#include "Entry.h"
+#include "OpenCLProgramConfiguration.h"
+#include <QAction>
+#include <QDir>
+#include <QFileInfo>
+#include <QHash>
+#include <QString>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QWidget>
-#include <QFileInfo>
-#include <QString>
-#include <QDir>
-#include <QAction>
-#include <QHash>
-#include "OpenCLProgramConfiguration.h"
-#include "ConfigManager.h"
-#include "Entry.h"
 
-namespace Validation
-{
-namespace GUI
-{
+namespace Validation {
+namespace GUI {
 
 /**
  * @brief The FileTree class
  * @detailed This widget show stucture of SATest project
  */
-class FileTree : public QTreeWidget
-{
-    Q_OBJECT
+class FileTree : public QTreeWidget {
+  Q_OBJECT
 public:
-    /**
-     * @brief FileTree default constructor
-     * @param parent
-     */
-    explicit FileTree(QWidget *parent = 0);
-    /**
-     * @brief setConfig - add pointer to ConfigMAnager object
-     */
-    void setConfig(ConfigManager*);
+  /**
+   * @brief FileTree default constructor
+   * @param parent
+   */
+  explicit FileTree(QWidget *parent = 0);
+  /**
+   * @brief setConfig - add pointer to ConfigMAnager object
+   */
+  void setConfig(ConfigManager *);
 
 signals:
-    /**
-     * @brief showRawFile - emits when user click to "Show Raw file" option in context menu
-     */
-    void showRawFile(Entry);
-    /**
-     * @brief showBuffer - emits when user clicks to buffer item in tree
-     */
-    void showBuffer(Entry);
-    /**
-     * @brief showConfig - emits when user clicks to config item in tree
-     */
-    void showConfig(Entry);
-    /**
-     * @brief showKernelInfo - emits when user clicks to kernel item in tree
-     */
-    void showKernelInfo(Entry);
-    /**
-     * @brief showRunVariants - emits when user clicks to run options item in tree
-     */
-    void showRunVariants(Entry);
+  /**
+   * @brief showRawFile - emits when user click to "Show Raw file" option in
+   * context menu
+   */
+  void showRawFile(Entry);
+  /**
+   * @brief showBuffer - emits when user clicks to buffer item in tree
+   */
+  void showBuffer(Entry);
+  /**
+   * @brief showConfig - emits when user clicks to config item in tree
+   */
+  void showConfig(Entry);
+  /**
+   * @brief showKernelInfo - emits when user clicks to kernel item in tree
+   */
+  void showKernelInfo(Entry);
+  /**
+   * @brief showRunVariants - emits when user clicks to run options item in tree
+   */
+  void showRunVariants(Entry);
 
 public slots:
 private:
-    QString filepath;
-    QString dirpath;
-    ConfigManager *cfg;
-    QAction* rawAction;
-    QHash<QTreeWidgetItem*,Entry> entries;
-    Entry getEntry(QTreeWidgetItem*);
-    void addEntry(QTreeWidgetItem*, Entry::Type, QString path);
-    void addEntry(QTreeWidgetItem *, Entry::Type, Entry::BufferType, int kernelId, int bufferNum);
-    void addEntry(QTreeWidgetItem *, Entry::Type, int kernelId);
+  QString filepath;
+  QString dirpath;
+  ConfigManager *cfg;
+  QAction *rawAction;
+  QHash<QTreeWidgetItem *, Entry> entries;
+  Entry getEntry(QTreeWidgetItem *);
+  void addEntry(QTreeWidgetItem *, Entry::Type, QString path);
+  void addEntry(QTreeWidgetItem *, Entry::Type, Entry::BufferType, int kernelId,
+                int bufferNum);
+  void addEntry(QTreeWidgetItem *, Entry::Type, int kernelId);
 private slots:
-    void catchDoubleClicked(QTreeWidgetItem*,int);
-    void editRawFileRequest();
-
+  void catchDoubleClicked(QTreeWidgetItem *, int);
+  void editRawFileRequest();
 };
 
-}
-}
+} // namespace GUI
+} // namespace Validation
 
 #endif // FILETREE_H

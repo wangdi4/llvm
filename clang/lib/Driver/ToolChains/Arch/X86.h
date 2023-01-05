@@ -49,6 +49,9 @@ void getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
 bool isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple);
 std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                            bool IsArchOpt = false);
+std::string getCPUForIntelOnly(const Driver &D, StringRef Arch,
+                               const llvm::Triple &Triple,
+                               const llvm::opt::Arg *A);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace x86

@@ -63,13 +63,9 @@ void taskGroupReferenceCountTest() {
   EXPECT_EQ(taskGroup.ref_count(), 0U);
 }
 
-TEST(TBBNativeTest, Test_taskArena) {
-  taskArenaTest();
-}
+TEST(TBBNativeTest, Test_taskArena) { taskArenaTest(); }
 
-TEST(TBBNativeTest, Test_taskGroupDestruction) {
-  taskGroupDestructionTest();
-}
+TEST(TBBNativeTest, Test_taskGroupDestruction) { taskGroupDestructionTest(); }
 
 TEST(TBBNativeTest, Test_taskGroupReferenceCount) {
   taskGroupReferenceCountTest();

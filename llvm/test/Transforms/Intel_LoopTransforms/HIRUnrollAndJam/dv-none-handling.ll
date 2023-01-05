@@ -1,4 +1,3 @@
-; RUN: opt < %s -scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam,print<hir>" -aa-pipeline="scoped-noalias-aa,basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that unroll & jam successfully handles an edge which has DV::NONE.
@@ -24,7 +23,6 @@
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; RUN: opt < %s -scoped-noalias-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-dd-analysis -analyze -enable-new-pm=0 -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s --check-prefix=CHECK-DD
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -aa-pipeline="scoped-noalias-aa,basic-aa" < %s 2>&1 | FileCheck %s --check-prefix=CHECK-DD
 
 ; Check output edge with inner DV element of NONE.

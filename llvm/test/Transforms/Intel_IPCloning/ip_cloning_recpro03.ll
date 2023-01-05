@@ -1,6 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -tailcallelim -no-tail-call-for-rec-pro-clone -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=tailcallelim -no-tail-call-for-rec-pro-clone -S 2>&1 | FileCheck %s
 
 ; Check that tail call elimination is not performed on foo

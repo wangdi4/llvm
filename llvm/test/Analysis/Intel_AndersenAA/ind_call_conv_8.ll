@@ -5,7 +5,6 @@
 ; metadata. This is to check that the DTrans metadata is maintained on the
 ; indirect call left in the fallback path of the converted IR.
 
-; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -anders-aa -indirectcallconv %s | FileCheck %s
 ; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }

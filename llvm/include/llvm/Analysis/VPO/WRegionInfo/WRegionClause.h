@@ -101,8 +101,8 @@ extern DenseMap<int, StringRef> WRNLoopOrderName;
 //   UseDevicePtrItem: derived class for an item in the USE_DEVICE_PTR clause
 //   InclusiveItem:    derived class for an item in the INCLUSIVE    clause
 //   ExclusiveItem:    derived class for an item in the EXCLUSIVE    clause
+//   DetachItem:       derived class for an item in the DETACH       clause
 //
-
 
 //
 //   Item: abstract base class NOT intended to be instantiated directly.
@@ -129,6 +129,7 @@ class Item
       IK_UseDevicePtr,
       IK_Inclusive,
       IK_Exclusive,
+      IK_Detach,
     };
 
   private :
@@ -284,6 +285,9 @@ class Item
     bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
 
+    virtual void printExtraIfTyped(formatted_raw_ostream &OS,
+                                   bool PrintType = true) const {};
+
     void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsTyped()) {
         OS << ", TYPED (TYPE: ";
@@ -305,6 +309,7 @@ class Item
         }
         OS << ", NUM_ELEMENTS: ";
         getNumElements()->printAsOperand(OS, PrintType);
+        printExtraIfTyped(OS, PrintType);
         OS << ")";
       }
     }
@@ -852,7 +857,7 @@ public:
     Value *TaskRedInitOrigArg =
         nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
                  // reduction init callback function.
-    Value *ArraySectionOffset = nullptr;
+    Value *ArraySectionOffsetFromIR = nullptr;
     GlobalVariable *GVSize = nullptr; // Global variable for variable sized
                                       // array [section] size used by fast
                                       // reduction.
@@ -983,16 +988,125 @@ public:
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {
-      return !ArrSecInfo.getArraySectionDims().empty();
+      if (!getIsTyped())
+        return !ArrSecInfo.getArraySectionDims().empty();
+
+      // For typed clauses, we only consider a reduction item to be an array
+      // section if:
+      //  * it has a non-zero offset, or
+      //  * it has a PTR_TO_PTR modifier, indicating it could be something like:
+      //    int *x; ... reduction(+:x[0:...])
+      if (getIsPointerToPointer())
+        return true;
+
+      if (!getArraySectionOffsetFromIR())
+        return false;
+
+      return !isa<ConstantInt>(getArraySectionOffsetFromIR()) ||
+             !cast<ConstantInt>(getArraySectionOffsetFromIR())->isZero();
     };
 
-    void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
-    Value *getArraySectionOffset() const { return ArraySectionOffset; }
+    void setArraySectionOffsetFromIR(Value *V) { ArraySectionOffsetFromIR = V; }
+    Value *getArraySectionOffsetFromIR() const {
+      return ArraySectionOffsetFromIR;
+    }
+
+    /// \name Array section reduction related getters, abstracting typed/untyped
+    /// array-sections.
+    ///
+    /// For the following test:
+    /// \code
+    ///   int x[10], (*yarrptr)[20];
+    ///   #pragma omp for reduction (+: x[1:5], yarrptr[1][2:7])
+    /// \endcode
+    ///
+    /// The incoming IR will look like this for untyped clauses:
+    ///
+    /// \code
+    /// "REDUCTION.ADD:ARRSECT"([10 x i32]* @x, 1, 1, 5, 1),
+    /// "REDUCTION.ADD:ARRSECT"([20 x i32]** @yarrptr, 2, 1, 1, 1, 2, 7, 1)
+    /// \endcode
+    ///
+    /// And this for typed clauses:
+    ///
+    /// \code
+    /// "REDUCTION.ADD:ARRSECT.TYPED"([10 x i32]* @x, i32 0, i64 5, i64 1)
+    /// "REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"([20 x i32]** @yarrptr,
+    ///                                          i32 0, i64 7, i64 22)
+    /// \endcode
+    ///
+    /// For these cases, the values of ElementType, Offset, NumElements,
+    /// BaseIsPointer are:
+    ///
+    ///               | @x     | @yarrptr
+    /// --------------+--------+----------
+    /// ElementType   | i32    | i32
+    /// Offset        | 1      | 22
+    /// NumElements   | 5      | 7
+    /// BaseIsPointer | false  | true
+    ///
+    /// For the untyped clauses, these element-type, offset, size etc. are
+    /// computed in computeArraySectionTypeOffsetSize(), and stored in the
+    /// ArraySectionInfo member struct. With typed clauses this information is
+    /// present in the clause itself.
+    ///
+    /// We can eventually remove the ArraySectionInfo struct once TYPED clause
+    /// transition is complete.
+    /// {@
+
+    Value *getArraySectionOffset() const {
+      if (getIsTyped())
+        return getArraySectionOffsetFromIR();
+
+      return ArrSecInfo.getOffset();
+    }
+
+    Value *getArraySectionNumElements() const {
+      if (getIsTyped())
+        return getNumElements();
+
+      return ArrSecInfo.getSize();
+    }
+
+    Type *getArraySectionElementType() const {
+      if (getIsTyped())
+        return getIsPointerToPointer() ? getPointeeElementTypeFromIR()
+                                       : getOrigItemElementTypeFromIR();
+      return ArrSecInfo.getElementType();
+    }
+
+    bool getArraySectionBaseIsPointer() const {
+      if (getIsTyped())
+        return getIsPointerToPointer();
+
+      return ArrSecInfo.getBaseIsPointer();
+    }
+
+    bool getIsArraySectionWithVariableLengthOrOffset() const {
+      if (!getIsArraySection())
+        return false;
+
+      if (getIsTyped())
+        return !isa<ConstantInt>(getNumElements()) ||
+               !isa<ConstantInt>(getArraySectionOffsetFromIR());
+      return ArrSecInfo.isArraySectionWithVariableLengthOrOffset();
+    }
+    /// @}
 
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
       int ClauseId = getClauseIdFromKind(Ty);
       return VPOAnalysisUtils::getReductionOpName(ClauseId);
+    };
+
+    void printExtraIfTyped(formatted_raw_ostream &OS,
+                           bool PrintType = true) const override {
+      if (getIsArraySection()) {
+        if (Value *Offset = getArraySectionOffsetFromIR()) {
+          OS << ", OFFSET: ";
+          Offset->printAsOperand(OS, PrintType);
+        }
+      }
     };
 
     // Don't use the default print() from the base class "Item", because
@@ -1563,7 +1677,7 @@ class DependItem
     // Array section offset in elements.
     // It is only used with TYPED clauses.
     // It stays nullptr, if the clause item is not an array section.
-    Value *ArraySectionOffset = nullptr;
+    Value *ArraySectionOffsetFromIR = nullptr;
 
   public:
     DependItem(VAR V = nullptr)
@@ -1577,7 +1691,9 @@ class DependItem
       OrigItemElementTypeFromIR = Ty;
     }
     void setNumElements(Value *N) { NumElements = N; }
-    void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
+    void setArraySectionOffsetFromIR(Value *Offset) {
+      ArraySectionOffsetFromIR = Offset;
+    }
 
     VAR  getOrig()      const   { return Base; }
     bool getIsByRef()   const   { return IsByRef; }
@@ -1586,7 +1702,7 @@ class DependItem
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {
       if (IsTyped)
-        return ArraySectionOffset;
+        return ArraySectionOffsetFromIR;
 
       return !ArrSecInfo.getArraySectionDims().empty();
     };
@@ -1595,7 +1711,9 @@ class DependItem
       return OrigItemElementTypeFromIR;
     }
     Value *getNumElements() const { return NumElements; }
-    Value *getArraySectionOffset() const { return ArraySectionOffset; }
+    Value *getArraySectionOffsetFromIR() const {
+      return ArraySectionOffsetFromIR;
+    }
 
     void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsTyped()) {
@@ -1608,8 +1726,9 @@ class DependItem
         getNumElements()->printAsOperand(OS, PrintType);
         if (getIsArraySection()) {
           OS << ", ARRAY SECTION OFFSET: ";
-          assert(getArraySectionOffset() && "ArraySectionOffset is null.");
-          getArraySectionOffset()->printAsOperand(OS, PrintType);
+          assert(getArraySectionOffsetFromIR() &&
+                 "ArraySectionOffset is null.");
+          getArraySectionOffsetFromIR()->printAsOperand(OS, PrintType);
         }
         OS << ")";
       }
@@ -1627,6 +1746,19 @@ class DependItem
       printIfTyped(OS, PrintType);
       OS << ") ";
     }
+};
+
+class DetachItem : public Item {
+  public:
+    DetachItem(VAR Orig) : Item(Orig, IK_Private) {}
+
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      Item::print(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
+
+    static bool classof(const Item *I) { return I->getKind() == IK_Detach; }
 };
 
 class DepSrcSinkItem {
@@ -1874,7 +2006,7 @@ public:
     InteropInit
   } InteropAction;
 
-  enum InitClauseMod {
+  typedef enum InitClauseMod {
     InitTarget       = 0x0001,
     InitTargetSync   = 0x0002,
     InitPrefer       = 0x0004,
@@ -1885,7 +2017,7 @@ public:
 
 private:
   VAR InteropObj;
-  InteropAction Action;
+  InteropAction Action = InteropNone;
   unsigned InitModifiers; // bit vector for INIT modifiers
   SmallVector<unsigned, 4> PreferList;
 
@@ -2036,10 +2168,13 @@ template <typename ClauseItem> class Clause
     // Constructor
     Clause();
     /// Delete all clause items for the Clause.
-    ~Clause() {
+    void clear() {
       for (auto *CI : C)
         delete CI;
       C.clear();
+    }
+    ~Clause() {
+      clear();
     }
 
   protected:
@@ -2140,6 +2275,7 @@ typedef Clause<ExclusiveItem>       ExclusiveClause;
 typedef Clause<SubdeviceItem>       SubdeviceClause;
 typedef Clause<InteropActionItem>   InteropActionClause;
 typedef Clause<DependItem>          DependClause;
+typedef Clause<DetachItem>          DetachClause;
 typedef Clause<DepSinkItem>         DepSinkClause;
 typedef Clause<DepSourceItem>       DepSourceClause;
 typedef Clause<AlignedItem>         AlignedClause;
@@ -2168,6 +2304,7 @@ typedef std::vector<ExclusiveItem>::iterator       ExclusiveIter;
 typedef std::vector<SubdeviceItem>::iterator       SubdeviceIter;
 typedef std::vector<InteropActionItem>::iterator   InteropActionIter;
 typedef std::vector<DependItem>::iterator          DependIter;
+typedef std::vector<DetachItem>::iterator          DetachIter;
 typedef std::vector<DepSinkItem>::iterator         DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator       DepSourceIter;
 typedef std::vector<AlignedItem>::iterator         AlignedIter;

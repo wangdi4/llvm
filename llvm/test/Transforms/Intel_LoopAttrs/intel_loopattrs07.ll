@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -intel-loop-attrs -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-loop-attrs)' -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that function @foo is candidate for adding the loop

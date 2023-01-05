@@ -14,41 +14,44 @@
 
 #pragma once
 
-#include <cl_types.h>
 #include "event_observer.h"
+#include <cl_types.h>
 
-namespace Intel { namespace OpenCL { namespace Framework {
+namespace Intel {
+namespace OpenCL {
+namespace Framework {
 
-	typedef void (CL_CALLBACK *eventCallbackFn)(cl_event, cl_int, void *);
+typedef void(CL_CALLBACK *eventCallbackFn)(cl_event, cl_int, void *);
 
-	class OclEvent;
+class OclEvent;
 
-	class EventCallback : public IEventObserver
-	{
-	public:
-          EventCallback(eventCallbackFn callback, void *pUserData,
-                        const cl_int expectedExecState);
-          PREPARE_SHARED_PTR(EventCallback)
+class EventCallback : public IEventObserver {
+public:
+  EventCallback(eventCallbackFn callback, void *pUserData,
+                const cl_int expectedExecState);
+  PREPARE_SHARED_PTR(EventCallback)
 
-          static SharedPtr<EventCallback>
-          Allocate(eventCallbackFn callback, void *pUserData,
-                   const cl_int expectedExecState) {
-            return SharedPtr<EventCallback>(new EventCallback(callback, pUserData, expectedExecState));
-          }
+  static SharedPtr<EventCallback> Allocate(eventCallbackFn callback,
+                                           void *pUserData,
+                                           const cl_int expectedExecState) {
+    return SharedPtr<EventCallback>(
+        new EventCallback(callback, pUserData, expectedExecState));
+  }
 
-                virtual ~EventCallback() {}
+  virtual ~EventCallback() {}
 
-		// IEventObserver
-                cl_err_code
-                ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
-                                          cl_int returnCode) override;
-                cl_int GetExpectedExecState() const override {
-                  return m_eventCallbackExecState;
-                }
+  // IEventObserver
+  cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent> &pEvent,
+                                        cl_int returnCode) override;
+  cl_int GetExpectedExecState() const override {
+    return m_eventCallbackExecState;
+  }
 
-              private:
-                eventCallbackFn  m_callback;
-		void*            m_pUserData;
-		const cl_int     m_eventCallbackExecState;
-	};
-}}}    // Intel::OpenCL::Framework
+private:
+  eventCallbackFn m_callback;
+  void *m_pUserData;
+  const cl_int m_eventCallbackExecState;
+};
+} // namespace Framework
+} // namespace OpenCL
+} // namespace Intel

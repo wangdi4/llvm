@@ -1,5 +1,3 @@
-; RUN: opt -dpcpp-kernel-sg-emu-loop-construct -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-sg-emu-loop-construct -S %s | FileCheck %s
 ; RUN: opt -passes='debugify,dpcpp-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes='dpcpp-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 

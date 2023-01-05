@@ -15,6 +15,8 @@
 #include "Commands/CommandObjectApropos.h"
 #include "Commands/CommandObjectBreakpoint.h"
 #include "Commands/CommandObjectCommands.h"
+#include "Commands/CommandObjectDWIMPrint.h"
+#include "Commands/CommandObjectDiagnostics.h"
 #include "Commands/CommandObjectDisassemble.h"
 #include "Commands/CommandObjectExpression.h"
 #include "Commands/CommandObjectFrame.h"
@@ -29,7 +31,6 @@
 #include "Commands/CommandObjectQuit.h"
 #include "Commands/CommandObjectRegexCommand.h"
 #include "Commands/CommandObjectRegister.h"
-#include "Commands/CommandObjectReproducer.h"
 #include "Commands/CommandObjectScript.h"
 #include "Commands/CommandObjectSession.h"
 #include "Commands/CommandObjectSettings.h"
@@ -47,7 +48,6 @@
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
-#include "lldb/Utility/Reproducer.h"
 #include "lldb/Utility/State.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/Timer.h"
@@ -168,6 +168,17 @@ bool CommandInterpreter::GetSaveSessionOnQuit() const {
 
 void CommandInterpreter::SetSaveSessionOnQuit(bool enable) {
   const uint32_t idx = ePropertySaveSessionOnQuit;
+  m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, enable);
+}
+
+bool CommandInterpreter::GetOpenTranscriptInEditor() const {
+  const uint32_t idx = ePropertyOpenTranscriptInEditor;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_interpreter_properties[idx].default_uint_value != 0);
+}
+
+void CommandInterpreter::SetOpenTranscriptInEditor(bool enable) {
+  const uint32_t idx = ePropertyOpenTranscriptInEditor;
   m_collection_sp->SetPropertyAtIndexAsBoolean(nullptr, idx, enable);
 }
 
@@ -520,7 +531,9 @@ void CommandInterpreter::LoadCommandDictionary() {
   REGISTER_COMMAND_OBJECT("apropos", CommandObjectApropos);
   REGISTER_COMMAND_OBJECT("breakpoint", CommandObjectMultiwordBreakpoint);
   REGISTER_COMMAND_OBJECT("command", CommandObjectMultiwordCommands);
+  REGISTER_COMMAND_OBJECT("diagnostics", CommandObjectDiagnostics);
   REGISTER_COMMAND_OBJECT("disassemble", CommandObjectDisassemble);
+  REGISTER_COMMAND_OBJECT("dwim-print", CommandObjectDWIMPrint);
   REGISTER_COMMAND_OBJECT("expression", CommandObjectExpression);
   REGISTER_COMMAND_OBJECT("frame", CommandObjectMultiwordFrame);
   REGISTER_COMMAND_OBJECT("gui", CommandObjectGUI);
@@ -532,7 +545,6 @@ void CommandInterpreter::LoadCommandDictionary() {
   REGISTER_COMMAND_OBJECT("process", CommandObjectMultiwordProcess);
   REGISTER_COMMAND_OBJECT("quit", CommandObjectQuit);
   REGISTER_COMMAND_OBJECT("register", CommandObjectRegister);
-  REGISTER_COMMAND_OBJECT("reproducer", CommandObjectReproducer);
   REGISTER_COMMAND_OBJECT("script", CommandObjectScript);
   REGISTER_COMMAND_OBJECT("settings", CommandObjectMultiwordSettings);
   REGISTER_COMMAND_OBJECT("session", CommandObjectSession);
@@ -1752,7 +1764,7 @@ Status CommandInterpreter::PreprocessCommand(std::string &command) {
     options.SetIgnoreBreakpoints(true);
     options.SetKeepInMemory(false);
     options.SetTryAllThreads(true);
-    options.SetTimeout(llvm::None);
+    options.SetTimeout(std::nullopt);
 
     ExpressionResults expr_result =
         target.EvaluateExpression(expr_str.c_str(), exe_ctx.GetFramePtr(),
@@ -2101,14 +2113,14 @@ void CommandInterpreter::HandleCompletion(CompletionRequest &request) {
 llvm::Optional<std::string>
 CommandInterpreter::GetAutoSuggestionForCommand(llvm::StringRef line) {
   if (line.empty())
-    return llvm::None;
+    return std::nullopt;
   const size_t s = m_command_history.GetSize();
   for (int i = s - 1; i >= 0; --i) {
     llvm::StringRef entry = m_command_history.GetStringAtIndex(i);
     if (entry.consume_front(line))
       return entry.str();
   }
-  return llvm::None;
+  return std::nullopt;
 }
 
 void CommandInterpreter::UpdatePrompt(llvm::StringRef new_prompt) {
@@ -2474,8 +2486,12 @@ bool CommandInterpreter::DidProcessStopAbnormally() const {
 
   for (const auto &thread_sp : process_sp->GetThreadList().Threads()) {
     StopInfoSP stop_info = thread_sp->GetStopInfo();
-    if (!stop_info)
-      return false;
+    if (!stop_info) {
+      // If there's no stop_info, keep iterating through the other threads;
+      // it's enough that any thread has got a stop_info that indicates
+      // an abnormal stop, to consider the process to be stopped abnormally.
+      continue;
+    }
 
     const StopReason reason = stop_info->GetStopReason();
     if (reason == eStopReasonException ||
@@ -2776,7 +2792,7 @@ void CommandInterpreter::HandleCommandsFromFile(FileSpec &cmd_file,
                // or written
       debugger.GetPrompt(), llvm::StringRef(),
       false, // Not multi-line
-      debugger.GetUseColor(), 0, *this, nullptr));
+      debugger.GetUseColor(), 0, *this));
   const bool old_async_execution = debugger.GetAsyncExecution();
 
   // Set synchronous execution if we are not stopping on continue
@@ -2800,9 +2816,6 @@ void CommandInterpreter::HandleCommandsFromFile(FileSpec &cmd_file,
 bool CommandInterpreter::GetSynchronous() { return m_synchronous_execution; }
 
 void CommandInterpreter::SetSynchronous(bool value) {
-  // Asynchronous mode is not supported during reproducer replay.
-  if (repro::Reproducer::Instance().GetLoader())
-    return;
   m_synchronous_execution = value;
 }
 
@@ -3179,7 +3192,7 @@ bool CommandInterpreter::IOHandlerInterrupt(IOHandler &io_handler) {
 
 bool CommandInterpreter::SaveTranscript(
     CommandReturnObject &result, llvm::Optional<std::string> output_file) {
-  if (output_file == llvm::None || output_file->empty()) {
+  if (output_file == std::nullopt || output_file->empty()) {
     std::string now = llvm::to_string(std::chrono::system_clock::now());
     std::replace(now.begin(), now.end(), ' ', '_');
     const std::string file_name = "lldb_session_" + now + ".log";
@@ -3226,6 +3239,13 @@ bool CommandInterpreter::SaveTranscript(
   result.AppendMessageWithFormat("Session's transcripts saved to %s\n",
                                  output_file->c_str());
 
+  if (GetOpenTranscriptInEditor() && Host::IsInteractiveGraphicSession()) {
+    const FileSpec file_spec;
+    error = file->GetFileSpec(const_cast<FileSpec &>(file_spec));
+    if (error.Success())
+      Host::OpenFileInExternalEditor(file_spec, 1);
+  }
+
   return true;
 }
 
@@ -3249,9 +3269,8 @@ void CommandInterpreter::GetLLDBCommandsFromIOHandler(
                             llvm::StringRef(),       // Continuation prompt
                             true,                    // Get multiple lines
                             debugger.GetUseColor(),
-                            0,         // Don't show line numbers
-                            delegate,  // IOHandlerDelegate
-                            nullptr)); // FileShadowCollector
+                            0,          // Don't show line numbers
+                            delegate)); // IOHandlerDelegate
 
   if (io_handler_sp) {
     io_handler_sp->SetUserData(baton);
@@ -3269,9 +3288,8 @@ void CommandInterpreter::GetPythonCommandsFromIOHandler(
                             llvm::StringRef(),       // Continuation prompt
                             true,                    // Get multiple lines
                             debugger.GetUseColor(),
-                            0,         // Don't show line numbers
-                            delegate,  // IOHandlerDelegate
-                            nullptr)); // FileShadowCollector
+                            0,          // Don't show line numbers
+                            delegate)); // IOHandlerDelegate
 
   if (io_handler_sp) {
     io_handler_sp->SetUserData(baton);
@@ -3322,9 +3340,8 @@ CommandInterpreter::GetIOHandler(bool force_create,
         llvm::StringRef(), // Continuation prompt
         false, // Don't enable multiple line input, just single line commands
         m_debugger.GetUseColor(),
-        0,     // Don't show line numbers
-        *this, // IOHandlerDelegate
-        GetDebugger().GetInputRecorder());
+        0,      // Don't show line numbers
+        *this); // IOHandlerDelegate
   }
   return m_command_io_handler_sp;
 }

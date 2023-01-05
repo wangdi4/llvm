@@ -36,67 +36,67 @@ using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
 
 #ifdef __TBB_EXECUTOR__
-template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::SyncTask>;
+template class Intel::OpenCL::Utils::SharedPtrBase<
+    Intel::OpenCL::TaskExecutor::SyncTask>;
 #endif
-template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::TaskExecutor::ITaskBase>;
+template class Intel::OpenCL::Utils::SharedPtrBase<
+    Intel::OpenCL::TaskExecutor::ITaskBase>;
 
-namespace Intel { namespace OpenCL { namespace TaskExecutor {
-void __attribute__ ((constructor)) dll_init(void);
-void __attribute__ ((destructor)) dll_fini(void);
+namespace Intel {
+namespace OpenCL {
+namespace TaskExecutor {
+void __attribute__((constructor)) dll_init(void);
+void __attribute__((destructor)) dll_fini(void);
 
-ITaskExecutor* g_pTaskExecutor = nullptr;
+ITaskExecutor *g_pTaskExecutor = nullptr;
 pthread_key_t thkShedMaster;
 
 static void thread_cleanup_callback(void * /*_NULL*/) {}
 
-void dll_init(void)
-{
-	thkShedMaster = 0;
-	pthread_key_create(&thkShedMaster, thread_cleanup_callback);
+void dll_init(void) {
+  thkShedMaster = 0;
+  pthread_key_create(&thkShedMaster, thread_cleanup_callback);
 
-#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
-     InitSharedPtrs();
+#ifdef _DEBUG // this is needed to initialize allocated objects DB, which is
+              // maintained in only in debug
+  InitSharedPtrs();
 #endif
 
 #ifdef __TBB_EXECUTOR__
-	g_pTaskExecutor = new TBBTaskExecutor;
+  g_pTaskExecutor = new TBBTaskExecutor;
 #endif
 #ifdef __THREAD_EXECUTOR__
-	g_pTaskExecutor = new ThreadTaskExecutor;
+  g_pTaskExecutor = new ThreadTaskExecutor;
 #endif
 }
 
-void dll_fini(void)
-{
+void dll_fini(void) {
 // We disable the release of this object temporarily.
 // TODO: We will refine the OpenCL runtime shutdown mechanism to
 // avoid library and object dependency conflict.
 #if 0
-	if ( nullptr != g_pTaskExecutor)
-	{
-		delete ((PTR_CAST*)g_pTaskExecutor);
-		g_pTaskExecutor = nullptr;
-	}
+  if ( nullptr != g_pTaskExecutor)
+  {
+    delete ((PTR_CAST*)g_pTaskExecutor);
+    g_pTaskExecutor = nullptr;
+  }
 #endif
-	if ( thkShedMaster )
-	{
-		pthread_key_delete(thkShedMaster);
-        thkShedMaster = 0;  
-	}
+  if (thkShedMaster) {
+    pthread_key_delete(thkShedMaster);
+    thkShedMaster = 0;
+  }
 
 #ifdef _DEBUG
-    FiniSharedPts();
+  FiniSharedPts();
 #endif
 }
 
-TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor()
-{
-	return g_pTaskExecutor;
+TASK_EXECUTOR_API ITaskExecutor *GetTaskExecutor() { return g_pTaskExecutor; }
+
+void RegisterReleaseSchedulerForMasterThread() {
+  pthread_setspecific(thkShedMaster, nullptr);
 }
 
-void RegisterReleaseSchedulerForMasterThread()
-{
-	pthread_setspecific(thkShedMaster, nullptr);
-}
-
-}}}
+} // namespace TaskExecutor
+} // namespace OpenCL
+} // namespace Intel

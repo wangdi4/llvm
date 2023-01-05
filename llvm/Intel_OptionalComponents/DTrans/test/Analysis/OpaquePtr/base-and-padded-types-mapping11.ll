@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that %struct.test.a and %struct.test.a.base are NOT
@@ -27,11 +26,11 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.test.a.base = type { i32, i32 }
 
 define void @test01(ptr "intel_dtrans_func_index"="1" %ptr, ptr "intel_dtrans_func_index"="2" %ptr2) !intel.dtrans.func.type !13 {
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr, ptr %ptr2, i64 10, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %ptr, ptr %ptr2, i64 10, i1 false)
   ret void
 }
 
-declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
+declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0.p0.i64(ptr "intel_dtrans_func_index"="1", ptr "intel_dtrans_func_index"="2", i64, i1)
 
 !llvm.module.flags = !{!0, !1, !2, !3}
 !intel.dtrans.types = !{!4, !10}

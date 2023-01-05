@@ -30,8 +30,6 @@
 
 // Returns: a / b
 
-tu_int __udivti3(tu_int a, tu_int b) {
-  return __udivmodti4(a, b, 0);
-}
+tu_int __udivti3(tu_int a, tu_int b) { return __udivmodti4(a, b, 0); }
 
 #endif // CRT_HAS_128BIT

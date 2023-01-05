@@ -36,7 +36,6 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_WP.h"       // INTEL
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
@@ -55,6 +54,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -783,7 +786,8 @@ static std::string getDescription(const CallGraphSCC &SCC) {
 bool CallGraphSCCPass::skipSCC(CallGraphSCC &SCC) const {
   OptPassGate &Gate =
       SCC.getCallGraph().getModule().getContext().getOptPassGate();
-  return Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(SCC));
+  return Gate.isEnabled() &&
+         !Gate.shouldRunPass(this->getPassName(), getDescription(SCC));
 }
 
 char DummyCGSCCPass::ID = 0;

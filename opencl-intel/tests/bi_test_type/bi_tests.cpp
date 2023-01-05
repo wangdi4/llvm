@@ -3,8 +3,8 @@
 
 #include "bi_tests.h"
 #include "cl_env.h"
-#include "options.hpp"
 #include "common_utils.h"
+#include "options.hpp"
 
 cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
@@ -41,14 +41,13 @@ cl_device_id fetchDevice(cl_platform_id platform, cl_device_type type) {
   return devices[0];
 }
 
-
 void BITest::SetUp() {
   platform = fetchPlatform();
   ASSERT_TRUE(platform != nullptr) << "No OpenCL platforms available";
 
   device = fetchDevice(platform, gDeviceType);
-  ASSERT_TRUE(device != nullptr) << "OpenCL device of type" << gDeviceType <<
-     " not found";
+  ASSERT_TRUE(device != nullptr)
+      << "OpenCL device of type" << gDeviceType << " not found";
 
   cl_int error;
   context = clCreateContext(NULL, 1, &device, NULL, NULL, &error);
@@ -69,7 +68,7 @@ void BITest::TearDown() {
 cl_command_queue BITest::createCommandQueue() {
   cl_int error;
   cl_command_queue q =
-    clCreateCommandQueueWithProperties(context, device, NULL, &error);
+      clCreateCommandQueueWithProperties(context, device, NULL, &error);
 
   if (error != CL_SUCCESS) {
     return nullptr;
@@ -105,13 +104,13 @@ int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   std::string deviceTypeStr;
   if (argc > 1) {
-    for (int i = 1 ; i < argc ; i++)
+    for (int i = 1; i < argc; i++)
       if (deviceOption.isMatch(argv[i])) {
         deviceTypeStr = deviceOption.getValue(argv[i]);
         auto iter = clDeviceTypeMap.find(deviceTypeStr);
         if (iter == clDeviceTypeMap.end()) {
-            printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
-            return 1;
+          printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
+          return 1;
         }
         gDeviceType = iter->second;
       }
@@ -122,7 +121,7 @@ int main(int argc, char **argv) {
         clDeviceTypeMap.find(deviceTypeStr);
     if (iter == clDeviceTypeMap.end()) {
       printf("error: unkown value of CL_DEVICE_TYPE env variable: %s\n",
-          deviceTypeStr.c_str());
+             deviceTypeStr.c_str());
       return 1;
     }
     gDeviceType = iter->second;

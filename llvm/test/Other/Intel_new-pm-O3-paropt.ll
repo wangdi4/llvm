@@ -3,6 +3,9 @@
 ; RUN:     -debug-pass-manager  -passes='default<O3>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
+; The LPM equivalent for the test, Intel_opt-O3-pipeline-paropt.ll, was removed in
+; PR #8608 after llorg removed support for opt-level flags for LPM (D137663).
+
 ;            Running pass: XmainOptLevelAnalysisInit on [module] ;INTEL
 ;            Running analysis: XmainOptLevelAnalysis on [module] ;INTEL
 ;            Running pass: Annotation2MetadataPass on [module]
@@ -44,6 +47,9 @@
 ;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: VPOParoptGuardMemoryMotionPass on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: LowerExpectIntrinsicPass on foo
@@ -90,10 +96,12 @@
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}> on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
-;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module]
 ;CHECK-NEXT: Running pass: SROAPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
+;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module] ;INTEL
+;CHECK-NEXT: Running pass: SROAPass on foo ;INTEL
+;CHECK-NEXT: Running pass: SimplifyCFGPass on foo ;INTEL
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo

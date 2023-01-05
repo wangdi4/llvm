@@ -40,7 +40,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IndexedMap.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -92,7 +91,10 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
-#include "llvm/Target/TargetMachine.h" // INTEL
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Target/TargetMachine.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -560,7 +562,7 @@ RegAllocEvictionAdvisor::getOrderLimit(const LiveInterval &VirtReg,
     if (MinCost >= CostPerUseLimit) {
       LLVM_DEBUG(dbgs() << TRI->getRegClassName(RC) << " minimum cost = "
                         << MinCost << ", no cheaper registers to be found.\n");
-      return None;
+      return std::nullopt;
     }
 
     // It is normal for register classes to have a long tail of registers with

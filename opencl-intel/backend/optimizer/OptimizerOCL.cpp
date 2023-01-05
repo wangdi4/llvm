@@ -30,7 +30,6 @@
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h"
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
@@ -97,13 +96,14 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   PTO.MergeFunctions = false;
   PTO.CallGraphProfile = true;
 
-  Optional<PGOOptions> PGOOpt;
+  std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
   bool DebugPassManager = DebugPM != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
   PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
-  StandardInstrumentations SI(DebugPassManager, VerifyEachPass, PrintPassOpts);
+  StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
+                              VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
@@ -207,7 +207,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
 
   FunctionPassManager FPM2;
   // Break up aggregate allocas
-  FPM2.addPass(SROAPass());
+  FPM2.addPass(SROAPass(SROAOptions::ModifyCFG));
   FPM2.addPass(EarlyCSEPass()); // Catch trivial redundancies
   FPM2.addPass(InstSimplifyPass());
   FPM2.addPass(InstCombinePass());   // Cleanup for scalarrepl.
@@ -274,14 +274,14 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
     }
   }
   // Break up aggregate allocas
-  FPM3.addPass(SROAPass());
+  FPM3.addPass(SROAPass(SROAOptions::ModifyCFG));
   // Clean up after the unroller
   FPM3.addPass(InstCombinePass());
   FPM3.addPass(InstSimplifyPass());
   if (Level.getSpeedupLevel() > 1)
     FPM3.addPass(GVNPass());     // Remove redundancies
   FPM3.addPass(MemCpyOptPass()); // Remove memcpy / form memset
-  FPM3.addPass(SCCPPass()); // Constant prop with SCCP
+  FPM3.addPass(SCCPPass());      // Constant prop with SCCP
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
@@ -322,7 +322,6 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   if (Level != OptimizationLevel::O0)
     MPM.addPass(InternalizeNonKernelFuncPass());
 
-  MPM.addPass(createModuleToFunctionPassAdaptor(FMASplitterPass()));
   MPM.addPass(AddFunctionAttrsPass());
 
   if (Level != OptimizationLevel::O0) {
@@ -331,7 +330,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
     if (Level == OptimizationLevel::O1)
       FPM.addPass(PromotePass());
     else
-      FPM.addPass(SROAPass());
+      FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(InstCombinePass());
     FPM.addPass(InstSimplifyPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -340,6 +339,10 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // Flatten get_{local, global}_linear_id()
   if (m_IsOcl20)
     MPM.addPass(LinearIdResolverPass());
+  // Resolve variable argument of get_global_id, get_local_id and get_group_id.
+  MPM.addPass(ResolveVarTIDCallPass());
+  MPM.addPass(SGRemapWICallPass(static_cast<SubGroupConstructionMode>(
+      Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
     MPM.addPass(DPCPPRewritePipesPass());
@@ -390,7 +393,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
         InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
     FPM.addPass(SimplifyCFGPass());
-    FPM.addPass(SROAPass());
+    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(EarlyCSEPass());
     FPM.addPass(PromotePass());
     FPM.addPass(InstCombinePass());
@@ -398,8 +401,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
   }
-
-  MPM.addPass(ResolveVarTIDCallPass());
 
   if (m_IsSYCL)
     MPM.addPass(TaskSeqAsyncHandling());
@@ -421,7 +422,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
-  MPM.addPass(DPCPPKernelAnalysisPass());
+  MPM.addPass(DPCPPKernelAnalysisPass(
+      Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
     MPM.addPass(WGLoopBoundariesPass());

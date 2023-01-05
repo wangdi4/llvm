@@ -1,7 +1,5 @@
 ; RUN: opt -passes="dpcpp-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes="dpcpp-kernel-wg-loop-bound" %s -S | FileCheck %s
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -enable-new-pm=0 -dpcpp-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; CHECK: @WG.boundaries.test(
 ; CHECK-SAME: #[[ATTR:[0-9]+]]
