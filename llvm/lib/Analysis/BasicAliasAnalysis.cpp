@@ -91,18 +91,15 @@ using namespace llvm;
 static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
                                           cl::init(true));
 
-<<<<<<< HEAD
-
 #if INTEL_CUSTOMIZATION
 cl::opt<unsigned> BasicAAResult::OptPtrMaxUsesToExplore(
     "basicaa-opt-ptr-max-uses", cl::Hidden, cl::init(80u),
     cl::desc(
         "Maximum number of pointer uses to explore when checking for capture"));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<bool> EnableSeparateStorageAnalysis("basic-aa-separate-storage",
                                                    cl::Hidden, cl::init(false));
->>>>>>> 61042d2806af6b7202f1008d67b00c8dcfca62d6
 
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
