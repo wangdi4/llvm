@@ -50651,7 +50651,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
             if (!getTargetShuffleMask(Pack1.getNode(), ORVT1, false, Ops,
                                       Mask))
               return;
-            if (Mask.size() != ORVT0.getVectorNumElements())
+            if (Mask.size() != ORVT1.getVectorNumElements())
               return;
             size_t EleSum = 0;
             for (size_t i = 0; i < Mask.size(); i++)

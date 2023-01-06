@@ -3103,7 +3103,9 @@ void MachineBlockPlacement::optimizeBranches() {
               TII->duplicate(*NewMBBNext, NewMBBNext->end(), *MI);
             }
             // Update MBBNext's branch and successor
-            TII->reverseBranchCondition(Cond);
+            if (TII->reverseBranchCondition(Cond))
+              continue; // return false on success and true if cannot be
+                        // reversed
             TII->removeBranch(*MBBNext);
             TII->insertBranch(*MBBNext, FMBBNext, nullptr, Cond, dl);
             MBBNext->replaceSuccessor(MBB, NewMBB);
