@@ -45,13 +45,9 @@ class ImportedFunctionsInliningStatistics;
 class OptimizationRemarkEmitter;
 struct ReplayInlinerSettings;
 
-<<<<<<< HEAD
 using namespace InlineReportTypes; // INTEL
 
-/// There are 4 scenarios we can use the InlineAdvisor:
-=======
 /// There are 3 scenarios we can use the InlineAdvisor:
->>>>>>> 8d22a63e2c8b4931113ca9d1ee8b17f7ff453e81
 /// - Default - use manual heuristics.
 ///
 /// - Release mode, the expected mode for production, day to day deployments.
