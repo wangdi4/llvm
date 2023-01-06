@@ -838,3 +838,6 @@ sycl-post-link/ @asudarsa
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
 /compiler-rt/test/profile/ @robertcox-github @pvbattin
+
+# Optional Reviewer in GitHub
+llvm/.github/optional-reviewers/ @jsji
