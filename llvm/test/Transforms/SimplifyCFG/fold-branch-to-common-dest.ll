@@ -1128,11 +1128,7 @@ define i32 @test_builtin_fpclassify(float %x) {
 ; CHECK-NEXT:    [[ISZERO:%.*]] = fcmp oeq float [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[ISZERO]], label [[FPCLASSIFY_END:%.*]], label [[FPCLASSIFY_NOT_ZERO:%.*]]
 ; CHECK:       fpclassify_end:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ 0, [[FPCLASSIFY_NOT_ZERO]] ], [ [[TMP0:%.*]], [[FPCLASSIFY_NOT_NAN:%.*]] ]
-=======
-; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ 0, [[FPCLASSIFY_NOT_ZERO]] ], [ 1, [[FPCLASSIFY_NOT_NAN:%.*]] ], [ [[NORMAL_OR_SUBNORMAL:%.*]], [[FPCLASSIFY_NOT_INF:%.*]] ]
->>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ; CHECK-NEXT:    ret i32 [[FPCLASSIFY_RESULT]]
 ; CHECK:       fpclassify_not_zero:
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp uno float [[X]], 0.000000e+00

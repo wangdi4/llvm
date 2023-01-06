@@ -21,11 +21,7 @@ define i32 @main() nounwind  {
 ; CHECK-NEXT:    br i1 [[BRMERGE]], label [[FUNC_1_EXIT]], label [[INFLOOP:%.*]]
 ; CHECK:       func_1.exit:
 ; CHECK-NEXT:    [[OUTVAL:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[DOTMUX]], [[MOOSEBLOCK]] ]
-<<<<<<< HEAD
-; CHECK-NEXT:    [[POUT:%.*]] = tail call i32 (i8*, ...) @printf(i8* noalias getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0), i32 [[OUTVAL]]) #[[ATTR0:[0-9]+]]
-=======
 ; CHECK-NEXT:    [[POUT:%.*]] = tail call i32 (ptr, ...) @printf(ptr noalias @.str, i32 [[OUTVAL]]) #[[ATTR0:[0-9]+]]
->>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       infloop:
 ; CHECK-NEXT:    br label [[INFLOOP]]
