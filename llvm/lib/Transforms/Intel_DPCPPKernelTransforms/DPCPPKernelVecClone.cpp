@@ -474,9 +474,9 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 }
 
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                                                 VFISAKind ISA,
-                                                 bool IsOCL)
-    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {
+                                                 VFISAKind ISA, bool IsOCL)
+    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL),
+      VDMap(nullptr) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
 }

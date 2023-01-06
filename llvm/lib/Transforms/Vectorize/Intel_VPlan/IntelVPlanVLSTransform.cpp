@@ -128,7 +128,10 @@ private:
 
 VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
     : Group(Group), Plan(Plan), DL(*Plan.getDataLayout()),
-      DA(*Plan.getVPlanDA()), VF(VF) {
+      DA(*Plan.getVPlanDA()), VF(VF), InsertPointMemref(nullptr),
+      InsertPointInst(nullptr), FirstMemrefInst(nullptr),
+      GroupGranularityType(nullptr), GroupSizeInGranularityElements(0),
+      GroupTy(nullptr) {
   if (Group->size() <= 1) {
     FailureReason = "Group doesn't contain enough elments (at least 2).";
     return;

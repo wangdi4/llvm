@@ -447,6 +447,8 @@ bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
