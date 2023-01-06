@@ -91,13 +91,15 @@ using namespace llvm;
 static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
                                           cl::init(true));
 
-
 #if INTEL_CUSTOMIZATION
 cl::opt<unsigned> BasicAAResult::OptPtrMaxUsesToExplore(
     "basicaa-opt-ptr-max-uses", cl::Hidden, cl::init(80u),
     cl::desc(
         "Maximum number of pointer uses to explore when checking for capture"));
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<bool> EnableSeparateStorageAnalysis("basic-aa-separate-storage",
+                                                   cl::Hidden, cl::init(false));
 
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
@@ -1046,10 +1048,10 @@ static bool notDifferentParent(const Value *O1, const Value *O2) {
 
 AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
                                  const MemoryLocation &LocB, AAQueryInfo &AAQI,
-                                 const Instruction *) {
+                                 const Instruction *CtxI) {
   assert(notDifferentParent(LocA.Ptr, LocB.Ptr) &&
          "BasicAliasAnalysis doesn't support interprocedural queries.");
-  return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
+  return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI, CtxI);
 }
 
 /// Checks to see if the specified callsite can clobber the specified memory
@@ -1890,7 +1892,8 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
                                       const Value *V2, LocationSize V2Size,
-                                      AAQueryInfo &AAQI) {
+                                      AAQueryInfo &AAQI,
+                                      const Instruction *CtxI) {
   // If either of the memory references is empty, it doesn't matter what the
   // pointer values are.
   if (V1Size.isZero() || V2Size.isZero())
@@ -2057,6 +2060,31 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
           O1, getMinimalExtentFrom(*V2, V2Size, DL, NullIsValidLocation), DL,
           TLI, NullIsValidLocation)))
     return AliasResult::NoAlias;
+
+  if (CtxI && EnableSeparateStorageAnalysis) {
+    for (auto &AssumeVH : AC.assumptions()) {
+      if (!AssumeVH)
+        continue;
+
+      AssumeInst *Assume = cast<AssumeInst>(AssumeVH);
+
+      for (unsigned Idx = 0; Idx < Assume->getNumOperandBundles(); Idx++) {
+        OperandBundleUse OBU = Assume->getOperandBundleAt(Idx);
+        if (OBU.getTagName() == "separate_storage") {
+          assert(OBU.Inputs.size() == 2);
+          const Value *Hint1 = OBU.Inputs[0].get();
+          const Value *Hint2 = OBU.Inputs[1].get();
+          const Value *HintO1 = getUnderlyingObject(Hint1);
+          const Value *HintO2 = getUnderlyingObject(Hint2);
+
+          if (((O1 == HintO1 && O2 == HintO2) ||
+               (O1 == HintO2 && O2 == HintO1)) &&
+              isValidAssumeForContext(Assume, CtxI, DT))
+            return AliasResult::NoAlias;
+        }
+      }
+    }
+  }
 
   // If one the accesses may be before the accessed pointer, canonicalize this
   // by using unknown after-pointer sizes for both accesses. This is
