@@ -202,6 +202,7 @@ private:
                           const Value *V2, LocationSize V2Size,
                           AAQueryInfo &AAQI);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check if the input value O1 is captured by the input value O2
   bool valueIsNotCapturedBeforeOrAt(const Value *O1, const Value *O2);
@@ -210,6 +211,11 @@ private:
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
                          const Value *V2, LocationSize V2Size,
                          AAQueryInfo &AAQI);
+=======
+  AliasResult aliasCheck(const Value *V1, LocationSize V1Size, const Value *V2,
+                         LocationSize V2Size, AAQueryInfo &AAQI,
+                         const Instruction *CtxI);
+>>>>>>> 61042d2806af6b7202f1008d67b00c8dcfca62d6
 
   const Value* getBaseValue(const Value *V1); // INTEL
 
