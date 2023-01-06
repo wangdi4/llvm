@@ -772,7 +772,7 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
   // Cast split point to an IV type, to use in loop bounds.
   SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
-  unsigned MinBlobIndex;
+  unsigned MinBlobIndex = InvalidBlobIndex;
   BlobTy MinBlob;
   bool BlobsAreConst =
       isa<SCEVConstant>(UpperBlob) && isa<SCEVConstant>(SplitPointBlob);
@@ -795,7 +795,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
   // Cast split point to an IV type, to use in loop bounds.
   SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
-  unsigned MaxBlobIndex;
+  unsigned MaxBlobIndex = InvalidBlobIndex;
   BlobTy MaxBlob;
   bool BlobsAreConst =
       isa<SCEVConstant>(LowerBlob) && isa<SCEVConstant>(SplitPointBlob);
