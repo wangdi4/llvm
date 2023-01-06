@@ -12,7 +12,7 @@ define dso_local void @test(i8* noalias %UniformArgs, i64* noalias %pWGId, {}* n
 wrapper_entry:
   %0 = bitcast i8* %UniformArgs to i32 addrspace(1)**
   %explicit_0 = load i32 addrspace(1)*, i32 addrspace(1)** %0, align 8, !restrict !18
-  store i32 2, i32 addrspace(1)* %explicit_0, align 4, !tbaa !19
+  store i32 3, i32 addrspace(1)* %explicit_0, align 4, !tbaa !19
   ret void
 }
 

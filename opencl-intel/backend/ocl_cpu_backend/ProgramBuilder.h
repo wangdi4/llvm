@@ -24,7 +24,6 @@
 namespace llvm {
 class Module;
 class Function;
-class MemoryBuffer;
 } // namespace llvm
 
 namespace Intel {

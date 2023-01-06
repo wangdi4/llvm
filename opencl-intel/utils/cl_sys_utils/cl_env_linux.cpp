@@ -19,7 +19,7 @@ using namespace Intel::OpenCL::Utils;
 #include <cstdlib>
 
 bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
-                                     const std::string EnvName) {
+                                     const std::string &EnvName) {
   char *Buffer = getenv(EnvName.c_str());
   if (Buffer == nullptr) {
     EnvVal = std::string("");

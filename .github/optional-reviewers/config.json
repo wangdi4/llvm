@@ -1,0 +1,15 @@
+[
+  {
+    "ids": [
+      "jsji"
+    ],
+    "match": ".*optional-reviewers.*"
+  },
+  {
+    "ids": [
+      "wjschmidt"
+    ],
+    "match": ".*VPlan.*"
+  }
+
+]

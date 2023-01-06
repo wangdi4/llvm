@@ -290,10 +290,13 @@ for.end:                                          ; preds = %for.body, %entry
 define void @rhs_narrow_range(i16 %n.raw) {
 ; CHECK-LABEL: 'rhs_narrow_range'
 ; CHECK-NEXT:  Determining loop execution counts for: @rhs_narrow_range
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i16))<nuw><nsw>))<nsw>
-; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 253
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i16))<nuw><nsw>))<nsw>
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i16))<nuw><nsw>))<nsw>
+; INTEL_CUSTOMIZATION
+; Trip count evaluated in i8 type instead of i16 type due to intel customization.
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i8))<nuw>))
+; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is -3
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i8))<nuw>))
+; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (-1 + (1 umax (2 * (zext i7 (trunc i16 (%n.raw /u 2) to i7) to i8))<nuw>))
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;
@@ -340,10 +343,13 @@ define void @ult_constant_rhs(i16 %n.raw, i8 %start) {
 ;
 ; CHECK-LABEL: 'ult_constant_rhs'
 ; CHECK-NEXT:  Determining loop execution counts for: @ult_constant_rhs
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is (255 + (-1 * (zext i8 (1 + %start) to i16))<nsw>)<nsw>
-; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 255
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (255 + (-1 * (zext i8 (1 + %start) to i16))<nsw>)<nsw>
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (255 + (-1 * (zext i8 (1 + %start) to i16))<nsw>)<nsw>
+; INTEL_CUSTOMIZATION
+; Trip count evaluated in i8 type instead of i16 type due to intel customization.
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (-2 + (-1 * %start))
+; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is -1
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + (-1 * %start))
+; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + (-1 * %start))
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;
@@ -365,12 +371,13 @@ define void @ult_constant_rhs_stride2(i16 %n.raw, i8 %start) {
 ;
 ; CHECK-LABEL: 'ult_constant_rhs_stride2'
 ; CHECK-NEXT:  Determining loop execution counts for: @ult_constant_rhs_stride2
-; INTEL
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16)))<nsw> /u 2)
-; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 127
-; INTEL
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16)))<nsw> /u 2)
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is ((1 + (-1 * (zext i8 (2 + %start) to i16))<nsw> + (254 umax (zext i8 (2 + %start) to i16)))<nsw> /u 2)
+; INTEL_CUSTOMIZATION
+; Trip count evaluated in i8 type instead of i16 type due to intel customization.
+; CHECK-NEXT: Loop %for.body: backedge-taken count is ((-1 + (-1 * %start) + (-2 umax (2 + %start))) /u 2)
+; CHECK-NEXT: Loop %for.body: constant max backedge-taken count is 127
+; CHECK-NEXT: Loop %for.body: symbolic max backedge-taken count is ((-1 + (-1 * %start) + (-2 umax (2 + %start))) /u 2)
+; CHECK-NEXT: Loop %for.body: Predicated backedge-taken count is ((-1 + (-1 * %start) + (-2 umax (2 + %start))) /u 2)
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;
@@ -417,10 +424,13 @@ for.end:                                          ; preds = %for.body, %entry
 define void @ult_restricted_rhs(i16 %n.raw) {
 ; CHECK-LABEL: 'ult_restricted_rhs'
 ; CHECK-NEXT:  Determining loop execution counts for: @ult_restricted_rhs
-; CHECK-NEXT:  Loop %for.body: backedge-taken count is (-1 + (1 umax (zext i8 (trunc i16 %n.raw to i8) to i16)))<nsw>
-; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is 254
-; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-1 + (1 umax (zext i8 (trunc i16 %n.raw to i8) to i16)))<nsw>
-; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (-1 + (1 umax (zext i8 (trunc i16 %n.raw to i8) to i16)))<nsw>
+; INTEL_CUSTOMIZATION
+; Trip count evaluated in i8 type instead of i16 type due to intel customization.
+; CHECK-NEXT:  Loop %for.body: backedge-taken count is (-1 + (1 umax (trunc i16 %n.raw to i8)))
+; CHECK-NEXT:  Loop %for.body: constant max backedge-taken count is -2
+; CHECK-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-1 + (1 umax (trunc i16 %n.raw to i8)))
+; CHECK-NEXT:  Loop %for.body: Predicated backedge-taken count is (-1 + (1 umax (trunc i16 %n.raw to i8)))
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %for.body: Trip multiple is 1
 ;

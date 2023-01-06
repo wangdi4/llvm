@@ -10282,6 +10282,52 @@ static bool isIVMaxValUB(const SCEV *IV, ICmpInst::Predicate Pred,
   // Is comparison of the form: (IV <= Final)?
   return Pred == (IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE);
 }
+
+// Assuming \p ExtendedIV is a zero or sign extended AddRec and \p
+// ExtendedLoopBound's constant range fits in AddRec's type, this function
+// truncates both operands to AddRec's type. Effectively, a loop exit predicate
+// of this form-
+//
+// ext(IV) > LoopBound
+//
+// Is transformed to-
+//
+// IV > trunc(LoopBound)
+void truncateExtendedExitOperands(ScalarEvolution &SE, const SCEV *&ExtendedIV,
+                                  const SCEV *&ExtendedLoopBound) {
+  bool IsZext = false;
+  const SCEV *IV = nullptr;
+
+  if (auto *ZExt = dyn_cast<SCEVZeroExtendExpr>(ExtendedIV)) {
+    IsZext = true;
+    IV = ZExt->getOperand();
+
+  } else if (auto *SExt = dyn_cast<SCEVSignExtendExpr>(ExtendedIV)) {
+    IV = SExt->getOperand();
+
+  } else {
+    return;
+  }
+
+  if (!isa<SCEVAddRecExpr>(IV))
+    return;
+
+  auto *IVTy = IV->getType();
+
+  auto Range = IsZext ? SE.getUnsignedRange(ExtendedLoopBound)
+                      : SE.getSignedRange(ExtendedLoopBound);
+
+  unsigned RangeBitSize =
+      IsZext ? Range.getActiveBits() : Range.getMinSignedBits();
+
+  if (RangeBitSize > IVTy->getPrimitiveSizeInBits())
+    return;
+
+  ExtendedIV = IV;
+
+  ExtendedLoopBound = SE.getTruncateExpr(ExtendedLoopBound, IVTy);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 std::optional<ScalarEvolution::ExitLimit>
@@ -10418,6 +10464,10 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   }
 
 #if INTEL_CUSTOMIZATION
+  // Predicate logic can provide more refined results in some case by assuming
+  // nowrap on a zero/sign extended IV.
+  if (!AllowPredicates)
+    truncateExtendedExitOperands(*this, LHS, RHS);
   // This needs to be checked before simplification happens below.
   // Simplification changes '<=' to '<' which results in information loss.
   bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsExit);

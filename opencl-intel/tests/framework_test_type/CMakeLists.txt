@@ -99,8 +99,10 @@ add_ocl_unittest_artifacts(
   data/code_coverage.bc
   data/code_coverage_linux.bin
   data/fp-as-kernel-arg.spv
-  data/replace-module-after-optimizer.ll
-  data/replace-module-before-optimizer.ll
+  data/replace-module-after-optimizer-1.ll
+  data/replace-module-after-optimizer-2.ll
+  data/replace-module-before-optimizer-1.ll
+  data/replace-module-before-optimizer-2.ll
   data/reqd_num_sub_groups_32.bc
   data/reqd_num_sub_groups_64.bc
   data/spec_const.spv
