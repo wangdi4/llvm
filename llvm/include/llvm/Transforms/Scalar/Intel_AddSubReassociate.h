@@ -13,7 +13,6 @@
 #define LLVM_TRANSFORMS_SCALAR_ADDSUBREASSOCIATE_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -21,6 +20,7 @@
 #include "llvm/IR/PassManager.h"
 #include <atomic>
 #include <memory>
+#include <optional>
 
 namespace llvm {
 namespace intel_addsubreassoc {
@@ -381,8 +381,8 @@ private:
   /// instructions until the operands remain instructions with same opcode.
   /// Search for loads as far as \p MaxDepth.
   /// Return distance if able to compute it.
-  Optional<int64_t> findLoadDistance(Value *V1, Value *V2,
-                                     unsigned MaxDepth = 2) const;
+  std::optional<int64_t> findLoadDistance(Value *V1, Value *V2,
+                                          unsigned MaxDepth = 2) const;
   /// Returns the sum of the absolute distances of G1 and G2.
   int64_t getSumAbsDistances(const CanonForm &G1, const CanonForm &G2);
   /// Recursive function to explore the different orderings of G1's leaves
