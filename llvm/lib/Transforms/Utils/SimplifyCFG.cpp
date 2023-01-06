@@ -4877,6 +4877,13 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
     NewCond =
         Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
 #endif
+    if (NewCond->hasOneUse() && isa<CmpInst>(NewCond)) {
+      CmpInst *CI = cast<CmpInst>(NewCond);
+      CI->setPredicate(CI->getInversePredicate());
+    } else {
+      NewCond =
+          Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
+    }
 
     PBI->setCondition(NewCond);
     PBI->swapSuccessors();
@@ -5101,7 +5108,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
       Type *Ty = BI->getCondition()->getType();
       InstructionCost Cost = TTI->getArithmeticInstrCost(Opc, Ty, CostKind);
       if (InvertPredCond && (!PBI->getCondition()->hasOneUse() ||
-                             !isa<CmpInst>(PBI->getCondition())))
+          !isa<CmpInst>(PBI->getCondition())))
         Cost += TTI->getArithmeticInstrCost(Instruction::Xor, Ty, CostKind);
 
       if (Cost > BranchFoldThreshold)

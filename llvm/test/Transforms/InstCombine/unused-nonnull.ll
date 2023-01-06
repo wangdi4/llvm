@@ -11,12 +11,18 @@ define i32 @main(i32 %argc, ptr %argv) #0 {
 ; CHECK-LABEL: define {{[^@]+}}@main
 ; CHECK-SAME: (i32 [[ARGC:%.*]], ptr nocapture readonly [[ARGV:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; TMP0 has a different name for some reason
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp slt i32 [[ARGC]], 2
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP0]], i32 0, i32 [[ARGC]]
 ; CHECK-NEXT:    ret i32 [[SPEC_SELECT]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp slt i32 [[ARGC]], 2
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP0]], i32 0, i32 [[ARGC]]
+; CHECK-NEXT:    ret i32 [[SPEC_SELECT]]
+>>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ;
 entry:
   %ptr = load ptr, ptr %argv

@@ -14,8 +14,13 @@ define i32 @test1(i32 %a, i32 %b, i32 %c) {
 ; CHECK-NEXT:    [[T2:%.*]] = icmp sgt i32 [[C:%.*]], 1
 ; CHECK-NEXT:    [[T3:%.*]] = add i32 [[A:%.*]], 1
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], i32 [[T3]], i32 [[A]]
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[T1]], i32 [[SPEC_SELECT]], i32 [[B]]
 ; CHECK-NEXT:    [[T5:%.*]] = sub i32 [[TMP0]], 1
+=======
+; CHECK-NEXT:    [[T4:%.*]] = select i1 [[T1]], i32 [[SPEC_SELECT]], i32 [[B]]
+; CHECK-NEXT:    [[T5:%.*]] = sub i32 [[T4]], 1
+>>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ; CHECK-NEXT:    ret i32 [[T5]]
 ;
 entry:
@@ -43,11 +48,20 @@ define float @spec_select_fp1(float %a, float %b, float %c) {
 ; CHECK-NEXT:    br i1 [[T1]], label [[BB1:%.*]], label [[BB3:%.*]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A:%.*]], 1.000000e+00
 ; CHECK-NEXT:    [[TMP0:%.*]] = select ninf i1 [[T2]], float [[T3]], float [[A]]
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
 ; CHECK-NEXT:    [[T4:%.*]] = phi ninf float [ [[B]], [[ENTRY:%.*]] ], [ [[TMP0]], [[BB1]] ]
+=======
+; CHECK-NEXT:    br i1 [[T2]], label [[BB2:%.*]], label [[BB3]]
+; CHECK:       bb2:
+; CHECK-NEXT:    [[T3:%.*]] = fadd float [[A:%.*]], 1.000000e+00
+; CHECK-NEXT:    br label [[BB3]]
+; CHECK:       bb3:
+; CHECK-NEXT:    [[T4:%.*]] = phi ninf float [ [[B]], [[ENTRY:%.*]] ], [ [[A]], [[BB1]] ], [ [[T3]], [[BB2]] ]
+>>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ; CHECK-NEXT:    [[T5:%.*]] = fsub float [[T4]], 1.000000e+00
 ; CHECK-NEXT:    ret float [[T5]]
 ;
@@ -126,10 +140,17 @@ define i32* @test5(i32 %a, i32 %b, i32 %c, i32* dereferenceable(10) %ptr1, i32* 
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = icmp eq i32 [[B:%.*]], 0
 ; CHECK-NEXT:    [[T2:%.*]] = icmp sgt i32 [[C:%.*]], 1
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[T3:%.*]] = load i32*, i32** [[PTR3:%.*]], align 8
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], i32* [[T3]], i32* [[PTR2:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[T1]], i32* [[SPEC_SELECT]], i32* [[PTR1:%.*]]
 ; CHECK-NEXT:    ret i32* [[TMP0]]
+=======
+; CHECK-NEXT:    [[T3:%.*]] = load ptr, ptr [[PTR3:%.*]], align 8
+; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[T2]], ptr [[T3]], ptr [[PTR2:%.*]]
+; CHECK-NEXT:    [[T4:%.*]] = select i1 [[T1]], ptr [[SPEC_SELECT]], ptr [[PTR1:%.*]]
+; CHECK-NEXT:    ret ptr [[T4]]
+>>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ;
 entry:
   %t1 = icmp eq i32 %b, 0
@@ -152,10 +173,21 @@ define float @spec_select_fp5(float %a, float %b, float %c) {
 ; CHECK-LABEL: define {{[^@]+}}@spec_select_fp5(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[T1:%.*]] = fcmp oeq float [[B:%.*]], 0.000000e+00
+; CHECK-NEXT:    br i1 [[T1]], label [[BB1:%.*]], label [[BB3:%.*]]
+; CHECK:       bb1:
 ; CHECK-NEXT:    [[T2:%.*]] = fcmp ogt float [[C:%.*]], 1.000000e+00
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = select nsz i1 [[T2]], float [[C]], float [[B]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = select nsz i1 [[T1]], float [[TMP0]], float [[A:%.*]]
 ; CHECK-NEXT:    ret float [[TMP1]]
+=======
+; CHECK-NEXT:    br i1 [[T2]], label [[BB2:%.*]], label [[BB3]]
+; CHECK:       bb2:
+; CHECK-NEXT:    br label [[BB3]]
+; CHECK:       bb3:
+; CHECK-NEXT:    [[T4:%.*]] = phi nsz float [ [[A:%.*]], [[ENTRY:%.*]] ], [ [[B]], [[BB1]] ], [ [[C]], [[BB2]] ]
+; CHECK-NEXT:    ret float [[T4]]
+>>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ;
 entry:
   %t1 = fcmp oeq float %b, 0.0
