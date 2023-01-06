@@ -50,7 +50,8 @@ public:
   bool canMoveTo(const OVLSMemref &To) override;
 
   bool static isConstStride(const VPLoadStoreInst *Inst,
-                            const VPlanScalarEvolutionLLVM *VPSE);
+                            const VPlanScalarEvolutionLLVM *VPSE,
+                            Optional<int64_t> &Stride);
   Optional<int64_t> getConstStride() const override;
 
   bool dominates(const OVLSMemref &Mrf) const override;

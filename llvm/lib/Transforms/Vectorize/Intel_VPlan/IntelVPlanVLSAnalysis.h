@@ -101,10 +101,14 @@ private:
 
   SmallDenseMap<const VPlan *, VLSInfo> Plan2VLSInfo;
 
+  /// Force VLS optimization for stride-2 accesses. This is set to true
+  /// for avx512 compilations to match classic compiler behavior.
+  bool ForceStride2VLS = false;
+
 public:
   VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
-                   const DataLayout &DL, TargetTransformInfo *TTI)
-      : MainLoop(MainLoop), Context(Context), DL(DL), TTI(TTI) {}
+                   const DataLayout &DL, TargetTransformInfo *TTI);
+
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.
@@ -132,6 +136,8 @@ public:
   LLVMContext &getContext() const { return Context; }
   OVLSContext &getOVLSContext() { return OptVLSContext; }
   const DataLayout &getDL() const { return DL; }
+
+  bool getForceStride2VLS() const { return ForceStride2VLS; }
 };
 
 int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group);
