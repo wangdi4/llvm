@@ -52,6 +52,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/LivePhysRegs.h"
+#endif // INTEL_CUSTIOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-vzeroupper"
@@ -101,15 +105,22 @@ namespace {
     //                          DirtySuccessors list to ensure that it's not
     //                          added multiple times.
     //
-    // FirstUnguardedCall - Records the location of the first unguarded call in
-    //                      each basic block that may need to be guarded by a
-    //                      vzeroupper. We won't know whether it actually needs
-    //                      to be guarded until we discover a predecessor that
-    //                      is DIRTY_OUT.
+#if INTEL_CUSTOMIZATION
+    // FirstUnguardedCallOrSSEInstruction - Records the location of the first
+    //                                      unguarded call or SSE instruction
+    //                                      in each basic block that may need
+    //                                      to be guarded by a vzeroupper. We
+    //                                      won't know whether it actually
+    //                                      needs to be guarded until we
+    //                                      discover a predecessor that is
+    //                                      DIRTY_OUT.
+#endif // INTEL_CUSTIOMIZATION
     struct BlockState {
       BlockExitState ExitState = PASS_THROUGH;
       bool AddedToDirtySuccessors = false;
-      MachineBasicBlock::iterator FirstUnguardedCall;
+#if INTEL_CUSTOMIZATION
+      MachineBasicBlock::iterator FirstUnguardedCallOrSSEInstruction;
+#endif // INTEL_CUSTIOMIZATION
 
       BlockState() = default;
     };
@@ -188,6 +199,59 @@ static bool hasYmmOrZmmReg(MachineInstr &MI) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isXmmReg(unsigned Reg) {
+  return Reg >= X86::XMM0 && Reg <= X86::XMM15;
+}
+
+static bool clobbersAllXmmRegs(const MachineOperand &MO) {
+  for (unsigned Reg = X86::XMM0; Reg <= X86::XMM15; ++Reg)
+    if (!MO.clobbersPhysReg(Reg))
+      return false;
+  return true;
+}
+
+static bool hasXmmReg(const MachineInstr &MI) {
+  for (const MachineOperand &MO : MI.operands()) {
+    if (MI.isCall() && MO.isRegMask() && !clobbersAllXmmRegs(MO))
+      return true;
+    if (!MO.isReg())
+      continue;
+    if (MO.isDebug())
+      continue;
+    if (isXmmReg(MO.getReg()))
+      return true;
+  }
+  return false;
+}
+
+// Determine whether an instruction is an SSE instruction (not using the more
+// recent VEX/EVEX encodings and may incur penalty in runtime)
+static bool isSSEInstruction(const MachineInstr &MI) {
+  // An instruction with a XMM operand that is not using VEX/EVEX is an SSE
+  // instruction
+  // Instructions with generic opcodes are ignored since most of them in this
+  // stage are noop. Inline asm is an exception but there is no way to know
+  // what's inside.
+  // Calls and returns may also carry XMM operands but they're not SSE
+  // instructions.
+  uint64_t TSFlags = MI.getDesc().TSFlags;
+  if (TSFlags & X86II::VEX || TSFlags & X86II::EVEX)
+    return false;
+  if (MI.isCall() || MI.isReturn() || !isTargetSpecificOpcode(MI.getOpcode()))
+    return false;
+  return hasXmmReg(MI);
+}
+
+// Returns true if a YMM or ZMM register is live in current LivePhysRegs
+static bool checkInstructionHasLiveInYmmOrZmm(const LivePhysRegs &LiveRegs) {
+  for (MCPhysReg Reg : LiveRegs)
+    if (isYmmOrZmmReg(Reg))
+      return true;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Check if given call instruction has a RegMask operand.
 static bool callHasRegMask(MachineInstr &MI) {
   assert(MI.isCall() && "Can only be called on call instructions.");
@@ -231,12 +295,21 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
   // Start by assuming that the block is PASS_THROUGH which implies no unguarded
   // calls.
   BlockExitState CurState = PASS_THROUGH;
-  BlockStates[MBB.getNumber()].FirstUnguardedCall = MBB.end();
+#if INTEL_CUSTOMIZATION
+  BlockStates[MBB.getNumber()].FirstUnguardedCallOrSSEInstruction = MBB.end();
+  LivePhysRegs LiveRegs(*MBB.getParent()->getSubtarget().getRegisterInfo());
+  LiveRegs.addLiveIns(MBB);
+#endif // INTEL_CUSTOMIZATION
 
   for (MachineInstr &MI : MBB) {
     bool IsCall = MI.isCall();
     bool IsReturn = MI.isReturn();
     bool IsControlFlow = IsCall || IsReturn;
+#if INTEL_CUSTOMIZATION
+    bool IsSSE = isSSEInstruction(MI);
+    SmallVector<std::pair<MCPhysReg, const MachineOperand *>> Clobbers;
+    LiveRegs.stepForward(MI, Clobbers);
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
     // If the function have one of YMM/ZMM0-15 registers as callee-saved
@@ -254,7 +327,9 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
     }
 
     // Shortcut: don't need to check regular instructions in dirty state.
-    if (!IsControlFlow && CurState == EXITS_DIRTY)
+#if INTEL_CUSTOMIZATION
+    if ((!IsControlFlow && !IsSSE) && CurState == EXITS_DIRTY)
+#endif // INTEL_CUSTOMIZATION
       continue;
 
     if (hasYmmOrZmmReg(MI)) {
@@ -264,10 +339,19 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
       continue;
     }
 
-    // Check for control-flow out of the current function (which might
-    // indirectly execute SSE instructions).
-    if (!IsControlFlow)
+#if INTEL_CUSTOMIZATION
+    // Check for SSE instructions and control-flow out of the current function
+    // (which might indirectly execute SSE instructions).
+    if (!IsControlFlow && !IsSSE)
+#endif // INTEL_CUSTOMIZATION
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // We can't insert VZEROUPPER before an SSE instruction if a YMM/ZMM
+    // register lives through it.
+    if (IsSSE && checkInstructionHasLiveInYmmOrZmm(LiveRegs))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     // If the call has no RegMask, skip it as well. It usually happens on
     // helper function calls (such as '_chkstk', '_ftol2') where standard
@@ -291,12 +375,14 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
       insertVZeroUpper(MI, MBB);
       CurState = EXITS_CLEAN;
     } else if (CurState == PASS_THROUGH) {
+#if INTEL_CUSTOMIZATION
       // If this block is currently in pass-through state and we encounter a
-      // call then whether we need a vzeroupper or not depends on whether this
-      // block has successors that exit dirty. Record the location of the call,
-      // and set the state to EXITS_CLEAN, but do not insert the vzeroupper yet.
-      // It will be inserted later if necessary.
-      BlockStates[MBB.getNumber()].FirstUnguardedCall = MI;
+      // SSE or call instruction then whether we need a vzeroupper or not
+      // depends on whether this block has successors that exit dirty. Record
+      // its location, and set the state to EXITS_CLEAN, but do not insert the
+      // vzeroupper yet. It will be inserted later if necessary.
+      BlockStates[MBB.getNumber()].FirstUnguardedCallOrSSEInstruction = MI;
+#endif // INTEL_CUSTOMIZATION
       CurState = EXITS_CLEAN;
     }
   }
@@ -369,10 +455,12 @@ bool VZeroUpperInserter::runOnMachineFunction(MachineFunction &MF) {
     DirtySuccessors.pop_back();
     BlockState &BBState = BlockStates[MBB.getNumber()];
 
-    // MBB is a successor of a dirty block, so its first call needs to be
-    // guarded.
-    if (BBState.FirstUnguardedCall != MBB.end())
-      insertVZeroUpper(BBState.FirstUnguardedCall, MBB);
+#if INTEL_CUSTOMIZATION
+    // MBB is a successor of a dirty block, so its first SSE instruction or
+    // call needs to be guarded.
+    if (BBState.FirstUnguardedCallOrSSEInstruction != MBB.end())
+      insertVZeroUpper(BBState.FirstUnguardedCallOrSSEInstruction, MBB);
+#endif // INTEL_CUSTOMIZATION
 
     // If this successor was a pass-through block, then it is now dirty. Its
     // successors need to be added to the worklist (if they haven't been
