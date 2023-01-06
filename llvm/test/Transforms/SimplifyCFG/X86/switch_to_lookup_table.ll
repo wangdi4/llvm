@@ -1443,19 +1443,11 @@ define i32 @no_reuse_cmp2(i32 %x, i32 %y) {
 ; CHECK-NEXT:    [[EC:%.*]] = icmp ne i32 [[Y:%.*]], 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[X:%.*]], 4
 ; CHECK-NEXT:    [[SWITCH_OFFSET:%.*]] = add i32 [[X]], 10
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[TMP0]], i32 [[SWITCH_OFFSET]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[EC]], i32 [[TMP1]], i32 100
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP2]], 0
-; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[CMP]], i32 100, i32 [[TMP2]]
-; CHECK-NEXT:    ret i32 [[TMP3]]
-=======
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP0]], i32 [[SWITCH_OFFSET]], i32 0
 ; CHECK-NEXT:    [[R_0:%.*]] = select i1 [[EC]], i32 [[SPEC_SELECT]], i32 100
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[R_0]], 0
 ; CHECK-NEXT:    [[DOTR_0:%.*]] = select i1 [[CMP]], i32 100, i32 [[R_0]]
 ; CHECK-NEXT:    ret i32 [[DOTR_0]]
->>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ;
 entry:
   %ec = icmp ne i32 %y, 0

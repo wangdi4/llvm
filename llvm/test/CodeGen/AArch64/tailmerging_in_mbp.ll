@@ -2,11 +2,7 @@
 
 ; CHECK-LABEL: test:
 ; CHECK-LABEL: %cond.false12.i
-<<<<<<< HEAD
-; CHECK:         b.gt
-=======
 ; CHECK:         b.gt	
->>>>>>> 37b8f09a4b61bf9bf9d0b9017d790c8b82be2e17
 ; CHECK-NEXT:  LBB0_8:
 ; CHECK-NEXT:    mov	 x8, x9
 ; CHECK-NEXT:  LBB0_9:
