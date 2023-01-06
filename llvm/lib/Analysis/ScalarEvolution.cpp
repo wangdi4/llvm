@@ -5310,7 +5310,7 @@ public:
         std::optional<const SCEV *> Res =
             compareWithBackedgeCondition(SI->getCondition());
         if (Res) {
-          bool IsOne = cast<SCEVConstant>(Res.value())->getValue()->isOne();
+          bool IsOne = cast<SCEVConstant>(*Res)->getValue()->isOne();
           Result = SE.getSCEV(IsOne ? SI->getTrueValue() : SI->getFalseValue());
         }
         break;
@@ -5318,7 +5318,7 @@ public:
       default: {
         std::optional<const SCEV *> Res = compareWithBackedgeCondition(I);
         if (Res)
-          Result = Res.value();
+          Result = *Res;
         break;
       }
       }
@@ -7429,7 +7429,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
     std::optional<ConstantRange> MDRange = GetRangeFromMetadata(U->getValue());
     if (MDRange)
       ConservativeResult =
-          ConservativeResult.intersectWith(MDRange.value(), RangeType);
+          ConservativeResult.intersectWith(*MDRange, RangeType);
 
 #if INTEL_CUSTOMIZATION
     if (auto *I = dyn_cast<Instruction>(U->getValue())) {
@@ -12513,8 +12513,7 @@ ScalarEvolution::getMonotonicPredicateType(const SCEVAddRecExpr *LHS,
     auto ResultSwapped =
         getMonotonicPredicateTypeImpl(LHS, ICmpInst::getSwappedPredicate(Pred));
 
-    assert(ResultSwapped && "should be able to analyze both!");
-    assert(ResultSwapped.value() != Result.value() &&
+    assert(*ResultSwapped != *Result &&
            "monotonicity should flip as we flip the predicate");
   }
 #endif
