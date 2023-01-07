@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-loads-only 2>&1 < %s | FileCheck %s --check-prefix=CHECK-LOADS-ONLY
 ;
 ; Source code
 ; float A[1000];
@@ -49,6 +50,13 @@
 ; CHECK:                ret &((undef)[0]);
 ; CHECK:          END REGION
 ;
+
+; Verify that store (@A)[0][i1] is not prefetched when only loads are enabled.
+; CHECK-LOADS-ONLY: @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 40]),  0,  0,  1);
+; CHECK-LOADS-ONLY: @llvm.prefetch.p0i8(&((i8*)(@C)[0][i1 + 20]),  0,  0,  1);
+
+; CHECK-LOADS-ONLY-NOT: llvm.prefetch.p0i8
+
 ;Module Before HIR
 ; ModuleID = 't.c'
 source_filename = "t.c"

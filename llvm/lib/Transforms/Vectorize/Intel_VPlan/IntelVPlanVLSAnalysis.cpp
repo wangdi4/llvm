@@ -45,6 +45,16 @@ cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
                           "Always run OptVLS during loop vectorization")),
     cl::init(VPlanVLSRunAuto));
 
+VPlanVLSAnalysis::VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
+                                   const DataLayout &DL,
+                                   TargetTransformInfo *TTI)
+    : MainLoop(MainLoop), Context(Context), DL(DL), TTI(TTI) {
+  // If compiling for -xcore-avx512 and VPlanVLSLevel is set to auto
+  // only allow stride-2 accesses.
+  if (VPlanVLSLevel == VPlanVLSRunAuto &&
+      TTI->isAdvancedOptEnabled(TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+    ForceStride2VLS = true;
+}
 OVLSMemref *
 VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                   const unsigned VF,
@@ -71,8 +81,16 @@ VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
 
   // At this point we are not sure if this memref should be created. Perform
   // a check first and only create the memref if it would be constant strided.
+  Optional<int64_t> Stride;
   if (VPVLSClientMemref::isConstStride(
-          VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE))) {
+          VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE),
+          Stride)) {
+
+    // Return null when stride != 2 and Stride2 accesses are forced. Stride is
+    // in bytes and AccessSize is in bits.
+    if (getForceStride2VLS() && ((*Stride / (AccessSize / 8)) != 2))
+      return nullptr;
+
     return VPVLSClientMemref::create(OptVLSContext,
                                      OVLSMemref::VLSK_VPlanVLSClientMemref,
                                      AccKind, Ty, VPInst, this);
@@ -85,7 +103,8 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
-      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable()))
+      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable() &&
+       !getForceStride2VLS()))
     return;
 
   if (!TTI->isAggressiveVLSProfitable())

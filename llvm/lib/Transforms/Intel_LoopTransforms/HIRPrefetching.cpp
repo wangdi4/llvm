@@ -131,6 +131,10 @@ static cl::opt<bool>
                               cl::init(false), cl::Hidden,
                               cl::desc("Enable indirect prefetching"));
 
+static cl::opt<bool>
+    PrefetchLoadsOnly("hir-prefetching-loads-only", cl::init(false), cl::Hidden,
+                      cl::desc("Enable prefetching only for loads"));
+
 namespace {
 
 struct PragmaInfo {
@@ -289,6 +293,19 @@ unsigned HIRPrefetching::getPrefetchingDist(HLLoop *Lp) {
   return IterationDistance * LpStride;
 }
 
+static RefGroupTy::iterator getFirstLoadRef(RefGroupTy &RefGroup) {
+
+  auto It = RefGroup.begin();
+  for (; It != RefGroup.end(); ++It) {
+
+    if ((*It)->isRval()) {
+      return It;
+    }
+  }
+
+  return RefGroup.end();
+}
+
 // Collect the prefetching candidates by computing the number of Streams in the
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
@@ -299,7 +316,13 @@ void HIRPrefetching::collectPrefetchCandidates(
     return;
   }
 
-  const RegDDRef *FirstRef = RefGroup.front();
+  auto FirstRefIt =
+      PrefetchLoadsOnly ? getFirstLoadRef(RefGroup) : RefGroup.begin();
+  if (FirstRefIt == RefGroup.end()) {
+    return;
+  }
+
+  auto *FirstRef = *FirstRefIt;
   unsigned VecNumElements = 0;
 
   const RegDDRef *ScalarRef = getScalarRef(FirstRef, VecNumElements);
@@ -334,9 +357,13 @@ void HIRPrefetching::collectPrefetchCandidates(
   const RegDDRef *PrevRef = FirstRef;
   const RegDDRef *CurRef = nullptr;
 
-  for (auto RefIt = RefGroup.begin() + 1, E = RefGroup.end(); RefIt != E;
-       ++RefIt) {
+  for (auto RefIt = FirstRefIt + 1, E = RefGroup.end(); RefIt != E; ++RefIt) {
     CurRef = *RefIt;
+
+    bool CurRefIsLval = CurRef->isLval();
+    if (PrefetchLoadsOnly && CurRefIsLval) {
+      continue;
+    }
 
     int64_t Dist;
     DDRefUtils::getConstByteDistance(CurRef, PrevRef, &Dist);
@@ -344,15 +371,14 @@ void HIRPrefetching::collectPrefetchCandidates(
     assert((Dist >= 0) && "Refs do not have constant non-negative distance!");
 
     if (Dist / Stride >= TripCount) {
-      IsLval = CurRef->isLval();
+      IsLval = CurRefIsLval;
       SpatialPrefetchCandidates.emplace_back(CurRef, nullptr, Distance, Hint,
                                              IsLval, HasSpecifiedHintOrDist);
       PrevRef = CurRef;
-    } else if (CurRef->isLval() && !IsLval) {
+    } else if (CurRefIsLval && !IsLval) {
       SpatialPrefetchCandidates.back().IsWrite = true;
     }
   }
-  return;
 }
 
 static void collectLoadLvalSB(
@@ -607,6 +633,10 @@ bool HIRPrefetching::doAnalysis(
 
     if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
         ConstStride == 0) {
+
+      if (PrefetchLoadsOnly && FirstRef->isLval()) {
+        continue;
+      }
 
       // Check whether the nonlinear ref is an indirect prefetching candidate
       // if it has pragma prefetch

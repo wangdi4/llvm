@@ -167,8 +167,10 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 bool VPVLSClientMemref::isConstStride(const VPLoadStoreInst *Inst,
-                                      const VPlanScalarEvolutionLLVM *VPSE) {
-  return getConstStrideImpl(getAddressSCEV(Inst), *VPSE).has_value();
+                                      const VPlanScalarEvolutionLLVM *VPSE,
+                                      Optional<int64_t> &Stride) {
+  Stride = getConstStrideImpl(getAddressSCEV(Inst), *VPSE);
+  return Stride.has_value();
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {

@@ -56,6 +56,13 @@ VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   // Overrides incoming AT.
   // TODO: remove getAccessType() from this place.
   MemAccessTy AccTy = getAccessType(Ref, Level, &Stride);
+
+  // Return null if we are forcing only stride-2 VLS and the stride
+  // is not equal to 2.
+  int64_t ElemStride = Stride / Ref->getDestTypeSizeInBytes();
+  if (getForceStride2VLS() && ElemStride != 2)
+    return nullptr;
+
   unsigned Opcode = Inst->getOpcode();
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
