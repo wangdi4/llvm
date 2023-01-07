@@ -1399,19 +1399,9 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
           DL, Offset, /* AllowNonInbounds */ true);
       auto It = OffsetInfoMap.find(CurPtrBase);
       if (It != OffsetInfoMap.end()) {
-<<<<<<< HEAD
         Offset += It->getSecond().Offset;
         if (IsFirstPHIUser || Offset == UsrOI.Offset)
           return HandlePassthroughUser(Usr, PtrOI, Follow);
-=======
-        auto BaseOI = It->getSecond();
-        BaseOI.addToAll(Offset.getZExtValue());
-        if (IsFirstPHIUser || BaseOI == UsrOI) {
-          LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI is invariant " << *CurPtr
-                            << " in " << *Usr << "\n");
-          return HandlePassthroughUser(Usr, PtrOI, Follow);
-        }
->>>>>>> 8b446ea2ba39e406bcf940ea35d6efb4bb9afe95
         LLVM_DEBUG(
             dbgs() << "[AAPointerInfo] PHI operand pointer offset mismatch "
                    << *CurPtr << " in " << *Usr << "\n");
@@ -1421,12 +1411,8 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
       }
 
       // TODO: Approximate in case we know the direction of the recurrence.
-<<<<<<< HEAD
       UsrOI = PtrOI;
       UsrOI.Offset = AA::RangeTy::Unknown;
-=======
-      UsrOI.setUnknown();
->>>>>>> 8b446ea2ba39e406bcf940ea35d6efb4bb9afe95
       Follow = true;
       return true;
     }
