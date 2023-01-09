@@ -57,8 +57,6 @@
 ; GCN-O0-NEXT:    SYCL Local Accessor to Shared Memory
 ; GCN-O0-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O0-NEXT:    AMDGPU Attributor
-; GCN-O0-NEXT:      FunctionPass Manager
-; GCN-O0-NEXT:        Cycle Info Analysis
 ; GCN-O0-NEXT:    CallGraph Construction
 ; GCN-O0-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O0-NEXT:      AMDGPU Annotate Kernel Features
@@ -235,8 +233,6 @@
 ; GCN-O1-NEXT:    SYCL Local Accessor to Shared Memory
 ; GCN-O1-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-NEXT:    AMDGPU Attributor
-; GCN-O1-NEXT:      FunctionPass Manager
-; GCN-O1-NEXT:        Cycle Info Analysis
 ; GCN-O1-NEXT:    CallGraph Construction
 ; GCN-O1-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O1-NEXT:      AMDGPU Annotate Kernel Features
@@ -523,8 +519,6 @@
 ; GCN-O1-OPTS-NEXT:    SYCL Local Accessor to Shared Memory
 ; GCN-O1-OPTS-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-OPTS-NEXT:    AMDGPU Attributor
-; GCN-O1-OPTS-NEXT:      FunctionPass Manager
-; GCN-O1-OPTS-NEXT:        Cycle Info Analysis
 ; GCN-O1-OPTS-NEXT:    CallGraph Construction
 ; GCN-O1-OPTS-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O1-OPTS-NEXT:      AMDGPU Annotate Kernel Features
@@ -825,8 +819,6 @@
 ; GCN-O2-NEXT:    SYCL Local Accessor to Shared Memory
 ; GCN-O2-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O2-NEXT:    AMDGPU Attributor
-; GCN-O2-NEXT:      FunctionPass Manager
-; GCN-O2-NEXT:        Cycle Info Analysis
 ; GCN-O2-NEXT:    CallGraph Construction
 ; GCN-O2-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O2-NEXT:      AMDGPU Annotate Kernel Features
@@ -1140,8 +1132,6 @@
 ; GCN-O3-NEXT:    SYCL Local Accessor to Shared Memory
 ; GCN-O3-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O3-NEXT:    AMDGPU Attributor
-; GCN-O3-NEXT:      FunctionPass Manager
-; GCN-O3-NEXT:        Cycle Info Analysis
 ; GCN-O3-NEXT:    CallGraph Construction
 ; GCN-O3-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O3-NEXT:      AMDGPU Annotate Kernel Features
