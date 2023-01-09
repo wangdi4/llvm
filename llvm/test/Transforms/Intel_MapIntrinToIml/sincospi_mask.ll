@@ -6,7 +6,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @vector_sincospif
-; CHECK: %{{.*}} = call svml_avx512_cc { <16 x float>, <16 x float> } @__svml_sincospif16_ha_mask_z0({ <16 x float>, <16 x float> } %tmp2, <16 x i1> %tmp, <16 x float> %E)
+; CHECK: %{{.*}} = call svml_avx512_cc { <16 x float>, <16 x float> } @__svml_sincospif16_mask_z0({ <16 x float>, <16 x float> } %tmp2, <16 x i1> %tmp, <16 x float> %E)
 ; CHECK: ret
 define <16 x float> @vector_sincospif(<16 x float>* nocapture %A, <16 x float> %B, <16 x float> %C, i16 zeroext %D, <16 x float> %E) #0 {
 entry:
@@ -21,7 +21,7 @@ entry:
 }
 
 ; CHECK-LABEL: @vector_sincospi
-; CHECK: %{{.*}} = call svml_avx512_cc { <8 x double>, <8 x double> } @__svml_sincospi8_ha_mask_z0({ <8 x double>, <8 x double> } %tmp2, <8 x i1> %tmp, <8 x double> %E)
+; CHECK: %{{.*}} = call svml_avx512_cc { <8 x double>, <8 x double> } @__svml_sincospi8_mask_z0({ <8 x double>, <8 x double> } %tmp2, <8 x i1> %tmp, <8 x double> %E)
 ; CHECK: ret
 define <8 x double> @vector_sincospi(<8 x double>* nocapture %A, <8 x double> %B, <8 x double> %C, i8 zeroext %D, <8 x double> %E) #0 {
 entry:
