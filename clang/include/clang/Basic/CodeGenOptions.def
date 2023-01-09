@@ -76,6 +76,10 @@ CODEGENOPT(DisableFree       , 1, 0) ///< Don't free memory.
 CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMContext flag)
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+CODEGENOPT(FunctionMarkerCount, 6, llvm::MarkerCount::Function_Never)
+CODEGENOPT(LoopMarkerCount, 6, llvm::MarkerCount::Loop_Never)
+#endif // INTEL_FEATURE_MARKERCOUNT
 // CMPLRS-47771 - Disable all optimizations that would set the
 //                "Intel Proprietary" module flag so that bitcode files can be
 //                emitted without exposing Intel IP.

@@ -522,6 +522,11 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
   Options.IntelLibIRCAllowed = CodeGenOpts.IntelLibIRCAllowed;
   Options.IntelSpillParms = CodeGenOpts.IntelSpillParms;
+#if INTEL_FEATURE_MARKERCOUNT
+  Options.MarkerCountKind =
+      CodeGenOpts.FunctionMarkerCount | CodeGenOpts.LoopMarkerCount;
+  Options.OverrideMarkerCountFile = CodeGenOpts.OverrideMarkerCountFile;
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
   Options.ApproxFuncFPMath = LangOpts.ApproxFunc;
 

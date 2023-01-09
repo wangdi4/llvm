@@ -195,6 +195,13 @@ public:
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  /// Override the marker count kind for the functions in the file.
+  std::string OverrideMarkerCountFile;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   /// The filename with path we use for coverage data files. The runtime
   /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
   /// environment variables.

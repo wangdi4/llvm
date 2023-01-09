@@ -6717,6 +6717,32 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  if (Arg *A = Args.getLastArg(options::OPT_ffunction_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef FM = A->getValue();
+    if (FM == "never" || FM == "me" || FM == "be")
+      CmdArgs.push_back(
+          Args.MakeArgString("-ffunction-marker-count=" + Twine(FM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << FM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_floop_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef LM = A->getValue();
+    if (LM == "never" || LM == "me" || LM == "be")
+      CmdArgs.push_back(Args.MakeArgString("-floop-marker-count=" + Twine(LM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << LM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_foverride_marker_count_file_EQ))
+    A->render(Args, CmdArgs);
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
+
   if (Arg *A = Args.getLastArg(options::OPT_mtls_size_EQ)) {
     StringRef Value = A->getValue();
     unsigned TLSSize = 0;
@@ -6738,12 +6764,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   RenderTargetOptions(Triple, Args, KernelOrKext, CmdArgs);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  addMarkerCountArgs(D, Args, CmdArgs, /*IsLTO=*/false);
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
   // FIXME: For now we want to demote any errors to warnings, when they have
   // been raised for asking the wrong question of scalable vectors, such as

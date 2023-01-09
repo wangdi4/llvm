@@ -3,7 +3,7 @@
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
-; CHECK: call svml_cc <4 x float> @__svml_powf4_ha
+; CHECK: call fast svml_cc <4 x float> @__svml_powf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -22,7 +22,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %2 = getelementptr inbounds float, float* %array3, i64 %index
   %3 = bitcast float* %2 to <4 x float>*
   %wide.load11 = load <4 x float>, <4 x float>* %3, align 4
-  %4 = call <4 x float> @__svml_powf4(<4 x float> %wide.load, <4 x float> %wide.load11)
+  %4 = call fast <4 x float> @__svml_powf4(<4 x float> %wide.load, <4 x float> %wide.load11)
   %5 = getelementptr inbounds float, float* %array, i64 %index
   %6 = bitcast float* %5 to <4 x float>*
   store <4 x float> %4, <4 x float>* %6, align 4

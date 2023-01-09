@@ -2331,6 +2331,21 @@ def fimf_use_svml_EQ : Joined<["-"], "fimf-use-svml=">, Group<f_Group>,
 def fimf_use_svml : Flag<["-"], "fimf-use-svml">, Alias<fimf_use_svml_EQ>,
   AliasArgs<["true"]>;
 def fmax_errors_EQ : Joined<["-"], "fmax-errors=">, Alias<ferror_limit_EQ>;
+#if INTEL_FEATURE_MARKERCOUNT
+def ffunction_marker_count_EQ : Joined<["-"], "ffunction-marker-count=">, Group<f_Group>, Flags<[CC1Option,HelpHidden]>,
+  HelpText<"Choose when to emit function marker count">, Values<"never,me,be">,
+  NormalizedValues<["Function_Never", "Function_ME", "Function_BE"]>, NormalizedValuesScope<"llvm::MarkerCount">,
+  MarshallingInfoEnum<CodeGenOpts<"FunctionMarkerCount">, "Function_Never">;
+def floop_marker_count_EQ : Joined<["-"], "floop-marker-count=">, Group<f_Group>, Flags<[CC1Option,HelpHidden]>,
+  HelpText<"Choose when to emit loop marker count">, Values<"never,me,be">,
+  NormalizedValues<["Loop_Never", "Loop_ME", "Loop_BE"]>, NormalizedValuesScope<"llvm::MarkerCount">,
+  MarshallingInfoEnum<CodeGenOpts<"LoopMarkerCount">, "Loop_Never">;
+def foverride_marker_count_file_EQ : Joined<["-"], "foverride-marker-count-file=">, Group<f_Group>, Flags<[CC1Option,HelpHidden]>,
+  HelpText<"Override the marker count kind for the functions in the file">,
+  MarshallingInfoString<CodeGenOpts<"OverrideMarkerCountFile">>;
+def fmarker_count_EQ : Joined<["-"], "fmarker-count=">, Group<f_Group>, Flags<[HelpHidden]>,
+  HelpText<"Choose when to emit marker count">, Values<"never,me,be">;
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
 def ffor_scope : Flag<["-"], "ffor-scope">, Group<f_Group>;
@@ -4082,16 +4097,6 @@ def mpad_max_prefix_size_EQ : Joined<["-"], "mpad-max-prefix-size=">, Group<m_Gr
   HelpText<"Specify maximum number of prefixes to use for padding">;
 def mbranches_within_32B_boundaries : Flag<["-"], "mbranches-within-32B-boundaries">, Flags<[NoXarchOption]>, Group<m_Group>,
   HelpText<"Align selected branches (fused, jcc, jmp) within 32-byte boundary">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-def mmark_prolog_epilog : Flag<["-"], "mmark-prolog-epilog">, Flags<[NoXarchOption,HelpHidden]>, Group<m_Group>,
-  HelpText<"Emit marker count at prolog and epilog">;
-def mmark_loop_header : Flag<["-"], "mmark-loop-header">, Flags<[NoXarchOption,HelpHidden]>, Group<m_Group>,
-  HelpText<"Emit marker count at loop header">;
-def mfiltered_markercount_file_EQ : Joined<["-"], "mfiltered-markercount-file=">, Flags<[NoXarchOption,HelpHidden]>, Group<m_Group>,
-  HelpText<"Do not insert marker count in functions listed in the file">;
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 def mfancy_math_387 : Flag<["-"], "mfancy-math-387">, Group<clang_ignored_m_Group>;
 def mlong_calls : Flag<["-"], "mlong-calls">, Group<m_Group>,
   HelpText<"Generate branches with extended addressability, usually via indirect jumps.">;
