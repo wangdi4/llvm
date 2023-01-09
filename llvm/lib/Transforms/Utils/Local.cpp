@@ -2343,7 +2343,21 @@ unsigned llvm::changeToUnreachable(Instruction *I, bool PreserveLCSSA,
   while (BBI != BBE) {
     if (!BBI->use_empty())
       BBI->replaceAllUsesWith(PoisonValue::get(BBI->getType()));
+#if INTEL_CUSTOMIZATION
+    Instruction *BeginDir = nullptr;
+    if (vpo::VPOAnalysisUtils::isEndDirective(&*BBI))
+      // We are checking if operand 0 is an instruction in case entry directive
+      // has already been erased.
+      BeginDir = dyn_cast<Instruction>(BBI->getOperand(0));
+#endif // INTEL_CUSTOMIZATION
     BBI++->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    if (BeginDir) {
+      assert(vpo::VPOAnalysisUtils::isBeginDirective(BeginDir) &&
+             "Unexpected operand of end directive!");
+      BeginDir->eraseFromParent();
+    }
+#endif // INTEL_CUSTOMIZATION
     ++NumInstrsRemoved;
   }
   if (DTU) {
