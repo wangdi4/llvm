@@ -10,7 +10,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -27,17 +27,7 @@
 #if !defined(__Fuchsia__)
 
 #include <assert.h>
-// #if INTEL_CUSTOMIZATION
-#if defined(__linux__)
-#include <dlfcn.h>
-#endif
-// #endif // INTEL_CUSTOMIAZTION
 #include <errno.h>
-// #if INTEL_CUSTOMIZATION
-#if defined(__linux__)
-#include <link.h>
-#endif
-// #endif // INTEL_CUSTOMIAZTION
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,6 +53,13 @@
 #include "InstrProfilingInternal.h"
 #include "InstrProfilingPort.h"
 #include "InstrProfilingUtil.h"
+
+#if INTEL_CUSTOMIZATION
+#if defined(__linux__)
+#include <dlfcn.h>
+#include <link.h>
+#endif // __linux__
+#endif // INTEL_CUSTOMIZATION
 
 /* From where is profile name specified.
  * The order the enumerators define their
@@ -1277,6 +1274,128 @@ static int pgopti_prof_dump_all_internal(struct dl_phdr_info *info, size_t size,
   dlclose(handle);
   return 0;
 }
+#elif defined(_WIN32)
+// Windows function that can be retrieved via a call to GetProcAddress().
+__declspec(dllexport) void _PGOPTI_Prof_Dump_Global() {
+  (void)__llvm_profile_dump();
+}
+
+// Element to hold memory address for module to store in array.
+typedef struct Element {
+  void *RawPtr;
+} Element;
+
+// A simple growable array implementation used to track the address of modules
+// that may need to be dumped.
+typedef struct GrowArray {
+  Element *Data;
+  unsigned int InUse;
+  unsigned int Capacity;
+} GrowArray;
+
+// Initialization of the GrowArray, reserving space for 'count' elements.
+// Return 1, on success.
+static int pgoptiGrowArrayInitialize(GrowArray *GA, unsigned int Count) {
+  Element *Mem = malloc(Count * sizeof(Element));
+  if (!Mem)
+    return 0;
+
+  memset(Mem, 0, Count * sizeof(Element));
+  GA->Data = Mem;
+  GA->InUse = 0;
+  GA->Capacity = Count;
+  return 1;
+}
+
+// Release memory allocated for the GrowArray.
+static void pgoptiGrowArrayDestroy(GrowArray *GA) {
+  if (GA->Data)
+    free(GA->Data);
+  GA->Data = NULL;
+}
+
+// Insert an element into the growable array, if it is not present already.
+// Return 1, if the item is inserted.
+static int pgoptiGrowArrayInsert(GrowArray *GA, void *Data) {
+  // We do not expect the array to contain more than a handful of elements, so a
+  // simple linear search will suffice.
+  Element *ListData = (Element *)GA->Data;
+  for (unsigned int Idx = 0; Idx < GA->InUse; ++Idx) {
+    if (ListData[Idx].RawPtr == Data)
+      return 0;
+  }
+
+  if (GA->InUse == GA->Capacity) {
+    unsigned int NewSize = GA->Capacity + 10;
+    Element *NewMem = (Element *)realloc(GA->Data, NewSize * sizeof(Element));
+    if (!NewMem)
+      return 0;
+
+    for (unsigned int Idx = GA->Capacity; Idx < NewSize; ++Idx)
+      NewMem[Idx].RawPtr = NULL;
+
+    GA->Data = NewMem;
+    GA->Capacity = NewSize;
+  }
+
+  // Data may have been reallocated, use a new variable for the list data
+  // handle.
+  Element *ListData2 = (Element *)GA->Data;
+  ListData2[GA->InUse].RawPtr = Data;
+  ++GA->InUse;
+  return 1;
+}
+
+static void pgoptiProfDumpAllInternal() {
+  typedef void (*DLLFnPtr)();
+  PBYTE PB = NULL;
+  MEMORY_BASIC_INFORMATION MBI;
+  GrowArray DLLAddresses;
+
+  // Search for the main executable and DLLs that may have exported the data
+  // dump routine. The VirtualQuery method will report multiple hits because
+  // each data segment of the module will be reported, so capture the base
+  // address for each one once into an array.
+  if (!pgoptiGrowArrayInitialize(&DLLAddresses, 10))
+    return;
+
+  // Walk the virtual memory pages to retrieve the base addresses for the pages
+  // in use that can be used to lookup module names. These are needed to
+  // retrieve a module handle.
+  while (VirtualQuery(PB, &MBI, sizeof(MBI)) == sizeof(MBI)) {
+    char ModuleName[MAX_PATH];
+    int NameLen = GetModuleFileNameA((HINSTANCE)MBI.AllocationBase, ModuleName,
+                                     _countof(ModuleName));
+    if (NameLen > 0) {
+      // Check for .dll or .exe
+      char *ExtStart = strrchr(ModuleName, '.');
+      if (ExtStart &&
+          ((tolower(ExtStart[1]) == 'd' && tolower(ExtStart[2]) == 'l' &&
+            tolower(ExtStart[3]) == 'l') ||
+           (tolower(ExtStart[1]) == 'e' && tolower(ExtStart[2]) == 'x' &&
+            tolower(ExtStart[3]) == 'e'))) {
+        pgoptiGrowArrayInsert(&DLLAddresses, MBI.AllocationBase);
+      }
+    }
+    PB += MBI.RegionSize;
+  }
+
+  Element *ListData = (Element *)DLLAddresses.Data;
+  for (unsigned int Idx = 0; Idx < DLLAddresses.InUse; ++Idx) {
+    HINSTANCE Handle;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           ListData[Idx].RawPtr, &Handle)) {
+      DLLFnPtr FnPtr =
+          (DLLFnPtr)GetProcAddress(Handle, "_PGOPTI_Prof_Dump_Global");
+      if (FnPtr) {
+        ((void (*)(void))FnPtr)();
+      }
+    }
+  }
+
+  pgoptiGrowArrayDestroy(&DLLAddresses);
+}
 #endif // __linux__
 
 /*
@@ -1298,8 +1417,10 @@ void _PGOPTI_Prof_Dump_All() {
   // shared object twice.
   void (*main_handle)() = &_PGOPTI_Prof_Dump_Global;
   dl_iterate_phdr(pgopti_prof_dump_all_internal, (void *)main_handle);
+#elif defined(_WIN32)
+  pgoptiProfDumpAllInternal();
 #else
-  // For Windows, we don't support dumping loaded DLLs yet.
+  // Placeholder for any future operating system
   (void)__llvm_profile_dump();
 #endif // __linux__
 }
