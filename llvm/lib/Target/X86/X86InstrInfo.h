@@ -404,8 +404,8 @@ public:
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MI, Register DestReg,
                             int FrameIndex, const TargetRegisterClass *RC,
-<<<<<<< HEAD
-                            const TargetRegisterInfo *TRI) const override;
+                            const TargetRegisterInfo *TRI,
+                            Register VReg) const override;
 #if INTEL_CUSTOMIZATION
 
   void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
@@ -414,10 +414,6 @@ public:
                        ArrayRef<MachineMemOperand *> MMOs,
                        SmallVectorImpl<MachineInstr *> &NewMIs) const;
 #endif // INTEL_CUSTOMIZATION
-=======
-                            const TargetRegisterInfo *TRI,
-                            Register VReg) const override;
->>>>>>> b5efec4b27bf5451a4fae74973f7a7a28fbc6108
 
   void loadStoreTileReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                         unsigned Opc, Register Reg, int FrameIdx,
