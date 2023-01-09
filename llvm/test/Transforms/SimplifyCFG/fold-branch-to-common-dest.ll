@@ -1133,11 +1133,7 @@ define i32 @test_builtin_fpclassify(float %x) {
 ; CHECK-NEXT:    [[OR_COND:%.*]] = or i1 [[ISZERO]], [[CMP]]
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[FPCLASSIFY_END:%.*]], label [[FPCLASSIFY_NOT_NAN:%.*]]
 ; CHECK:       fpclassify_end:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ 2, [[ENTRY:%.*]] ], [ 0, [[FPCLASSIFY_NOT_ZERO]] ], [ [[TMP0:%.*]], [[FPCLASSIFY_NOT_NAN:%.*]] ]
-=======
-; CHECK-NEXT:    [[FPCLASSIFY_RESULT:%.*]] = phi i32 [ [[FPCLASSIFY_RESULT_SEL]], [[ENTRY:%.*]] ], [ 1, [[FPCLASSIFY_NOT_NAN]] ], [ [[NORMAL_OR_SUBNORMAL:%.*]], [[FPCLASSIFY_NOT_INF:%.*]] ]
->>>>>>> 428f36401b1b695fd501ebfdc8773bed8ced8d4e
 ; CHECK-NEXT:    ret i32 [[FPCLASSIFY_RESULT]]
 ; CHECK:       fpclassify_not_nan:
 ; CHECK-NEXT:    [[X_ABS:%.*]] = tail call float @llvm.fabs.f32(float [[X]])
