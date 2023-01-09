@@ -4,7 +4,8 @@
 
 ; Ensure that the generated reductions use a distinct identity-only intitializer
 ; when the original has a specified start value. The unrolled loop should
-; have one PHI using the VP_RED_INIT value, and UF-1 PHIs using an identity-only reduction-init.
+; have one PHI using the VP_RED_INIT value with an initial value, and UF-1 PHIs using
+; an identity-only reduction-init.
 define i64 @foo(i64* %lp, i64 %init) {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
@@ -17,44 +18,44 @@ define i64 @foo(i64* %lp, i64 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 3
-; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = reduction-init i64 0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_RED_INIT_PSUM:%.*]] = reduction-init i64 0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = phi  [ i64 [[VP2]], [[BB1]] ],  [ i64 [[VP4:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP2]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP10:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP_RED_INIT_PSUM]], [[BB1]] ],  [ i64 [[VP3:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = phi  [ i64 [[VP_RED_INIT_PSUM]], [[BB1]] ],  [ i64 [[VP5:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP9:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP8]] = add i64 [[VP_LOAD]] i64 [[VP7]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP11:%.*]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp slt i64 [[VP11]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = add i64 [[VP_LOAD]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP10:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP11:%.*]] = icmp slt i64 [[VP10]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP13:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP11]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = load i64* [[VP13]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4]] = add i64 [[VP14]] i64 [[VP3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = add i64 [[VP11]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP16:%.*]] = icmp slt i64 [[VP15]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP12:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP10]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = load i64* [[VP12]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP13]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP10]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp slt i64 [[VP14]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP17:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP15]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP18:%.*]] = load i64* [[VP17]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP18]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP10]] = add i64 [[VP15]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP19:%.*]] = icmp slt i64 [[VP10]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP19]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP16:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP17:%.*]] = load i64* [[VP16]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = add i64 [[VP17]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP9]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP18:%.*]] = icmp slt i64 [[VP9]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP18]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP20:%.*]] = add i64 [[VP8]] i64 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP21:%.*]] = add i64 [[VP20]] i64 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP21]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP19:%.*]] = add i64 [[VP7]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP20:%.*]] = add i64 [[VP19]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP20]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -62,7 +63,7 @@ define i64 @foo(i64* %lp, i64 %init) {
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i64 [[VP_RED_FINAL]] -> [[VP22:%.*]] = {%sum.07}
+; CHECK-NEXT:  Id: 0   i64 [[VP_RED_FINAL]] -> [[VP21:%.*]] = {%sum.07}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;

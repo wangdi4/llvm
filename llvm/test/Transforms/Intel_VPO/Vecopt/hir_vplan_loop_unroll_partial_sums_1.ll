@@ -29,44 +29,44 @@ define float @foo(float* %fp, float %finit, i64* %lp, i64 %linit) {
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 2
 ; CHECK-NEXT:     [DA: Div] float [[VP_RED_INIT:%.*]] = reduction-init float 0.000000e+00
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = reduction-init i64 0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_RED_INIT_PSUM:%.*]] = reduction-init i64 0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_RED_INIT_1:%.*]] = reduction-init i64 0 i64 live-in1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in2 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP4]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = phi  [ i64 [[VP_RED_INIT_1]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP10:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP11:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP12:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP14:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[FP0:%.*]] i64 [[VP13]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = phi  [ i64 [[VP_RED_INIT_PSUM]], [[BB1]] ],  [ i64 [[VP5:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = phi  [ i64 [[VP_RED_INIT_1]], [[BB1]] ],  [ i64 [[VP7:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP9:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP10:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP11:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP12:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP13:%.*]], cloned.[[BB3]] ]
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[FP0:%.*]] i64 [[VP12]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] float [[VP12]] = fadd float [[VP_LOAD]] float [[VP11]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP13]]
+; CHECK-NEXT:     [DA: Div] float [[VP11]] = fadd float [[VP_LOAD]] float [[VP10]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP8]] = or i64 [[VP_LOAD_1]] i64 [[VP7]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = add i64 [[VP13]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP16:%.*]] = icmp slt i64 [[VP15]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = or i64 [[VP_LOAD_1]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp slt i64 [[VP14]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] float* [[VP17:%.*]] = subscript inbounds float* [[FP0]] i64 [[VP15]]
-; CHECK-NEXT:     [DA: Div] float [[VP18:%.*]] = load float* [[VP17]]
-; CHECK-NEXT:     [DA: Div] float [[VP10]] = fadd float [[VP18]] float [[VP9]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP19:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP15]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP20:%.*]] = load i64* [[VP19]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = or i64 [[VP20]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP14]] = add i64 [[VP15]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP21:%.*]] = icmp slt i64 [[VP14]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP21]], [[BB2]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] float* [[VP16:%.*]] = subscript inbounds float* [[FP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] float [[VP17:%.*]] = load float* [[VP16]]
+; CHECK-NEXT:     [DA: Div] float [[VP9]] = fadd float [[VP17]] float [[VP8]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP18:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP19:%.*]] = load i64* [[VP18]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = or i64 [[VP19]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP13]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp slt i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP20]], [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: cloned.[[BB3]]
-; CHECK-NEXT:     [DA: Div] float [[VP22:%.*]] = fadd float [[VP12]] float [[VP10]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP23:%.*]] = or i64 [[VP8]] i64 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP22]] float live-in0
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_RED_FINAL_1:%.*]] = reduction-final{u_or} i64 [[VP23]]
+; CHECK-NEXT:     [DA: Div] float [[VP21:%.*]] = fadd float [[VP11]] float [[VP9]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP22:%.*]] = or i64 [[VP7]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Uni] float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP21]] float live-in0
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_RED_FINAL_1:%.*]] = reduction-final{u_or} i64 [[VP22]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -74,11 +74,12 @@ define float @foo(float* %fp, float %finit, i64* %lp, i64 %linit) {
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   float [[VP_RED_FINAL]] -> [[VP24:%.*]] = {%fsum.012}
+; CHECK-NEXT:  Id: 0   float [[VP_RED_FINAL]] -> [[VP23:%.*]] = {%fsum.012}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   i64 [[VP_RED_FINAL_1]] -> [[VP25:%.*]] = {%lacc.013}
+; CHECK-NEXT:  Id: 1   i64 [[VP_RED_FINAL_1]] -> [[VP24:%.*]] = {%lacc.013}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 2   no underlying for i64 [[VP__IND_FINAL]]
+;
 entry:
   br label %for.body
 
