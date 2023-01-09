@@ -224,6 +224,11 @@ void VPlanLoopUnroller::run() {
       if (PHILastUpdate.find(OrigInst) == PHILastUpdate.end())
         PHILastUpdate[OrigInst] = LastUpdate;
 
+      // Update the unrolled loop header PHI's incoming block
+      // to cloned loop latch.
+      OrigInst->setIncomingBlock(OrigInst->getBlockIndex(CurrentLatch),
+                                 ClonedLatch);
+
       // For partial sum candidates, generate a new PHI in the header
       // and stash the accumulator value for reduction in the exit.
       auto PSIt = PSumCandidates.find(OrigInst);
@@ -248,11 +253,6 @@ void VPlanLoopUnroller::run() {
         InstToRemove.insert(&ClonedInst);
         continue;
       }
-
-      // Update the unrolled loop header PHI's incoming block
-      // to cloned loop latch.
-      OrigInst->setIncomingBlock(OrigInst->getBlockIndex(CurrentLatch),
-                                 ClonedLatch);
 
       // For the current iteration replace a clone of the original PHI with
       // the current last update instruction.
