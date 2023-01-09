@@ -4691,7 +4691,7 @@ CallInst *VPOParoptUtils::genVariantCall(
 
   // At this point, the FnArgs and FnArgTypes of the variant call is the same
   // as the base call. If !InteropObj then the lists are ready for genCall.
-  
+
   InteropPositionIfEmitted = 0; // 0 means no interop obj was added to the call
 
   if (InteropObj != nullptr) {

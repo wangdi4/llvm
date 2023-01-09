@@ -515,10 +515,11 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
   vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR", getNeedDevicePtr(), OS, Indent,
-                      Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR:PTR_TO_PTR", getNeedDevicePtrToPtr(), OS,
-                      Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR", getNeedDevicePtr().getArrayRef(), OS,
+                        Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR:PTR_TO_PTR",
+                        getNeedDevicePtrToPtr().getArrayRef(), OS, Indent,
+                        Verbosity);
 }
 
 //
@@ -545,10 +546,11 @@ void WRNDispatchNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("NOCONTEXT", getNocontext(), OS, Indent, Verbosity);
   vpo::printVal("NOVARIANTS", getNovariants(), OS, Indent, Verbosity);
   vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR", getNeedDevicePtr(), OS, Indent,
-                      Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR:PTR_TO_PTR", getNeedDevicePtrToPtr(), OS,
-                      Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR", getNeedDevicePtr().getArrayRef(), OS,
+                        Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR:PTR_TO_PTR",
+                        getNeedDevicePtrToPtr().getArrayRef(), OS, Indent,
+                        Verbosity);
 }
 
 //

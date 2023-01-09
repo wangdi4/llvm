@@ -1145,15 +1145,14 @@ extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1, int Min=1);
 
-/// Auxiliary function to print a set of uint in a WRN dump.
+/// Auxiliary function to print an ArrayRef of unsigned in a WRN dump.
 ///
-/// If \p Set is empty:
+/// If \p Array is empty:
 ///    Verbosity == 0: don't printing anything
 ///    Verbosity >= 1: print "Title: UNSPECIFIED"
-extern void printSetOfUint(StringRef Title,
-                           const SmallSetVector<unsigned, 8> &Set,
-                           formatted_raw_ostream &OS, int Indent,
-                           unsigned Verbosity = 1);
+extern void printArrayOfUint(StringRef Title, const ArrayRef<unsigned> &Array,
+                             formatted_raw_ostream &OS, int Indent,
+                             unsigned Verbosity = 1);
 
 /// Auxiliary function to print a boolean in a WRN dump.
 ///

@@ -3635,7 +3635,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   // Insert allocas for offload arrays in a parent region or the parent
   // function's entry block based on whether there are any parent regions that
   // may be outlined. See target-task.ll, target_map_in_loop.ll for examples.
-  // If InsertPtForAllocas is not provided (null), get it from 
+  // If InsertPtForAllocas is not provided (null), get it from
   // VPOParoptUtils::getInsertionPtForAllocas().
   if (!InsertPtForAllocas)
     InsertPtForAllocas =
@@ -5441,7 +5441,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   uint64_t InteropPositionIfEmitted = 0; // will be updated by genVariantCall()
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
       BaseCall, VariantName, InteropObj, InteropPosition,
-      InteropPositionIfEmitted, BaseCall, W);                            // (8)
+      InteropPositionIfEmitted, BaseCall, W); //                            (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
@@ -5950,7 +5950,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   uint64_t InteropPositionIfEmitted = 0; // will be updated by genVariantCall()
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
       BaseCall, VariantName, InteropObj, InteropPosition,
-      InteropPositionIfEmitted, ThenTerm, W);  //                           (8)
+      InteropPositionIfEmitted, ThenTerm, W); //                            (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
