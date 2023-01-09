@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   Passes
   Support
   TransformUtils
+  IPO
   )
 
 set(ANALYSIS_TEST_SOURCES
@@ -101,9 +102,9 @@ if (NOT WIN32)
   set_target_properties(InlineAdvisorPlugin PROPERTIES FOLDER "Tests")
 
   export_executable_symbols_for_plugins(AnalysisTests)
-  # The plugin depends on some of the output files of llvm-tblgen, so make sure
+  # The plugin depends on some of the output files of intrinsics_gen, so make sure
   # it is built before the plugin.
-  add_dependencies(InlineAdvisorPlugin llvm-tblgen)  
+  add_dependencies(InlineAdvisorPlugin intrinsics_gen)
   add_dependencies(AnalysisTests InlineAdvisorPlugin)
   set_property(TARGET InlineAdvisorPlugin PROPERTY FOLDER "Tests/UnitTests/AnalysisTests")
 endif()
