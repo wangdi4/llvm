@@ -1553,9 +1553,6 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
       Value *CurPtrBase = CurPtr->stripAndAccumulateConstantOffsets(
           DL, Offset, /* AllowNonInbounds */ true);
       auto It = OffsetInfoMap.find(CurPtrBase);
-<<<<<<< HEAD
-      if (It != OffsetInfoMap.end()) {
-=======
       if (It == OffsetInfoMap.end()) {
         LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI operand is too complex "
                           << *CurPtr << " in " << *Usr << "\n");
@@ -1582,7 +1579,6 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
       // every Cycle header; if such a node is marked unknown, this will
       // eventually propagate through the whole net of PHIs in the recurrence.
       if (mayBeInCycleHeader(CI, cast<Instruction>(Usr))) {
->>>>>>> b3fe4cf2ddfd2f058b8bcd38a139a43cb0a4a6e9
         auto BaseOI = It->getSecond();
         BaseOI.addToAll(Offset.getZExtValue());
         if (IsFirstPHIUser || BaseOI == UsrOI) {
@@ -1590,10 +1586,6 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
                             << " in " << *Usr << "\n");
           return HandlePassthroughUser(Usr, PtrOI, Follow);
         }
-<<<<<<< HEAD
-=======
-
->>>>>>> b3fe4cf2ddfd2f058b8bcd38a139a43cb0a4a6e9
         LLVM_DEBUG(
             dbgs() << "[AAPointerInfo] PHI operand pointer offset mismatch "
                    << *CurPtr << " in " << *Usr << "\n");
@@ -1602,12 +1594,7 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         return true;
       }
 
-<<<<<<< HEAD
-      // TODO: Approximate in case we know the direction of the recurrence.
-      UsrOI.setUnknown();
-=======
       UsrOI.merge(PtrOI);
->>>>>>> b3fe4cf2ddfd2f058b8bcd38a139a43cb0a4a6e9
       Follow = true;
       return true;
     }
