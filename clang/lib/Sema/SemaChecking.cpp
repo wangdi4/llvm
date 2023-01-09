@@ -1964,7 +1964,7 @@ static ExprResult SemaBuiltinLaunder(Sema &S, CallExpr *TheCall) {
   }();
   if (DiagSelect) {
     S.Diag(TheCall->getBeginLoc(), diag::err_builtin_launder_invalid_arg)
-        << DiagSelect.value() << TheCall->getSourceRange();
+        << *DiagSelect << TheCall->getSourceRange();
     return ExprError();
   }
 
@@ -16941,7 +16941,7 @@ void Sema::CheckForIntOverflow (Expr *E) {
     else if (auto New = dyn_cast<CXXNewExpr>(E)) {
       if (New->isArray())
         if (auto ArraySize = New->getArraySize())
-          Exprs.push_back(ArraySize.value());
+          Exprs.push_back(*ArraySize);
     }
   } while (!Exprs.empty());
 }
