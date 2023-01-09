@@ -2173,9 +2173,7 @@ template <typename ClauseItem> class Clause
         delete CI;
       C.clear();
     }
-    ~Clause() {
-      clear();
-    }
+    ~Clause() { clear(); }
 
   protected:
     /// Create a new item for VAR V and append it to the clause

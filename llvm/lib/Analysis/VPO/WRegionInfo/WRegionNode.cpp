@@ -1886,7 +1886,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       assert(isa<ConstantInt>(V) &&
-           "Non-constant argument in need_device_ptr clause.");
+             "Non-constant argument in need_device_ptr clause.");
       ConstantInt *CI = cast<ConstantInt>(V);
       unsigned N = CI->getZExtValue();
       NDP->insert(N);
@@ -2965,24 +2965,23 @@ void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
   OS << Num << "\n";
 }
 
-// Auxiliary function to print a set of uint in a WRN dump.
-// If the set is empty:
+// Auxiliary function to print an ArrayRef of unsigned in a WRN dump.
+// If the array is empty:
 //    Verbosity == 0: don't printing anything
 //    Verbosity >= 1: print "Title: UNSPECIFIED"
-void vpo::printSetOfUint(StringRef Title,
-                         const SmallSetVector<unsigned, 8> &Set,
-                         formatted_raw_ostream &OS, int Indent,
-                         unsigned Verbosity) {
-  if (Verbosity==0 && Set.empty())
+void vpo::printArrayOfUint(StringRef Title, const ArrayRef<unsigned> &Array,
+                           formatted_raw_ostream &OS, int Indent,
+                           unsigned Verbosity) {
+  if (Verbosity == 0 && Array.empty())
     return;
 
   OS.indent(Indent) << Title << ": ";
-  if (Set.empty()) {
+  if (Array.empty()) {
     OS << "UNSPECIFIED\n";
     return;
   }
   bool First = true;
-  for (unsigned N : Set) {
+  for (unsigned N : Array) {
     if (First)
       First = false;
     else
