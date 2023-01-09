@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -70,11 +70,9 @@ using namespace llvm;
 enum AllocType : uint8_t {
   OpNewLike          = 1<<0, // allocates; never returns null
   MallocLike         = 1<<1, // allocates; may return null
-  CallocLike         = 1<<2, // allocates + bzero // INTEL
-  StrDupLike         = 1<<3,
+  StrDupLike         = 1<<2,
   MallocOrOpNewLike  = MallocLike | OpNewLike,
-  MallocOrCallocLike = MallocLike | OpNewLike | CallocLike, // INTEL
-  AllocLike          = MallocOrCallocLike | StrDupLike, // INTEL
+  AllocLike          = MallocOrOpNewLike | StrDupLike,
   AnyAlloc           = AllocLike
 };
 
@@ -333,24 +331,11 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-/// Tests if a value is a call or invoke to a library function that
-/// allocates uninitialized memory (such as malloc).
-static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
-}
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates zero-filled memory (such as calloc).
-static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, CallocLike, TLI).has_value();
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
 bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, MallocOrCallocLike, TLI).has_value(); // INTEL
+  // TODO: Function behavior does not match name.
+  return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
 }
 
 /// Tests if a value is a call or invoke to a library function that
@@ -484,14 +469,8 @@ Constant *llvm::getInitialValueOfAllocation(const Value *V,
     return nullptr;
 
   // malloc are uninitialized (undef)
-  if (isMallocLikeFn(Alloc, TLI)) // INTEL
+  if (getAllocationData(Alloc, MallocOrOpNewLike, TLI).has_value())
     return UndefValue::get(Ty);
-
-#ifdef INTEL_CUSTOMIZATION
-  // calloc zero initializes
-  if (isCallocLikeFn(Alloc, TLI))
-    return Constant::getNullValue(Ty);
-#endif // INTEL_CUSTOMIZATION
 
   AllocFnKind AK = getAllocFnKind(Alloc);
   if ((AK & AllocFnKind::Uninitialized) != AllocFnKind::Unknown)
@@ -721,14 +700,7 @@ bool llvm::IntelMemoryBuiltins::isMallocLikeFn(const Function *F, const TargetLi
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
 bool llvm::IntelMemoryBuiltins::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, CallocLike, TLI).has_value() ||
-    checkFnAllocKind(V, AllocFnKind::Zeroed);
-}
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory similar to malloc or calloc.
-bool llvm::IntelMemoryBuiltins::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return isMallocLikeFn(V, TLI) || isCallocLikeFn(V, TLI);
+  return checkFnAllocKind(V, AllocFnKind::Zeroed);
 }
 
 /// Tests if a value is a call or invoke to a library function that returns
