@@ -264,6 +264,7 @@ public:
     // Accumulate constant offsets separately so they can be effiently added all
     // at once after non-constant offsets are processed.
     int64_t AccConstOffset = 0;
+    const unsigned BitWidth = KB.getBitWidth();
     for (int I = Sub->getNumDimensions() - 1; I >= 0; --I) {
       // If the computed offset becomes unknown at any point, bail out --
       // further offsets will only result in more unknown bits.
@@ -291,9 +292,8 @@ public:
       //   KB(Dim) = (KB(Index) - KB(LowerBound)) * KB(Stride)
       //
       // being careful to sign-extend each quantity, as necessary, to the
-      // indexed type's width.
+      // result's bit width.
       const auto StrideKB = computeKnownBits(Dim.StrideInBytes, Depth, Q);
-      const unsigned IndexedTyBits = Q.DL.getIndexTypeSizeInBits(Dim.DimType);
 
       // If all quantities involved are constant, compute the constant offset
       // and add it to the accumulated constant offsets.
@@ -306,7 +306,7 @@ public:
       }
 
       // At least one of the quantities is non-constant. Handle those here.
-      KnownBits DimKB{IndexedTyBits};
+      KnownBits DimKB{BitWidth};
       if (LowerKB.isConstant() && StrideKB.isConstant()) {
         // In most cases, the lower bound and stride are constant. As an
         // optimization, handle this case specifically (in case lower is 0 or
@@ -316,11 +316,11 @@ public:
         computeMulConst(DimKB, StrideKB.getConstant().getSExtValue());
       } else {
         // Slow path -- compute using KnownBits interfaces.
-        DimKB = KnownBits::mul(StrideKB.sext(IndexedTyBits),
-                               KnownBits::computeForAddSub(
-                                   /*Add:*/ false, /*NSW:*/ true,
-                                   IndexKB.sext(IndexedTyBits),
-                                   LowerKB.sext(IndexedTyBits)));
+        DimKB =
+            KnownBits::mul(StrideKB.sext(BitWidth),
+                           KnownBits::computeForAddSub(
+                               /*Add:*/ false, /*NSW:*/ true,
+                               IndexKB.sext(BitWidth), LowerKB.sext(BitWidth)));
       }
 
       // KB(Base) += KB(Dim)
