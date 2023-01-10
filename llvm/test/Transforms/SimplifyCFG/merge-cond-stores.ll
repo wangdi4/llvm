@@ -276,17 +276,11 @@ define i32 @test_diamond_simple(ptr %p, ptr %q, i32 %a, i32 %b) {
 ; CHECK:       1:
 ; CHECK-NEXT:    [[SIMPLIFYCFG_MERGE:%.*]] = zext i1 [[X2]] to i32
 ; CHECK-NEXT:    store i32 [[SIMPLIFYCFG_MERGE]], ptr [[P:%.*]], align 4
-<<<<<<< HEAD
-; CHECK-NEXT:    br label [[TMP3]]
-; INTEL_CUSTOMIZATION
-; CHECK:       4:
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[Z4:%.*]] = select i1 [[X2]], i32 0, i32 3
-=======
 ; CHECK-NEXT:    br label [[TMP2]]
-; CHECK:       2:
+; INTEL_CUSTOMIZATION
+; CHECK:       3:
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[Z4:%.*]] = select i1 [[X2]], i32 3, i32 0
->>>>>>> 4def99e642806f3f8e94cb2aa9356d63cd233dd0
 ; CHECK-NEXT:    ret i32 [[Z4]]
 ;
 entry:
