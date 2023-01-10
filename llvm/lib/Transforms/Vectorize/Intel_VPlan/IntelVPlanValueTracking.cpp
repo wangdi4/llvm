@@ -41,14 +41,16 @@ public:
     const DominatorTree &DT;
 
     const VPInstruction *CtxI;
+    unsigned VF;
   };
 
   template <typename ValueTracking>
-  static Query query(const ValueTracking *VPVT, const VPInstruction *CtxI) {
+  static Query query(const ValueTracking *VPVT, const VPInstruction *CtxI,
+                     unsigned VF) {
     if (const auto *VT = dyn_cast<VPlanValueTrackingLLVM>(VPVT))
-      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI};
+      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI, VF};
     if (const auto *VT = dyn_cast<VPlanValueTrackingHIR>(VPVT))
-      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI};
+      return Query{*VT->DL, *VT->VPAC, *VT->VPDT, *VT->DT, CtxI, VF};
     llvm_unreachable("unknown value tracking kind!");
   }
 
@@ -63,6 +65,8 @@ public:
   /// return a unknown KnownBits of the appropriate bitwidth.
   static KnownBits computeKnownBits(const VPValue *V, unsigned Depth,
                                     const Query &Q) {
+
+    assert(V && "can't compute known bits for null!");
     assert(V->getType()->isIntOrPtrTy() &&
            "can't calculate known bits for non-integral types!");
 
@@ -160,6 +164,9 @@ public:
       return;
     case Instruction::URem:
       KB = KnownBits::urem(Op(0), Op(1));
+      return;
+    case Instruction::PHI:
+      computeKnownBitsFromPHI(cast<VPPHINode>(I), KB, Depth, Q);
       return;
     case Instruction::Trunc:
       KB = Op(0).trunc(BitWidth);
@@ -325,6 +332,64 @@ public:
     computeAddConst(KB, AccConstOffset);
   }
 
+  static void computeKnownBitsFromPHI(const VPPHINode *PHI, KnownBits &KB,
+                                      unsigned Depth, const Query &Q) {
+    // For now, don't handle PHIs that take us out of the current CFG region.
+    if (PHI->getMergeId() != VPExternalUse::UndefMergeId)
+      return;
+
+    // If we have more than 2 values, ignore for now.
+    if (PHI->getNumIncomingValues() > 2)
+      return;
+
+    // In the single-value case, we can just use the first op's known bits.
+    const auto *FirstOp = PHI->getIncomingValue((unsigned)0);
+    if (PHI->getNumIncomingValues() == 1) {
+      KB = computeKnownBits(FirstOp, Depth, Q);
+      return;
+    }
+
+    const auto ComputeKnownBitsFromInduction =
+        [&KB, Depth, Q](const VPInductionInit *InductionInit) {
+          // Only support add inductions for now.
+          if (InductionInit->getBinOpcode() != Instruction::Add)
+            return;
+
+          // First, compute our starting value. If this is unknown, bail out, as
+          // adding an offset will only result in more unknown bits.
+          KB = computeKnownBits(InductionInit->getStartVal(), Depth, Q);
+          if (KB.isUnknown())
+            return;
+
+          // Now try to compute known bits for our step value. The final value
+          // will be our start value plus an unknown multiple of this step.
+          auto StepKB = computeKnownBits(InductionInit->getStep(), Depth, Q);
+
+          // Assume our step was widened by the given VF.
+          computeMulConst(StepKB, Q.VF);
+
+          // Lastly, compute KB(%IV) = KB(%start) + {{unknown}} * KB(%step)
+          KB = KnownBits::computeForAddSub(
+              /*Add:*/ true, /*NSW:*/ InductionInit->hasNoSignedWrap(), KB,
+              KnownBits::mul(KnownBits{KB.getBitWidth()}, StepKB));
+
+          // TODO: Use the end value to further refine the known bits.
+          //
+          // At the moment, this can't be done because we don't know whether or
+          // not the induction is signed or unsigned.
+        };
+
+    // Otherwise, we have a 2-value PHI. If this is an induction, we can
+    // use that to compute the known bits.
+    for (unsigned Idx : {0, 1}) {
+      if (const auto *InductionInit =
+              dyn_cast<VPInductionInit>(PHI->getIncomingValue(Idx))) {
+        ComputeKnownBitsFromInduction(InductionInit);
+        return;
+      }
+    }
+  }
+
   /// Multiply the given KnownBits by a constant (possibly-signed) integer
   /// factor.
   template <typename T> static void computeMulConst(KnownBits &KB, T Val) {
@@ -447,11 +512,15 @@ public:
 } // namespace llvm
 
 KnownBits VPlanValueTracking::getKnownBits(const VPValue *Expr,
-                                           const VPInstruction *CtxI) const {
-  const auto Q = VPlanValueTrackingImpl::query(this, CtxI);
+                                           const VPInstruction *CtxI,
+                                           unsigned VF) const {
+  assert(VF != 0 && "Must pass VF > 0!");
+  assert(Expr && "Can't compute known bits for null!");
+
+  const auto Q = VPlanValueTrackingImpl::query(this, CtxI, VF);
   const auto KB = VPlanValueTrackingImpl::computeKnownBits(Expr, 0, Q);
   LLVM_DEBUG(dbgs() << "computeKnownBits("; Expr->printAsOperand(dbgs());
-             dbgs() << ")\n"; dbgs() << " -> "; KB.print(dbgs());
+             dbgs() << ", " << VF << ")\n"; dbgs() << " -> "; KB.print(dbgs());
              dbgs() << '\n');
   return KB;
 }
