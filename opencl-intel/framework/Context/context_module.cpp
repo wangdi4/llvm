@@ -3447,11 +3447,11 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
     return CL_INVALID_VALUE;
   }
 
-  auto waitListIter = m_mapUSMFreeWaitList.end();
   std::vector<cl_event> waitList;
+  cl_err_code err = CL_SUCCESS;
   {
     std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
-    waitListIter = m_mapUSMFreeWaitList.find(ptr);
+    auto waitListIter = m_mapUSMFreeWaitList.find(ptr);
     if (waitListIter != m_mapUSMFreeWaitList.end())
       for (const auto &eventSPtr : waitListIter->second)
         waitList.push_back(eventSPtr.get());
@@ -3461,11 +3461,11 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
   if (!waitList.empty()) {
     // After we get the waitList, we should skip invalid events in case some
     // user events are released before waiting on them.
-    cl_err_code err = FrameworkProxy::Instance()
-                          ->GetExecutionModule()
-                          ->GetEventsManager()
-                          ->WaitForEvents(waitList.size(), waitList.data(),
-                                          /*skipInvalidEvents*/ true);
+    err = FrameworkProxy::Instance()
+              ->GetExecutionModule()
+              ->GetEventsManager()
+              ->WaitForEvents(waitList.size(), waitList.data(),
+                              /*skipInvalidEvents*/ true);
 
     if (CL_FAILED(err)) {
       // TODO: The document doesn't say which error code we should return
@@ -3475,11 +3475,12 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
     }
   }
 
-  cl_err_code err = pContext->USMFree(ptr);
+  err = pContext->USMFree(ptr);
 
   if (CL_SUCCESS == err) {
     std::lock_guard<std::mutex> mu(m_SvmUsmMutex);
     m_mapUSMBuffers.erase(usmBufferIter);
+    auto waitListIter = m_mapUSMFreeWaitList.find(ptr);
     if (waitListIter != m_mapUSMFreeWaitList.end())
       m_mapUSMFreeWaitList.erase(waitListIter);
   }

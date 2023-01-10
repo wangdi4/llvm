@@ -1,3 +1,16 @@
+..
+  Copyright (C) 2022 Intel Corporation
+
+  This software and the related documents are Intel copyrighted materials, and
+  your use of them is governed by the express license under which they were
+  provided to you ("License"). Unless the License provides otherwise, you may
+  not use, modify, copy, publish, distribute, disclose or transmit this
+  software or the related documents without Intel's prior written permission.
+
+  This software and the related documents are provided as is, with no express
+  or implied warranties, other than those that are expressly stated in the
+  License.
+
 ===================
 OpenCL Metadata API
 ===================
@@ -13,7 +26,7 @@ The OpenCL Metadata API is a framework for working with OpenCL-specific
 Metadata, designed to be used in an OpenCL backend by a developer. It provides
 necessary building blocks for working with Metadata as well as some pre-defined
 APIs for querying/recording CPU specific Metadata, including Stats feature for
-Compiler/Vectorizer decision logging (aka VOLCANO_STATS).
+Compiler/Vectorizer decision logging (aka CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER).
 
 Metadata example
 ----------------
@@ -79,7 +92,8 @@ The API is a header-only library consisting of 3 headers.
 * *MetadataStatsAPI.h*
 
   contains functionality for writing dynamic Metadata issued by *Statistic*
-  interface (aka VOLCANO_STATS) to be consumed by SumStats utility.
+  interface (aka CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER) to be consumed by SumStats
+  utility.
   From Metadata API point of view the difference is these attributes
   are dynamic, i.e. not resolved in compile time and basically is
   a stream of structs like {Name, value}. This header is not used in production

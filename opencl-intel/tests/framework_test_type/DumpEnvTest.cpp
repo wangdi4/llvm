@@ -142,16 +142,16 @@ protected:
   std::vector<std::pair<std::string, std::string>> m_env;
 };
 
-TEST_F(DumpEnvTest, StatsEqualizerAll) {
-  m_env = {{"VOLCANO_EQUALIZER_STATS", "All"}};
+TEST_F(DumpEnvTest, IRBeforeOptimizer) {
+  m_env = {{"CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER", "True"}};
   std::vector<std::string> suffix = {"_eq.ll"};
   std::vector<std::vector<std::string>> patterns = {
       {m_kernelName, "spir_kernel"}};
   ASSERT_NO_FATAL_FAILURE(testBody(suffix, patterns));
 }
 
-TEST_F(DumpEnvTest, StatsAll) {
-  m_env = {{"VOLCANO_STATS", "All"}};
+TEST_F(DumpEnvTest, IRAfterOptimizer) {
+  m_env = {{"CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER", "True"}};
   std::vector<std::string> suffix = {".ll"};
   std::vector<std::vector<std::string>> patterns = {
       {m_kernelName, "!sycl.kernels"}};
@@ -225,8 +225,8 @@ TEST_F(DumpEnvTest, Bin) {
 
 /// Check that all dumped filenames contains the same hash.
 TEST_F(DumpEnvTest, CheckHashSame) {
-  m_env = {{"VOLCANO_EQUALIZER_STATS", "All"},
-           {"VOLCANO_STATS", "All"},
+  m_env = {{"CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER", "True"},
+           {"CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER", "True"},
            {"CL_CONFIG_DUMP_ASM", "True"},
            {"CL_CONFIG_DUMP_DISASSEMBLY", "True"},
            {"CL_CONFIG_DUMP_BIN", "True"}};
@@ -293,7 +293,7 @@ TEST_F(DumpEnvTest, CheckHashSame) {
 /// Check that IR can be dumped for an independent program which is built after
 /// a previous clCreateKernel call.
 TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
-  ASSERT_TRUE(SETENV("VOLCANO_EQUALIZER_STATS", "all"));
+  ASSERT_TRUE(SETENV("CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER", "True"));
   ASSERT_NO_FATAL_FAILURE(createContext());
   ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
@@ -323,5 +323,5 @@ TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
   ASSERT_NO_FATAL_FAILURE(
       validateDumpedFiles(Suffix, Patterns, /*ProgramIndex*/ 2));
 
-  ASSERT_TRUE(UNSETENV("VOLCANO_EQUALIZER_STATS"));
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER"));
 }

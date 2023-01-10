@@ -570,7 +570,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
                            /*AllowSpeculation*/ true));
       LPM.addPass(LoopIdiomRecognizePass());
       LPM.addPass(LoopDeletionPass());
-      LPM.addPass(LoopStridedCodeMotionPass());
       FPM.addPass(
           createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
                                           /*UseBlockFrequencyInfo=*/true));

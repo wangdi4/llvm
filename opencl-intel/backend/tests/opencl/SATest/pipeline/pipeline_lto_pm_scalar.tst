@@ -132,7 +132,6 @@
 ; CHECK:      Running pass: LICMPass
 ; CHECK:      Running pass: LoopIdiomRecognizePass
 ; CHECK:      Running pass: LoopDeletionPass
-; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis

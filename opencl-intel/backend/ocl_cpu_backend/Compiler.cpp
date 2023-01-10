@@ -214,7 +214,7 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   Args.push_back("OclBackend");
   std::string Env;
 #ifndef NDEBUG
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_COMPILER_DEBUG")) {
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_COMPILER_DEBUG")) {
     Args.push_back("-print-after-all");
     Args.push_back("-print-before-all");
     Args.push_back("-debug");

@@ -80,10 +80,6 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-// initializeIntel_OpenCLTransforms - Initialize all passes linked into the
-// Intel_OpenCLTransforms library
-void initializeIntel_OpenCLTransforms(PassRegistry&);
-
 void initializeInlineListsPass(PassRegistry&);
 void initializeInlineReportSetupPass(PassRegistry&);
 void initializeInlineReportEmitterPass(PassRegistry&);

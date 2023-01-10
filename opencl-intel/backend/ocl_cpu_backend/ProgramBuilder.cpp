@@ -63,7 +63,6 @@
 
 #define DEBUG_TYPE "ProgramBuilder"
 
-using std::string;
 using namespace DPCPPKernelMetadataAPI;
 using namespace intel;
 using namespace llvm;
@@ -169,7 +168,6 @@ ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
 
 void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
                                      bool isEqualizerStats) {
-#ifndef INTEL_PRODUCT_RELEASE
   if (!DPCPPStatistic::isEnabled())
     return;
 
@@ -195,7 +193,6 @@ void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
     pModule->print(IRFD, 0);
   else
     throw Exceptions::CompilerException(ec.message());
-#endif // INTEL_PRODUCT_RELEASE
 }
 
 static Module *replaceModule(Compiler *Cmplr, Program *Prog,
@@ -276,19 +273,16 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     }
     assert(pModule && "Module parsing has failed without exception. Strange");
 
-#ifndef INTEL_PRODUCT_RELEASE
     pModule = replaceModule(pCompiler, pProgram, buildResult,
                             /*BeforeOptimizer*/ true);
 
-    // If environment variable VOLCANO_EQUALIZER_STATS is set to any
-    // non-empty string, then we dump IR before optimization.
+    // If environment variable CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER is set to
+    // true, then we dump IR before optimization.
     std::string Env;
-    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
-      if (!Env.empty()) {
-        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
-      }
-    }
-#endif // INTEL_PRODUCT_RELEASE
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER") &&
+        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(Env))
+      DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
 
     // Handle LLVM ERROR which can occured during build programm
     // Need to do it to eliminate RT hanging when clBuildProgramm failed
@@ -315,16 +309,14 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     // set runtime service for the program
     pProgram->SetRuntimeService(lRuntimeService);
 
-#ifndef INTEL_PRODUCT_RELEASE
     pModule = replaceModule(pCompiler, pProgram, buildResult,
                             /*BeforeOptimizer*/ false);
 
-    // Dump module stats just before lowering if requested
-    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
-      if (!Env.empty())
-        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
-    }
-#endif // INTEL_PRODUCT_RELEASE
+    // Dump module IR after optimizer if requested
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER") &&
+        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(Env))
+      DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
 
     PostOptimizationProcessing(pProgram);
 

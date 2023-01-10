@@ -156,9 +156,11 @@ unsigned long long Intel::OpenCL::Utils::HostTime() {
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////
 void Intel::OpenCL::Utils::GetProcessName(char *pProcName, size_t strLen) {
-  const int readChars = readlink("/proc/self/exe", pProcName, strLen);
+  const int readChars = readlink("/proc/self/exe", pProcName, strLen - 1);
   if (-1 == readChars) {
     pProcName[0] = 0;
+  } else {
+    pProcName[readChars] = 0;
   }
 }
 

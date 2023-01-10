@@ -103,10 +103,10 @@ static bool vectorizerModeTest(std::string const &mode) {
   }
 
   // check if target architecture supports width 8
-  // 1. check if back-end specific env. variable (VOLCANO_CPU_ARCH) sets cpu
+  // 1. check if back-end specific env. variable (CL_CONFIG_CPU_ARCH) sets cpu
   // architecture that doesn't support vector size 8.
   std::string cpuArch;
-  if (Intel::OpenCL::Utils::getEnvVar(cpuArch, "VOLCANO_CPU_ARCH") &&
+  if (Intel::OpenCL::Utils::getEnvVar(cpuArch, "CL_CONFIG_CPU_ARCH") &&
       ("corei7" == cpuArch) && mode == "8")
     return deathTestSuccess();
 

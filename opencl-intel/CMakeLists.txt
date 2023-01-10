@@ -384,7 +384,7 @@ llvm_map_components_to_libnames(
   TransformUtils
   Vectorizer
   Intel_DPCPPKernelTransforms
-  Intel_OpenCLTransforms)
+  )
 
 # Prepare common_clang dynamic library
 if(OPENCL_INTREE_BUILD)
