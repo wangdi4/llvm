@@ -31,12 +31,20 @@ public:
                        InlineParams Params, InlineContext IC)
       : InlineAdvisor(M, FAM, IC) {}
 
-  std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) override {
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<InlineAdvice>
+  getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+                WholeProgramInfo *WPI = nullptr) override {
     if (CB.getCalledFunction()->getName() == "foo")
-      return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), true);
-    return std::make_unique<InlineAdvice>(this, CB, getCallerORE(CB), false);
+      return std::make_unique<InlineAdvice>(
+          this, CB, InlineCost::getNever("", InlineReason::InlrNoReason),
+          getCallerORE(CB), true);
+    return std::make_unique<InlineAdvice>(
+        this, CB, InlineCost::getNever("", InlineReason::InlrNoReason),
+        getCallerORE(CB), false);
   }
 };
+#endif // INTEL_CUSTOMIZATION
 
 static InlineAdvisor *fooOnlyFactory(Module &M, FunctionAnalysisManager &FAM,
                                      InlineParams Params, InlineContext IC) {
