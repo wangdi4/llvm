@@ -684,9 +684,6 @@ protected:
   /// Dominator Tree.
   DominatorTree *DT;
 
-  /// Alias Analysis.
-  AAResults *AA;
-
   /// Target Library Info.
   const TargetLibraryInfo *TLI;
 
@@ -2236,7 +2233,6 @@ struct LoopVectorize : public FunctionPass {
     auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
     auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
     auto *TLI = TLIP ? &TLIP->getTLI(F) : nullptr;
-    auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
     auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     auto &LAIs = getAnalysis<LoopAccessLegacyAnalysis>().getLAIs();
     auto *DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
@@ -2244,8 +2240,7 @@ struct LoopVectorize : public FunctionPass {
     auto *PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
 
     return Impl
-        .runImpl(F, *SE, *LI, *TTI, *DT, *BFI, TLI, *DB, *AA, *AC, LAIs, *ORE,
-                 PSI)
+        .runImpl(F, *SE, *LI, *TTI, *DT, *BFI, TLI, *DB, *AC, LAIs, *ORE, PSI)
         .MadeAnyChange;
   }
 
@@ -2256,7 +2251,6 @@ struct LoopVectorize : public FunctionPass {
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<LoopAccessLegacyAnalysis>();
     AU.addRequired<DemandedBitsWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
@@ -7404,7 +7398,6 @@ static const char lv_name[] = "Loop Vectorization";
 INITIALIZE_PASS_BEGIN(LoopVectorize, LV_NAME, lv_name, false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
@@ -10293,7 +10286,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
 
   // Check if it is legal to vectorize the loop.
   LoopVectorizationRequirements Requirements;
-  LoopVectorizationLegality LVL(L, PSE, DT, TTI, TLI, AA, F, *LAIs, LI, ORE,
+  LoopVectorizationLegality LVL(L, PSE, DT, TTI, TLI, F, *LAIs, LI, ORE,
                                 &Requirements, &Hints, DB, AC, BFI, PSI);
   if (!LVL.canVectorize(EnableVPlanNativePath)) {
     LLVM_DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
@@ -10664,16 +10657,14 @@ bool LoopVectorizePass::processLoop(Loop *L) {
 LoopVectorizeResult LoopVectorizePass::runImpl(
     Function &F, ScalarEvolution &SE_, LoopInfo &LI_, TargetTransformInfo &TTI_,
     DominatorTree &DT_, BlockFrequencyInfo &BFI_, TargetLibraryInfo *TLI_,
-    DemandedBits &DB_, AAResults &AA_, AssumptionCache &AC_,
-    LoopAccessInfoManager &LAIs_, OptimizationRemarkEmitter &ORE_,
-    ProfileSummaryInfo *PSI_) {
+    DemandedBits &DB_, AssumptionCache &AC_, LoopAccessInfoManager &LAIs_,
+    OptimizationRemarkEmitter &ORE_, ProfileSummaryInfo *PSI_) {
   SE = &SE_;
   LI = &LI_;
   TTI = &TTI_;
   DT = &DT_;
   BFI = &BFI_;
   TLI = TLI_;
-  AA = &AA_;
   AC = &AC_;
   LAIs = &LAIs_;
   DB = &DB_;
@@ -10739,7 +10730,6 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
     auto &BFI = AM.getResult<BlockFrequencyAnalysis>(F);
     auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-    auto &AA = AM.getResult<AAManager>(F);
     auto &AC = AM.getResult<AssumptionAnalysis>(F);
     auto &DB = AM.getResult<DemandedBitsAnalysis>(F);
     auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
@@ -10749,7 +10739,7 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     ProfileSummaryInfo *PSI =
         MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
     LoopVectorizeResult Result =
-        runImpl(F, SE, LI, TTI, DT, BFI, &TLI, DB, AA, AC, LAIs, ORE, PSI);
+        runImpl(F, SE, LI, TTI, DT, BFI, &TLI, DB, AC, LAIs, ORE, PSI);
     if (!Result.MadeAnyChange)
       return PreservedAnalyses::all();
     PreservedAnalyses PA;
