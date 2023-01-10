@@ -16,14 +16,10 @@
 #ifndef LLVM_ADT_OPTIONAL_H
 #define LLVM_ADT_OPTIONAL_H
 
-#include "llvm/ADT/Hashing.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/type_traits.h"
-#include <cassert>
-#include <new>
-#include <utility>
+#include <optional>
 
 namespace llvm {
+<<<<<<< HEAD
 
 namespace optional_detail {
 
@@ -457,5 +453,11 @@ constexpr bool operator>=(const T &X, const Optional<T> &Y) {
 }
 
 } // end namespace llvm
+=======
+// Legacy alias of llvm::Optional to std::optional.
+// FIXME: Remove this after LLVM 16.
+template <class T> using Optional = std::optional<T>;
+} // namespace llvm
+>>>>>>> 2916b99182752b1aece8cc4479d8d6a20b5e02da
 
 #endif // LLVM_ADT_OPTIONAL_H
