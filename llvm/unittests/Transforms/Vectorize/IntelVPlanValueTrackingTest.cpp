@@ -1,6 +1,6 @@
-//===- IntelVPlanValueTracking.cpp ------------------------------*- C++ -*-===//
+//===- IntelVPlanValueTrackingTest.cpp --------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -148,6 +148,14 @@ TEST_F(VPlanValueTrackingTest, SimpleAssumeAlignedLegacy) {
 }
 
 struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
+  template <typename Fn>
+  static void withSetUseUnderlyingValues(bool V, Fn &&F) {
+    const auto OldVal = VPlanValueTracking::getUseUnderlyingValues();
+    VPlanValueTracking::setUseUnderlyingValues(V);
+    F();
+    VPlanValueTracking::setUseUnderlyingValues(OldVal);
+  }
+
   VPInstruction *findInstructionByName(StringRef Name) const {
     for (VPInstruction &I : vpinstructions(Plan.get()))
       if (I.getOrigName() == Name)
@@ -181,25 +189,27 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
     });
   }
 
-  void expectKnownBits(Twine Name, const VPValue *V, const VPInstruction *CtxI,
-                       uint64_t Zero, uint64_t One) {
-    KnownBits KB = Plan->getVPVT()->getKnownBits(V, CtxI);
+  void expectKnownBits(std::string Name, const VPValue *V,
+                       const VPInstruction *CtxI, uint64_t Zero, uint64_t One,
+                       unsigned VF = 1) {
+    KnownBits KB = Plan->getVPVT()->getKnownBits(V, CtxI, VF);
     EXPECT_EQ(KB.Zero.getZExtValue(), Zero) << "KB('%" << Name << "')";
     EXPECT_EQ(KB.One.getZExtValue(), One) << "KB('%" << Name << "')";
   }
 
-  void expectKnownBits(StringRef Name, uint64_t Zero, uint64_t One) {
+  void expectKnownBits(std::string Name, uint64_t Zero, uint64_t One,
+                       unsigned VF = 1) {
     const VPInstruction *I = findInstructionByName(Name);
     ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
-    expectKnownBits(Name, I, I, Zero, One);
+    expectKnownBits(Name, I, I, Zero, One, VF);
   }
 
-  void expectKnownBitsForOperand(StringRef Name, unsigned Idx, uint64_t Zero,
+  void expectKnownBitsForOperand(std::string Name, unsigned Idx, uint64_t Zero,
                                  uint64_t One) {
     const VPInstruction *I = findInstructionByName(Name);
     ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
-    expectKnownBits(Twine(Name) + "." + std::to_string(Idx), I->getOperand(Idx),
-                    I, Zero, One);
+    expectKnownBits(Name + "." + std::to_string(Idx), I->getOperand(Idx), I,
+                    Zero, One);
   }
 };
 
@@ -362,12 +372,14 @@ TEST_F(VPlanComputeKnownBitsTest, ToggleUseUnderlyingValues) {
   expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
 
   // Expect that we can toggle underlying values to not be used.
-  VPlanValueTracking::setUseUnderlyingValues(false);
-  expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 0, /*One: */ 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(false, [this]() {
+    expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 0, /*One: */ 0);
+  });
 
   // Expect that we can toggle underlying values to be used.
-  VPlanValueTracking::setUseUnderlyingValues(true);
-  expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(true, [this]() {
+    expectKnownBitsForOperand("add", /*Idx: */ 0, /*Zero: */ 7, /*One: */ 0);
+  });
 }
 
 TEST_F(VPlanComputeKnownBitsTest, AffectedByInternalAssumption) {
@@ -393,12 +405,12 @@ TEST_F(VPlanComputeKnownBitsTest, AffectedByInternalAssumption) {
 
   // Ensure alignment comes from the VPAssumptionCache and not from underlying
   // LLVM ValueTracking.
-  VPlanValueTracking::setUseUnderlyingValues(false);
-
-  KnownBits ArgKB =
-      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
-  EXPECT_EQ(ArgKB.Zero, 63);
-  EXPECT_EQ(ArgKB.One, 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(false, [&]() {
+    KnownBits ArgKB =
+        Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+    EXPECT_EQ(ArgKB.Zero, 63);
+    EXPECT_EQ(ArgKB.One, 0);
+  });
 }
 
 TEST_F(VPlanComputeKnownBitsTest, AffectedByExternalAssumption) {
@@ -423,12 +435,12 @@ TEST_F(VPlanComputeKnownBitsTest, AffectedByExternalAssumption) {
 
   // Ensure alignment comes from the VPAssumptionCache and not from underlying
   // LLVM ValueTracking.
-  VPlanValueTracking::setUseUnderlyingValues(false);
-
-  KnownBits ArgKB =
-      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
-  EXPECT_EQ(ArgKB.Zero, 63);
-  EXPECT_EQ(ArgKB.One, 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(false, [&]() {
+    KnownBits ArgKB =
+        Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+    EXPECT_EQ(ArgKB.Zero, 63);
+    EXPECT_EQ(ArgKB.One, 0);
+  });
 }
 
 TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidInternalAssumption) {
@@ -462,12 +474,12 @@ TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidInternalAssumption) {
 
   // Ensure alignment comes from the VPAssumptionCache and not from underlying
   // LLVM ValueTracking.
-  VPlanValueTracking::setUseUnderlyingValues(false);
-
-  KnownBits ArgKB =
-      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
-  EXPECT_EQ(ArgKB.Zero, 0);
-  EXPECT_EQ(ArgKB.One, 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(false, [&]() {
+    KnownBits ArgKB =
+        Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+    EXPECT_EQ(ArgKB.Zero, 0);
+    EXPECT_EQ(ArgKB.One, 0);
+  });
 }
 
 TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidExternalAssumption) {
@@ -501,11 +513,177 @@ TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidExternalAssumption) {
 
   // Ensure alignment comes from the VPAssumptionCache and not from underlying
   // LLVM ValueTracking.
-  VPlanValueTracking::setUseUnderlyingValues(false);
-
-  KnownBits ArgKB =
-      Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
-  EXPECT_EQ(ArgKB.Zero, 0);
-  EXPECT_EQ(ArgKB.One, 0);
+  VPlanComputeKnownBitsTest::withSetUseUnderlyingValues(false, [&]() {
+    KnownBits ArgKB =
+        Plan->getVPVT()->getKnownBits(Store->getPointerOperand(), Store);
+    EXPECT_EQ(ArgKB.Zero, 0);
+    EXPECT_EQ(ArgKB.One, 0);
+  });
 }
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PowerOf2Step) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv.1 = phi i64 [ 0, %entry ], [ %iv.1.next, %for.body ]
+      %iv.2 = phi i64 [ 0, %entry ], [ %iv.2.next, %for.body ]
+      %iv.4 = phi i64 [ 0, %entry ], [ %iv.4.next, %for.body ]
+      %iv.8 = phi i64 [ 0, %entry ], [ %iv.8.next, %for.body ]
+      %iv.1.next = add nuw nsw i64 %iv.1, 1
+      %iv.2.next = add nuw nsw i64 %iv.2, 2
+      %iv.4.next = add nuw nsw i64 %iv.4, 4
+      %iv.8.next = add nuw nsw i64 %iv.8, 8
+      %exitcond = icmp eq i64 %iv.1.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  using StepAndName = std::pair<unsigned, const char*>;
+  for (auto [Step, Name] : std::initializer_list<StepAndName>{
+           {1, "iv.1"}, {2, "iv.2"}, {4, "iv.4"}, {8, "iv.8"}})
+    for (const auto &VF : {1, 2, 4, 8, 16, 32})
+      expectKnownBits(Name, /*Zero: */ Step * VF - 1, /*One: */ 0, VF);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonConstLoopInvariantStep) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %n) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %n.ind.1 = phi i64 [ 0, %entry ], [ %n.ind.1.next, %for.body ]
+      %n.ind.2 = phi i64 [ 0, %entry ], [ %n.ind.2.next, %for.body ]
+      %n.ind.4 = phi i64 [ 0, %entry ], [ %n.ind.4.next, %for.body ]
+      %n.ind.8 = phi i64 [ 0, %entry ], [ %n.ind.8.next, %for.body ]
+      %n.2 = mul i64 %n, 2
+      %n.4 = mul i64 %n, 4
+      %n.8 = mul i64 %n, 8
+      %n.ind.1.next = add nuw nsw i64 %n.ind.1, %n
+      %n.ind.2.next = add nuw nsw i64 %n.ind.2, %n.2
+      %n.ind.4.next = add nuw nsw i64 %n.ind.4, %n.4
+      %n.ind.8.next = add nuw nsw i64 %n.ind.8, %n.8
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  using StepAndName = std::pair<unsigned, const char*>;
+  for (auto [Step, Name] : std::initializer_list<StepAndName>{
+           {1, "n.ind.1"}, {2, "n.ind.2"}, {4, "n.ind.4"}, {8, "n.ind.8"}})
+    for (const auto &VF : {1, 2, 4, 8, 16, 32})
+      expectKnownBits(Name, /*Zero: */ Step * VF - 1, /*One: */ 0, VF);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_OddStep) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv.1 = phi i64 [ 0, %entry ], [ %iv.1.next, %for.body ]
+      %iv.3 = phi i64 [ 0, %entry ], [ %iv.3.next, %for.body ]
+      %iv.5 = phi i64 [ 0, %entry ], [ %iv.5.next, %for.body ]
+      %iv.1.next = add nuw nsw i64 %iv.1, 1
+      %iv.3.next = add nuw nsw i64 %iv.3, 3
+      %iv.5.next = add nuw nsw i64 %iv.5, 5
+      %exitcond = icmp eq i64 %iv.1.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  using StepAndName = std::pair<unsigned, const char*>;
+  for (auto [Step, Name] : std::initializer_list<StepAndName>{
+           {1, "iv.1"}, {3, "iv.3"}, {5, "iv.5"}})
+    for (const auto &VF : {1, 2, 4, 8, 16, 32})
+      expectKnownBits(Name, /*Zero: */ VF - 1, /*One: */ 0, VF);
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonZeroStart) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv.1.1 = phi i64 [ 1, %entry ], [ %iv.1.1.next, %for.body ]
+      %iv.2.1 = phi i64 [ 2, %entry ], [ %iv.2.1.next, %for.body ]
+      %iv.3.1 = phi i64 [ 3, %entry ], [ %iv.3.1.next, %for.body ]
+      %iv.4.1 = phi i64 [ 4, %entry ], [ %iv.4.1.next, %for.body ]
+      %iv.5.1 = phi i64 [ 5, %entry ], [ %iv.5.1.next, %for.body ]
+      %iv.6.1 = phi i64 [ 6, %entry ], [ %iv.6.1.next, %for.body ]
+      %iv.7.1 = phi i64 [ 7, %entry ], [ %iv.7.1.next, %for.body ]
+      %iv.1.1.next = add nuw nsw i64 %iv.1.1, 1
+      %iv.2.1.next = add nuw nsw i64 %iv.2.1, 1
+      %iv.3.1.next = add nuw nsw i64 %iv.3.1, 1
+      %iv.4.1.next = add nuw nsw i64 %iv.4.1, 1
+      %iv.5.1.next = add nuw nsw i64 %iv.5.1, 1
+      %iv.6.1.next = add nuw nsw i64 %iv.6.1, 1
+      %iv.7.1.next = add nuw nsw i64 %iv.7.1, 1
+      %exitcond = icmp eq i64 %iv.1.1.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  for (const auto &Name :
+       {"iv.1.1", "iv.2.1", "iv.3.1", "iv.4.1", "iv.5.1", "iv.6.1", "iv.7.1"}) {
+    expectKnownBits(Name, /*Zero:*/ 0, /*One:*/ 0);
+  }
+
+  // clang-format off
+  expectKnownBits("iv.1.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+
+  expectKnownBits("iv.2.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  expectKnownBits("iv.2.1", /*Zero:*/ 0b0101, /*One:*/ 0b0010, /*VF:*/  8);
+
+  expectKnownBits("iv.3.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+  expectKnownBits("iv.3.1", /*Zero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
+
+  expectKnownBits("iv.4.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  expectKnownBits("iv.4.1", /*Zero:*/ 0b0011, /*One:*/ 0b0000, /*VF:*/  4);
+  expectKnownBits("iv.4.1", /*Zero:*/ 0b0011, /*One:*/ 0b0100, /*VF:*/  8);
+
+  expectKnownBits("iv.5.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+  expectKnownBits("iv.5.1", /*Zero:*/ 0b0010, /*One:*/ 0b0001, /*VF:*/  4);
+  expectKnownBits("iv.5.1", /*Zero:*/ 0b1010, /*One:*/ 0b0101, /*VF:*/ 16);
+
+  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0010, /*VF:*/  4);
+  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0110, /*VF:*/  8);
+
+  expectKnownBits("iv.7.1", /*Zero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
+  expectKnownBits("iv.7.1", /*Zero:*/ 0b1000, /*One:*/ 0b0111, /*VF:*/ 16);
+  // clang-format on
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NotFirstOp) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ %iv.next, %for.body ], [ 0, %entry ]
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  expectKnownBits("iv", /*Zero: */ 0, /*One: */ 0, /*VF: */ 1);
+  expectKnownBits("iv", /*Zero: */ 1, /*One: */ 0, /*VF: */ 2);
+  expectKnownBits("iv", /*Zero: */ 3, /*One: */ 0, /*VF: */ 4);
+}
+
 } // namespace
