@@ -28,6 +28,9 @@ add_llvm_external_project(opencl)
 set(LLVM_LINK_COMPONENTS
         ${LLVM_TARGETS_TO_BUILD}
         Support
+# INTEL_CUSTOMIZATION
+        TargetParser
+# end INTEL_CUSTOMIZATION
         )
 file(GLOB TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 

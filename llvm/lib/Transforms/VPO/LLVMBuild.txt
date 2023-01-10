@@ -27,7 +27,7 @@ library_name = VPOTransforms
 ; INTEL_CUSTOMIZATION
 
 ;Intel_Loop* and IntelOptReport libs are needed by Vecopt only, not Paropt
-required_libraries = Analysis Core Scalar Support TransformUtils VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
+required_libraries = Analysis Core Scalar Support TargetParser TransformUtils VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
 
 ; else
 
