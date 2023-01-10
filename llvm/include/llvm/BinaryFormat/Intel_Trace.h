@@ -19,8 +19,7 @@
 #define LLVM_BINARYFORMAT_TRACE_H
 
 #include <cstdint>
-
-#include "llvm/ADT/Optional.h"
+#include <optional>
 
 namespace llvm {
 class StringRef;
@@ -71,7 +70,8 @@ Tag getOptimalPCTag(uint32_t DeltaPC);
 
 /// \returns the optimal correlation tag with given delta line \p DeltaLine
 /// and delta pc \p DeltaPC.
-Optional<Tag> getOptimalCorrelationTag(int32_t DeltaLine, uint32_t DeltaPC);
+std::optional<Tag> getOptimalCorrelationTag(int32_t DeltaLine,
+                                            uint32_t DeltaPC);
 
 } // namespace traceback
 } // namespace llvm

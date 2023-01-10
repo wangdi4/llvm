@@ -15,7 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/BinaryFormat/Intel_Trace.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
@@ -104,8 +103,8 @@ traceback::Tag traceback::getOptimalPCTag(uint32_t DeltaPC) {
   return traceback::TB_TAG_PC4;
 }
 
-Optional<traceback::Tag> traceback::getOptimalCorrelationTag(int32_t DeltaLine,
-                                                             uint32_t DeltaPC) {
+std::optional<traceback::Tag>
+traceback::getOptimalCorrelationTag(int32_t DeltaLine, uint32_t DeltaPC) {
   if (DeltaPC > 0b11'1111)
     return std::nullopt;
 
