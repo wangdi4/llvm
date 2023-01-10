@@ -20,9 +20,10 @@
 
 #include <cstdint>
 
+#include "llvm/ADT/Optional.h"
+
 namespace llvm {
 class StringRef;
-template <typename> class Optional;
 
 /// A uniform namespace for the entities in .trace section.
 namespace traceback {

@@ -47,7 +47,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # Author: Gorban, Igor <igor.gorban@intel.com>
       # Date:   Tue Dec 13 18:21:41 2022 +0000
       # VCWrappers does not installing, we can't use them in headers
-      set(LLVMGenXIntrinsics_GIT_TAG 88083f819d2391f0a15ecdb6f7efeefaf02364e8)
+      set(LLVMGenXIntrinsics_GIT_TAG dd72efa3b4aafdbbf599e6f3c6f8c55450e348de)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
