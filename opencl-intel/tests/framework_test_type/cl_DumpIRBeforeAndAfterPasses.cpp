@@ -97,7 +97,7 @@ void cl_DumpIRBeforeAndAfterPasses() {
   int rc;
 
   rc = setenv(
-      "VOLCANO_LLVM_OPTIONS",
+      "CL_CONFIG_LLVM_OPTIONS",
       "-print-before=simplifycfg -print-after=dpcpp-kernel-wgloop-creator", 1);
   ASSERT_EQ(rc, 0) << "setenv: " << strerror(errno);
 
@@ -132,7 +132,7 @@ void cl_DumpIRBeforeAndAfterPasses() {
   waitpid(pid, &rc, 0);
   ASSERT_EQ(rc, 0) << "Child process exited with non-zero status";
 
-  rc = unsetenv("VOLCANO_LLVM_OPTIONS");
+  rc = unsetenv("CL_CONFIG_LLVM_OPTIONS");
   ASSERT_EQ(rc, 0) << "Unable to unset environment variable" << strerror(errno);
 }
 #endif // (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)

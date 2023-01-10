@@ -56,41 +56,36 @@ void GlobalCompilerConfig::LoadDefaults() {
 void GlobalCompilerConfig::LoadConfig() {
   std::string Env;
 #ifndef NDEBUG
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_ENABLE_TIMING"))
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_ENABLE_TIMING"))
     m_enableTiming = ConfigFile::ConvertStringToType<bool>(Env);
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_INFO_OUTPUT_FILE"))
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_INFO_OUTPUT_FILE"))
     m_infoOutputFile = Env;
 #endif // NDEBUG
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_DISABLE_STACK_TRACE"))
     m_disableStackDump = ConfigFile::ConvertStringToType<bool>(Env);
-#ifndef INTEL_PRODUCT_RELEASE
+
   // Stat options are set as llvm options for 2 reasons
   // they are available also for opt
   // no need to fuse them all the way down to all passes
 
-  // If environment variable VOLCANO_STATS is set to any non-empty string,
+  // If environment variable CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER is set to true,
   // then IR containing statistic information will be dumped.
-  // If the environment variable is set to 'all' (case-insensitive), all
-  // statistic will be dumped, otherwise, only statistic with specified type
-  // will be dumped.
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS") && !Env.empty()) {
+  if ((Intel::OpenCL::Utils::getEnvVar(Env,
+                                       "CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER") &&
+       ConfigFile::ConvertStringToType<bool>(Env)) ||
+      (Intel::OpenCL::Utils::getEnvVar(Env,
+                                       "CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER") &&
+       ConfigFile::ConvertStringToType<bool>(Env))) {
     DPCPPStatistic::enableStats();
-    if (STRCASECMP("all", Env.c_str()))
-      DPCPPStatistic::setCurrentStatType(Env.c_str());
+    // all statistic will be dumped.
+    DPCPPStatistic::setCurrentStatType("all");
   }
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS") &&
-      !Env.empty()) {
-    DPCPPStatistic::enableStats();
-    if (STRCASECMP("all", Env.c_str()))
-      DPCPPStatistic::setCurrentStatType(Env.c_str());
-  }
-#endif // INTEL_PRODUCT_RELEASE
 
   // INTEL VPO BEGIN
   m_LLVMOptions.emplace_back("-vector-library=SVML");
   // INTEL VPO END
 
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_LLVM_OPTIONS")) {
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_LLVM_OPTIONS")) {
     std::vector<std::string> Options = SplitString(Env, ' ');
     m_LLVMOptions.append(Options.begin(), Options.end());
   }
@@ -180,15 +175,15 @@ void CompilerConfig::LoadConfig() {
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_TARGET_ARCH"))
     m_cpuArch = Env;
 #ifndef NDEBUG
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_CPU_FEATURES")) {
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_FEATURES")) {
     // The validity of the cpud features are checked upon parsing of optimizer
     // options
     m_cpuFeatures = Env;
   }
 
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_DEBUG"))
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DEBUG"))
     llvm::DebugFlag = true;
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_DEBUG_ONLY"))
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DEBUG_ONLY"))
     llvm::setCurrentDebugType(Env.c_str());
 #endif // NDEBUG
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
