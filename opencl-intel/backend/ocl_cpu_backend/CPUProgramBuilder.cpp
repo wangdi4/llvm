@@ -421,11 +421,11 @@ static void dumpAssembly(Module *M, TargetMachine *TM,
   TargetLibraryInfoImpl TLII(Triple(M->getTargetTriple()));
   legacy::PassManager PM;
   PM.add(new TargetLibraryInfoWrapperPass(TLII));
-  auto &LLVMTM = static_cast<LLVMTargetMachine &>(*TM);
-  auto *MMIWP = new MachineModuleInfoWrapperPass(&LLVMTM);
-  TM->addPassesToEmitFile(PM, Out->os(),
-                          /*DwoOut*/ nullptr, CGFT_AssemblyFile,
-                          /*DisableVerify*/ true, MMIWP);
+  if (TM->addPassesToEmitFile(PM, Out->os(),
+                              /*DwoOut*/ nullptr, CGFT_AssemblyFile,
+                              /*DisableVerify*/ true))
+    throw Exceptions::CompilerException(
+        "failed to add passes to dump assembly file");
   PM.run(*M);
   Out->keep();
 }
