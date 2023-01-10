@@ -31,8 +31,6 @@ include_directories(${CL_API_HEADERS})
 find_sources()
 calculate_target_sources()
 
-include(itt)
-
 if(WIN32)
   set(LIB_TYPE STATIC)
   set(SYSTEM_LIBS)

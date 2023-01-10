@@ -33,10 +33,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Execution
   ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
   ${CMAKE_CURRENT_SOURCE_DIR}/Tracing
-  ${OCL_BINARY_DIR}
-  ${OCL_SOURCE_DIR}/externals/itt/include)
-
-add_definitions(-DUSE_ITT)
+  ${OCL_BINARY_DIR})
 
 # For debug only
 if(USE_ITT_INTERNAL)
