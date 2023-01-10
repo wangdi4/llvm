@@ -556,7 +556,6 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
   initializeFoldLoadsToGatherPass(Registry);
-  initializeIntel_OpenCLTransforms(Registry);
   initializeJMCInstrumenterPass(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
