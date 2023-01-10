@@ -3737,9 +3737,10 @@ public:
   }
 
   concepts::NestedRequirement *
-  RebuildNestedRequirement(
-      concepts::Requirement::SubstitutionDiagnostic *SubstDiag) {
-    return SemaRef.BuildNestedRequirement(SubstDiag);
+  RebuildNestedRequirement(StringRef InvalidConstraintEntity,
+                           const ASTConstraintSatisfaction &Satisfaction) {
+    return SemaRef.BuildNestedRequirement(InvalidConstraintEntity,
+                                          Satisfaction);
   }
 
   concepts::NestedRequirement *RebuildNestedRequirement(Expr *Constraint) {
@@ -13340,10 +13341,10 @@ template<typename Derived>
 concepts::NestedRequirement *
 TreeTransform<Derived>::TransformNestedRequirement(
     concepts::NestedRequirement *Req) {
-  if (Req->isSubstitutionFailure()) {
+  if (Req->hasInvalidConstraint()) {
     if (getDerived().AlwaysRebuild())
       return getDerived().RebuildNestedRequirement(
-          Req->getSubstitutionDiagnostic());
+          Req->getInvalidConstraintEntity(), Req->getConstraintSatisfaction());
     return Req;
   }
   ExprResult TransConstraint =
