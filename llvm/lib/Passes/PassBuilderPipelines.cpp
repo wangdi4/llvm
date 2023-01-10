@@ -2121,8 +2121,9 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
   // Clean-up empty blocks after OpenMP directives handling.
   FPM.addPass(VPOCFGSimplifyPass());
   // Paropt transform is complete and SIMD regions are identified. Insert guards
-  // for memory motion of UDR pointers (if needed). Renaming is also done to avoid
-  // motion of GEPs operating on these pointers.
+  // for memory motion of UDR pointers (if needed). Renaming of SIMD
+  // reduction/inscan operands captured on VPO.GUARD.MEM.MOTION directives is
+  // done to prevent the motion of any GEPs on them, across the directives.
   FPM.addPass(VPOCFGRestructuringPass());
   FPM.addPass(VPOParoptGuardMemoryMotionPass(/*RunForScans*/false));
   FPM.addPass(VPOCFGRestructuringPass());

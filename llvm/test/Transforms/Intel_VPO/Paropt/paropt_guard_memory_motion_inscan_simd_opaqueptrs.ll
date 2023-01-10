@@ -1,3 +1,8 @@
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
+; RUN: opt -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
+
 ; Test to verify the functionality of VPOParoptGuardMemoryMotion and VPORenameOperands passes.
 
 ; Test src:
@@ -24,11 +29,6 @@
 ;     }
 ;     return red.x;
 ; }
-
-; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -insert-guards-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
-; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
-; RUN: opt -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
