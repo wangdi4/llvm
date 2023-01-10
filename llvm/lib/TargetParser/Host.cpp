@@ -1,5 +1,4 @@
-<<<<<<< HEAD:llvm/lib/Support/Host.cpp
-//===-- Host.cpp - Implement OS Host Concept --------------------*- C++ -*-===//
+//===-- Host.cpp - Implement OS Host Detection --------------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,9 +16,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-=======
-//===-- Host.cpp - Implement OS Host Detection ------------------*- C++ -*-===//
->>>>>>> b752b591d38959659fb318b5157b45bcf33059a1:llvm/lib/TargetParser/Host.cpp
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.

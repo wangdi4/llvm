@@ -3,7 +3,6 @@ set(LLVM_LINK_COMPONENTS
   Core
   Vectorize
   AsmParser
-<<<<<<< HEAD
   CodeGen
   Intel_LoopAnalysis   # INTEL
   Intel_LoopTransforms # INTEL
@@ -12,9 +11,7 @@ set(LLVM_LINK_COMPONENTS
   X86Info
   X86Desc
   Target
-=======
   TargetParser
->>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
   )
 
 add_llvm_unittest(VectorizeTests

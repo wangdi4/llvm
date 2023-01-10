@@ -1,4 +1,21 @@
 //===-- llvm/TargetParser/Triple.h - Target triple helper class--*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -55,6 +72,11 @@ public:
     avr,            // AVR: Atmel AVR microcontroller
     bpfel,          // eBPF or extended BPF or 64-bit BPF (little endian)
     bpfeb,          // eBPF or extended BPF or 64-bit BPF (big endian)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    csa,            // CSA: csa
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     csky,           // CSKY: csky
     dxil,           // DXIL 32-bit DirectX bytecode
     hexagon,        // Hexagon: hexagon
@@ -85,6 +107,11 @@ public:
     x86,            // X86: i[3-9]86
     x86_64,         // X86-64: amd64, x86_64
     xcore,          // XCore: xcore
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    x86_64_xucc,    // XUCC: x86_64_xucc
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
     le32,           // le32: generic little-endian 32-bit CPU (PNaCl)
@@ -252,6 +279,10 @@ public:
     MuslEABIHF,
     MuslX32,
 
+#if INTEL_CUSTOMIZATION
+    IntelFPGA,
+    IntelEyeQ,
+#endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
     Cygnus,
@@ -463,6 +494,13 @@ public:
   /// Note that this tests for 16-bit pointer width, and nothing else.
   bool isArch16Bit() const;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  /// Test whether the architecture is xucc
+  bool isArchXuCC() const;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
   /// Helper function for doing comparisons against version numbers included in
   /// the target triple.
   bool isOSVersionLT(unsigned Major, unsigned Minor = 0,
@@ -621,6 +659,16 @@ public:
   bool isWindowsGNUEnvironment() const {
     return isOSWindows() && getEnvironment() == Triple::GNU;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool isINTELFPGAEnvironment() const {
+    return getEnvironment() == Triple::IntelFPGA;
+  }
+
+  bool isINTELEyeQEnvironment() const {
+    return getEnvironment() == Triple::IntelEyeQ;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Tests for either Cygwin or MinGW OS
   bool isOSCygMing() const {
@@ -914,7 +962,14 @@ public:
 
   /// Tests whether the target is x86 (32- or 64-bit).
   bool isX86() const {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    return getArch() == Triple::x86 || getArch() == Triple::x86_64 ||
+           getArch() == Triple::x86_64_xucc;
+#else // INTEL_FEATURE_XUCC
     return getArch() == Triple::x86 || getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Tests whether the target is VE
