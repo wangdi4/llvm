@@ -287,6 +287,7 @@ add_llvm_component_library(LLVMAnalysis
   Object
   ProfileData
   Support
+  TargetParser
   )
 
 # INTEL_CUSTOMIZATION

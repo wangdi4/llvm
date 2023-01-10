@@ -55,6 +55,7 @@ add_lld_library(lldCOFF
   Option
   Passes
   Support
+  TargetParser
   WindowsDriver
   WindowsManifest
 
