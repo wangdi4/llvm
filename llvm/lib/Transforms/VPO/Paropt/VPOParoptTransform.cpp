@@ -1754,6 +1754,9 @@ bool VPOParoptTransform::paroptTransforms() {
         if (!DisableOffload && !hasOffloadCompilation())
           improveAliasForOutlinedFunc(W);
         break;
+      case WRegionNode::WRNWksLoop:
+        RoutineChanged |= createAtomicFreeReductionBuffers(W);
+        break;
       }
       W->resetBBSet();
     }
@@ -6465,9 +6468,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     std::tie(FastRedStructTy, FastRedInst) = genFastRedTyAndVar(W, FastRedMode);
 
     bool FillGlobalBuffers =
-        VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() && W->getIsTeams();
+        VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() &&
+        WRegionUtils::supportsGlobalAtomicFreeReduction(W);
     bool FillLocalBuffers =
-        VPOParoptUtils::isAtomicFreeReductionLocalEnabled() && W->getIsPar();
+        VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
+        WRegionUtils::supportsLocalAtomicFreeReduction(W);
     // Filling the AtomicFreeRedGlobalBufs array to be used for
     // atomic-free reduction generation later
     if (isTargetSPIRV() && (FillGlobalBuffers || FillLocalBuffers)) {
