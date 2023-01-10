@@ -11,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
 # Avoid link error undefined symbol: LLVMInitializeX86Disassembler
   native
 #endif // INTEL_CUSTOMIZATION
+  TargetParser
   )
 
 add_llvm_tool(llvm-exegesis

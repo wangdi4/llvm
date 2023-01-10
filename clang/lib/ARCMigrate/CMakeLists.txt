@@ -17,6 +17,7 @@
 # end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS
   Support
+  TargetParser
   )
 
 # INTEL_CUSTOMIZATION

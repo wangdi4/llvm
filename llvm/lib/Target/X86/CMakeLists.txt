@@ -137,6 +137,7 @@ add_llvm_target(X86CodeGen ${sources}
   SelectionDAG
   Support
   Target
+  TargetParser
   TransformUtils
   X86Desc
   X86Info

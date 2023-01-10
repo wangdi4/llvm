@@ -17,6 +17,7 @@
 # end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS
   Support
+  TargetParser
   )
 
 add_lld_tool(lld

@@ -41,6 +41,7 @@ set(LLVM_LINK_COMPONENTS
   Option
   ProfileData
   Support
+  TargetParser
   WindowsDriver
   )
 

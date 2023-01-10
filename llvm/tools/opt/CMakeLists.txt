@@ -41,6 +41,7 @@ set(LLVM_LINK_COMPONENTS
   Support
   SYCLLowerIR
   Target
+  TargetParser
   TransformUtils
   Vectorize
   Passes
