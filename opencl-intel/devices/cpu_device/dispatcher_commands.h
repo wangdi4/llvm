@@ -279,7 +279,7 @@ protected:
   // thread mapping
   unsigned int m_numThreads;
   bool m_bEnablePredictablePartitioning;
-  bool m_needSerializeWGs;
+  bool m_needSerializeWGs = false;
 
   // Used when running in "predictable partitioning" mode (i.e. 1:1 mapping
   // between threads and WGs when using fission) Ensures no work group is
