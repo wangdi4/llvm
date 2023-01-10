@@ -2396,18 +2396,18 @@ class MemAllocatorTy {
       AllocUnit = (std::max)(AP.pageSize, AllocUnit);
       CALL_ZE_RET_VOID(zeMemFree, Context, Mem);
 
-      if (AllocKind == TARGET_ALLOC_SHARED) {
-        ze_device_properties_t Properties
-            {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
-        CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &Properties);
-        if (isDiscrete(Properties.deviceId)) {
-          // Use page size as minimum chunk size for USM shared on discrete
-          // device.
-          // FIXME: pageSize is not returned correctly (=0) on some new devices,
-          //        so use fallback value for now.
-          AllocMin = (std::max)(AP.pageSize, AllocUnit);
-          AllocUnit = AllocMin * BlockCapacity;
-        }
+      ze_device_properties_t Properties{ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES,
+                                        nullptr};
+      CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &Properties);
+      bool IsDiscrete = isDiscrete(Properties.deviceId);
+
+      if (AllocKind == TARGET_ALLOC_SHARED && IsDiscrete) {
+        // Use page size as minimum chunk size for USM shared on discrete
+        // device.
+        // FIXME: pageSize is not returned correctly (=0) on some new devices,
+        //        so use fallback value for now.
+        AllocMin = (std::max)(AP.pageSize, AllocUnit);
+        AllocUnit = AllocMin * BlockCapacity;
       }
 
       // Convert MB to B and round up to power of 2
@@ -2427,9 +2427,19 @@ class MemAllocatorTy {
       // Set bucket parameters
       for (size_t I = 0; I < Buckets.size(); I++) {
         size_t ChunkSize = AllocMin << I;
-        size_t BlockSize = (ChunkSize * BlockCapacity <= AllocUnit)
-            ? AllocUnit
-            : ChunkSize * BlockCapacity;
+        size_t BlockSize = ChunkSize * BlockCapacity;
+        // On discrete device, the cost of native L0 invocation doubles when the
+        // the requested size doubles after certain threshold, so allocating
+        // larger block does not pay off at all. It is better to keep a single
+        // chunk in a single block in such cases.
+        if (BlockSize <= AllocUnit) {
+          BlockSize = AllocUnit; // Allocation unit is already large enough
+        } else if (IsDiscrete) {
+          // Keep a single chunk for >=8MB host mem, >=128MB otherwise
+          if (ChunkSize >= (128 << 20) ||
+              (AllocKind == TARGET_ALLOC_HOST && ChunkSize >= (8 << 20)))
+            BlockSize = ChunkSize;
+        }
         BucketParams.emplace_back(ChunkSize, BlockSize);
       }
 
@@ -2551,6 +2561,7 @@ class MemAllocatorTy {
         Mem = Block->alloc();
         assert(Mem && "Inconsistent state while allocating memory from pool");
         PtrToBlock.emplace(Mem, Block);
+        break;
       }
 
       if (Mem == nullptr) {
