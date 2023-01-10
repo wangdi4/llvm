@@ -228,6 +228,110 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreEliminationLegacyPass();
 }
 
+namespace {
+/// Collects all AddressOf refs and fake refs attached to lifetime end
+/// intrinsics.
+class AddressOfAndFakeLifetimeRefCollector final : public HLNodeVisitorBase {
+private:
+  SmallVectorImpl<RegDDRef *> &AddressOfRefs;
+  BasePtrToLifetimeEndInfoMapTy &FakeLifetimeEndRefs;
+
+public:
+  AddressOfAndFakeLifetimeRefCollector(
+      SmallVectorImpl<RegDDRef *> &AddressOfRefs,
+      BasePtrToLifetimeEndInfoMapTy &FakeLifetimeEndRefs)
+      : AddressOfRefs(AddressOfRefs), FakeLifetimeEndRefs(FakeLifetimeEndRefs) {
+  }
+
+  void visit(HLDDNode *Node) {
+    for (auto *Ref : make_range(Node->op_ddref_begin(), Node->op_ddref_end())) {
+      if (Ref->isAddressOf()) {
+        AddressOfRefs.push_back(Ref);
+      }
+    }
+
+    auto *Inst = dyn_cast<HLInst>(Node);
+    if (Inst && Inst->isLifetimeEndIntrinsic()) {
+      assert((std::distance(Inst->fake_ddref_begin(), Inst->fake_ddref_end()) ==
+              1) &&
+             "Single fake ref expected!");
+
+      auto *Ref = *Inst->fake_ddref_begin();
+      auto *SizeRef = Inst->getOperandDDRef(0);
+
+      int64_t Size = 0;
+      bool Ret = SizeRef->isIntConstant(&Size);
+      (void)Ret;
+      assert(Ret && "Constant size expected in lifetime end intrinsic!");
+
+      FakeLifetimeEndRefs[Ref->getBasePtrBlobIndex()].emplace_back(Ref, Size);
+    }
+  }
+
+  void visit(HLGoto *Goto) {}
+  void visit(HLLabel *Label) {}
+  void visit(HLNode *Node) {
+    llvm_unreachable(" visit(HLNode *) - Node not supported\n");
+  }
+  void postVisit(const HLNode *Node) {}
+};
+
+class UnsafeCallVisitor final : public HLNodeVisitorBase {
+  HIRLoopStatistics &HLS;
+  const HLNode *StartNode;
+  const HLNode *EndNode;
+  bool FoundStartNode;
+  bool FoundEndNode;
+  bool FoundUnsafeCall;
+
+public:
+  UnsafeCallVisitor(HIRLoopStatistics &HLS, const HLNode *StartNode,
+                    const HLNode *EndNode)
+      : HLS(HLS), StartNode(StartNode), EndNode(EndNode), FoundStartNode(false),
+        FoundEndNode(false), FoundUnsafeCall(false) {
+    assert((isa<HLLoop>(StartNode) || isa<HLInst>(StartNode)) &&
+           "Invalid start node!");
+    assert((isa<HLLoop>(EndNode) || isa<HLInst>(EndNode)) &&
+           "Invalid end node!");
+  }
+
+  bool isNodeRelevant(const HLNode *Node) {
+    if (Node == StartNode) {
+      FoundStartNode = true;
+    } else if (Node == EndNode) {
+      FoundEndNode = true;
+    }
+
+    return FoundStartNode;
+  }
+
+  void visit(const HLInst *Inst) {
+    if (!isNodeRelevant(Inst)) {
+      return;
+    }
+
+    // TODO: check mayThrow() as well
+    FoundUnsafeCall = Inst->isUnknownAliasingCallInst();
+  }
+
+  void visit(const HLLoop *Loop) {
+    if (!isNodeRelevant(Loop)) {
+      return;
+    }
+
+    FoundUnsafeCall =
+        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownAliasing();
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  bool foundUnsafeCall() const { return FoundUnsafeCall; }
+  bool isDone() const { return FoundEndNode || FoundUnsafeCall; }
+};
+
+} // namespace
+
 // Calculate the lexical range for intervening store in case of different
 // parent loops.
 // Ex:
@@ -274,7 +378,7 @@ void calculateLexicalRange(unsigned &MinTopSortNumber,
   }
 
   // Calculate PostDomStoreRef parent loop ancestor (second i2 loop) if any.
-  if (PostDomStoreLoop) {
+  if (PostDomStoreLoop && (PostDomStoreLoop != LCALoop)) {
     auto *OutermostPostDomStoreParent =
         PostDomStoreLoop->getParentLoopAtLevel(Level);
     if (OutermostPostDomStoreParent)
@@ -394,8 +498,9 @@ static bool foundInterveningLoadOrStore(
     SmallVectorImpl<const RegDDRef *> &SubstitutableLoads,
     HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
-  assert((!PostDomStoreRef || PostDomStoreRef->getDestTypeSizeInBytes() >=
-                                  StoreRef->getDestTypeSizeInBytes()) &&
+  assert((!PostDomStoreRef || PostDomStoreRef->isFake() ||
+          (PostDomStoreRef->getDestTypeSizeInBytes() >=
+           StoreRef->getDestTypeSizeInBytes())) &&
          "Post-dominating ref's size cannot be smaller than the other ref!");
   const HLDDNode *StoreNode = StoreRef->getHLDDNode();
   const HLDDNode *PostDomStoreNode =
@@ -442,7 +547,10 @@ static bool foundInterveningLoadOrStore(
         continue;
       }
 
-      if (AliasingMemRef == PostDomStoreRef) {
+      // If PostDomStoreRef is fake, that means it is attached to lifetime.end
+      // intrinsic. These refs may be inserted in multiple groups so we cannot
+      // identify the current group using them.
+      if ((AliasingMemRef == PostDomStoreRef) && !PostDomStoreRef->isFake()) {
         // In case of same parent loop, don't need to analyze same group as this
         // is done in the caller.
         if (!InDifferentLoops) {
@@ -563,46 +671,87 @@ static bool foundInterveningLoadOrStore(
   return false;
 }
 
+/// Returns the immediate child loop of \p OuterLoop which is a parent of \p
+/// InnerLoop. If \p OuterLoop is null, the outermost loop of InnerLoop is
+/// returned.
+static const HLLoop *getImmediateChildLoop(const HLLoop *OuterLoop,
+                                           const HLLoop *InnerLoop) {
+  assert(!OuterLoop ||
+         HLNodeUtils::contains(OuterLoop, InnerLoop) && "Invalid input loops!");
+
+  auto *ParLp = InnerLoop;
+  const HLLoop *ImmediateChildLoop = nullptr;
+
+  while (ParLp != OuterLoop) {
+    ImmediateChildLoop = ParLp;
+    ParLp = ParLp->getParentLoop();
+  }
+
+  return ImmediateChildLoop;
+}
+
 static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
                                      const HLLoop *PrevLoop,
                                      const RegDDRef *Ref,
                                      const HLNode *&OutermostPostDominatingNode,
                                      const HLNode *&OutermostPrevNode) {
-  unsigned LoopLevel = PostDominatingLoop->getNestingLevel();
-  unsigned PrevLoopLevel = PrevLoop->getNestingLevel();
 
-  if (LoopLevel != PrevLoopLevel) {
-    return false;
-  }
-
-  // Check whether PostDominatingLoop and PrevLoop's parent loop chain have the
-  // same upperbound, lowerbound and stride.
-  for (; PrevLoop != PostDominatingLoop;
-       LoopLevel--, OutermostPostDominatingNode = PostDominatingLoop,
-                    OutermostPrevNode = PrevLoop,
-                    PostDominatingLoop = PostDominatingLoop->getParentLoop(),
-                    PrevLoop = PrevLoop->getParentLoop()) {
-
-    if (!Ref->hasIV(LoopLevel)) {
-      continue;
+  // PostDominatingLoop is the LCA loop if it contains PrevLoop.
+  if (HLNodeUtils::contains(PostDominatingLoop, PrevLoop)) {
+    // Extend the range to include outermost parent loop of PrevLoop which is
+    // under LCA loop.
+    //
+    // DO i1 =      // LCA loop
+    //   DO i2 =    // Extend the range to i2 loop to include unsafe_call()
+    //     unsafe_call()
+    //     DO i3 =
+    //       A[5] = // store ref
+    //     END DO
+    //   END DO
+    //
+    //   A[5] =     // post-dominating store ref
+    // END DO
+    if (PrevLoop != PostDominatingLoop) {
+      OutermostPrevNode = getImmediateChildLoop(PostDominatingLoop, PrevLoop);
     }
+  } else {
 
-    if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
+    unsigned LoopLevel = PostDominatingLoop->getNestingLevel();
+    unsigned PrevLoopLevel = PrevLoop->getNestingLevel();
+
+    if (LoopLevel != PrevLoopLevel) {
       return false;
     }
 
-    auto *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
-    auto *PDLoopLowerRef = PostDominatingLoop->getLowerDDRef();
-    auto *PDLoopStrideRef = PostDominatingLoop->getStrideDDRef();
+    // Check whether PostDominatingLoop and PrevLoop's parent loop chain have
+    // the same upperbound, lowerbound and stride.
+    for (; PrevLoop != PostDominatingLoop;
+         LoopLevel--, OutermostPostDominatingNode = PostDominatingLoop,
+                      OutermostPrevNode = PrevLoop,
+                      PostDominatingLoop = PostDominatingLoop->getParentLoop(),
+                      PrevLoop = PrevLoop->getParentLoop()) {
 
-    auto *PrevLoopUpperRef = PrevLoop->getUpperDDRef();
-    auto *PrevLoopLowerRef = PrevLoop->getLowerDDRef();
-    auto *PrevLoopStrideRef = PrevLoop->getStrideDDRef();
+      if (!Ref->hasIV(LoopLevel)) {
+        continue;
+      }
 
-    if (!DDRefUtils::areEqual(PDLoopUpperRef, PrevLoopUpperRef) ||
-        !DDRefUtils::areEqual(PDLoopLowerRef, PrevLoopLowerRef) ||
-        !DDRefUtils::areEqual(PDLoopStrideRef, PrevLoopStrideRef)) {
-      return false;
+      if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
+        return false;
+      }
+
+      auto *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
+      auto *PDLoopLowerRef = PostDominatingLoop->getLowerDDRef();
+      auto *PDLoopStrideRef = PostDominatingLoop->getStrideDDRef();
+
+      auto *PrevLoopUpperRef = PrevLoop->getUpperDDRef();
+      auto *PrevLoopLowerRef = PrevLoop->getLowerDDRef();
+      auto *PrevLoopStrideRef = PrevLoop->getStrideDDRef();
+
+      if (!DDRefUtils::areEqual(PDLoopUpperRef, PrevLoopUpperRef) ||
+          !DDRefUtils::areEqual(PDLoopLowerRef, PrevLoopLowerRef) ||
+          !DDRefUtils::areEqual(PDLoopStrideRef, PrevLoopStrideRef)) {
+        return false;
+      }
     }
   }
 
@@ -623,9 +772,9 @@ static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
   // END DO
   //
   // TODO: refine the check in the visitor.
-  if (PrevLoop) {
-    // PrevLoop is now the LCA loop.
-    if (!Ref->isLinearAtLevel(PrevLoop->getNestingLevel())) {
+  if (PostDominatingLoop) {
+    // PostDominatingLoop is now the LCA loop.
+    if (!Ref->isLinearAtLevel(PostDominatingLoop->getNestingLevel())) {
       return false;
     }
   } else {
@@ -662,6 +811,7 @@ bool HIRDeadStoreElimination::isValidParentChain(
   // 1) Both refs have a parent loop.
   // 2) Neither ref has parent loop.
   if (PrevLoop && PostDominatingLoop) {
+
     if (!hasValidParentLoopBounds(
             PostDominatingLoop, PrevLoop, PostDominatingRef,
             OutermostPostDominatingNode, OutermostPrevNode)) {
@@ -738,13 +888,13 @@ bool HIRDeadStoreElimination::doCollection(HLRegion &Region) {
   }
 
   // Collect AddressOf Ref(s) from the region: recurse into loops
-  AddressOfRefCollector RC(AddressOfRefVec);
+  AddressOfAndFakeLifetimeRefCollector RC(AddressOfRefs, FakeLifetimeEndRefs);
   HNU.visitRange(RC, Region.child_begin(), Region.child_end());
 
   // Examine the collection:
   LLVM_DEBUG({
     printRefGroupVecTy(EqualityGroups, "EqualityGroups:");
-    printRefVector(AddressOfRefVec, "AddressOfRefVec in Region:");
+    printRefVector(AddressOfRefs, "AddressOfRefs in Region:");
   });
 
   return true;
@@ -827,16 +977,10 @@ canSubstituteLoads(const RegDDRef *StoreRef, const HLDDNode *PostDomStoreNode,
         //   END DO
         // END DO
         //
-        auto *StoreParLp = StoreLoop;
-        const HLLoop *LCAChildLoop = nullptr;
+        const HLLoop *LCAChildLoop =
+            getImmediateChildLoop(LoadStoreLCA, StoreLoop);
 
-        while (StoreParLp != LoadStoreLCA) {
-          LCAChildLoop = StoreParLp;
-          StoreParLp = StoreParLp->getParentLoop();
-        }
-
-        unsigned InvariantNestingLevel =
-            LCAChildLoop ? LCAChildLoop->getNestingLevel() : 1;
+        unsigned InvariantNestingLevel = LCAChildLoop->getNestingLevel();
         if (!StoreRef->isStructurallyInvariantAtLevel(InvariantNestingLevel)) {
           return false;
         }
@@ -946,7 +1090,7 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
   unsigned Symbase = Ref->getSymbase();
   unsigned BaseIndex = Ref->getBasePtrBlobIndex();
 
-  for (auto *AddressRef : AddressOfRefVec) {
+  for (auto *AddressRef : AddressOfRefs) {
     if (AddressRef->getSymbase() != Symbase) {
       continue;
     }
@@ -993,8 +1137,8 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
   return false;
 }
 
-bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
-                                                     const RegDDRef *Ref) {
+bool HIRDeadStoreElimination::hasAllDereferencesWithinRegion(
+    HLRegion &Region, const RegDDRef *Ref) {
 
   auto *BaseVal = Ref->getTempBaseValue();
 
@@ -1023,24 +1167,142 @@ bool HIRDeadStoreElimination::hasAllUsesWithinRegion(HLRegion &Region,
     return false;
   }
 
-  auto Iter = AllUsesInSingleRegion.find(Alloca);
+  auto Iter = AllDereferencesInSingleRegion.find(Alloca);
 
-  if (Iter != AllUsesInSingleRegion.end()) {
+  if (Iter != AllDereferencesInSingleRegion.end()) {
     return Iter->second;
   }
 
-  if (!Region.containsAllUses(Alloca, true) || basePtrEscapesAnalysis(Ref)) {
+  if (!Region.containsAllDereferences(Alloca, true) ||
+      basePtrEscapesAnalysis(Ref)) {
+    AllDereferencesInSingleRegion[Alloca] = false;
+
     LLVM_DEBUG(dbgs() << "Base ptr alloca of ref: "; Ref->dump();
                dbgs() << "either escapes or is not local to region.\n");
-    AllUsesInSingleRegion[Alloca] = false;
     return false;
   }
 
-  AllUsesInSingleRegion[Alloca] = true;
+  AllDereferencesInSingleRegion[Alloca] = true;
 
   LLVM_DEBUG(dbgs() << "Alloca: "; Alloca->printAsOperand(dbgs());
              dbgs() << " identified as region local alloca\n");
   return true;
+}
+
+// Returns the size of the largest ref in the group.
+// Due to BitcastDestTy, the size of the refs in the group may be different.
+// Returns 0 if the group only has fake refs.
+static uint64_t getMaxRefByteSize(const RefGroupTy &RefGroup) {
+  uint64_t MaxSize = 0;
+
+  for (auto *Ref : RefGroup) {
+    if (Ref->isFake()) {
+      continue;
+    }
+
+    MaxSize = std::max(MaxSize, Ref->getDestTypeSizeInBytes());
+  }
+
+  return MaxSize;
+}
+
+// Returns underlying alloca's size if \p Ref accesses alloca and we know
+// alloca's size, else returns zero.
+static int64_t getAllocaSizeInBytes(const RegDDRef *Ref) {
+  auto *BaseVal = Ref->getTempBaseValue();
+
+  if (!BaseVal) {
+    return 0;
+  }
+
+  auto *Alloca = dyn_cast<AllocaInst>(BaseVal);
+
+  if (!Alloca) {
+    return 0;
+  }
+
+  auto Size =
+      Alloca->getAllocationSizeInBits(Ref->getCanonExprUtils().getDataLayout());
+
+  if (!Size) {
+    return 0;
+  }
+
+  return (*Size) / 8;
+}
+
+// Inserts fake memrefs attached to lifetime end intrinsics which are usually of
+// the form
+// &(%A)[0] to this ref group if it is also based on %A as the base ptr.
+void HIRDeadStoreElimination::insertFakeLifetimeRefs(RefGroupTy &RefGroup) {
+
+  auto *FirstRef = RefGroup.front();
+  unsigned BasePtrIndex = FirstRef->getBasePtrBlobIndex();
+
+  auto FakeRefInfosIt = FakeLifetimeEndRefs.find(BasePtrIndex);
+
+  if (FakeRefInfosIt == FakeLifetimeEndRefs.end()) {
+    return;
+  }
+
+  auto &FakeRefInfos = FakeRefInfosIt->second;
+
+  uint64_t MaxRefSize = getMaxRefByteSize(RefGroup);
+
+  // Group only has fake refs...
+  if (MaxRefSize == 0) {
+    return;
+  }
+
+  // Insert fake refs in RefGroup while maintaining the lexical order of refs.
+  auto RefIt = RefGroup.begin();
+
+  for (auto &CurInfo : FakeRefInfos) {
+    auto *FakeRef = CurInfo.FakeRef;
+    int64_t LifetimeEndSize = CurInfo.Size;
+
+    // Check if FakeRef is applicable to this group based on size info.
+    // If not and fake ref is already inserted, we need to remove it.
+    bool RemoveFakeRef = false;
+    if ((LifetimeEndSize != -1) &&
+        (LifetimeEndSize != getAllocaSizeInBytes(FakeRef))) {
+
+      int64_t Distance;
+      if (!DDRefUtils::getConstByteDistance(FirstRef, FakeRef, &Distance,
+                                            true)) {
+        continue;
+      }
+
+      assert(Distance >= 0 && "Non-negative distance expected!");
+
+      // Lifetime end intrinsic does not apply if distance is larger.
+      if (Distance + MaxRefSize > (uint64_t)LifetimeEndSize) {
+
+        // Refs may not be equal due to '.0' trailing struct offsets.
+        if ((Distance == 0) && DDRefUtils::areEqual(FirstRef, FakeRef, true)) {
+          RemoveFakeRef = true;
+        } else {
+          continue;
+        }
+      }
+    }
+
+    unsigned FakeTopSortNum = FakeRef->getHLDDNode()->getTopSortNum();
+
+    while (RefIt != RefGroup.end() &&
+           (*RefIt)->getHLDDNode()->getTopSortNum() < FakeTopSortNum) {
+      ++RefIt;
+    }
+
+    if (RemoveFakeRef) {
+      assert(((*RefIt) == FakeRef) && "Unexpected ref encountered in group!");
+      RefIt = RefGroup.erase(RefIt);
+
+    } else {
+      RefIt = RefGroup.insert(RefIt, FakeRef);
+      ++RefIt;
+    }
+  }
 }
 
 bool HIRDeadStoreElimination::run(HLRegion &Region) {
@@ -1060,10 +1322,13 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
   // below
   // TODO: Is it worth changing the setup so reversal is not required?
   for (auto &RefGroup : EqualityGroups) {
+
+    insertFakeLifetimeRefs(RefGroup);
+
     // Add a null ref at the end which will act as a dummy post-dominating store
     // ref for the entire group. This approach fits nicely with the existing
     // setup below which analyzes the group.
-    if (hasAllUsesWithinRegion(Region, RefGroup.front())) {
+    if (hasAllDereferencesWithinRegion(Region, RefGroup.front())) {
       RefGroup.push_back(nullptr);
     }
 
@@ -1119,8 +1384,13 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
       assert((PostDomRef || Index == 0) && "Unexpected null ref!");
 
       // Skip any load/fake/masked ref.
-      if (PostDomRef && (!PostDomRef->isLval() || PostDomRef->isFake() ||
-                         PostDomRef->isMasked())) {
+      // Fake ref attached to lifetime end intrinsic can act as a valid post
+      // dominating ref.
+      if (PostDomRef &&
+          (!PostDomRef->isLval() ||
+           (PostDomRef->isFake() && !cast<HLInst>(PostDomRef->getHLDDNode())
+                                         ->isLifetimeEndIntrinsic()) ||
+           PostDomRef->isMasked())) {
         continue;
       }
 
@@ -1142,9 +1412,9 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
         // Skip if we encounter a fake ref in between two stores.
         // Also skip if the PostDomRef's size is smaller than PrevRef as it does
         // not make PrevRef completely dead.
-        if (PrevRef->isFake() ||
-            (PostDomRef && PrevRef->getDestTypeSizeInBytes() >
-                               PostDomRef->getDestTypeSizeInBytes())) {
+        if (PrevRef->isFake() || (PostDomRef && !PostDomRef->isFake() &&
+                                  (PrevRef->getDestTypeSizeInBytes() >
+                                   PostDomRef->getDestTypeSizeInBytes()))) {
           break;
         }
 

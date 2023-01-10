@@ -35,6 +35,17 @@ typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 typedef SmallVector<const RegDDRef *, 4> RefVecTy;
 
+struct LifeTimeEndInfo {
+  RegDDRef *FakeRef;
+  int64_t Size;
+
+  LifeTimeEndInfo(RegDDRef *FakeRef, int64_t Size)
+      : FakeRef(FakeRef), Size(Size) {}
+};
+
+typedef DenseMap<unsigned, SmallVector<LifeTimeEndInfo, 4>>
+    BasePtrToLifetimeEndInfoMapTy;
+
 namespace dse {
 
 class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
@@ -60,16 +71,20 @@ class HIRDeadStoreElimination {
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
 
-  // Region-level memref groups and symbases:
+  // Region-level memref groups and symbases.
   HIRLoopLocality::RefGroupVecTy EqualityGroups;
   SmallSet<unsigned, 8> UniqueGroupSymbases;
 
-  // Region-level AddressOf Refs:
-  SmallVector<RegDDRef *, 4> AddressOfRefVec;
+  // Region-level AddressOf Refs.
+  SmallVector<RegDDRef *, 16> AddressOfRefs;
 
-  // Map of base ptr value to a boolean indicating whether all uses of the
-  // base are in single region.
-  DenseMap<Value *, bool> AllUsesInSingleRegion;
+  // Populate all fake refs attached to lifetime end intrinsics in the region
+  // based on the base ptr blob index as the key.
+  BasePtrToLifetimeEndInfoMapTy FakeLifetimeEndRefs;
+
+  // Map of base ptr value to a boolean indicating whether all dereferences of
+  // the base are in single region.
+  DenseMap<Value *, bool> AllDereferencesInSingleRegion;
 
   bool isValidParentChain(const HLNode *PostDomNode, const HLNode *PrevNode,
                           const RegDDRef *PostDomRef);
@@ -77,7 +92,8 @@ class HIRDeadStoreElimination {
   void releaseMemory(void) {
     EqualityGroups.clear();
     UniqueGroupSymbases.clear();
-    AddressOfRefVec.clear();
+    AddressOfRefs.clear();
+    FakeLifetimeEndRefs.clear();
   }
 
   // Collects memrefs and addressOf refs in the region. Returns false if no
@@ -88,8 +104,13 @@ class HIRDeadStoreElimination {
   /// to be safe for analysis.
   bool basePtrEscapesAnalysis(const RegDDRef *Ref) const;
 
-  /// Returns true if all uses of the base ptr of \p Ref are within \p Region.
-  bool hasAllUsesWithinRegion(HLRegion &Region, const RegDDRef *Ref);
+  /// Returns true if all dereferences of the base ptr of \p Ref are within \p
+  /// Region.
+  bool hasAllDereferencesWithinRegion(HLRegion &Region, const RegDDRef *Ref);
+
+  /// Inserts applicable fake lifetime intrinsics to this ref group while
+  /// maintaining the lexical order.
+  void insertFakeLifetimeRefs(RefGroupTy &RefGroup);
 
 public:
   HIRDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
@@ -97,86 +118,6 @@ public:
       : HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
 
   bool run(HLRegion &Region);
-};
-
-// AddressOf Ref Collector:
-// - collect all AddressOf Ref(s) into AddressOfRefVec
-class AddressOfRefCollector final : public HLNodeVisitorBase {
-private:
-  SmallVectorImpl<RegDDRef *> &AddressOfRefVec;
-
-public:
-  AddressOfRefCollector(SmallVectorImpl<RegDDRef *> &AddressOfRefVec)
-      : AddressOfRefVec(AddressOfRefVec) {}
-
-  void visit(HLDDNode *Node) {
-    for (auto *Ref : make_range(Node->op_ddref_begin(), Node->op_ddref_end())) {
-      if (Ref->isAddressOf()) {
-        AddressOfRefVec.push_back(Ref);
-      }
-    }
-  }
-
-  void visit(HLGoto *Goto){};
-  void visit(HLLabel *Label){};
-  void visit(HLNode *Node) {
-    llvm_unreachable(" visit(HLNode *) - Node not supported\n");
-  }
-  void postVisit(const HLNode *Node) {}
-};
-
-class UnsafeCallVisitor final : public HLNodeVisitorBase {
-  HIRLoopStatistics &HLS;
-  const HLNode *StartNode;
-  const HLNode *EndNode;
-  bool FoundStartNode;
-  bool FoundEndNode;
-  bool FoundUnsafeCall;
-
-public:
-  UnsafeCallVisitor(HIRLoopStatistics &HLS, const HLNode *StartNode,
-                    const HLNode *EndNode)
-      : HLS(HLS), StartNode(StartNode), EndNode(EndNode), FoundStartNode(false),
-        FoundEndNode(false), FoundUnsafeCall(false) {
-    assert((isa<HLLoop>(StartNode) || isa<HLInst>(StartNode)) &&
-           "Invalid start node!");
-    assert((isa<HLLoop>(EndNode) || isa<HLInst>(EndNode)) &&
-           "Invalid end node!");
-  }
-
-  bool isNodeRelevant(const HLNode *Node) {
-    if (Node == StartNode) {
-      FoundStartNode = true;
-    } else if (Node == EndNode) {
-      FoundEndNode = true;
-    }
-
-    return FoundStartNode;
-  }
-
-  void visit(const HLInst *Inst) {
-    if (!isNodeRelevant(Inst)) {
-      return;
-    }
-
-    // TODO: check mayThrow() as well
-    FoundUnsafeCall = Inst->isUnknownAliasingCallInst();
-  }
-
-  void visit(const HLLoop *Loop) {
-    if (!isNodeRelevant(Loop)) {
-      return;
-    }
-
-    FoundUnsafeCall =
-        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownAliasing();
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  bool foundUnsafeCall() const { return FoundUnsafeCall; }
-  bool isDone() const { return FoundEndNode || FoundUnsafeCall; }
 };
 
 } // namespace dse

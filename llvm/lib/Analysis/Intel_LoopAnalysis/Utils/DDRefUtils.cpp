@@ -299,27 +299,46 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
-  if (Ref1->getBasePtrElementType() != Ref2->getBasePtrElementType()) {
+  auto *BasePtrTy1 = Ref1->getBasePtrElementType();
+  auto *BasePtrTy2 = Ref2->getBasePtrElementType();
+  // Fake refs cloned from self AddressOf refs will not have base ptr element
+  // type so we will give up on refs like A[0] and A[5] if we don't skip null
+  // base ptr element types.
+  if (BasePtrTy1 && BasePtrTy2 && BasePtrTy1 != BasePtrTy2) {
     return false;
   }
 
   auto BaseCE1 = Ref1->getBaseCE();
   auto BaseCE2 = Ref2->getBaseCE();
 
+  unsigned NumDims = Ref1->getNumDimensions();
   if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) ||
-      Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+      (NumDims != Ref2->getNumDimensions())) {
     return false;
   }
 
   // Check that dimension lowers and strides are the same.
-  for (unsigned DimI = 1, DimE = Ref1->getNumDimensions(); DimI <= DimE;
-       ++DimI) {
+  for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
-                                  Ref2->getDimensionLower(DimI), RelaxedMode) ||
-        !CanonExprUtils::areEqual(Ref1->getDimensionStride(DimI),
-                                  Ref2->getDimensionStride(DimI),
-                                  RelaxedMode)) {
+                                  Ref2->getDimensionLower(DimI), RelaxedMode)) {
       return false;
+    }
+
+    auto *Stride1 = Ref1->getDimensionStride(DimI);
+    auto *Stride2 = Ref2->getDimensionStride(DimI);
+
+    if (!CanonExprUtils::areEqual(Stride1, Stride2, RelaxedMode)) {
+      // In the highest dimension, allow mismatch if the stride and index is 0
+      // as that dimension is a no-op. This can happen with fake refs which are
+      // created by cloning self AddressOf refs.
+      if (DimI != NumDims) {
+        return false;
+      }
+
+      if ((!Stride1->isZero() || !Ref1->getDimensionIndex(DimI)->isZero()) &&
+          (!Stride2->isZero() || !Ref2->getDimensionIndex(DimI)->isZero())) {
+        return false;
+      }
     }
   }
 
