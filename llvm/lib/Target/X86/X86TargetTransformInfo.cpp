@@ -6684,6 +6684,9 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
 #if INTEL_CUSTOMIZATION
   if (CI->getMetadata("hetero.arch.opt.disable.gather"))
     return true;
+
+  if (ST->gatherDisabled())
+    return true;
 #endif //INTEL_CUSTOMIZATION
 
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
