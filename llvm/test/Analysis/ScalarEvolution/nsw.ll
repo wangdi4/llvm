@@ -412,8 +412,12 @@ define void @select_cond_poison_propagation(ptr %p, i32 %x) nounwind {
 ; CHECK-NEXT:    %iv = phi i32 [ %iv.next, %loop ], [ 0, %entry ]
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add nsw i32 %iv, 1
+<<<<<<< HEAD
 ; CHECK-NEXT:    --> {1,+,1}<nuw><%loop> U: [1,0) S: [1,0) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
 ; INTEL: xmain computes improved ranges on this select
+=======
+; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,-2147483648) S: [1,-2147483648) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+>>>>>>> 8a3efcd40b48543d5b77ff9d6e0d1950847e824e
 ; CHECK-NEXT:    %sel = select i1 %cmp, i32 10, i32 20
 ; CHECK-NEXT:    --> %sel U: [10,21) S: [10,21) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:    %cond = call i1 @cond()
