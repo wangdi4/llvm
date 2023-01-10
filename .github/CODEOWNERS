@@ -840,4 +840,4 @@ sycl-post-link/ @asudarsa
 /compiler-rt/test/profile/ @robertcox-github @pvbattin
 
 # Optional Reviewer in GitHub
-llvm/.github/optional-reviewers/ @jsji
+.github/optional-reviewers/ @jsji
