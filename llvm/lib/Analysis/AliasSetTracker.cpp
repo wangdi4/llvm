@@ -291,7 +291,7 @@ bool AliasSet::aliases(const AliasSet &AS, BatchAAResults &AA) const {
 
   if (!UnknownInsts.empty())
     for (Instruction *Inst : UnknownInsts) {
-      if (AS.aliasesUnknownInst(Inst, AA))
+      if (isModOrRefSet(AS.aliasesUnknownInst(Inst, AA)))
         return true;
     }
 

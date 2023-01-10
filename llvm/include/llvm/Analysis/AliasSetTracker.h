@@ -332,17 +332,13 @@ public:
   /// set return the appropriate AliasResult. Otherwise return NoAlias.
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
                              const AAMDNodes &AAInfo, BatchAAResults &AA) const;
-<<<<<<< HEAD
 #if INTEL_COLLAB
 
   /// Check if alias set aliases with another alias set.
   bool aliases(const AliasSet &AS, BatchAAResults &AA) const;
 #endif // INTEL_COLLAB
-  bool aliasesUnknownInst(const Instruction *Inst, BatchAAResults &AA) const;
-=======
   ModRefInfo aliasesUnknownInst(const Instruction *Inst,
                                 BatchAAResults &AA) const;
->>>>>>> 88419a30a02de3a35db990399315b0b3e329627e
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {
