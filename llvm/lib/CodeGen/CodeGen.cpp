@@ -109,6 +109,8 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeMachineRegionInfoPassPass(Registry);
   initializeMachineSchedulerPass(Registry);
   initializeMachineSinkingPass(Registry);
+  initializeMachineUniformityAnalysisPassPass(Registry);
+  initializeMachineUniformityInfoPrinterPassPass(Registry);
   initializeMachineVerifierPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeObjCARCContractLegacyPassPass(Registry);
