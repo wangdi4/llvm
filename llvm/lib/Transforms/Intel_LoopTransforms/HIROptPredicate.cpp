@@ -1718,19 +1718,19 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
       TargetLoop->extractZttPreheaderAndPostexit();
     }
 
-    // TransformLoop and its clones.
-    transformCandidate(TargetLoop, Candidate);
-
-    LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
-    LLVM_DEBUG(ParentLoop->getParentRegion()->dump());
-    LLVM_DEBUG(dbgs() << "\n");
-
     // Calculate statistics
     if (Candidate.PUC.isPURequired()) {
       ConditionsPUUnswitched++;
     }
 
     ConditionsUnswitched++;
+
+    // TransformLoop and its clones.
+    transformCandidate(TargetLoop, Candidate);
+
+    LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+    LLVM_DEBUG(ParentLoop->getParentRegion()->dump());
+    LLVM_DEBUG(dbgs() << "\n");
 
     LLVM_DEBUG(dumpCandidates());
 
