@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //===-- X86TargetParser - Parser for X86 features ---------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,17 +17,23 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===-- llvm/Support/X86TargetParser.h --------------------------*- C++ -*-===//
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file implements a target parser to recognise X86 hardware features.
-//
+///
+/// \file
+/// This header is deprecated in favour of
+/// `llvm/TargetParser/X86TargetParser.h`.
+///
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 #ifndef LLVM_SUPPORT_X86TARGETPARSER_H
 #define LLVM_SUPPORT_X86TARGETPARSER_H
 
@@ -205,3 +212,6 @@ unsigned getFeaturePriority(ProcessorFeatures Feat);
 } // namespace llvm
 
 #endif
+=======
+#include "llvm/TargetParser/X86TargetParser.h"
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1

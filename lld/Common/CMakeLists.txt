@@ -64,6 +64,7 @@ add_lld_library(lldCommon
   Option
   Support
   Target
+  TargetParser
 
   LINK_LIBS
   ${LLVM_PTHREAD_LIB}

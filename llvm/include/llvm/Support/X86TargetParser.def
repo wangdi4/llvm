@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //===- X86TargetParser.def - X86 target parsing defines ---------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,17 +17,23 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===-- llvm/Support/X86TargetParser.def ------------------------*- C++ -*-===//
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file provides defines to build up the X86 target parser's logic.
-//
+///
+/// \file
+/// This header is deprecated in favour of
+/// `llvm/TargetParser/X86TargetParser.def`.
+///
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 // NOTE: NO INCLUDE GUARD DESIRED!
 
 #ifndef X86_VENDOR
@@ -559,3 +566,6 @@ CPU_SPECIFIC_ALIAS_ADDITIONAL("goldmont-plus", "goldmont_plus")
 
 #undef CPU_SPECIFIC_ALIAS
 #undef CPU_SPECIFIC
+=======
+#include "llvm/TargetParser/X86TargetParser.def"
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1

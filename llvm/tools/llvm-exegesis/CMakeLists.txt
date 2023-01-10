@@ -7,10 +7,14 @@ set(LLVM_LINK_COMPONENTS
   MC
   MCParser
   Support
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 # Avoid link error undefined symbol: LLVMInitializeX86Disassembler
   native
 #endif // INTEL_CUSTOMIZATION
+=======
+  TargetParser
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
   )
 
 add_llvm_tool(llvm-exegesis

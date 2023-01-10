@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //===-- llvm/ADT/Triple.h - Target triple helper class ----------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,46 +17,21 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===-- llvm/ADT/Triple.h ---------------------------------------*- C++ -*-===//
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
-#ifndef LLVM_ADT_TRIPLE_H
-#define LLVM_ADT_TRIPLE_H
-
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/VersionTuple.h"
-
-// Some system headers or GCC predefined macros conflict with identifiers in
-// this file.  Undefine them here.
-#undef NetBSD
-#undef mips
-#undef sparc
-
-namespace llvm {
-
-/// Triple - Helper class for working with autoconf configuration names. For
-/// historical reasons, we also call these 'triples' (they used to contain
-/// exactly three fields).
 ///
-/// Configuration names are strings in the canonical form:
-///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM
-/// or
-///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM-ENVIRONMENT
+/// \file
+/// This header is deprecated in favour of
+/// `llvm/TargetParser/AArch64TargetParser.h`.
 ///
-/// This class is used for clients which want to support arbitrary
-/// configuration names, but also want to implement certain special
-/// behavior for particular configurations. This class isolates the mapping
-/// from the components of the configuration name to well known IDs.
-///
-/// At its core the Triple class is designed to be a wrapper for a triple
-/// string; the constructor does not change or normalize the triple string.
-/// Clients that need to handle the non-canonical triples that users often
-/// specify should use the normalize method.
-///
+<<<<<<< HEAD
 /// See autoconf/config.guess for a glimpse into what configuration names
 /// look like in practice.
 class Triple {
@@ -1151,5 +1127,7 @@ public:
 
 } // End llvm namespace
 
+=======
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1
 
-#endif
+#include "llvm/TargetParser/Triple.h"

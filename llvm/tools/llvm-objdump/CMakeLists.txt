@@ -30,6 +30,7 @@ set(LLVM_LINK_COMPONENTS
   Option
   Support
   Symbolize
+  TargetParser
   )
 
 set(LLVM_TARGET_DEFINITIONS ObjdumpOpts.td)

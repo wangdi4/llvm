@@ -1,3 +1,4 @@
+<<<<<<< HEAD:llvm/lib/Support/Host.cpp
 //===-- Host.cpp - Implement OS Host Concept --------------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,6 +17,9 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===-- Host.cpp - Implement OS Host Detection ------------------*- C++ -*-===//
+>>>>>>> b752b591d38959659fb318b5157b45bcf33059a1:llvm/lib/TargetParser/Host.cpp
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,20 +27,20 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file implements the operating system Host concept.
+//  This file implements the operating system Host detection.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/X86TargetParser.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include <string.h>
 
 // Include the platform-specific parts of this class.
@@ -1160,7 +1164,7 @@ getAMDProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::AMDFAM19H_ZNVER4;
       break; //  "znver4"
     }
-    break; // family 19h 
+    break; // family 19h
   default:
     break; // Unknown AMD CPU.
   }
