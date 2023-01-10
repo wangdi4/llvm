@@ -84,7 +84,6 @@ class Value;
 class VPIntrinsic;
 struct VFInfo; // INTEL
 struct KnownBits;
-template <typename T> class Optional;
 
 /// Information about a load/store intrinsic defined by the target.
 struct MemIntrinsicInfo {
