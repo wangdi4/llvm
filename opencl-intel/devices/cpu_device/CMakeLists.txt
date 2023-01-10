@@ -32,13 +32,10 @@ include_directories(
   ${OCL_SOURCE_DIR}/FrontendDriver
   ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
   ${OCL_SOURCE_DIR}/cl_api
-  ${OCL_SOURCE_DIR}/externals/itt/include
   ${HW_UTILS_HEADERS}
   ${OCL_BINARY_DIR}
   ${CL_API_HEADERS}
   ../common/builtin_kernels)
-
-link_directories(${TBB_LIB_DIR})
 
 if(WIN32)
   add_definitions(-D_WINDOWS)

@@ -32,8 +32,6 @@ set(GTEST_INCLUDE_DIR "${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include")
 set(CLANG_LIBRARY_DIR
     "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION_MAJOR}/lib/${LLVM_TARGET_TRIPLE}")
 
-include(itt)
-
 # Compile .cl to .bc
 macro(compile_bitcode SOURCE OUTPUT)
   cmake_parse_arguments("ARG" "BUILD_INV" "" "EXTRA_CLANG_FLAGS" ${ARGN})

@@ -54,7 +54,6 @@ add_opencl_library(
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
   ${OCL_SOURCE_DIR}/FrontendDriver
-  ${OCL_SOURCE_DIR}/externals/itt/include
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   LINK_LIBS
   ${LINK_LIBS}

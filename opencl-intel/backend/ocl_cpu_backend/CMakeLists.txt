@@ -107,7 +107,6 @@ set(OCL_CPU_BACKEND_INCLUDE_FILES
     opencl_printf_ext.h
     ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
-    ${OCL_SOURCE_DIR}/externals/itt/include/jitprofiling.h
     AsmCompiler.h)
 
 set(OCL_CPU_BACKEND_SOURCE_FILES
