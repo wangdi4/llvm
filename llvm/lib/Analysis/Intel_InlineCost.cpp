@@ -1,6 +1,6 @@
 //===------- Intel_InlineCost.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -147,6 +148,11 @@ static cl::opt<bool> DynAllocaAdjustable(
 static cl::opt<unsigned> DynAllocaAdjustableMaxCount(
     "inlining-dyn-alloca-adjustable-max-count", cl::init(350), cl::ReallyHidden,
     cl::desc("Maximum number of dynamic allocas to add to caller"));
+
+static cl::opt<unsigned> DynAllocaSpecialArgCount(
+    "inlining-dyn-alloca-special-arg-count", cl::init(13), cl::ReallyHidden,
+    cl::desc("Minimum number of special args for extra hoisting of "
+             "dynamic allocas"));
 
 //
 // Options controlling the recognition of a huge function
@@ -824,32 +830,139 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // whose presence in a function entry block should not inhibit inlining.
   auto IsSpecialFortranAdjustableArray =
       [](AllocaInst &I, CallBase &CandidateCall, bool LinkForLTO) -> bool {
-    // Return 'true' if 'I' is a multiply or shift (multiply by power of 2).
-    auto MulVal = [](Instruction *I) -> User * {
-      if (auto LS = dyn_cast<LShrOperator>(I))
-        return LS;
-      if (auto BO = dyn_cast<BinaryOperator>(I))
-        if (BO->getOpcode() == Instruction::Mul)
-          return BO;
-      return nullptr;
+    auto IsGEP00PassThru = [](Value *V, Value *AArg) -> bool {
+      auto GEPI = dyn_cast<GetElementPtrInst>(V);
+      if (!GEPI)
+        return false;
+      if (GEPI->getNumOperands() != 3)
+        return false;
+      if (GEPI->getPointerOperand() != AArg)
+        return false;
+      if (!match(GEPI->getOperand(1), m_Zero()))
+        return false;
+      if (!match(GEPI->getOperand(2), m_Zero()))
+        return false;
+      return true;
+    };
+
+    // Return 'true' if 'SS' is the start of a chain of SubscriptInsts
+    // where two of the successive SubscriptInsts in the chain have the same
+    // constant stride. This indicates that the array being indexed has a
+    // dimension of size 1.
+    auto IsSingleEltSubChain = [](SubscriptInst *SS) -> bool {
+      auto CI = dyn_cast<ConstantInt>(SS->getStride());
+      if (!CI)
+        return false;
+      uint64_t LastStride = CI->getZExtValue();
+      if (!SS->hasOneUse())
+        return false;
+      Value *V = SS->user_back();
+      while (auto SS0 = dyn_cast<SubscriptInst>(V)) {
+        CI = dyn_cast<ConstantInt>(SS0->getStride());
+        if (!CI)
+          return false;
+        uint64_t ThisStride = CI->getZExtValue();
+        if (ThisStride == LastStride)
+          return true;
+        LastStride = ThisStride;
+        if (!SS0->hasOneUse())
+          return false;
+        V = SS0->user_back();
+      }
+      return false;
+    };
+
+    // Return 'true' if the actual argument 'AArg' represents a pointer to
+    // an adjustable array with at least one dimension of size 1.
+    auto IsSingleEltAdjArrayArg = [&](Value *AArg) -> bool {
+      auto AI0 = dyn_cast<AllocaInst>(AArg);
+      if (!AI0)
+        return false;
+      const DataLayout &DL = AI0->getFunction()->getParent()->getDataLayout();
+      if (!dvanalysis::isDopeVectorType(AI0->getAllocatedType(), DL))
+        return false;
+      Value *V = AArg;
+      for (User *U0 : AArg->users())
+        if (IsGEP00PassThru(U0, AArg)) {
+          V = U0;
+          break;
+        }
+      for (User *U1 : V->users())
+        if (auto SI = dyn_cast<StoreInst>(U1))
+          if (SI->getPointerOperand() == V)
+            if (auto AI1 = dyn_cast<AllocaInst>(SI->getValueOperand()))
+              for (User *U3 : AI1->users())
+                if (auto SS = dyn_cast<SubscriptInst>(U3))
+                  return IsSingleEltSubChain(SS);
+      return false;
+    };
+
+    // Return 'true' if 'CB' is a call to a single callsite function
+    // with at least 'DynAllocaSpecialArgCount' actual arguments which
+    // are adjustable arrays with at least one dimension of size 1.
+    auto HasManySingleEltZeroDims = [&](CallBase &CB) -> bool {
+      static SmallPtrSet<Function *, 10> MatchFunctionCache;
+      static SmallPtrSet<Function *, 10> NoMatchFunctionCache;
+      Function *Callee = CB.getCalledFunction();
+      if (!Callee->hasOneLiveUse())
+        return false;
+      if (MatchFunctionCache.count(Callee))
+        return true;
+      if (NoMatchFunctionCache.count(Callee))
+        return false;
+      unsigned Count = 0;
+      for (unsigned I = 0, E = CB.arg_size(); I < E; ++I)
+        if (IsSingleEltAdjArrayArg(CB.getArgOperand(I)))
+          Count++;
+      if (Count >= DynAllocaSpecialArgCount)
+        MatchFunctionCache.insert(Callee);
+      else
+        NoMatchFunctionCache.insert(Callee);
+      return Count >= DynAllocaSpecialArgCount;
     };
 
     // Return 'true' if 'I' is hoistable to its function's entry block.
-    auto IsHoistableToEntryBlock = [&MulVal](AllocaInst &I) -> bool {
-      BasicBlock &BB = I.getFunction()->getEntryBlock();
+    auto IsHoistableToEntryBlock = [](AllocaInst &I,
+                                      bool HasSpecialCondition) -> bool {
+      SmallVector<Instruction *, 8> WorkList;
       Value *V = I.getArraySize();
-      if (auto II = dyn_cast<Instruction>(V)) {
-        if (II->getParent() == &BB)
-          return true;
-        // The following special case can be generalized if this is
-        // found to be useful.
-        if (auto MO = MulVal(II))
-          if (auto IIL = dyn_cast<Instruction>(MO->getOperand(0)))
-            if (IIL->getParent() == &BB)
-              if (isa<ConstantInt>(MO->getOperand(1)))
-                return true;
+      if (isa<Argument>(V) || isa<Constant>(V))
+        return true;
+      auto II = dyn_cast<Instruction>(V);
+      if (!II)
+        return false;
+      WorkList.push_back(II);
+      BasicBlock &EBB = I.getFunction()->getEntryBlock();
+      while (!WorkList.empty()) {
+        Instruction *II = WorkList.pop_back_val();
+        if (II->getParent() == &EBB)
+          continue;
+        // This instruction list can be generalized if it is found useful.
+        switch (II->getOpcode()) {
+        case Instruction::LShr:
+        case Instruction::ICmp:
+        case Instruction::SExt:
+        case Instruction::Select:
+          if (!HasSpecialCondition)
+            return false;
+          LLVM_FALLTHROUGH;
+        case Instruction::Shl:
+        case Instruction::Mul:
+          for (unsigned J = 0, E = II->getNumOperands(); J < E; ++J) {
+            Value *V = II->getOperand(J);
+            if (isa<Argument>(V) || isa<Constant>(V))
+              continue;
+            auto III = dyn_cast<Instruction>(V);
+            if (!III)
+              return false;
+            WorkList.push_back(III);
+          }
+          break;
+        default:
+          return false;
+        }
       }
-      return false;
+      return true;
     };
 
     Function *F = I.getFunction();
@@ -859,7 +972,9 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
       return false;
     if (!F->isFortran())
       return false;
-    if (I.getParent() != &F->getEntryBlock() && !IsHoistableToEntryBlock(I))
+    bool SpecialCond = HasManySingleEltZeroDims(CandidateCall);
+    if (I.getParent() != &F->getEntryBlock() &&
+        !IsHoistableToEntryBlock(I, SpecialCond))
       return false;
     // The following special case can be generalized if this is
     // found to be useful.
