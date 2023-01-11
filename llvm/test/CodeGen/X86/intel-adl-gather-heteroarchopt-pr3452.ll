@@ -9,7 +9,7 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 ; CHECK-LABEL: @test_clone_loop_with_outside_def(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i8 @llvm.x86.intel.fast.cpuid.coretype()
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i8 [[TMP0]], 64
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i8 [[TMP0]], 32
 ; CHECK-NEXT:    br i1 [[TMP1]], label [[LOOP:%.*]], label [[LOOP_CLONE:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[SUM:%.*]] = phi double [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP8:%.*]], [[BODY2:%.*]] ]

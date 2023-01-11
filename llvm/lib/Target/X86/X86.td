@@ -1047,6 +1047,10 @@ def Tuning4KDSB : SubtargetFeature<"4kdsb", "DSBSize", "DSB4K",
                                [Tuning2KDSB]>;
 def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
                                "Target has memory renaming feature">;
+def TuningFastCoreType
+    : SubtargetFeature<
+          "fast-core-type", "HasFastCoreType", "true",
+          "Target is hybrid processor and supports fast core type detection">;
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 CPU Families
@@ -1622,7 +1626,8 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
                                                 TuningPERMFalseDeps,
-                                                TuningMRN];
+                                                TuningMRN,
+                                                TuningFastCoreType];
   list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLFeatures =

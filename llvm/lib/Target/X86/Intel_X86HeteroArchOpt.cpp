@@ -1,6 +1,6 @@
 //===- Intel_HeteroArchOpt.cpp - Hetero Arch (such as ADL) Optimization ---===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -9,12 +9,15 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass implements loop level multi version optimization for alderlake.
+// This pass implements loop level multi version optimization for hybrid
+// processor.
 //
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
+#include "X86TargetMachine.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -70,6 +73,7 @@ public:
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<TargetPassConfig>();
     AU.addRequiredID(LoopSimplifyID);
     AU.addRequiredID(LCSSAID);
     AU.addPreserved<TargetTransformInfoWrapperPass>();
@@ -91,7 +95,7 @@ private:
   }
 
   // Populate loop candidates which contains flollowing instructions:
-  // 1. masked_gather intrinsic that won't be scalarized for alderlake.
+  // 1. masked_gather intrinsic that won't be scalarized for core.
   unsigned scanLoopCandidates(Loop *L, SmallVector<LoopCand> &LoopCandidates);
 
   // Create loop multi version for LoopCandidates in the following steps:
@@ -127,6 +131,7 @@ INITIALIZE_PASS_BEGIN(X86HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization",
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
 INITIALIZE_PASS_END(X86HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization",
@@ -144,11 +149,12 @@ bool X86HeteroArchOpt::runOnFunction(Function &F) {
   if (F.hasOptSize())
     return false;
 
-  if (!F.hasFnAttribute("target-cpu"))
-    return false;
-
   StringRef CPU = F.getFnAttribute("target-cpu").getValueAsString();
-  if (CPU != "alderlake")
+  const X86Subtarget *ST = getAnalysis<TargetPassConfig>()
+                               .getTM<X86TargetMachine>()
+                               .getSubtargetImpl(F);
+  bool ShouldOptimize = ST->hasFastCoreType() || CPU == "core-avx2";
+  if (!ShouldOptimize)
     return false;
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -347,11 +353,11 @@ bool X86HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
       Intrinsic::x86_intel_fast_cpuid_coretype, std::nullopt, std::nullopt);
   CoreType->getCalledFunction()->addFnAttr(CurFn->getFnAttribute("target-cpu"));
   // 20H is intel atom. 40H is intel core.
-  Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt8(0x40));
+  Value *IsNotAtom = IRB.CreateICmpNE(CoreType, IRB.getInt8(0x20));
   // Origin loop for core and clone loop for atom.
   BasicBlock *OrigHeader = L->getHeader();
   BasicBlock *CloneHeader = cast<BasicBlock>(VMap[OrigHeader]);
-  IRB.CreateCondBr(IsCore, OrigHeader, CloneHeader);
+  IRB.CreateCondBr(IsNotAtom, OrigHeader, CloneHeader);
 
   // In LCSSA form, all outside users which use loop inside defs is phi node in
   // exit blocks. We need to add the corresponding clone loop inside defs to

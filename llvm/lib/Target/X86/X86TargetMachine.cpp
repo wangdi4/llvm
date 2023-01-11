@@ -507,7 +507,7 @@ void X86PassConfig::addIRPasses() {
 #if INTEL_CUSTOMIZATION
   if (TM->getOptLevel() == CodeGenOpt::Aggressive) {
     insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
-    if (TM->Options.IntelAdvancedOptim)
+    if (TM->Options.IntelLibIRCAllowed)
       insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
   }
 #endif
