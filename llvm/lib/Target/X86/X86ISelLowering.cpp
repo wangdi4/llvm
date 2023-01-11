@@ -35113,6 +35113,10 @@ static SDValue LowerMSTORE(SDValue Op, const X86Subtarget &Subtarget,
 
 static SDValue LowerMGATHER(SDValue Op, const X86Subtarget &Subtarget,
                             SelectionDAG &DAG) {
+#if INTEL_CUSTOMIZATION
+  if(Subtarget.gatherDisabled())
+    return SDValue();
+#endif // INTEL_CUSTOMIZATION
   assert(Subtarget.hasAVX2() &&
          "MGATHER/MSCATTER are supported on AVX-512/AVX-2 arch only");
 
