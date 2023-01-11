@@ -164,6 +164,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LINK_COMPONENTS
   Analysis
   Core
+  TargetParser
   Support
   )
 

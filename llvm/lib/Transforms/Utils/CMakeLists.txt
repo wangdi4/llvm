@@ -126,6 +126,7 @@ add_llvm_component_library(LLVMTransformUtils
   Analysis
   Core
   Support
+  TargetParser
   )
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS

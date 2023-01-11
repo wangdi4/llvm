@@ -30,11 +30,6 @@ set(LLVM_LINK_COMPONENTS
   IPO
   IRReader
   Support
-# INTEL_CUSTOMIZATION
-  Linker
-  GenXIntrinsics
-  VPOTransforms
-# end INTEL_CUSTOMIZATION
   TransformUtils
   SYCLLowerIR
   InstCombine
@@ -42,6 +37,11 @@ set(LLVM_LINK_COMPONENTS
   Linker
   Passes
   Analysis
+# INTEL_CUSTOMIZATION
+  GenXIntrinsics
+  TargetParser
+  VPOTransforms
+# end INTEL_CUSTOMIZATION
   )
 
 get_property(LLVMGenXIntrinsics_SOURCE_DIR GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP)

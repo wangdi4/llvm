@@ -14,9 +14,9 @@ type = Library
 name = VPOAnalysis
 parent = Libraries
 ; INTEL_CUSTOMIZATION
-required_libraries = Analysis Core Scalar Support TransformUtils Intel_LoopAnalysis
+required_libraries = Analysis Core Scalar Support TargetParser TransformUtils Intel_LoopAnalysis
 ; else
-;UNCOMMENT;required_libraries = Analysis Core Scalar Support TransformUtils
+;UNCOMMENT;required_libraries = Analysis Core Scalar Support TargetParser TransformUtils
 ; end INTEL_CUSTOMIZATION
 
 ; TransformUtils needed for GeneralUtils.cpp

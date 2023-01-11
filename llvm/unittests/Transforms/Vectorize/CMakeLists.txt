@@ -11,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
   X86Info
   X86Desc
   Target
+  TargetParser
   )
 
 add_llvm_unittest(VectorizeTests
