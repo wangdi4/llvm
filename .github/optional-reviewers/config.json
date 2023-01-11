@@ -10,6 +10,12 @@
       "wjschmidt"
     ],
     "match": ".*VPlan.*"
+  },
+  {
+    "ids": [
+      "aeloviko"
+    ],
+    "match": ".*[Pp]redicator.*"
   }
 
 ]
