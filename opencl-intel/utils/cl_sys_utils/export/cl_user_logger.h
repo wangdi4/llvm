@@ -34,9 +34,7 @@ namespace Utils {
 class FrameworkUserLogger {
 public:
   static FrameworkUserLogger *GetInstance();
-  static void Destroy(void) {
-    llvm::llvm_shutdown();
-  }
+  static void Destroy(void) { llvm::llvm_shutdown(); }
 
   /**
    * Constructor

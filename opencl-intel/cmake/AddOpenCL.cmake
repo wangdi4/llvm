@@ -149,7 +149,7 @@ function(add_opencl_library name)
                  SOVERSION ${VERSIONSTRING})
   endif(WIN32)
 
-  target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+  target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
   # Deals with pdb on Windows
   if(WIN32 AND ARG_SHARED)

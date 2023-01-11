@@ -48,9 +48,10 @@ add_opencl_library(
   ${LIB_TYPE}
   ${TARGET_SOURCES}
   LINK_LIBS
+  ${SYSTEM_LIBS}
+  LLVMSupport
   cl_hw_utils
   cl_sys_utils
-  ${SYSTEM_LIBS}
   INSTALL_PATH
   ${TARGET_INSTALL_PATH})
 
@@ -59,9 +60,10 @@ add_opencl_library(
   ${LIB_TYPE}
   ${TARGET_SOURCES}
   LINK_LIBS
+  ${SYSTEM_LIBS}
+  LLVMSupport
   cl_hw_utils
   cl_sys_utils
-  ${SYSTEM_LIBS}
   INSTALL_PATH
   ${TARGET_INSTALL_PATH})
 

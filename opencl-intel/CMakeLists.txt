@@ -20,10 +20,10 @@ cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  set(OPENCL_INTREE_BUILD FALSE)
+  set(OPENCL_INTREE_BUILD OFF)
   project(OCL C CXX ASM)
 else()
-  set(OPENCL_INTREE_BUILD TRUE)
+  set(OPENCL_INTREE_BUILD ON)
 endif()
 
 # Project-wise options
@@ -467,11 +467,24 @@ if(WIN32)
             ${TBB_BINARIES_BUILD_DIR}
     COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
 
-  install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-task_executor DESTINATION
+  install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-tbb DESTINATION
              ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
 else(WIN32)
   set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
   set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
+  # Import tbb/tbbmalloc library
+  add_library(tbb SHARED IMPORTED)
+  set_target_properties(tbb PROPERTIES
+    IMPORTED_LOCATION_RELEASE
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
+    IMPORTED_LOCATION_DEBUG
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
+  add_library(tbbmalloc SHARED IMPORTED)
+  set_target_properties(tbbmalloc PROPERTIES
+    IMPORTED_LOCATION_RELEASE
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX}
+    IMPORTED_LOCATION_DEBUG
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
 endif(WIN32)
 
 if((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
@@ -581,16 +594,16 @@ endif()
 
 if(NOT OPENCL_INTREE_BUILD)
   set(INTEL_DEPLOY_COMPONENTS
-      ocl-builtins
-      ocl-svml
       OpenCL-ICD
-      ocl-intelocl${BUILD_PLATFORM}
-      ocl-config
-      ocl-task_executor${BUILD_PLATFORM}
-      ocl-common_clang
+      ocl-builtins
       ocl-builtins-shared
       ocl-cl_logger
-      ocl-gdb-plugin)
+      ocl-common_clang
+      ocl-config
+      ocl-gdb-plugin
+      ocl-intelocl${BUILD_PLATFORM}
+      ocl-svml
+      ocl-tbb)
 
   if(WIN32)
     set(INTEL_DEPLOY_COMPONENTS

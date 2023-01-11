@@ -41,6 +41,7 @@ set(FRONTEND_DRIVER_TEST_TYPE_LINK_LIBS
   CacheBinaryHandler
   OclPluginManager
   cl_logger
+  cl_hw_utils
   cl_sys_utils
   clang_compiler
   dynamic_load

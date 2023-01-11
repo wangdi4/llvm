@@ -34,7 +34,7 @@ if(WIN32)
   set(TARGET_LIBS ${TARGET_LIBS} delayimp)
 endif(WIN32)
 
-set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM})
+set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} cl_hw_utils cl_sys_utils)
 
 # In test with private memory we allocate 1MB for array. But due to
 # vectorization stack size depends on width of SIMD and scalar kernel, our
@@ -69,18 +69,11 @@ add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
                  ${TARGET_LIBS})
 
 if(WIN32)
-  set_target_properties(
-    ${TARGET}
-    PROPERTIES
-      LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG} tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
-  )
-
   # set 17 MB of stack size
   set_target_properties(${TARGET} PROPERTIES LINK_FLAGS /STACK:"17825792")
 endif(WIN32)
+
+link_target_with_tbb_library(${TARGET})
 
 add_ocl_unittest_artifacts(
   FILES

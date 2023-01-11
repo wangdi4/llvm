@@ -494,9 +494,9 @@ function(add_ocl_unittest test_name)
     add_executable(${test_name} ${ARG_SOURCE_FILES})
   endif(EXCLUDE_FROM_ALL)
 
-  target_link_libraries(${test_name} llvm_gtest ${PTHREAD_LIB})
+  target_link_libraries(${test_name} PRIVATE llvm_gtest ${PTHREAD_LIB})
   if(NOT ARG_LINK_LIBRARIES STREQUAL "")
-    target_link_libraries(${test_name} ${ARG_LINK_LIBRARIES})
+    target_link_libraries(${test_name} PRIVATE ${ARG_LINK_LIBRARIES})
   endif(NOT ARG_LINK_LIBRARIES STREQUAL "")
 
   if(WIN32)
@@ -586,5 +586,20 @@ function(GET_ICS_BUILD_TYPE result)
           "prod"
           PARENT_SCOPE)
     endif()
+  endif()
+endfunction()
+
+# A handy helper function to link target with tbb library
+function(link_target_with_tbb_library target)
+  if(WIN32)
+    set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_RELEASE
+      " tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib \
+      /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll ")
+    set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_DEBUG
+      " /NODEFAULTLIB:MSVCRT tbbmalloc_debug.lib \
+      tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll \
+      /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll ")
+  else()
+    target_link_libraries(${target} PRIVATE tbb tbbmalloc)
   endif()
 endfunction()

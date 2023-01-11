@@ -111,7 +111,7 @@ add_opencl_library(
   clang_compiler
   cpu_device
   device_commands
-  task_executor${BUILD_PLATFORM}
+  task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -132,7 +132,7 @@ add_opencl_library(
   clang_compiler
   cpu_device
   device_commands
-  task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -176,22 +176,12 @@ install(
   COMPONENT ocl-config)
 
 if(WIN32)
-  set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS
-    "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DELAYLOAD:${COMMON_CLANG}.dll")
-  get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
-  set_target_properties(
-    ${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG
-                              "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
-  set_target_properties(
-    ${TARGET_NAME_EMU}
-    PROPERTIES
-      LINK_FLAGS
-      "/DELAYLOAD:task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}.dll")
-  get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME_EMU} LINK_FLAGS_DEBUG)
-  set_target_properties(
-    ${TARGET_NAME_EMU} PROPERTIES LINK_FLAGS_DEBUG
-                                  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
+  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS
+    " /DELAYLOAD:${COMMON_CLANG}.dll ")
 endif(WIN32)
+
+link_target_with_tbb_library(${TARGET_NAME})
+link_target_with_tbb_library(${TARGET_NAME_EMU})
 
 set_linux_exports_file(${TARGET_NAME} cl_framework_linux_exports.txt)
 set_linux_exports_file(${TARGET_NAME_EMU} cl_framework_linux_exports.txt)

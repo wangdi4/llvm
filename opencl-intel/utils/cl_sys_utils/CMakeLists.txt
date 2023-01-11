@@ -39,9 +39,6 @@ else()
   endif(WIN32)
 endif()
 
-# cpu id detect uses llvm::Support algorithms
-set(LINK_LIBS LLVMSupport)
-
 # add a target named ${TARGET_NAME}
 add_opencl_library(
   ${TARGET_NAME}
@@ -54,23 +51,13 @@ add_opencl_library(
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
   ${OCL_SOURCE_DIR}/FrontendDriver
-  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
-  LINK_LIBS
-  ${LINK_LIBS}
-  INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
+
 
 if(USE_NUMA AND NOT WIN32)
   add_definitions(-DUSE_NUMA=1)
   target_link_libraries(${TARGET_NAME} numa)
 endif(USE_NUMA AND NOT WIN32)
-
-# add Version.lib in Windows for GetModuleProductVersion()
-if(WIN32)
-  target_link_libraries(${TARGET_NAME} Version.lib cl_hw_utils)
-else(WIN32)
-  target_link_libraries(${TARGET_NAME} cl_hw_utils rt dl)
-endif(WIN32)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 
