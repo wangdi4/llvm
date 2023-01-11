@@ -2828,6 +2828,7 @@ foldRoundUpIntegerWithPow2Alignment(SelectInst &SI,
   return R;
 }
 
+<<<<<<< HEAD
 namespace {
 struct DecomposedSelect {
   Value *Cond = nullptr;
@@ -2907,6 +2908,8 @@ static Instruction *foldNestedSelects(SelectInst &OuterSelVal,
                             !IsAndVariant ? SelInner : InnerSel.FalseVal);
 }
 
+=======
+>>>>>>> a696cc515c0d9699d4f343d0d3ab166ebbfa875a
 Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   Value *CondVal = SI.getCondition();
   Value *TrueVal = SI.getTrueValue();
@@ -3697,6 +3700,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     }
   }
 
+<<<<<<< HEAD
   if (Instruction *I = foldNestedSelects(SI, Builder))
     return I;
 
@@ -3707,5 +3711,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   if (sinkNotIntoOtherHandOfLogicalOp(SI))
     return &SI;
 
+=======
+>>>>>>> a696cc515c0d9699d4f343d0d3ab166ebbfa875a
   return nullptr;
 }
