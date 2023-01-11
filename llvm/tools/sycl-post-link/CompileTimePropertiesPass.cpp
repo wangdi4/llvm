@@ -274,7 +274,7 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
             MDArgOps.push_back(SPIRVMetadata);
         }
         if (!MDArgOps.empty())
-            foundKernelProperties = true;
+          foundKernelProperties = true;
         MDOps.push_back(MDNode::get(Ctx, MDArgOps));
       }
       // Add the generated metadata to the kernel function.
