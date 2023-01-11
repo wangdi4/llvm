@@ -60,7 +60,6 @@ if(WIN32)
     ${CL_API_HEADERS}
     ${OCL_CPU_DEBUGGING_IMPORT_DIRS}
     ${OCL_SOURCE_DIR}/externals/tbb/include
-    ${OCL_SOURCE_DIR}/externals/itt/include
     LINK_LIBS
     ${SOCKETLIB}
     cl_sys_utils

@@ -18,7 +18,6 @@ add_opencl_executable(
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-  ${OCL_SOURCE_DIR}/externals/itt/include
   LINK_LIBS
   OpenCL-ICD
   cl_sys_utils)

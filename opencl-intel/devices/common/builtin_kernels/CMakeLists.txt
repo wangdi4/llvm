@@ -35,9 +35,6 @@ add_opencl_library(
   ${TARGET_SOURCES}
   INCLUDE_DIRS
   ${HW_UTILS_HEADERS}
-  ${CL_API_HEADERS}
-  ${OCL_SOURCE_DIR}/externals/itt/include
-  INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${CL_API_HEADERS})
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME})

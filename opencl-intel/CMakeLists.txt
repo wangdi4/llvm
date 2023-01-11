@@ -35,6 +35,7 @@ option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
                                using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
 option(USE_GPA "Enable GPA support" OFF)
+option(USE_ITT "Enable ITT support" ON)
 
 # validation
 # TODO: add 'master' option to disable all kinds of validation
@@ -116,6 +117,12 @@ add_definitions(
 # define INTEL_CUSTOMIZATION xmain macro
 # TODO: consider to remove from OpenCL CMake scripts
 add_definitions(-DINTEL_CUSTOMIZATION)
+
+# Enable ITT
+if(USE_ITT)
+  add_definitions(-DUSE_ITT)
+  include_directories(${OCL_SOURCE_DIR}/externals/itt/include)
+endif()
 
 if(WIN32 AND NOT OPENCL_INTREE_BUILD)
   # Add definitions that make MSVC much less annoying.
