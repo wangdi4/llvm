@@ -38,9 +38,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#if INTEL_FEATURE_ISA_AVX256
-#include "llvm/Support/X86TargetParser.h"
-#endif // INTEL_FEATURE_ISA_AVX256
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
@@ -271,12 +268,6 @@ public:
 
     // Collect target feature mask
     SmallVector<StringRef> TargetFeatures;
-#if INTEL_FEATURE_ISA_AVX256
-    // FIXME: We only check SKX features for AVX256+ for better usability.
-    if (F.getFnAttribute("target-cpu").getValueAsString() == "common-avx256")
-      X86::getFeaturesForCPU("skylake-avx512", TargetFeatures);
-    else
-#endif // INTEL_FEATURE_ISA_AVX256
     if (getTargetAttributes(F, TargetFeatures) == false)
       report_fatal_error(
           "Advanced optimizations are enabled, but no target features");

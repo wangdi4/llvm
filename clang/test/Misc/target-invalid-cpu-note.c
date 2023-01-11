@@ -1,7 +1,7 @@
 // INTEL_CUSTOMIZATION
-// INTEL_FEATURE_ISA_AVX256
-// UNSUPPORTED: intel_feature_isa_avx256
-// end INTEL_FEATURE_ISA_AVX256
+// INTEL_FEATURE_ISA_AVX256P
+// UNSUPPORTED: intel_feature_isa_avx256p
+// end INTEL_FEATURE_ISA_AVX256P
 // end INTEL_CUSTOMIZATION
 
 // Use CHECK-NEXT instead of multiple CHECK-SAME to ensure we will fail if there is anything extra in the output.

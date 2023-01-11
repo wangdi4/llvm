@@ -3252,22 +3252,6 @@ void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
   return checkTargetFeatures(E->getBeginLoc(), TargetDecl);
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-// Emits an error if the builtin's vector width large than 256 under
-// common-avx256.
-void CodeGenFunction::checkTargetVectorWidth(const CallExpr *E,
-                                             const FunctionDecl *TargetDecl,
-                                             unsigned VectorWidth) {
-  StringRef CPU = CGM.getTarget().getTargetOpts().CPU;
-  if (VectorWidth > 256 && CPU == "common-avx256")
-      CGM.getDiags().Report(E->getBeginLoc(),
-                            diag::err_builtin_exceeds_vector_width)
-          << TargetDecl->getDeclName();
-}
-#endif // INTEL_FEATURE_ISA_AVX256
-#endif // INTEL_CUSTOMIZATION
-
 // Emits an error if we don't have a valid set of target features for the
 // called function.
 void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,

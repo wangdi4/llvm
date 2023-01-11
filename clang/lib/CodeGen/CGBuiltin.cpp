@@ -5907,15 +5907,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   // can move this up to the beginning of the function.
   checkTargetFeatures(E, FD);
 
-#if INTEL_CUSTOMIZATION
-  if (unsigned VectorWidth =
-          getContext().BuiltinInfo.getRequiredVectorWidth(BuiltinID)) {
-#if INTEL_FEATURE_ISA_AVX256
-    checkTargetVectorWidth(E, FD, VectorWidth);
-#endif // INTEL_FEATURE_ISA_AVX256
+  if (unsigned VectorWidth = getContext().BuiltinInfo.getRequiredVectorWidth(BuiltinID))
     LargestVectorWidth = std::max(LargestVectorWidth, VectorWidth);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // See if we have a target specific intrinsic.
   const char *Name = getContext().BuiltinInfo.getName(BuiltinID);

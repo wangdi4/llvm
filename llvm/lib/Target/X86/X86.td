@@ -1507,57 +1507,14 @@ def ProcessorFeatures {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-#define ENABLE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
   list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
-// FIXME: Need to add AVX512-BF16-NE
-#endif // INTEL_FEATURE_ISA_AVX256
-#ifdef ENABLE_ISA_AVX256
-    FeatureAMXFP16,
-    FeaturePREFETCHI,
-    FeatureAVXIFMA,
-#if INTEL_FEATURE_ISA_AVX_CONVERT
-// FIXME: Need to change to AVX-NE-CONVERT
-    FeatureAVXCONVERT,
-#endif // INTEL_FEATURE_ISA_AVX_CONVERT
-#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
-    FeatureAVXVNNIINT16,
-#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
-    FeatureAVXVNNIINT8,
-#if INTEL_FEATURE_ISA_AVX512_MEDIAX
-    FeatureAVX512MEDIAX,
-#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
-#if INTEL_FEATURE_ISA_AVX512_CONVERT
-// FIXME: Need to change to AVX512-NE-CONVERT
-    FeatureCONVERT,
-#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-// FIXME: Need to change to AVX512-VNNI-FP16
-    FeatureAVX512VNNIFP16,
-#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
-    FeatureAVX512VNNIINT16,
-#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
-#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-    FeatureAVX512VNNIINT8,
-#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-    FeatureCMPCCXADD,
-#if INTEL_FEATURE_ISA_SM3
-    FeatureSM3,
-#endif // INTEL_FEATURE_ISA_SM3
-#if INTEL_FEATURE_ISA_SM4
-    FeatureSM4,
-#endif // INTEL_FEATURE_ISA_SM4
-#if INTEL_FEATURE_ISA_SHA512
-    FeatureSHA512
-#endif // INTEL_FEATURE_ISA_SHA512
-#endif // ENABLE_ISA_AVX256
-#if INTEL_FEATURE_ISA_AVX256
+    FeatureAVX256P
   ];
   list<SubtargetFeature> CommonAVX256Features =
-    !listconcat(SPRFeatures, CommonAVX256AdditionalFeatures);
-  list<SubtargetFeature> CommonAVX256Tuning = SPRTuning;
-#endif // INTEL_FEATURE_ISA_AVX256
+    !listconcat(SKLFeatures, CommonAVX256AdditionalFeatures);
+  list<SubtargetFeature> CommonAVX256Tuning = SKLTuning;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
   // Atom
@@ -2139,11 +2096,11 @@ foreach P = ["skylake-avx512", "skx"] in {
 def : ProcModel<"common-avx512", SkylakeServerModel,
                 ProcessorFeatures.CommonAVX512Features,
                 ProcessorFeatures.CommonAVX512Tuning>;
-#if INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
 def : ProcModel<"common-avx256", SkylakeServerModel,
                 ProcessorFeatures.CommonAVX256Features,
                 ProcessorFeatures.CommonAVX256Tuning>;
-#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
 def : ProcModel<"cascadelake", SkylakeServerModel,
