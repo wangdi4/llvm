@@ -372,9 +372,9 @@ private:
   // The method applies the heuristics from input heuristics list modifing
   // the input Cost and returns adjusted cost.
   template <typename HeuristicsListTy, typename ScopeTy>
-  VPInstructionCost applyHeuristics(
-    HeuristicsListTy HeuristicsList, ScopeTy *Scope,
-    const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
+  VPInstructionCost
+  applyHeuristics(HeuristicsListTy &HeuristicsList, ScopeTy *Scope,
+                  const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
     VPInstructionCost RetCost = Cost;
     HeuristicsList.apply(Cost, RetCost, Scope, OS);
     return RetCost;
