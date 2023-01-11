@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -69,6 +69,7 @@ class BasicAAResult : public AAResultBase {
   const TargetLibraryInfo &TLI;
   AssumptionCache &AC;
   DominatorTree *DT;
+  PhiValues *PV; // INTEL
 
 #if INTEL_CUSTOMIZATION
   /// The maximum number of uses to explore for PointerMayBeCaptured() calls.
@@ -98,21 +99,27 @@ private:
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
-                DominatorTree *DT = nullptr, unsigned OptLevel = 2u) // INTEL
-      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT) // INTEL
 #if INTEL_CUSTOMIZATION
-  {
+                DominatorTree *DT = nullptr, unsigned OptLevel = 2u,
+                PhiValues *PV = nullptr)
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) {
     setupWithOptLevel(OptLevel);
   }
 #endif // INTEL_CUSTOMIZATION
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
-        DT(Arg.DT), PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
+#if INTEL_CUSTOMIZATION
+        DT(Arg.DT), PV(Arg.PV), PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {
+  }
+#endif // INTEL_CUSTOMIZATION
   BasicAAResult(BasicAAResult &&Arg)
       : AAResultBase(std::move(Arg)), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI),
-        AC(Arg.AC), DT(Arg.DT), // INTEL
-        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {}     // INTEL
+#if INTEL_CUSTOMIZATION
+        AC(Arg.AC), DT(Arg.DT), PV(Arg.PV),
+        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Function &Fn, const PreservedAnalyses &PA,

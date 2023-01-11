@@ -1,6 +1,6 @@
 //===- ArgNoAliasProp.cpp ---- Add noalias to function args -----*- C++ -*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -291,8 +291,8 @@ struct ArgNoAliasProp : public ModulePass {
             F.getParent()->getDataLayout(), F,
             getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
             getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
-            &DTGetter(F),
-            getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());
+            &DTGetter(F), getAnalysis<XmainOptLevelWrapperPass>().getOptLevel(),
+            P.first->second.PV.get());
         P.first->second.AAR = std::make_unique<AAResults>(
             createLegacyPMAAResults(*this, F, *P.first->second.BAR));
       }

@@ -1,4 +1,7 @@
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,NO-PHI-VALUES
+; RUN: opt < %s -aa-pipeline=basic-aa -passes='require<phi-values>,aa-eval' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s --check-prefixes=CHECK,PHI-VALUES
+; end INTEL_CUSTOMIZATION
 
 ; CHECK-LABEL: Function: simple: 5 pointers, 0 call sites
 ; CHECK:         NoAlias:      float* %src1, float* %src2
@@ -242,18 +245,18 @@ exit:
   ret ptr %result
 }
 
-; FIXME: %a and %p.inner do not alias.
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: Function: nested_loop
 ; CHECK: NoAlias:  i8* %a, i8* %p.base
-; INTEL_CUSTOMIZATION
 ; Compile time speed fixes for 25048/24303 treat loop GEPs more conservatively
 ; in some cases, but avoids a cache flush which improves compile time greatly
 ; for deep nested cases.
 ; CHECK: {{May|No}}Alias:{{.*}}i8* %a, i8* %p.outer
-; end INTEL_CUSTOMIZATION
-; CHECK: MayAlias: i8* %a, i8* %p.inner
+; NO-PHI-VALUES: MayAlias: i8* %a, i8* %p.inner
+; PHI-VALUES: NoAlias: i8* %a, i8* %p.inner
 ; CHECK: NoAlias:  i8* %a, i8* %p.inner.next
 ; CHECK: NoAlias:  i8* %a, i8* %p.outer.next
+; end INTEL_CUSTOMIZATION
 define void @nested_loop(i1 %c, i1 %c2, ptr noalias %p.base) {
 entry:
   %a = alloca i8
@@ -322,7 +325,10 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p.outer
 ; CHECK: NoAlias:	i8* %a, i8* %p.outer.next
-; CHECK: NoAlias:	i8* %a, i8* %p.inner
+; INTEL_CUSTOMIZATION
+; NO-PHI-VALUES: NoAlias:	i8* %a, i8* %p.inner
+; PHI-VALUES: MayAlias:	i8* %a, i8* %p.inner
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	i8* %a, i8* %p.inner.next
 define void @nested_loop3(i1 %c, i1 %c2, ptr noalias %p.base) {
 entry:
@@ -388,7 +394,10 @@ exit:
 ; CHECK: NoAlias:	i8* %a, i8* %p.base
 ; CHECK: NoAlias:	i8* %a, i8* %p1
 ; CHECK: NoAlias:	i8* %a, i8* %p1.next
-; CHECK: NoAlias:	i8* %a, i8* %p2
+; INTEL_CUSTOMIZATION
+; NO-PHI-VALUES: NoAlias:	i8* %a, i8* %p2
+; PHI-VALUES: MayAlias:	i8* %a, i8* %p2
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	i8* %a, i8* %p2.next
 define void @sibling_loop2(i1 %c, i1 %c2, ptr noalias %p.base) {
 entry:
@@ -415,7 +424,11 @@ exit:
   ret void
 }
 
-; CHECK: MustAlias: i8* %a, i8* %phi
+; INTEL_CUSTOMIZATION
+; CHECK-LABEL: Function: phi_contains_self
+; NO-PHI-VALUES: MayAlias:	i8* %a, i8* %phi
+; PHI-VALUES: MustAlias:    i8* %a, i8* %phi
+; end INTEL_CUSTOMIZATION
 define void @phi_contains_self() {
 entry:
   %a = alloca i32
