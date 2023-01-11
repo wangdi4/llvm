@@ -118,7 +118,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
     return CL_INVALID_EVENT_WAIT_LIST;
 
   // First validate that all ids in the event list exists
-  std::vector<SharedPtr<OclEvent>> vOclEvents, vExplicitWaitEvents;
+  std::vector<SharedPtr<OclEvent>> vOclEvents;
 
   if (!GetEventsFromList(uiNumEvents, eventList, &vOclEvents,
                          skipInvalidEvents))
@@ -146,19 +146,20 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
   // nothing
   cl_err_code err = CL_SUCCESS;
   bool bWaitForEventSuccess = false;
-  std::vector<SharedPtr<OclEvent>>::iterator evtIt = vOclEvents.begin();
-  while (!vOclEvents.empty()) {
-    if (vOclEvents.end() == evtIt) {
+  std::list<SharedPtr<OclEvent>> vOclEventsList(vOclEvents.begin(),
+                                                vOclEvents.end());
+  auto evtIt = vOclEventsList.begin();
+  while (!vOclEventsList.empty()) {
+    if (vOclEventsList.end() == evtIt) {
       // When one loop fished and no WaitForEvent were executed successfully
       // Need to start using explicit Wait()
       if (!bWaitForEventSuccess) {
         break;
       }
 
-      evtIt = vOclEvents.begin();
+      evtIt = vOclEventsList.begin();
       bWaitForEventSuccess = false;
     }
-
     // Execute queue until associated command is completed
 
     // Don't try join master thread for user events,
@@ -190,21 +191,17 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
         if ((*evtIt)->GetReturnCode() < 0) {
           err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
         }
+
+        evtIt = vOclEventsList.erase(evtIt);
+        continue;
       }
     }
-    if (!bWaitForEventSuccess) {
-      vExplicitWaitEvents.push_back(*evtIt);
-    }
-
-    evtIt = vOclEvents.erase(evtIt);
+    ++evtIt;
   }
-
-  vExplicitWaitEvents.insert(vExplicitWaitEvents.end(), vOclEvents.begin(),
-                             vOclEvents.end());
 
   // For rest of the events need to explicitly wait for each one, don't spent
   // CPU cycles in the loop
-  for (evtIt = vExplicitWaitEvents.begin(); evtIt != vExplicitWaitEvents.end();
+  for (auto evtIt = vOclEventsList.begin(); evtIt != vOclEventsList.end();
        evtIt++) {
     (*evtIt)->Wait();
     // Now check even error code for failure
@@ -212,7 +209,6 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
       err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
     }
   }
-  vExplicitWaitEvents.clear();
 
   return err;
 }
