@@ -274,6 +274,7 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
     }
   }
 
+  // Process all properties on kernels.
   for (Function &F : M) {
     // Only consider kernels.
     if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
@@ -336,31 +337,18 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
         NamedMDOps.push_back(*NamedMetadata);
     }
 
-    {
-      // Process all properties on kernels.
-      SmallVector<Metadata *, 8> MDOps;
-      SmallVector<std::pair<std::string, MDNode *>, 8> NamedMDOps;
-      for (const Attribute &Attribute : F.getAttributes().getFnAttrs()) {
-        if (MDNode *SPIRVMetadata = attributeToDecorateMetadata(Ctx, Attribute))
-          MDOps.push_back(SPIRVMetadata);
-        else if (auto NamedMetadata = attributeToExecModeMetadata(M, Attribute))
-          NamedMDOps.push_back(*NamedMetadata);
-      }
+    // Add the generated metadata to the kernel function.
+    if (!MDOps.empty()) {
+      F.addMetadata(MDKindID, *MDNode::get(Ctx, MDOps));
+      CompileTimePropertiesMet = true;
+    }
 
-      // Add the generated metadata to the kernel function.
-      if (!MDOps.empty()) {
-        F.addMetadata(MDKindID, *MDNode::get(Ctx, MDOps));
-        CompileTimePropertiesMet = true;
-      }
-
-      // Add the new named metadata to the kernel function.
-      for (std::pair<std::string, MDNode *> NamedMD : NamedMDOps) {
-        // If multiple sources defined this metadata, prioritize the existing
-        // one.
-        if (F.hasMetadata(NamedMD.first))
-          continue;
-        F.addMetadata(NamedMD.first, *NamedMD.second);
-      }
+    // Add the new named metadata to the kernel function.
+    for (std::pair<std::string, MDNode *> NamedMD : NamedMDOps) {
+      // If multiple sources defined this metadata, prioritize the existing one.
+      if (F.hasMetadata(NamedMD.first))
+        continue;
+      F.addMetadata(NamedMD.first, *NamedMD.second);
     }
   }
 
