@@ -311,6 +311,29 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
     if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
       continue;
 
+    {
+      // Process all properties on kernels arguments
+      SmallVector<Metadata *, 8> MDOps;
+      MDOps.reserve(F.arg_size());
+      bool foundKernelProperties = false;
+      for (unsigned i = 0; i < F.arg_size(); i++) {
+        SmallVector<Metadata *, 8> MDArgOps;
+        for (auto &Attribute : F.getAttributes().getParamAttrs(i)) {
+          if (MDNode *SPIRVMetadata =
+                  attributeToDecorateMetadata(Ctx, Attribute))
+            MDArgOps.push_back(SPIRVMetadata);
+        }
+        if (!MDArgOps.empty())
+          foundKernelProperties = true;
+        MDOps.push_back(MDNode::get(Ctx, MDArgOps));
+      }
+      // Add the generated metadata to the kernel function.
+      if (foundKernelProperties) {
+        F.addMetadata(MDParamKindID, *MDNode::get(Ctx, MDOps));
+        CompileTimePropertiesMet = true;
+      }
+    }
+
     SmallVector<Metadata *, 8> MDOps;
     SmallVector<std::pair<std::string, MDNode *>, 8> NamedMDOps;
     for (const Attribute &Attribute : F.getAttributes().getFnAttrs()) {
