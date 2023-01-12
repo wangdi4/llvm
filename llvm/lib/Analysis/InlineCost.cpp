@@ -697,7 +697,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   bool DecidedByCostBenefit = false;
 
   // The cost-benefit pair computed by cost-benefit analysis.
-  std::optional<CostBenefitPair> CostBenefit = std::nullopt;
+  std::optional<CostBenefitPair> CostBenefit;
 
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;

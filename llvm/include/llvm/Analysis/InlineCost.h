@@ -278,7 +278,7 @@ class InlineCost {
   const char *Reason = nullptr;
 
   /// The cost-benefit pair computed by cost-benefit analysis.
-  std::optional<CostBenefitPair> CostBenefit = std::nullopt;
+  std::optional<CostBenefitPair> CostBenefit;
 
 #if INTEL_CUSTOMIZATION
   bool IsRecommended = false;
