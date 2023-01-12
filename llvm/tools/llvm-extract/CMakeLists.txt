@@ -20,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   IPO
   IRReader
+  Passes
   Support
   )
 

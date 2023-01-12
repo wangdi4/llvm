@@ -26,10 +26,10 @@
 // This pass extracts global values
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/ADT/SetVector.h"
+
+#include "llvm/Transforms/IPO/ExtractGV.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/IPO.h"
+#include "llvm/IR/PassManager.h"
 #include <algorithm>
 
 #if INTEL_CUSTOMIZATION
@@ -78,181 +78,86 @@ static void makeVisible(GlobalValue &GV, bool Delete) {
   }
 }
 
-namespace {
-  /// A pass to extract specific global values and their dependencies.
-  class GVExtractorPass : public ModulePass {
-    SetVector<GlobalValue *> Named;
-    bool deleteStuff;
-    bool keepConstInit;
-  public:
-    static char ID; // Pass identification, replacement for typeid
 
     /// If deleteS is true, this pass deletes the specified global values.
     /// Otherwise, it deletes as much of the module as possible, except for the
     /// global values specified.
-    explicit GVExtractorPass(std::vector<GlobalValue*> &GVs,
-                             bool deleteS = true, bool keepConstInit = false)
-      : ModulePass(ID), Named(GVs.begin(), GVs.end()), deleteStuff(deleteS),
-        keepConstInit(keepConstInit) {}
+ExtractGVPass::ExtractGVPass(std::vector<GlobalValue *> &GVs, bool deleteS,
+                             bool keepConstInit)
+    : Named(GVs.begin(), GVs.end()), deleteStuff(deleteS),
+      keepConstInit(keepConstInit) {}
 
-    bool runOnModule(Module &M) override {
-      if (skipModule(M))
-        return false;
+PreservedAnalyses ExtractGVPass::run(Module &M, ModuleAnalysisManager &) {
+  // Visit the global inline asm.
+  if (!deleteStuff)
+    M.setModuleInlineAsm("");
 
-      // Visit the global inline asm.
-      if (!deleteStuff)
-        M.setModuleInlineAsm("");
+  // For simplicity, just give all GlobalValues ExternalLinkage. A trickier
+  // implementation could figure out which GlobalValues are actually
+  // referenced by the Named set, and which GlobalValues in the rest of
+  // the module are referenced by the NamedSet, and get away with leaving
+  // more internal and private things internal and private. But for now,
+  // be conservative and simple.
 
-      // For simplicity, just give all GlobalValues ExternalLinkage. A trickier
-      // implementation could figure out which GlobalValues are actually
-      // referenced by the Named set, and which GlobalValues in the rest of
-      // the module are referenced by the NamedSet, and get away with leaving
-      // more internal and private things internal and private. But for now,
-      // be conservative and simple.
-
-      // Visit the GlobalVariables.
-      for (GlobalVariable &GV : M.globals()) {
-        bool Delete = deleteStuff == (bool)Named.count(&GV) &&
-                      !GV.isDeclaration() &&
-                      (!GV.isConstant() || !keepConstInit);
-        if (!Delete) {
-          if (GV.hasAvailableExternallyLinkage())
-            continue;
-          if (GV.getName() == "llvm.global_ctors")
-            continue;
-        }
-
-        makeVisible(GV, Delete);
-
-        if (Delete) {
-          // Make this a declaration and drop it's comdat.
-          GV.setInitializer(nullptr);
-          GV.setComdat(nullptr);
-        }
-      }
-
-      // Visit the Functions.
-      for (Function &F : M) {
-        bool Delete =
-            deleteStuff == (bool)Named.count(&F) && !F.isDeclaration();
-        if (!Delete) {
-          if (F.hasAvailableExternallyLinkage())
-            continue;
-        }
-
-        makeVisible(F, Delete);
-
-        if (Delete) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-          // Get any existing DTrans type metadata before the body is deleted
-          // because deleting the body will keep the DTrans type attributes on
-          // the function, but remove the DTrans type metadata attachment.
-          MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(F);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
-          // Make this a declaration and drop it's comdat.
-          F.deleteBody();
-          F.setComdat(nullptr);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-          // Restore the DTrans type metadata onto the function declaration.
-          if (MD)
-            dtransOP::DTransTypeMetadataBuilder::addDTransMDNode(F, MD);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-        }
-      }
-
-      // Visit the Aliases.
-      for (GlobalAlias &GA : llvm::make_early_inc_range(M.aliases())) {
-        bool Delete = deleteStuff == (bool)Named.count(&GA);
-        makeVisible(GA, Delete);
-
-        if (Delete) {
-          Type *Ty = GA.getValueType();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-          // If there is DTrans type metadata attached to the target alias, then
-          // we will need the target to set up DTrans type metadata after creating
-          // a new declaration.
-          auto *AliasTarget = GA.getAliasee();
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
-          GA.removeFromParent();
-          llvm::Value *Declaration;
-          if (FunctionType *FTy = dyn_cast<FunctionType>(Ty)) {
-            Declaration =
-                Function::Create(FTy, GlobalValue::ExternalLinkage,
-                                 GA.getAddressSpace(), GA.getName(), &M);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-            // If there was DTrans type metadata, set it on the new function
-            // declaration that is being created to replace the alias of the
-            // function.            
-            if (auto *TargFunc = dyn_cast<Function>(AliasTarget))
-              if (TargFunc->getValueType() == Ty) {
-                dtransOP::DTransTypeMetadataBuilder::copyDTransFuncMetadata(
-                    TargFunc, cast<Function>(Declaration));
-              } else {
-                DEBUG_WITH_TYPE(EXTRACT_DTRANS_MD, {
-                  if (dtransOP::TypeMetadataReader::getDTransMDNode(*TargFunc))
-                    dbgs() << "\nDTrans type metadata dropped during "
-                              "extraction: "
-                           << *Declaration
-                           << " - Source was: " << TargFunc->getName() << "\n";
-                });
-              }
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-          } else {
-            Declaration =
-                new GlobalVariable(M, Ty, false, GlobalValue::ExternalLinkage,
-                                   nullptr, GA.getName());
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-            // Propagate DTrans type metadata to the replacement declaration, if
-            // we can. We avoid doing this for constant expressions for now
-            // because it may require more than just copying metadata
-            // information. For example, if the alias is a GEPOperator, then the
-            // type for the replacement declaration would need to determine the
-            // type of the element indexed. Because this functionality is only
-            // being used when running llvm-extract to trim down test cases, we
-            // can probably live with losing the metadata in some cases.
-            if (isa<GlobalVariable>(AliasTarget)) {
-              MDNode *MD =
-                  dtransOP::TypeMetadataReader::getDTransMDNode(*AliasTarget);
-              if (MD)
-                dtransOP::DTransTypeMetadataBuilder::addDTransMDNode(
-                    *Declaration, MD);
-            } else {
-              DEBUG_WITH_TYPE(EXTRACT_DTRANS_MD, {
-                Value *SrcVal = AliasTarget->stripInBoundsConstantOffsets();
-                if (dtransOP::TypeMetadataReader::getDTransMDNode(*SrcVal))
-                  dbgs() << "\nDTrans type metadata dropped during "
-                            "extraction: "
-                         << *Declaration << " - Source was: " << *SrcVal
-                         << "\n";
-              });
-            }
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-          }
-          GA.replaceAllUsesWith(Declaration);
-          delete &GA;
-        }
-      }
-
-      return true;
+  // Visit the GlobalVariables.
+  for (GlobalVariable &GV : M.globals()) {
+    bool Delete = deleteStuff == (bool)Named.count(&GV) &&
+                  !GV.isDeclaration() && (!GV.isConstant() || !keepConstInit);
+    if (!Delete) {
+      if (GV.hasAvailableExternallyLinkage())
+        continue;
+      if (GV.getName() == "llvm.global_ctors")
+        continue;
     }
-  };
 
-  char GVExtractorPass::ID = 0;
-}
+    makeVisible(GV, Delete);
 
-ModulePass *llvm::createGVExtractionPass(std::vector<GlobalValue *> &GVs,
-                                         bool deleteFn, bool keepConstInit) {
-  return new GVExtractorPass(GVs, deleteFn, keepConstInit);
+    if (Delete) {
+      // Make this a declaration and drop it's comdat.
+      GV.setInitializer(nullptr);
+      GV.setComdat(nullptr);
+    }
+  }
+
+  // Visit the Functions.
+  for (Function &F : M) {
+    bool Delete = deleteStuff == (bool)Named.count(&F) && !F.isDeclaration();
+    if (!Delete) {
+      if (F.hasAvailableExternallyLinkage())
+        continue;
+    }
+
+    makeVisible(F, Delete);
+
+    if (Delete) {
+      // Make this a declaration and drop it's comdat.
+      F.deleteBody();
+      F.setComdat(nullptr);
+    }
+  }
+
+  // Visit the Aliases.
+  for (GlobalAlias &GA : llvm::make_early_inc_range(M.aliases())) {
+    bool Delete = deleteStuff == (bool)Named.count(&GA);
+    makeVisible(GA, Delete);
+
+    if (Delete) {
+      Type *Ty = GA.getValueType();
+
+      GA.removeFromParent();
+      llvm::Value *Declaration;
+      if (FunctionType *FTy = dyn_cast<FunctionType>(Ty)) {
+        Declaration = Function::Create(FTy, GlobalValue::ExternalLinkage,
+                                       GA.getAddressSpace(), GA.getName(), &M);
+
+      } else {
+        Declaration = new GlobalVariable(
+            M, Ty, false, GlobalValue::ExternalLinkage, nullptr, GA.getName());
+      }
+      GA.replaceAllUsesWith(Declaration);
+      delete &GA;
+    }
+  }
+
+  return PreservedAnalyses::none();
 }

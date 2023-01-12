@@ -117,7 +117,6 @@ void initializeBasicBlockSectionsPass(PassRegistry &);
 void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
-void initializeBlockExtractorLegacyPassPass(PassRegistry &);
 void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);
 void initializeBranchFolderPassPass(PassRegistry&);
 void initializeBranchProbabilityInfoWrapperPassPass(PassRegistry&);
