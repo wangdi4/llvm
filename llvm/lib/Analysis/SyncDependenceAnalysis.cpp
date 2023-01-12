@@ -307,6 +307,7 @@ template <class BasicBlock>
 SyncDependenceAnalysisImpl<BasicBlock>::~SyncDependenceAnalysisImpl() {}
 #endif // INTEL_CUSTOMIZATION
 
+namespace {
 // divergence propagator for reducible CFGs
 template <class BasicBlockTy> // INTEL
 struct DivergencePropagator {
@@ -489,6 +490,7 @@ struct DivergencePropagator {
     return std::move(DivDesc);
   }
 };
+} // end anonymous namespace
 
 #ifndef NDEBUG
 #if INTEL_CUSTOMIZATION
