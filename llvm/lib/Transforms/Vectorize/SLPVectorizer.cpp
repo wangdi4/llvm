@@ -3327,7 +3327,7 @@ private:
         : R(R), Operands(TLI, DL, SE, R, DT) {}
 
     /// \Returns the inverse opcode of \p Opc.
-    static Optional<unsigned> getInverseOpcode(unsigned Opc) {
+    static std::optional<unsigned> getInverseOpcode(unsigned Opc) {
       switch (Opc) {
       case Instruction::Add:
         return Instruction::Sub;
