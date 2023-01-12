@@ -1049,9 +1049,33 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::SOARnd && NewDesc != VPVectorShape::SOACvt) {
     auto *Gep = dyn_cast<VPGEPInstruction>(I);
-    Type *PointedToTy =
-        Gep ? Gep->getResultElementType()
-            : cast<VPSubscriptInst>(I)->getType()->getPointerElementType();
+    Type *PointedToTy = nullptr;
+    if (Gep)
+      PointedToTy = Gep->getResultElementType();
+    else {
+      auto SubscriptType = cast<VPSubscriptInst>(I)->getType();
+      // If we have an opaque subscript pointer, look for a memory user
+      // to determine the type.  If none is found, return random shape
+      // rather than crash.  We don't need to look through address-space
+      // casts, because a VPSubscriptInst gets inserted directly before
+      // the load or store affected by the cast.
+      //
+      // TODO: Revisit opaque pointer handling for divergence analysis
+      // (see CMPLRLLVM-43361).
+      if (SubscriptType->isOpaquePointerTy()) {
+          for (auto *U = I->user_begin(); U != I->user_end(); U++) {
+            if (auto *LSI = dyn_cast<VPLoadStoreInst>(*U)) {
+              PointedToTy = LSI->getValueType();
+              break;
+            }
+          }
+          if (!PointedToTy)
+            return getSOARandomVectorShape();
+
+      } else {
+        PointedToTy = SubscriptType->getPointerElementType();
+      }
+    }
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
