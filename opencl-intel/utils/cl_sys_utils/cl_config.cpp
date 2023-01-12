@@ -361,9 +361,11 @@ unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
   unsigned numWorkers;
 
   std::string strEnv;
-  if (getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS"))
+  if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS")) {
     numWorkers = (unsigned)std::stoi(strEnv);
-  else {
+  } else if (getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS")) {
+    numWorkers = (unsigned)std::stoi(strEnv);
+  } else {
     // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
     if (getEnvVar(strEnv, "OCL_TBB_NUM_WORKERS"))
       numWorkers = (unsigned)std::stoi(strEnv);

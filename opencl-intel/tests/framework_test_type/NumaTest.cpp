@@ -30,7 +30,7 @@ extern cl_device_type gDeviceType;
 class NumaTest : public ::testing::Test {
 protected:
   virtual void SetUp() override {
-    ASSERT_TRUE(SETENV("DPCPP_CPU_PLACES", "numa_domains"));
+    ASSERT_TRUE(SETENV("SYCL_CPU_PLACES", "numa_domains"));
 
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
@@ -65,7 +65,7 @@ protected:
   int m_numNumaNodes;
 };
 
-/// This test checks that NUMA API is working correctly if DPCPP_CPU_NUM_CUS is
+/// This test checks that NUMA API is working correctly if SYCL_CPU_NUM_CUS is
 /// set to half number of CPUs.
 /// Disable the test because it is flaky.
 TEST_F(NumaTest, DISABLED_halfCUs) {
@@ -76,7 +76,7 @@ TEST_F(NumaTest, DISABLED_halfCUs) {
   // Set to use half number of CPUs before clCreateContext.
   std::string halfNumCUs =
       std::to_string(Intel::OpenCL::Utils::GetNumberOfProcessors() / 2);
-  ASSERT_TRUE(SETENV("DPCPP_CPU_NUM_CUS", halfNumCUs.c_str()));
+  ASSERT_TRUE(SETENV("SYCL_CPU_NUM_CUS", halfNumCUs.c_str()));
 
   cl_int err;
   m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);

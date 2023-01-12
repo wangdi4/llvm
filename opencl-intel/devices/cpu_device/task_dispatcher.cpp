@@ -349,17 +349,18 @@ TE_CMD_LIST_PREFERRED_SCHEDULING TaskDispatcher::getPreferredScheduling() {
   TE_CMD_LIST_PREFERRED_SCHEDULING scheduling =
       TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
 
-  // DPCPP_CPU_SCHEDULE = {dynamic | affinity | static} controls which TBB
+  // SYCL_CPU_SCHEDULE = {dynamic | affinity | static} controls which TBB
   // partitioner to use.
   //   dynamic (default) : auto_partitioner
   //   affinity          : affinity_partitioner
   //   static            : static_partitioner
-  std::string env_dpcpp_schedule;
-  if (Intel::OpenCL::Utils::getEnvVar(env_dpcpp_schedule,
-                                      "DPCPP_CPU_SCHEDULE")) {
-    if ("affinity" == env_dpcpp_schedule)
+  std::string env_sycl_schedule;
+  using namespace Intel::OpenCL::Utils;
+  if (getEnvVar(env_sycl_schedule, "SYCL_CPU_SCHEDULE") ||
+      getEnvVar(env_sycl_schedule, "DPCPP_CPU_SCHEDULE")) {
+    if ("affinity" == env_sycl_schedule)
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
-    else if ("static" == env_dpcpp_schedule)
+    else if ("static" == env_sycl_schedule)
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
   }
 
