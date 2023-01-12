@@ -50,6 +50,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-isel"
+#define PASS_NAME "X86 DAG->DAG Instruction Selection"
 
 STATISTIC(NumLoadMoved, "Number of loads moved below TokenFactor");
 
@@ -190,10 +191,6 @@ namespace {
     explicit X86DAGToDAGISel(X86TargetMachine &tm, CodeGenOpt::Level OptLevel)
         : SelectionDAGISel(ID, tm, OptLevel), Subtarget(nullptr),
           OptForMinSize(false), IndirectTlsSegRefs(false) {}
-
-    StringRef getPassName() const override {
-      return "X86 DAG->DAG Instruction Selection";
-    }
 
     bool runOnMachineFunction(MachineFunction &MF) override {
       // Reset the subtarget each time through.
@@ -594,6 +591,8 @@ namespace {
 }
 
 char X86DAGToDAGISel::ID = 0;
+
+INITIALIZE_PASS(X86DAGToDAGISel, DEBUG_TYPE, PASS_NAME, false, false)
 
 // Returns true if this masked compare can be implemented legally with this
 // type.
