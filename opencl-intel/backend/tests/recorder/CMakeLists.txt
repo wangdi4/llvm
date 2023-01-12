@@ -1,12 +1,6 @@
 # exectuable name
 set(TARGET_NAME OclRecorderTest)
 
-# recorder_test has to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
-
 # setting the path to the recorder we test
 if(WIN32)
   set(DORDER_INSTALL "")

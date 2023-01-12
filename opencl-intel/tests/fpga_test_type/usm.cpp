@@ -21,7 +21,7 @@
 #include "base_fixture.h"
 #include "common_utils.h"
 #include "gtest/gtest.h"
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 class UsmTest : public OCLFPGABaseFixture,
                 public ::testing::WithParamInterface<int> {

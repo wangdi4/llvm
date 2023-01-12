@@ -1,11 +1,5 @@
 set(TARGET debugger_test_type)
 
-# some debugger tests have to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
-
 find_sources()
 calculate_target_sources()
 

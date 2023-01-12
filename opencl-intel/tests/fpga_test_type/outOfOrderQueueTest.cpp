@@ -14,7 +14,7 @@
 #include "TestsHelpClasses.h"
 #include "base_fixture.h"
 #include "common_utils.h"
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 class OOOQueueTest : public OCLFPGABaseFixture,
                      public ::testing::WithParamInterface<int> {

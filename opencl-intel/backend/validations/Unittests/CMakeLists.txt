@@ -20,9 +20,6 @@ set(TARGET_NAME ValidationTests)
 if(WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ICC_AUXILIARY_CXX_FLAGS}")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${ICC_AUXILIARY_C_FLAGS}")
-  # some unittests have to use deprecated OpenCL API functions.
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
 endif(WIN32)
 
 include_directories(
