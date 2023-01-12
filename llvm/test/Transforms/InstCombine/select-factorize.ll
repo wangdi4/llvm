@@ -232,8 +232,12 @@ define <3 x i1> @and_logic_and_logic_or_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1
 ; CHECK-LABEL: @and_logic_and_logic_or_vector(
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[BC]]
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -246,8 +250,12 @@ define <3 x i1> @and_logic_and_logic_or_vector_poison1(<3 x i1> %c, <3 x i1> %a,
 ; CHECK-LABEL: @and_logic_and_logic_or_vector_poison1(
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> <i1 false, i1 poison, i1 false>
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[BC]]
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -260,8 +268,12 @@ define <3 x i1> @and_logic_and_logic_or_vector_poison2(<3 x i1> %c, <3 x i1> %a,
 ; CHECK-LABEL: @and_logic_and_logic_or_vector_poison2(
 ; CHECK-NEXT:    [[AC:%.*]] = and <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> [[B:%.*]], <3 x i1> zeroinitializer
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = or <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> <i1 poison, i1 true, i1 true>, <3 x i1> [[BC]]
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = and <3 x i1> %c, %a
@@ -579,8 +591,12 @@ define <3 x i1> @or_logic_or_logic_and_vector(<3 x i1> %c, <3 x i1> %a, <3 x i1>
 ; CHECK-LABEL: @or_logic_or_logic_and_vector(
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> [[BC]], <3 x i1> zeroinitializer
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
@@ -593,8 +609,12 @@ define <3 x i1> @or_logic_or_logic_and_vector_poison1(<3 x i1> %c, <3 x i1> %a, 
 ; CHECK-LABEL: @or_logic_or_logic_and_vector_poison1(
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 poison, i1 true>, <3 x i1> [[B:%.*]]
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> [[BC]], <3 x i1> zeroinitializer
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
@@ -607,8 +627,12 @@ define <3 x i1> @or_logic_or_logic_and_vector_poison2(<3 x i1> %c, <3 x i1> %a, 
 ; CHECK-LABEL: @or_logic_or_logic_and_vector_poison2(
 ; CHECK-NEXT:    [[AC:%.*]] = or <3 x i1> [[C:%.*]], [[A:%.*]]
 ; CHECK-NEXT:    [[BC:%.*]] = select <3 x i1> [[C]], <3 x i1> <i1 true, i1 true, i1 true>, <3 x i1> [[B:%.*]]
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[BC_FR:%.*]] = freeze <3 x i1> [[BC]]
 ; CHECK-NEXT:    [[OR:%.*]] = and <3 x i1> [[AC]], [[BC_FR]]
+=======
+; CHECK-NEXT:    [[OR:%.*]] = select <3 x i1> [[AC]], <3 x i1> [[BC]], <3 x i1> <i1 false, i1 false, i1 poison>
+>>>>>>> d73383c145ea83d25063246e0c34f5a41fd35293
 ; CHECK-NEXT:    ret <3 x i1> [[OR]]
 ;
   %ac = or <3 x i1> %c, %a
