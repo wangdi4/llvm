@@ -134,7 +134,13 @@ private:
   bool HasDistributePoint;
   bool HasBadCandidate;
 
+  // Get our specific Candidate using Symbase
+  DenseMap<unsigned, unsigned> SymbaseToCandidatesMap;
+
+  // Each Candidate contains info regarding scalar expansion of a temp symbase
   SmallVector<Candidate, 8> Candidates;
+
+  // Scalar expansion will skip if there is dependence to this SB set
   SparseBitVector<> ModifiedBases;
 
   // <Symbase, Loop number>
@@ -183,7 +189,6 @@ private:
   // than use a temp.
   bool isSafeToRecompute(const RegDDRef *TmpDef, unsigned ChunkIdx,
                          const SymbaseLoopSetTy &SymbaseLoopSet,
-                         const SparseBitVector<> &ModifiedSymbases,
                          const HLInst *&DepInst);
 
   void analyze(ArrayRef<HLDDNodeList> Chunks);
