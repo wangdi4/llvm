@@ -810,9 +810,13 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
            && Tag != dwarf::DW_TAG_rvalue_reference_type)
     addUInt(Buffer, dwarf::DW_AT_byte_size, std::nullopt, Size);
 
-  if (Tag == dwarf::DW_TAG_ptr_to_member_type)
-    addDIEEntry(Buffer, dwarf::DW_AT_containing_type,
-                *getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()));
+#if INTEL_CUSTOMIZATION
+  if (Tag == dwarf::DW_TAG_ptr_to_member_type) {
+    if (auto TypeDIE =
+            getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()))
+      addDIEEntry(Buffer, dwarf::DW_AT_containing_type, *TypeDIE);
+#endif
+  }
 
   addAccess(Buffer, DTy->getFlags());
 
