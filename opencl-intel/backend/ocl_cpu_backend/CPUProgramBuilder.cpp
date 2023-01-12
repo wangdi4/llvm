@@ -549,17 +549,17 @@ void CPUProgramBuilder::JitProcessing(
   char *injectedObjStart = nullptr;
   size_t injectedObjSize;
   // Replace OpenCL programs with contents in a list of assembly filenames or a
-  // list of object filenames separated with comma or colon. The number of
-  // filenames must match with the number of OpenCL programs in the application.
+  // list of object filenames separated with comma. The number of filenames must
+  // match with the number of OpenCL programs in the application.
   SmallVector<StringRef, 4> replaceAsmFilenames;
   SmallVector<StringRef, 4> replaceObjFilenames;
 #ifndef INTEL_PRODUCT_RELEASE
   std::string envStrAsm;
   if (Intel::OpenCL::Utils::getEnvVar(envStrAsm, "CL_CONFIG_REPLACE_ASM"))
-    SplitString(envStrAsm, replaceAsmFilenames, ",:");
+    SplitString(envStrAsm, replaceAsmFilenames, ",");
   std::string envStrObj;
   if (Intel::OpenCL::Utils::getEnvVar(envStrObj, "CL_CONFIG_REPLACE_OBJ"))
-    SplitString(envStrObj, replaceObjFilenames, ",:");
+    SplitString(envStrObj, replaceObjFilenames, ",");
 #endif
   if ((options &&
        options->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,
