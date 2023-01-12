@@ -155,8 +155,8 @@ bool HLRegion::isInvariant(unsigned Symbase) const {
   return IRReg.isLiveInValue(Symbase, BU.getTempBlobValue(Index));
 }
 
-bool HLRegion::containsAllUses(const AllocaInst *Alloca,
-                               bool IgnoreStores) const {
+bool HLRegion::containsAllDereferences(const AllocaInst *Alloca,
+                                       bool IgnoreStores) const {
   SmallVector<const Instruction *, 16> TrackableUses;
 
   TrackableUses.push_back(Alloca);

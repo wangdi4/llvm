@@ -3051,9 +3051,6 @@ struct RTLDeviceInfoTy {
   /// Command lists/queues specialized for kernel batching
   std::vector<KernelBatchTy> BatchCmdQueues;
 
-  /// Immediate command list for each device
-  std::vector<ze_command_list_handle_t> ImmCmdLists;
-
   /// L0 programs created for each device
   std::vector<std::list<LevelZeroProgramTy>> Programs;
 
@@ -3270,12 +3267,6 @@ struct RTLDeviceInfoTy {
   }
 
   ze_command_list_handle_t getImmCmdList(int32_t DeviceId) {
-#if INTEL_CUSTOMIZATION
-    // Using per-thread Imm command list does not work as expected at least
-    // within pure OpenMP (verified with NEOReadDebugKeys=1 EventWaitOnHost=1).
-    // This may not be that important now since what matters most is per-interop
-    // SYCL immediate command list.
-#if 0
     auto *TLS = getTLS();
     auto CmdList = TLS->getImmCmdList(DeviceId);
     if (!CmdList) {
@@ -3283,10 +3274,6 @@ struct RTLDeviceInfoTy {
       TLS->setImmCmdList(DeviceId, CmdList);
     }
     return CmdList;
-#endif
-#endif // INTEL_CUSTOMIZATION
-    /// Keep using the shared Imm command list within OpenMP
-    return ImmCmdLists[DeviceId];
   }
 
   ze_command_list_handle_t getImmCopyCmdList(int32_t DeviceId) {
@@ -3465,9 +3452,6 @@ struct RTLDeviceInfoTy {
 
   /// Check if the driver supports the specified extension
   bool isExtensionSupported(const char *ExtName);
-
-  /// Initialize immediate command lists
-  void initImmCmdList(int32_t DeviceId);
 };
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
@@ -3745,8 +3729,6 @@ static void closeRTL() {
       OMPT_CALLBACK(ompt_callback_device_finalize, I);
     }
 #endif // INTEL_CUSTOMIZATION
-    if (DeviceInfo->Option.UseImmCmdList > 0)
-      CALL_ZE_RET_VOID(zeCommandListDestroy, DeviceInfo->ImmCmdLists[I]);
 
     DeviceInfo->Programs[I].clear();
   }
@@ -4665,9 +4647,8 @@ static int32_t runTargetTeamRegion(
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
     auto Event = DeviceInfo->EventPool.getEvent();
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel,
-                         DeviceInfo->Mutexes[SubId], CmdList, Kernel,
-                         &GroupCounts, Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
+                     &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
     if (Option.Flags.EnableProfile)
@@ -5165,15 +5146,6 @@ void RTLDeviceInfoTy::endKernelBatch(int32_t DeviceId) {
          "Kernel batch queue has incomplete commands.");
 }
 
-void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
-  // Initialize immediate command list
-  ImmCmdLists[DeviceId] = createImmCmdList(DeviceId);
-  // For subdevices
-  for (auto &SubLevel : SubDeviceIds[DeviceId])
-    for (auto SubId : SubLevel)
-      ImmCmdLists[SubId] = createImmCmdList(SubId);
-}
-
 /// Return the internal device ID for the specified subdevice
 int32_t RTLDeviceInfoTy::getSubDeviceId(int32_t DeviceId, uint32_t Level,
                                         uint32_t SubId) {
@@ -5332,7 +5304,6 @@ int32_t RTLDeviceInfoTy::findDevices() {
   NumActiveKernels.resize(NumRootDevices, 0);
 #endif // INTEL_CUSTOMIZATION
   BatchCmdQueues.resize(NumRootDevices);
-  ImmCmdLists.resize(NumDevices);
   GlobalModules.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
   KernelMutexes.reset(new std::mutex[NumDevices]);
@@ -6313,8 +6284,9 @@ int32_t LevelZeroProgramTy::buildKernels() {
   }
 
   // Release unused kernels
-  for (auto &K : ModuleKernels)
+  for (auto &K : ModuleKernels) {
     CALL_ZE_RET_FAIL(zeKernelDestroy, K.second);
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -6540,9 +6512,6 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 #endif // INTEL_CUSTOMIZATION
   auto Q = DeviceInfo->getCmdQueue(DeviceId);
   (void)Q;
-
-  if (DeviceInfo->Option.UseImmCmdList > 0)
-    DeviceInfo->initImmCmdList(DeviceId);
 
   for (auto &SubIds : DeviceInfo->SubDeviceIds[DeviceId])
     for (auto SubId : SubIds)

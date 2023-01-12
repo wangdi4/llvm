@@ -29,8 +29,8 @@ using namespace llvm::vpo;
 static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " PASS_NAME " pass"));
-static cl::opt<bool> RunForScansOpt("insert-guards-for-scan", cl::init(false),
-                                    cl::Hidden,
+static cl::opt<bool> RunForScansOpt("vpo-paropt-guard-memory-motion-for-scan",
+                                    cl::init(false), cl::Hidden,
                                     cl::desc("Process scan pointers"));
 
 namespace {
@@ -97,10 +97,13 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     StringRef LiveInClauseString =
         VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN);
 
-    // If a loop has inscan reduction-modifier is used, reduction clause without
-    // the inscan modifier must not appear on the same construct. That means
-    // that inscan and regular reduction cannot be present on the same loop.
-    // Detect, whether we are dealing with inscan or regular reduction loop.
+    // If a SIMD loop has an inscan reduction operand, other reduction
+    // operands without the inscan modifier must not appear on the same
+    // construct. That means that inscan and regular reduction cannot be
+    // present on the same loop.
+
+    // Detect whether we are dealing with a SIMD construct with inscan or
+    // regular reduction.
     bool IsInscanLoop =
         any_of(VecNode->getRed().items(),
                [](const ReductionItem *Item) { return Item->getIsInscan(); });
@@ -119,9 +122,9 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     // Inscan loops require guards for mem motion for both input and scan phases
     // of the loop. We can process inscan loop seperately as such loop must have
     // all reductions as inscan ones, according to the stetement above.
-    if (!IsInscanLoop)
+    if (!IsInscanLoop) {
       GuardDirectives.push_back(VPOUtils::getOrCreateLoopGuardForMemMotion(Lp));
-    else {
+    } else {
       auto BeginPair = VPOUtils::createInscanLoopGuardForMemMotion(Lp);
       GuardDirectives.push_back(BeginPair.first);
       GuardDirectives.push_back(BeginPair.second);

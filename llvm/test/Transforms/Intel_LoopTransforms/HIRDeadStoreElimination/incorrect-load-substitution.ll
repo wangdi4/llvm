@@ -1,9 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that this test case compiles successfully. We are able to eliminate the
-; very first store {(%ptr)[0] = 0;} without incorrectly trying to also remove
-; the load %ld. The second store {(%ptr)[0] = 1;} inside the inner loop is also
-; redundant but it is not eliminated due to limitation of the implementation.
+; first store in outer loop. We are also able to eliminate the second store in
+; the inner loop by subtituting it and the intermediate load with the temp.
 
 ; CHECK: Dump Before
 
@@ -23,10 +22,10 @@
 
 ; CHECK: + DO i1 = 0, 0, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   (%ptr)[0] = 1;
+; CHECK: |   |   %temp = 1;
 ; CHECK: |   + END LOOP
 ; CHECK: |
-; CHECK: |   %ld = (%ptr)[0];
+; CHECK: |   %ld = %temp;
 ; CHECK: |   (%ptr)[0] = 2;
 ; CHECK: + END LOOP
 

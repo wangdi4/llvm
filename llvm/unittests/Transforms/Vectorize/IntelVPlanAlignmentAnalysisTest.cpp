@@ -1,6 +1,6 @@
 //===- IntelVPlanAlignmentAnalysisTest.cpp ----------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -14,6 +14,7 @@
 #include "IntelVPlanTestBase.h"
 
 #include "gtest/gtest.h"
+#include <algorithm>
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -92,6 +93,10 @@ protected:
     commonSetup();
     VPPA = std::make_unique<VPlanPeelingAnalysis>(*VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);
+  }
+
+  const VPInstruction *findInstructionByName(StringRef Name) const {
+    return VPlanTestBase::findInstructionByName(*Plan.get(), Name);
   }
 };
 
@@ -889,6 +894,18 @@ protected:
       }
     return Store;
   }
+
+  void expectAlignment(const VPValue *V, const VPInstruction *I, unsigned VF, MaybeAlign Expected) const {
+    VPlanAlignmentAnalysis AA(*VPSE, *VPVT, VF);
+    EXPECT_EQ(AA.tryGetKnownAlignment(V, I).valueOrOne().value(),
+              Expected.valueOrOne().value());
+  }
+
+  void expectAlignment(StringRef Name, unsigned VF, MaybeAlign Expected) const {
+    const auto *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "Couldn't find inst '" << Name << "'!";
+    return expectAlignment(I, I, VF, Expected);
+  }
 };
 
 TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
@@ -1078,10 +1095,10 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignedVal) {
       "}\n");
 
   commonSetup();
-  VPlanAlignmentAnalysis AA(*VPSE, *VPVT, 4);
 
   VPLoadStoreInst *S = findStoreInst();
-  EXPECT_EQ(Align(16), AA.tryGetKnownAlignment(S->getOperand(1), S));
+  for (unsigned VF : {1, 2, 4, 8, 16})
+    expectAlignment(S->getPointerOperand(), S, VF, Align(16));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
@@ -1103,10 +1120,40 @@ TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
       "}\n");
 
   commonSetup();
-  VPlanAlignmentAnalysis AA(*VPSE, *VPVT, 4);
 
   VPLoadStoreInst *S = findStoreInst();
-  EXPECT_EQ(std::nullopt, AA.tryGetKnownAlignment(S->getOperand(1), S));
+  for (unsigned VF : {1, 2, 4, 8, 16})
+    expectAlignment(S->getPointerOperand(), S, VF, std::nullopt);
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, AlignedLinearMemref) {
+  buildVPlanFromString(R"(
+      declare void @llvm.assume(i1)
+      define void @foo(i32* %p.i32.16) {
+      entry:
+        br label %for.body
+      for.body:
+        %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
+        call void @llvm.assume(i1 true) [ "align"(i32* %p.i32.16, i64 16) ]
+        %gep.i32.16 = getelementptr i32, i32* %p.i32.16, i32 %iv
+        %gep.i8.null = getelementptr i8, i8* null, i32 %iv
+        %gep.i32.null = getelementptr i32, i32* null, i32 %iv
+        %gep.i64.null = getelementptr i64, i64* null, i32 %iv
+        %iv.next = add nuw nsw i32 %iv, 1
+        %cond = icmp eq i32 %iv.next, 256
+        br i1 %cond, label %for.body, label %exit
+      exit:
+        ret void
+      })");
+
+  commonSetup();
+
+  for (unsigned VF : {1, 2, 4, 8, 16, 32}) {
+    expectAlignment("gep.i32.16", VF, Align(std::min<unsigned>(16, VF * 4)));
+    expectAlignment("gep.i8.null", VF, Align(1 * VF));
+    expectAlignment("gep.i32.null", VF, Align(4 * VF));
+    expectAlignment("gep.i64.null", VF, Align(8 * VF));
+  }
 }
 
 } // namespace

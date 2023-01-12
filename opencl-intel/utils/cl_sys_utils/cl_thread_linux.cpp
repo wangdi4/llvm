@@ -227,6 +227,6 @@ bool OclThread::IsOsThreadRunning(THREAD_HANDLE handle) {
  ************************************************************************/
 void OclThread::WaitForOsThreadCompletion(THREAD_HANDLE handle) {
   while (IsOsThreadRunning(handle)) {
-    pthread_yield();
+    sched_yield();
   }
 }

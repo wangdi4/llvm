@@ -191,9 +191,8 @@ public:
   /// exist, then add corresponding directives to the loop.
   static CallInst *getOrCreateLoopGuardForMemMotion(Loop *L);
 
-  /// Return the starting guard directives (DIR.VPO.GUARD.MEM.MOTION) created
-  /// for the loop \p L to prohibit memory motion. Input and scan phase are
-  /// enclosed in the guard directives.
+  /// Input and scan phases are enclosed using separate begin/end guard
+  /// DIR.VPO.GUARD.MEM.MOTION directive pairs.
   static std::pair<CallInst *, CallInst *>
   createInscanLoopGuardForMemMotion(Loop *L);
 

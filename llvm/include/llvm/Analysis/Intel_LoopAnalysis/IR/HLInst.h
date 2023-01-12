@@ -370,6 +370,18 @@ public:
   /// directive.
   bool isAutoVecDirective() const;
 
+  /// Returns true if instruction is lifetime.start intrinsic.
+  bool isLifetimeStartIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) && (Id == Intrinsic::lifetime_start));
+  }
+
+  /// Returns true if instruction is lifetime.end intrinsic.
+  bool isLifetimeEndIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) && (Id == Intrinsic::lifetime_end));
+  }
+
   /// Returns true if instruction is either lifetime.start or lifetime.end
   /// intrinsic.
   bool isLifetimeIntrinsic() const {
