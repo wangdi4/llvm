@@ -1243,18 +1243,21 @@ def PSEUDO_LOOP_HEADER : StandardPseudoInstruction {
   let InOperandList = (ins);
   let AsmString = "PSEUDO_LOOP_HEADER";
   let hasSideEffects = true;
+  let isMeta = true;
 }
 def PSEUDO_FUNCTION_PROLOG : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins);
   let AsmString = "PSEUDO_FUNCTION_PROLOG";
   let hasSideEffects = true;
+  let isMeta = true;
 }
 def PSEUDO_FUNCTION_EPILOG : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins);
   let AsmString = "PSEUDO_FUNCTION_EPILOG";
   let hasSideEffects = true;
+  let isMeta = true;
 }
 // end INTEL_FEATURE_MARKERCOUNT
 // end INTEL_CUSTOMIZATION

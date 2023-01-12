@@ -1,0 +1,24 @@
+# REQUIRES: intel_feature_markercount
+# RUN: llc %s -run-pass=dead-mi-elimination -o - | FileCheck %s
+
+# CHECK: PSEUDO_FUNCTION_PROLOG
+# CHECK: PSEUDO_FUNCTION_EPILOG
+# CHECK: PSEUDO_LOOP_HEADER
+# CHECK: MARKER_FUNCTION
+# CHECK: MARKER_LOOP
+
+---
+name:            test_marker
+legalized:       true
+regBankSelected: false
+selected:        false
+tracksRegLiveness: true
+liveins:
+body:             |
+  bb.0:
+    PSEUDO_FUNCTION_PROLOG
+    PSEUDO_FUNCTION_EPILOG
+    PSEUDO_LOOP_HEADER
+    MARKER_FUNCTION
+    MARKER_LOOP
+...

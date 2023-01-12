@@ -2721,10 +2721,10 @@ def XLAT : I<0xD7, RawFrm, (outs), (ins), "xlatb", []>, Sched<[WriteLoad]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
 // Marker Count
-let hasNoSchedulingInfo = 1, hasSideEffects = 0 in {
-def MARKER_COUNT_LOOP_HEADER: I<0x37, RawFrm, (outs), (ins), "markercount_loopheader", []>,
+let hasNoSchedulingInfo = 1, hasSideEffects = 1 in {
+def MARKER_LOOP: I<0x37, RawFrm, (outs), (ins), "marker_loop", []>,
         Requires<[In64BitMode]>;
-def MARKER_COUNT_FUNCTION: I<0x0e, RawFrm, (outs), (ins), "markercount_function", []>,
+def MARKER_FUNCTION: I<0x0e, RawFrm, (outs), (ins), "marker_function", []>,
         Requires<[In64BitMode]>;
 }
 #endif // INTEL_FEATURE_MARKERCOUNT

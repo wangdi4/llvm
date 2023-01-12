@@ -46,15 +46,8 @@ class X86Subtarget;
 namespace X86 {
 
 enum AsmComments {
-#if INTEL_CUSTOMIZATION
   // For instr that was compressed from EVEX to VEX.
-  AC_EVEX_2_VEX = MachineInstr::TAsmComments,
-#if INTEL_FEATURE_MARKERCOUNT
-  // To distinguish prolog from epilog for MARKER_COUNT_FUNCTION
-  AC_PROLOG = AC_EVEX_2_VEX << 1,
-  AC_EPILOG = AC_PROLOG << 1
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
+  AC_EVEX_2_VEX = MachineInstr::TAsmComments
 };
 
 /// Return a pair of condition code for the given predicate and whether

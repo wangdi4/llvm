@@ -47,18 +47,6 @@ using namespace llvm;
 #define DEBUG_TYPE "x86-pseudo"
 #define X86_EXPAND_PSEUDO_NAME "X86 pseudo instruction expansion pass"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-// This option is for test only. Xmain only supports x86 target by default, but
-// we need to check that pseudo marker count is emitted as a comment when it is
-// not expanded, e.g, aarch64, so that we can compare ISA across different
-// targets.
-static cl::opt<bool> X86ExpandPseudoMarkerCount(
-    "x86-expand-pseudo-marker-count", cl::init(true), cl::Hidden,
-    cl::desc("Expand pseudo marker count to x86 instructions."));
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
 namespace {
 class X86ExpandPseudo : public MachineFunctionPass {
 public:
@@ -828,25 +816,6 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.eraseFromParent();
     return true;
   }
-#if INTEL_FEATURE_MARKERCOUNT
-  case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_FUNCTION));
-    MI.setAsmPrinterFlag(X86::AC_PROLOG);
-    return true;
-  case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_FUNCTION));
-    MI.setAsmPrinterFlag(X86::AC_EPILOG);
-    return true;
-  case TargetOpcode::PSEUDO_LOOP_HEADER:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_LOOP_HEADER));
-    return true;
-#endif // INTEL_FEATURE_MARKERCOUNT
 #if INTEL_FEATURE_XISA_COMMON
   // Expand vector pair load, take XMMPAIRLOAD for example:
   // XMMPAIRLOAD is just for XMMPair spill, we don't have corresponding

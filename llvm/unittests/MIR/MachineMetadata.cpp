@@ -349,6 +349,37 @@ body:             |
     MachineInstr &MI = *It;
     ASSERT_TRUE(MI.isMetaInstruction());
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  MIRString = R"MIR(
+---
+name:            test1
+legalized:       true
+regBankSelected: false
+selected:        false
+tracksRegLiveness: true
+liveins:
+body:             |
+  bb.0:
+    PSEUDO_LOOP_HEADER
+    PSEUDO_FUNCTION_PROLOG
+    PSEUDO_FUNCTION_EPILOG
+...
+)MIR";
+
+  M = parseMIR(*TM, MIRString, "test1", MMI);
+  ASSERT_TRUE(M);
+
+  MF = MMI.getMachineFunction(*M->getFunction("test1"));
+  MBB = MF->getBlockNumbered(0);
+
+  for (auto It = MBB->begin(); It != MBB->end(); ++It) {
+    MachineInstr &MI = *It;
+    ASSERT_TRUE(MI.isMetaInstruction());
+  }
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 }
 
 TEST_F(MachineMetadataTest, MMSlotTrackerX64) {
