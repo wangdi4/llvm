@@ -470,9 +470,9 @@ bool TBBTaskExecutor::LoadTBBLibrary() {
 
   Intel::OpenCL::Utils::GetModuleDirectory(&modulePath[0], MAX_PATH);
   modulePath.resize(modulePath.find_first_of('\0'));
-  modulePath += tbbPath;
+  std::string tbbFullPath = modulePath + tbbPath;
 
-  m_err = m_dllTBBLib.Load(modulePath.c_str());
+  m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
   if (m_err != 0) {
     char cszLibraryName[1024] = {0};
     BasicCLConfigWrapper basicConfig;
@@ -485,14 +485,14 @@ bool TBBTaskExecutor::LoadTBBLibrary() {
     bool keyret =
         GetStringValueFromRegistryOrETC(HKEY_LOCAL_MACHINE, tbbLocInReg.c_str(),
                                         "TBB_DLL_PATH", cszLibraryName, 1024);
-    std::string tbbFullPath;
+
     if (keyret) {
       tbbFullPath = std::string(cszLibraryName) + "\\" + tbbPath;
       m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
     }
 
     if (m_err != 0 && !basicConfig.GetTBBDLLPath().empty()) {
-      // Suppose there is a field named TBB_DLL_PATH in OCL CPU RT
+      // There is a field named CL_CONFIG_TBB_DLL_PATH OCL CPU RT
       // configuration file.
       tbbFullPath = basicConfig.GetTBBDLLPath() + "\\" + tbbPath;
       m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
@@ -502,10 +502,18 @@ bool TBBTaskExecutor::LoadTBBLibrary() {
       fprintf(
           stderr,
           "Cannot load TBB from neither Windows registry key nor CPU runtime "
-          "configuration file (cl.cfg / cl.fpga_emu.cfg). Error: %s.\n"
+          "configuration file (cl.cfg / cl.fpga_emu.cfg) in %s location. The "
+          "Error message is: %s.\n"
           "You can ask your administrator to configure TBB library location "
-          "in the configuration file.\n",
-          m_dllTBBLib.GetError().c_str());
+          "to CL_CONFIG_TBB_DLL_PATH item in the configuration files.\n"
+          "Or you need to check Windows registry key under "
+          "HKEY_LOCAL_MACHINE\\SOFTWARE\\Intel\\oneAPI\\TBB\\"
+          "locaiton. The version items under this location are installed "
+          "TBB on this machine. The required TBB version is %s. You can "
+          "install "
+          "the required TBB if it is not listed in windows registry.",
+          modulePath.c_str(), m_dllTBBLib.GetError().c_str(),
+          basicConfig.GetTBBVersion().c_str());
     }
   }
 #endif
