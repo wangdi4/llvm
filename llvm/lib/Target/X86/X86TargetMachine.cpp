@@ -126,7 +126,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PartialReductionPass(PR);
   initializePseudoProbeInserterPass(PR);
   initializeX86ReturnThunksPass(PR);
-<<<<<<< HEAD
+  initializeX86DAGToDAGISelPass(PR);
 #if INTEL_CUSTOMIZATION
   initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
@@ -141,9 +141,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
 #endif // INTEL_CUSTOMIZATION
-=======
-  initializeX86DAGToDAGISelPass(PR);
->>>>>>> be8fd64091f9bb2323fbc8e4afcc9188af7f9b46
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {

@@ -258,9 +258,12 @@ void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
 void initializeX86LowerTileCopyPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86PartialReductionPass(PassRegistry &);
-<<<<<<< HEAD
-void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
+void initializeX86PreAMXConfigPassPass(PassRegistry &);
+void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86ReturnThunksPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
+void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
+void initializeX86TileConfigPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
@@ -271,19 +274,6 @@ void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 void initializeX86StackRealignPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
-void initializeX86PreTileConfigPass(PassRegistry &);
-void initializeX86FastPreTileConfigPass(PassRegistry &);
-void initializeX86FastTileConfigPass(PassRegistry &);
-void initializeX86TileConfigPass(PassRegistry &);
-void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
-=======
->>>>>>> be8fd64091f9bb2323fbc8e4afcc9188af7f9b46
-void initializeX86PreAMXConfigPassPass(PassRegistry &);
-void initializeX86PreTileConfigPass(PassRegistry &);
-void initializeX86ReturnThunksPass(PassRegistry &);
-void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
-void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-void initializeX86TileConfigPass(PassRegistry &);
 
 namespace X86AS {
 enum : unsigned {
