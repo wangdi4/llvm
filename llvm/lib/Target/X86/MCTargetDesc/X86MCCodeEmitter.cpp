@@ -1202,10 +1202,10 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     assert((VEX_5M & 0x7) == VEX_5M &&
            "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
     assert((STI.getCPU() != "common-avx256" || !EVEX_L2) &&
            "ZMM registers are not supported under AVX-256");
-#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
     emitByte(0x62, OS);
