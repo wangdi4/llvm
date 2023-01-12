@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -135,9 +135,6 @@ CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
         llvm::JITEventListener::createIntelJITEventListener());
   }
 
-  m_pGDBJITRegistrationListener.reset(
-      llvm::JITEventListener::createNewGDBRegistrationListenerInstance());
-
   // Initialize asm parsers to support inline assembly
   llvm::InitializeAllAsmParsers();
 }
@@ -250,8 +247,8 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
   llvm::orc::RTDyldObjectLinkingLayer &LL =
       static_cast<llvm::orc::RTDyldObjectLinkingLayer &>(
           LLJIT->getObjLinkingLayer());
-  if (m_pGDBJITRegistrationListener)
-    LL.registerJITEventListener(*m_pGDBJITRegistrationListener);
+  LL.registerJITEventListener(
+      *llvm::JITEventListener::createGDBRegistrationListener());
   if (m_pVTuneListener)
     LL.registerJITEventListener(*m_pVTuneListener);
 

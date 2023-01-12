@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -76,14 +76,6 @@ cl_err_code ContextModule::Initialize(ocl_entry_points *pOclEntryPoints,
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::Release(bool bTerminate) {
   m_bIsTerminating = bTerminate;
-  // FIXME: This is a workaround to manually release kernels/programs. We
-  // need to remove them once the shutdown process is re-enabled.
-  try {
-    RemoveAllKernels(true);
-    RemoveAllPrograms(true);
-  } catch (std::bad_array_new_length &e) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   return CL_SUCCESS;
 }
 
