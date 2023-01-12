@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,6 +17,9 @@
 #
 # end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TargetParser TransformUtils)
+=======
+set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TransformUtils TargetParser)
+>>>>>>> b210e74925476a50a773b0ef37d9ff7217c86388
 
 if(INTEL_CUSTOMIZATION)
 list(APPEND LLVM_LINK_COMPONENTS ObjectYAML)

@@ -159,6 +159,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LINK_LIBS
   LLVMGenXIntrinsics
   LLVMDemangle
+  LLVMTargetParser
   LLVMTransformUtils
 
   LINK_COMPONENTS
