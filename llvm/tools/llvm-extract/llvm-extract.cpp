@@ -451,23 +451,17 @@ int main(int argc, char **argv) {
 
   ModulePassManager PM;
   if (!DeleteFn)
-<<<<<<< HEAD
-    Passes.add(createGlobalDCEPass());           // Delete unreachable globals
-  Passes.add(createStripDeadDebugInfoPass());    // Remove dead debug info
-  Passes.add(createStripDeadPrototypesPass());   // Remove dead func decls
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  if (KeepDTransTypeMetadata)
-    Passes.add(createRemoveDeadDTransTypeMetadataWrapperPass());
-  else
-    Passes.add(createRemoveAllDTransTypeMetadataWrapperPass());
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-=======
     PM.addPass(GlobalDCEPass());
   PM.addPass(StripDeadDebugInfoPass());
   PM.addPass(StripDeadPrototypesPass());
->>>>>>> 2118b9d39b91e93c0146611235072cd6ca0f27b1
+// #if INTEL_CUSTOMIZATION
+// #if INTEL_FEATURE_SW_DTRANS
+//   if (KeepDTransTypeMetadata)
+//     Passes.add(createRemoveDeadDTransTypeMetadataWrapperPass());
+//   else
+//     Passes.add(createRemoveAllDTransTypeMetadataWrapperPass());
+// #endif // INTEL_FEATURE_SW_DTRANS
+// #endif // INTEL_CUSTOMIZATION
 
   std::error_code EC;
   ToolOutputFile Out(OutputFilename, EC, sys::fs::OF_None);
