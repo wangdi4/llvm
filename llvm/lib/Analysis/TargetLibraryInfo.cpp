@@ -1540,14 +1540,11 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames), ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
-<<<<<<< HEAD
+      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-=======
-      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
->>>>>>> 9b2fecec406d6a6bcda9fbb9251db2ae202c7400
       SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
@@ -1560,14 +1557,11 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
-<<<<<<< HEAD
+      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-=======
-      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
->>>>>>> 9b2fecec406d6a6bcda9fbb9251db2ae202c7400
       SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
@@ -1581,15 +1575,12 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   ShouldExtI32Param = TLI.ShouldExtI32Param;
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
 #endif // INTEL_CUSTOMIZATION
-=======
   ShouldSignExtI32Return = TLI.ShouldSignExtI32Return;
->>>>>>> 9b2fecec406d6a6bcda9fbb9251db2ae202c7400
   SizeOfInt = TLI.SizeOfInt;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   return *this;
@@ -1600,15 +1591,12 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   ShouldExtI32Param = TLI.ShouldExtI32Param;
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
 #endif // INTEL_CUSTOMIZATION
-=======
   ShouldSignExtI32Return = TLI.ShouldSignExtI32Return;
->>>>>>> 9b2fecec406d6a6bcda9fbb9251db2ae202c7400
   SizeOfInt = TLI.SizeOfInt;
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
