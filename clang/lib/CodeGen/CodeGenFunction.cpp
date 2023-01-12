@@ -3377,6 +3377,7 @@ void CodeGenFunction::EmitKCFIOperandBundle(
     Bundles.emplace_back("kcfi", CGM.CreateKCFITypeId(FP->desugar()));
 }
 
+<<<<<<< HEAD
 llvm::Value *CodeGenFunction::FormAArch64ResolverCondition(
     const MultiVersionResolverOption &RO) {
   llvm::SmallVector<StringRef, 8> CondFeatures;
@@ -3395,6 +3396,10 @@ llvm::Value *CodeGenFunction::FormX86ResolverCondition(
 #if INTEL_CUSTOMIZATION
     const MultiVersionResolverOption &RO, bool IsCpuDispatch) {
 #endif // INTEL_CUSTOMIZATION
+=======
+llvm::Value *
+CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO) {
+>>>>>>> 8e1fe1f11d285ebba47b236c2e52e06c5cd72121
   llvm::Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
@@ -3439,6 +3444,7 @@ static void CreateMultiVersionResolverReturn(CodeGenModule &CGM,
 }
 
 void CodeGenFunction::EmitMultiVersionResolver(
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool IsCpuDispatch) {
@@ -3512,6 +3518,11 @@ void CodeGenFunction::EmitX86MultiVersionResolver(
     llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool IsCpuDispatch) {
 #endif // INTEL_CUSTOMIZATION
+=======
+    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
+  assert(getContext().getTargetInfo().getTriple().isX86() &&
+         "Only implemented for x86 targets");
+>>>>>>> 8e1fe1f11d285ebba47b236c2e52e06c5cd72121
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
 #if INTEL_CUSTOMIZATION
@@ -3533,9 +3544,13 @@ void CodeGenFunction::EmitX86MultiVersionResolver(
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     llvm::Value *Condition = FormX86ResolverCondition(RO, IsCpuDispatch);
 #endif // INTEL_CUSTOMIZATION
+=======
+    llvm::Value *Condition = FormResolverCondition(RO);
+>>>>>>> 8e1fe1f11d285ebba47b236c2e52e06c5cd72121
 
     // The 'default' or 'generic' case.
     if (!Condition) {

@@ -5450,6 +5450,7 @@ public:
   // last (if it exists).
 #if INTEL_CUSTOMIZATION
   void EmitMultiVersionResolver(llvm::Function *Resolver,
+<<<<<<< HEAD
                                 ArrayRef<MultiVersionResolverOption> Options,
                                 bool IsCpuDispatch);
   llvm::BasicBlock *EmitCpuFeaturesInit(llvm::Function *Func);
@@ -5464,6 +5465,9 @@ public:
   void
   EmitAArch64MultiVersionResolver(llvm::Function *Resolver,
                                   ArrayRef<MultiVersionResolverOption> Options);
+=======
+                                ArrayRef<MultiVersionResolverOption> Options);
+>>>>>>> 8e1fe1f11d285ebba47b236c2e52e06c5cd72121
 
 private:
   QualType getVarArgType(const Expr *Arg);
@@ -5483,6 +5487,7 @@ private:
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,
                                      bool IsCpuDispatch);
@@ -5493,6 +5498,9 @@ private:
   llvm::Value *
   FormAArch64ResolverCondition(const MultiVersionResolverOption &RO);
   llvm::Value *EmitAArch64CpuSupports(ArrayRef<StringRef> FeatureStrs);
+=======
+  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO);
+>>>>>>> 8e1fe1f11d285ebba47b236c2e52e06c5cd72121
 };
 
 

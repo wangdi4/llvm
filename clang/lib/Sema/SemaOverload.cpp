@@ -6568,11 +6568,8 @@ void Sema::AddOverloadCandidate(
     }
   }
 
-  if (Function->isMultiVersion() &&
-      ((Function->hasAttr<TargetAttr>() &&
-        !Function->getAttr<TargetAttr>()->isDefaultVersion()) ||
-       (Function->hasAttr<TargetVersionAttr>() &&
-        !Function->getAttr<TargetVersionAttr>()->isDefaultVersion()))) {
+  if (Function->isMultiVersion() && Function->hasAttr<TargetAttr>() &&
+      !Function->getAttr<TargetAttr>()->isDefaultVersion()) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_non_default_multiversion_function;
     return;
@@ -7232,11 +7229,8 @@ Sema::AddMethodCandidate(CXXMethodDecl *Method, DeclAccessPair FoundDecl,
     return;
   }
 
-  if (Method->isMultiVersion() &&
-      ((Method->hasAttr<TargetAttr>() &&
-        !Method->getAttr<TargetAttr>()->isDefaultVersion()) ||
-       (Method->hasAttr<TargetVersionAttr>() &&
-        !Method->getAttr<TargetVersionAttr>()->isDefaultVersion()))) {
+  if (Method->isMultiVersion() && Method->hasAttr<TargetAttr>() &&
+      !Method->getAttr<TargetAttr>()->isDefaultVersion()) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_non_default_multiversion_function;
   }
@@ -7689,11 +7683,8 @@ void Sema::AddConversionCandidate(
     return;
   }
 
-  if (Conversion->isMultiVersion() &&
-      ((Conversion->hasAttr<TargetAttr>() &&
-        !Conversion->getAttr<TargetAttr>()->isDefaultVersion()) ||
-       (Conversion->hasAttr<TargetVersionAttr>() &&
-        !Conversion->getAttr<TargetVersionAttr>()->isDefaultVersion()))) {
+  if (Conversion->isMultiVersion() && Conversion->hasAttr<TargetAttr>() &&
+      !Conversion->getAttr<TargetAttr>()->isDefaultVersion()) {
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_non_default_multiversion_function;
   }
@@ -10628,9 +10619,6 @@ void Sema::NoteOverloadCandidate(NamedDecl *Found, FunctionDecl *Fn,
   if (Fn->isMultiVersion() && Fn->hasAttr<TargetAttr>() &&
       !Fn->getAttr<TargetAttr>()->isDefaultVersion())
     return;
-  if (Fn->isMultiVersion() && Fn->hasAttr<TargetVersionAttr>() &&
-      !Fn->getAttr<TargetVersionAttr>()->isDefaultVersion())
-    return;
   if (shouldSkipNotingLambdaConversionDecl(Fn))
     return;
 
@@ -12439,9 +12427,6 @@ private:
       if (FunDecl->isMultiVersion()) {
         const auto *TA = FunDecl->getAttr<TargetAttr>();
         if (TA && !TA->isDefaultVersion())
-          return false;
-        const auto *TVA = FunDecl->getAttr<TargetVersionAttr>();
-        if (TVA && !TVA->isDefaultVersion())
           return false;
       }
 
