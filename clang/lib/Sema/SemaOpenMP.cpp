@@ -11814,12 +11814,10 @@ StmtResult Sema::ActOnOpenMPErrorDirective(ArrayRef<OMPClause *> Clauses,
 StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
                                               SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (checkTaskwaitClauseUsage(*this, Clauses))
     return StmtError();
 #endif // INTEL_COLLAB
-=======
   const OMPNowaitClause *NowaitC =
       OMPExecutableDirective::getSingleClause<OMPNowaitClause>(Clauses);
   const OMPDependClause *DependC =
@@ -11829,7 +11827,6 @@ StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
     return StmtError();
   }
 
->>>>>>> e9babe7571609c9de41d4d0dfc1bc4d2f02021d0
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
 
