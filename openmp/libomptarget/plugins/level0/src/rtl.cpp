@@ -1999,16 +1999,6 @@ struct RTLOptionTy {
     }
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_INTERNAL_BUILD
-    // Force work group sizes -- for internal experiments
-    if ((Env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", Env, ForcedLocalSizes);
-    }
-    if ((Env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", Env, ForcedGlobalSizes);
-    }
-#endif // INTEL_INTERNAL_BUILD
-
     // LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE
     if ((Env = readEnvVar("LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE"))) {
       int32_t Value = parseBool(Env);
@@ -2165,21 +2155,6 @@ struct RTLOptionTy {
     }
     return Value;
   }
-
-#if INTEL_INTERNAL_BUILD
-  void parseGroupSizes(const char *Name, const char *Value, uint32_t *Sizes) {
-    std::string Str(Value);
-    if (Str.front() != '{' || Str.back() != '}') {
-      WARNING("Ignoring invalid %s=%s\n", Name, Value);
-      return;
-    }
-    std::istringstream Strm(Str.substr(1, Str.size() - 2));
-    uint32_t I = 0;
-    for (std::string Token; std::getline(Strm, Token, ','); I++)
-      if (I < 3)
-        Sizes[I] = std::stoi(Token);
-  }
-#endif // INTEL_INTERNAL_BUILD
 
   /// Parse boolean value
   /// Return 1 for: TRUE, T, 1, ON, YES, ENABLED (case insensitive)

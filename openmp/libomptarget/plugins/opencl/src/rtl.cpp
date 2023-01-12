@@ -1272,16 +1272,6 @@ struct RTLOptionTy {
     }
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_INTERNAL_BUILD
-    // Force work group sizes -- for internal experiments
-    if ((Env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", Env, ForcedLocalSizes);
-    }
-    if ((Env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", Env, ForcedGlobalSizes);
-    }
-#endif // INTEL_INTERNAL_BUILD
-
     if (readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS")) {
       // To match SYCL RT behavior, we just need to check whether
       // INTEL_ENABLE_OFFLOAD_ANNOTATIONS is set. The actual value
@@ -1349,21 +1339,6 @@ struct RTLOptionTy {
     }
     return Value;
   }
-
-#if INTEL_INTERNAL_BUILD
-  void parseGroupSizes(const char *Name, const char *Value, size_t *Sizes) {
-    std::string Str(Value);
-    if (Str.front() != '{' || Str.back() != '}') {
-      WARNING("Ignoring invalid %s=%s\n", Name, Value);
-      return;
-    }
-    std::istringstream Strm(Str.substr(1, Str.size() - 2));
-    uint32_t I = 0;
-    for (std::string Token; std::getline(Strm, Token, ','); I++)
-      if (I < 3)
-        Sizes[I] = std::stoi(Token);
-  }
-#endif // INTEL_INTERNAL_BUILD
 
   /// Parse boolean value
   /// Return 1 for: TRUE, T, 1, ON, YES, ENABLED (case insensitive)
@@ -2746,7 +2721,7 @@ static inline int32_t runTargetTeamNDRegion(
      GlobalWorkSize[2] / LocalWorkSize[2]);
 
   // Protect thread-unsafe OpenCL API calls
-  DeviceInfo->Mutexes[DeviceId].lock();
+  std::unique_lock<std::mutex> KernelLock(DeviceInfo->Mutexes[DeviceId]);
 
   // Set kernel args
   for (int32_t I = 0; I < NumArgs; ++I) {
@@ -2898,7 +2873,7 @@ static inline int32_t runTargetTeamNDRegion(
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
   if (IsDiscrete)
-    DeviceInfo->Mutexes[DeviceId].unlock();
+    KernelLock.unlock();
 
   DP("Started executing kernel.\n");
 
@@ -2909,7 +2884,7 @@ static inline int32_t runTargetTeamNDRegion(
   // overlapping kernel execution anyway with this plugin, so protect the kernel
   // execution only on integrated devices.
   if (!IsDiscrete)
-    DeviceInfo->Mutexes[DeviceId].unlock();
+    KernelLock.unlock();
 
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);

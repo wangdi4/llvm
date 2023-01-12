@@ -528,8 +528,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
 
 bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
                                         unsigned ChunkIdx,
-                                        const SymbaseLoopSetTy &SymbaseLoopSet,
-                                        const SparseBitVector<> &ModifiedBases,
+                                        const SymbaseLoopSetTy &SCEXAnalyzedSBs,
                                         const HLInst *&DepInst) {
   assert(TmpDef->isLval() && "TmpDef is expected to be LVal");
   unsigned Level = Loop->getNestingLevel();
@@ -547,17 +546,24 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
     }
 
     if (RVal->isSelfBlob()) {
-      bool Ret =
-          RVal->isLinearAtLevel(Level) || SymbaseLoopSet.count({SB, ChunkIdx});
+      // If SB relies on previous SCEX candidate, then check that it exists in
+      // SCEXAnalyzedSBs
+      if (SymbaseToCandidatesMap.count(SB)) {
+        return SCEXAnalyzedSBs.count({SB, ChunkIdx});
+      }
 
-      return Ret || (findDepInst(RVal, DepInst) &&
-                     isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                       SymbaseLoopSet, ModifiedBases, DepInst));
+      return (findDepInst(RVal, DepInst) &&
+              isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
+                                SCEXAnalyzedSBs, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
-      if (!Blob->isLinearAtLevel(Level) &&
-          SymbaseLoopSet.count({Blob->getSymbase(), ChunkIdx}) == 0) {
+      unsigned BlobSB = Blob->getSymbase();
+      if (SymbaseToCandidatesMap.count(BlobSB)) {
+        return SCEXAnalyzedSBs.count({BlobSB, ChunkIdx});
+      }
+
+      if (!Blob->isLinearAtLevel(Level)) {
         return false;
       }
     }
@@ -750,8 +756,8 @@ void ScalarExpansion::computeInsertNodes() {
       }
 
       const HLInst *DepInst = nullptr;
-      Cand.SafeToRecompute &= isSafeToRecompute(
-          TmpDef, UseChunkID, RecomputeSet, ModifiedBases, DepInst);
+      Cand.SafeToRecompute &=
+          isSafeToRecompute(TmpDef, UseChunkID, RecomputeSet, DepInst);
 
       // If Use is conditional, don't save for recompute set
       if (!ConditionalUse) {
@@ -763,7 +769,7 @@ void ScalarExpansion::computeInsertNodes() {
 
 void ScalarExpansion::replaceWithArrayTemps(
     unsigned OrigLoopLevel, SmallSet<unsigned, 12> &TempArraySB) {
-  SymbaseLoopSetTy SymbaseLoopSet;
+  SymbaseLoopSetTy SCEXAnalyzedSBs;
 
   for (auto &Cand : Candidates) {
     unsigned SB = Cand.getSymbase();
@@ -772,7 +778,7 @@ void ScalarExpansion::replaceWithArrayTemps(
     // No Temp Required, can recompute
     if (!Cand.isTempRequired()) {
       for (auto &TmpUse : Cand.TmpUses) {
-        if (SymbaseLoopSet.count({SB, TmpUse.ChunkIdx})) {
+        if (SCEXAnalyzedSBs.count({SB, TmpUse.ChunkIdx})) {
           continue;
         }
         HLNode *UseInsertNode =
@@ -786,7 +792,7 @@ void ScalarExpansion::replaceWithArrayTemps(
         }
 
         HLNodeUtils::insertBefore(UseInsertNode, DefInst->clone());
-        SymbaseLoopSet.insert({SB, TmpUse.ChunkIdx});
+        SCEXAnalyzedSBs.insert({SB, TmpUse.ChunkIdx});
       }
     } else {
       RegDDRef *TmpArrayRef = nullptr;
@@ -808,14 +814,14 @@ void ScalarExpansion::replaceWithArrayTemps(
       // Insert tx = TEMP[i]
       assert(TmpArrayRef && "Temp Store missing");
       for (auto &TmpUse : Cand.TmpUses) {
-        if (SymbaseLoopSet.count({SB, TmpUse.ChunkIdx})) {
+        if (SCEXAnalyzedSBs.count({SB, TmpUse.ChunkIdx})) {
           continue;
         }
 
         HLNode *UseInsertNode =
             Cand.LoopUseInsertNode[TmpUse.Ref->getHLDDNode()->getParentLoop()];
         createTempArrayLoad(TmpArrayRef, UseInsertNode, TmpUse);
-        SymbaseLoopSet.insert({SB, TmpUse.ChunkIdx});
+        SCEXAnalyzedSBs.insert({SB, TmpUse.ChunkIdx});
       }
     }
   }
@@ -825,15 +831,11 @@ void ScalarExpansion::replaceWithArrayTemps(
 /// Collect and populate the set of temp defs/uses but do not fully analyze
 /// the SCEX locations, as that logic requires modifying HIR.
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
-  // Symbase-to-Candidate map
-  DenseMap<unsigned, unsigned> CandidatesSymbaseIndex;
   auto GetCandidateForSymbase = [&](unsigned Symbase) -> Candidate & {
-    unsigned &Index = CandidatesSymbaseIndex[Symbase];
-    if (Index == 0) {
+    unsigned &Index = SymbaseToCandidatesMap[Symbase];
+    if (!Index) {
       Candidates.emplace_back();
       Index = Candidates.size();
-      Candidates.back().IsLiveIn = Loop->isLiveIn(Symbase);
-      Candidates.back().IsLiveOut = Loop->isLiveOut(Symbase);
       return Candidates.back();
     }
 
@@ -859,7 +861,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   }
 
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
-    SymbaseLoopSetTy SymbaseLoopSet;
+    SymbaseLoopSetTy SCEXAnalyzedSBs;
     for (DDRef *TmpDefDDRef : RefGroups[I]) {
 
       if (TmpDefDDRef->isRval()) {
@@ -908,21 +910,23 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           }
 
           Candidate &Cand = GetCandidateForSymbase(SB);
+          Cand.IsLiveIn = Loop->isLiveIn(SB);
+          Cand.IsLiveOut = Loop->isLiveOut(SB);
           if (Cand.TmpDefs.empty() || Cand.TmpDefs.back() != TmpDef) {
             Cand.TmpDefs.push_back(TmpDef);
           }
 
-          // Tentatively check if recomputation is possible, assuming that,
+          // Tentatively check if recomputation is possible, assuming that
           // previously scalar expanded temps are also available. We want to
           // bail out for loopnest formation if stripmine is required, which
           // recomputation avoids. Later we will check if the temp loads are
           // conditional, in which we will not allow recomputation, but that
           // logic requires modifying HIR.
           const HLInst *DepInst = nullptr;
-          Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, J, SymbaseLoopSet,
-                                                    ModifiedBases, DepInst);
+          Cand.SafeToRecompute &=
+              isSafeToRecompute(TmpDef, J, SCEXAnalyzedSBs, DepInst);
 
-          SymbaseLoopSet.insert({SB, J});
+          SCEXAnalyzedSBs.insert({SB, J});
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.

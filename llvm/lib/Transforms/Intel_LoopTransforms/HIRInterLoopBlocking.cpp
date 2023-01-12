@@ -1882,7 +1882,7 @@ public:
     }
 
     // Merge CopyToLoadIndexMap into OrigToCloneIndexMap
-    for (auto KV : CopyToLoadIndexMap) {
+    for (auto const &KV : CopyToLoadIndexMap) {
       unsigned NewKey = KV.first;
       unsigned NewVal = OrigToCloneIndexMap[KV.second];
       assert(NewVal);
@@ -3070,7 +3070,7 @@ private:
   }
 
   void calcLoopMatchingDimNum() {
-    for (auto Pair : InnermostLoopToDimInfos) {
+    for (auto const &Pair : InnermostLoopToDimInfos) {
       int NumDims = Pair.second.size();
       Innermost2TargetLoop[Pair.first].resize(NumDims);
 
@@ -3764,7 +3764,7 @@ calcShiftAmountBeforeDef(const LoopToDimInfoTy &InnermostLoopToDimInfo,
 
   // TODO: merge the loop body with the other function
   //       to do gathering and grouping of refs once per loop.
-  for (auto &V : enumerate(InnermostLoopToDimInfo)) {
+  for (auto const &V : enumerate(InnermostLoopToDimInfo)) {
     const HLLoop *Loop = V.value().first;
     int LoopID = V.index();
     const RegDDRef *RepRef = InnermostLoopToRepRef.at(Loop);
@@ -3844,7 +3844,7 @@ calcShiftAmountBeforeUse(const LoopToDimInfoTy &InnermostLoopToDimInfo,
   ShiftAmt.resize(NumLoops);
   std::unordered_map<unsigned, int> BaseToLastDefLoopID;
 
-  for (auto V : enumerate(InnermostLoopToDimInfo)) {
+  for (auto const &V : enumerate(InnermostLoopToDimInfo)) {
     const HLLoop *Loop = V.value().first;
     int LoopID = V.index();
     const RegDDRef *RepRef = InnermostLoopToRepRef.at(Loop);
@@ -3930,7 +3930,7 @@ void testCalcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
 
   // Print ShiftAmt
   LLVM_DEBUG(dbgs() << "ShiftAmts for Loops\n";
-             bool IsNonZeroAmtFound = false; for (auto V
+             bool IsNonZeroAmtFound = false; for (auto const &V
                                                   : enumerate(ShiftAmt)) {
                int I = V.index();
                int64_t Amt = V.value();
@@ -3957,7 +3957,7 @@ void calcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
                           ShiftAmt);
 
     int64_t SumShifts = 0;
-    for (auto LI : enumerate(InnermostLoopToDimInfo)) {
+    for (auto const &LI : enumerate(InnermostLoopToDimInfo)) {
       int LoopID = LI.index();
       SumShifts += ShiftAmt[LoopID];
 
@@ -4034,7 +4034,7 @@ private:
                           const HLInst *HCall = nullptr) const;
 
   static void checkTargetsAndShrink(SmallVectorImpl<HLLoop *> &InnermostLoops,
-                                    SmallVectorImpl<HLNode *> &OuterNodes,
+                                    ArrayRef<HLNode *> OuterNodes,
                                     const HLGoto *HGoto);
   static bool isCallAtValidLoc(SmallVectorImpl<HLNode *> &OuterNodes,
                                const HLInst *HCall);
@@ -4241,8 +4241,8 @@ bool testDriver::isProfitableUseDefPattern(
 }
 
 void testDriver::checkTargetsAndShrink(
-    SmallVectorImpl<HLLoop *> &InnermostLoops,
-    SmallVectorImpl<HLNode *> &OuterNodes, const HLGoto *HGoto) {
+    SmallVectorImpl<HLLoop *> &InnermostLoops, ArrayRef<HLNode *> OuterNodes,
+    const HLGoto *HGoto) {
 
   unsigned MaxNumber = OuterNodes.back()->getMaxTopSortNum();
   unsigned GotoNumber = HGoto->getTopSortNum();
@@ -4318,7 +4318,7 @@ void testDriver::testInnermostLoops(SmallVectorImpl<HLLoop *> &InnermostLoops,
 
   DDGraph DDG = DDA.getGraph(Reg);
 
-  for (auto V : enumerate(InnermostLoops)) {
+  for (auto const &V : enumerate(InnermostLoops)) {
     if (!isInAlmostPerfectLoopNest(V.value(), V.index(), InnermostLoops,
                                    OuterNode)) {
       LLVM_DEBUG(dbgs() << "Fail isValidLoopNest: " << V.value()->getNumber()

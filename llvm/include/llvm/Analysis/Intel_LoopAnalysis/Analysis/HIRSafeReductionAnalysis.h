@@ -200,7 +200,8 @@ public:
   HIRSafeReductionAnalysis(HIRFramework &HIRF, HIRDDAnalysis &DDA);
   HIRSafeReductionAnalysis(const HIRSafeReductionAnalysis &) = delete;
   HIRSafeReductionAnalysis(HIRSafeReductionAnalysis &&Arg)
-      : HIRAnalysis(Arg.HIRF), DDA(Arg.DDA),
+      : HIRAnalysis(Arg.HIRF), DDA(Arg.DDA), FirstRvalSB(Arg.FirstRvalSB),
+        FirstChild(Arg.FirstChild),
         SafeReductionMap(std::move(Arg.SafeReductionMap)),
         SafeReductionInstMap(std::move(Arg.SafeReductionInstMap)) {}
   virtual ~HIRSafeReductionAnalysis() {}
