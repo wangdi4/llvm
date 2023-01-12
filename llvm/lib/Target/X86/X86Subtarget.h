@@ -134,13 +134,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Required vector width from function attribute.
   unsigned RequiredVectorWidth;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-  /// True if "target-cpu" is "common-avx256".
-  bool IsAVX256 = false;
-#endif // INTEL_FEATURE_ISA_AVX256
-#endif // INTEL_CUSTOMIZATION
-
   X86SelectionDAGInfo TSInfo;
   // Ordering here is important. X86InstrInfo initializes X86RegisterInfo which
   // X86TargetLowering needs.
@@ -296,12 +289,12 @@ public:
   // because for many cases we don't have a better option.
   bool canExtendTo512DQ() const {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-    return X86SSELevel >= AVX512 && !IsAVX256 &&
-#else  // INTEL_FEATURE_ISA_AVX256
-    return hasAVX512() &&
-#endif // INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
+    return X86SSELevel >= AVX512 &&
            (!hasVLX() || getPreferVectorWidth() >= 512);
+#else  // INTEL_FEATURE_ISA_AVX256P
+    return hasAVX512() && (!hasVLX() || getPreferVectorWidth() >= 512);
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   }
   bool canExtendTo512BW() const  {
@@ -312,12 +305,12 @@ public:
   // disable them in the legalizer.
   bool useAVX512Regs() const {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-    return X86SSELevel >= AVX512 && !IsAVX256 &&
-#else  // INTEL_FEATURE_ISA_AVX256
-    return hasAVX512() &&
-#endif // INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
+    return X86SSELevel >= AVX512 &&
            (canExtendTo512DQ() || RequiredVectorWidth > 256);
+#else  // INTEL_FEATURE_ISA_AVX256P
+    return hasAVX512() && (canExtendTo512DQ() || RequiredVectorWidth > 256);
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   }
 

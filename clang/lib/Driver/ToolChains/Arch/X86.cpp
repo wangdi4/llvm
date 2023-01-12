@@ -70,9 +70,9 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CasesLower("core-avx512", "core_avx512", "skylake-avx512",
                           "skylake_avx512", "skylake-avx512")
               .CasesLower("common-avx512", "common_avx512", "common-avx512")
-#if INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
               .CasesLower("common-avx256", "common_avx256", "common-avx256")
-#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256P
               .CaseLower("broadwell", "broadwell")
               .CaseLower("cannonlake", "cannonlake")
               .CasesLower("icelake", "icelake-client", "icelake_client",
