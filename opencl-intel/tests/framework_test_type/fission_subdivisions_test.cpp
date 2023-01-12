@@ -22,7 +22,7 @@
 
 #include "FrameworkTest.h"
 #include <CL/cl.h>
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 extern cl_device_type gDeviceType;
 

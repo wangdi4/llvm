@@ -22,7 +22,7 @@
 
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <CL/cl_gl_ext.h>
+#include <CL/cl_gl.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>

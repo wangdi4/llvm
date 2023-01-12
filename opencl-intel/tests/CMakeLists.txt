@@ -15,12 +15,6 @@
 # conformance subdirectory has been added.
 include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
 
-# some tests have to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
-
 if(NOT OPENCL_INTREE_BUILD)
   set(CLANG "${LLVM_BINARY_DIR}/clang")
 else()
