@@ -802,6 +802,8 @@ EXTERN int __kmpc_master_sub_group_leader();
 /// Check if the current work item is the active sub group leader
 EXTERN int __kmpc_active_sub_group_leader();
 
+/// Flush
+EXTERN void __kmpc_flush(ident_t *loc);
 
 ///
 /// Support for reduction
