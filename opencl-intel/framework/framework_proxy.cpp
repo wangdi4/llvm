@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -573,7 +573,7 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
 #if 0
-  // Disable it avoid conflict with atexit() callback, we will refine the
+  // Disable it to avoid conflict with atexit() callback, we will refine the
   // shutdown process after we merged all dynamic libraries into one.
   if (Instance()->NeedToDisableAPIsAtShutdown()) {
     // If this function is being called during process shutdown AND we
@@ -584,10 +584,6 @@ void FrameworkProxy::Destroy() {
   } else
     Instance()->Release(true);
 #endif
-  // FIXME: Now sycl shutdown process is executed after ocl so that the ocl
-  // resources will not be released indeed. This is a workaround to make sure
-  // that the user's programs are finally released.
-  Instance()->m_pContextModule->Release(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

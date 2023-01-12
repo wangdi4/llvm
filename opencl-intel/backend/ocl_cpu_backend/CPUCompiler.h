@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -86,8 +86,6 @@ private:
   llvm::sys::Mutex m_builtinModuleMutex;
 
   std::unique_ptr<llvm::ExecutionEngine> m_pExecEngine;
-
-  std::unique_ptr<llvm::JITEventListener> m_pGDBJITRegistrationListener;
 
   std::unique_ptr<llvm::JITEventListener> m_pVTuneListener;
 };
