@@ -5450,23 +5450,20 @@ public:
   // last (if it exists).
 #if INTEL_CUSTOMIZATION
   void EmitMultiVersionResolver(llvm::Function *Resolver,
-<<<<<<< HEAD
                                 ArrayRef<MultiVersionResolverOption> Options,
                                 bool IsCpuDispatch);
   llvm::BasicBlock *EmitCpuFeaturesInit(llvm::Function *Func);
   static std::array<uint64_t, 2>
   GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
 
-#endif // INTEL_CUSTOMIZATION
-=======
-                                ArrayRef<MultiVersionResolverOption> Options);
   void
   EmitX86MultiVersionResolver(llvm::Function *Resolver,
-                              ArrayRef<MultiVersionResolverOption> Options);
+                              ArrayRef<MultiVersionResolverOption> Options,
+                              bool IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
   void
   EmitAArch64MultiVersionResolver(llvm::Function *Resolver,
                                   ArrayRef<MultiVersionResolverOption> Options);
->>>>>>> 47ff367f6a9407d9e009d4fab8dfa7672b127da7
 
 private:
   QualType getVarArgType(const Expr *Arg);
@@ -5486,20 +5483,16 @@ private:
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
+  llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,
                                      bool IsCpuDispatch);
   llvm::Value *
   EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
 #endif // INTEL_CUSTOMIZATION
-=======
-  llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO);
   llvm::Value *EmitAArch64CpuInit();
   llvm::Value *
   FormAArch64ResolverCondition(const MultiVersionResolverOption &RO);
   llvm::Value *EmitAArch64CpuSupports(ArrayRef<StringRef> FeatureStrs);
->>>>>>> 47ff367f6a9407d9e009d4fab8dfa7672b127da7
 };
 
 

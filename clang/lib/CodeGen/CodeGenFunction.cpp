@@ -3377,13 +3377,6 @@ void CodeGenFunction::EmitKCFIOperandBundle(
     Bundles.emplace_back("kcfi", CGM.CreateKCFITypeId(FP->desugar()));
 }
 
-<<<<<<< HEAD
-llvm::Value *
-#if INTEL_CUSTOMIZATION
-CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO,
-                                       bool IsCpuDispatch) {
-#endif // INTEL_CUSTOMIZATION
-=======
 llvm::Value *CodeGenFunction::FormAArch64ResolverCondition(
     const MultiVersionResolverOption &RO) {
   llvm::SmallVector<StringRef, 8> CondFeatures;
@@ -3399,8 +3392,9 @@ llvm::Value *CodeGenFunction::FormAArch64ResolverCondition(
 }
 
 llvm::Value *CodeGenFunction::FormX86ResolverCondition(
-    const MultiVersionResolverOption &RO) {
->>>>>>> 47ff367f6a9407d9e009d4fab8dfa7672b127da7
+#if INTEL_CUSTOMIZATION
+    const MultiVersionResolverOption &RO, bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
   llvm::Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
@@ -3445,15 +3439,10 @@ static void CreateMultiVersionResolverReturn(CodeGenModule &CGM,
 }
 
 void CodeGenFunction::EmitMultiVersionResolver(
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool IsCpuDispatch) {
 #endif // INTEL_CUSTOMIZATION
-  assert(getContext().getTargetInfo().getTriple().isX86() &&
-         "Only implemented for x86 targets");
-=======
-    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
 
   llvm::Triple::ArchType ArchType =
       getContext().getTargetInfo().getTriple().getArch();
@@ -3461,7 +3450,7 @@ void CodeGenFunction::EmitMultiVersionResolver(
   switch (ArchType) {
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
-    EmitX86MultiVersionResolver(Resolver, Options);
+    EmitX86MultiVersionResolver(Resolver, Options, IsCpuDispatch);
     return;
   case llvm::Triple::aarch64:
     EmitAArch64MultiVersionResolver(Resolver, Options);
@@ -3519,8 +3508,10 @@ void CodeGenFunction::EmitAArch64MultiVersionResolver(
 }
 
 void CodeGenFunction::EmitX86MultiVersionResolver(
-    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
->>>>>>> 47ff367f6a9407d9e009d4fab8dfa7672b127da7
+#if INTEL_CUSTOMIZATION
+    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
+    bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
 #if INTEL_CUSTOMIZATION
@@ -3542,13 +3533,9 @@ void CodeGenFunction::EmitX86MultiVersionResolver(
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    llvm::Value *Condition = FormResolverCondition(RO, IsCpuDispatch);
+    llvm::Value *Condition = FormX86ResolverCondition(RO, IsCpuDispatch);
 #endif // INTEL_CUSTOMIZATION
-=======
-    llvm::Value *Condition = FormX86ResolverCondition(RO);
->>>>>>> 47ff367f6a9407d9e009d4fab8dfa7672b127da7
 
     // The 'default' or 'generic' case.
     if (!Condition) {
