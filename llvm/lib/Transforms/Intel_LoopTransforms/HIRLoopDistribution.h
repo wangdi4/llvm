@@ -43,6 +43,16 @@ const unsigned StripmineSize = 64;
 // For stress testing, use small max resource
 // const unsigned MaxMemResourceToDistribute = 2;
 
+enum PragmaReturnCode {
+  NotProcessed,
+  NoDistribution,
+  Success,
+  UnsupportedStmts,
+  TooComplex,
+  TooManyDistributePoints,
+  Last
+};
+
 enum class DistHeuristics : unsigned char {
   NotSpecified = 0, // Default enum for command line option. Will be overridden
                     // by pass constructor argument
@@ -294,7 +304,7 @@ private:
 
   // Process pragma for Loop directive Distribute Point
 
-  unsigned distributeLoopForDirective(HLLoop *Lp);
+  PragmaReturnCode distributeLoopForDirective(HLLoop *Lp);
 
   // Collect HNodes that match LoopNum
   void

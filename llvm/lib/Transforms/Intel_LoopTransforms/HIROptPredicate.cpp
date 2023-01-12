@@ -255,8 +255,6 @@ struct HoistCandidate {
       : Node(CloneNode), Level(Orig.Level), UType(Orig.UType),
         PUC(Orig.PUC, Mapper), CreatedFromSelect(Orig.CreatedFromSelect) {}
 
-  HoistCandidate() : Level(0) {}
-
   bool isIf() const { return UType == UnswitchType::If; }
   bool isSwitch() const { return UType == UnswitchType::Switch; }
   bool isSelect() const { return UType == UnswitchType::Select; }

@@ -170,7 +170,7 @@ public:
   LLVM_DUMP_METHOD void dump() {
     dbgs() << "TRANSPOSE CAND (SB:" << getBasePtrSymbase();
     dbgs() << ")\nUses:\n";
-    for (auto Use : Uses) {
+    for (auto &Use : Uses) {
       Use.UseRef->dump();
       dbgs() << "\nDelinearized: ";
       Use.DelinearRef->dump();
@@ -916,7 +916,7 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
     // UseCandidate's OrigInnerLoop TripCountCE.
     CanonExpr *InnerTCCE = const_cast<CanonExpr *>(
         UseCandidate.OrigInnerLoop->getTripCountCanonExpr());
-    unsigned TCIndex;
+    unsigned TCIndex = 0;
     int64_t ConstVal = 0;
     if (InnerTCCE->isIntConstant(&ConstVal)) {
     } else if (InnerTCCE->isSelfBlob()) {
