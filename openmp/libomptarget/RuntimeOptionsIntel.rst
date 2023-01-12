@@ -644,23 +644,4 @@ Dumps target binaries embeded in the fat binary to the current directory.
 
 **Default**: Disabled
 
-``LIBOMPTARGET_LOCAL_WG_SIZE=<SizeDesc>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
-
-Forces using the specified size description for local work size (team size).
-This is for internal experiments and may not work correctly in certain cases.
-
-``LIBOMPTARGET_GLOBAL_WG_SIZE=<SizeDesc>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
-
-Forces using the specified size description for global work size (team size *
-team count). This is for internal experiments and may not work correctly in
-certain cases.
-
 .. END INTEL_CUSTOMIZATION
