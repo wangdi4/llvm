@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -454,14 +454,14 @@ int main(int argc, char **argv) {
     PM.addPass(GlobalDCEPass());
   PM.addPass(StripDeadDebugInfoPass());
   PM.addPass(StripDeadPrototypesPass());
-// #if INTEL_CUSTOMIZATION
-// #if INTEL_FEATURE_SW_DTRANS
-//   if (KeepDTransTypeMetadata)
-//     Passes.add(createRemoveDeadDTransTypeMetadataWrapperPass());
-//   else
-//     Passes.add(createRemoveAllDTransTypeMetadataWrapperPass());
-// #endif // INTEL_FEATURE_SW_DTRANS
-// #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (KeepDTransTypeMetadata)
+     PM.addPass(dtransOP::RemoveDeadDTransTypeMetadataPass());
+  else
+     PM.addPass(dtransOP::RemoveAllDTransTypeMetadataPass());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   std::error_code EC;
   ToolOutputFile Out(OutputFilename, EC, sys::fs::OF_None);
