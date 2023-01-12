@@ -333,6 +333,37 @@ static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp) {
   return isMinIndexWithinBounds(FirstRef, Lp);
 }
 
+void MemRefGroup::setHasIndexGap(const RefGroupTy &Group) {
+
+  // Groups with distance of 0 or 1 cannot have gaps.
+  if (MaxDepDist == 0 || MaxDepDist == 1) {
+    return;
+  }
+
+  // For group to have no gaps, number of refs should be at least equal to max
+  // distance + 1.
+  if (Group.size() < (MaxDepDist + 1)) {
+    HasIndexGap = true;
+    return;
+  }
+
+  auto *PrevRef = Group.front();
+  for (auto *CurRef : make_range(Group.begin() + 1, Group.end())) {
+    int64_t DepDist = 0;
+    bool Res = DDRefUtils::getConstIterationDistance(CurRef, PrevRef, LoopLevel,
+                                                     &DepDist);
+    (void)Res;
+    assert(Res && "Could not compute distance between refs!");
+
+    if (std::abs(DepDist) > 1) {
+      HasIndexGap = true;
+      return;
+    }
+
+    PrevRef = CurRef;
+  }
+}
+
 bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
   bool IsUnknown = Lp->isUnknown();
   bool HasForwardGotos = (Lp->getNumExits() > 1) ||
@@ -376,6 +407,8 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     return false;
   }
 
+  setHasIndexGap(Group);
+
   // Create a partially filled RefTuple and save it into RefTupleVec.
   // E.g. (A[i], -1, nullptr)
   for (auto *MemRef : Group) {
@@ -388,7 +421,7 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
 MemRefGroup::MemRefGroup(HIRScalarReplArray &HSRA, HLLoop *Lp,
                          const RefGroupTy &Group, bool IsVectorLoop)
     : HSRA(HSRA), Lp(Lp), NumLoads(0), NumStores(0),
-      LoopLevel(Lp->getNestingLevel()), IsValid(true), HasRWGap(false),
+      LoopLevel(Lp->getNestingLevel()), IsValid(true), HasIndexGap(false),
       MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0),
       IsVectorLoop(IsVectorLoop) {
 
@@ -487,39 +520,35 @@ void MemRefGroup::markMinStore(void) {
   assert(hasMinStoreIndex() && "fail to find MinStoreIndex\n");
 }
 
-void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &RWGap) {
-#ifndef NDEBUG
-  formatted_raw_ostream FOS(dbgs());
-#endif
+void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &IndexGaps) {
 
   assert(MaxDepDist != unsigned(-1));
-  RWGap.resize(MaxDepDist + 1);
 
-  // Accumulate MemRefs into the RWGap mask
+  if (!HasIndexGap) {
+    // Group is known to have no gaps, make all slots true and return.
+    IndexGaps.resize(MaxDepDist + 1, true);
+    return;
+  }
+
+  IndexGaps.resize(MaxDepDist + 1, false);
+
+  // Accumulate MemRefs into the IndexGaps mask
   for (auto &RT : RefTupleVec) {
     unsigned Dist = RT.getTmpId();
     assert((Dist <= MaxDepDist) && "MemRef distance out of range\n");
-    RWGap[Dist] = true;
+    IndexGaps[Dist] = true;
   }
-
-  // Check: is there any gap?
-  for (signed I = MaxDepDist; I >= 0; --I) {
-    if (!RWGap[I]) {
-      HasRWGap = true;
-    }
-  }
-
-  LLVM_DEBUG(FOS << "\nHasRWGap: " << HasRWGap << "\n";);
 }
 
 bool MemRefGroup::isCompleteStoreOnly(void) {
   if (NumLoads) {
     return false;
   }
-  return !HasRWGap;
+  return !HasIndexGap;
 }
 
 bool MemRefGroup::isLegal(void) const {
+
   // TODO: first check unique group symbases returned by
   // populateTemporalLocalityGroups() to save compile time by avoiding DDG.
   DDGraph DDG = HSRA.HDDA.getGraph(Lp);
@@ -548,9 +577,34 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
          (IsIncoming ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
       LLVM_DEBUG(Edge->print(dbgs()););
 
+      auto &DV = Edge->getDV();
+
       // Ignore outer loop dependencies.
-      if (Edge->getDV().isIndepFromLevel(LoopLevel)) {
+      if (DV.isIndepFromLevel(LoopLevel)) {
         continue;
+      }
+
+      if (!HasIndexGap) {
+        DVKind DVElem = DV[LoopLevel - 1];
+
+        // If the loop-level DV is '<' or '>' the ref was either not included in
+        // group due to distance threshold or the distance could not be computed
+        // due to other subscripts. Either way it is safe to perform scalar
+        // replacement in the presence of this ref. The check is limited to
+        // group with no gaps which is the common case. Performing more precise
+        // check for group with gaps is trickier.
+        //
+        // For example, with the dependences distance threshold of 1, A[i1+2]
+        // lies outside the group in the following case but it is still safe to
+        // perform scalar replacement for {A[i1], A[i1+1]}.
+        //
+        // DO i1
+        //   A[i1+2] = A[i1] + A[i1+1];
+        // END DO
+        //
+        if (DVElem == DVKind::LT || DVElem == DVKind::GT) {
+          continue;
+        }
       }
 
       if (IsIncoming) {
@@ -714,7 +768,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
              FOS << "\n");
 }
 
-void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
+void MemRefGroup::generateLoadToTmps(HLLoop *Lp,
+                                     SmallVectorImpl<bool> &IndexGaps) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
@@ -735,7 +790,7 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
 
   // Scan in [0 .. MaxDD): NOT to generate a load for MemRef[MaxDD](R)
   for (unsigned Idx = 0; Idx < MaxDepDist; ++Idx) {
-    bool HasMemRef = RWGap[Idx];
+    bool HasMemRef = IndexGaps[Idx];
     LLVM_DEBUG(FOS << "Idx: " << Idx << " HasMemRef: " << HasMemRef << "\n";);
 
     if (HasMemRef) {
@@ -1296,13 +1351,13 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
 
   MRG.markMinStore();
 
-  SmallVector<bool, 16> RWGap;
-  MRG.identifyGaps(RWGap);
+  SmallVector<bool, 16> IndexGaps;
+  MRG.identifyGaps(IndexGaps);
 
   LLVM_DEBUG(FOS << "AFTER Preparation:\n"; MRG.print(););
 
   // 3-step scalar-repl transformation:
-  doPreLoopProc(Lp, MRG, RWGap);
+  doPreLoopProc(Lp, MRG, IndexGaps);
   doPostLoopProc(Lp, MRG);
   doInLoopProc(Lp, MRG);
 
@@ -1317,7 +1372,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
 
 // Pre-loop processing:
 // Generate Loads (load from MemRef into its matching Tmp) when needed;
-// (Gaps are given in RWGap vector)
+// (Gaps are given in IndexGaps vector)
 //
 // [TO GEN]
 // i. generate a load for any unique available MemRef[ir](R) in MRG
@@ -1329,7 +1384,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
 // i. NOT to generate a load if MemRef[MaxDD](R) exists in MRG;
 //
 void HIRScalarReplArray::doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
-                                       SmallVectorImpl<bool> &RWGap) {
+                                       SmallVectorImpl<bool> &IndexGaps) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
@@ -1341,7 +1396,7 @@ void HIRScalarReplArray::doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
     return;
   }
 
-  MRG.generateLoadToTmps(Lp, RWGap);
+  MRG.generateLoadToTmps(Lp, IndexGaps);
 
   LLVM_DEBUG(FOS << "AFTER doPreLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 }

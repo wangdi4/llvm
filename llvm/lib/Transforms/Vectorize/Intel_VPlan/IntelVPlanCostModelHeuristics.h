@@ -90,6 +90,17 @@ public:
 // heuristics altogether is a long term plan.  We need other methods of
 // interaction between SLP and VPlan vectorizers or merge them into a single
 // vectorizer.
+//
+// The SLP heuristic is known to be particularly important (~33%) for:
+//   * cpu2017ref/525.x264_r@opt_base6_mavx2
+//   * cpu2017ref/525.x264_r@opt_base6_ADL_1c
+//      - Function x264_pixel_satd_8x4 (most critical)
+//      - Function pixel_hadamard_ac
+//      - Function dct4x4dc
+//
+// It is also reported to provide about 4% benefit for:
+//   * coremarkpro/cjpeg-rose7_preset@opt_base_ADL -bind-to-ecore
+// This has not been independently verified.
 class HeuristicSLP : public HeuristicBase {
   // Static utilities below are used in this heuristics and it is undesirable
   // to reuse them elsewhere.

@@ -4336,6 +4336,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
     unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
     unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
+    assert(FinalLoopVF != 0 && "FinalLoopVF can't be 0!");
     if (FinalLoopVF > FinalLoopMaxVF)
       FinalLoopVF = FinalLoopMaxVF;
 

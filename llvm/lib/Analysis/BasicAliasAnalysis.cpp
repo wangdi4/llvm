@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -80,6 +80,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/PhiValues.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
@@ -119,7 +120,10 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
   // may be created without handles to some analyses and in that case don't
   // depend on them.
   if (Inv.invalidate<AssumptionAnalysis>(Fn, PA) ||
-      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)))
+#if INTEL_CUSTOMIZATION
+      (DT && Inv.invalidate<DominatorTreeAnalysis>(Fn, PA)) ||
+      (PV && Inv.invalidate<PhiValuesAnalysis>(Fn, PA)))
+#endif // INTEL_CUSTOMIZATION
     return true;
 
   // Otherwise this analysis result remains valid.
@@ -1661,30 +1665,20 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     return false;
   };
 
-  SmallPtrSet<Value *, 4> UniqueSrc;
-  Value *OnePhi = nullptr;
-  for (Value *PV1 : PN->incoming_values()) {
-    // Skip the phi itself being the incoming value.
-    if (PV1 == PN)
-      continue;
-
-    if (isa<PHINode>(PV1)) {
-      if (OnePhi && OnePhi != PV1) {
-        // To control potential compile time explosion, we choose to be
-        // conserviate when we have more than one Phi input.  It is important
-        // that we handle the single phi case as that lets us handle LCSSA
-        // phi nodes and (combined with the recursive phi handling) simple
-        // pointer induction variable patterns.
-        return AliasResult::MayAlias;
-      }
-      OnePhi = PV1;
-    }
-
-    if (CheckForRecPhi(PV1))
-      continue;
 #if INTEL_CUSTOMIZATION
-
-    if (EnableRecPhiAnalysis) {
+  if (PV) {
+    // If we have PhiValues then use it to get the underlying phi values.
+    const PhiValues::ValueSet &PhiValueSet = PV->getValuesForPhi(PN);
+    // If we have more phi values than the search depth then return MayAlias
+    // conservatively to avoid compile time explosion. The worst possible case
+    // is if both sides are PHI nodes. In which case, this is O(m x n) time
+    // where 'm' and 'n' are the number of PHI sources.
+    if (PhiValueSet.size() > MaxLookupSearchDepth)
+      return AliasResult::MayAlias;
+    // Add the values to V1Srcs
+    for (Value *PV1 : PhiValueSet) {
+      if (CheckForRecPhi(PV1))
+        continue;
       // FIXME: limited support of recursive updates. phi-loop.ll
       if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
         if (PV1Subs->getPointerOperand() == PN &&
@@ -1699,22 +1693,71 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
           continue;
         }
       }
-      // 24303: see comment above.
+      // 24303: If the phi is a loop header, and it is not a simple
+      // basic IV as CheckForRecPhi, we have to analyze it in a
+      // conservative way because V2 and PV1 are from different iterations.
+      // Set isRecursive, and push PV1 on the analysis list below.
+      // This flag will stop tests that assume same-iteration, like
+      // (GEP[%a,i], GEP[%a,i+1]) => NoAlias).
       if (auto *I = dyn_cast<Instruction>(PV1)) {
         if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
           isRecursive = true;
         }
       }
-    }
-#endif // INTEL_CUSTOMIZATION
-    if (UniqueSrc.insert(PV1).second)
       V1Srcs.push_back(PV1);
-  }
+    }
+  } else {
+    // If we don't have PhiInfo then just look at the operands of the phi itself
+    // FIXME: Remove this once we can guarantee that we have PhiInfo always
+    SmallPtrSet<Value *, 4> UniqueSrc;
+    Value *OnePhi = nullptr;
+    for (Value *PV1 : PN->incoming_values()) {
+      if (isa<PHINode>(PV1)) {
+        if (OnePhi && OnePhi != PV1) {
+          // To control potential compile time explosion, we choose to be
+          // conservative when we have more than one Phi input. It is important
+          // that we handle the single phi case as that lets us handle LCSSA
+          // phi nodes and (combined with the recursive phi handling) simple
+          // pointer induction variable patterns.
+          return AliasResult::MayAlias;
+        }
+        OnePhi = PV1;
+      }
 
-  if (OnePhi && UniqueSrc.size() > 1)
-    // Out of an abundance of caution, allow only the trivial lcssa and
-    // recursive phi cases.
-    return AliasResult::MayAlias;
+      if (CheckForRecPhi(PV1))
+        continue;
+      if (EnableRecPhiAnalysis) {
+        // FIXME: limited support of recursive updates. phi-loop.ll
+        if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
+          if (PV1Subs->getPointerOperand() == PN &&
+              isa<ConstantInt>(PV1Subs->getIndex())) {
+            isRecursive = true;
+            continue;
+          }
+        }
+        if (auto *PV1F = dyn_cast<FakeloadInst>(PV1)) {
+          if (PV1F->getPointerOperand() == PN) {
+            isRecursive = true;
+            continue;
+          }
+        }
+        // 24303: see comment above.
+        if (auto *I = dyn_cast<Instruction>(PV1)) {
+          if (!DT || DT->dominates(PN->getParent(), I->getParent())) {
+            isRecursive = true;
+          }
+        }
+      }
+      if (UniqueSrc.insert(PV1).second)
+        V1Srcs.push_back(PV1);
+    }
+
+    if (OnePhi && UniqueSrc.size() > 1)
+      // Out of an abundance of caution, allow only the trivial lcssa and
+      // recursive phi cases.
+      return AliasResult::MayAlias;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If V1Srcs is empty then that means that the phi has no underlying non-phi
   // value. This should only be possible in blocks unreachable from the entry
@@ -2352,8 +2395,9 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F); // INTEL
   return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT,
-                       XOL.getOptLevel()); // INTEL
+                       XOL.getOptLevel(), PV); // INTEL
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2369,6 +2413,7 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)     // INTEL
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
@@ -2381,12 +2426,14 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &ACT = getAnalysis<AssumptionCacheTracker>();
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
+  auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>(); // INTEL
   auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
-                                 XOL.getOptLevel()));                 // INTEL
+                                 XOL.getOptLevel(),                     // INTEL
+                                 PVWP ? &PVWP->getResult() : nullptr)); // INTEL
 
   return false;
 }
@@ -2396,6 +2443,7 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
+  AU.addUsedIfAvailable<PhiValuesWrapperPass>(); // INTEL
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
 
@@ -2405,5 +2453,6 @@ BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
       nullptr,                                                       // INTEL
-      P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());      // INTEL
+      P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel(),       // INTEL
+      nullptr);                                                      // INTEL
 }

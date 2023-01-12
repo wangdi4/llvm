@@ -34,14 +34,11 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LoopUtils
   ObjDump
   OclBackendUtils
-  OclBackendUtils
   OclCpuBackEnd
   OclOptimizer
   OclPluginManager
-  OclPluginManager
+  cl_hw_utils
   cl_sys_utils
-  cl_sys_utils
-  dynamic_load
   dynamic_load
   emutls
   reflection_module

@@ -1,5 +1,9 @@
 #include "TaskExecutorTester.h"
+#include "common_utils.h"
 #include "gtest_wrapper.h"
+#include "tbb/global_control.h"
+#include "tbb/info.h"
+#include "gtest/gtest.h"
 #include <iostream>
 
 using namespace std;
@@ -161,6 +165,32 @@ TEST(TaskExecutorTestType, Test_SubdeviceFullDevice) {
 }
 
 TEST(TaskExecutorTestType, Test_OOO) { EXPECT_TRUE(OOOTest()); }
+
+TEST(TaskExecutorTestType, numaAPIEnabled) {
+  std::vector<int> tbbNumaNodes = tbb::info::numa_nodes();
+  // Skip test if there is only a single NUMA node.
+  if (tbbNumaNodes.size() < 2)
+    GTEST_SKIP();
+
+  ASSERT_TRUE(SETENV("DPCPP_CPU_PLACES", "numa_domains"));
+  TaskExecutorTester tester;
+  EXPECT_TRUE(tester.GetTaskExecutor()->IsTBBNumaEnabled())
+      << "NUMA API should be enabled";
+}
+
+TEST(TaskExecutorTestType, numaAPIDisabledSingleThread) {
+  std::vector<int> tbbNumaNodes = tbb::info::numa_nodes();
+  // Skip test if there is only a single NUMA node.
+  if (tbbNumaNodes.size() < 2)
+    GTEST_SKIP();
+
+  ASSERT_TRUE(SETENV("DPCPP_CPU_PLACES", "numa_domains"));
+  auto controller =
+      tbb::global_control{tbb::global_control::max_allowed_parallelism, 1};
+  TaskExecutorTester tester;
+  EXPECT_FALSE(tester.GetTaskExecutor()->IsTBBNumaEnabled())
+      << "NUMA API should be disabled if there is only single thread in TBB";
+}
 
 int main(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);

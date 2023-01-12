@@ -101,6 +101,7 @@ target_link_libraries(
   OpenCLKernelArgumentsParser
   PlugInNEAT
   REFALU
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler

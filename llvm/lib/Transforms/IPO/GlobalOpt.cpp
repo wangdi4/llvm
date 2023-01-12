@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2500,8 +2500,16 @@ static void setUsedInitializer(GlobalVariable &V,
     return;
   }
 
+  // Get address space of pointers in the array of pointers.
+  unsigned ElemAddrSpace = 0;
+  const Type *UsedArrayType = V.getValueType();
+
+  if (const auto *VAT = dyn_cast<ArrayType>(UsedArrayType))
+    if (const auto *VEPT = dyn_cast<PointerType>(VAT->getArrayElementType()))
+      ElemAddrSpace = VEPT->getAddressSpace();
+
   // Type of pointer to the array of pointers.
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(V.getContext(), 0);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(V.getContext(), ElemAddrSpace);
 
   SmallVector<Constant *, 8> UsedArray;
   for (GlobalValue *GV : Init) {

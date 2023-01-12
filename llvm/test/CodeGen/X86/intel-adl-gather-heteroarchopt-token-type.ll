@@ -20,7 +20,7 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK-NEXT:    br i1 [[CMP_NOT89]], label [[TRY_CONT50:%.*]], label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i8 @llvm.x86.intel.fast.cpuid.coretype()
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i8 [[TMP0]], 64
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i8 [[TMP0]], 32
 ; CHECK-NEXT:    br i1 [[TMP1]], label [[FOR_BODY:%.*]], label [[FOR_BODY_CLONE:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_091:%.*]] = phi i32 [ [[ADD46:%.*]], [[FOR_INC:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]

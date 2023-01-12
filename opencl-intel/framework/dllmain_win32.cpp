@@ -31,41 +31,6 @@
 #endif
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#ifdef _M_X64
-#define TASK_EXECUTOR_LIB_NAME "task_executor64"
-#else
-#define TASK_EXECUTOR_LIB_NAME "task_executor32"
-#endif
-
-namespace {
-Intel::OpenCL::Utils::OclDynamicLib *m_dlTaskExecutor;
-}
-
-BOOL LoadTaskExecutor() {
-  std::string tePath = std::string(MAX_PATH, '\0');
-  std::string teName(TASK_EXECUTOR_LIB_NAME);
-
-  Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
-  Intel::OpenCL::Utils::GetModuleDirectory(&tePath[0], MAX_PATH);
-  tePath.resize(tePath.find_first_of('\0'));
-
-  if (config.Read<std::string>("CL_CONFIG_DEVICES", "cpu", false) ==
-      "fpga-emu") {
-    teName += OUTPUT_EMU_SUFF;
-  }
-  teName += ".dll";
-  tePath += teName;
-
-  if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
-    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
-      FrameworkUserLogger::GetInstance()->PrintError(
-          "Failed to load " + teName +
-          " with error message: " + m_dlTaskExecutor->GetError());
-
-    return FALSE;
-  }
-  return TRUE;
-}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
                       LPVOID lpReserved) {
@@ -79,8 +44,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
     // maintained in only in debug
     InitSharedPtrs();
 #endif
-    m_dlTaskExecutor = new Intel::OpenCL::Utils::OclDynamicLib();
-    return LoadTaskExecutor();
+    break;
   case DLL_THREAD_ATTACH:
   case DLL_THREAD_DETACH:
     break;
@@ -93,7 +57,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
 #ifdef _DEBUG
     FiniSharedPts();
 #endif
-    delete m_dlTaskExecutor;
     break;
   }
   return TRUE;

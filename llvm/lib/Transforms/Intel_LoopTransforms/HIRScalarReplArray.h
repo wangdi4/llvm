@@ -70,7 +70,11 @@ struct MemRefGroup {
   unsigned Symbase;
 
   unsigned MaxDepDist, NumLoads, NumStores, LoopLevel;
-  bool IsValid, HasRWGap;
+  bool IsValid;
+  // Is set to true if the ref group doesn't have any load or store at a
+  // particular index. For example, the group {A[i1], A[i1+2]} is missing ref at
+  // index (i1+1).
+  bool HasIndexGap;
   unsigned MaxLoadIndex, MinStoreIndex; // index to RefTupleVec
 
   unsigned MaxStoreDist; // Max Store distance among all stores in group
@@ -151,8 +155,11 @@ struct MemRefGroup {
   //
   bool requiresStoreInPostexit(void) const { return (MaxStoreDist > 0); }
 
-  // Identify any missing MemRef (GAP), result is in RWGap vector
-  void identifyGaps(SmallVectorImpl<bool> &RWGap);
+  // Sets HasIndexGap to true if there are any gaps in the memref group.
+  void setHasIndexGap(const RefGroupTy &Group);
+
+  // Identify any missing MemRef (GAP), result is in IndexGaps vector
+  void identifyGaps(SmallVectorImpl<bool> &IndexGaps);
 
   // Analyze the MRG, return true if the MRG is suitable for scalar repl
   //
@@ -255,7 +262,7 @@ struct MemRefGroup {
   // for both compile time and run-time performance. Will address it in a later
   // changeset.
   //
-  void generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap);
+  void generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &IndexGaps);
 
   // Generate a load from MemRef to TmpRef code in a loop's prehdr:
   // E.g. t1 = A[i+1];
@@ -407,7 +414,7 @@ public:
   // - mark the Temp as Loop's LiveIn;
   //
   void doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
-                     SmallVectorImpl<bool> &RWGap);
+                     SmallVectorImpl<bool> &IndexGaps);
 
   // Post-loop processing:
   //

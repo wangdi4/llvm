@@ -23,6 +23,10 @@
 #include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
 
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cl_env.h>
@@ -42,9 +46,6 @@
 #include <windows.h>
 #endif
 
-// no local atexit handler - only global
-USE_SHUTDOWN_HANDLER(NULL);
-
 using namespace Intel::OpenCL::Utils;
 
 // #define _EXTENDED_LOG
@@ -59,15 +60,9 @@ namespace Intel {
 namespace OpenCL {
 namespace TaskExecutor {
 
-void RegisterReleaseSchedulerForMasterThread();
-
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
 AtomicCounter glTaskSchedCounter;
-
-void TE_RegisterGlobalAtExitNotification(IAtExitCentralPoint *fn) {
-  Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
-}
 
 bool execute_command(const SharedPtr<ITaskBase> &pCmd,
                      base_command_list &cmdList) {
@@ -343,7 +338,8 @@ int TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data *pGPAData,
 
 void TBBTaskExecutor::InitTBBNuma() {
   std::string envCPUPlaces;
-  if (Intel::OpenCL::Utils::getEnvVar(envCPUPlaces, "DPCPP_CPU_PLACES") &&
+  if ((getEnvVar(envCPUPlaces, "SYCL_CPU_PLACES") ||
+       getEnvVar(envCPUPlaces, "DPCPP_CPU_PLACES")) &&
       ("numa_domains" == StringRef(envCPUPlaces).lower())) {
     // Only call tbb::info::numa_nodes if env is set, otherwise there is perf
     // regression since this call take 45ms on 2-socket CLX.
@@ -470,7 +466,24 @@ bool TBBTaskExecutor::LoadTBBLibrary() {
 
   Intel::OpenCL::Utils::GetModuleDirectory(&modulePath[0], MAX_PATH);
   modulePath.resize(modulePath.find_first_of('\0'));
-  std::string tbbFullPath = modulePath + tbbPath;
+
+#ifdef INTEL_CUSTOMIZATION
+  // The code below may cause ip leak, so we exclude it in our product release
+  // build.
+#ifndef INTEL_PRODUCT_RELEASE
+  // After we change task_executor to a static lib. It will be directly link
+  // into unit test binary. However, the test and tbb libs are not in the same
+  // folder. This is to make sure that unit test binary can correctly find the
+  // tbb libs.
+  llvm::SmallString<128> TempPath(modulePath);
+  llvm::sys::path::append(TempPath, tbbPath);
+  if (!llvm::sys::fs::exists(TempPath))
+    modulePath = DEFAULT_OCL_LIBRARY_DIR;
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
+
+  llvm::SmallString<128> tbbFullPath(modulePath);
+  llvm::sys::path::append(tbbFullPath, tbbPath);
 
   m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
   if (m_err != 0) {

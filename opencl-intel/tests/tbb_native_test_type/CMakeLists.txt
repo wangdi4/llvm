@@ -60,6 +60,6 @@ endif(WIN32)
 # gtest depends on LLVMSupport
 list(APPEND LINK_LIBS LLVMSupport)
 
-target_link_libraries(${TARGET} ${LINK_LIBS})
+target_link_libraries(${TARGET} PRIVATE ${LINK_LIBS})
 
 add_dependencies(${TARGET} ${OCL_RT_TEST_DEPS})

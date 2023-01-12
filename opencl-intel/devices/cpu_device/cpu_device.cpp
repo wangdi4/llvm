@@ -44,8 +44,6 @@
 #include <windows.h>
 #endif
 
-using namespace Intel::OpenCL::CPUDevice;
-
 #if defined(_M_X64) || defined(__x86_64__)
 #define MEMORY_LIMIT (TotalPhysicalSize())
 #else
@@ -56,6 +54,7 @@ using namespace Intel::OpenCL::CPUDevice;
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::BuiltInKernels;
+using namespace Intel::OpenCL::Utils;
 
 const char *Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 
@@ -143,14 +142,6 @@ GetCPUDevInfo(CPUDeviceConfig &config) {
   }
   return &CPUDevInfo;
 }
-// explicit instantiation of SharedPtrBase classes (needed for gcc ver. 4.3 on
-// SLES):
-template class Intel::OpenCL::Utils::SharedPtrBase<
-    Intel::OpenCL::DeviceCommands::KernelCommand>;
-template class Intel::OpenCL::Utils::SharedPtrBase<
-    Intel::OpenCL::DeviceCommands::DeviceCommand>;
-template class Intel::OpenCL::Utils::SharedPtrBase<ITaskList>;
-template class Intel::OpenCL::Utils::SharedPtrBase<ITaskGroup>;
 
 static const size_t FPGA_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] = {
     FPGA_MAX_WORK_GROUP_SIZE, FPGA_MAX_WORK_GROUP_SIZE,
@@ -401,7 +392,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo() {
   // Calculate m_pComputeUnitMap
   calculateComputeUnitMap();
 
-  m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
+  m_uiMasterHWId = GetCpuId();
 
   return CL_DEV_SUCCESS;
 }
@@ -421,14 +412,14 @@ static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores,
   std::vector<unsigned> processorMap(numCores);
   std::iota(processorMap.begin(), processorMap.end(), 0);
 
-  const unsigned numNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
+  const unsigned numNodes = GetMaxNumaNode();
   if (numNodes <= 1)
     return processorMap;
 
   const unsigned numCoresPerNode = numCores / numNodes;
   for (unsigned s = 0; s < numNodes; ++s) {
     std::vector<cl_uint> index;
-    bool res = Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(s, index);
+    bool res = GetProcessorIndexFromNumaNode(s, index);
     // TODO replace res check with assert once GetProcessorIndexFromNumaNode
     // supports windows.
     // numCoresPerNode could be smaller than index size if custom CPU affinity
@@ -462,18 +453,19 @@ void CPUDevice::calculateComputeUnitMap() {
   clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
 
-  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  const unsigned numNumaNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
+  const unsigned numSockets = GetNumberOfCpuSockets();
+  const unsigned numNumaNodes = GetMaxNumaNode();
 
   // Prevent divide by 0.
   if (m_numCores <= 1 || numSockets == 0 || numNumaNodes == 0)
     return;
 
-  // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
+  // SYCL_CPU_CU_AFFINITY = {close | spread | master} controls thread
   // affinity, similar to OMP_PROC_BIND in OpenMP.
-  // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
+  // By default, the SYCL_CPU_CU_AFFINITY variable is not set.
   std::string envAffinity;
-  if (!Intel::OpenCL::Utils::getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY"))
+  if (!getEnvVar(envAffinity, "SYCL_CPU_CU_AFFINITY") &&
+      !getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY"))
     return;
 
   envAffinity = StringRef(envAffinity).lower();
@@ -487,18 +479,19 @@ void CPUDevice::calculateComputeUnitMap() {
   else
     return;
 
-  // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
-  // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
+  // Pin master thread if SYCL_CPU_CU_AFFINITY env is set.
+  // If we don't pin master thread, SYCL_CPU_CU_AFFINITY affinity can't be
   // set correctly.
   m_pinMaster = true;
 
-  // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
+  // SYCL_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
   // which place to set affinity, analogous to OMP_PLACES in OpenMP.
-  // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
+  // SYCL_CPU_PLACES must be used together with SYCL_CPU_CU_AFFINITY.
   // Default value is cores.
   // If value is numa_domains, TBB NUMA API will be used.
   std::string places = "cores";
-  (void)Intel::OpenCL::Utils::getEnvVar(places, "DPCPP_CPU_PLACES");
+  if (!getEnvVar(places, "SYCL_CPU_PLACES"))
+    (void)getEnvVar(places, "DPCPP_CPU_PLACES");
   places = StringRef(places).lower();
   if ("sockets" != places && "numa_domains" != places && "cores" != places &&
       "threads" != places)
@@ -508,22 +501,22 @@ void CPUDevice::calculateComputeUnitMap() {
   // cores per numa node.
   // Case 1: HT is enabled (2 HT threads per core).
   //
-  // If DPCPP_CPU_NUM_CUS=16,
-  // DPCPP_CPU_PLACES=sockets,
+  // If SYCL_CPU_NUM_CUS=16,
+  // SYCL_CPU_PLACES=sockets,
   //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
   //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
   //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-  // DPCPP_CPU_PLACES=cores,
+  // SYCL_CPU_PLACES=cores,
   //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
   //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
   //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
-  // DPCPP_CPU_PLACES=threads,
+  // SYCL_CPU_PLACES=threads,
   //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
   //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
   //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
   //
-  // If DPCPP_CPU_NUM_CUS=8,
-  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  // If SYCL_CPU_NUM_CUS=8,
+  // SYCL_CPU_PLACES=sockets, cores and threads have the same bindings:
   //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
   //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
   //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
@@ -531,27 +524,26 @@ void CPUDevice::calculateComputeUnitMap() {
   //
   // Case 2: HT is disabled.
   //
-  // If DPCPP_CPU_NUM_CUS=8,
-  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  // If SYCL_CPU_NUM_CUS=8,
+  // SYCL_CPU_PLACES=sockets, cores and threads have the same bindings:
   //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
   //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
   //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
   //
-  // If DPCPP_CPU_NUM_CUS=4,
-  // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+  // If SYCL_CPU_NUM_CUS=4,
+  // SYCL_CPU_PLACES=sockets, cores and threads have the same bindings:
   //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
   //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
   //   master: S0:[T0 T1 T2 T3]     S1:[]
 
-  const bool HTEnabled = Intel::OpenCL::Utils::IsHyperThreadingEnabled();
+  const bool HTEnabled = IsHyperThreadingEnabled();
   std::vector<unsigned> processorMap =
       getProcessorIndexMap(m_numCores, HTEnabled);
 
   const unsigned numCoresPerSocket = m_numCores / numSockets;
   std::vector<std::vector<int>> coresPerSocket(numSockets);
   if (HTEnabled && "sockets" == places) {
-    std::map<int, int> coreToSocket =
-        Intel::OpenCL::Utils::GetProcessorToSocketMap();
+    std::map<int, int> coreToSocket = GetProcessorToSocketMap();
     for (unsigned i = 0; i < m_numCores; ++i)
       coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
     for (auto &C : coresPerSocket)
@@ -564,7 +556,7 @@ void CPUDevice::calculateComputeUnitMap() {
   const unsigned numCoresPerNumaNode = m_numCores / numNumaNodes;
   const unsigned numCoresHalf = m_numCores / 2;
 
-  std::vector<unsigned> dpcppAffinityMap(m_numCores);
+  std::vector<unsigned> syclAffinityMap(m_numCores);
 
   for (unsigned i = 0; i < m_numCores; i++) {
     unsigned j = i;
@@ -592,19 +584,19 @@ void CPUDevice::calculateComputeUnitMap() {
           j += i / numNumaNodes;
       }
     }
-    dpcppAffinityMap[i] = j;
+    syclAffinityMap[i] = j;
   }
 
   // Apply mapping.
-  // dpcppAffinityMap's values can be out of range if number of cores in
+  // syclAffinityMap's values can be out of range if number of cores in
   // myParentMask is larger than numTbbThreads when numTbbThreads is set by
-  // DPCPP_CPU_NUM_CUS.
+  // SYCL_CPU_NUM_CUS.
   for (unsigned int i = 0; i < m_numCores; i++)
-    if (dpcppAffinityMap[i] < m_numCores)
-      dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+    if (syclAffinityMap[i] < m_numCores)
+      syclAffinityMap[i] = m_pComputeUnitMap[syclAffinityMap[i]];
   for (unsigned int i = 0; i < m_numCores; i++)
-    if (dpcppAffinityMap[i] < m_numCores)
-      m_pComputeUnitMap[i] = dpcppAffinityMap[i];
+    if (syclAffinityMap[i] < m_numCores)
+      m_pComputeUnitMap[i] = syclAffinityMap[i];
 
   for (unsigned int i = 0; i < m_numCores; i++)
     m_pComputeUnitMap[i] = processorMap[m_pComputeUnitMap[i]];
@@ -797,9 +789,7 @@ clDevCreateDeviceInstance(cl_uint dev_id, IOCLFrameworkCallbacks *pDevCallBacks,
 }
 
 // Device entry points
-cl_ulong CPUDevice::clDevGetDeviceTimer() {
-  return Intel::OpenCL::Utils::HostTime();
-}
+cl_ulong CPUDevice::clDevGetDeviceTimer() { return HostTime(); }
 
 // Device Information function prototypes
 //
@@ -1855,7 +1845,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         std::begin(CPU_SUPPORTED_FISSION_MODES),
         std::end(CPU_SUPPORTED_FISSION_MODES));
 #ifndef WIN32
-    if (Intel::OpenCL::Utils::GetMaxNumaNode() <= 1) {
+    if (GetMaxNumaNode() <= 1) {
       auto it =
           std::find(supportedProperties.begin(), supportedProperties.end(),
                     CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
@@ -1890,7 +1880,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     if (nullptr != paramVal) {
       *((cl_device_affinity_domain *)paramVal) =
 #ifndef WIN32
-          Intel::OpenCL::Utils::GetMaxNumaNode() > 1
+          GetMaxNumaNode() > 1
               ? (cl_device_affinity_domain)(CL_DEVICE_AFFINITY_DOMAIN_NUMA |
                                             CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE)
               :
@@ -2535,7 +2525,7 @@ cl_dev_err_code CPUDevice::clDevPartition(
     break;
   }
   case CL_DEV_PARTITION_AFFINITY_NUMA: {
-    unsigned int numNodes = Intel::OpenCL::Utils::GetMaxNumaNode();
+    unsigned int numNodes = GetMaxNumaNode();
     if (nullptr == subdevice_ids) {
       *num_subdevices = numNodes;
       return CL_DEV_SUCCESS;
@@ -2551,7 +2541,7 @@ cl_dev_err_code CPUDevice::clDevPartition(
     // create a subdevice for each numa node
     for (cl_uint i = 0; i < numNodes; i++) {
       std::vector<cl_uint> index;
-      if (!Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(i, index)) {
+      if (!GetProcessorIndexFromNumaNode(i, index)) {
         return CL_DEV_NOT_SUPPORTED;
       }
       numUnits[i] = index.size();
@@ -3160,9 +3150,7 @@ cl_dev_err_code CPUDevice::clDevGetKernelInfo(
 clDevGetPerofrmanceCounter
     Get performance counter value
 *******************************************************************************/
-cl_ulong CPUDevice::clDevGetPerformanceCounter() {
-  return Intel::OpenCL::Utils::HostTime();
-}
+cl_ulong CPUDevice::clDevGetPerformanceCounter() { return HostTime(); }
 
 cl_dev_err_code
 CPUDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor) {

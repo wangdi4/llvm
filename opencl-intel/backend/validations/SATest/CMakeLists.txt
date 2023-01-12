@@ -124,6 +124,7 @@ target_link_libraries(
   PlugInNEAT
   ProgramConfiguration
   REFALU
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -87,13 +87,16 @@ let TargetPrefix = "x86" in {
                   [llvm_i32_ty, llvm_i32_ty], []>;
 }
 
-// Read intel cpu core type, cpuid.1AH.eax[31:24]. This intrinsic may lazily
-// use cpuid to detect cpu core type and cache it into a global array in libirc
-// to minimize cost of frequently inquiring cpu core type. In such case, this
-// intrinsic may return 0 (not likely) due to cpu migration. You should check
-// returned core type if it must be non-zero on such targets. Read comments in
-// Intel_X86PreISelIntrinsicLowering.cpp:lowerFastCpuIdCoreType to know which
-// target it's capable to cache core type.
+// Read intel cpu core type, cpuid.1AH.eax[31:24]. Please make sure libirc is
+// allowed when using this intrinsic. It will lazily use cpuid to detect cpu
+// core type and cache it into a global array in libirc to minimize cost of
+// frequently inquiring cpu core type. If the cpu doesn't support Hybrid
+// Information Enumeration Leaf, this intrinsic will always return 0. Otherwise,
+// it will return core type of the current cpu in most time. However, it may
+// still return 0 (rarelly) due to cpu migration. You should double check
+// returned core type if it must be non-zero. Read comments in
+// Intel_X86PreISelIntrinsicLowering.cpp:lowerFastCpuIdCoreType to know how it
+// cache cpu core type.
 let TargetPrefix = "x86" in {
   def int_x86_intel_fast_cpuid_coretype : Intrinsic<[llvm_i8_ty], [], []>;
 }

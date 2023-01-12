@@ -2141,9 +2141,8 @@ if (INTEL_CUSTOMIZATION)
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
       ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
-      ocl-svml ocl-gdb-plugin ocl-library-kernel
+      ocl-svml ocl-gdb-plugin ocl-library-kernel ocl-tbb
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
-      ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
       )
 
     if (WIN32)

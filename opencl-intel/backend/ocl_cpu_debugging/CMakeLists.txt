@@ -62,6 +62,7 @@ if(WIN32)
     ${OCL_SOURCE_DIR}/externals/tbb/include
     LINK_LIBS
     ${SOCKETLIB}
+    cl_hw_utils
     cl_sys_utils
     protobuf
     LLVMCore

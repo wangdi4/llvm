@@ -42,16 +42,6 @@
 #include "ocl_itt.h"
 #endif
 
-#if defined(_WIN32)
-#ifdef TASK_EXECUTOR_EXPORTS
-#define TASK_EXECUTOR_API __declspec(dllexport)
-#else
-#define TASK_EXECUTOR_API __declspec(dllimport)
-#endif
-#else
-#define TASK_EXECUTOR_API
-#endif
-
 // Forward declaration
 struct ocl_gpa_data;
 
@@ -676,11 +666,7 @@ protected:
 };
 
 // Function which retrieves TaskExecutor singleton object
-TASK_EXECUTOR_API ITaskExecutor *GetTaskExecutor();
-
-TASK_EXECUTOR_API void TE_RegisterGlobalAtExitNotification(
-    Intel::OpenCL::Utils::IAtExitCentralPoint *fn);
-
+ITaskExecutor *GetTaskExecutor();
 } // namespace TaskExecutor
 } // namespace OpenCL
 } // namespace Intel

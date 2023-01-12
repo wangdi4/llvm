@@ -4680,6 +4680,9 @@ public:
   RValue EmitNVPTXDevicePrintfCallExpr(const CallExpr *E);
   RValue EmitAMDGPUDevicePrintfCallExpr(const CallExpr *E);
   RValue EmitOpenMPDevicePrintfCallExpr(const CallExpr *E);
+#if INTEL_COLLAB
+  RValue EmitOpenMPDeviceSpirPrintfCallExpr(const CallExpr *E);
+#endif // INTEL_COLLAB
 
   RValue EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                          const CallExpr *E, ReturnValueSlot ReturnValue);

@@ -19,7 +19,9 @@ add_opencl_executable(
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   LINK_LIBS
+  LLVMSupport
   OpenCL-ICD
+  cl_hw_utils
   cl_sys_utils)
 
 #

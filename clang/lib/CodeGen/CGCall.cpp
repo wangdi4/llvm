@@ -4974,6 +4974,15 @@ void CodeGenFunction::EmitCallArgs(
     Args.allocateArgumentMemory(*this);
   }
 
+#if INTEL_COLLAB
+  bool GenerateOpenCLConstants = false;
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(AC.getDecl()))
+    GenerateOpenCLConstants =
+        CGM.getLangOpts().OpenMPLateOutline &&
+        CGM.getTriple().getArch() == llvm::Triple::spir64 &&
+        CGM.inTargetRegion() && FD->getBuiltinID() == Builtin::BIprintf;
+  CodeGenModule::GenerateOpenCLConstantsRAII RAII(CGM, GenerateOpenCLConstants);
+#endif // INTEL_COLLAB
   // Evaluate each argument in the appropriate order.
   size_t CallArgsStart = Args.size();
   for (unsigned I = 0, E = ArgTypes.size(); I != E; ++I) {
