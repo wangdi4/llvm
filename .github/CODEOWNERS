@@ -98,6 +98,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/TableGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/Target/TargetSelectionDAG.td @phoebewang
+/llvm/include/llvm/Target/Target.td @KanRobert @phoebewang
 /llvm/include/llvm/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/include/llvm/Transforms/Utils/Intel_IMLUtils.h @tianqingw @KanRobert @FreddyLeaf
 /llvm/test/Analysis/CostModel/X86/ @HaohaiWen
