@@ -179,6 +179,15 @@ static cl::opt<bool>
                                   "by the Intel Advisor application. "
                                   "Automatically enabled when optimization "
                                   "reports are enabled."));
+#if INTEL_FEATURE_MARKERCOUNT
+// This option is for test only. Xmain only supports x86 target by default, but
+// we need to check that pseudo marker count is emitted as a comment when it is
+// not expanded, e.g, aarch64, so that we can compare ISA across different
+// targets.
+static cl::opt<bool> X86ExpandPseudoMarkerCount(
+    "x86-expand-pseudo-marker-count", cl::init(true), cl::Hidden,
+    cl::desc("Expand pseudo marker count to x86 instructions."));
+#endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
@@ -1859,13 +1868,22 @@ void AsmPrinter::emitFunctionBody() {
       }
 #if INTEL_FEATURE_MARKERCOUNT
       case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
-        OutStreamer->emitRawComment("FUNCTION_PROLOG");
+        if (TM.getTargetTriple().isX86() && X86ExpandPseudoMarkerCount)
+          emitInstruction(&MI);
+        else
+          OutStreamer->emitRawComment("FUNCTION_PROLOG");
         break;
       case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
-        OutStreamer->emitRawComment("FUNCTION_EPILOG");
+        if (TM.getTargetTriple().isX86() && X86ExpandPseudoMarkerCount)
+          emitInstruction(&MI);
+        else
+          OutStreamer->emitRawComment("FUNCTION_EPILOG");
         break;
       case TargetOpcode::PSEUDO_LOOP_HEADER:
-        OutStreamer->emitRawComment("LOOP_HEADER");
+        if (TM.getTargetTriple().isX86() && X86ExpandPseudoMarkerCount)
+          emitInstruction(&MI);
+        else
+          OutStreamer->emitRawComment("LOOP_HEADER");
         break;
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION

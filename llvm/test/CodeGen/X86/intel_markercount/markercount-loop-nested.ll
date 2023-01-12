@@ -2,9 +2,9 @@
 ; RUN: llc < %s -loop-marker-count=be -mtriple=x86_64-- | FileCheck %s
 
 ; CHECK: # =>This Loop Header: Depth=1
-; CHECK: markercount_loopheader
+; CHECK: marker_loop
 ; CHECK: =>  This Inner Loop Header: Depth=2
-; CHECK: markercount_loopheader
+; CHECK: marker_loop
 
 define i32 @f(i1 %cmp2) {
 entry:

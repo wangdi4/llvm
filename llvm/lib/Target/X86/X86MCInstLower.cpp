@@ -2608,16 +2608,6 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
       OutStreamer->AddComment("EVEX TO VEX Compression ", false);
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Add comments for markercount_function to distinguish prolog from epilog
-  if (MI->getAsmPrinterFlags() & X86::AC_PROLOG)
-    OutStreamer->AddComment("PROLOG", false);
-  else if (MI->getAsmPrinterFlags() & X86::AC_EPILOG)
-    OutStreamer->AddComment("EPILOG", false);
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   // Add comments for values loaded from constant pool.
   if (OutStreamer->isVerboseAsm())
     addConstantComments(MI, *OutStreamer);
@@ -2630,6 +2620,28 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   case X86::Int_MemBarrier:
     OutStreamer->emitRawComment("MEMBARRIER");
     return;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Pseudo marker count is expanded at a late stage b/c
+  //  1. Expanded instruction does not have scheduling info, so
+  //     no need to expand it before any schedule pass.
+  //  2. Pseudo marker count is a meta instruction, which has less
+  //     impact on optimizations since it does not contribute to
+  //     block size.
+  case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
+    OutStreamer->AddComment("PROLOG", false);
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_FUNCTION));
+    return;
+  case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
+    OutStreamer->AddComment("EPILOG", false);
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_FUNCTION));
+    return;
+  case TargetOpcode::PSEUDO_LOOP_HEADER:
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_LOOP));
+    return;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   case X86::EH_RETURN:
   case X86::EH_RETURN64: {
