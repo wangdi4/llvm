@@ -1,4 +1,21 @@
 //===-- InstrProfiling.cpp - Frontend instrumentation based profiling -----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -188,7 +205,10 @@ public:
         // %BiasAdd = add i64 ptrtoint <__profc_>, <__llvm_profile_counter_bias>
         // %Addr = inttoptr i64 %BiasAdd to i64*
         auto *OrigBiasInst = dyn_cast<BinaryOperator>(AddrInst->getOperand(0));
-        assert(OrigBiasInst->getOpcode() == Instruction::BinaryOps::Add);
+#if INTEL_CUSTOMIZATION
+        assert(OrigBiasInst &&
+               OrigBiasInst->getOpcode() == Instruction::BinaryOps::Add);
+#endif // INTEL_CUSTOMIZATION
         Value *BiasInst = Builder.Insert(OrigBiasInst->clone());
         Addr = Builder.CreateIntToPtr(BiasInst, Ty->getPointerTo());
       }

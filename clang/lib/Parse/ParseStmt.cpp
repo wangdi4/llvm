@@ -1021,10 +1021,11 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
 #if INTEL_CUSTOMIZATION
     // CQ#370084: allow label without statement just before '}'.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-    if (getLangOpts().IntelCompat)
+    if (getLangOpts().IntelCompat) {
       Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
         << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-    else {
+      SubStmt = Actions.ActOnNullStmt(ColonLoc);
+    } else {
       DiagnoseLabelAtEndOfCompoundStatement();
       SubStmt = Actions.ActOnNullStmt(ColonLoc);
     }
