@@ -633,7 +633,7 @@ def FeatureAVX256P : SubtargetFeature<"avx256p", "HasAVX256P", "true",
 def FeatureAVX512NECONVERTFP8 :
       SubtargetFeature<"avx512neconvertfp8", "HasAVX512NECONVERTFP8", "true",
                        "Support AVX512-NE-CONVERT-FP8 instructions",
-                       [FeatureAVX512]>;
+                       [FeatureFP16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
 #if INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 def FeatureAVX512VNNIFP8 :
