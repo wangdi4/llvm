@@ -138,6 +138,7 @@ add_sycl_plugin(level_zero
 #FIXME: We should stop shipping level zero loader and headers as part of the
 #       toolchain installation. Instead these should be avaialble in the system.
 #       We keep shipping it until all environments are updated.
+<<<<<<< HEAD
 if (TARGET ze_loader)
   install(TARGETS ze_loader
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT level-zero-sycl-dev
@@ -151,6 +152,20 @@ if (TARGET ze_loader)
       COMPONENT level-zero-sycl-dev
   )
 endif()
+=======
+install(TARGETS ze_loader
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT level-zero-sycl-dev
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT level-zero-sycl-dev
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT level-zero-sycl-dev
+        NAMELINK_SKIP
+)
+
+file(GLOB LEVEL_ZERO_API_HEADERS "${LEVEL_ZERO_INCLUDE_DIR}/*.h")
+install(FILES ${LEVEL_ZERO_API_HEADERS}
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/include/sycl/level_zero/
+    COMPONENT level-zero-sycl-dev
+)
+>>>>>>> 172b0212a36735c80a8f3072777de66d40c70ff9
 # end of FIXME
 
 add_dependencies(pi_level_zero ze-api)
