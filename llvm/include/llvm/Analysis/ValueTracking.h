@@ -166,6 +166,10 @@ unsigned ComputeNumSignBits(const Value *Op, const DataLayout &DL,
                             bool UseInstrInfo = true,
                             ScalarEvolution *SE = nullptr,
                             LoopInfo *LI = nullptr);
+
+// True if the GEP may be out of bounds. Used to work around very specific
+// application bugs.
+bool isGEPMaybeOOB(const GEPOperator *GEP);
 #endif // INTEL_CUSTOMIZATION
 
 /// Return true if the given value is known to have exactly one bit set when

@@ -2238,6 +2238,19 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
   if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)                   // INTEL
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // workaround for non-conforming C application code. Pointer is converted
+  // to null using a subtraction. Optimizer cannot assume GEP results are
+  // non-null if there are subtractions.
+  Value *CmpLHS = nullptr;
+  CmpInst::Predicate Pred;
+  using namespace PatternMatch;
+  if (match(Cond, m_Cmp(Pred, m_Value(CmpLHS), m_Zero())))
+    if (auto *GEP = dyn_cast<GEPOperator>(CmpLHS))
+      if (isGEPMaybeOOB(GEP))
+        return false;
+#endif // INTEL_CUSTOMIZATION
+
   PredValueInfoTy PredValues;
   // bool Changed = false;                                              // INTEL
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
