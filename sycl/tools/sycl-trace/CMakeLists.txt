@@ -1,3 +1,20 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 add_executable(sycl-trace main.cpp)
 
 target_include_directories(sycl-trace PRIVATE
@@ -45,6 +62,12 @@ add_custom_command(
   ${sycl_inc_dir}/sycl/detail/pi.h
   DEPENDS ${sycl_inc_dir}/sycl/detail/pi.h
   )
+
+if (INTEL_CUSTOMIZATION)
+  if (DEFINED L0_INCLUDE_DIR)
+     set(LEVEL_ZERO_INCLUDE_DIR ${L0_INCLUDE_DIR}/level_zero)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 # To get L0 loader
 if ("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
