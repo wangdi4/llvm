@@ -2336,6 +2336,43 @@ bool isKnownToBeAPowerOfTwo(const Value *V, bool OrZero, unsigned Depth,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Recognize this suspicious case, where a pointer is added to its
+// negation with an inbounds GEP.
+// %2626 = sub i64 0, %2625
+// %2628 = inttoptr i64 %2625 to i8*
+// %2636 = getelementptr inbounds i8, i8* %2628, i64 %2626
+// %2668 = icmp eq i8* %2636, null
+//
+// This is UB code as C pointer rules prohibit pointer addition from changing
+// the target object.
+// Unfortunately it is present in several known applications.
+// We don't integrate this code into isGEPKnownNonNull, as it has possible
+// compile-time impact and it is preferable to fix the incorrect application
+// code whenever possible.
+bool llvm::isGEPMaybeOOB(const GEPOperator *GEP) {
+  auto SkipIntPtrAndCasts = [](Value *V) {
+    V = V->stripPointerCasts();
+    if (auto *IntToPtr = dyn_cast<IntToPtrInst>(V))
+      V = IntToPtr->getOperand(0);
+    else if (auto *PtrToInt = dyn_cast<PtrToIntInst>(V))
+      V = PtrToInt->getOperand(0);
+    return V->stripPointerCasts();
+  };
+
+  assert(GEP && "null pointer passed as GEP");
+  if (GEP->getNumOperands() == 2) {
+    Value *GEPBase = SkipIntPtrAndCasts(GEP->getOperand(0));
+    Value *NegOffset = nullptr;
+    if (match(GEP->getOperand(1), m_Sub(m_Zero(), m_Value(NegOffset)))) {
+      NegOffset = SkipIntPtrAndCasts(NegOffset);
+      return NegOffset == GEPBase;
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Test whether a GEP's result is known to be non-null.
 ///
 /// Uses properties inherent in a GEP to try to determine whether it is known
