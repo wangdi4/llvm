@@ -2152,7 +2152,7 @@ struct HIRLoopBlocking {
   HIRLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                   HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS,
                   TargetTransformInfo &TTI, bool SinkForMultiCopy)
-      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI),
+      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI), HasPragma(false),
         SinkForMultiCopy(SinkForMultiCopy && !DisableSinkForMultiCopy) {}
 
   bool run(bool Pragma);

@@ -55,16 +55,6 @@ cl::opt<unsigned> ScalarExpansionCost(
         "Number of mem operations in loop when to enable scalar expansion."),
     cl::Hidden, cl::init(20));
 
-enum PragmaReturnCode {
-  NotProcessed,
-  NoDistribution,
-  Success,
-  UnsupportedStmts,
-  TooComplex,
-  TooManyDistributePoints,
-  Last
-};
-
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
@@ -115,7 +105,7 @@ bool HIRLoopDistribution::run() {
     }
 
     if (Lp->hasDistributePoint()) {
-      unsigned RC = distributeLoopForDirective(Lp);
+      PragmaReturnCode RC = distributeLoopForDirective(Lp);
       if (RC != NotProcessed) {
         ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
       }
@@ -1646,7 +1636,7 @@ void HIRLoopDistribution::findDistPoints(
                     << " Loops\n");
 }
 
-unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
+PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   //  Process user pragma Loop Directive for distribution
   //  - No data dependency checking is needed

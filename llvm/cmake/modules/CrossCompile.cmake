@@ -44,7 +44,10 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
     # INTEL_PASSTHROUGH_VARIABLES list below.
     set(INTEL_PASSTHROUGH_VARIABLES
       LLVM_INTEL_FEATURES
+      IL0_COMPILER
       IL0_PREBUILT_COMPONENTS_PREFIX
+      IL0_PREBUILT_COMPONENTS_STRUCTURE
+      IL0_PREBUILT_LIBIRC_COMPONENTS_PREFIX
       HOST_LINUX
       HOST_WINNT
       HOST_EFI2
