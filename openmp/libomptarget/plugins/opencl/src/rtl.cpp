@@ -1729,38 +1729,38 @@ public:
 
 /// Clean-up routine to be invoked by destructor.
 static void closeRTL() {
-  for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
-    if (!DeviceInfo->Initialized[i])
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
+    if (!DeviceInfo->Initialized[I])
       continue;
     if (DeviceInfo->Option.Flags.EnableProfile) {
-      for (auto &profile : DeviceInfo->Profiles[i])
-        profile.second.printData(i, profile.first, DeviceInfo->Names[i].data(),
-                                 DeviceInfo->Option.ProfileResolution);
+      for (auto &Prof : DeviceInfo->Profiles[I])
+        Prof.second.printData(I, Prof.first, DeviceInfo->Names[I].data(),
+                              DeviceInfo->Option.ProfileResolution);
     }
 #if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, I);
     }
 #endif // INTEL_CUSTOMIZATION
 
-    CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
+    CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[I]);
 
-    if (DeviceInfo->QueuesInOrder[i])
-      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
+    if (DeviceInfo->QueuesInOrder[I])
+      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[I]);
 
-    for (auto mem : DeviceInfo->OwnedMemory[i])
-      CALL_CL_EXT_VOID(i, clMemFreeINTEL, DeviceInfo->getContext(i), mem);
+    for (auto &Mem : DeviceInfo->OwnedMemory[I])
+      CALL_CL_EXT_VOID(I, clMemFreeINTEL, DeviceInfo->getContext(I), Mem);
 
     if (!DeviceInfo->Option.Flags.UseSingleContext)
-      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
+      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[I]);
 
-    DeviceInfo->Programs[i].clear();
+    DeviceInfo->Programs[I].clear();
   }
 
   if (DeviceInfo->Option.Flags.UseSingleContext)
-    for (auto platformInfo : DeviceInfo->PlatformInfos)
-      CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
+    for (auto &PLFI : DeviceInfo->PlatformInfos)
+      CALL_CL_EXIT_FAIL(clReleaseContext, PLFI.second.Context);
 
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;

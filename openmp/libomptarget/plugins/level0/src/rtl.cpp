@@ -835,25 +835,25 @@ class TLSTy {
 
 public:
   ~TLSTy() {
-    for (auto CmdList : CmdLists)
+    for (auto &CmdList : CmdLists)
       CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
-    for (auto CmdList : CopyCmdLists)
+    for (auto &CmdList : CopyCmdLists)
       CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
-    for (auto CmdList : LinkCopyCmdLists)
+    for (auto &CmdList : LinkCopyCmdLists)
       CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
-    for (auto CmdQueue : CmdQueues)
+    for (auto &CmdQueue : CmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
-    for (auto CmdQueue : CCSCmdQueues)
+    for (auto &CmdQueue : CCSCmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
-    for (auto CmdQueue : CopyCmdQueues)
+    for (auto &CmdQueue : CopyCmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
-    for (auto CmdQueue : LinkCopyCmdQueues)
+    for (auto &CmdQueue : LinkCopyCmdQueues)
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
     for (auto &CmdList : ImmCmdLists)
       CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
     for (auto &CmdList : ImmCopyCmdLists)
       CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList.second);
-    for (auto Profile : Profiles)
+    for (auto &Profile : Profiles)
       delete Profile.second;
   }
 
@@ -1525,6 +1525,7 @@ class SpecConstantsTy {
 public:
   SpecConstantsTy() = default;
   SpecConstantsTy(const SpecConstantsTy &) = delete;
+  SpecConstantsTy &operator=(const SpecConstantsTy &) = delete;
   SpecConstantsTy(const SpecConstantsTy &&Other)
     : ConstantIds(std::move(Other.ConstantIds)),
       ConstantValues(std::move(Other.ConstantValues)) {}

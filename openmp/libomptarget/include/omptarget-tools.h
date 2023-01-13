@@ -1661,6 +1661,7 @@ struct OmptGlobalTy {
 
   explicit OmptGlobalTy() = default;
   OmptGlobalTy(const OmptGlobalTy &) = delete;
+  OmptGlobalTy &operator=(const OmptGlobalTy &) = delete;
 
   void init() {
     TargetId = 1;
