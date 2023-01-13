@@ -15,6 +15,9 @@
 ; CHECK: i8* {{%.*}} = subscript inbounds i8* null i64 {{%.*}} {{.*}} KnownBits: {Zero=0, One=0}
 ; CHECK: i64* {{%.*}} = subscript inbounds i64* {{%.*}} i64 {{%.*}} {{.*}} KnownBits: {Zero=0, One=0}
 ; CHECK: i64* {{%.*}} = subscript inbounds i64* null i64 {{%.*}} {{.*}} KnownBits: {Zero=0, One=0}
+; CHECK: i64* {{%.*}} = subscript [256 x i64]* null i64 0 i64 0 {{.*}} KnownBits: {Zero=-1, One=0}
+; CHECK: i64* {{%.*}} = subscript [256 x i64]* null i64 0 i64 {{.*}} KnownBits: {Zero=7, One=0}
+; CHECK: i64* {{%.*}} = subscript [256 x i64]* null i64 {{%.*}} i64 0 {{.*}} KnownBits: {Zero=2047, One=0}
 
 define void @foo(i64 *%array) {
 entry:
@@ -67,6 +70,14 @@ for.body:
   store i64 13, i64* %sub.unk.4, align 8
   %sub.unk.5 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 %a.mul8, i64 %a, i64* elementtype(i64) null, i64 %a)
   store i64 14, i64* %sub.unk.5, align 8
+
+  ; Rank > 1 with non-ptr dimension type
+  %sub.256xi64.1 = getelementptr [256 x i64], [256 x i64]* null, i64 0, i64 0
+  store i64 15, i64* %sub.256xi64.1, align 8
+  %sub.256xi64.2 = getelementptr [256 x i64], [256 x i64]* null, i64 0, i64 %iv
+  store i64 16, i64* %sub.256xi64.2, align 8
+  %sub.256xi64.3 = getelementptr [256 x i64], [256 x i64]* null, i64 %iv, i64 0
+  store i64 17, i64* %sub.256xi64.3, align 8
 
   %add1 = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %add1, 1024
