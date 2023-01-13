@@ -1466,6 +1466,13 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
     return BinaryOperator::CreateAnd(A, NewMask);
   }
 
+  // ZExt (B - A) + ZExt(A) --> ZExt(B)
+  if ((match(RHS, m_ZExt(m_Value(A))) &&
+       match(LHS, m_ZExt(m_NUWSub(m_Value(B), m_Specific(A))))) ||
+      (match(LHS, m_ZExt(m_Value(A))) &&
+       match(RHS, m_ZExt(m_NUWSub(m_Value(B), m_Specific(A))))))
+    return new ZExtInst(B, LHS->getType());
+
   // A+B --> A|B iff A and B have no bits set in common.
 #if INTEL_CUSTOMIZATION
   if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT)) {
