@@ -396,7 +396,6 @@ static bool runIPSCCP(
                   return cast<IntrinsicInst>(UserUser)->isAssumeLikeIntrinsic();
                 })));
         continue;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // The function may be used in a dead ConstantExpr which will get
       // removed later. Since there is no call site possible we can skip it.
@@ -405,11 +404,8 @@ static bool runIPSCCP(
         if (BCE->user_empty())
           continue;
 #endif // INTEL_CUSTOMIZATION
-      CallBase *CB = cast<CallBase>(U.getUser());
-=======
       }
 
->>>>>>> ad6b5762b64f6706cb4d1bcad383c373736b5af6
       for (Use &Arg : CB->args())
         CB->removeParamAttr(CB->getArgOperandNo(&Arg), Attribute::Returned);
     }
