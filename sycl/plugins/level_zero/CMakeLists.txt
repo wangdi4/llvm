@@ -87,7 +87,6 @@ endif()
 
 find_package(Python3 REQUIRED)
 
-<<<<<<< HEAD
 add_custom_target(ze-api DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def)
 
 add_custom_command(
@@ -98,14 +97,6 @@ add_custom_command(
   ${LEVEL_ZERO_INCLUDE_DIR}/ze_api.h
   DEPENDS
   ${LEVEL_ZERO_INCLUDE_DIR}/ze_api.h
-=======
-add_custom_target(ze-api
-  COMMAND ${Python3_EXECUTABLE}
-  ${CMAKE_CURRENT_SOURCE_DIR}/ze_api_generator.py
-  ${LEVEL_ZERO_INCLUDE_DIR}/level_zero/ze_api.h
-  BYPRODUCTS
-    ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def
->>>>>>> 03ce63f43cf73b6bd47ad40426e66483ad17506a
   )
 
 find_package(Threads REQUIRED)
