@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -910,6 +910,7 @@ AndersensAAResult::AndersensAAResult(const DataLayout &DL,
 //
 AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
     : AAResultBase(std::move(Arg)), DL(Arg.DL), GetTLI(Arg.GetTLI),
+      PossibleSourceOfPointsToInfo(std::move(Arg.PossibleSourceOfPointsToInfo)),
       IndirectCallList(std::move(Arg.IndirectCallList)),
       DirectCallList(std::move(Arg.DirectCallList)),
       GraphNodes(std::move(Arg.GraphNodes)),
@@ -917,6 +918,20 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ObjectNodes(std::move(Arg.ObjectNodes)),
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
+      Constraints(std::move(Arg.Constraints)),
+      NodeWorkList(std::move(Arg.NodeWorkList)),
+      MaxK(std::move(Arg.MaxK)),
+      SCCStack(std::move(Arg.SCCStack)),
+      Node2DFS(std::move(Arg.Node2DFS)),
+      Node2Deleted(std::move(Arg.Node2Deleted)),
+      Tarjan2DFS(std::move(Arg.Tarjan2DFS)),
+      Tarjan2Deleted(std::move(Arg.Tarjan2Deleted)),
+      VSSCCRep(std::move(Arg.VSSCCRep)),
+      Node2Visited(std::move(Arg.Node2Visited)),
+      PEClass2Node(std::move(Arg.PEClass2Node)),
+      PENLEClass2Node(std::move(Arg.PENLEClass2Node)),
+      HCDSCCRep(std::move(Arg.HCDSCCRep)),
+      SDT(std::move(Arg.SDT)),
       VSPrintfWrappers(std::move(Arg.VSPrintfWrappers)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
