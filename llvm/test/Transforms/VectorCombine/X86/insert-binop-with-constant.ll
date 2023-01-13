@@ -24,14 +24,20 @@ define <2 x i64> @add_constant_not_undef_lane(i64 %x) {
   ret <2 x i64> %bo
 }
 
-define <2 x i64> @add_constant_load(i64* %p) {
+define <2 x i64> @add_constant_load(ptr %p) {
 ; CHECK-LABEL: @add_constant_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, i64* [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = add i64 [[LD]], 42 ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> undef, i64 [[BO_SCALAR]], i64 0 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 0
+; CHECK-NEXT:    [[BO:%.*]] = add <2 x i64> [[INS]], <i64 42, i64 -42>
+>>>>>>> c00ffbe02b222ec34a0181436c17025a2dfacedc
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
-  %ld = load i64, i64* %p
+  %ld = load i64, ptr %p
   %ins = insertelement <2 x i64> undef, i64 %ld, i32 0
   %bo = add <2 x i64> %ins, <i64 42, i64 -42>
   ret <2 x i64> %bo
@@ -150,14 +156,20 @@ define <2 x i64> @shl_constant_op0_not_undef_lane(i64 %x) {
   ret <2 x i64> %bo
 }
 
-define <2 x i64> @shl_constant_op0_load(i64* %p) {
+define <2 x i64> @shl_constant_op0_load(ptr %p) {
 ; CHECK-LABEL: @shl_constant_op0_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, i64* [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = shl i64 2, [[LD]] ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> poison, i64 [[BO_SCALAR]], i64 1 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 1
+; CHECK-NEXT:    [[BO:%.*]] = shl <2 x i64> <i64 undef, i64 2>, [[INS]]
+>>>>>>> c00ffbe02b222ec34a0181436c17025a2dfacedc
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
-  %ld = load i64, i64* %p
+  %ld = load i64, ptr %p
   %ins = insertelement <2 x i64> undef, i64 %ld, i32 1
   %bo = shl <2 x i64> <i64 undef, i64 2>, %ins
   ret <2 x i64> %bo
@@ -201,14 +213,20 @@ define <2 x i64> @shl_constant_op1_not_undef_lane(i64 %x) {
   ret <2 x i64> %bo
 }
 
-define <2 x i64> @shl_constant_op1_load(i64* %p) {
+define <2 x i64> @shl_constant_op1_load(ptr %p) {
 ; CHECK-LABEL: @shl_constant_op1_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, i64* [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = shl nuw i64 [[LD]], 5 ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> zeroinitializer, i64 [[BO_SCALAR]], i64 0 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 0
+; CHECK-NEXT:    [[BO:%.*]] = shl nuw <2 x i64> [[INS]], <i64 5, i64 2>
+>>>>>>> c00ffbe02b222ec34a0181436c17025a2dfacedc
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
-  %ld = load i64, i64* %p
+  %ld = load i64, ptr %p
   %ins = insertelement <2 x i64> undef, i64 %ld, i32 0
   %bo = shl nuw <2 x i64> %ins, <i64 5, i64 2>
   ret <2 x i64> %bo
