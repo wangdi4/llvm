@@ -566,7 +566,8 @@
 
 // Behavior with -dryrun maps to -###
 // RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-DRYRUN-OPT
-// CHECK-DRYRUN-OPT: "-cc1"{{.*}}"-emit-obj"
+// CHECK-DRYRUN-OPT: "-cc1"
+// CHECK-DRYRUN-OPT: "-emit-obj"
 
 //Behavior with -qno-openmp/Qopenmp- option
 // RUN: %clang -### -c -qopenmp -qno-openmp %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s

@@ -115,9 +115,9 @@ public:
            "Trying to create a candidate entry without min/max blob");
   }
 
-  HLInst* getMinMaxInst() { return MinMaxInst; }
-  HLInst* getCopyInst() { return CopyInst; }
-  const SCEVMinMaxExpr* getMinMaxBlob() { return MinMaxBlob; }
+  HLInst* getMinMaxInst() const { return MinMaxInst; }
+  HLInst* getCopyInst() const { return CopyInst; }
+  const SCEVMinMaxExpr* getMinMaxBlob() const { return MinMaxBlob; }
 };
 
 // Given an input blob, create a RegDDRef
@@ -305,7 +305,7 @@ void HIRMinMaxBlobToSelect::transformLoop(HLLoop *Loop,
   auto &DDRU = HLNU.getDDRefUtils();
   auto &BU = DDRU.getBlobUtils();
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
-  for (auto Entry : CandidatesVect) {
+  for (auto const &Entry : CandidatesVect) {
 
     HLInst *MinMaxInst = Entry.getMinMaxInst();
     HLInst *CopyInst = Entry.getCopyInst();

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1199,26 +1199,26 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       !JA.isDeviceOffloading(Action::OFK_SYCL))
     addllvmOption("-sycl-host");
 
+  bool LoopOptPipelineExplicitOption = llvm::any_of(
+      Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
+        bool Ret = Option.startswith("-floopopt-pipeline=");
+        if (Ret)
+          llvm::dbgs() << Option;
+        return Ret;
+      });
+  auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
+                             &CmdArgs](const char *Option) -> void {
+    if (LoopOptPipelineExplicitOption)
+      return;
+    if (IsLink)
+      // This is FE option, cannot pass to the linker.
+      return;
+
+    CmdArgs.push_back(Option);
+  };
+
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
-    bool LoopOptPipelineExplicitOption = llvm::any_of(
-        Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
-          bool Ret = Option.startswith("-floopopt-pipeline=");
-          if (Ret)
-            llvm::dbgs() << Option;
-          return Ret;
-        });
-    auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
-                               &CmdArgs](const char *Option) -> void {
-      if (LoopOptPipelineExplicitOption)
-        return;
-      if (IsLink)
-        // This is FE option, cannot pass to the linker.
-        return;
-
-      CmdArgs.push_back(Option);
-    };
-
     bool AddLoopOpt = true;
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
       if (AV.startswith("-loopopt=")) {
@@ -1276,8 +1276,10 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     }
   }
 
-  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled())
+  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled()) {
     addllvmOption("-loopopt=1");
+    AddLoopOptPipeline("-floopopt-pipeline=light");
+  }
 
   // -qoverride-limits
   if (Args.hasArg(options::OPT_qoverride_limits))

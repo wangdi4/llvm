@@ -72,7 +72,9 @@ struct MemOpCandidate {
   bool isMemset() const { return RHS->isTerminalRef(); }
   bool isMemcopy() const { return RHS->isMemRef(); }
 
-  MemOpCandidate() {}
+  MemOpCandidate()
+      : DefInst(nullptr), StoreRef(nullptr), RHS(nullptr),
+        IsStoreNegStride(false) {}
 
   MemOpCandidate(RegDDRef *StoreRef)
       : StoreRef(StoreRef), IsStoreNegStride(false) {
@@ -148,7 +150,7 @@ public:
   HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                       HIRDDAnalysis &DDA, TargetLibraryInfo &TLI)
       : HIRF(HIRF), DDA(DDA), TLI(TLI), DL(HIRF.getDataLayout()),
-        M(HIRF.getModule()) {}
+        M(HIRF.getModule()), HasMemcopy(false), HasMemset(false) {}
 
   bool run();
   bool runOnLoop(HLLoop *Loop);
