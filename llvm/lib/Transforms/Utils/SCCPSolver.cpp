@@ -1652,32 +1652,12 @@ void SCCPInstVisitor::handleCallOverdefined(CallBase &CB) {
 }
 
 void SCCPInstVisitor::handleCallArguments(CallBase &CB) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Return true if there is some casting in the input Values VPtr and VArr
   // but the casting mismatches. Else return false.
   auto BadArrToPtrCast = [](Value *VArr, Value *VPtr) -> bool {
     if (!VArr || !VPtr)
       return false;
-=======
-  Function *F = CB.getCalledFunction();
-  // If this is a local function that doesn't have its address taken, mark its
-  // entry block executable and merge in the actual arguments to the call into
-  // the formal arguments of the function.
-  if (TrackingIncomingArguments.count(F)) {
-    markBlockExecutable(&F->front());
-
-    // Propagate information from this call site into the callee.
-    auto CAI = CB.arg_begin();
-    for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end(); AI != E;
-         ++AI, ++CAI) {
-      // If this argument is byval, and if the function is not readonly, there
-      // will be an implicit copy formed of the input aggregate.
-      if (AI->hasByValAttr() && !F->onlyReadsMemory()) {
-        markOverdefined(&*AI);
-        continue;
-      }
->>>>>>> 95570af6fafe8cb683cb3edd2e9d53a41c46559c
 
     if (!EnableCallbacks)
       return false;
@@ -1702,8 +1682,7 @@ void SCCPInstVisitor::handleCallArguments(CallBase &CB) {
     // If this is a local function that doesn't have its address taken, mark its
     // entry block executable and merge in the actual arguments to the call into
     // the formal arguments of the function.
-    if (!TrackingIncomingArguments.empty() &&
-        TrackingIncomingArguments.count(F)) {
+    if (TrackingIncomingArguments.count(F)) {
       markBlockExecutable(&F->front());
 
       // Propagate information from this call site into the callee.
