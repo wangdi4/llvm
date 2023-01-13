@@ -48,8 +48,10 @@ public:
   virtual KnownBits getKnownBits(VPlanSCEV *Expr,
                                  const VPInstruction *CtxI) = 0;
 
-  /// Compute KnownBits for an arbitrary \p Expr at point \p CtxI.
-  KnownBits getKnownBits(const VPValue *Expr, const VPInstruction *CtxI) const;
+  /// Compute KnownBits for an arbitrary \p Expr, at the point \p CtxI, widened
+  /// according to the given \p VF.
+  KnownBits getKnownBits(const VPValue *Expr, const VPInstruction *CtxI,
+                         unsigned VF = 1) const;
 
   /// Set whether underlying values are used when computing known bits.
   static void setUseUnderlyingValues(bool V) { UseUnderlyingValues = V; }
