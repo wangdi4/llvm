@@ -102,7 +102,6 @@ define void @gather_load(ptr noalias nocapture %0, ptr noalias nocapture readonl
 ; AVX512VL-NEXT:    store <4 x i32> [[TMP6]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @gather_load(
 ; XMAIN-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
@@ -121,17 +120,6 @@ define void @gather_load(ptr noalias nocapture %0, ptr noalias nocapture readonl
 ; XMAIN-NEXT:    store <4 x i32> [[TMP14]], <4 x i32>* [[TMP15]], align 4, !tbaa [[TBAA0]]
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %3 = getelementptr inbounds i32, i32* %1, i64 1
-  %4 = load i32, i32* %1, align 4, !tbaa !2
-  %5 = getelementptr inbounds i32, i32* %0, i64 1
-  %6 = getelementptr inbounds i32, i32* %1, i64 11
-  %7 = load i32, i32* %6, align 4, !tbaa !2
-  %8 = getelementptr inbounds i32, i32* %0, i64 2
-  %9 = getelementptr inbounds i32, i32* %1, i64 4
-  %10 = load i32, i32* %9, align 4, !tbaa !2
-  %11 = getelementptr inbounds i32, i32* %0, i64 3
-  %12 = load i32, i32* %3, align 4, !tbaa !2
-=======
   %3 = getelementptr inbounds i32, ptr %1, i64 1
   %4 = load i32, ptr %1, align 4, !tbaa !2
   %5 = getelementptr inbounds i32, ptr %0, i64 1
@@ -142,7 +130,6 @@ define void @gather_load(ptr noalias nocapture %0, ptr noalias nocapture readonl
   %10 = load i32, ptr %9, align 4, !tbaa !2
   %11 = getelementptr inbounds i32, ptr %0, i64 3
   %12 = load i32, ptr %3, align 4, !tbaa !2
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
   %13 = insertelement <4 x i32> undef, i32 %4, i32 0
   %14 = insertelement <4 x i32> %13, i32 %7, i32 1
   %15 = insertelement <4 x i32> %14, i32 %10, i32 2
@@ -235,7 +222,6 @@ define void @gather_load_2(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; AVX512VL-NEXT:    store <4 x i32> [[TMP6]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_2(
 ; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
@@ -331,12 +317,8 @@ define void @gather_load_2(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; XMAINAVX512VL-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %3 = getelementptr inbounds i32, i32* %1, i64 1
-  %4 = load i32, i32* %3, align 4, !tbaa !2
-=======
   %3 = getelementptr inbounds i32, ptr %1, i64 1
   %4 = load i32, ptr %3, align 4, !tbaa !2
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
   %5 = add nsw i32 %4, 1
   %6 = getelementptr inbounds i32, ptr %0, i64 1
   store i32 %5, ptr %0, align 4, !tbaa !2
@@ -474,7 +456,6 @@ define void @gather_load_3(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; AVX512VL-NEXT:    store <8 x i32> [[TMP6]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_3(
 ; XMAINSSE-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP1:%.*]], align 4, !tbaa [[TBAA0]]
@@ -595,10 +576,7 @@ define void @gather_load_3(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %3 = load i32, i32* %1, align 4, !tbaa !2
-=======
   %3 = load i32, ptr %1, align 4, !tbaa !2
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
   %4 = add i32 %3, 1
   %5 = getelementptr inbounds i32, ptr %0, i64 1
   store i32 %4, ptr %0, align 4, !tbaa !2
@@ -755,7 +733,6 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ; AVX512VL-NEXT:    store <8 x i32> [[TMP4]], ptr [[T0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_4(
 ; XMAINSSE-NEXT:    [[T5:%.*]] = getelementptr inbounds i32, i32* [[T0:%.*]], i64 1
@@ -876,21 +853,6 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP4]], <8 x i32>* [[TMP5]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %t5 = getelementptr inbounds i32, i32* %t0, i64 1
-  %t6 = getelementptr inbounds i32, i32* %t1, i64 11
-  %t9 = getelementptr inbounds i32, i32* %t0, i64 2
-  %t10 = getelementptr inbounds i32, i32* %t1, i64 4
-  %t13 = getelementptr inbounds i32, i32* %t0, i64 3
-  %t14 = getelementptr inbounds i32, i32* %t1, i64 15
-  %t17 = getelementptr inbounds i32, i32* %t0, i64 4
-  %t18 = getelementptr inbounds i32, i32* %t1, i64 18
-  %t21 = getelementptr inbounds i32, i32* %t0, i64 5
-  %t22 = getelementptr inbounds i32, i32* %t1, i64 9
-  %t25 = getelementptr inbounds i32, i32* %t0, i64 6
-  %t26 = getelementptr inbounds i32, i32* %t1, i64 6
-  %t29 = getelementptr inbounds i32, i32* %t0, i64 7
-  %t30 = getelementptr inbounds i32, i32* %t1, i64 21
-=======
   %t5 = getelementptr inbounds i32, ptr %t0, i64 1
   %t6 = getelementptr inbounds i32, ptr %t1, i64 11
   %t9 = getelementptr inbounds i32, ptr %t0, i64 2
@@ -905,7 +867,6 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
   %t26 = getelementptr inbounds i32, ptr %t1, i64 6
   %t29 = getelementptr inbounds i32, ptr %t0, i64 7
   %t30 = getelementptr inbounds i32, ptr %t1, i64 21
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
   %t3 = load i32, ptr %t1, align 4, !tbaa !2
   %t7 = load i32, ptr %t6, align 4, !tbaa !2
@@ -1120,7 +1081,6 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; AVX512VL-NEXT:    store <8 x float> [[TMP8]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_div(
 ; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 4
@@ -1309,35 +1269,9 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; XMAINAVX512VL-NEXT:    store <8 x float> [[TMP8]], <8 x float>* [[TMP9]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %3 = load float, float* %1, align 4, !tbaa !2
-  %4 = getelementptr inbounds float, float* %1, i64 4
-  %5 = load float, float* %4, align 4, !tbaa !2
-=======
-; AVX512-LABEL: @gather_load_div(
-; AVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, ptr [[TMP1:%.*]], i64 10
-; AVX512-NEXT:    [[TMP4:%.*]] = insertelement <2 x ptr> poison, ptr [[TMP1]], i32 0
-; AVX512-NEXT:    [[TMP5:%.*]] = shufflevector <2 x ptr> [[TMP4]], <2 x ptr> poison, <2 x i32> zeroinitializer
-; AVX512-NEXT:    [[TMP6:%.*]] = getelementptr float, <2 x ptr> [[TMP5]], <2 x i64> <i64 3, i64 14>
-; AVX512-NEXT:    [[TMP7:%.*]] = insertelement <4 x ptr> poison, ptr [[TMP1]], i32 0
-; AVX512-NEXT:    [[TMP8:%.*]] = shufflevector <4 x ptr> [[TMP7]], <4 x ptr> poison, <4 x i32> zeroinitializer
-; AVX512-NEXT:    [[TMP9:%.*]] = getelementptr float, <4 x ptr> [[TMP8]], <4 x i64> <i64 17, i64 8, i64 5, i64 20>
-; AVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x ptr> poison, ptr [[TMP1]], i32 0
-; AVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x ptr> [[TMP10]], ptr [[TMP3]], i32 1
-; AVX512-NEXT:    [[TMP12:%.*]] = shufflevector <2 x ptr> [[TMP6]], <2 x ptr> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512-NEXT:    [[TMP13:%.*]] = shufflevector <8 x ptr> [[TMP11]], <8 x ptr> [[TMP12]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512-NEXT:    [[TMP14:%.*]] = shufflevector <4 x ptr> [[TMP9]], <4 x ptr> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512-NEXT:    [[TMP15:%.*]] = shufflevector <8 x ptr> [[TMP13]], <8 x ptr> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
-; AVX512-NEXT:    [[TMP16:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP15]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !tbaa [[TBAA0]]
-; AVX512-NEXT:    [[TMP17:%.*]] = shufflevector <8 x ptr> [[TMP10]], <8 x ptr> poison, <8 x i32> zeroinitializer
-; AVX512-NEXT:    [[TMP18:%.*]] = getelementptr float, <8 x ptr> [[TMP17]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
-; AVX512-NEXT:    [[TMP19:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP18]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !tbaa [[TBAA0]]
-; AVX512-NEXT:    [[TMP20:%.*]] = fdiv <8 x float> [[TMP16]], [[TMP19]]
-; AVX512-NEXT:    store <8 x float> [[TMP20]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
-; AVX512-NEXT:    ret void
   %3 = load float, ptr %1, align 4, !tbaa !2
   %4 = getelementptr inbounds float, ptr %1, i64 4
   %5 = load float, ptr %4, align 4, !tbaa !2
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
   %6 = fdiv float %3, %5
   %7 = getelementptr inbounds float, ptr %0, i64 1
   store float %6, ptr %0, align 4, !tbaa !2

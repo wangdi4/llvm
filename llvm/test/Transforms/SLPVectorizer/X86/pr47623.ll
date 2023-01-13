@@ -61,7 +61,6 @@ define void @foo() {
 ; AVX512-NEXT:    store <8 x i32> [[SHUFFLE]], ptr @a, align 16
 ; AVX512-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINAVX-LABEL: @foo(
 ; XMAINAVX-NEXT:    [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 0), align 16
@@ -72,17 +71,6 @@ define void @foo() {
 ; XMAINAVX-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast ([8 x i32]* @a to <8 x i32>*), align 16
 ; XMAINAVX-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %1 = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 0), align 16
-  store i32 %1, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 0), align 16
-  %2 = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 2), align 8
-  store i32 %2, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 1), align 4
-  store i32 %1, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 2), align 8
-  store i32 %2, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 3), align 4
-  store i32 %1, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 4), align 16
-  store i32 %2, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 5), align 4
-  store i32 %1, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 6), align 8
-  store i32 %2, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @a, i64 0, i64 7), align 4
-=======
   %1 = load i32, ptr @b, align 16
   store i32 %1, ptr @a, align 16
   %2 = load i32, ptr getelementptr inbounds ([8 x i32], ptr @b, i64 0, i64 2), align 8
@@ -93,6 +81,5 @@ define void @foo() {
   store i32 %2, ptr getelementptr inbounds ([8 x i32], ptr @a, i64 0, i64 5), align 4
   store i32 %1, ptr getelementptr inbounds ([8 x i32], ptr @a, i64 0, i64 6), align 8
   store i32 %2, ptr getelementptr inbounds ([8 x i32], ptr @a, i64 0, i64 7), align 4
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
   ret void
 }

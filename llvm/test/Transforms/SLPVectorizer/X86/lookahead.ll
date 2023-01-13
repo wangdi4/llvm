@@ -281,14 +281,10 @@ entry:
 ; SLP should reorder the operands of the RHS add taking into consideration the cost of external uses.
 ; It is more profitable to reorder the operands of the RHS add, because A[1] has an external use.
 
-<<<<<<< HEAD
-define void @lookahead_external_uses(double* %A, double *%B, double *%C, double *%D, double *%S, double *%Ext1, double *%Ext2) {
+define void @lookahead_external_uses(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2) {
 ; INTEL_CUSTOMIZATION
 ; Test behaves differently on xmain due to TTI cost customization for llvm.masked.gather
 ; Checks were regenerated to match xmain behavior
-=======
-define void @lookahead_external_uses(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2) {
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; CHECK-LABEL: @lookahead_external_uses(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
@@ -400,14 +396,10 @@ entry:
 ; The result is that the operands are of the Add not reordered and the loads
 ; from A get vectorized instead of the loads from B.
 ;
-<<<<<<< HEAD
-define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, double *%D, double *%S, double *%Ext1, double *%Ext2, double *%Ext3, double *%Ext4, double *%Ext5) {
+define void @lookahead_limit_users_budget(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2, ptr %Ext3, ptr %Ext4, ptr %Ext5) {
 ; INTEL_CUSTOMIZATION
 ; Test behaves differently on xmain due to TTI cost customizations
 ; Checks were regenerated to match xmain behavior
-=======
-define void @lookahead_limit_users_budget(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2, ptr %Ext3, ptr %Ext4, ptr %Ext5) {
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; CHECK-LABEL: @lookahead_limit_users_budget(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
@@ -536,7 +528,6 @@ define void @lookahead_crash(ptr %A, ptr %S, ptr %Arg0) {
 ; CHECK-NEXT:    store <2 x double> [[TMP5]], ptr [[S:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @lookahead_crash(
 ; XMAIN-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
@@ -552,12 +543,8 @@ define void @lookahead_crash(ptr %A, ptr %S, ptr %Arg0) {
 ; XMAIN-NEXT:    store <2 x double> [[TMP5]], <2 x double>* [[TMP6]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %IdxA0 = getelementptr inbounds double, double* %A, i64 0
-  %IdxA1 = getelementptr inbounds double, double* %A, i64 1
-=======
   %IdxA1 = getelementptr inbounds double, ptr %A, i64 1
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
-
+=======
   %A0 = load double, ptr %A, align 8
   %A1 = load double, ptr %IdxA1, align 8
 
@@ -591,7 +578,6 @@ define void @ChecksExtractScores(ptr %storeArray, ptr %array, ptr %vecPtr1, ptr 
 ; CHECK-NEXT:    store <2 x double> [[TMP5]], ptr [[STOREARRAY:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @ChecksExtractScores(
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
@@ -612,15 +598,9 @@ define void @ChecksExtractScores(ptr %storeArray, ptr %array, ptr %vecPtr1, ptr 
 ; XMAIN-NEXT:    store <2 x double> [[TMP5]], <2 x double>* [[TMP6]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %idx0 = getelementptr inbounds double, double* %array, i64 0
-  %idx1 = getelementptr inbounds double, double* %array, i64 1
-  %loadA0 = load double, double* %idx0, align 4
-  %loadA1 = load double, double* %idx1, align 4
-=======
   %idx1 = getelementptr inbounds double, ptr %array, i64 1
   %loadA0 = load double, ptr %array, align 4
   %loadA1 = load double, ptr %idx1, align 4
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
   %loadVec = load <2 x double>, ptr %vecPtr1, align 4
   %extrA0 = extractelement <2 x double> %loadVec, i32 0
@@ -832,12 +812,8 @@ define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
 }
 
 ; Same as @ChecksExtractScores, but the extratelement vector operands do not match.
-<<<<<<< HEAD
-define void @ChecksExtractScores_different_vectors(double* %storeArray, double* %array, <2 x double> *%vecPtr1, <2 x double>* %vecPtr2, <2 x double>* %vecPtr3, <2 x double>* %vecPtr4) {
-=======
 define void @ChecksExtractScores_different_vectors(ptr %storeArray, ptr %array, ptr %vecPtr1, ptr %vecPtr2, ptr %vecPtr3, ptr %vecPtr4) {
 ;
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; SSE-LABEL: @ChecksExtractScores_different_vectors(
 ; SSE-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, ptr [[VECPTR1:%.*]], align 4
 ; SSE-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, ptr [[VECPTR2:%.*]], align 4
@@ -885,7 +861,6 @@ define void @ChecksExtractScores_different_vectors(ptr %storeArray, ptr %array, 
 ; AVX-NEXT:    store <2 x double> [[TMP9]], ptr [[STOREARRAY:%.*]], align 8
 ; AVX-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @ChecksExtractScores_different_vectors(
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
@@ -916,15 +891,9 @@ define void @ChecksExtractScores_different_vectors(ptr %storeArray, ptr %array, 
 ; XMAIN-NEXT:    store <2 x double> [[TMP9]], <2 x double>* [[TMP10]], align 8
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
-  %idx0 = getelementptr inbounds double, double* %array, i64 0
-  %idx1 = getelementptr inbounds double, double* %array, i64 1
-  %loadA0 = load double, double* %idx0, align 4
-  %loadA1 = load double, double* %idx1, align 4
-=======
   %idx1 = getelementptr inbounds double, ptr %array, i64 1
   %loadA0 = load double, ptr %array, align 4
   %loadA1 = load double, ptr %idx1, align 4
->>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
   %loadVec = load <2 x double>, ptr %vecPtr1, align 4
   %loadVec2 = load <2 x double>, ptr %vecPtr2, align 4
