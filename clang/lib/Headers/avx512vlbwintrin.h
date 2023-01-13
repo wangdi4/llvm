@@ -2828,7 +2828,6 @@ _mm256_mask_permutexvar_epi16 (__m256i __W, __mmask16 __M, __m256i __A,
                                   (__v16hi)_mm256_dbsad_epu8((A), (B), (imm)), \
                                   (__v16hi)_mm256_setzero_si256()))
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* Vector-reduction arithmetic accepts vectors as inputs and produces scalars as
  * outputs. This class of vector operation forms the basis of many scientific
@@ -2853,74 +2852,44 @@ _mm256_mask_permutexvar_epi16 (__m256i __W, __mmask16 __M, __m256i __A,
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_add_epi16(__m128i __W) {
   _mm_mask_reduce_operator(+);
-=======
-static __inline__ short __DEFAULT_FN_ATTRS128
-_mm_reduce_add_epi16(__m128i __W) {
-  return __builtin_reduce_add((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_mul_epi16(__m128i __W) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(*);
-=======
-  return __builtin_reduce_mul((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_and_epi16(__m128i __W) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(&);
-=======
-  return __builtin_reduce_and((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_or_epi16(__m128i __W) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(|);
-=======
-  return __builtin_reduce_or((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_add_epi16( __mmask8 __M, __m128i __W) {
   __W = _mm_maskz_mov_epi16(__M, __W);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(+);
-=======
-  return __builtin_reduce_add((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_mul_epi16( __mmask8 __M, __m128i __W) {
   __W = _mm_mask_mov_epi16(_mm_set1_epi16(1), __M, __W);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(*);
-=======
-  return __builtin_reduce_mul((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_and_epi16( __mmask8 __M, __m128i __W) {
   __W = _mm_mask_mov_epi16(_mm_set1_epi16(-1), __M, __W);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(&);
-=======
-  return __builtin_reduce_and((__v8hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_or_epi16(__mmask8 __M, __m128i __W) {
   __W = _mm_maskz_mov_epi16(__M, __W);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(|);
 }
 #undef _mm_mask_reduce_operator
@@ -2937,77 +2906,44 @@ _mm_mask_reduce_or_epi16(__mmask8 __M, __m128i __W) {
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_max_epi16(__m128i __V) {
   _mm_mask_reduce_operator(max_epi16);
-=======
-  return __builtin_reduce_or((__v8hi)__W);
-}
-
-static __inline__ short __DEFAULT_FN_ATTRS128
-_mm_reduce_max_epi16(__m128i __V) {
-  return __builtin_reduce_max((__v8hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS128
 _mm_reduce_max_epu16(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epu16);
-=======
-  return __builtin_reduce_max((__v8hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_reduce_min_epi16(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epi16);
-=======
-  return __builtin_reduce_min((__v8hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS128
 _mm_reduce_min_epu16(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epu16);
-=======
-  return __builtin_reduce_min((__v8hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_max_epi16(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi16(_mm_set1_epi16(-32767-1), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epi16);
-=======
-  return __builtin_reduce_max((__v8hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_max_epu16(__mmask16 __M, __m128i __V) {
   __V = _mm_maskz_mov_epi16(__M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epu16);
-=======
-  return __builtin_reduce_max((__v8hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_min_epi16(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi16(_mm_set1_epi16(32767), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epi16);
-=======
-  return __builtin_reduce_min((__v8hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_min_epu16(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi16(_mm_set1_epi16(-1), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epu16);
 }
 #undef _mm_mask_reduce_operator
@@ -3027,77 +2963,44 @@ _mm_mask_reduce_min_epu16(__mmask16 __M, __m128i __V) {
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_add_epi16(__m256i __W) {
   _mm256_mask_reduce_operator(+);
-=======
-  return __builtin_reduce_min((__v8hu)__V);
-}
-
-static __inline__ short __DEFAULT_FN_ATTRS256
-_mm256_reduce_add_epi16(__m256i __W) {
-  return __builtin_reduce_add((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_mul_epi16(__m256i __W) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(*);
-=======
-  return __builtin_reduce_mul((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_and_epi16(__m256i __W) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(&);
-=======
-  return __builtin_reduce_and((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_or_epi16(__m256i __W) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(|);
-=======
-  return __builtin_reduce_or((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_add_epi16( __mmask16 __M, __m256i __W) {
   __W = _mm256_maskz_mov_epi16(__M, __W);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(+);
-=======
-  return __builtin_reduce_add((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_mul_epi16( __mmask16 __M, __m256i __W) {
   __W = _mm256_mask_mov_epi16(_mm256_set1_epi16(1), __M, __W);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(*);
-=======
-  return __builtin_reduce_mul((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_and_epi16( __mmask16 __M, __m256i __W) {
   __W = _mm256_mask_mov_epi16(_mm256_set1_epi16(-1), __M, __W);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(&);
-=======
-  return __builtin_reduce_and((__v16hi)__W);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_or_epi16(__mmask16 __M, __m256i __W) {
   __W = _mm256_maskz_mov_epi16(__M, __W);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(|);
 }
 #undef _mm256_mask_reduce_operator
@@ -3117,77 +3020,44 @@ _mm256_mask_reduce_or_epi16(__mmask16 __M, __m256i __W) {
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_max_epi16(__m256i __V) {
   _mm256_mask_reduce_operator(max_epi16);
-=======
-  return __builtin_reduce_or((__v16hi)__W);
-}
-
-static __inline__ short __DEFAULT_FN_ATTRS256
-_mm256_reduce_max_epi16(__m256i __V) {
-  return __builtin_reduce_max((__v16hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS256
 _mm256_reduce_max_epu16(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epu16);
-=======
-  return __builtin_reduce_max((__v16hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_reduce_min_epi16(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epi16);
-=======
-  return __builtin_reduce_min((__v16hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS256
 _mm256_reduce_min_epu16(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epu16);
-=======
-  return __builtin_reduce_min((__v16hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_max_epi16(__mmask16 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(-32767-1), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epi16);
-=======
-  return __builtin_reduce_max((__v16hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_max_epu16(__mmask16 __M, __m256i __V) {
   __V = _mm256_maskz_mov_epi16(__M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epu16);
-=======
-  return __builtin_reduce_max((__v16hu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_min_epi16(__mmask16 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(32767), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epi16);
-=======
-  return __builtin_reduce_min((__v16hi)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_min_epu16(__mmask16 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi16(_mm256_set1_epi16(-1), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epu16);
 }
 #undef _mm256_mask_reduce_operator
@@ -3263,121 +3133,44 @@ _mm_mask_reduce_or_epi8(__mmask16 __M, __m128i __W) {
 static __inline__ signed char __DEFAULT_FN_ATTRS128
 _mm_reduce_max_epi8(__m128i __V) {
   _mm_mask_reduce_operator(max_epi8);
-=======
-  return __builtin_reduce_min((__v16hu)__V);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_reduce_add_epi8(__m128i __W) {
-  return __builtin_reduce_add((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_reduce_mul_epi8(__m128i __W) {
-  return __builtin_reduce_mul((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_reduce_and_epi8(__m128i __W) {
-  return __builtin_reduce_and((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_reduce_or_epi8(__m128i __W) {
-  return __builtin_reduce_or((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_mask_reduce_add_epi8( __mmask16 __M, __m128i __W) {
-  __W = _mm_maskz_mov_epi8(__M, __W);
-  return __builtin_reduce_add((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_mask_reduce_mul_epi8( __mmask16 __M, __m128i __W) {
-  __W = _mm_mask_mov_epi8(_mm_set1_epi8(1), __M, __W);
-  return __builtin_reduce_mul((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_mask_reduce_and_epi8( __mmask16 __M, __m128i __W) {
-  __W = _mm_mask_mov_epi8(_mm_set1_epi8(-1), __M, __W);
-  return __builtin_reduce_and((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_mask_reduce_or_epi8(__mmask16 __M, __m128i __W) {
-  __W = _mm_maskz_mov_epi8(__M, __W);
-  return __builtin_reduce_or((__v16qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS128
-_mm_reduce_max_epi8(__m128i __V) {
-  return __builtin_reduce_max((__v16qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS128
 _mm_reduce_max_epu8(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epu8);
-=======
-  return __builtin_reduce_max((__v16qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS128
 _mm_reduce_min_epi8(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epi8);
-=======
-  return __builtin_reduce_min((__v16qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS128
 _mm_reduce_min_epu8(__m128i __V) {
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epu8);
-=======
-  return __builtin_reduce_min((__v16qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_max_epi8(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi8(_mm_set1_epi8(-127-1), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epi8);
-=======
-  return __builtin_reduce_max((__v16qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_max_epu8(__mmask16 __M, __m128i __V) {
   __V = _mm_maskz_mov_epi8(__M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(max_epu8);
-=======
-  return __builtin_reduce_max((__v16qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_min_epi8(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi8(_mm_set1_epi8(127), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epi8);
-=======
-  return __builtin_reduce_min((__v16qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS128
 _mm_mask_reduce_min_epu8(__mmask16 __M, __m128i __V) {
   __V = _mm_mask_mov_epi8(_mm_set1_epi8(-1), __M, __V);
-<<<<<<< HEAD
   _mm_mask_reduce_operator(min_epu8);
 }
 #undef _mm_mask_reduce_operator
@@ -3458,130 +3251,49 @@ _mm256_mask_reduce_or_epi8(__mmask32 __M, __m256i __W) {
 static __inline__ signed char __DEFAULT_FN_ATTRS256
 _mm256_reduce_max_epi8(__m256i __V) {
   _mm256_mask_reduce_operator(max_epi8);
-=======
-  return __builtin_reduce_min((__v16qu)__V);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_reduce_add_epi8(__m256i __W) {
-  return __builtin_reduce_add((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_reduce_mul_epi8(__m256i __W) {
-  return __builtin_reduce_mul((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_reduce_and_epi8(__m256i __W) {
-  return __builtin_reduce_and((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_reduce_or_epi8(__m256i __W) {
-  return __builtin_reduce_or((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_mask_reduce_add_epi8( __mmask32 __M, __m256i __W) {
-  __W = _mm256_maskz_mov_epi8(__M, __W);
-  return __builtin_reduce_add((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_mask_reduce_mul_epi8( __mmask32 __M, __m256i __W) {
-  __W = _mm256_mask_mov_epi8(_mm256_set1_epi8(1), __M, __W);
-  return __builtin_reduce_mul((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_mask_reduce_and_epi8( __mmask32 __M, __m256i __W) {
-  __W = _mm256_mask_mov_epi8(_mm256_set1_epi8(-1), __M, __W);
-  return __builtin_reduce_and((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_mask_reduce_or_epi8(__mmask32 __M, __m256i __W) {
-  __W = _mm256_maskz_mov_epi8(__M, __W);
-  return __builtin_reduce_or((__v32qs)__W);
-}
-
-static __inline__ signed char __DEFAULT_FN_ATTRS256
-_mm256_reduce_max_epi8(__m256i __V) {
-  return __builtin_reduce_max((__v32qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS256
 _mm256_reduce_max_epu8(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epu8);
-=======
-  return __builtin_reduce_max((__v32qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS256
 _mm256_reduce_min_epi8(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epi8);
-=======
-  return __builtin_reduce_min((__v32qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS256
 _mm256_reduce_min_epu8(__m256i __V) {
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epu8);
-=======
-  return __builtin_reduce_min((__v32qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_max_epi8(__mmask32 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(-127-1), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epi8);
-=======
-  return __builtin_reduce_max((__v32qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_max_epu8(__mmask32 __M, __m256i __V) {
   __V = _mm256_maskz_mov_epi8(__M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(max_epu8);
-=======
-  return __builtin_reduce_max((__v32qu)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ signed char __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_min_epi8(__mmask32 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(127), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epi8);
-=======
-  return __builtin_reduce_min((__v32qs)__V);
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS256
 _mm256_mask_reduce_min_epu8(__mmask32 __M, __m256i __V) {
   __V = _mm256_mask_mov_epi8(_mm256_set1_epi8(-1), __M, __V);
-<<<<<<< HEAD
   _mm256_mask_reduce_operator(min_epu8);
 }
 #undef _mm256_mask_reduce_operator
 
 /* end INTEL_CUSTOMIZATION */
-=======
-  return __builtin_reduce_min((__v32qu)__V);
-}
->>>>>>> 68a888012b12f9846131baae2533927617a58584
 
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
