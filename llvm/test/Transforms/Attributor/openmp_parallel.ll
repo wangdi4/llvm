@@ -31,20 +31,6 @@ define dso_local void @func(ptr nocapture %a, ptr %b, i32 %N) local_unnamed_addr
 ; TUNIT-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, ptr noundef @.omp_outlined., ptr noalias nocapture nofree nonnull readnone align 4 dereferenceable(4) undef, ptr noalias nocapture nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], ptr noalias nocapture nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
 ; TUNIT-NEXT:    ret void
 ;
-<<<<<<< HEAD
-; IS__CGSCC_NPM: Function Attrs: nounwind uwtable
-; IS__CGSCC_NPM-LABEL: define {{[^@]+}}@func
-; IS__CGSCC_NPM-SAME: (float* nocapture nofree [[A:%.*]], float* nofree [[B:%.*]], i32 [[N:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
-; IS__CGSCC_NPM-NEXT:  entry:
-; IS__CGSCC_NPM-NEXT:    [[A_ADDR:%.*]] = alloca float*, align 8
-; IS__CGSCC_NPM-NEXT:    [[B_ADDR:%.*]] = alloca float*, align 8
-; IS__CGSCC_NPM-NEXT:    [[N_ADDR:%.*]] = alloca i32, align 4
-; IS__CGSCC_NPM-NEXT:    store float* [[A]], float** [[A_ADDR]], align 8
-; IS__CGSCC_NPM-NEXT:    store float* [[B]], float** [[B_ADDR]], align 8
-; IS__CGSCC_NPM-NEXT:    store i32 199, i32* [[N_ADDR]], align 4
-; IS__CGSCC_NPM-NEXT:    call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, void (i32*, i32*, ...)* noundef bitcast (void (i32*, i32*, i32*, float**, float**)* @.omp_outlined. to void (i32*, i32*, ...)*), i32* noalias nofree noundef nonnull readonly align 4 dereferenceable(4) [[N_ADDR]], float** noalias nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], float** noalias nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
-; IS__CGSCC_NPM-NEXT:    ret void
-=======
 ; CGSCC: Function Attrs: nounwind uwtable
 ; CGSCC-LABEL: define {{[^@]+}}@func
 ; CGSCC-SAME: (ptr nocapture nofree [[A:%.*]], ptr nofree [[B:%.*]], i32 [[N:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
@@ -57,7 +43,6 @@ define dso_local void @func(ptr nocapture %a, ptr %b, i32 %N) local_unnamed_addr
 ; CGSCC-NEXT:    store i32 199, ptr [[N_ADDR]], align 4
 ; CGSCC-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr noundef nonnull align 8 dereferenceable(24) @[[GLOB2]], i32 noundef 3, ptr noundef @.omp_outlined., ptr nofree noundef nonnull readonly align 4 dereferenceable(4) [[N_ADDR]], ptr nofree noundef nonnull readonly align 8 dereferenceable(8) [[A_ADDR]], ptr nofree noundef nonnull readonly align 8 dereferenceable(8) [[B_ADDR]])
 ; CGSCC-NEXT:    ret void
->>>>>>> 4f4787e3f64c2ba79c938fe561c53616bdb675f2
 ;
 entry:
   %a.addr = alloca ptr, align 8
