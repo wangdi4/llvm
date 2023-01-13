@@ -47,7 +47,7 @@
 /* INTEL_CUSTOMIZATION */
 #if !__USE_CLANG_CATOMICS && __STDC_HOSTED__ &&                                \
     __has_include_next(<stdatomic.h>) &&                                       \
-    !(defined(_MSC_VER) && defined(__cplusplus) && __cplusplus < 202002L)
+    (!defined(_MSC_VER) || (defined(__cplusplus) && __cplusplus >= 202002L))
 /* end INTEL_CUSTOMIZATION */
 # include_next <stdatomic.h>
 #else
