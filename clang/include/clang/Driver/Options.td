@@ -1048,10 +1048,10 @@ def no_intel_lib_EQ : CommaJoined<["-"], "no-intel-lib=">,
   "libirng, libsvml">;
 def no_intel_lib : Flag<["-"], "no-intel-lib">,
   HelpText<"Restrict linking of all Intel specific libraries.">;
-def _dryrun : Flag<["-"], "dryrun">, Flags<[NoXarchOption]>, Alias<_HASH_HASH_HASH>,
-  HelpText<"Print (but do not run) the commands to run for this compilation">;
 def _HASH : Flag<["-"], "#">, Flags<[NoXarchOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
+def _dryrun : Flag<["-"], "dryrun">, Flags<[NoXarchOption]>, Alias<_HASH>,
+  HelpText<"Print (but do not run) the commands to run for this compilation">;
 def : Flag<["-"], "fast">, Alias<Ofast>;
 def EP : Flag<["-"], "EP">, Flags<[NoXarchOption]>, HelpText<"Preprocess to "
   "stdout, omitting #line directives.">;
