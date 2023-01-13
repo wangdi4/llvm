@@ -915,7 +915,7 @@ void HIROptVarPredicate::splitLoop(
   ThenContainers.resize(Candidates.size());
   ElseContainers.resize(Candidates.size());
 
-  for (auto CI : enumerate(Candidates)) {
+  for (auto const &CI : enumerate(Candidates)) {
     // Invalidate If's container before moving nodes around.
     HLLoop *ParentLoop = CI.value()->getParentLoop();
     HIRInvalidationUtils::invalidateBody(ParentLoop);

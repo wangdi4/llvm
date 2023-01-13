@@ -216,7 +216,8 @@ void NormalizeCasts::LoopsAnalyzer::findAndCollectCandidateLoops(
   if (LoopZextInfoVect.empty())
     return;
 
-  for (auto It : make_range(LoopZextInfoVect.begin(), LoopZextInfoVect.end())) {
+  for (auto const &It :
+       make_range(LoopZextInfoVect.begin(), LoopZextInfoVect.end())) {
     if (SextBlobOP == It.second)
       Pass.LoopCandidates.insert(It.first);
   }
