@@ -67,6 +67,8 @@ opencl/ @intel-restricted/llvm-reviewers-runtime
 
 # OpenCL runtime
 opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/lib/ExecutionEngine/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/include/llvm/ExecutionEngine/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
 # Device library
 libdevice/ @intel-restricted/llvm-reviewers-runtime
