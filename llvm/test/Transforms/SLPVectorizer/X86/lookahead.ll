@@ -31,26 +31,20 @@
 ;          |                    |
 ;         S[0]                 S[1]
 ;
-define void @lookahead_basic(double* %array) {
+define void @lookahead_basic(ptr %array) {
 ; CHECK-LABEL: @lookahead_basic(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
-; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast double* [[IDX2]] to <2 x double>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast double* [[IDX4]] to <2 x double>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x double>, <2 x double>* [[TMP4]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast double* [[IDX6]] to <2 x double>*
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x double>, <2 x double>* [[TMP6]], align 8
+; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, ptr [[ARRAY:%.*]], i64 2
+; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 4
+; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 6
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, ptr [[IDX2]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x double>, ptr [[IDX4]], align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x double>, ptr [[IDX6]], align 8
 ; CHECK-NEXT:    [[TMP8:%.*]] = fsub fast <2 x double> [[TMP1]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = fsub fast <2 x double> [[TMP5]], [[TMP7]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = fadd fast <2 x double> [[TMP9]], [[TMP8]]
-; CHECK-NEXT:    [[TMP11:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP10]], <2 x double>* [[TMP11]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP10]], ptr [[ARRAY]], align 8
 ; CHECK-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
@@ -77,23 +71,22 @@ define void @lookahead_basic(double* %array) {
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %idx0 = getelementptr inbounds double, double* %array, i64 0
-  %idx1 = getelementptr inbounds double, double* %array, i64 1
-  %idx2 = getelementptr inbounds double, double* %array, i64 2
-  %idx3 = getelementptr inbounds double, double* %array, i64 3
-  %idx4 = getelementptr inbounds double, double* %array, i64 4
-  %idx5 = getelementptr inbounds double, double* %array, i64 5
-  %idx6 = getelementptr inbounds double, double* %array, i64 6
-  %idx7 = getelementptr inbounds double, double* %array, i64 7
+  %idx1 = getelementptr inbounds double, ptr %array, i64 1
+  %idx2 = getelementptr inbounds double, ptr %array, i64 2
+  %idx3 = getelementptr inbounds double, ptr %array, i64 3
+  %idx4 = getelementptr inbounds double, ptr %array, i64 4
+  %idx5 = getelementptr inbounds double, ptr %array, i64 5
+  %idx6 = getelementptr inbounds double, ptr %array, i64 6
+  %idx7 = getelementptr inbounds double, ptr %array, i64 7
 
-  %A_0 = load double, double *%idx0, align 8
-  %A_1 = load double, double *%idx1, align 8
-  %B_0 = load double, double *%idx2, align 8
-  %B_1 = load double, double *%idx3, align 8
-  %C_0 = load double, double *%idx4, align 8
-  %C_1 = load double, double *%idx5, align 8
-  %D_0 = load double, double *%idx6, align 8
-  %D_1 = load double, double *%idx7, align 8
+  %A_0 = load double, ptr %array, align 8
+  %A_1 = load double, ptr %idx1, align 8
+  %B_0 = load double, ptr %idx2, align 8
+  %B_1 = load double, ptr %idx3, align 8
+  %C_0 = load double, ptr %idx4, align 8
+  %C_1 = load double, ptr %idx5, align 8
+  %D_0 = load double, ptr %idx6, align 8
+  %D_1 = load double, ptr %idx7, align 8
 
   %subAB_0 = fsub fast double %A_0, %B_0
   %subCD_0 = fsub fast double %C_0, %D_0
@@ -104,8 +97,8 @@ entry:
   %addABCD_0 = fadd fast double %subAB_0, %subCD_0
   %addCDAB_1 = fadd fast double %subCD_1, %subAB_1
 
-  store double %addABCD_0, double *%idx0, align 8
-  store double %addCDAB_1, double *%idx1, align 8
+  store double %addABCD_0, ptr %array, align 8
+  store double %addCDAB_1, ptr %idx1, align 8
   ret void
 }
 
@@ -121,24 +114,20 @@ entry:
 ;          |                    |
 ;         S[0]                 S[1]
 ;
-define void @lookahead_alt1(double* %array) {
+define void @lookahead_alt1(ptr %array) {
 ; CHECK-LABEL: @lookahead_alt1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
-; CHECK-NEXT:    [[IDX5:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 5
-; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
-; CHECK-NEXT:    [[IDX7:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 7
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast double* [[IDX2]] to <2 x double>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
+; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, ptr [[ARRAY:%.*]], i64 2
+; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 4
+; CHECK-NEXT:    [[IDX5:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 5
+; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 6
+; CHECK-NEXT:    [[IDX7:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 7
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, ptr [[IDX2]], align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub fast <2 x double> [[TMP1]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd fast <2 x double> [[TMP1]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd fast <2 x double> [[TMP5]], [[TMP4]]
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP6]], <2 x double>* [[TMP7]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP6]], ptr [[ARRAY]], align 8
 ; CHECK-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
@@ -162,19 +151,18 @@ define void @lookahead_alt1(double* %array) {
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 entry:
-  %idx0 = getelementptr inbounds double, double* %array, i64 0
-  %idx1 = getelementptr inbounds double, double* %array, i64 1
-  %idx2 = getelementptr inbounds double, double* %array, i64 2
-  %idx3 = getelementptr inbounds double, double* %array, i64 3
-  %idx4 = getelementptr inbounds double, double* %array, i64 4
-  %idx5 = getelementptr inbounds double, double* %array, i64 5
-  %idx6 = getelementptr inbounds double, double* %array, i64 6
-  %idx7 = getelementptr inbounds double, double* %array, i64 7
+  %idx1 = getelementptr inbounds double, ptr %array, i64 1
+  %idx2 = getelementptr inbounds double, ptr %array, i64 2
+  %idx3 = getelementptr inbounds double, ptr %array, i64 3
+  %idx4 = getelementptr inbounds double, ptr %array, i64 4
+  %idx5 = getelementptr inbounds double, ptr %array, i64 5
+  %idx6 = getelementptr inbounds double, ptr %array, i64 6
+  %idx7 = getelementptr inbounds double, ptr %array, i64 7
 
-  %A_0 = load double, double *%idx0, align 8
-  %A_1 = load double, double *%idx1, align 8
-  %B_0 = load double, double *%idx2, align 8
-  %B_1 = load double, double *%idx3, align 8
+  %A_0 = load double, ptr %array, align 8
+  %A_1 = load double, ptr %idx1, align 8
+  %B_0 = load double, ptr %idx2, align 8
+  %B_1 = load double, ptr %idx3, align 8
 
   %addAB_0_L = fadd fast double %A_0, %B_0
   %subAB_0_R = fsub fast double %A_0, %B_0
@@ -185,8 +173,8 @@ entry:
   %addABCD_0 = fadd fast double %addAB_0_L, %subAB_0_R
   %addCDAB_1 = fadd fast double %subAB_1_L, %addAB_1_R
 
-  store double %addABCD_0, double *%idx0, align 8
-  store double %addCDAB_1, double *%idx1, align 8
+  store double %addABCD_0, ptr %array, align 8
+  store double %addCDAB_1, ptr %idx1, align 8
   ret void
 }
 
@@ -202,21 +190,16 @@ entry:
 ;          |                    |
 ;         S[0]                 S[1]
 ;
-define void @lookahead_alt2(double* %array) {
+define void @lookahead_alt2(ptr %array) {
 ; CHECK-LABEL: @lookahead_alt2(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 2
-; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 4
-; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 6
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast double* [[IDX2]] to <2 x double>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast double* [[IDX4]] to <2 x double>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x double>, <2 x double>* [[TMP4]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast double* [[IDX6]] to <2 x double>*
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x double>, <2 x double>* [[TMP6]], align 8
+; CHECK-NEXT:    [[IDX2:%.*]] = getelementptr inbounds double, ptr [[ARRAY:%.*]], i64 2
+; CHECK-NEXT:    [[IDX4:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 4
+; CHECK-NEXT:    [[IDX6:%.*]] = getelementptr inbounds double, ptr [[ARRAY]], i64 6
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x double>, ptr [[IDX2]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x double>, ptr [[IDX4]], align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x double>, ptr [[IDX6]], align 8
 ; CHECK-NEXT:    [[TMP8:%.*]] = fsub fast <2 x double> [[TMP5]], [[TMP7]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = fadd fast <2 x double> [[TMP5]], [[TMP7]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x double> [[TMP8]], <2 x double> [[TMP9]], <2 x i32> <i32 0, i32 3>
@@ -224,8 +207,7 @@ define void @lookahead_alt2(double* %array) {
 ; CHECK-NEXT:    [[TMP12:%.*]] = fsub fast <2 x double> [[TMP1]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <2 x double> [[TMP11]], <2 x double> [[TMP12]], <2 x i32> <i32 0, i32 3>
 ; CHECK-NEXT:    [[TMP14:%.*]] = fadd fast <2 x double> [[TMP10]], [[TMP13]]
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP14]], <2 x double>* [[TMP15]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP14]], ptr [[ARRAY]], align 8
 ; CHECK-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
@@ -255,23 +237,22 @@ define void @lookahead_alt2(double* %array) {
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 entry:
-  %idx0 = getelementptr inbounds double, double* %array, i64 0
-  %idx1 = getelementptr inbounds double, double* %array, i64 1
-  %idx2 = getelementptr inbounds double, double* %array, i64 2
-  %idx3 = getelementptr inbounds double, double* %array, i64 3
-  %idx4 = getelementptr inbounds double, double* %array, i64 4
-  %idx5 = getelementptr inbounds double, double* %array, i64 5
-  %idx6 = getelementptr inbounds double, double* %array, i64 6
-  %idx7 = getelementptr inbounds double, double* %array, i64 7
+  %idx1 = getelementptr inbounds double, ptr %array, i64 1
+  %idx2 = getelementptr inbounds double, ptr %array, i64 2
+  %idx3 = getelementptr inbounds double, ptr %array, i64 3
+  %idx4 = getelementptr inbounds double, ptr %array, i64 4
+  %idx5 = getelementptr inbounds double, ptr %array, i64 5
+  %idx6 = getelementptr inbounds double, ptr %array, i64 6
+  %idx7 = getelementptr inbounds double, ptr %array, i64 7
 
-  %A_0 = load double, double *%idx0, align 8
-  %A_1 = load double, double *%idx1, align 8
-  %B_0 = load double, double *%idx2, align 8
-  %B_1 = load double, double *%idx3, align 8
-  %C_0 = load double, double *%idx4, align 8
-  %C_1 = load double, double *%idx5, align 8
-  %D_0 = load double, double *%idx6, align 8
-  %D_1 = load double, double *%idx7, align 8
+  %A_0 = load double, ptr %array, align 8
+  %A_1 = load double, ptr %idx1, align 8
+  %B_0 = load double, ptr %idx2, align 8
+  %B_1 = load double, ptr %idx3, align 8
+  %C_0 = load double, ptr %idx4, align 8
+  %C_1 = load double, ptr %idx5, align 8
+  %D_0 = load double, ptr %idx6, align 8
+  %D_1 = load double, ptr %idx7, align 8
 
   %addAB_0 = fadd fast double %A_0, %B_0
   %subCD_0 = fsub fast double %C_0, %D_0
@@ -282,8 +263,8 @@ entry:
   %addABCD_0 = fadd fast double %addAB_0, %subCD_0
   %addCDAB_1 = fadd fast double %addCD_1, %subAB_1
 
-  store double %addABCD_0, double *%idx0, align 8
-  store double %addCDAB_1, double *%idx1, align 8
+  store double %addABCD_0, ptr %array, align 8
+  store double %addCDAB_1, ptr %idx1, align 8
   ret void
 }
 
@@ -300,28 +281,26 @@ entry:
 ; SLP should reorder the operands of the RHS add taking into consideration the cost of external uses.
 ; It is more profitable to reorder the operands of the RHS add, because A[1] has an external use.
 
+<<<<<<< HEAD
 define void @lookahead_external_uses(double* %A, double *%B, double *%C, double *%D, double *%S, double *%Ext1, double *%Ext2) {
 ; INTEL_CUSTOMIZATION
 ; Test behaves differently on xmain due to TTI cost customization for llvm.masked.gather
 ; Checks were regenerated to match xmain behavior
+=======
+define void @lookahead_external_uses(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2) {
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; CHECK-LABEL: @lookahead_external_uses(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
-; CHECK-NEXT:    [[IDXB0:%.*]] = getelementptr inbounds double, double* [[B:%.*]], i64 0
-; CHECK-NEXT:    [[IDXC0:%.*]] = getelementptr inbounds double, double* [[C:%.*]], i64 0
-; CHECK-NEXT:    [[IDXD0:%.*]] = getelementptr inbounds double, double* [[D:%.*]], i64 0
-; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, double* [[B]], i64 2
-; CHECK-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, double* [[A]], i64 2
-; CHECK-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, double* [[B]], i64 1
-; CHECK-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; CHECK-NEXT:    [[B0:%.*]] = load double, double* [[IDXB0]], align 8
-; CHECK-NEXT:    [[C0:%.*]] = load double, double* [[IDXC0]], align 8
-; CHECK-NEXT:    [[D0:%.*]] = load double, double* [[IDXD0]], align 8
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDXA0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; CHECK-NEXT:    [[B2:%.*]] = load double, double* [[IDXB2]], align 8
-; CHECK-NEXT:    [[A2:%.*]] = load double, double* [[IDXA2]], align 8
-; CHECK-NEXT:    [[B1:%.*]] = load double, double* [[IDXB1]], align 8
+; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
+; CHECK-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, ptr [[A:%.*]], i64 2
+; CHECK-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, ptr [[B]], i64 1
+; CHECK-NEXT:    [[B0:%.*]] = load double, ptr [[B]], align 8
+; CHECK-NEXT:    [[C0:%.*]] = load double, ptr [[C:%.*]], align 8
+; CHECK-NEXT:    [[D0:%.*]] = load double, ptr [[D:%.*]], align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[A]], align 8
+; CHECK-NEXT:    [[B2:%.*]] = load double, ptr [[IDXB2]], align 8
+; CHECK-NEXT:    [[A2:%.*]] = load double, ptr [[IDXA2]], align 8
+; CHECK-NEXT:    [[B1:%.*]] = load double, ptr [[IDXB1]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> [[TMP2]], double [[B2]], i32 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub fast <2 x double> [[TMP1]], [[TMP3]]
@@ -331,10 +310,9 @@ define void @lookahead_external_uses(double* %A, double *%B, double *%C, double 
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = fsub fast <2 x double> [[TMP6]], [[TMP8]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = fadd fast <2 x double> [[TMP4]], [[TMP9]]
-; CHECK-NEXT:    [[TMP11:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP10]], <2 x double>* [[TMP11]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP10]], ptr [[S:%.*]], align 8
 ; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x double> [[TMP1]], i32 1
-; CHECK-NEXT:    store double [[TMP12]], double* [[EXT1:%.*]], align 8
+; CHECK-NEXT:    store double [[TMP12]], ptr [[EXT1:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
 ; XMAIN-LABEL: @lookahead_external_uses(
@@ -372,25 +350,21 @@ define void @lookahead_external_uses(double* %A, double *%B, double *%C, double 
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %IdxA0 = getelementptr inbounds double, double* %A, i64 0
-  %IdxB0 = getelementptr inbounds double, double* %B, i64 0
-  %IdxC0 = getelementptr inbounds double, double* %C, i64 0
-  %IdxD0 = getelementptr inbounds double, double* %D, i64 0
 
-  %IdxA1 = getelementptr inbounds double, double* %A, i64 1
-  %IdxB2 = getelementptr inbounds double, double* %B, i64 2
-  %IdxA2 = getelementptr inbounds double, double* %A, i64 2
-  %IdxB1 = getelementptr inbounds double, double* %B, i64 1
+  %IdxA1 = getelementptr inbounds double, ptr %A, i64 1
+  %IdxB2 = getelementptr inbounds double, ptr %B, i64 2
+  %IdxA2 = getelementptr inbounds double, ptr %A, i64 2
+  %IdxB1 = getelementptr inbounds double, ptr %B, i64 1
 
-  %A0 = load double, double *%IdxA0, align 8
-  %B0 = load double, double *%IdxB0, align 8
-  %C0 = load double, double *%IdxC0, align 8
-  %D0 = load double, double *%IdxD0, align 8
+  %A0 = load double, ptr %A, align 8
+  %B0 = load double, ptr %B, align 8
+  %C0 = load double, ptr %C, align 8
+  %D0 = load double, ptr %D, align 8
 
-  %A1 = load double, double *%IdxA1, align 8
-  %B2 = load double, double *%IdxB2, align 8
-  %A2 = load double, double *%IdxA2, align 8
-  %B1 = load double, double *%IdxB1, align 8
+  %A1 = load double, ptr %IdxA1, align 8
+  %B2 = load double, ptr %IdxB2, align 8
+  %A2 = load double, ptr %IdxA2, align 8
+  %B1 = load double, ptr %IdxB1, align 8
 
   %subA0B0 = fsub fast double %A0, %B0
   %subC0D0 = fsub fast double %C0, %D0
@@ -401,14 +375,13 @@ entry:
   %add0 = fadd fast double %subA0B0, %subC0D0
   %add1 = fadd fast double %subA1B2, %subA2B1
 
-  %IdxS0 = getelementptr inbounds double, double* %S, i64 0
-  %IdxS1 = getelementptr inbounds double, double* %S, i64 1
+  %IdxS1 = getelementptr inbounds double, ptr %S, i64 1
 
-  store double %add0, double *%IdxS0, align 8
-  store double %add1, double *%IdxS1, align 8
+  store double %add0, ptr %S, align 8
+  store double %add1, ptr %IdxS1, align 8
 
   ; External use
-  store double %A1, double *%Ext1, align 8
+  store double %A1, ptr %Ext1, align 8
   ret void
 }
 
@@ -427,28 +400,26 @@ entry:
 ; The result is that the operands are of the Add not reordered and the loads
 ; from A get vectorized instead of the loads from B.
 ;
+<<<<<<< HEAD
 define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, double *%D, double *%S, double *%Ext1, double *%Ext2, double *%Ext3, double *%Ext4, double *%Ext5) {
 ; INTEL_CUSTOMIZATION
 ; Test behaves differently on xmain due to TTI cost customizations
 ; Checks were regenerated to match xmain behavior
+=======
+define void @lookahead_limit_users_budget(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2, ptr %Ext3, ptr %Ext4, ptr %Ext5) {
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; CHECK-LABEL: @lookahead_limit_users_budget(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
-; CHECK-NEXT:    [[IDXB0:%.*]] = getelementptr inbounds double, double* [[B:%.*]], i64 0
-; CHECK-NEXT:    [[IDXC0:%.*]] = getelementptr inbounds double, double* [[C:%.*]], i64 0
-; CHECK-NEXT:    [[IDXD0:%.*]] = getelementptr inbounds double, double* [[D:%.*]], i64 0
-; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, double* [[B]], i64 2
-; CHECK-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, double* [[A]], i64 2
-; CHECK-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, double* [[B]], i64 1
-; CHECK-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; CHECK-NEXT:    [[B0:%.*]] = load double, double* [[IDXB0]], align 8
-; CHECK-NEXT:    [[C0:%.*]] = load double, double* [[IDXC0]], align 8
-; CHECK-NEXT:    [[D0:%.*]] = load double, double* [[IDXD0]], align 8
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[IDXA0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; CHECK-NEXT:    [[B2:%.*]] = load double, double* [[IDXB2]], align 8
-; CHECK-NEXT:    [[A2:%.*]] = load double, double* [[IDXA2]], align 8
-; CHECK-NEXT:    [[B1:%.*]] = load double, double* [[IDXB1]], align 8
+; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
+; CHECK-NEXT:    [[IDXA2:%.*]] = getelementptr inbounds double, ptr [[A:%.*]], i64 2
+; CHECK-NEXT:    [[IDXB1:%.*]] = getelementptr inbounds double, ptr [[B]], i64 1
+; CHECK-NEXT:    [[B0:%.*]] = load double, ptr [[B]], align 8
+; CHECK-NEXT:    [[C0:%.*]] = load double, ptr [[C:%.*]], align 8
+; CHECK-NEXT:    [[D0:%.*]] = load double, ptr [[D:%.*]], align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[A]], align 8
+; CHECK-NEXT:    [[B2:%.*]] = load double, ptr [[IDXB2]], align 8
+; CHECK-NEXT:    [[A2:%.*]] = load double, ptr [[IDXA2]], align 8
+; CHECK-NEXT:    [[B1:%.*]] = load double, ptr [[IDXB1]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> [[TMP2]], double [[B2]], i32 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub fast <2 x double> [[TMP1]], [[TMP3]]
@@ -458,14 +429,13 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = fsub fast <2 x double> [[TMP6]], [[TMP8]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = fadd fast <2 x double> [[TMP4]], [[TMP9]]
-; CHECK-NEXT:    [[TMP11:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP10]], <2 x double>* [[TMP11]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP10]], ptr [[S:%.*]], align 8
 ; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x double> [[TMP1]], i32 1
-; CHECK-NEXT:    store double [[TMP12]], double* [[EXT1:%.*]], align 8
-; CHECK-NEXT:    store double [[TMP12]], double* [[EXT2:%.*]], align 8
-; CHECK-NEXT:    store double [[TMP12]], double* [[EXT3:%.*]], align 8
-; CHECK-NEXT:    store double [[B1]], double* [[EXT4:%.*]], align 8
-; CHECK-NEXT:    store double [[B1]], double* [[EXT5:%.*]], align 8
+; CHECK-NEXT:    store double [[TMP12]], ptr [[EXT1:%.*]], align 8
+; CHECK-NEXT:    store double [[TMP12]], ptr [[EXT2:%.*]], align 8
+; CHECK-NEXT:    store double [[TMP12]], ptr [[EXT3:%.*]], align 8
+; CHECK-NEXT:    store double [[B1]], ptr [[EXT4:%.*]], align 8
+; CHECK-NEXT:    store double [[B1]], ptr [[EXT5:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
@@ -507,25 +477,21 @@ define void @lookahead_limit_users_budget(double* %A, double *%B, double *%C, do
 ; XMAIN-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 entry:
-  %IdxA0 = getelementptr inbounds double, double* %A, i64 0
-  %IdxB0 = getelementptr inbounds double, double* %B, i64 0
-  %IdxC0 = getelementptr inbounds double, double* %C, i64 0
-  %IdxD0 = getelementptr inbounds double, double* %D, i64 0
 
-  %IdxA1 = getelementptr inbounds double, double* %A, i64 1
-  %IdxB2 = getelementptr inbounds double, double* %B, i64 2
-  %IdxA2 = getelementptr inbounds double, double* %A, i64 2
-  %IdxB1 = getelementptr inbounds double, double* %B, i64 1
+  %IdxA1 = getelementptr inbounds double, ptr %A, i64 1
+  %IdxB2 = getelementptr inbounds double, ptr %B, i64 2
+  %IdxA2 = getelementptr inbounds double, ptr %A, i64 2
+  %IdxB1 = getelementptr inbounds double, ptr %B, i64 1
 
-  %A0 = load double, double *%IdxA0, align 8
-  %B0 = load double, double *%IdxB0, align 8
-  %C0 = load double, double *%IdxC0, align 8
-  %D0 = load double, double *%IdxD0, align 8
+  %A0 = load double, ptr %A, align 8
+  %B0 = load double, ptr %B, align 8
+  %C0 = load double, ptr %C, align 8
+  %D0 = load double, ptr %D, align 8
 
-  %A1 = load double, double *%IdxA1, align 8
-  %B2 = load double, double *%IdxB2, align 8
-  %A2 = load double, double *%IdxA2, align 8
-  %B1 = load double, double *%IdxB1, align 8
+  %A1 = load double, ptr %IdxA1, align 8
+  %B2 = load double, ptr %IdxB2, align 8
+  %A2 = load double, ptr %IdxA2, align 8
+  %B1 = load double, ptr %IdxB1, align 8
 
   %subA0B0 = fsub fast double %A0, %B0
   %subC0D0 = fsub fast double %C0, %D0
@@ -536,20 +502,19 @@ entry:
   %add0 = fadd fast double %subA0B0, %subC0D0
   %add1 = fadd fast double %subA1B2, %subA2B1
 
-  %IdxS0 = getelementptr inbounds double, double* %S, i64 0
-  %IdxS1 = getelementptr inbounds double, double* %S, i64 1
+  %IdxS1 = getelementptr inbounds double, ptr %S, i64 1
 
-  store double %add0, double *%IdxS0, align 8
-  store double %add1, double *%IdxS1, align 8
+  store double %add0, ptr %S, align 8
+  store double %add1, ptr %IdxS1, align 8
 
   ; External uses of A1
-  store double %A1, double *%Ext1, align 8
-  store double %A1, double *%Ext2, align 8
-  store double %A1, double *%Ext3, align 8
+  store double %A1, ptr %Ext1, align 8
+  store double %A1, ptr %Ext2, align 8
+  store double %A1, ptr %Ext3, align 8
 
   ; External uses of B1
-  store double %B1, double *%Ext4, align 8
-  store double %B1, double *%Ext5, align 8
+  store double %B1, ptr %Ext4, align 8
+  store double %B1, ptr %Ext5, align 8
 
   ret void
 }
@@ -557,24 +522,21 @@ entry:
 ; This checks that the lookahead code does not crash when instructions with the same opcodes have different numbers of operands (in this case the calls).
 
 %Class = type { i8 }
-declare double @_ZN1i2ayEv(%Class*)
+declare double @_ZN1i2ayEv(ptr)
 declare double @_ZN1i2axEv()
 
-define void @lookahead_crash(double* %A, double *%S, %Class *%Arg0) {
+define void @lookahead_crash(ptr %A, ptr %S, ptr %Arg0) {
 ; CHECK-LABEL: @lookahead_crash(
-; CHECK-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
-; CHECK-NEXT:    [[IDXS0:%.*]] = getelementptr inbounds double, double* [[S:%.*]], i64 0
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast double* [[IDXA0]] to <2 x double>*
-; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* [[TMP1]], align 8
-; CHECK-NEXT:    [[C0:%.*]] = call double @_ZN1i2ayEv(%Class* [[ARG0:%.*]])
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x double>, ptr [[A:%.*]], align 8
+; CHECK-NEXT:    [[C0:%.*]] = call double @_ZN1i2ayEv(ptr [[ARG0:%.*]])
 ; CHECK-NEXT:    [[C1:%.*]] = call double @_ZN1i2axEv()
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[C0]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP3]], double [[C1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd fast <2 x double> [[TMP2]], [[TMP4]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast double* [[IDXS0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP5]], <2 x double>* [[TMP6]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP5]], ptr [[S:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @lookahead_crash(
 ; XMAIN-NEXT:    [[IDXA0:%.*]] = getelementptr inbounds double, double* [[A:%.*]], i64 0
@@ -592,33 +554,33 @@ define void @lookahead_crash(double* %A, double *%S, %Class *%Arg0) {
 ; end INTEL_CUSTOMIZATION
   %IdxA0 = getelementptr inbounds double, double* %A, i64 0
   %IdxA1 = getelementptr inbounds double, double* %A, i64 1
+=======
+  %IdxA1 = getelementptr inbounds double, ptr %A, i64 1
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
-  %A0 = load double, double *%IdxA0, align 8
-  %A1 = load double, double *%IdxA1, align 8
+  %A0 = load double, ptr %A, align 8
+  %A1 = load double, ptr %IdxA1, align 8
 
-  %C0 = call double @_ZN1i2ayEv(%Class *%Arg0)
+  %C0 = call double @_ZN1i2ayEv(ptr %Arg0)
   %C1 = call double @_ZN1i2axEv()
 
   %add0 = fadd fast double %A0, %C0
   %add1 = fadd fast double %A1, %C1
 
-  %IdxS0 = getelementptr inbounds double, double* %S, i64 0
-  %IdxS1 = getelementptr inbounds double, double* %S, i64 1
-  store double %add0, double *%IdxS0, align 8
-  store double %add1, double *%IdxS1, align 8
+  %IdxS1 = getelementptr inbounds double, ptr %S, i64 1
+  store double %add0, ptr %S, align 8
+  store double %add1, ptr %IdxS1, align 8
   ret void
 }
 
 ; This checks that we choose to group consecutive extracts from the same vectors.
-define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x double> *%vecPtr1, <2 x double>* %vecPtr2) {
+define void @ChecksExtractScores(ptr %storeArray, ptr %array, ptr %vecPtr1, ptr %vecPtr2) {
 ; CHECK-LABEL: @ChecksExtractScores(
-; CHECK-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; CHECK-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
-; CHECK-NEXT:    [[LOADA0:%.*]] = load double, double* [[IDX0]], align 4
-; CHECK-NEXT:    [[LOADA1:%.*]] = load double, double* [[IDX1]], align 4
-; CHECK-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
-; CHECK-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, <2 x double>* [[VECPTR2:%.*]], align 4
-; CHECK-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
+; CHECK-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, ptr [[ARRAY:%.*]], i64 1
+; CHECK-NEXT:    [[LOADA0:%.*]] = load double, ptr [[ARRAY]], align 4
+; CHECK-NEXT:    [[LOADA1:%.*]] = load double, ptr [[IDX1]], align 4
+; CHECK-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, ptr [[VECPTR1:%.*]], align 4
+; CHECK-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, ptr [[VECPTR2:%.*]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[LOADA0]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP1]], <2 x double> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul <2 x double> [[LOADVEC]], [[SHUFFLE]]
@@ -626,10 +588,10 @@ define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x doubl
 ; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = fmul <2 x double> [[LOADVEC2]], [[SHUFFLE1]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd <2 x double> [[TMP2]], [[TMP4]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP5]], <2 x double>* [[TMP6]], align 8
+; CHECK-NEXT:    store <2 x double> [[TMP5]], ptr [[STOREARRAY:%.*]], align 8
 ; CHECK-NEXT:    ret void
 ;
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @ChecksExtractScores(
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
@@ -654,11 +616,16 @@ define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x doubl
   %idx1 = getelementptr inbounds double, double* %array, i64 1
   %loadA0 = load double, double* %idx0, align 4
   %loadA1 = load double, double* %idx1, align 4
+=======
+  %idx1 = getelementptr inbounds double, ptr %array, i64 1
+  %loadA0 = load double, ptr %array, align 4
+  %loadA1 = load double, ptr %idx1, align 4
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
-  %loadVec = load <2 x double>, <2 x double>* %vecPtr1, align 4
+  %loadVec = load <2 x double>, ptr %vecPtr1, align 4
   %extrA0 = extractelement <2 x double> %loadVec, i32 0
   %extrA1 = extractelement <2 x double> %loadVec, i32 1
-  %loadVec2 = load <2 x double>, <2 x double>* %vecPtr2, align 4
+  %loadVec2 = load <2 x double>, ptr %vecPtr2, align 4
   %extrB0 = extractelement <2 x double> %loadVec2, i32 0
   %extrB1 = extractelement <2 x double> %loadVec2, i32 1
 
@@ -669,10 +636,9 @@ define void @ChecksExtractScores(double* %storeArray, double* %array, <2 x doubl
   %add0 = fadd double %mul0, %mul3
   %add1 = fadd double %mul1, %mul4
 
-  %sidx0 = getelementptr inbounds double, double* %storeArray, i64 0
-  %sidx1 = getelementptr inbounds double, double* %storeArray, i64 1
-  store double %add0, double *%sidx0, align 8
-  store double %add1, double *%sidx1, align 8
+  %sidx1 = getelementptr inbounds double, ptr %storeArray, i64 1
+  store double %add0, ptr %storeArray, align 8
+  store double %add1, ptr %sidx1, align 8
   ret void
 }
 
@@ -866,20 +832,22 @@ define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
 }
 
 ; Same as @ChecksExtractScores, but the extratelement vector operands do not match.
+<<<<<<< HEAD
 define void @ChecksExtractScores_different_vectors(double* %storeArray, double* %array, <2 x double> *%vecPtr1, <2 x double>* %vecPtr2, <2 x double>* %vecPtr3, <2 x double>* %vecPtr4) {
+=======
+define void @ChecksExtractScores_different_vectors(ptr %storeArray, ptr %array, ptr %vecPtr1, ptr %vecPtr2, ptr %vecPtr3, ptr %vecPtr4) {
+;
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 ; SSE-LABEL: @ChecksExtractScores_different_vectors(
-; SSE-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; SSE-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
-; SSE-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, <2 x double>* [[VECPTR2:%.*]], align 4
+; SSE-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, ptr [[VECPTR1:%.*]], align 4
+; SSE-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, ptr [[VECPTR2:%.*]], align 4
 ; SSE-NEXT:    [[EXTRA0:%.*]] = extractelement <2 x double> [[LOADVEC]], i32 0
 ; SSE-NEXT:    [[EXTRA1:%.*]] = extractelement <2 x double> [[LOADVEC2]], i32 1
-; SSE-NEXT:    [[LOADVEC3:%.*]] = load <2 x double>, <2 x double>* [[VECPTR3:%.*]], align 4
-; SSE-NEXT:    [[LOADVEC4:%.*]] = load <2 x double>, <2 x double>* [[VECPTR4:%.*]], align 4
+; SSE-NEXT:    [[LOADVEC3:%.*]] = load <2 x double>, ptr [[VECPTR3:%.*]], align 4
+; SSE-NEXT:    [[LOADVEC4:%.*]] = load <2 x double>, ptr [[VECPTR4:%.*]], align 4
 ; SSE-NEXT:    [[EXTRB0:%.*]] = extractelement <2 x double> [[LOADVEC3]], i32 0
 ; SSE-NEXT:    [[EXTRB1:%.*]] = extractelement <2 x double> [[LOADVEC4]], i32 1
-; SSE-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
-; SSE-NEXT:    [[TMP1:%.*]] = bitcast double* [[IDX0]] to <2 x double>*
-; SSE-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* [[TMP1]], align 4
+; SSE-NEXT:    [[TMP2:%.*]] = load <2 x double>, ptr [[ARRAY:%.*]], align 4
 ; SSE-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[EXTRA1]], i32 0
 ; SSE-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP3]], double [[EXTRB0]], i32 1
 ; SSE-NEXT:    [[TMP5:%.*]] = fmul <2 x double> [[TMP4]], [[TMP2]]
@@ -888,24 +856,21 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
 ; SSE-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[TMP6]], double [[EXTRB1]], i32 1
 ; SSE-NEXT:    [[TMP8:%.*]] = fmul <2 x double> [[TMP7]], [[TMP2]]
 ; SSE-NEXT:    [[TMP9:%.*]] = fadd <2 x double> [[SHUFFLE]], [[TMP8]]
-; SSE-NEXT:    [[TMP10:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
-; SSE-NEXT:    store <2 x double> [[TMP9]], <2 x double>* [[TMP10]], align 8
+; SSE-NEXT:    store <2 x double> [[TMP9]], ptr [[STOREARRAY:%.*]], align 8
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @ChecksExtractScores_different_vectors(
-; AVX-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
-; AVX-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, double* [[ARRAY]], i64 1
-; AVX-NEXT:    [[LOADA0:%.*]] = load double, double* [[IDX0]], align 4
-; AVX-NEXT:    [[LOADA1:%.*]] = load double, double* [[IDX1]], align 4
-; AVX-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, <2 x double>* [[VECPTR1:%.*]], align 4
-; AVX-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, <2 x double>* [[VECPTR2:%.*]], align 4
+; AVX-NEXT:    [[IDX1:%.*]] = getelementptr inbounds double, ptr [[ARRAY:%.*]], i64 1
+; AVX-NEXT:    [[LOADA0:%.*]] = load double, ptr [[ARRAY]], align 4
+; AVX-NEXT:    [[LOADA1:%.*]] = load double, ptr [[IDX1]], align 4
+; AVX-NEXT:    [[LOADVEC:%.*]] = load <2 x double>, ptr [[VECPTR1:%.*]], align 4
+; AVX-NEXT:    [[LOADVEC2:%.*]] = load <2 x double>, ptr [[VECPTR2:%.*]], align 4
 ; AVX-NEXT:    [[EXTRA0:%.*]] = extractelement <2 x double> [[LOADVEC]], i32 0
 ; AVX-NEXT:    [[EXTRA1:%.*]] = extractelement <2 x double> [[LOADVEC2]], i32 1
-; AVX-NEXT:    [[LOADVEC3:%.*]] = load <2 x double>, <2 x double>* [[VECPTR3:%.*]], align 4
-; AVX-NEXT:    [[LOADVEC4:%.*]] = load <2 x double>, <2 x double>* [[VECPTR4:%.*]], align 4
+; AVX-NEXT:    [[LOADVEC3:%.*]] = load <2 x double>, ptr [[VECPTR3:%.*]], align 4
+; AVX-NEXT:    [[LOADVEC4:%.*]] = load <2 x double>, ptr [[VECPTR4:%.*]], align 4
 ; AVX-NEXT:    [[EXTRB0:%.*]] = extractelement <2 x double> [[LOADVEC3]], i32 0
 ; AVX-NEXT:    [[EXTRB1:%.*]] = extractelement <2 x double> [[LOADVEC4]], i32 1
-; AVX-NEXT:    [[SIDX0:%.*]] = getelementptr inbounds double, double* [[STOREARRAY:%.*]], i64 0
 ; AVX-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[EXTRA0]], i32 0
 ; AVX-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> [[TMP1]], double [[EXTRA1]], i32 1
 ; AVX-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> poison, double [[LOADA0]], i32 0
@@ -917,10 +882,10 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
 ; AVX-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <2 x double> [[TMP7]], <2 x double> poison, <2 x i32> zeroinitializer
 ; AVX-NEXT:    [[TMP8:%.*]] = fmul <2 x double> [[TMP6]], [[SHUFFLE1]]
 ; AVX-NEXT:    [[TMP9:%.*]] = fadd <2 x double> [[TMP4]], [[TMP8]]
-; AVX-NEXT:    [[TMP10:%.*]] = bitcast double* [[SIDX0]] to <2 x double>*
-; AVX-NEXT:    store <2 x double> [[TMP9]], <2 x double>* [[TMP10]], align 8
+; AVX-NEXT:    store <2 x double> [[TMP9]], ptr [[STOREARRAY:%.*]], align 8
 ; AVX-NEXT:    ret void
 ;
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @ChecksExtractScores_different_vectors(
 ; XMAIN-NEXT:    [[IDX0:%.*]] = getelementptr inbounds double, double* [[ARRAY:%.*]], i64 0
@@ -955,13 +920,18 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
   %idx1 = getelementptr inbounds double, double* %array, i64 1
   %loadA0 = load double, double* %idx0, align 4
   %loadA1 = load double, double* %idx1, align 4
+=======
+  %idx1 = getelementptr inbounds double, ptr %array, i64 1
+  %loadA0 = load double, ptr %array, align 4
+  %loadA1 = load double, ptr %idx1, align 4
+>>>>>>> 580210a0c938531ef9fd79f9ffedb93eeb2e66c2
 
-  %loadVec = load <2 x double>, <2 x double>* %vecPtr1, align 4
-  %loadVec2 = load <2 x double>, <2 x double>* %vecPtr2, align 4
+  %loadVec = load <2 x double>, ptr %vecPtr1, align 4
+  %loadVec2 = load <2 x double>, ptr %vecPtr2, align 4
   %extrA0 = extractelement <2 x double> %loadVec, i32 0
   %extrA1 = extractelement <2 x double> %loadVec2, i32 1
-  %loadVec3= load <2 x double>, <2 x double>* %vecPtr3, align 4
-  %loadVec4 = load <2 x double>, <2 x double>* %vecPtr4, align 4
+  %loadVec3= load <2 x double>, ptr %vecPtr3, align 4
+  %loadVec4 = load <2 x double>, ptr %vecPtr4, align 4
   %extrB0 = extractelement <2 x double> %loadVec3, i32 0
   %extrB1 = extractelement <2 x double> %loadVec4, i32 1
 
@@ -972,24 +942,19 @@ define void @ChecksExtractScores_different_vectors(double* %storeArray, double* 
   %add0 = fadd double %mul0, %mul3
   %add1 = fadd double %mul1, %mul4
 
-  %sidx0 = getelementptr inbounds double, double* %storeArray, i64 0
-  %sidx1 = getelementptr inbounds double, double* %storeArray, i64 1
-  store double %add0, double *%sidx0, align 8
-  store double %add1, double *%sidx1, align 8
+  %sidx1 = getelementptr inbounds double, ptr %storeArray, i64 1
+  store double %add0, ptr %storeArray, align 8
+  store double %add1, ptr %sidx1, align 8
   ret void
 }
 
 ; This checks that we we prefer splats rather than reverse load vectors + shuffles.
 ; 2-wide splat loads in x86 use a single instruction so they are quite cheap.
-define double @splat_loads(double *%array1, double *%array2, double *%ptrA, double *%ptrB) {
+define double @splat_loads(ptr %array1, ptr %array2, ptr %ptrA, ptr %ptrB) {
 ; SSE-LABEL: @splat_loads(
 ; SSE-NEXT:  entry:
-; SSE-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
-; SSE-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
-; SSE-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
-; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; SSE-NEXT:    [[TMP2:%.*]] = bitcast double* [[GEP_2_0]] to <2 x double>*
-; SSE-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
+; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY1:%.*]], align 8
+; SSE-NEXT:    [[TMP3:%.*]] = load <2 x double>, ptr [[ARRAY2:%.*]], align 8
 ; SSE-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
 ; SSE-NEXT:    [[TMP4:%.*]] = fmul <2 x double> [[TMP1]], [[SHUFFLE]]
 ; SSE-NEXT:    [[TMP5:%.*]] = fmul <2 x double> [[TMP1]], [[TMP3]]
@@ -1001,13 +966,10 @@ define double @splat_loads(double *%array1, double *%array2, double *%ptrA, doub
 ;
 ; AVX-LABEL: @splat_loads(
 ; AVX-NEXT:  entry:
-; AVX-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
-; AVX-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
-; AVX-NEXT:    [[GEP_2_1:%.*]] = getelementptr inbounds double, double* [[ARRAY2]], i64 1
-; AVX-NEXT:    [[LD_2_0:%.*]] = load double, double* [[GEP_2_0]], align 8
-; AVX-NEXT:    [[LD_2_1:%.*]] = load double, double* [[GEP_2_1]], align 8
-; AVX-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; AVX-NEXT:    [[GEP_2_1:%.*]] = getelementptr inbounds double, ptr [[ARRAY2:%.*]], i64 1
+; AVX-NEXT:    [[LD_2_0:%.*]] = load double, ptr [[ARRAY2]], align 8
+; AVX-NEXT:    [[LD_2_1:%.*]] = load double, ptr [[GEP_2_1]], align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY1:%.*]], align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[LD_2_0]], i32 0
 ; AVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP2]], <2 x double> poison, <2 x i32> zeroinitializer
 ; AVX-NEXT:    [[TMP3:%.*]] = fmul <2 x double> [[TMP1]], [[SHUFFLE]]
@@ -1043,15 +1005,13 @@ define double @splat_loads(double *%array1, double *%array2, double *%ptrA, doub
 ; XMAIN-NEXT:    ret double [[ADD3]]
 ; end INTEL_CUSTOMIZATION
 entry:
-  %gep_1_0 = getelementptr inbounds double, double* %array1, i64 0
-  %gep_1_1 = getelementptr inbounds double, double* %array1, i64 1
-  %ld_1_0 = load double, double* %gep_1_0, align 8
-  %ld_1_1 = load double, double* %gep_1_1, align 8
+  %gep_1_1 = getelementptr inbounds double, ptr %array1, i64 1
+  %ld_1_0 = load double, ptr %array1, align 8
+  %ld_1_1 = load double, ptr %gep_1_1, align 8
 
-  %gep_2_0 = getelementptr inbounds double, double* %array2, i64 0
-  %gep_2_1 = getelementptr inbounds double, double* %array2, i64 1
-  %ld_2_0 = load double, double* %gep_2_0, align 8
-  %ld_2_1 = load double, double* %gep_2_1, align 8
+  %gep_2_1 = getelementptr inbounds double, ptr %array2, i64 1
+  %ld_2_0 = load double, ptr %array2, align 8
+  %ld_2_1 = load double, ptr %gep_2_1, align 8
 
   %mul1 = fmul double %ld_1_0, %ld_2_0
   %mul2 = fmul double %ld_1_1, %ld_2_0
@@ -1068,15 +1028,11 @@ entry:
 
 
 ; Same as splat_loads() but the splat load has internal uses in the slp graph.
-define double @splat_loads_with_internal_uses(double *%array1, double *%array2, double *%ptrA, double *%ptrB) {
+define double @splat_loads_with_internal_uses(ptr %array1, ptr %array2, ptr %ptrA, ptr %ptrB) {
 ; SSE-LABEL: @splat_loads_with_internal_uses(
 ; SSE-NEXT:  entry:
-; SSE-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
-; SSE-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
-; SSE-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
-; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
-; SSE-NEXT:    [[TMP2:%.*]] = bitcast double* [[GEP_2_0]] to <2 x double>*
-; SSE-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* [[TMP2]], align 8
+; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY1:%.*]], align 8
+; SSE-NEXT:    [[TMP3:%.*]] = load <2 x double>, ptr [[ARRAY2:%.*]], align 8
 ; SSE-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
 ; SSE-NEXT:    [[TMP4:%.*]] = fmul <2 x double> [[TMP1]], [[SHUFFLE]]
 ; SSE-NEXT:    [[TMP5:%.*]] = fmul <2 x double> [[TMP1]], [[TMP3]]
@@ -1090,13 +1046,10 @@ define double @splat_loads_with_internal_uses(double *%array1, double *%array2, 
 ;
 ; AVX-LABEL: @splat_loads_with_internal_uses(
 ; AVX-NEXT:  entry:
-; AVX-NEXT:    [[GEP_1_0:%.*]] = getelementptr inbounds double, double* [[ARRAY1:%.*]], i64 0
-; AVX-NEXT:    [[GEP_2_0:%.*]] = getelementptr inbounds double, double* [[ARRAY2:%.*]], i64 0
-; AVX-NEXT:    [[GEP_2_1:%.*]] = getelementptr inbounds double, double* [[ARRAY2]], i64 1
-; AVX-NEXT:    [[LD_2_0:%.*]] = load double, double* [[GEP_2_0]], align 8
-; AVX-NEXT:    [[LD_2_1:%.*]] = load double, double* [[GEP_2_1]], align 8
-; AVX-NEXT:    [[TMP0:%.*]] = bitcast double* [[GEP_1_0]] to <2 x double>*
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; AVX-NEXT:    [[GEP_2_1:%.*]] = getelementptr inbounds double, ptr [[ARRAY2:%.*]], i64 1
+; AVX-NEXT:    [[LD_2_0:%.*]] = load double, ptr [[ARRAY2]], align 8
+; AVX-NEXT:    [[LD_2_1:%.*]] = load double, ptr [[GEP_2_1]], align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr [[ARRAY1:%.*]], align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[LD_2_0]], i32 0
 ; AVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP2]], <2 x double> poison, <2 x i32> zeroinitializer
 ; AVX-NEXT:    [[TMP3:%.*]] = fmul <2 x double> [[TMP1]], [[SHUFFLE]]
@@ -1134,15 +1087,13 @@ define double @splat_loads_with_internal_uses(double *%array1, double *%array2, 
 ; XMAIN-NEXT:    ret double [[RES]]
 ; end INTEL_CUSTOMIZATION
 entry:
-  %gep_1_0 = getelementptr inbounds double, double* %array1, i64 0
-  %gep_1_1 = getelementptr inbounds double, double* %array1, i64 1
-  %ld_1_0 = load double, double* %gep_1_0, align 8
-  %ld_1_1 = load double, double* %gep_1_1, align 8
+  %gep_1_1 = getelementptr inbounds double, ptr %array1, i64 1
+  %ld_1_0 = load double, ptr %array1, align 8
+  %ld_1_1 = load double, ptr %gep_1_1, align 8
 
-  %gep_2_0 = getelementptr inbounds double, double* %array2, i64 0
-  %gep_2_1 = getelementptr inbounds double, double* %array2, i64 1
-  %ld_2_0 = load double, double* %gep_2_0, align 8
-  %ld_2_1 = load double, double* %gep_2_1, align 8
+  %gep_2_1 = getelementptr inbounds double, ptr %array2, i64 1
+  %ld_2_0 = load double, ptr %array2, align 8
+  %ld_2_1 = load double, ptr %gep_2_1, align 8
 
   %mul1 = fmul double %ld_1_0, %ld_2_0
   %mul2 = fmul double %ld_1_1, %ld_2_0
