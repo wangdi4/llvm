@@ -641,6 +641,13 @@ TEST(ClangdServerTest, InvalidCompileCommand) {
 }
 
 TEST(ClangdThreadingTest, StressTest) {
+// INTEL_CUSTOMIZATION
+// This test is flaky on Alloy Windows. Skip it before it is looked at.
+#ifdef _WIN32
+  GTEST_SKIP();
+#endif
+// end INTEL_CUSTOMIZATION
+
   // Without 'static' clang gives an error for a usage inside TestDiagConsumer.
   static const unsigned FilesCount = 5;
   const unsigned RequestsCount = 500;
