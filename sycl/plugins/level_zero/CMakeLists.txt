@@ -144,15 +144,12 @@ add_sycl_plugin(level_zero
 
 find_package(Python3 REQUIRED)
 
-add_custom_target(ze-api DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def)
-add_custom_command(
-  OUTPUT
-  ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def
+add_custom_target(ze-api
   COMMAND ${Python3_EXECUTABLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/ze_api_generator.py
   ${LEVEL_ZERO_INCLUDE_DIR}/level_zero/ze_api.h
-  DEPENDS
-  ${LEVEL_ZERO_INCLUDE_DIR}/level_zero/ze_api.h
+  BYPRODUCTS
+    ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def
   )
 target_include_directories(pi_level_zero PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_dependencies(pi_level_zero ze-api)
