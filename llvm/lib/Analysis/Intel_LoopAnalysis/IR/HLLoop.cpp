@@ -1628,6 +1628,7 @@ bool HLLoop::normalize(bool AllowExplicitBoundInst) {
 
       LowerBlob = LowerCE;
 
+      addLiveInTemp(LowerRef);
     } else {
       LowerBlob = LowerCE->clone();
       LowerBlob->convertToStandAloneBlobOrConstant();

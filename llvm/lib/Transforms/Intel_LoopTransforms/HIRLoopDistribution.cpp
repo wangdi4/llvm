@@ -55,6 +55,12 @@ cl::opt<unsigned> ScalarExpansionCost(
         "Number of mem operations in loop when to enable scalar expansion."),
     cl::Hidden, cl::init(20));
 
+cl::opt<bool> AlwaysStripmine(
+    "hir-loop-distribute-always-stripmine",
+    cl::desc(
+        "Forces HIR Loop Distribution to always allow stripmine if possible."),
+    cl::Hidden, cl::init(false));
+
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
@@ -150,14 +156,6 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    if (PG->hasControlDependences() && Lp->isStripmineRequired(StripmineSize) &&
-        !Lp->canStripmine(StripmineSize)) {
-      // Assume stripmine is required
-      LLVM_DEBUG(dbgs() << "Stripmine is not possible but assumed to be "
-                           "required for loops with control dependencies\n");
-      continue;
-    }
-
     LLVM_DEBUG_DDG(dbgs() << "DDG dump:\n");
     LLVM_DEBUG_DDG(DDA.getGraph(Lp).dump());
 
@@ -179,6 +177,25 @@ bool HIRLoopDistribution::run() {
 
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
+
+    LLVM_DEBUG(Analysis.dumpResult(););
+
+    // Heuristic: if we cannot do normal stripmine and distribution is only
+    // splitting loops due to memref count with control flow, just give up as
+    // it's unlikely to help performance. Can override with AlwaysStripmine.
+    if (!AlwaysStripmine && PG->hasControlDependences() &&
+        Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize) && Analysis.onlyForMemRefCount()) {
+      // Assume stripmine is required
+      LLVM_DEBUG(
+          dbgs() << "Distribution likely not profitable for control flow with "
+                    "special stripmine for default memref heuristic\n";);
+      continue;
+    }
+
+    // Stripmine is always be possible with extra setup, but not always needed.
+    // We should check this before splitting the loop up below.
+    bool ExtraStripmineSetup = !Lp->canStripmine(StripmineSize);
 
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
@@ -237,7 +254,8 @@ bool HIRLoopDistribution::run() {
         }
       }
 
-      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder, false);
+      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder, ExtraStripmineSetup,
+                     false);
 
       Modified = true;
     } else {
@@ -1068,7 +1086,8 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-    ScalarExpansion &SCEX, OptReportBuilder &ORBuilder, bool ForDirective) {
+    ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
+    bool ExtraStripmineSetup, bool ForDirective) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
@@ -1082,11 +1101,6 @@ void HIRLoopDistribution::distributeLoop(
   HLLoop *LoopNode;
   unsigned LoopLevel = Loop->getNestingLevel();
   HLRegion *RegionNode = Loop->getParentRegion();
-
-  bool ShouldStripmine = Loop->isStripmineRequired(StripmineSize);
-  if (ShouldStripmine && !Loop->canStripmine(StripmineSize)) {
-    return;
-  }
 
   unsigned PreheaderLoopIndex =
       getPreheaderLoopIndex(Loop, DistributedLoops, DistCostModel);
@@ -1150,9 +1164,9 @@ void HIRLoopDistribution::distributeLoop(
     LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
     // For constant trip count <= StripmineSize, no stripmine is done
-    if (SCEX.isTempRequired() && ShouldStripmine) {
+    if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
-                                   StripmineSize);
+                                   StripmineSize, ExtraStripmineSetup);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
       fixTempArrayCoeff(NewLoops[0]->getParentLoop());
     }
@@ -1484,7 +1498,9 @@ bool preventsVectorization(PiBlock *Blk, DDGraph DDG, unsigned LoopLevel) {
 
 void HIRLoopDistribution::breakPiBlockRecurrences(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
-    SmallVectorImpl<PiBlockList> &DistPoints) const {
+    SmallVectorImpl<PiBlockList> &DistPoints) {
+
+  Analysis.reset();
 
   PiBlockList CurLoopPiBlkList;
   // Walk through topsorted nodes of Pigraph, keeping in mind the fact that each
@@ -1536,6 +1552,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // If there is no outgoing dependencies from sparse array reduction block,
       // we can combine such blocks at the end.
       if (NoOutgoingDeps) {
+        Analysis.SAR = true;
         DistributedBlocks.push_back(SrcBlk);
         continue;
       }
@@ -1543,6 +1560,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     if (preventsVectorization(SrcBlk, DDG, Lp->getNestingLevel())) {
       if (NoOutgoingDeps) {
+        Analysis.PreventsVec = true;
         DistributedBlocks.push_back(SrcBlk);
         continue;
       }
@@ -1580,12 +1598,14 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     // Split loops over blocks containing user calls.
     if (!CurLoopPiBlkList.empty() && PrevUserCallSeen && !UserCallSeen) {
+      Analysis.UserCall = true;
       CommitCurrentBlockList();
     }
 
     CurLoopPiBlkList.push_back(SrcBlk);
 
     if (NumRefCounter >= MaxMemResourceToDistribute) {
+      Analysis.MemRef = true;
       CommitCurrentBlockList();
       continue;
     }
@@ -1601,6 +1621,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // the only concern, we can iterate over all dd edges indirectly by
       // looking at distppedges whos src/sink are in piblock
       if (piEdgeIsMemRecurrence(Lp, *Edge)) {
+        Analysis.Recurrence = true;
         CommitCurrentBlockList();
         break;
       }
@@ -1620,7 +1641,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
 void HIRLoopDistribution::findDistPoints(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
-    SmallVectorImpl<PiBlockList> &DistPoints) const {
+    SmallVectorImpl<PiBlockList> &DistPoints) {
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
     breakPiBlockRecurrences(Lp, PGraph, DistPoints);
@@ -1649,9 +1670,7 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     return NotProcessed;
   }
 
-  if (!Lp->canStripmine(StripmineSize)) {
-    return TooComplex;
-  }
+  bool ExtraStripmineSetup = !Lp->canStripmine(StripmineSize);
 
   HLDDNode *Node = cast<HLDDNode>(Lp->getFirstChild());
   // Distribute point placed right before first stmt implies
@@ -1731,7 +1750,8 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
   ScalarExpansion SCEX(Lp, true, DistributedLoops);
   invalidateLoop(Lp);
-  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
+  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(),
+                 ExtraStripmineSetup, true);
   return Success;
 }
 
