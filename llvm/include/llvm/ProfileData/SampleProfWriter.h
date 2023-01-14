@@ -1,4 +1,21 @@
 //===- SampleProfWriter.h - Write LLVM sample profile data ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -299,10 +316,10 @@ private:
   // real output.
   std::unique_ptr<raw_ostream> LocalBufStream;
   // The location where the output stream starts.
-  uint64_t FileStart;
+  uint64_t FileStart = (uint64_t)-1; // INTEL;
   // The location in the output stream where the SecHdrTable should be
   // written to.
-  uint64_t SecHdrTableOffset;
+  uint64_t SecHdrTableOffset = (uint64_t)-1; // INTEL
   // The table contains SecHdrTableEntry entries in order of how they are
   // populated in the writer. It may be different from the order in
   // SectionHdrLayout which specifies the sequence in which sections will
@@ -386,7 +403,7 @@ protected:
   MapVector<StringRef, uint64_t> FuncOffsetTable;
   /// The offset of the slot to be filled with the offset of FuncOffsetTable
   /// towards profile start.
-  uint64_t TableOffset;
+  uint64_t TableOffset = (uint64_t)-1; // INTEL
   std::error_code writeNameTable() override;
   std::error_code writeHeader(const SampleProfileMap &ProfileMap) override;
   std::error_code writeFuncOffsetTable();
