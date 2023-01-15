@@ -1,6 +1,6 @@
 //===----  Intel_IPArrayTranspose.cpp - Intel IPO Array Transpose  --------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -561,7 +561,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
       return false;
 
   // Ensure that all operands of PHI nodes are also in "MallocPtrIncrAliases"
-  for (auto Pair : MallocPtrIncrAliases) {
+  for (const auto &Pair : MallocPtrIncrAliases) {
     auto *PHI = dyn_cast<PHINode>(Pair.first);
     if (!PHI)
       continue;
@@ -710,7 +710,7 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
   };
 
   // Collect all memory references if possible.
-  for (auto Pair : MallocPtrIncrAliases)
+  for (const auto &Pair : MallocPtrIncrAliases)
     if (!CollectPtrMemRefs(Pair.first))
       return false;
 
@@ -1219,7 +1219,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
     return false;
   }
   // Make sure pointer increment values are evenly divisible by MaxElemSize.
-  for (auto Pair : MallocPtrIncrAliases) {
+  for (const auto &Pair : MallocPtrIncrAliases) {
     if (Pair.second < 0 || Pair.second % MaxElemSize != 0) {
       LLVM_DEBUG(dbgs() << "     Increment is not divisible by MaxElemSize \n");
       return false;
