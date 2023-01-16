@@ -106,15 +106,12 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case x86:            return "i386";
   case x86_64:         return "x86_64";
   case xcore:          return "xcore";
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   case x86_64_xucc:    return "x86_64_xucc";
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-=======
   case xtensa:         return "xtensa";
->>>>>>> 8c618e8f53b166818e4465405fae676efb4cb1b2
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -1931,15 +1928,12 @@ bool Triple::isLittleEndian() const {
   case Triple::x86:
   case Triple::x86_64:
   case Triple::xcore:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   case Triple::x86_64_xucc:
 #endif  // INTEL_FEATURE_XUCC
 #endif  // INTEL_CUSTOMIZATION
-=======
   case Triple::xtensa:
->>>>>>> 8c618e8f53b166818e4465405fae676efb4cb1b2
     return true;
   default:
     return false;
