@@ -389,7 +389,6 @@ llvm_map_components_to_libnames(
   Symbolize
   Target
   TransformUtils
-  Vectorizer
   Intel_DPCPPKernelTransforms
   )
 

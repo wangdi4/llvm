@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -670,3 +670,22 @@ add_dependencies(clbltpipe clbltpipe_target)
 set_target_properties(
   clbltpipe PROPERTIES IMPORTED_LOCATION
                        ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)
+
+# Generate built-in vectorization info.
+set(VECTORIZATION_INFO_GEN ${OCL_BINARY_DIR}/include/VectInfo.gen)
+file(MAKE_DIRECTORY ${OCL_BINARY_DIR}/include)
+add_custom_command(
+  OUTPUT ${VECTORIZATION_INFO_GEN}
+  COMMAND
+    ocl-tblgen -gen-vectorization-info -I
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/misc_main.td -o
+    ${OCL_BINARY_DIR}/include/VectInfo.gen
+  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
+  COMMENT "Generating built-in vectorization info ..."
+  VERBATIM)
+
+add_custom_target(
+  VectorizationInfoGen ALL
+  DEPENDS ${VECTORIZATION_INFO_GEN} ${OCL_TBLGEN}
+  VERBATIM)

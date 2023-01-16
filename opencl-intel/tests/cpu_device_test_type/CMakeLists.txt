@@ -15,7 +15,6 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   LLVMIntelJITEvents
   LLVMSPIRVLib
   LLVMSymbolize
-  LLVMVectorizer
   LoopUtils
   ObjDump
   OclBackendUtils

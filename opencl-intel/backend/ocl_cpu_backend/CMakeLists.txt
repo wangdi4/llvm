@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -169,7 +169,6 @@ set(INCLUDE_DIRS
     ${OCL_SOURCE_DIR}/utils/CLElfLib
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib

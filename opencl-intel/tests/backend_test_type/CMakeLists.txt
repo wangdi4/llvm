@@ -30,7 +30,6 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LLVMIntelJITEvents
   LLVMSPIRVLib
   LLVMSymbolize
-  LLVMVectorizer
   LoopUtils
   ObjDump
   OclBackendUtils

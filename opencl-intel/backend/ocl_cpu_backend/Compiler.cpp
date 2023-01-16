@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,7 +18,6 @@
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerOCL.h"
-#include "VecConfig.h"
 #include "cl_config.h"
 #include "cl_env.h"
 #include "cl_types.h"
