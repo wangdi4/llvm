@@ -100,12 +100,12 @@ entry:
 ; CHECK: call fastcc zeroext i1 @foo.clone()
 
 ; CHECK-LABEL: define internal fastcc zeroext i1 @foo.clone.clone(
-; CHECK: load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i.clone.clone,
-; CHECK: load i32, i32 addrspace(3)* @test.j.clone.clone,
+; CHECK: load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i.clone.{{.*}},
+; CHECK: load i32, i32 addrspace(3)* @test.j.clone.{{.*}},
 
 ; CHECK-LABEL: define internal void @test.clone.clone(
-; CHECK: store i32 {{.*}}, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i.clone.clone,
-; CHECK: store i32 {{.*}}, i32 addrspace(3)* @test.j.clone.clone,
+; CHECK: store i32 {{.*}}, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test.i.clone.{{.*}},
+; CHECK: store i32 {{.*}}, i32 addrspace(3)* @test.j.clone.{{.*}},
 ; CHECK: call fastcc zeroext i1 @foo.clone.clone()
 
 ; CHECK-LABEL: define internal fastcc void @xyz.clone(
