@@ -1,6 +1,6 @@
 //===- IntelVPlanValueTrackingTest.cpp --------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -156,11 +156,8 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
     VPlanValueTracking::setUseUnderlyingValues(OldVal);
   }
 
-  VPInstruction *findInstructionByName(StringRef Name) const {
-    for (VPInstruction &I : vpinstructions(Plan.get()))
-      if (I.getOrigName() == Name)
-        return &I;
-    return nullptr;
+  const VPInstruction *findInstructionByName(StringRef Name) const {
+    return VPlanTestBase::findInstructionByName(*Plan.get(), Name);
   }
 
   template <typename InstTy>
