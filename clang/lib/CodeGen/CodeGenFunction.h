@@ -5457,6 +5457,16 @@ public:
   GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
 #endif // INTEL_CUSTOMIZATION
 
+  void
+  EmitX86MultiVersionResolver(llvm::Function *Resolver,
+#if INTEL_CUSTOMIZATION
+                              ArrayRef<MultiVersionResolverOption> Options,
+                              bool IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
+  void
+  EmitAArch64MultiVersionResolver(llvm::Function *Resolver,
+                                  ArrayRef<MultiVersionResolverOption> Options);
+
 private:
   QualType getVarArgType(const Expr *Arg);
 
@@ -5476,11 +5486,15 @@ private:
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
 #if INTEL_CUSTOMIZATION
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
-                                     bool IsCpuDispatch);
+  llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,
+                                        bool IsCpuDispatch);
   llvm::Value *
   EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
 #endif // INTEL_CUSTOMIZATION
+  llvm::Value *EmitAArch64CpuInit();
+  llvm::Value *
+  FormAArch64ResolverCondition(const MultiVersionResolverOption &RO);
+  llvm::Value *EmitAArch64CpuSupports(ArrayRef<StringRef> FeatureStrs);
 };
 
 
