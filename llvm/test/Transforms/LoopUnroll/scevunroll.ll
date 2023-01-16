@@ -10,13 +10,8 @@
 ; tests may check that SCEV is properly invalidated between passes.
 
 ; Completely unroll loops without a canonical IV.
-<<<<<<< HEAD
-define i32 @sansCanonical(i32* %base) nounwind {
-; CHECK-LABEL: define {{[^@]+}}@sansCanonical(
-=======
 define i32 @sansCanonical(ptr %base) nounwind {
-; CHECK-LABEL: @sansCanonical(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@sansCanonical(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[WHILE_BODY:%.*]]
 ; CHECK:       while.body:
@@ -69,13 +64,8 @@ exit:
 ; SCEV unrolling properly handles loops with multiple exits. In this
 ; case, the computed trip count based on a canonical IV is *not* for a
 ; latch block.
-<<<<<<< HEAD
-define i64 @earlyLoopTest(i64* %base) nounwind {
-; CHECK-LABEL: define {{[^@]+}}@earlyLoopTest(
-=======
 define i64 @earlyLoopTest(ptr %base) nounwind {
-; CHECK-LABEL: @earlyLoopTest(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@earlyLoopTest(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
@@ -139,13 +129,8 @@ exit2:
 }
 
 ; SCEV properly unrolls multi-exit loops.
-<<<<<<< HEAD
-define i32 @multiExit(i32* %base) nounwind {
-; CHECK-LABEL: define {{[^@]+}}@multiExit(
-=======
 define i32 @multiExit(ptr %base) nounwind {
-; CHECK-LABEL: @multiExit(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@multiExit(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[L1:%.*]]
 ; CHECK:       l1:
@@ -180,13 +165,8 @@ exit2:
 ; SCEV can unroll a multi-exit loops even if the latch block has no
 ; known trip count, but an early exit has a known trip count. In this
 ; case we must be careful not to optimize the latch branch away.
-<<<<<<< HEAD
-define i32 @multiExitIncomplete(i32* %base) nounwind {
-; CHECK-LABEL: define {{[^@]+}}@multiExitIncomplete(
-=======
 define i32 @multiExitIncomplete(ptr %base) nounwind {
-; CHECK-LABEL: @multiExitIncomplete(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@multiExitIncomplete(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[L1:%.*]]
 ; CHECK:       l1:
@@ -328,13 +308,8 @@ for.body87:
 ; iteration via the early exit. So loop unrolling cannot assume that
 ; the loop latch's exit count of zero is an upper bound on the number
 ; of iterations.
-<<<<<<< HEAD
-define void @nsw_latch(i32* %a) nounwind {
-; CHECK-LABEL: define {{[^@]+}}@nsw_latch(
-=======
 define void @nsw_latch(ptr %a) nounwind {
-; CHECK-LABEL: @nsw_latch(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@nsw_latch(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
@@ -372,13 +347,8 @@ return:                                           ; preds = %for.body, %for.cond
 }
 
 ; Test case for PR56044. Check that SCEVs for exit phis are properly invalidated.
-<<<<<<< HEAD
-define i32 @test_pr56044(i64* %src, i32 %a) {
-; CHECK-LABEL: define {{[^@]+}}@test_pr56044(
-=======
 define i32 @test_pr56044(ptr %src, i32 %a) {
-; CHECK-LABEL: @test_pr56044(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@test_pr56044(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP_1_PEEL_BEGIN:%.*]]
 ; CHECK:       loop.1.peel.begin:

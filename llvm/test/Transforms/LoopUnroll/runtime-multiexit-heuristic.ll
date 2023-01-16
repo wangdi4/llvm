@@ -12,16 +12,12 @@
 ; functional tests with forced unroll factors.
 
 ; the second exit block is a deopt block. The loop has one exiting block other than the latch.
-<<<<<<< HEAD
 
 ; INTEL_CUSTOMIZATION
 ; commit 44c743ac prefers add instead of or
 ; end INTEL_CUSTOMIZATION
 
-define i32 @test1(i32* nocapture %a, i64 %n) {
-=======
 define i32 @test1(ptr nocapture %a, i64 %n) {
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = freeze i64 [[N:%.*]]

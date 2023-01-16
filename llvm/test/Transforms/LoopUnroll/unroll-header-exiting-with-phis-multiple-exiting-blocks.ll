@@ -6,13 +6,8 @@
 
 ; Loop with multiple exiting blocks, where the header exits but not the latch,
 ; e.g. because it has not been rotated.
-<<<<<<< HEAD
-define i16 @full_unroll_multiple_exiting_blocks(i16* %A, i16 %x, i16 %y) {
-; CHECK-LABEL: define {{[^@]+}}@full_unroll_multiple_exiting_blocks(
-=======
 define i16 @full_unroll_multiple_exiting_blocks(ptr %A, i16 %x, i16 %y) {
-; CHECK-LABEL: @full_unroll_multiple_exiting_blocks(
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
+; CHECK-LABEL: define {{[^@]+}}@full_unroll_multiple_exiting_blocks(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[HEADER:%.*]]
 ; CHECK:       header:

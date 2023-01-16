@@ -13,18 +13,10 @@
 ; This test is meant to check that this loop is unrolled into four iterations.
 
 ; UNROLL-LABEL: @test
-<<<<<<< HEAD
-; UNROLL: load i32, i32*
-; UNROLL: load i32, i32*
-; UNROLL: load i32, i32*
-; UNROLL: load i32, i32*
-; UNROLL-NOT: load i32, i32*
-=======
 ; UNROLL: load i32, ptr
 ; UNROLL: load i32, ptr
 ; UNROLL: load i32, ptr
 ; UNROLL-NOT: load i32, ptr
->>>>>>> ef992b60798b6cd2c50b25351bfc392e319896b7
 ; NOUNROLL-LABEL: @test
 ; NOUNROLL: load i32, ptr
 ; NOUNROLL-NOT: load i32, ptr
