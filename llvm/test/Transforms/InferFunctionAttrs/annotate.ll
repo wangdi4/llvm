@@ -267,13 +267,8 @@ declare x86_fp80 @atanhl(x86_fp80)
 ; CHECK: declare x86_fp80 @atanl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN_MEMNONE]] ;INTEL
 declare x86_fp80 @atanl(x86_fp80)
 
-<<<<<<< HEAD
-; CHECK: declare double @atof(i8* nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]] ;INTEL
-declare double @atof(i8*)
-=======
 ; CHECK: declare double @atof(ptr nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]]
 declare double @atof(ptr)
->>>>>>> f5e03912e766dcb43fa6c71f990068cee259bb31
 
 ; CHECK: declare i32 @atoi(ptr nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]]
 declare i32 @atoi(ptr)
@@ -294,13 +289,8 @@ declare void @bcopy(ptr, ptr, i64)
 ; CHECK: declare void @bzero(ptr nocapture writeonly, i64)  [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @bzero(ptr, i64)
 
-<<<<<<< HEAD
-; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCKIND_ALLOCZEROED_ALLOCSIZE01_FAMILY_MALLOC:#[0-9]+]] ;INTEL
-declare i8* @calloc(i64, i64)
-=======
 ; CHECK: declare noalias noundef ptr @calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCKIND_ALLOCZEROED_ALLOCSIZE01_FAMILY_MALLOC:#[0-9]+]]
 declare ptr @calloc(i64, i64)
->>>>>>> f5e03912e766dcb43fa6c71f990068cee259bb31
 
 ; CHECK-AIX: declare noalias noundef ptr @vec_calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCSIZE01_FAMILY_VEC_MALLOC:#[0-9]+]]
 declare ptr @vec_calloc(i64, i64)
@@ -706,13 +696,8 @@ declare ptr @mempcpy(ptr, ptr, i64)
 ; CHECK: declare ptr @memmove(ptr returned writeonly, ptr nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare ptr @memmove(ptr, ptr, i64)
 
-<<<<<<< HEAD
-; CHECK: declare i8* @memset(i8* writeonly, i32, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
-declare i8* @memset(i8*, i32, i64)
-=======
 ; CHECK: declare ptr @memset(ptr writeonly, i32, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
 declare ptr @memset(ptr, i32, i64)
->>>>>>> f5e03912e766dcb43fa6c71f990068cee259bb31
 
 ; CHECK: declare ptr @__memset_chk(ptr writeonly, i32, i64, i64) [[ARGMEMONLY_NOFREE_NOUNWIND]]
 declare ptr @__memset_chk(ptr, i32, i64, i64)
@@ -911,13 +896,8 @@ declare ptr @stpcpy(ptr, ptr)
 ; CHECK: declare ptr @stpncpy(ptr noalias writeonly, ptr noalias nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare ptr @stpncpy(ptr, ptr, i64)
 
-<<<<<<< HEAD
-; CHECK: declare i32 @strcasecmp(i8* nocapture, i8* nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]]
-declare i32 @strcasecmp(i8*, i8*)
-=======
 ; CHECK: declare i32 @strcasecmp(ptr nocapture, ptr nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]]
 declare i32 @strcasecmp(ptr, ptr)
->>>>>>> f5e03912e766dcb43fa6c71f990068cee259bb31
 
 ; CHECK: declare ptr @strcat(ptr noalias returned, ptr noalias nocapture readonly) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare ptr @strcat(ptr, ptr)
@@ -1092,23 +1072,14 @@ declare i64 @write(i32, ptr, i64)
 
 
 ; memset_pattern{4,8,16} aren't available everywhere.
-<<<<<<< HEAD
-; CHECK-DARWIN: declare void @memset_pattern4(i8* nocapture writeonly, i8* nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
-declare void @memset_pattern4(i8*, i8*, i64)
-; CHECK-DARWIN: declare void @memset_pattern8(i8* nocapture writeonly, i8* nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
-declare void @memset_pattern8(i8*, i8*, i64)
-; CHECK-DARWIN: declare void @memset_pattern16(i8* nocapture writeonly, i8* nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
-declare void @memset_pattern16(i8*, i8*, i64)
-; CHECK-DAG: attributes [[NOFREE_WILLRETURN_READONLY]] = { mustprogress nofree willreturn memory(read) } ;INTEL
-=======
 ; CHECK-DARWIN: declare void @memset_pattern4(ptr nocapture writeonly, ptr nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @memset_pattern4(ptr, ptr, i64)
 ; CHECK-DARWIN: declare void @memset_pattern8(ptr nocapture writeonly, ptr nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @memset_pattern8(ptr, ptr, i64)
 ; CHECK-DARWIN: declare void @memset_pattern16(ptr nocapture writeonly, ptr nocapture readonly, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @memset_pattern16(ptr, ptr, i64)
+; CHECK-DAG: attributes [[NOFREE_WILLRETURN_READONLY]] = { mustprogress nofree willreturn memory(read) } ;INTEL
 
->>>>>>> f5e03912e766dcb43fa6c71f990068cee259bb31
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN]] = { mustprogress nofree nounwind willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN_MEMNONE]] = { mustprogress nofree nosync nounwind willreturn memory(none) } ;INTEL
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND]] = { nofree nounwind }
