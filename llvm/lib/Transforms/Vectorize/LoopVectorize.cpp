@@ -9069,9 +9069,6 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
 
   HeaderVPBB->setName("vector.body");
 
-  // Fold the last, empty block into its predecessor.
-  VPBB = VPBlockUtils::tryToMergeBlockIntoPredecessor(VPBB);
-  assert(VPBB && "expected to fold last (empty) block");
   // After here, VPBB should not be used.
   VPBB = nullptr;
 
@@ -9243,11 +9240,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   VPlanTransforms::sinkScalarOperands(*Plan);
   VPlanTransforms::mergeReplicateRegions(*Plan);
   VPlanTransforms::removeRedundantExpandSCEVRecipes(*Plan);
-
-  // Fold Exit block into its predecessor if possible.
-  // TODO: Fold block earlier once all VPlan transforms properly maintain a
-  // VPBasicBlock as exit.
-  VPBlockUtils::tryToMergeBlockIntoPredecessor(TopRegion->getExiting());
+  VPlanTransforms::mergeBlocksIntoPredecessors(*Plan);
 
   assert(VPlanVerifier::verifyPlanIsValid(*Plan) && "VPlan is invalid");
   return Plan;
