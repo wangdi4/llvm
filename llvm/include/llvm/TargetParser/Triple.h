@@ -107,11 +107,15 @@ public:
     x86,            // X86: i[3-9]86
     x86_64,         // X86-64: amd64, x86_64
     xcore,          // XCore: xcore
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
     x86_64_xucc,    // XUCC: x86_64_xucc
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
+=======
+    xtensa,         // Tensilica: Xtensa
+>>>>>>> 8c618e8f53b166818e4465405fae676efb4cb1b2
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
     le32,           // le32: generic little-endian 32-bit CPU (PNaCl)
