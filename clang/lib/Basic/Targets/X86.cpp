@@ -39,7 +39,7 @@
 namespace clang {
 namespace targets {
 
-const Builtin::Info BuiltinInfoX86[] = {
+static constexpr Builtin::Info BuiltinInfoX86[] = {
 #if INTEL_CUSTOMIZATION
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
