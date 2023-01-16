@@ -12285,15 +12285,9 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     if (Info.getLangOpts().CPlusPlus11 && // INTEL
         !Info.getLangOpts().IntelCompat) // INTEL
       Info.CCEDiag(E, diag::note_constexpr_invalid_function)
-<<<<<<< HEAD
-        << /*isConstexpr*/0 << /*isConstructor*/0
-        << (std::string("'") + Info.Ctx.BuiltinInfo.getName(BuiltinOp) + "'");
-    else if (!Info.getLangOpts().CPlusPlus11) // INTEL
-=======
           << /*isConstexpr*/ 0 << /*isConstructor*/ 0
           << ("'" + Info.Ctx.BuiltinInfo.getName(BuiltinOp) + "'").str();
-    else
->>>>>>> e953ae5bbc313fd0cc980ce021d487e5b5199ea4
+    else if (!Info.getLangOpts().CPlusPlus11) // INTEL
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
     [[fallthrough]];
   case Builtin::BI__builtin_strlen:
