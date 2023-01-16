@@ -3113,7 +3113,7 @@ declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_s(<4 x i16> %src) #3
 declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_s(<8 x i16> %src) #3
 
 ; Function Attrs: nounwind readnone
-declare signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16> signext %src) #3
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16> signext %src) #3
 
 ; Function Attrs: nounwind readnone
 declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_s(<32 x i16> %src) #3
