@@ -36,7 +36,9 @@
 //   deducible when BE is ready
 
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
+
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDUtils.h"
+#include "llvm/SYCLLowerIR/SYCLUtils.h"
 
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -52,7 +54,7 @@
 #define DEBUG_TYPE "LowerInvokeSimd"
 
 using namespace llvm;
-using namespace llvm::esimd;
+using namespace llvm::sycl::utils;
 
 namespace {
 
@@ -103,12 +105,13 @@ std::pair<Value *, Value *>
 getHelperAndInvokeeIfInvokeSimdCall(const CallInst *CI) {
   Function *F = CI->getCalledFunction();
 
-  if (F && F->getName().startswith(INVOKE_SIMD_PREF)) {
+  if (F && F->getName().startswith(esimd::INVOKE_SIMD_PREF)) {
     return {CI->getArgOperand(0), CI->getArgOperand(1)};
   }
   return {nullptr, nullptr};
 }
 
+<<<<<<< HEAD
 // Tries to find possible values stored into given address.
 // Returns true if the set of values could be reliably found, false otherwise.
 bool collectPossibleStoredVals(Value *Addr, ValueSetImpl &Vals) {
@@ -164,6 +167,8 @@ bool collectPossibleStoredVals(Value *Addr, ValueSetImpl &Vals) {
   return true;
 }
 
+=======
+>>>>>>> e7674019af00f50615e3e8a48276390334cfbbc4
 // Deduce a single function whose address this value can only contain and
 // return it, otherwise (if can't be deduced or multiple functions deduced)
 // return nullptr.
@@ -214,7 +219,12 @@ Function *deduceFunction(Value *I, SmallPtrSetImpl<const Function *> &Visited) {
     ValueSet Vals;
     Value *Addr = LI->getPointerOperand();
 
-    if (!collectPossibleStoredVals(Addr, Vals) || Vals.size() != 1) {
+    auto PtrEscapes = [](const CallInst *CI) {
+      // only __builtin_invoke_simd is allowed, otherwise the pointer escapes
+      return getHelperAndInvokeeIfInvokeSimdCall(CI).first == nullptr;
+    };
+    if (!sycl::utils::collectPossibleStoredVals(Addr, Vals, PtrEscapes) ||
+        Vals.size() != 1) {
       // data flow through the address of the load instruction is too
       // complicated
       break;
@@ -249,8 +259,12 @@ bool collectUsesLookTrhoughMemAndCasts(Value *V,
     }
     ValueSet StoredVals;
 
+    auto PtrEscapes = [](const CallInst *CI) {
+      // only __builtin_invoke_simd is allowed, otherwise the pointer escapes
+      return getHelperAndInvokeeIfInvokeSimdCall(CI).first == nullptr;
+    };
     // ... 1) V is the only possible stored value
-    if (!collectPossibleStoredVals(Addr, StoredVals) ||
+    if (!collectPossibleStoredVals(Addr, StoredVals, PtrEscapes) ||
         (StoredVals.size() != 1) || (*StoredVals.begin() != V)) {
       return false;
     }
@@ -310,8 +324,8 @@ void fixFunctionName(Function *F) {
 void markFunctionAsESIMD(Function *F) {
   LLVMContext &C = F->getContext();
 
-  if (!F->getMetadata(ESIMD_MARKER_MD)) {
-    F->setMetadata(ESIMD_MARKER_MD, llvm::MDNode::get(C, {}));
+  if (!F->getMetadata(esimd::ESIMD_MARKER_MD)) {
+    F->setMetadata(esimd::ESIMD_MARKER_MD, llvm::MDNode::get(C, {}));
   }
   if (!F->getMetadata(REQD_SUB_GROUP_SIZE_MD)) {
     auto One =
@@ -352,7 +366,8 @@ bool processInvokeSimdCall(CallInst *InvokeSimd,
   Value *I = HandI.second;
 
   if (!H) {
-    llvm_unreachable(("bad use of " + Twine(INVOKE_SIMD_PREF)).str().c_str());
+    llvm_unreachable(
+        ("bad use of " + Twine(esimd::INVOKE_SIMD_PREF)).str().c_str());
   }
   // "helper" defined in invoke_simd.hpp which converts arguments.
   auto *Helper = cast<Function>(H);
@@ -481,7 +496,8 @@ PreservedAnalyses SYCLLowerInvokeSimdPass::run(Module &M,
   SetVector<CallInst *> ISCalls;
 
   for (Function &F : M) {
-    if (!F.isDeclaration() || !F.getName().startswith(INVOKE_SIMD_PREF)) {
+    if (!F.isDeclaration() ||
+        !F.getName().startswith(esimd::INVOKE_SIMD_PREF)) {
       continue;
     }
     SmallVector<User *, 4> Users(F.users());

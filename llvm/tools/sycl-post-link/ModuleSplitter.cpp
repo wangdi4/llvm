@@ -20,6 +20,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/LowerKernelProps.h"
+#include "llvm/SYCLLowerIR/SYCLUtils.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
@@ -43,8 +44,6 @@ constexpr char ESIMD_SCOPE_NAME[] = "<ESIMD>";
 constexpr char OMP_GLOBAL_VARS_NAME[] = "<OMP_GLOBAL_VARS>";
 #endif // INTEL_COLLAB
 constexpr char ESIMD_MARKER_MD[] = "sycl_explicit_simd";
-
-constexpr char ATTR_SYCL_MODULE_ID[] = "sycl-module-id";
 
 bool hasIndirectFunctionsOrCalls(const Module &M) {
   for (const auto &F : M.functions()) {
@@ -147,7 +146,7 @@ bool isEntryPoint(const Function &F, bool EmitOnlyKernelsAsEntryPoints) {
     // If not disabled, SYCL_EXTERNAL functions with sycl-module-id attribute
     // are also considered as entry points (except __spirv_* and __sycl_*
     // functions)
-    return F.hasFnAttribute(ATTR_SYCL_MODULE_ID) &&
+    return llvm::sycl::utils::isSYCLExternalFunction(&F) &&
            !isSpirvSyclBuiltin(F.getName()) && !isESIMDBuiltin(F.getName()) &&
            !isGenericBuiltin(F.getName());
   }
@@ -239,15 +238,15 @@ EntryPointGroupVec groupEntryPointsByScope(ModuleDesc &MD,
       break;
 
     case Scope_PerModule: {
-      if (!F.hasFnAttribute(ATTR_SYCL_MODULE_ID))
+      if (!llvm::sycl::utils::isSYCLExternalFunction(&F))
         // TODO It may make sense to group all entry points w/o the attribute
         // into a separate module rather than issuing an error. Should probably
         // be controlled by an option.
-        error("no '" + Twine(ATTR_SYCL_MODULE_ID) +
+        error("no '" + Twine(llvm::sycl::utils::ATTR_SYCL_MODULE_ID) +
               "' attribute for entry point '" + F.getName() +
               "', per-module split is not possible");
 
-      Attribute Id = F.getFnAttribute(ATTR_SYCL_MODULE_ID);
+      Attribute Id = F.getFnAttribute(llvm::sycl::utils::ATTR_SYCL_MODULE_ID);
       StringRef Val = Id.getValueAsString();
       EntryPointMap[Val].insert(&F);
       break;
@@ -818,7 +817,7 @@ struct UsedOptionalFeatures {
       llvm::sort(Aspects);
     }
 
-    if (F->hasFnAttribute(sycl::kernel_props::ATTR_LARGE_GRF))
+    if (F->hasFnAttribute(::sycl::kernel_props::ATTR_LARGE_GRF))
       UsesLargeGRF = true;
 
     llvm::hash_code AspectsHash =

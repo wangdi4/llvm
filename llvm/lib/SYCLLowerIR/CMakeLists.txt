@@ -126,17 +126,18 @@ endif (NOT WIN32)
 #end INTEL_CUSTOMIZATION
 
 add_llvm_component_library(LLVMSYCLLowerIR
-  ESIMD/LowerESIMD.cpp
-  ESIMD/LowerESIMDVLoadVStore.cpp
-  ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
   ESIMD/ESIMDUtils.cpp
   ESIMD/ESIMDVerifier.cpp
+  ESIMD/LowerESIMD.cpp
   ESIMD/LowerESIMDKernelAttrs.cpp
-  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
+  ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/LowerESIMDVLoadVStore.cpp
+  ESIMD/LowerESIMDSlmReservation.cpp
   LowerInvokeSimd.cpp
   LowerKernelProps.cpp
-  LowerWGScope.cpp
   LowerWGLocalMemory.cpp
+  LowerWGScope.cpp
   MutatePrintfAddrspace.cpp
   SYCLPropagateAspectsUsage.cpp
   SYCLUtils.cpp
