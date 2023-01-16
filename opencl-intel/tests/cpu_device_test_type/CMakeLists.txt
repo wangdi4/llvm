@@ -23,7 +23,7 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   OclPluginManager
   builtin_kernels
   cl_logger
-  cl_sys_utils
+  cl_hw_utils
   cl_sys_utils
   cpu_device
   device_commands
@@ -36,8 +36,6 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
 
 if(WIN32)
   list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS delayimp.lib lldCOFF lldCommon)
-else()
-  list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS cl_hw_utils)
 endif()
 
 set(INPUT_FILE test.cl)

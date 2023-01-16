@@ -596,7 +596,6 @@ if(NOT OPENCL_INTREE_BUILD)
       OpenCL-ICD
       ocl-builtins
       ocl-builtins-shared
-      ocl-cl_logger
       ocl-common_clang
       ocl-config
       ocl-gdb-plugin

@@ -64,10 +64,6 @@ FrameworkProxy::FrameworkProxy() {
   m_uiTEActivationCount = 0;
 
   RegisterGlobalAtExitNotification(this);
-#ifndef _WIN32
-  // on Linux Logger is implemented as a separate DLL
-  Logger::RegisterGlobalAtExitNotification(this);
-#endif
 
   Initialize();
 }

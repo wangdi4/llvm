@@ -2150,8 +2150,7 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
-      ocl-svml ocl-gdb-plugin ocl-library-kernel ocl-tbb
+      ocl-config OpenCL-ICD ocl-svml ocl-gdb-plugin ocl-library-kernel ocl-tbb
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
       )
 
