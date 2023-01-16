@@ -73,12 +73,9 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
-<<<<<<< HEAD
 ; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo ;INTEL
-=======
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23-NEXT: Running analysis: LoopAnalysis on foo
->>>>>>> 2656572d485127cc30b8fe9752024d2a0f1c50db
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -262,11 +259,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-<<<<<<< HEAD
 ; COM: CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-=======
 ; CHECK-OSZ-NEXT: Running analysis: LoopAnalysis on foo
->>>>>>> 2656572d485127cc30b8fe9752024d2a0f1c50db
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
