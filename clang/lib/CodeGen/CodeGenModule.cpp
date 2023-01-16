@@ -2612,15 +2612,11 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   const auto *SD = FD ? FD->getAttr<CPUSpecificAttr>() : nullptr;
   const auto *TC = FD ? FD->getAttr<TargetClonesAttr>() : nullptr;
   bool AddedAttr = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
-  if (TD || SD || TC || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
+  if (TD || TV || SD || TC || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
       (FD && FD->hasAttr<AllowCpuFeaturesAttr>())) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (TD || TV || SD || TC) {
->>>>>>> 13062879f13463b8bb88c444ae7a18ded8686632
     llvm::StringMap<bool> FeatureMap;
     getContext().getFunctionFeatureMap(FeatureMap, GD);
 
