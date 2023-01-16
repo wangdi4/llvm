@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -28,7 +28,7 @@
 #include "Optimizer.h"
 #include "Program.h"
 #include "SystemInfo.h"
-#include "VecConfig.h"
+#include "VectorizerUtils.h"
 #include "cl_cpu_detect.h"
 #include "cl_sys_info.h"
 #include "cl_types.h"

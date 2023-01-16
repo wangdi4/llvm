@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -27,6 +27,7 @@ set(TARGET_INCLUDE_FILES
     BlockUtils.h
     debuggingservicetype.h
     OCLAddressSpace.h
+    OptimizerConfig.h
     SerializerCompatibility.h
     TypeConversion.h
     VectorizerUtils.h
@@ -39,6 +40,7 @@ set(TARGET_SOURCE_FILES
     BackendUtils.cpp
     BlockUtils.cpp
     debuggingservicetype.cpp
+    OptimizerConfig.cpp
     SerializerCompatibility.cpp
     TypeConversion.cpp
     VectorizerUtils.cpp

@@ -86,7 +86,6 @@ set(FRAMEWORK_LINK_LIBS
     OclPluginManager
     Platform
     Tracing
-    cl_sys_utils
     dynamic_load
     emutls
     reflection_module
@@ -100,6 +99,7 @@ add_opencl_library(
   COMPONENTS
   OclCpuBackEnd
   builtin_kernels
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
@@ -121,7 +121,8 @@ add_opencl_library(
   COMPONENTS
   OclCpuBackEnd
   builtin_kernels
-  cl_logger_${OUTPUT_EMU_SUFF}
+  cl_hw_utils
+  cl_logger
   cl_sys_utils
   clang_compiler
   cpu_device

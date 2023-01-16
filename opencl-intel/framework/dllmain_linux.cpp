@@ -63,7 +63,6 @@ void dll_init(void) {
 }
 
 void dll_fini(void) {
-  Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
   Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
   // release the framework proxy object
   Intel::OpenCL::Framework::FrameworkProxy::Destroy();

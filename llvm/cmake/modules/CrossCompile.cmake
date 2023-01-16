@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -53,6 +53,7 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
       HOST_EFI2
       HOST_ARCH
       HOST_OS
+      LIBCLC_TARGETS_TO_BUILD
       )
 
     # Append the passthrough variables, accounting for nested lists and

@@ -1,5 +1,5 @@
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,8 +12,7 @@
 // License.
 
 #include "Optimizer.h"
-#include "VecConfig.h"
-#include "VectorizerCommon.h"
+#include "VectorizerUtils.h"
 #include "exceptions.h"
 
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -110,7 +109,7 @@ Optimizer::Optimizer(llvm::Module &M,
       m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
       m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
-  ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
+  ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   DPCPPForceOptnone = Config.GetDisableOpt();
   m_IsOcl20 = llvm::CompilationUtils::fetchCLVersionFromMetadata(M) >=

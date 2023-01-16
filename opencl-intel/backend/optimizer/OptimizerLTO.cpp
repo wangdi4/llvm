@@ -1,4 +1,4 @@
-// Copyright 2021-2022 Intel Corporation.
+// Copyright 2021-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,8 +12,7 @@
 
 #include "OptimizerLTO.h"
 #include "SPIRVToOCL.h"
-#include "VecConfig.h"
-#include "VectorizerCommon.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -188,7 +187,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
           MPM.addPass(RemoveAtExitPass());
 
         MPM.addPass(SetPreferVectorWidthPass(
-            VectorizerCommon::getCPUIdISA(Config.GetCpuId())));
+            VectorizerUtils::getCPUIdISA(Config.GetCpuId())));
 
         if (m_IsSPIRV && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));

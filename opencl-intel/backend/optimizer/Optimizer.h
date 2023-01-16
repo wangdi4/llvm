@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,6 +15,7 @@
 #pragma once
 
 #include "Compiler.h"
+#include "OptimizerConfig.h"
 #include "debuggingservicetype.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
@@ -23,21 +24,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
-#include <vector>
-
 enum class DebugLogging { None, Normal, Quiet, Verbose };
-
-namespace intel {
-class OptimizerConfig;
-}
-
-namespace llvm {
-class Pass;
-class Module;
-class Function;
-class ModulePass;
-class LLVMContext;
-} // namespace llvm
 
 namespace Intel {
 namespace OpenCL {

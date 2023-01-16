@@ -4,7 +4,7 @@
 
 declare signext i16 @_Z29work_group_reduce_bitwise_ands(i16)
 declare i32 @_Z28work_group_reduce_logical_ori(i32)
-declare signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16>)
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16>)
 declare <16 x i32> @_Z28work_group_reduce_logical_orDv16_i(<16 x i32>)
 
 define void @test() {
@@ -30,7 +30,7 @@ define void @test() {
 ; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call i32 @_Z30__finalize_work_group_identityi(i32 [[LOADWGFINALRESULT]])
 ; CHECK-NEXT:    store i32 0, i32* [[ALLOCAWGRESULT1]], align 4
 ; CHECK-NEXT:    call void @dummy_barrier.()
-; CHECK-NEXT:    [[CALLWGFORITEM4:%.*]] = call signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> noundef signext <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <16 x i16>* [[ALLOCAWGRESULT3]])
+; CHECK-NEXT:    [[CALLWGFORITEM4:%.*]] = call <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> noundef <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>, <16 x i16>* [[ALLOCAWGRESULT3]])
 ; CHECK-NEXT:    call void @_Z18work_group_barrierj(i32 1)
 ; CHECK-NEXT:    [[LOADWGFINALRESULT:%.*]] = load <16 x i16>, <16 x i16>* [[ALLOCAWGRESULT3]], align 32
 ; CHECK-NEXT:    [[CALLFINALIZEWG:%.*]] = call <16 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv16_s(<16 x i16> [[LOADWGFINALRESULT]])
@@ -47,7 +47,7 @@ define void @test() {
   %call1 = call i16 @_Z29work_group_reduce_bitwise_ands(i16 noundef signext 4)
   %call2 = call i32 @_Z28work_group_reduce_logical_ori(i32 noundef 8)
 
-  %call3 = call signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16> noundef signext <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>)
+  %call3 = call <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16> noundef <i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4, i16 4>)
   %call4 = call <16 x i32> @_Z28work_group_reduce_logical_orDv16_i(<16 x i32> noundef <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>)
 
   ret void

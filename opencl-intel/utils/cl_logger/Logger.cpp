@@ -13,18 +13,17 @@
 // License.
 
 #include "Logger.h"
+#include "cl_shutdown.h"
 #include "cl_user_logger.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include <assert.h>
+#include <malloc.h>
 #include <sstream> // required by: owstringstream
 #include <stdarg.h>
 #include <stdio.h>
 
 using namespace Intel::OpenCL::Utils;
-
-void Logger::RegisterGlobalAtExitNotification(IAtExitCentralPoint *fn) {
-  // logger is a static lib on Windows - no need in atexit() catching
-}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger Ctor
@@ -42,108 +41,8 @@ Logger::~Logger() {}
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetInstance
 /////////////////////////////////////////////////////////////////////////////////////////
-// Shared memory for singleton object storage
-// We need this shared memory because we use static library and want to have
-// singleton across DLL's We need assure that the name is unique for each
-// process
-const wchar_t g_szMemoryNameTemplate[] = L"LoggerSharedMemory(%06d)";
-const wchar_t g_szMutexNameTemplate[] = L"LoggerMutex(%06d)";
-
-struct LoggerSingletonHandler {
-  LoggerSingletonHandler() {
-    wchar_t szName[sizeof(g_szMemoryNameTemplate) / sizeof(wchar_t) +
-                   sizeof(wchar_t) * 6];
-
-    // Create process unique name
-    swprintf_s(szName, sizeof(szName) / sizeof(wchar_t), g_szMemoryNameTemplate,
-               GetCurrentProcessId());
-
-    size_t size = sizeof(pLogger);
-    // Open shared memory, we are looking for previously allocated executor
-    hMapFile = CreateFileMappingW(INVALID_HANDLE_VALUE, // use paging file
-                                  nullptr,              // default security
-                                  PAGE_READWRITE,       // read/write access
-                                  0,                    // max. object size
-                                  size,                 // buffer size
-                                  szName); // name of mapping object
-    if (hMapFile == nullptr) {
-      return;
-    }
-
-    // Get pointer to shared memory
-    pSharedBuf = MapViewOfFile(hMapFile,            // handle to map object
-                               FILE_MAP_ALL_ACCESS, // read/write permission
-                               0, 0, size);
-    if (pSharedBuf == nullptr) {
-      CloseHandle(hMapFile);
-      return;
-    }
-
-    // Test for singleton existence
-    swprintf_s(szName, sizeof(szName) / sizeof(wchar_t), g_szMutexNameTemplate,
-               GetCurrentProcessId());
-    hMutex = CreateMutexW(nullptr, TRUE, szName);
-    if (nullptr == hMutex) {
-      UnmapViewOfFile(pSharedBuf);
-      CloseHandle(hMapFile);
-      return;
-    }
-    // test if we have allocated executor
-    Logger **ppLogger = (Logger **)(pSharedBuf);
-    // Check if executor already exists
-    if (GetLastError() == ERROR_ALREADY_EXISTS) {
-      // If so, wait for completion of executor initialization
-      if (WAIT_OBJECT_0 != WaitForSingleObject(hMutex, INFINITE)) {
-        CloseHandle(hMutex);
-        UnmapViewOfFile(pSharedBuf);
-        CloseHandle(hMapFile);
-        return;
-      }
-      // The mutex exists and released, we have a pointer to task executor
-      // instance in shared buffer
-      pLogger = *ppLogger;
-      ReleaseMutex(hMutex);
-      return;
-    }
-
-    // The mutex was created, we need allocate logger and share it.
-    pLogger = new Logger;
-    *ppLogger = pLogger;
-    // Release Mutex
-    ReleaseMutex(hMutex);
-  }
-
-  ~LoggerSingletonHandler() {
-    CloseHandle(hMutex);
-    UnmapViewOfFile(pSharedBuf);
-    CloseHandle(hMapFile);
-    // Add conditional check to avoid delete twice
-    if (!pLogger) {
-      delete pLogger;
-      pLogger = nullptr;
-    }
-  }
-
-  // Delete copy & move constructor
-  LoggerSingletonHandler(const LoggerSingletonHandler &) = delete;
-  LoggerSingletonHandler(LoggerSingletonHandler &&) = delete;
-
-  // Delete assignment operator
-  LoggerSingletonHandler &operator=(const LoggerSingletonHandler &) = delete;
-  LoggerSingletonHandler &operator=(LoggerSingletonHandler &&) = delete;
-
-  // Pointer to a singleton object
-  static Logger *pLogger;
-  HANDLE hMapFile;
-  LPVOID pSharedBuf = nullptr;
-  HANDLE hMutex = nullptr;
-};
-
-Logger *LoggerSingletonHandler::pLogger = nullptr;
-
-LoggerSingletonHandler logger;
-
-Logger *Logger::GetInstance() { return LoggerSingletonHandler::pLogger; }
+static llvm::ManagedStatic<Logger> LoggerInstance;
+Logger *Logger::GetInstance() { return &*LoggerInstance; }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::AddLogHandler
@@ -167,7 +66,7 @@ cl_err_code Logger::AddLogHandler(LogHandler *logHandler) {
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger::GetLogHandlerParams
 /////////////////////////////////////////////////////////////////////////////////////////
-const char *Logger::GetLogHandlerParams(const char *logHandler) {
+const char *Logger::GetLogHandlerParams(const char * /*logHandler*/) {
   // not implemented yet
   assert(false);
   return "";
@@ -198,7 +97,7 @@ void Logger::Log(ELogLevel level, ELogConfigField config,
 /////////////////////////////////////////////////////////////////////////////////////////
 // LoggerClient Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
-LoggerClient::LoggerClient(const char *clientHandle, ELogLevel loglevel) {
+LoggerClient::LoggerClient(const char * /*clientHandle*/, ELogLevel loglevel) {
   m_logLevel = loglevel;
   m_eLogConfig = (ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
                                    LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
@@ -218,7 +117,6 @@ void LoggerClient::Log(ELogLevel level, const char *sourceFile,
                        const char *message, ...) {
   if (!Logger::GetInstance() || m_logLevel > level)
     return;
-
   va_list va;
   va_start(va, message);
 

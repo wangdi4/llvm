@@ -389,7 +389,6 @@ llvm_map_components_to_libnames(
   Symbolize
   Target
   TransformUtils
-  Vectorizer
   Intel_DPCPPKernelTransforms
   )
 
@@ -597,7 +596,6 @@ if(NOT OPENCL_INTREE_BUILD)
       OpenCL-ICD
       ocl-builtins
       ocl-builtins-shared
-      ocl-cl_logger
       ocl-common_clang
       ocl-config
       ocl-gdb-plugin
