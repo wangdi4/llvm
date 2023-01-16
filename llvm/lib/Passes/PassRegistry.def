@@ -292,6 +292,7 @@ MODULE_PASS("instrorderfile", InstrOrderFilePass())
 MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,
@@ -317,6 +318,8 @@ MODULE_PASS("intel-math-libraries-decl", IntelMathLibrariesDeclarationPass())
 MODULE_PASS("intel-ipo-dead-arg-elimination", IntelIPODeadArgEliminationPass())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("ipsccp", IPSCCPPass())
+=======
+>>>>>>> f952bc05fda6647bedadf552c5aa5b00672861fc
 MODULE_PASS("iroutliner", IROutlinerPass())
 MODULE_PASS("print-ir-similarity", IRSimilarityAnalysisPrinterPass(dbgs()))
 MODULE_PASS("lower-global-dtors", LowerGlobalDtorsPass())
@@ -443,6 +446,13 @@ MODULE_PASS_WITH_PARAMS("msan",
                         },
                         parseMSanPassOptions,
                         "recover;kernel;eager-checks;track-origins=N")
+MODULE_PASS_WITH_PARAMS("ipsccp",
+                        "IPSCCPPass",
+                        [](IPSCCPOptions Opts) {
+                          return IPSCCPPass(Opts);
+                        },
+                        parseIPSCCPOptions,
+                        "no-func-spec;func-spec")
 #undef MODULE_PASS_WITH_PARAMS
 
 #ifndef CGSCC_ANALYSIS

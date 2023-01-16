@@ -66,9 +66,6 @@ STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
 STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
-static cl::opt<bool> SpecializeFunctions("specialize-functions",
-    cl::init(false), cl::Hidden, cl::desc("Enable function specialization"));
-
 static cl::opt<unsigned> FuncSpecializationMaxIters(
     "func-specialization-max-iters", cl::init(1), cl::Hidden, cl::desc(
     "The maximum number of iterations function specialization is run"));
@@ -156,7 +153,8 @@ static bool runIPSCCP(
     std::function<const TargetLibraryInfo &(Function &)> GetTLI,
     std::function<TargetTransformInfo &(Function &)> GetTTI,
     std::function<AssumptionCache &(Function &)> GetAC,
-    function_ref<AnalysisResultsForFn(Function &)> getAnalysis) {
+    function_ref<AnalysisResultsForFn(Function &)> getAnalysis,
+    bool IsFuncSpecEnabled) {
   SCCPSolver Solver(DL, GetTLI, M.getContext());
   FunctionSpecializer Specializer(Solver, M, FAM, GetTLI, GetTTI, GetAC);
 
@@ -202,7 +200,7 @@ static bool runIPSCCP(
   // Solve for constants.
   Solver.solveWhileResolvedUndefsIn(M);
 
-  if (SpecializeFunctions) {
+  if (IsFuncSpecEnabled) {
     unsigned Iters = 0;
     while (Iters++ < FuncSpecializationMaxIters && Specializer.run());
   }
@@ -269,7 +267,7 @@ static bool runIPSCCP(
                                           NumInstRemoved, NumInstReplaced);
     }
 
-    DomTreeUpdater DTU = SpecializeFunctions && Specializer.isClonedFunction(&F)
+    DomTreeUpdater DTU = IsFuncSpecEnabled && Specializer.isClonedFunction(&F)
         ? DomTreeUpdater(DomTreeUpdater::UpdateStrategy::Lazy)
         : Solver.getDTU(F);
 
@@ -449,15 +447,16 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetAC = [&FAM](Function &F) -> AssumptionCache & {
     return FAM.getResult<AssumptionAnalysis>(F);
   };
-  auto getAnalysis = [&FAM](Function &F) -> AnalysisResultsForFn {
+  auto getAnalysis = [&FAM, this](Function &F) -> AnalysisResultsForFn {
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     return {
         std::make_unique<PredicateInfo>(F, DT, FAM.getResult<AssumptionAnalysis>(F)),
         &DT, FAM.getCachedResult<PostDominatorTreeAnalysis>(F),
-        SpecializeFunctions ? &FAM.getResult<LoopAnalysis>(F) : nullptr };
+        isFuncSpecEnabled() ? &FAM.getResult<LoopAnalysis>(F) : nullptr };
   };
 
-  if (!runIPSCCP(M, DL, &FAM, GetTLI, GetTTI, GetAC, getAnalysis))
+  if (!runIPSCCP(M, DL, &FAM, GetTLI, GetTTI, GetAC, getAnalysis,
+                 isFuncSpecEnabled()))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
@@ -510,7 +509,7 @@ public:
           nullptr};
     };
 
-    return runIPSCCP(M, DL, nullptr, GetTLI, GetTTI, GetAC, getAnalysis);
+    return runIPSCCP(M, DL, nullptr, GetTLI, GetTTI, GetAC, getAnalysis, false);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
