@@ -112,6 +112,7 @@ public:
     x86_64_xucc,    // XUCC: x86_64_xucc
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
+    xtensa,         // Tensilica: Xtensa
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
     le32,           // le32: generic little-endian 32-bit CPU (PNaCl)
