@@ -146,6 +146,7 @@ void *Pipe::Map(cl_mem_flags flags, size_t requestedSize,
   // Round mapped size down to be an integral of packet size, otherwise it
   // cannot be fully unmapped.
   seg.size = (seg.size / m_uiPacketSize) * m_uiPacketSize;
+  assert(seg.size > 0 && "Segment size must be nonzero");
   seg.sizeToUnmap = seg.size;
 
   m_mapBuffer.resize(m_mapBuffer.size() + seg.size);
