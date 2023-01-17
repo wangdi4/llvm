@@ -111,64 +111,6 @@ getHelperAndInvokeeIfInvokeSimdCall(const CallInst *CI) {
   return {nullptr, nullptr};
 }
 
-<<<<<<< HEAD
-// Tries to find possible values stored into given address.
-// Returns true if the set of values could be reliably found, false otherwise.
-bool collectPossibleStoredVals(Value *Addr, ValueSetImpl &Vals) {
-  ValueSet Visited;
-  AllocaInst *LocalVar = dyn_cast_or_null<AllocaInst>(stripCasts(Addr));
-
-  if (!LocalVar) {
-    return false;
-  }
-  SmallPtrSet<const Use *, 4> Uses;
-  collectUsesLookThroughCasts(LocalVar, Uses);
-
-  for (const Use *U : Uses) {
-    Value *V = U->getUser();
-
-    if (auto *StI = dyn_cast<StoreInst>(V)) {
-#if !INTEL_CUSTOMIZATION
-      constexpr int StoreInstValueOperandIndex = 0;
-
-      if (U != &StI->getOperandUse(StoreInst::getPointerOperandIndex())) {
-        assert(U == &StI->getOperandUse(StoreInstValueOperandIndex));
-        // this is double indirection - not supported
-        return false;
-      }
- #endif // INTEL_CUSTOMIZATION
-      V = stripCasts(StI->getValueOperand());
-
-      if (auto *LI = dyn_cast<LoadInst>(V)) {
-        // A value loaded from another address is stored at this address -
-        // recurse into the other address
-        if (!collectPossibleStoredVals(LI->getPointerOperand(), Vals)) {
-          return false;
-        }
-      } else {
-        Vals.insert(V);
-      }
-      continue;
-    }
-    if (const auto *CI = dyn_cast<CallInst>(V)) {
-      // only __builtin_invoke_simd is allowed, otherwise the pointer escapes
-      if (!getHelperAndInvokeeIfInvokeSimdCall(CI).first) {
-        return false;
-      }
-      continue;
-    }
-    if (isa<LoadInst>(V)) {
-      // LoadInst from this addr is OK, as it does not affect what can be stored
-      // through the addr
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
-=======
->>>>>>> e7674019af00f50615e3e8a48276390334cfbbc4
 // Deduce a single function whose address this value can only contain and
 // return it, otherwise (if can't be deduced or multiple functions deduced)
 // return nullptr.
