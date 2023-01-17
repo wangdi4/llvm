@@ -397,8 +397,6 @@ def keycontainer : IntelLLDWarnMessageArgs<"keycontainer">;
 def keyfile : IntelLLDWarnMessageArgs<"keyfile">;
 def midl : IntelLLDWarnMessageArgs<"midl">;
 def noassembly : IntelLLDWarnMessage<"noassembly">;
-// FIXME: release was also defined by llvm comunity above
-// def release : IntelLLDWarnMessage<"release">;
 def winmddelaysign: IntelLLDWarnMessage<"winmddelaysign">;
 def winmddelaysign_args : IntelLLDWarnMessageArgs<"winmddelaysign">;
 def winmdfile : IntelLLDWarnMessageArgs<"winmdfile">;
