@@ -1561,7 +1561,7 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   // catchswitch is not in SplitPreds itself, we cannot separate them.
   if (CSPredBB && !SplitPredsSet.contains(CSPredBB)) {
     for (auto *ToSplit : SplitPreds) {
-      if (DT->dominates(CSPredBB, ToSplit)) {
+      if (DT->properlyDominates(CSPredBB, ToSplit)) {
         LLVM_DEBUG(
             dbgs() << "Catchswitch dominates loop exit, cannot break.\n");
         return;
@@ -1579,7 +1579,7 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
         case Instruction::CatchSwitch:
         case Instruction::CatchRet:
         case Instruction::CleanupRet:
-          if (DT->dominates(CSPredBB, PredBB)) {
+          if (DT->properlyDominates(CSPredBB, PredBB)) {
             LLVM_DEBUG(dbgs()
                        << "Cannot modify EH instruction outside of loop:\n");
             LLVM_DEBUG(dbgs() << *Terminator);
