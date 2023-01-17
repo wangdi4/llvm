@@ -523,4 +523,9 @@ EXTERN bool __kmpc_team_reduction_ready_teamzero(int* team_done_counter,
 
   return true;
 }
+
+/// Flush
+EXTERN void __kmpc_flush(ident_t *loc) {
+  mem_fence(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
+}
 #endif // INTEL_COLLAB
