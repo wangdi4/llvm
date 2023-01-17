@@ -71,6 +71,9 @@ OMPContext::OMPContext(bool IsDeviceCompilation, Triple TargetTriple,
   case Triple::amdgcn:
   case Triple::nvptx:
   case Triple::nvptx64:
+#if INTEL_COLLAB
+  case Triple::spir64:
+#endif // INTEL_COLLAB
     ActiveTraits.set(unsigned(TraitProperty::device_kind_gpu));
     break;
   default:
@@ -87,6 +90,16 @@ OMPContext::OMPContext(bool IsDeviceCompilation, Triple TargetTriple,
       ActiveTraits.set(unsigned(TraitProperty::Enum));                         \
   }
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
+
+#if INTEL_COLLAB
+  // Intel GPU arch types do not match target triple, so set them here.
+  if (TargetTriple.getArch() == TargetTriple.getArchTypeForLLVMName("spir64")) {
+    ActiveTraits.set(unsigned(TraitProperty::device_arch_gen));
+    ActiveTraits.set(unsigned(TraitProperty::device_arch_gen9));
+    ActiveTraits.set(unsigned(TraitProperty::device_arch_XeLP));
+    ActiveTraits.set(unsigned(TraitProperty::device_arch_XeHP));
+  }
+#endif // INTEL_COLLAB
 
   // TODO: What exactly do we want to see as device ISA trait?
   //       The discussion on the list did not seem to have come to an agreed
