@@ -9239,7 +9239,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   bool ShouldSimplify = true;
   while (ShouldSimplify) {
     ShouldSimplify = VPlanTransforms::sinkScalarOperands(*Plan);
-    ShouldSimplify |= VPlanTransforms::mergeReplicateRegions(*Plan);
+    ShouldSimplify |=
+        VPlanTransforms::mergeReplicateRegionsIntoSuccessors(*Plan);
     ShouldSimplify |= VPlanTransforms::mergeBlocksIntoPredecessors(*Plan);
   }
 
