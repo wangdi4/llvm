@@ -1352,9 +1352,14 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(getToolChain().GetACTypesIncludePath(Args)));
   }
   // Add Intel headers for OpenMP and SYCL offloading.
-  if (JA.isOffloading(Action::OFK_SYCL) || JA.isOffloading(Action::OFK_OpenMP))
+  if (JA.isOffloading(Action::OFK_SYCL) || JA.isOffloading(Action::OFK_OpenMP)) {
 #endif // INTEL_CUSTOMIZATION
     toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
+    if (Inputs[0].getType() == types::TY_CUDA) {
+      // Include __clang_cuda_runtime_wrapper.h in .cu SYCL compilation.
+      getToolChain().AddCudaIncludeArgs(Args, CmdArgs);
+    }
+  }
 
   // If we are offloading to a target via OpenMP we need to include the
   // openmp_wrappers folder which contains alternative system headers.
