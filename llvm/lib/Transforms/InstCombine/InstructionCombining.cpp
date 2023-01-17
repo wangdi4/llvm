@@ -1283,6 +1283,29 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // Otherwise, we can replace *all* users with the new PHI we form.
   }
 
+#if INTEL_CUSTOMIZATION
+  // Bail out folding in case when we detect following pattern:
+  //  %cond = phi i64 [ %sub, %cond.true ], [ %conv, %cond.false ]
+  //  %conv3 = trunc i64 %cond to i32
+  //  ...
+  //  %conv23 = zext i32 %conv3 to i64
+  //  ...
+  //  %conv66 = zext i32 %conv3 to i64
+  // It is unclear whether converting PHI into 32-bits will be profitable
+  // if computation is not 100% 32-bits.
+  if (Use *SingleUse = PN->getSingleUndroppableUse()) {
+    if (auto *Trunc = dyn_cast_or_null<TruncInst>(SingleUse->getUser())) {
+      unsigned NumExt = 0;
+      for (User *U : Trunc->users()) {
+        if (isa<ZExtInst>(&*U) || isa<SExtInst>(&*U))
+          NumExt++;
+      }
+      if (NumExt > 1)
+        return nullptr;
+    }
+  }
+#endif
+
   // Check to see whether the instruction can be folded into each phi operand.
   // If there is one operand that does not fold, remember the BB it is in.
   // If there is more than one or if *it* is a PHI, bail out.
