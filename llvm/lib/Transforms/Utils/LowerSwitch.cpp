@@ -380,9 +380,8 @@ void ProcessSwitchInst(SwitchInst *SI,
                        DominatorTree *DT) { // INTEL
   BasicBlock *OrigBlock = SI->getParent();
   Function *F = OrigBlock->getParent();
-<<<<<<< HEAD
-  Value *Val = SI->getCondition();  // The value we are switching on...
-  BasicBlock* Default = SI->getDefaultDest();
+  Value *Val = SI->getCondition(); // The value we are switching on...
+  BasicBlock *Default = SI->getDefaultDest();
 #if INTEL_CUSTOMIZATION
   // The basic blocks dominated by the original default block won't change.
   // So we query the descendants of the default block in the dominator tree
@@ -405,10 +404,6 @@ void ProcessSwitchInst(SwitchInst *SI,
                         BBDominatedByOrigDefault.end());
   };
 #endif // INTEL_CUSTOMIZATION
-=======
-  Value *Val = SI->getCondition(); // The value we are switching on...
-  BasicBlock *Default = SI->getDefaultDest();
->>>>>>> 2838507bd46a232d5932599baf9287293c254a40
 
   // Don't handle unreachable blocks. If there are successors with phis, this
   // would leave them behind with missing predecessors.
