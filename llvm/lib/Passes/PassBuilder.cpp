@@ -96,11 +96,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/UniformityAnalysis.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/ValueTracking.h" // INTEL
-=======
 #include "llvm/CodeGen/TypePromotion.h"
->>>>>>> 615333bc09c42cdac4d69ea171e610cdcb06e803
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManager.h"
