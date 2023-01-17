@@ -63,13 +63,14 @@ define void @foo() {
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINAVX-LABEL: @foo(
-; XMAINAVX-NEXT:    [[TMP1:%.*]] = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 0), align 16
-; XMAINAVX-NEXT:    [[TMP2:%.*]] = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @b, i64 0, i64 2), align 8
+; XMAINAVX-NEXT:    [[TMP1:%.*]] = load i32, ptr @b, align 16
+; XMAINAVX-NEXT:    [[TMP2:%.*]] = load i32, ptr getelementptr inbounds ([8 x i32], ptr @b, i64 0, i64 2), align 8
 ; XMAINAVX-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> poison, i32 [[TMP1]], i64 0
 ; XMAINAVX-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32> [[TMP3]], i32 [[TMP2]], i64 1
-; XMAINAVX-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
-; XMAINAVX-NEXT:    store <8 x i32> [[SHUFFLE]], <8 x i32>* bitcast ([8 x i32]* @a to <8 x i32>*), align 16
+; XMAINAVX-NEXT:    [[TMP5:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 0, i32 1, i32 0, i32 1, i32 0, i32 1>
+; XMAINAVX-NEXT:    store <8 x i32> [[TMP5]], ptr @a, align 16
 ; XMAINAVX-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %1 = load i32, ptr @b, align 16
   store i32 %1, ptr @a, align 16

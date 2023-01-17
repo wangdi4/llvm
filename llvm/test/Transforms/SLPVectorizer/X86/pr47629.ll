@@ -104,21 +104,21 @@ define void @gather_load(ptr noalias nocapture %0, ptr noalias nocapture readonl
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAIN-LABEL: @gather_load(
-; XMAIN-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAIN-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP1]], align 4, !tbaa [[TBAA0:![0-9]+]]
-; XMAIN-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 11
-; XMAIN-NEXT:    [[TMP6:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAIN-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
-; XMAIN-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAIN-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAIN-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAIN-NEXT:    [[TMP4:%.*]] = load i32, ptr [[TMP1]], align 4, !tbaa [[TBAA0:![0-9]+]]
+; XMAIN-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 11
+; XMAIN-NEXT:    [[TMP6:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAIN-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 4
+; XMAIN-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAIN-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
 ; XMAIN-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i64 0
 ; XMAIN-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP6]], i64 1
 ; XMAIN-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 2
 ; XMAIN-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 3
 ; XMAIN-NEXT:    [[TMP14:%.*]] = add nsw <4 x i32> [[TMP13]], <i32 1, i32 2, i32 3, i32 4>
-; XMAIN-NEXT:    [[TMP15:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
-; XMAIN-NEXT:    store <4 x i32> [[TMP14]], <4 x i32>* [[TMP15]], align 4, !tbaa [[TBAA0]]
+; XMAIN-NEXT:    store <4 x i32> [[TMP14]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAIN-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %3 = getelementptr inbounds i32, ptr %1, i64 1
   %4 = load i32, ptr %1, align 4, !tbaa !2
@@ -224,98 +224,95 @@ define void @gather_load_2(ptr noalias nocapture %0, ptr noalias nocapture reado
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_2(
-; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAINSSE-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAINSSE-NEXT:    [[TMP4:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP5:%.*]] = add nsw i32 [[TMP4]], 1
-; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 1
-; XMAINSSE-NEXT:    store i32 [[TMP5]], i32* [[TMP0]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
-; XMAINSSE-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP0:%.*]], i64 1
+; XMAINSSE-NEXT:    store i32 [[TMP5]], ptr [[TMP0]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 10
+; XMAINSSE-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP9:%.*]] = add nsw i32 [[TMP8]], 2
-; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 2
-; XMAINSSE-NEXT:    store i32 [[TMP9]], i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
-; XMAINSSE-NEXT:    [[TMP12:%.*]] = load i32, i32* [[TMP11]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 2
+; XMAINSSE-NEXT:    store i32 [[TMP9]], ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 3
+; XMAINSSE-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP11]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP13:%.*]] = add nsw i32 [[TMP12]], 3
-; XMAINSSE-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 3
-; XMAINSSE-NEXT:    store i32 [[TMP13]], i32* [[TMP10]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
-; XMAINSSE-NEXT:    [[TMP16:%.*]] = load i32, i32* [[TMP15]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 3
+; XMAINSSE-NEXT:    store i32 [[TMP13]], ptr [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 5
+; XMAINSSE-NEXT:    [[TMP16:%.*]] = load i32, ptr [[TMP15]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP17:%.*]] = add nsw i32 [[TMP16]], 4
-; XMAINSSE-NEXT:    store i32 [[TMP17]], i32* [[TMP14]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[TMP17]], ptr [[TMP14]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    ret void
 ;
 ; XMAINAVX-LABEL: @gather_load_2(
-; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
-; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
-; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
-; XMAINAVX-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 10
+; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 3
+; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 5
+; XMAINAVX-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP7]], i64 0
 ; XMAINAVX-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 1
 ; XMAINAVX-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 2
 ; XMAINAVX-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i64 3
 ; XMAINAVX-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
-; XMAINAVX-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    store <4 x i32> [[TMP15]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    ret void
 ;
 ; XMAINAVX2-LABEL: @gather_load_2(
-; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
-; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
-; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
-; XMAINAVX2-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 10
+; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 3
+; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 5
+; XMAINAVX2-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP7]], i64 0
 ; XMAINAVX2-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 1
 ; XMAINAVX2-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 2
 ; XMAINAVX2-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i64 3
 ; XMAINAVX2-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX2-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
-; XMAINAVX2-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    store <4 x i32> [[TMP15]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
 ;
 ; XMAINAVX512F-LABEL: @gather_load_2(
-; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
-; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
-; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
-; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 10
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 3
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 5
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP7]], i64 0
 ; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 1
 ; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 2
 ; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i64 3
 ; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512F-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
-; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    store <4 x i32> [[TMP15]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512VL-LABEL: @gather_load_2(
-; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 1
-; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 10
-; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 3
-; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
-; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
+; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 10
+; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 3
+; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 5
+; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP7]], i64 0
 ; XMAINAVX512VL-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 1
 ; XMAINAVX512VL-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 2
 ; XMAINAVX512VL-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i64 3
 ; XMAINAVX512VL-NEXT:    [[TMP15:%.*]] = add nsw <4 x i32> [[TMP14]], <i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512VL-NEXT:    [[TMP16:%.*]] = bitcast i32* [[TMP0:%.*]] to <4 x i32>*
-; XMAINAVX512VL-NEXT:    store <4 x i32> [[TMP15]], <4 x i32>* [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    store <4 x i32> [[TMP15]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %3 = getelementptr inbounds i32, ptr %1, i64 1
   %4 = load i32, ptr %3, align 4, !tbaa !2
@@ -458,62 +455,62 @@ define void @gather_load_3(ptr noalias nocapture %0, ptr noalias nocapture reado
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_3(
-; XMAINSSE-NEXT:    [[TMP3:%.*]] = load i32, i32* [[TMP1:%.*]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP3:%.*]] = load i32, ptr [[TMP1:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP4:%.*]] = add i32 [[TMP3]], 1
-; XMAINSSE-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 1
-; XMAINSSE-NEXT:    store i32 [[TMP4]], i32* [[TMP0]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 11
-; XMAINSSE-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP0:%.*]], i64 1
+; XMAINSSE-NEXT:    store i32 [[TMP4]], ptr [[TMP0]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 11
+; XMAINSSE-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP8:%.*]] = add i32 [[TMP7]], 2
-; XMAINSSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 2
-; XMAINSSE-NEXT:    store i32 [[TMP8]], i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
-; XMAINSSE-NEXT:    [[TMP11:%.*]] = load i32, i32* [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 2
+; XMAINSSE-NEXT:    store i32 [[TMP8]], ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 4
+; XMAINSSE-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP10]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP12:%.*]] = add i32 [[TMP11]], 3
-; XMAINSSE-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 3
-; XMAINSSE-NEXT:    store i32 [[TMP12]], i32* [[TMP9]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
-; XMAINSSE-NEXT:    [[TMP15:%.*]] = load i32, i32* [[TMP14]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 3
+; XMAINSSE-NEXT:    store i32 [[TMP12]], ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 15
+; XMAINSSE-NEXT:    [[TMP15:%.*]] = load i32, ptr [[TMP14]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP16:%.*]] = add i32 [[TMP15]], 4
-; XMAINSSE-NEXT:    [[TMP17:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 4
-; XMAINSSE-NEXT:    store i32 [[TMP16]], i32* [[TMP13]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP18:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 18
-; XMAINSSE-NEXT:    [[TMP19:%.*]] = load i32, i32* [[TMP18]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP17:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 4
+; XMAINSSE-NEXT:    store i32 [[TMP16]], ptr [[TMP13]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP18:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 18
+; XMAINSSE-NEXT:    [[TMP19:%.*]] = load i32, ptr [[TMP18]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP20:%.*]] = add i32 [[TMP19]], 1
-; XMAINSSE-NEXT:    [[TMP21:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 5
-; XMAINSSE-NEXT:    store i32 [[TMP20]], i32* [[TMP17]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP22:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
-; XMAINSSE-NEXT:    [[TMP23:%.*]] = load i32, i32* [[TMP22]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP21:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 5
+; XMAINSSE-NEXT:    store i32 [[TMP20]], ptr [[TMP17]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP22:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 9
+; XMAINSSE-NEXT:    [[TMP23:%.*]] = load i32, ptr [[TMP22]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP24:%.*]] = add i32 [[TMP23]], 2
-; XMAINSSE-NEXT:    [[TMP25:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 6
-; XMAINSSE-NEXT:    store i32 [[TMP24]], i32* [[TMP21]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP26:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
-; XMAINSSE-NEXT:    [[TMP27:%.*]] = load i32, i32* [[TMP26]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP25:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 6
+; XMAINSSE-NEXT:    store i32 [[TMP24]], ptr [[TMP21]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP26:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 6
+; XMAINSSE-NEXT:    [[TMP27:%.*]] = load i32, ptr [[TMP26]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP28:%.*]] = add i32 [[TMP27]], 3
-; XMAINSSE-NEXT:    [[TMP29:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], i64 7
-; XMAINSSE-NEXT:    store i32 [[TMP28]], i32* [[TMP25]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP30:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; XMAINSSE-NEXT:    [[TMP31:%.*]] = load i32, i32* [[TMP30]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP29:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 7
+; XMAINSSE-NEXT:    store i32 [[TMP28]], ptr [[TMP25]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP30:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 21
+; XMAINSSE-NEXT:    [[TMP31:%.*]] = load i32, ptr [[TMP30]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP32:%.*]] = add i32 [[TMP31]], 4
-; XMAINSSE-NEXT:    store i32 [[TMP32]], i32* [[TMP29]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[TMP32]], ptr [[TMP29]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    ret void
 ;
 ; XMAINAVX-LABEL: @gather_load_3(
-; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 11
-; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
-; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
-; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 18
-; XMAINAVX-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
-; XMAINAVX-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
-; XMAINAVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; XMAINAVX-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP11:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP12:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP13:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP14:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP15:%.*]] = load i32, i32* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP16:%.*]] = load i32, i32* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP17:%.*]] = load i32, i32* [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 11
+; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 4
+; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 15
+; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 18
+; XMAINAVX-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 9
+; XMAINAVX-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 6
+; XMAINAVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 21
+; XMAINAVX-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP13:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP14:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP15:%.*]] = load i32, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP16:%.*]] = load i32, ptr [[TMP8]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP17:%.*]] = load i32, ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> poison, i32 [[TMP10]], i64 0
 ; XMAINAVX-NEXT:    [[TMP19:%.*]] = insertelement <8 x i32> [[TMP18]], i32 [[TMP11]], i64 1
 ; XMAINAVX-NEXT:    [[TMP20:%.*]] = insertelement <8 x i32> [[TMP19]], i32 [[TMP12]], i64 2
@@ -523,26 +520,25 @@ define void @gather_load_3(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; XMAINAVX-NEXT:    [[TMP24:%.*]] = insertelement <8 x i32> [[TMP23]], i32 [[TMP16]], i64 6
 ; XMAINAVX-NEXT:    [[TMP25:%.*]] = insertelement <8 x i32> [[TMP24]], i32 [[TMP17]], i64 7
 ; XMAINAVX-NEXT:    [[TMP26:%.*]] = add <8 x i32> [[TMP25]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX-NEXT:    [[TMP27:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
-; XMAINAVX-NEXT:    store <8 x i32> [[TMP26]], <8 x i32>* [[TMP27]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    store <8 x i32> [[TMP26]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    ret void
 ;
 ; XMAINAVX2-LABEL: @gather_load_3(
-; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 11
-; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 4
-; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
-; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 18
-; XMAINAVX2-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
-; XMAINAVX2-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
-; XMAINAVX2-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; XMAINAVX2-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP11:%.*]] = load i32, i32* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP12:%.*]] = load i32, i32* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP13:%.*]] = load i32, i32* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP14:%.*]] = load i32, i32* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP15:%.*]] = load i32, i32* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP16:%.*]] = load i32, i32* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP17:%.*]] = load i32, i32* [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 11
+; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 4
+; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 15
+; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 18
+; XMAINAVX2-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 9
+; XMAINAVX2-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 6
+; XMAINAVX2-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 21
+; XMAINAVX2-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP13:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP14:%.*]] = load i32, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP15:%.*]] = load i32, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP16:%.*]] = load i32, ptr [[TMP8]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP17:%.*]] = load i32, ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> poison, i32 [[TMP10]], i64 0
 ; XMAINAVX2-NEXT:    [[TMP19:%.*]] = insertelement <8 x i32> [[TMP18]], i32 [[TMP11]], i64 1
 ; XMAINAVX2-NEXT:    [[TMP20:%.*]] = insertelement <8 x i32> [[TMP19]], i32 [[TMP12]], i64 2
@@ -552,29 +548,27 @@ define void @gather_load_3(ptr noalias nocapture %0, ptr noalias nocapture reado
 ; XMAINAVX2-NEXT:    [[TMP24:%.*]] = insertelement <8 x i32> [[TMP23]], i32 [[TMP16]], i64 6
 ; XMAINAVX2-NEXT:    [[TMP25:%.*]] = insertelement <8 x i32> [[TMP24]], i32 [[TMP17]], i64 7
 ; XMAINAVX2-NEXT:    [[TMP26:%.*]] = add <8 x i32> [[TMP25]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX2-NEXT:    [[TMP27:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
-; XMAINAVX2-NEXT:    store <8 x i32> [[TMP26]], <8 x i32>* [[TMP27]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    store <8 x i32> [[TMP26]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
 ;
 ; XMAINAVX512F-LABEL: @gather_load_3(
-; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1:%.*]], i64 0
-; XMAINAVX512F-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32*> [[TMP3]], <8 x i32*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr i32, <8 x i32*> [[SHUFFLE]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
-; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP4]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = add <8 x i32> [[TMP5]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
-; XMAINAVX512F-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <8 x ptr> poison, ptr [[TMP1:%.*]], i64 0
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = shufflevector <8 x ptr> [[TMP3]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr i32, <8 x ptr> [[TMP4]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = add <8 x i32> [[TMP6]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    store <8 x i32> [[TMP7]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512VL-LABEL: @gather_load_3(
-; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1:%.*]], i64 0
-; XMAINAVX512VL-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32*> [[TMP3]], <8 x i32*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = getelementptr i32, <8 x i32*> [[SHUFFLE]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
-; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP4]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = add <8 x i32> [[TMP5]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
-; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <8 x ptr> poison, ptr [[TMP1:%.*]], i64 0
+; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = shufflevector <8 x ptr> [[TMP3]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr i32, <8 x ptr> [[TMP4]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = add <8 x i32> [[TMP6]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP7]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %3 = load i32, ptr %1, align 4, !tbaa !2
   %4 = add i32 %3, 1
@@ -735,28 +729,28 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_4(
-; XMAINSSE-NEXT:    [[T5:%.*]] = getelementptr inbounds i32, i32* [[T0:%.*]], i64 1
-; XMAINSSE-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
-; XMAINSSE-NEXT:    [[T9:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 2
-; XMAINSSE-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 4
-; XMAINSSE-NEXT:    [[T13:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 3
-; XMAINSSE-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 15
-; XMAINSSE-NEXT:    [[T17:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 4
-; XMAINSSE-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 18
-; XMAINSSE-NEXT:    [[T21:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 5
-; XMAINSSE-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
-; XMAINSSE-NEXT:    [[T25:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 6
-; XMAINSSE-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
-; XMAINSSE-NEXT:    [[T29:%.*]] = getelementptr inbounds i32, i32* [[T0]], i64 7
-; XMAINSSE-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-; XMAINSSE-NEXT:    [[T3:%.*]] = load i32, i32* [[T1]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T7:%.*]] = load i32, i32* [[T6]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T11:%.*]] = load i32, i32* [[T10]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T15:%.*]] = load i32, i32* [[T14]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T19:%.*]] = load i32, i32* [[T18]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T5:%.*]] = getelementptr inbounds i32, ptr [[T0:%.*]], i64 1
+; XMAINSSE-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, ptr [[T1:%.*]], i64 11
+; XMAINSSE-NEXT:    [[T9:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 2
+; XMAINSSE-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 4
+; XMAINSSE-NEXT:    [[T13:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 3
+; XMAINSSE-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 15
+; XMAINSSE-NEXT:    [[T17:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 4
+; XMAINSSE-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 18
+; XMAINSSE-NEXT:    [[T21:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 5
+; XMAINSSE-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 9
+; XMAINSSE-NEXT:    [[T25:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 6
+; XMAINSSE-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 6
+; XMAINSSE-NEXT:    [[T29:%.*]] = getelementptr inbounds i32, ptr [[T0]], i64 7
+; XMAINSSE-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 21
+; XMAINSSE-NEXT:    [[T3:%.*]] = load i32, ptr [[T1]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T7:%.*]] = load i32, ptr [[T6]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T11:%.*]] = load i32, ptr [[T10]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T15:%.*]] = load i32, ptr [[T14]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T19:%.*]] = load i32, ptr [[T18]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T23:%.*]] = load i32, ptr [[T22]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T27:%.*]] = load i32, ptr [[T26]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[T31:%.*]] = load i32, ptr [[T30]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[T4:%.*]] = add i32 [[T3]], 1
 ; XMAINSSE-NEXT:    [[T8:%.*]] = add i32 [[T7]], 2
 ; XMAINSSE-NEXT:    [[T12:%.*]] = add i32 [[T11]], 3
@@ -765,32 +759,32 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ; XMAINSSE-NEXT:    [[T24:%.*]] = add i32 [[T23]], 2
 ; XMAINSSE-NEXT:    [[T28:%.*]] = add i32 [[T27]], 3
 ; XMAINSSE-NEXT:    [[T32:%.*]] = add i32 [[T31]], 4
-; XMAINSSE-NEXT:    store i32 [[T4]], i32* [[T0]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T8]], i32* [[T5]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T12]], i32* [[T9]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T16]], i32* [[T13]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T20]], i32* [[T17]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T24]], i32* [[T21]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T28]], i32* [[T25]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    store i32 [[T32]], i32* [[T29]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T4]], ptr [[T0]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T8]], ptr [[T5]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T12]], ptr [[T9]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T16]], ptr [[T13]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T20]], ptr [[T17]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T24]], ptr [[T21]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T28]], ptr [[T25]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store i32 [[T32]], ptr [[T29]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    ret void
 ;
 ; XMAINAVX-LABEL: @gather_load_4(
-; XMAINAVX-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
-; XMAINAVX-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 4
-; XMAINAVX-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 15
-; XMAINAVX-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 18
-; XMAINAVX-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
-; XMAINAVX-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
-; XMAINAVX-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-; XMAINAVX-NEXT:    [[T3:%.*]] = load i32, i32* [[T1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T7:%.*]] = load i32, i32* [[T6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T11:%.*]] = load i32, i32* [[T10]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T15:%.*]] = load i32, i32* [[T14]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T19:%.*]] = load i32, i32* [[T18]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, ptr [[T1:%.*]], i64 11
+; XMAINAVX-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 4
+; XMAINAVX-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 15
+; XMAINAVX-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 18
+; XMAINAVX-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 9
+; XMAINAVX-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 6
+; XMAINAVX-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 21
+; XMAINAVX-NEXT:    [[T3:%.*]] = load i32, ptr [[T1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T7:%.*]] = load i32, ptr [[T6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T11:%.*]] = load i32, ptr [[T10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T15:%.*]] = load i32, ptr [[T14]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T19:%.*]] = load i32, ptr [[T18]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T23:%.*]] = load i32, ptr [[T22]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T27:%.*]] = load i32, ptr [[T26]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[T31:%.*]] = load i32, ptr [[T30]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> poison, i32 [[T3]], i64 0
 ; XMAINAVX-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32> [[TMP1]], i32 [[T7]], i64 1
 ; XMAINAVX-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> [[TMP2]], i32 [[T11]], i64 2
@@ -800,26 +794,25 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ; XMAINAVX-NEXT:    [[TMP7:%.*]] = insertelement <8 x i32> [[TMP6]], i32 [[T27]], i64 6
 ; XMAINAVX-NEXT:    [[TMP8:%.*]] = insertelement <8 x i32> [[TMP7]], i32 [[T31]], i64 7
 ; XMAINAVX-NEXT:    [[TMP9:%.*]] = add <8 x i32> [[TMP8]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX-NEXT:    [[TMP10:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
-; XMAINAVX-NEXT:    store <8 x i32> [[TMP9]], <8 x i32>* [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    store <8 x i32> [[TMP9]], ptr [[T0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    ret void
 ;
 ; XMAINAVX2-LABEL: @gather_load_4(
-; XMAINAVX2-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
-; XMAINAVX2-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 4
-; XMAINAVX2-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 15
-; XMAINAVX2-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 18
-; XMAINAVX2-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
-; XMAINAVX2-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
-; XMAINAVX2-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-; XMAINAVX2-NEXT:    [[T3:%.*]] = load i32, i32* [[T1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T7:%.*]] = load i32, i32* [[T6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T11:%.*]] = load i32, i32* [[T10]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T15:%.*]] = load i32, i32* [[T14]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T19:%.*]] = load i32, i32* [[T18]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, ptr [[T1:%.*]], i64 11
+; XMAINAVX2-NEXT:    [[T10:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 4
+; XMAINAVX2-NEXT:    [[T14:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 15
+; XMAINAVX2-NEXT:    [[T18:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 18
+; XMAINAVX2-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 9
+; XMAINAVX2-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 6
+; XMAINAVX2-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, ptr [[T1]], i64 21
+; XMAINAVX2-NEXT:    [[T3:%.*]] = load i32, ptr [[T1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T7:%.*]] = load i32, ptr [[T6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T11:%.*]] = load i32, ptr [[T10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T15:%.*]] = load i32, ptr [[T14]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T19:%.*]] = load i32, ptr [[T18]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T23:%.*]] = load i32, ptr [[T22]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T27:%.*]] = load i32, ptr [[T26]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[T31:%.*]] = load i32, ptr [[T30]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> poison, i32 [[T3]], i64 0
 ; XMAINAVX2-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32> [[TMP1]], i32 [[T7]], i64 1
 ; XMAINAVX2-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> [[TMP2]], i32 [[T11]], i64 2
@@ -829,29 +822,27 @@ define void @gather_load_4(ptr noalias nocapture %t0, ptr noalias nocapture read
 ; XMAINAVX2-NEXT:    [[TMP7:%.*]] = insertelement <8 x i32> [[TMP6]], i32 [[T27]], i64 6
 ; XMAINAVX2-NEXT:    [[TMP8:%.*]] = insertelement <8 x i32> [[TMP7]], i32 [[T31]], i64 7
 ; XMAINAVX2-NEXT:    [[TMP9:%.*]] = add <8 x i32> [[TMP8]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX2-NEXT:    [[TMP10:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
-; XMAINAVX2-NEXT:    store <8 x i32> [[TMP9]], <8 x i32>* [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    store <8 x i32> [[TMP9]], ptr [[T0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
 ;
 ; XMAINAVX512F-LABEL: @gather_load_4(
-; XMAINAVX512F-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> poison, i32* [[T1:%.*]], i64 0
-; XMAINAVX512F-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32*> [[TMP1]], <8 x i32*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512F-NEXT:    [[TMP2:%.*]] = getelementptr i32, <8 x i32*> [[SHUFFLE]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
-; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP2]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = add <8 x i32> [[TMP3]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
-; XMAINAVX512F-NEXT:    store <8 x i32> [[TMP4]], <8 x i32>* [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP1:%.*]] = insertelement <8 x ptr> poison, ptr [[T1:%.*]], i64 0
+; XMAINAVX512F-NEXT:    [[TMP2:%.*]] = shufflevector <8 x ptr> [[TMP1]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr i32, <8 x ptr> [[TMP2]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP3]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = add <8 x i32> [[TMP4]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512F-NEXT:    store <8 x i32> [[TMP5]], ptr [[T0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512VL-LABEL: @gather_load_4(
-; XMAINAVX512VL-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> poison, i32* [[T1:%.*]], i64 0
-; XMAINAVX512VL-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i32*> [[TMP1]], <8 x i32*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512VL-NEXT:    [[TMP2:%.*]] = getelementptr i32, <8 x i32*> [[SHUFFLE]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
-; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP2]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = add <8 x i32> [[TMP3]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
-; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP4]], <8 x i32>* [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP1:%.*]] = insertelement <8 x ptr> poison, ptr [[T1:%.*]], i64 0
+; XMAINAVX512VL-NEXT:    [[TMP2:%.*]] = shufflevector <8 x ptr> [[TMP1]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr i32, <8 x ptr> [[TMP2]], <8 x i64> <i64 0, i64 11, i64 4, i64 15, i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP3]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison), !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = add <8 x i32> [[TMP4]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
+; XMAINAVX512VL-NEXT:    store <8 x i32> [[TMP5]], ptr [[T0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %t5 = getelementptr inbounds i32, ptr %t0, i64 1
   %t6 = getelementptr inbounds i32, ptr %t1, i64 11
@@ -1083,22 +1074,22 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ;
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_div(
-; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 4
-; XMAINSSE-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 10
-; XMAINSSE-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 13
-; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
-; XMAINSSE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 11
-; XMAINSSE-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
-; XMAINSSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 44
-; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, float* [[TMP0:%.*]], i64 4
-; XMAINSSE-NEXT:    [[TMP11:%.*]] = load float, float* [[TMP1]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP12:%.*]] = load float, float* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP13:%.*]] = load float, float* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP14:%.*]] = load float, float* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP15:%.*]] = load float, float* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP16:%.*]] = load float, float* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP17:%.*]] = load float, float* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP18:%.*]] = load float, float* [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, ptr [[TMP1:%.*]], i64 4
+; XMAINSSE-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 10
+; XMAINSSE-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 13
+; XMAINSSE-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 3
+; XMAINSSE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 11
+; XMAINSSE-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 14
+; XMAINSSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 44
+; XMAINSSE-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, ptr [[TMP0:%.*]], i64 4
+; XMAINSSE-NEXT:    [[TMP11:%.*]] = load float, ptr [[TMP1]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP12:%.*]] = load float, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP13:%.*]] = load float, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP14:%.*]] = load float, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP15:%.*]] = load float, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP16:%.*]] = load float, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP17:%.*]] = load float, ptr [[TMP8]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP18:%.*]] = load float, ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP19:%.*]] = insertelement <4 x float> poison, float [[TMP11]], i64 0
 ; XMAINSSE-NEXT:    [[TMP20:%.*]] = insertelement <4 x float> [[TMP19]], float [[TMP13]], i64 1
 ; XMAINSSE-NEXT:    [[TMP21:%.*]] = insertelement <4 x float> [[TMP20]], float [[TMP15]], i64 2
@@ -1108,69 +1099,67 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; XMAINSSE-NEXT:    [[TMP25:%.*]] = insertelement <4 x float> [[TMP24]], float [[TMP16]], i64 2
 ; XMAINSSE-NEXT:    [[TMP26:%.*]] = insertelement <4 x float> [[TMP25]], float [[TMP18]], i64 3
 ; XMAINSSE-NEXT:    [[TMP27:%.*]] = fdiv <4 x float> [[TMP22]], [[TMP26]]
-; XMAINSSE-NEXT:    [[TMP28:%.*]] = bitcast float* [[TMP0]] to <4 x float>*
-; XMAINSSE-NEXT:    store <4 x float> [[TMP27]], <4 x float>* [[TMP28]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP29:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 17
-; XMAINSSE-NEXT:    [[TMP30:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 33
-; XMAINSSE-NEXT:    [[TMP31:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
-; XMAINSSE-NEXT:    [[TMP32:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 30
-; XMAINSSE-NEXT:    [[TMP33:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
-; XMAINSSE-NEXT:    [[TMP34:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 27
-; XMAINSSE-NEXT:    [[TMP35:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; XMAINSSE-NEXT:    [[TMP36:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
-; XMAINSSE-NEXT:    [[TMP37:%.*]] = load float, float* [[TMP29]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP38:%.*]] = load float, float* [[TMP30]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP39:%.*]] = load float, float* [[TMP31]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP40:%.*]] = load float, float* [[TMP32]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP41:%.*]] = load float, float* [[TMP33]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP42:%.*]] = load float, float* [[TMP34]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP43:%.*]] = load float, float* [[TMP35]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP44:%.*]] = load float, float* [[TMP36]], align 4, !tbaa [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP45:%.*]] = insertelement <4 x float> poison, float [[TMP37]], i64 0
-; XMAINSSE-NEXT:    [[TMP46:%.*]] = insertelement <4 x float> [[TMP45]], float [[TMP39]], i64 1
-; XMAINSSE-NEXT:    [[TMP47:%.*]] = insertelement <4 x float> [[TMP46]], float [[TMP41]], i64 2
-; XMAINSSE-NEXT:    [[TMP48:%.*]] = insertelement <4 x float> [[TMP47]], float [[TMP43]], i64 3
-; XMAINSSE-NEXT:    [[TMP49:%.*]] = insertelement <4 x float> poison, float [[TMP38]], i64 0
-; XMAINSSE-NEXT:    [[TMP50:%.*]] = insertelement <4 x float> [[TMP49]], float [[TMP40]], i64 1
-; XMAINSSE-NEXT:    [[TMP51:%.*]] = insertelement <4 x float> [[TMP50]], float [[TMP42]], i64 2
-; XMAINSSE-NEXT:    [[TMP52:%.*]] = insertelement <4 x float> [[TMP51]], float [[TMP44]], i64 3
-; XMAINSSE-NEXT:    [[TMP53:%.*]] = fdiv <4 x float> [[TMP48]], [[TMP52]]
-; XMAINSSE-NEXT:    [[TMP54:%.*]] = bitcast float* [[TMP10]] to <4 x float>*
-; XMAINSSE-NEXT:    store <4 x float> [[TMP53]], <4 x float>* [[TMP54]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    store <4 x float> [[TMP27]], ptr [[TMP0]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP28:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 17
+; XMAINSSE-NEXT:    [[TMP29:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 33
+; XMAINSSE-NEXT:    [[TMP30:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 8
+; XMAINSSE-NEXT:    [[TMP31:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 30
+; XMAINSSE-NEXT:    [[TMP32:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 5
+; XMAINSSE-NEXT:    [[TMP33:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 27
+; XMAINSSE-NEXT:    [[TMP34:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 20
+; XMAINSSE-NEXT:    [[TMP35:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 23
+; XMAINSSE-NEXT:    [[TMP36:%.*]] = load float, ptr [[TMP28]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP37:%.*]] = load float, ptr [[TMP29]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP38:%.*]] = load float, ptr [[TMP30]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP39:%.*]] = load float, ptr [[TMP31]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP40:%.*]] = load float, ptr [[TMP32]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP41:%.*]] = load float, ptr [[TMP33]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP42:%.*]] = load float, ptr [[TMP34]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP43:%.*]] = load float, ptr [[TMP35]], align 4, !tbaa [[TBAA0]]
+; XMAINSSE-NEXT:    [[TMP44:%.*]] = insertelement <4 x float> poison, float [[TMP36]], i64 0
+; XMAINSSE-NEXT:    [[TMP45:%.*]] = insertelement <4 x float> [[TMP44]], float [[TMP38]], i64 1
+; XMAINSSE-NEXT:    [[TMP46:%.*]] = insertelement <4 x float> [[TMP45]], float [[TMP40]], i64 2
+; XMAINSSE-NEXT:    [[TMP47:%.*]] = insertelement <4 x float> [[TMP46]], float [[TMP42]], i64 3
+; XMAINSSE-NEXT:    [[TMP48:%.*]] = insertelement <4 x float> poison, float [[TMP37]], i64 0
+; XMAINSSE-NEXT:    [[TMP49:%.*]] = insertelement <4 x float> [[TMP48]], float [[TMP39]], i64 1
+; XMAINSSE-NEXT:    [[TMP50:%.*]] = insertelement <4 x float> [[TMP49]], float [[TMP41]], i64 2
+; XMAINSSE-NEXT:    [[TMP51:%.*]] = insertelement <4 x float> [[TMP50]], float [[TMP43]], i64 3
+; XMAINSSE-NEXT:    [[TMP52:%.*]] = fdiv <4 x float> [[TMP47]], [[TMP51]]
+; XMAINSSE-NEXT:    store <4 x float> [[TMP52]], ptr [[TMP10]], align 4, !tbaa [[TBAA0]]
 ; XMAINSSE-NEXT:    ret void
 ;
 ; XMAINAVX-LABEL: @gather_load_div(
-; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 4
-; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 10
-; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 13
-; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
-; XMAINAVX-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 11
-; XMAINAVX-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
-; XMAINAVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 44
-; XMAINAVX-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 17
-; XMAINAVX-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 33
-; XMAINAVX-NEXT:    [[TMP12:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
-; XMAINAVX-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 30
-; XMAINAVX-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
-; XMAINAVX-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 27
-; XMAINAVX-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; XMAINAVX-NEXT:    [[TMP17:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
-; XMAINAVX-NEXT:    [[TMP18:%.*]] = load float, float* [[TMP1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP19:%.*]] = load float, float* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP20:%.*]] = load float, float* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP21:%.*]] = load float, float* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP22:%.*]] = load float, float* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP23:%.*]] = load float, float* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP24:%.*]] = load float, float* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP25:%.*]] = load float, float* [[TMP9]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP26:%.*]] = load float, float* [[TMP10]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP27:%.*]] = load float, float* [[TMP11]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP28:%.*]] = load float, float* [[TMP12]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP29:%.*]] = load float, float* [[TMP13]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP30:%.*]] = load float, float* [[TMP14]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP31:%.*]] = load float, float* [[TMP15]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP32:%.*]] = load float, float* [[TMP16]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP33:%.*]] = load float, float* [[TMP17]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, ptr [[TMP1:%.*]], i64 4
+; XMAINAVX-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 10
+; XMAINAVX-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 13
+; XMAINAVX-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 3
+; XMAINAVX-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 11
+; XMAINAVX-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 14
+; XMAINAVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 44
+; XMAINAVX-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 17
+; XMAINAVX-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 33
+; XMAINAVX-NEXT:    [[TMP12:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 8
+; XMAINAVX-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 30
+; XMAINAVX-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 5
+; XMAINAVX-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 27
+; XMAINAVX-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 20
+; XMAINAVX-NEXT:    [[TMP17:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 23
+; XMAINAVX-NEXT:    [[TMP18:%.*]] = load float, ptr [[TMP1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP19:%.*]] = load float, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP20:%.*]] = load float, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP22:%.*]] = load float, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP23:%.*]] = load float, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP24:%.*]] = load float, ptr [[TMP8]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP25:%.*]] = load float, ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP26:%.*]] = load float, ptr [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP27:%.*]] = load float, ptr [[TMP11]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP28:%.*]] = load float, ptr [[TMP12]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP29:%.*]] = load float, ptr [[TMP13]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP30:%.*]] = load float, ptr [[TMP14]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP31:%.*]] = load float, ptr [[TMP15]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP32:%.*]] = load float, ptr [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    [[TMP33:%.*]] = load float, ptr [[TMP17]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> poison, float [[TMP18]], i64 0
 ; XMAINAVX-NEXT:    [[TMP35:%.*]] = insertelement <8 x float> [[TMP34]], float [[TMP20]], i64 1
 ; XMAINAVX-NEXT:    [[TMP36:%.*]] = insertelement <8 x float> [[TMP35]], float [[TMP22]], i64 2
@@ -1188,42 +1177,41 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; XMAINAVX-NEXT:    [[TMP48:%.*]] = insertelement <8 x float> [[TMP47]], float [[TMP31]], i64 6
 ; XMAINAVX-NEXT:    [[TMP49:%.*]] = insertelement <8 x float> [[TMP48]], float [[TMP33]], i64 7
 ; XMAINAVX-NEXT:    [[TMP50:%.*]] = fdiv <8 x float> [[TMP41]], [[TMP49]]
-; XMAINAVX-NEXT:    [[TMP51:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
-; XMAINAVX-NEXT:    store <8 x float> [[TMP50]], <8 x float>* [[TMP51]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX-NEXT:    store <8 x float> [[TMP50]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX-NEXT:    ret void
 ;
 ; XMAINAVX2-LABEL: @gather_load_div(
-; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 4
-; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 10
-; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 13
-; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
-; XMAINAVX2-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 11
-; XMAINAVX2-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
-; XMAINAVX2-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 44
-; XMAINAVX2-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 17
-; XMAINAVX2-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 33
-; XMAINAVX2-NEXT:    [[TMP12:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
-; XMAINAVX2-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 30
-; XMAINAVX2-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
-; XMAINAVX2-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 27
-; XMAINAVX2-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; XMAINAVX2-NEXT:    [[TMP17:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
-; XMAINAVX2-NEXT:    [[TMP18:%.*]] = load float, float* [[TMP1]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP19:%.*]] = load float, float* [[TMP3]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP20:%.*]] = load float, float* [[TMP4]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP21:%.*]] = load float, float* [[TMP5]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP22:%.*]] = load float, float* [[TMP6]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP23:%.*]] = load float, float* [[TMP7]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP24:%.*]] = load float, float* [[TMP8]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP25:%.*]] = load float, float* [[TMP9]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP26:%.*]] = load float, float* [[TMP10]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP27:%.*]] = load float, float* [[TMP11]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP28:%.*]] = load float, float* [[TMP12]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP29:%.*]] = load float, float* [[TMP13]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP30:%.*]] = load float, float* [[TMP14]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP31:%.*]] = load float, float* [[TMP15]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP32:%.*]] = load float, float* [[TMP16]], align 4, !tbaa [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP33:%.*]] = load float, float* [[TMP17]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, ptr [[TMP1:%.*]], i64 4
+; XMAINAVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 10
+; XMAINAVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 13
+; XMAINAVX2-NEXT:    [[TMP6:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 3
+; XMAINAVX2-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 11
+; XMAINAVX2-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 14
+; XMAINAVX2-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 44
+; XMAINAVX2-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 17
+; XMAINAVX2-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 33
+; XMAINAVX2-NEXT:    [[TMP12:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 8
+; XMAINAVX2-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 30
+; XMAINAVX2-NEXT:    [[TMP14:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 5
+; XMAINAVX2-NEXT:    [[TMP15:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 27
+; XMAINAVX2-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 20
+; XMAINAVX2-NEXT:    [[TMP17:%.*]] = getelementptr inbounds float, ptr [[TMP1]], i64 23
+; XMAINAVX2-NEXT:    [[TMP18:%.*]] = load float, ptr [[TMP1]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP19:%.*]] = load float, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP20:%.*]] = load float, ptr [[TMP4]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP21:%.*]] = load float, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP22:%.*]] = load float, ptr [[TMP6]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP23:%.*]] = load float, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP24:%.*]] = load float, ptr [[TMP8]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP25:%.*]] = load float, ptr [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP26:%.*]] = load float, ptr [[TMP10]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP27:%.*]] = load float, ptr [[TMP11]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP28:%.*]] = load float, ptr [[TMP12]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP29:%.*]] = load float, ptr [[TMP13]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP30:%.*]] = load float, ptr [[TMP14]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP31:%.*]] = load float, ptr [[TMP15]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP32:%.*]] = load float, ptr [[TMP16]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    [[TMP33:%.*]] = load float, ptr [[TMP17]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> poison, float [[TMP18]], i64 0
 ; XMAINAVX2-NEXT:    [[TMP35:%.*]] = insertelement <8 x float> [[TMP34]], float [[TMP20]], i64 1
 ; XMAINAVX2-NEXT:    [[TMP36:%.*]] = insertelement <8 x float> [[TMP35]], float [[TMP22]], i64 2
@@ -1241,33 +1229,31 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; XMAINAVX2-NEXT:    [[TMP48:%.*]] = insertelement <8 x float> [[TMP47]], float [[TMP31]], i64 6
 ; XMAINAVX2-NEXT:    [[TMP49:%.*]] = insertelement <8 x float> [[TMP48]], float [[TMP33]], i64 7
 ; XMAINAVX2-NEXT:    [[TMP50:%.*]] = fdiv <8 x float> [[TMP41]], [[TMP49]]
-; XMAINAVX2-NEXT:    [[TMP51:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
-; XMAINAVX2-NEXT:    store <8 x float> [[TMP50]], <8 x float>* [[TMP51]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX2-NEXT:    store <8 x float> [[TMP50]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX2-NEXT:    ret void
 ;
 ; XMAINAVX512F-LABEL: @gather_load_div(
-; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <8 x float*> poison, float* [[TMP1:%.*]], i64 0
-; XMAINAVX512F-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <8 x float*> [[TMP3]], <8 x float*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE1]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
-; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE1]], <8 x i64> <i64 0, i64 10, i64 3, i64 14, i64 17, i64 8, i64 5, i64 20>
-; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP4]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = fdiv <8 x float> [[TMP6]], [[TMP7]]
-; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
-; XMAINAVX512F-NEXT:    store <8 x float> [[TMP8]], <8 x float>* [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <8 x ptr> poison, ptr [[TMP1:%.*]], i64 0
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = shufflevector <8 x ptr> [[TMP3]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr float, <8 x ptr> [[TMP4]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr float, <8 x ptr> [[TMP4]], <8 x i64> <i64 0, i64 10, i64 3, i64 14, i64 17, i64 8, i64 5, i64 20>
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP6]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = fdiv <8 x float> [[TMP7]], [[TMP8]]
+; XMAINAVX512F-NEXT:    store <8 x float> [[TMP9]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512VL-LABEL: @gather_load_div(
-; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <8 x float*> poison, float* [[TMP1:%.*]], i64 0
-; XMAINAVX512VL-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <8 x float*> [[TMP3]], <8 x float*> poison, <8 x i32> zeroinitializer
-; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE1]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
-; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE1]], <8 x i64> <i64 0, i64 10, i64 3, i64 14, i64 17, i64 8, i64 5, i64 20>
-; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP4]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
-; XMAINAVX512VL-NEXT:    [[TMP8:%.*]] = fdiv <8 x float> [[TMP6]], [[TMP7]]
-; XMAINAVX512VL-NEXT:    [[TMP9:%.*]] = bitcast float* [[TMP0:%.*]] to <8 x float>*
-; XMAINAVX512VL-NEXT:    store <8 x float> [[TMP8]], <8 x float>* [[TMP9]], align 4, !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <8 x ptr> poison, ptr [[TMP1:%.*]], i64 0
+; XMAINAVX512VL-NEXT:    [[TMP4:%.*]] = shufflevector <8 x ptr> [[TMP3]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; XMAINAVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr float, <8 x ptr> [[TMP4]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
+; XMAINAVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr float, <8 x ptr> [[TMP4]], <8 x i64> <i64 0, i64 10, i64 3, i64 14, i64 17, i64 8, i64 5, i64 20>
+; XMAINAVX512VL-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP6]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP8:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP5]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison), !tbaa [[TBAA0]]
+; XMAINAVX512VL-NEXT:    [[TMP9:%.*]] = fdiv <8 x float> [[TMP7]], [[TMP8]]
+; XMAINAVX512VL-NEXT:    store <8 x float> [[TMP9]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; XMAINAVX512VL-NEXT:    ret void
+;
 ; end INTEL_CUSTOMIZATION
   %3 = load float, ptr %1, align 4, !tbaa !2
   %4 = getelementptr inbounds float, ptr %1, i64 4
