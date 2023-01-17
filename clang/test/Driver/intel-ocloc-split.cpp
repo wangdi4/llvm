@@ -13,6 +13,34 @@
 // RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
+
+/// Using OCLOC env variables for finding ocloc bits
+// RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device skl" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_SKL
+// RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device dg2" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_DG2
+// RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device tgllp" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
+
+/// Using LIB env variable for finding ocloc bits
+// RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device skl" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_SKL
+// RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device dg2" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_DG2
+// RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device tgllp" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
 // OCLOC_SKL: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "skl"
 // OCLOC_DG2: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "dg2"
 // OCLOC_TGLLP: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "tgllp"

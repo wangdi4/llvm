@@ -33,6 +33,10 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/Process.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
 using namespace clang::driver::tools;
@@ -1011,6 +1015,52 @@ void SYCL::gen::BackendCompiler::constructOclocCommand(Compilation &C,
   } else
     C.addCommand(std::move(Cmd));
 }
+
+// Search for the location in which the split ocloc binaries reside.
+// The location can be determined by the following:
+//  - location set via $OCLOCROOT/$OCLOCVER
+//  - values within the LIB environment variable
+//  - location relative to compiler installation
+static std::optional<std::string> getOclocLocation(Compilation &C) {
+  std::optional<std::string> OclocRoot =
+      llvm::sys::Process::GetEnv("OCLOCROOT");
+  std::optional<std::string> OclocVer = llvm::sys::Process::GetEnv("OCLOCVER");
+  if (OclocRoot && OclocVer) {
+    SmallString<128> OclocLoc;
+    llvm::sys::path::append(OclocLoc, *OclocRoot, *OclocVer);
+    if (OclocLoc.size() > 1 && llvm::sys::fs::exists(OclocLoc))
+      return std::string(OclocLoc.str());
+  }
+  std::optional<std::string> Lib = llvm::sys::Process::GetEnv("LIB");
+  if (Lib) {
+    SmallVector<StringRef, 8> SplitPaths;
+    const char EnvPathSeparatorStr[] = {llvm::sys::EnvPathSeparator, '\0'};
+    llvm::SplitString(*Lib, SplitPaths, EnvPathSeparatorStr);
+    for (StringRef Path : SplitPaths) {
+      SmallVector<std::string, 3> LibPaths;
+      auto addDir = [&LibPaths](std::string Base, StringRef Path) -> void {
+        SmallString<128> BD(Path);
+        llvm::sys::path::append(BD, Base);
+        LibPaths.emplace_back(BD);
+      };
+      // Check for the expected dgpu, xe and iris directories
+      addDir("dgpu", Path.trim());
+      addDir("xe", Path.trim());
+      addDir("iris", Path.trim());
+      bool ValidLoc = true;
+      for (auto &Loc : LibPaths)
+        ValidLoc &= llvm::sys::fs::exists(Loc);
+      if (ValidLoc)
+        return std::string(Path.str());
+    }
+  }
+  SmallString<128> OclocDir(C.getDriver().Dir);
+  llvm::sys::path::append(OclocDir, "..", "lib", "ocloc");
+  llvm::sys::path::remove_dots(OclocDir, /*remove_dot_dot=*/true);
+  if (llvm::sys::fs::exists(OclocDir))
+    return std::string(OclocDir.str());
+  return std::nullopt;
+}
 #endif // INTEL_CUSTOMIZATION
 
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
@@ -1036,14 +1086,10 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   // testing purposes.
   if (isMSVC || Args.hasArg(options::OPT_enable_ocloc_split)) {
     SplitOcloc = true;
-    // mtoguchi
-    std::string OutputFileName(C.getDriver().GetFilePath("ocloc", *HostTC));
-    SmallString<128> OclocDir(C.getDriver().Dir);
-    llvm::sys::path::append(OclocDir, "..", "lib", "ocloc");
-    llvm::sys::path::remove_dots(OclocDir, /*remove_dot_dot=*/ true);
-    if (Args.hasArg(options::OPT_enable_ocloc_split) &&
-        !llvm::sys::fs::exists(OclocDir))
-      OclocDir = C.getDriver().GetFilePath("ocloc", *HostTC);
+    std::string OclocDir(C.getDriver().GetFilePath("ocloc", *HostTC));
+    if (!Args.hasArg(options::OPT_enable_ocloc_split))
+      if (auto OclocLoc = getOclocLocation(C))
+        OclocDir = *OclocLoc;
     auto addOclocDir = [&OclocDirs, &OclocDir](std::string BaseName) {
       SmallString<128> OD(OclocDir);
       llvm::sys::path::append(OD, BaseName, "ocloc.exe");
