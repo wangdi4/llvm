@@ -24,6 +24,16 @@
 
 namespace llvm {
 namespace MarkerCount {
+/// Parse the mark count from a JSON string and store the result into a map.
+///
+/// \param Map destination to store
+/// \param MarkerCountKind the default marker count kind to use
+/// \param Str the JSON string to parse
+/// \param Root describes the root object and is used in error messages
+void parseMarkerCountString(std::map<std::string, unsigned> &Map,
+                            unsigned MarkerCountKind, StringRef Str,
+                            StringRef Root = "");
+
 /// Parse the mark count from a JSON file and store the result into a map.
 ///
 /// \param Map destination to store
