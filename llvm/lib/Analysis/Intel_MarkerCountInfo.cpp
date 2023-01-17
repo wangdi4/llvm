@@ -22,16 +22,26 @@
 
 using namespace llvm;
 
-void MarkerCount::parseMarkerCountString(std::map<std::string, unsigned> &Map,
-                                         unsigned MarkerCountKind,
-                                         StringRef Str, StringRef Root) {
+void MarkerCount::parseMarkerCountFile(std::map<std::string, unsigned> &Map,
+                                       unsigned MarkerCountKind,
+                                       StringRef File) {
+  if (File.empty())
+    return;
 
-  Expected<json::Value> Value = json::parse(Str);
+  ErrorOr<std::unique_ptr<MemoryBuffer>> Buffer =
+      llvm::MemoryBuffer::getFile(File, true);
 
   auto emitError = [&](StringRef Msg) {
-    Twine Err = Twine(Msg) + (Root.empty() ? "" : ": " + Root) + "\n";
-    report_fatal_error(Err);
+    Twine Err = Twine(Msg) + ": " + File + "\n";
+    report_fatal_error(Err, false /*no crash dump*/);
   };
+
+  if (!Buffer)
+    emitError("Error opening marker count file");
+
+  StringRef Str = Buffer.get()->getBuffer();
+
+  Expected<json::Value> Value = json::parse(Str);
 
   if (!Value)
     emitError("Override marker count file is not a valid JSON");
@@ -83,28 +93,9 @@ void MarkerCount::parseMarkerCountString(std::map<std::string, unsigned> &Map,
     unsigned MCK = FunctionMarker | LoopMarker;
     std::string FunctionName = Name.value().str();
     if (Map.count(FunctionName))
-      emitError("Duplicate object for function" + FunctionName);
+      emitError("Duplicate object for function " + FunctionName);
 
     Map.insert({FunctionName, MCK});
   }
-}
-
-void MarkerCount::parseMarkerCountFile(std::map<std::string, unsigned> &Map,
-                                       unsigned MarkerCountKind,
-                                       StringRef File) {
-  if (File.empty())
-    return;
-
-  ErrorOr<std::unique_ptr<MemoryBuffer>> Buffer =
-      llvm::MemoryBuffer::getFile(File, true);
-
-  if (!Buffer) {
-    errs() << "Error opening marker count file"
-           << ": " << File << "\n";
-    abort();
-  }
-
-  MarkerCount::parseMarkerCountString(Map, MarkerCountKind,
-                                      Buffer.get()->getBuffer(), File);
 }
 #endif // INTEL_FEATURE_MARKERCOUNT
