@@ -99,12 +99,8 @@ default:
 define void @switch_phi_const_multiple_phis(i32 %x, i1 %c) {
 ; CHECK-LABEL: @switch_phi_const_multiple_phis(
 ; CHECK-NEXT:  bb0:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 undef, label [[BB1:%.*]], label [[DOTSPLIT:%.*]]
-=======
-; CHECK-NEXT:    br i1 [[C:%.*]], label [[BB1:%.*]], label [[CASE_13:%.*]]
->>>>>>> 02b02cd050273bae5c6d3e5f9f6a30067839bff6
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[X:%.*]], 13
 ; CHECK-NEXT:    br i1 [[COND]], label [[CASE_13:%.*]], label [[DEFAULT:%.*]]
