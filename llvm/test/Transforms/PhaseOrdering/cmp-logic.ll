@@ -144,15 +144,8 @@ define i32 @PR56119(i32 %e.coerce) {
 ; OZ-NEXT:    tail call void (...) @foo()
 ; OZ-NEXT:    br label [[IF_END]]
 ; OZ:       if.end:
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
 ; OZ-NEXT:    [[TMP0:%.*]] = load i32, ptr @c, align 4
 ; OZ-NEXT:    ret i32 [[TMP0]]
-; end INTEL_CUSTOMIZATION
-=======
-; OZ-NEXT:    [[TMP0:%.*]] = load i32, ptr @c, align 4
-; OZ-NEXT:    ret i32 [[TMP0]]
->>>>>>> 66efb986322b206834e7c9e1eb777fa053912c39
 ;
 entry:
   %e = alloca %struct.a, align 4
