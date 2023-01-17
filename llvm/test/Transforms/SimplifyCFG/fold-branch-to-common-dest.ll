@@ -125,13 +125,8 @@ final_right:
 ; When we fold the dispatch block into pred, the call is moved to pred
 ; and the attribute nonnull propagates poison paramater. However, since the
 ; function is speculatable, it can never cause UB. So, we need not technically drop it.
-<<<<<<< HEAD
 define void @one_pred_with_spec_call(i8 %v0, i8 %v1, i32* %p) {
 ; CHECK-LABEL: define {{[^@]+}}@one_pred_with_spec_call(
-=======
-define void @one_pred_with_spec_call(i8 %v0, i8 %v1, ptr %p) {
-; CHECK-LABEL: @one_pred_with_spec_call(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
 ; CHECK-NEXT:  pred:
 ; CHECK-NEXT:    [[C0:%.*]] = icmp ne ptr [[P:%.*]], null
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @speculate_call(ptr nonnull [[P]])
@@ -162,13 +157,8 @@ final_right:
 }
 
 ; Drop dereferenceable on the parameter
-<<<<<<< HEAD
 define void @one_pred_with_spec_call_deref(i8 %v0, i8 %v1, i32* %p) {
 ; CHECK-LABEL: define {{[^@]+}}@one_pred_with_spec_call_deref(
-=======
-define void @one_pred_with_spec_call_deref(i8 %v0, i8 %v1, ptr %p) {
-; CHECK-LABEL: @one_pred_with_spec_call_deref(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
 ; CHECK-NEXT:  pred:
 ; CHECK-NEXT:    [[C0:%.*]] = icmp ne ptr [[P:%.*]], null
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @speculate_call(ptr [[P]])
@@ -1078,13 +1068,8 @@ exit:
 }
 
 ; https://github.com/llvm/llvm-project/issues/53861
-<<<<<<< HEAD
 define i32 @firewall(i8* %data) {
 ; CHECK-LABEL: define {{[^@]+}}@firewall(
-=======
-define i32 @firewall(ptr %data) {
-; CHECK-LABEL: @firewall(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[I:%.*]] = load i8, ptr [[DATA:%.*]], align 1
 ; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr inbounds i8, ptr [[DATA]], i64 64

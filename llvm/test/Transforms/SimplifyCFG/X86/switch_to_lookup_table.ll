@@ -174,13 +174,8 @@ sw.epilog:
 @.str3 = private unnamed_addr constant [4 x i8] c"qux\00", align 1
 @.str4 = private unnamed_addr constant [6 x i8] c"error\00", align 1
 
-<<<<<<< HEAD
-define i8* @foostring(i32 %x)  {
-; CHECK-LABEL: define {{[^@]+}}@foostring(
-=======
 define ptr @foostring(i32 %x)  {
-; CHECK-LABEL: @foostring(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
+; CHECK-LABEL: define {{[^@]+}}@foostring(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[X:%.*]], 4
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[RETURN:%.*]]
@@ -1151,13 +1146,9 @@ return:
 @tls_b = thread_local global i32 0
 @tls_c = thread_local global i32 0
 @tls_d = thread_local global i32 0
-<<<<<<< HEAD
-define i32* @tls(i32 %x) {
-; CHECK-LABEL: define {{[^@]+}}@tls(
-=======
+
 define ptr @tls(i32 %x) {
-; CHECK-LABEL: @tls(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
+; CHECK-LABEL: define {{[^@]+}}@tls(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i32 [[X:%.*]], label [[SW_DEFAULT:%.*]] [
 ; CHECK-NEXT:    i32 0, label [[RETURN:%.*]]
@@ -1196,13 +1187,9 @@ return:
 @dllimport_b = external dllimport global [3x i32]
 @dllimport_c = external dllimport global [3x i32]
 @dllimport_d = external dllimport global [3x i32]
-<<<<<<< HEAD
-define i32* @dllimport(i32 %x) {
-; CHECK-LABEL: define {{[^@]+}}@dllimport(
-=======
+
 define ptr @dllimport(i32 %x) {
-; CHECK-LABEL: @dllimport(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
+; CHECK-LABEL: define {{[^@]+}}@dllimport(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    switch i32 [[X:%.*]], label [[SW_DEFAULT:%.*]] [
 ; CHECK-NEXT:    i32 0, label [[RETURN:%.*]]
@@ -1631,13 +1618,8 @@ cleanup4:
 
 declare void @throw(i1)
 
-<<<<<<< HEAD
-define void @wineh_test(i64 %val) personality i32 (...)* @__CxxFrameHandler3 {
-; CHECK-LABEL: define {{[^@]+}}@wineh_test(
-=======
 define void @wineh_test(i64 %val) personality ptr @__CxxFrameHandler3 {
-; CHECK-LABEL: @wineh_test(
->>>>>>> e87aa9206606064fa3e9cd5a8c097a542ff0d559
+; CHECK-LABEL: define {{[^@]+}}@wineh_test(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    invoke void @throw(i1 false)
 ; CHECK-NEXT:    to label [[UNREACHABLE:%.*]] unwind label [[CLEANUP1:%.*]]
