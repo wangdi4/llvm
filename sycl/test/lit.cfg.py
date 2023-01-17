@@ -66,6 +66,8 @@ def getAdditionalFlags():
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
 llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
 
+config.substitutions.append(('%python', '"%s"' % (sys.executable)))
+
 # Propagate extra environment variables
 if config.extra_environment:
     lit_config.note("Extra environment variables")
