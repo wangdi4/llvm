@@ -135,7 +135,6 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
   Decor DecorFound = DecorIt->second;
   uint32_t DecorCode = DecorFound.Code;
   switch (DecorFound.Type) {
-<<<<<<< HEAD
     case DecorValueTy::uint32:
       return buildSpirvDecorMetadata(Ctx, DecorCode,
                                      getAttributeAsInteger<uint32_t>(Attr));
@@ -143,15 +142,6 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
       return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
     default:
       break;
-=======
-  case DecorValueTy::uint32:
-    return buildSpirvDecorMetadata(Ctx, DecorCode,
-                                   getAttributeAsInteger<uint32_t>(Attr));
-  case DecorValueTy::boolean:
-    return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
-  default:
-    llvm_unreachable("Unhandled decorator type.");
->>>>>>> c5d6b89ce440ee18621d154bbcaa395859c2b0fb
   }
   llvm_unreachable("Unhandled decorator type.");
 }
