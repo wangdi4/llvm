@@ -6849,6 +6849,29 @@ static bool sinkSelectOperand(const TargetTransformInfo *TTI, Value *V) {
          TTI->isExpensiveToSpeculativelyExecute(I);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Check if V is worth to continue to sink.
+static bool worthToContinueSink(const TargetTransformInfo *TTI, Value *V) {
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I || !I->hasOneUse() || !isSafeToSpeculativelyExecute(I))
+    return false;
+
+  // Good for expensive instruction.
+  if (TTI->isExpensiveToSpeculativelyExecute(I))
+    return true;
+
+  // Good if I don't increase register pressure.
+  if (I->getNumOperands() <= 1)
+    return true;
+
+  // Good if I don't increase register pressure.
+  if (isa<CallInst>(I) && I->getNumOperands() <= 2)
+    return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Returns true if a SelectInst should be turned into an explicit branch.
 static bool isFormingBranchFromSelectProfitable(const TargetTransformInfo *TTI,
                                                 const TargetLowering *TLI,
@@ -7074,6 +7097,26 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   BranchInst *TrueBranch = nullptr;
   BranchInst *FalseBranch = nullptr;
 
+#if INTEL_CUSTOMIZATION
+  auto SinkInstOperandsRecursively = [](Instruction *Inst,
+                                        const TargetTransformInfo *TTI) {
+    SmallVector<Instruction *, 32> WorkList;
+    WorkList.push_back(Inst);
+
+    while (WorkList.size()) {
+      Instruction *CurInst = WorkList.pop_back_val();
+      for (unsigned I = 0, E = CurInst->getNumOperands(); I < E; ++I) {
+        if (!worthToContinueSink(TTI, CurInst->getOperand(I)))
+          continue;
+
+        auto *TrueInst = cast<Instruction>(CurInst->getOperand(I));
+        TrueInst->moveBefore(CurInst);
+        WorkList.push_back(TrueInst);
+      }
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // Sink expensive instructions into the conditional blocks to avoid executing
   // them speculatively.
   for (SelectInst *SI : ASI) {
@@ -7088,6 +7131,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
       }
       auto *TrueInst = cast<Instruction>(SI->getTrueValue());
       TrueInst->moveBefore(TrueBranch);
+
+      SinkInstOperandsRecursively(TrueInst, TTI); // INTEL
     }
     if (sinkSelectOperand(TTI, SI->getFalseValue())) {
       if (FalseBlock == nullptr) {
@@ -7100,6 +7145,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
       }
       auto *FalseInst = cast<Instruction>(SI->getFalseValue());
       FalseInst->moveBefore(FalseBranch);
+
+      SinkInstOperandsRecursively(FalseInst, TTI); // INTEL
     }
   }
 

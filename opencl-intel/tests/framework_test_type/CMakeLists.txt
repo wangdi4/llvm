@@ -26,15 +26,22 @@ set(IGNORE_FILES
 find_sources(${IGNORE_FILES})
 calculate_target_sources()
 
-set(TARGET_LIBS test_utils)
-
 link_directories(${TBB_LIB_DIR})
 
-if(WIN32)
-  set(TARGET_LIBS ${TARGET_LIBS} delayimp)
-endif(WIN32)
+set(TARGET_LIBS
+  LLVMDebugInfoTraceBack
+  LLVMMC
+  LLVMObject
+  LLVMSupport
+  intelocl${BUILD_PLATFORM}
+  cl_hw_utils
+  cl_sys_utils
+  test_utils
+  )
 
-set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} cl_hw_utils cl_sys_utils)
+if(WIN32)
+  list(APPEND TARGET_LIBS delayimp)
+endif(WIN32)
 
 # In test with private memory we allocate 1MB for array. But due to
 # vectorization stack size depends on width of SIMD and scalar kernel, our

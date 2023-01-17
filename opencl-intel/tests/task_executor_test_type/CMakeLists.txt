@@ -9,6 +9,7 @@ find_sources()
 calculate_target_sources()
 
 set(TARGET_LIBS
+  LLVMSupport
   LLVMIntelJITEvents
   cl_hw_utils
   cl_logger

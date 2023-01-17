@@ -26,10 +26,15 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   BuiltinLibInfo
   CLElfLib
   CacheBinaryHandler
-  LLVMCore
-  LLVMIntelJITEvents
-  LLVMSPIRVLib
-  LLVMSymbolize
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
+  LLVMVPOTransforms
+  LLVMVectorize
   LoopUtils
   ObjDump
   OclBackendUtils

@@ -467,7 +467,7 @@ if(WIN32)
     COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
 
   install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-tbb DESTINATION
-             ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
+             ${OCL_INSTALL_LIBRARY_DIR})
 else(WIN32)
   set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
   set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
