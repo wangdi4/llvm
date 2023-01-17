@@ -97,6 +97,7 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h" // INTEL
+#include "llvm/CodeGen/TypePromotion.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManager.h"
