@@ -907,11 +907,7 @@ attributes #0 = { noinline cold }
 ; CHECK-NEXT: declare void @__kmpc_flush(ptr)
 
 ; CHECK: ; Function Attrs: nounwind
-<<<<<<< HEAD
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
-=======
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(ptr)
->>>>>>> aa8e9fac2a14bc7f0eb9aac20994d0c310d1ae92
+; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_fork_call(ptr, i32, ptr, ...)
@@ -973,39 +969,22 @@ attributes #0 = { noinline cold }
 ; CHECK: ; Function Attrs: convergent nounwind
 ; CHECK-NEXT: declare void @__kmpc_end_ordered(ptr, i32)
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK: ; Function Attrs: nofree nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32)
+; CHECK-NEXT: declare void @__kmpc_for_static_init_4(ptr nocapture nofree readonly, i32, i32, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, i32, i32)
 
 ; CHECK: ; Function Attrs: nofree nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32)
+; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(ptr nocapture nofree readonly, i32, i32, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, i32, i32)
 
 ; CHECK: ; Function Attrs: nofree nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64)
+; CHECK-NEXT: declare void @__kmpc_for_static_init_8(ptr nocapture nofree readonly, i32, i32, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, i64, i64)
 
 ; CHECK: ; Function Attrs: nofree nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64)
+; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(ptr nocapture nofree readonly, i32, i32, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, ptr nocapture nofree, i64, i64)
 
 ; CHECK: ; Function Attrs: nofree nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture nofree readonly, i32)
+; CHECK-NEXT: declare void @__kmpc_for_static_fini(ptr nocapture nofree readonly, i32)
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4(ptr, i32, i32, ptr, ptr, ptr, ptr, i32, i32)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(ptr, i32, i32, ptr, ptr, ptr, ptr, i32, i32)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8(ptr, i32, i32, ptr, ptr, ptr, ptr, i64, i64)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(ptr, i32, i32, ptr, ptr, ptr, ptr, i64, i64)
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_fini(ptr, i32)
->>>>>>> aa8e9fac2a14bc7f0eb9aac20994d0c310d1ae92
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_team_static_init_4(ptr, i32, ptr, ptr, ptr, ptr, i32, i32)
@@ -1458,11 +1437,7 @@ attributes #0 = { noinline cold }
 ; OPTIMISTIC-NEXT: declare dso_local i32 @omp_get_supported_active_levels()
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn memory(inaccessiblemem: read)
-<<<<<<< HEAD
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
-=======
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture nofree readonly)
->>>>>>> aa8e9fac2a14bc7f0eb9aac20994d0c310d1ae92
+; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
 
 ; OPTIMISTIC: ; Function Attrs: nounwind
 ; OPTIMISTIC-NEXT: declare void @__kmpc_fork_call(ptr nocapture nofree readonly, i32, ptr nocapture nofree readonly, ...)
