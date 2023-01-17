@@ -112,7 +112,7 @@ add_opencl_library(
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_INSTALL_LIBRARY_DIR})
 
 add_opencl_library(
   ${TARGET_NAME_EMU}
@@ -134,7 +134,7 @@ add_opencl_library(
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_INSTALL_LIBRARY_DIR})
 
 # Generate config file for FPGA emulator and cpu
 if(WIN32)
@@ -144,7 +144,7 @@ else(WIN32)
 endif(WIN32)
 
 set(CL_CFG_OUTPUT_DIR ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
-set(CL_CFG_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
+set(CL_CFG_INSTALL_DIR ${OCL_INSTALL_LIBRARY_DIR})
 
 # For cpu
 set(CL_CONFIG_DEVICES cpu)
@@ -190,7 +190,7 @@ set_target_properties(${TARGET_NAME_EMU} PROPERTIES FOLDER
 if(INTEL_OPENCL_STANDALONE_PRODUCT)
   install(
     TARGETS OpenCL
-    DESTINATION lib/${OUTPUT_ARCH_SUFF}
+    DESTINATION ${OCL_INSTALL_LIBRARY_DIR}
     COMPONENT OpenCL-ICD)
 endif()
 

@@ -81,5 +81,15 @@ set_property(GLOBAL APPEND PROPERTY OCL_BUILTIN_LIBS ${TARGET_NAME_SHARED})
 set_target_properties(${TARGET_NAME_SHARED}
                       PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-install_to(${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE} DESTINATION lib
-           COMPONENT ocl-builtins-shared)
+# Under intel new unified layout, ocl runtime libs will be deployed to /bin
+# folder. To ensure that runtime can correctly load shared builtin, we also
+# deploy it to same folder of runtime.
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  install_to(${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+             DESTINATION ${OCL_INSTALL_LIBRARY_DIR}
+             COMPONENT ocl-builtins-shared)
+else()
+  install_to(${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+             DESTINATION lib
+             COMPONENT ocl-builtins-shared)
+endif()
