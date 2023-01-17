@@ -69,15 +69,14 @@ Value *formResolverCondition(IRBuilderBase &Builder,
                              bool UseLibIRC);
 #endif // INTEL_CUSTOMIZATION
 namespace X86 {
-Value *emitCPUInit(IRBuilderBase &Builder);
+void emitCPUInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr);
 Value *emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask);
 Value *emitCpuSupports(IRBuilderBase &Builder, ArrayRef<StringRef> FeatureStrs);
 #if INTEL_CUSTOMIZATION
-void emitCpuFeaturesInit(IRBuilderBase &Builder);
+void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                               ArrayRef<llvm::APSInt> Pages,
-                               bool CreateInitCall = true);
+                               ArrayRef<llvm::APSInt> Pages);
 #endif // INTEL_CUSTOMIZATION
 } // namespace X86
 } // namespace llvm
