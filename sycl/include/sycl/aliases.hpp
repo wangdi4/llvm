@@ -65,6 +65,7 @@ class half;
 
 // FIXME: OpenCL vector aliases are not defined by SYCL 2020 spec and should be
 //        removed from here. See intel/llvm#7888
+<<<<<<< HEAD
 // FIXME: schar, longlong and ulonglong aliases are not defined by SYCL 2020
 //        spec, but they are preserved in SYCL 2020 mode, because SYCL-CTS is
 //        still using them.
@@ -74,6 +75,10 @@ class half;
   __SYCL_MAKE_VECTOR_ALIAS(schar, std::int8_t, N)                              \
   __SYCL_MAKE_VECTOR_ALIAS(longlong, std::int64_t, N)                          \
   __SYCL_MAKE_VECTOR_ALIAS(ulonglong, std::uint64_t, N)                        \
+=======
+#define __SYCL_2020_MAKE_VECTOR_ALIASES_FOR_VECTOR_LENGTH(N)                   \
+  __SYCL_MAKE_VECTOR_ALIASES_FOR_OPENCL_TYPES(N)                               \
+>>>>>>> 1299e21c883616aedd48495f77429f3d235cfaa4
   __SYCL_MAKE_VECTOR_ALIAS(char, std::int8_t, N)                               \
   __SYCL_MAKE_VECTOR_ALIAS(uchar, std::uint8_t, N)                             \
   __SYCL_MAKE_VECTOR_ALIAS(short, std::int16_t, N)                             \
