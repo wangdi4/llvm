@@ -128,6 +128,7 @@ define i32 @PR56119(i32 %e.coerce) {
 ; OZ-LABEL: @PR56119(
 ; OZ-NEXT:  entry:
 <<<<<<< HEAD
+<<<<<<< HEAD
 ; OZ-NEXT:    [[E_COERCE_FR:%.*]] = freeze i32 [[E_COERCE:%.*]]
 ; INTEL_CUSTOMIZATION
 ; trunc vs. add
@@ -137,6 +138,10 @@ define i32 @PR56119(i32 %e.coerce) {
 ; OZ-NEXT:    br i1 [[CMP2]], label [[IF_THEN:%.*]], label [[IF_END:%.*]]
 =======
 ; OZ-NEXT:    [[CONV2:%.*]] = and i32 [[E_COERCE:%.*]], 255
+=======
+; OZ-NEXT:    [[E_COERCE_FR:%.*]] = freeze i32 [[E_COERCE:%.*]]
+; OZ-NEXT:    [[CONV2:%.*]] = and i32 [[E_COERCE_FR]], 255
+>>>>>>> 08c2f4eb7ab3e75eb9d2048f73ea9874c663fb5a
 ; OZ-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[CONV2]], 7
 ; OZ-NEXT:    br i1 [[CMP1]], label [[IF_THEN:%.*]], label [[IF_END:%.*]]
 >>>>>>> 66efb986322b206834e7c9e1eb777fa053912c39
