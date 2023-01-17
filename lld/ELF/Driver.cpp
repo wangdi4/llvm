@@ -55,11 +55,8 @@
 #include "Target.h"
 #include "Writer.h"
 #include "lld/Common/Args.h"
-<<<<<<< HEAD
-#include "lld/Common/DWARF.h" // INTEL
-=======
 #include "lld/Common/CommonLinkerContext.h"
->>>>>>> 6b9a80de4906c79101af3b1cadcb3ef1edc62fbc
+#include "lld/Common/DWARF.h" // INTEL
 #include "lld/Common/Driver.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Filesystem.h"
