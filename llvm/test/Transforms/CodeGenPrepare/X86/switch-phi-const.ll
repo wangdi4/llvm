@@ -96,11 +96,15 @@ default:
   ret void
 }
 
-define void @switch_phi_const_multiple_phis(i32 %x) {
+define void @switch_phi_const_multiple_phis(i32 %x, i1 %c) {
 ; CHECK-LABEL: @switch_phi_const_multiple_phis(
 ; CHECK-NEXT:  bb0:
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 undef, label [[BB1:%.*]], label [[DOTSPLIT:%.*]]
+=======
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[BB1:%.*]], label [[CASE_13:%.*]]
+>>>>>>> 02b02cd050273bae5c6d3e5f9f6a30067839bff6
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[X:%.*]], 13
 ; CHECK-NEXT:    br i1 [[COND]], label [[CASE_13:%.*]], label [[DEFAULT:%.*]]
@@ -119,7 +123,7 @@ define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-NEXT:    ret void
 ;
 bb0:
-  br i1 undef, label %bb1, label %case_13
+  br i1 %c, label %bb1, label %case_13
 
 bb1:
   switch i32 %x, label %default [
@@ -141,10 +145,10 @@ default:
   ret void
 }
 
-define void @switch_phi_const_degenerate() {
+define void @switch_phi_const_degenerate(i1 %c) {
 ; CHECK-LABEL: @switch_phi_const_degenerate(
 ; CHECK-NEXT:  bb0:
-; CHECK-NEXT:    br i1 undef, label [[CASE_42:%.*]], label [[BB1:%.*]]
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[CASE_42:%.*]], label [[BB1:%.*]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    br label [[CASE_42]]
 ; CHECK:       case_42:
@@ -153,7 +157,7 @@ define void @switch_phi_const_degenerate() {
 ; CHECK-NEXT:    ret void
 ;
 bb0:
-  br i1 undef, label %case_42, label %bb1
+  br i1 %c, label %case_42, label %bb1
 
 bb1:
   switch i32 42, label %unreachable [
