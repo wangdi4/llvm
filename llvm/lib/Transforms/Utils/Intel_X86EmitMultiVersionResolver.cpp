@@ -30,6 +30,7 @@
 
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"                    // INTEL
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h" // INTEL
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
@@ -60,8 +61,7 @@ Value *llvm::formResolverCondition(IRBuilderBase &Builder,
       FeatureCond = llvm::X86::mayIUseCpuFeatureHelper(
           Builder,
           {APSInt{APInt(64, Bitmaps[0]), true},
-           APSInt{APInt(64, Bitmaps[1]), true}},
-          /*CreateInitCall=*/false);
+           APSInt{APInt(64, Bitmaps[1]), true}});
     } else
       FeatureCond = llvm::X86::emitCpuSupports(Builder, RO.Conditions.Features);
 #endif // INTEL_CUSTOMIZATION
@@ -157,9 +157,9 @@ void llvm::emitMultiVersionResolver(
     CurBlock = Builder.GetInsertBlock();
   }
   if (UseLibIRC)
-    llvm::X86::emitCpuFeaturesInit(Builder);
+    llvm::X86::emitCpuFeaturesInit(Builder, UseIFunc);
   else
-    llvm::X86::emitCPUInit(Builder);
+    llvm::X86::emitCPUInit(Builder, UseIFunc);
 #endif // INTEL_CUSTOMIZATION
 
   for (const MultiVersionResolverOption &RO : Options) {
@@ -225,32 +225,34 @@ static Value *getOrCreateGlobal(IRBuilderBase &Builder, StringRef Name,
 }
 
 #if INTEL_CUSTOMIZATION
-static Value *emitInit(IRBuilderBase &Builder, StringRef FuncName) {
-  FunctionType *FTy = FunctionType::get(Builder.getVoidTy(),
-                                        /*Variadic*/ false);
+static void emitInit(IRBuilderBase &Builder, StringRef FuncName, bool UseIFunc) {
+
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
-  GlobalValue *Entry = M->getNamedValue(FuncName);
-  if (Entry) {
-    // TODO: asserts and possibly return nullptr if something bad.
-    return Builder.CreateCall(cast<Function>(Entry));
+  Function *F = M->getFunction(FuncName);
+  if (F) {
+    if (UseIFunc)
+      Builder.CreateCall(F);
+    return;
   }
 
-  Function *F = Function::Create(FTy, Function::ExternalLinkage,
-                                 FuncName, M);
-
-  F->setDSOLocal(true);
-  F->setDLLStorageClass(GlobalValue::DefaultStorageClass);
+  FunctionType *FTy = FunctionType::get(Builder.getVoidTy(), /*Variadic*/ false);
+  F = Function::Create(FTy, Function::ExternalLinkage, FuncName, M);
 
   if (shouldUseIntelFeaturesInitCallConv(FuncName))
     F->setCallingConv(CallingConv::Intel_Features_Init);
 
-  return Builder.CreateCall(F);
+  if (UseIFunc)
+    Builder.CreateCall(F);
+  else
+    appendToGlobalCtors(*M, F, 0);
 }
-Value *llvm::X86::emitCPUInit(IRBuilderBase &Builder) {
-  return emitInit(Builder, "__cpu_indicator_init");
+
+void llvm::X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
+  emitInit(Builder, "__cpu_indicator_init", UseIFunc);
 }
-void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder) {
-  emitInit(Builder, "__intel_cpu_features_init");
+
+void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
+  emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -335,10 +337,7 @@ Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
 }
 
 Value *llvm::X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                                          ArrayRef<llvm::APSInt> Pages,
-                                          bool CreateInitCall) {
-  if (CreateInitCall)
-    emitCpuFeaturesInit(Builder);
+                                          ArrayRef<llvm::APSInt> Pages) {
 
   Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
   Value *IndicatorPtr = getOrCreateGlobal(

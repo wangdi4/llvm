@@ -42,7 +42,7 @@
 ; CHECK-NEXT:   ret ptr @baz.A
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: declare dso_local intel_features_init_cc void @__intel_cpu_features_init()
+; CHECK-NEXT: declare intel_features_init_cc void @__intel_cpu_features_init()
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @foo.V(i32 %a) #1 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %ret = call i32 @baz.V(i32 33)
