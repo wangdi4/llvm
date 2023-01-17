@@ -21,6 +21,7 @@ include_directories(include ${OCL_SOURCE_DIR}/tests/framework_test_type)
 link_directories(${TBB_LIB_DIR})
 
 set(FPGA_TEST_TYPE_LINK_LIBS
+  LLVMSupport
   cl_hw_utils
   cl_sys_utils
   test_utils

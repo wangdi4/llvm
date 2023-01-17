@@ -20,7 +20,13 @@ set(IGNORE_FILES pipe_tests.cpp)
 find_sources(${IGNORE_FILES})
 calculate_target_sources()
 
-set(TARGET_LIBS test_utils intelocl${BUILD_PLATFORM} cl_hw_utils cl_sys_utils)
+set(TARGET_LIBS
+  LLVMSupport
+  test_utils
+  intelocl${BUILD_PLATFORM}
+  cl_hw_utils
+  cl_sys_utils
+  )
 
 include_directories(${OCL_SOURCE_DIR}/tests/framework_test_type
                     ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins)

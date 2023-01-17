@@ -12,9 +12,18 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   BuiltinLibInfo
   CLElfLib
   CacheBinaryHandler
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
   LLVMIntelJITEvents
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
   LLVMSPIRVLib
   LLVMSymbolize
+  LLVMVPOTransforms
+  LLVMVectorize
   LoopUtils
   ObjDump
   OclBackendUtils

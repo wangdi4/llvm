@@ -28,8 +28,14 @@ add_opencl_executable(
 # linking
 link_directories(${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/)
 
-target_link_libraries(${TARGET_NAME} llvm_gtest cl_logger cl_hw_utils
-                                     cl_sys_utils OpenCL-ICD)
+target_link_libraries(${TARGET_NAME}
+  LLVMSupport
+  llvm_gtest
+  cl_logger
+  cl_hw_utils
+  cl_sys_utils
+  OpenCL-ICD
+  )
 
 if(NOT WIN32)
   target_link_libraries(${TARGET_NAME} ${PTHREAD_LIB})

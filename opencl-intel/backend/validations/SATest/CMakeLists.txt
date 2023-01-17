@@ -109,7 +109,17 @@ target_link_libraries(
   DataManager
   DataVersion
   ImathLibd
+  LLVMAsmParser
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
   LLVMInterpreterPluggable
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
+  LLVMVPOTransforms
+  LLVMVectorize
   LoopUtils
   NEAT
   OCLBuilder
@@ -136,8 +146,10 @@ target_link_libraries(
 
 if(WIN32)
   target_link_libraries(${TARGET_NAME} lldCOFF lldCommon)
-endif(WIN32)
-
-if(NOT WIN32)
+else()
   add_dependencies(${TARGET_NAME} ImathLibd)
-endif(NOT WIN32)
+endif()
+
+if(HAVE_LIBPTHREAD)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif()

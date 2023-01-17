@@ -88,6 +88,7 @@ target_link_libraries(
   DataGenerator
   DataManager
   ImathLibd
+  LLVMAsmParser
   LLVMInterpreterPluggable
   NEAT
   OCLBuilder
@@ -106,6 +107,10 @@ target_link_libraries(
   llvm_gtest
   reflection_module
   tinyxml_STL)
+
+if(HAVE_LIBPTHREAD)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif()
 
 add_dependencies(${TARGET_NAME} cl_sys_utils)
 

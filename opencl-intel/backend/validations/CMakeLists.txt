@@ -16,7 +16,9 @@
 # Variables for LLVM libraries
 set(VALIDATIONS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(NOT OPENCL_INTREE_BUILD)
+if(OPENCL_INTREE_BUILD)
+  check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
+else()
   set(LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 endif()
 
