@@ -3398,6 +3398,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(FPM, Level);
 
+  if (EnableConstraintElimination)
+    FPM.addPass(ConstraintEliminationPass());
+
   FPM.addPass(JumpThreadingPass());
 
 #if INTEL_CUSTOMIZATION
@@ -3515,9 +3518,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Nuke dead stores.
   MainFPM.addPass(DSEPass());
   MainFPM.addPass(MergedLoadStoreMotionPass());
-
-  if (EnableConstraintElimination)
-    MainFPM.addPass(ConstraintEliminationPass());
 
   LoopPassManager LPM;
   if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
