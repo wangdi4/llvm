@@ -525,7 +525,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     if (EmitSPIRVBuiltins) {
       std::string fname;
       SmallVector<Value *, 1> Arg;
-      switch (Idx) {
+      switch (DimNum) {
       case 0:
         fname = "_Z29__spirv_NumWorkgroups_xv";
         break;
@@ -573,7 +573,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   if (EmitSPIRVBuiltins) {
     std::string fname;
     SmallVector<Value *, 1> Arg;
-    switch (Idx) {
+    switch (DimNum) {
     case 0: fname = "_Z21__spirv_WorkgroupId_xv";
       break;
     case 1: fname = "_Z21__spirv_WorkgroupId_yv";
@@ -788,7 +788,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     if (EmitSPIRVBuiltins) {
       std::string fname;
       SmallVector<Value *, 1> Arg;
-      switch (Idx) {
+      switch (DimNum) {
       case 0: fname = "_Z22__spirv_WorkgroupSize_xv";
         break;
       case 1: fname = "_Z22__spirv_WorkgroupSize_yv";
@@ -837,7 +837,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     CallInst *LocalId;
     if (EmitSPIRVBuiltins)
-      LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Idx, CallsInsertPt);
+      LocalId = VPOParoptUtils::genSPIRVLocalIdCall(DimNum, CallsInsertPt);
     else
       LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                   GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
@@ -878,7 +878,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     if (EmitSPIRVBuiltins) {
       std::string fname;
       SmallVector<Value *, 1> Arg;
-      switch (Idx) {
+      switch (DimNum) {
       case 0: fname = "_Z28__spirv_GlobalInvocationId_xv";
         break;
       case 1: fname = "_Z28__spirv_GlobalInvocationId_yv";
