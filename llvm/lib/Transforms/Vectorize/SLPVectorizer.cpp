@@ -9146,26 +9146,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
   case Instruction::Load: {
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<LoadInst>(VL[Idx]);
-<<<<<<< HEAD
-      InstructionCost GEPCost = 0;
-#if INTEL_CUSTOMIZATION
-      // This GEP cost adjustment is wrong for X86 as different offsets are
-      // encoded just as different displacements. Put it under advanced opts to
-      // avoid tests customization until fixed upstream.
-      if (VI != VL0 &&
-          !TTI->isAdvancedOptEnabled(
-              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
-#endif // INTEL_CUSTOMIZATION
-        auto *Ptr = dyn_cast<GetElementPtrInst>(VI->getPointerOperand());
-        if (Ptr && Ptr->hasOneUse() && !Ptr->hasAllConstantIndices())
-          GEPCost = TTI->getArithmeticInstrCost(Instruction::Add,
-                                                Ptr->getType(), CostKind);
-      }
-      return GEPCost +
-             TTI->getMemoryOpCost(Instruction::Load, ScalarTy, VI->getAlign(),
-=======
       return TTI->getMemoryOpCost(Instruction::Load, ScalarTy, VI->getAlign(),
->>>>>>> 6d677c0b3d917fd634b5ac07695518c9d8743b14
                                   VI->getPointerAddressSpace(), CostKind,
                                   TTI::OperandValueInfo(), VI);
     };
@@ -9227,23 +9208,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     bool IsReorder = !E->ReorderIndices.empty();
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<StoreInst>(VL[Idx]);
-<<<<<<< HEAD
-      InstructionCost GEPCost = 0;
-#if INTEL_CUSTOMIZATION
-      // This GEP cost adjustment is wrong for X86 as different offsets are
-      // encoded just as different displacements. Put it under advanced opts to
-      // avoid tests customization until fixed upstream.
-      if (VI != VL0 &&
-          !TTI->isAdvancedOptEnabled(
-              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
-#endif // INTEL_CUSTOMIZATION
-        auto *Ptr = dyn_cast<GetElementPtrInst>(VI->getPointerOperand());
-        if (Ptr && Ptr->hasOneUse() && !Ptr->hasAllConstantIndices())
-          GEPCost = TTI->getArithmeticInstrCost(Instruction::Add,
-                                                Ptr->getType(), CostKind);
-      }
-=======
->>>>>>> 6d677c0b3d917fd634b5ac07695518c9d8743b14
       TTI::OperandValueInfo OpInfo = getOperandInfo(VI, 0);
       return TTI->getMemoryOpCost(Instruction::Store, ScalarTy, VI->getAlign(),
                                   VI->getPointerAddressSpace(), CostKind,
