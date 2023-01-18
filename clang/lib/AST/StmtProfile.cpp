@@ -2327,10 +2327,6 @@ void StmtProfiler::VisitCXXFoldExpr(const CXXFoldExpr *S) {
   ID.AddInteger(S->getOperator());
 }
 
-void StmtProfiler::VisitCXXParenListInitExpr(const CXXParenListInitExpr *S) {
-  VisitExpr(S);
-}
-
 void StmtProfiler::VisitCoroutineBodyStmt(const CoroutineBodyStmt *S) {
   VisitStmt(S);
 }
