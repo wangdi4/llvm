@@ -287,7 +287,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/lib/Transforms/Utils/InlineFunction.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @robertcox-github @pvbattin
-/llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @abuyukku @erichkeane
+/llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @abuyukku
 # Temporarily removed @romanovvlad
 /llvm/lib/Transforms/Utils/LibCallsShrinkWrap.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin

@@ -1,36 +1,14 @@
-//===-- X86EmitMultiVersionResolver -----------------------------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
+//===-------- Intel_X86EmitMultiVersionResolver.cpp -----------------------===//
 //
-// INTEL CONFIDENTIAL
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file implements utitlities to generate code used for CPU dispatch code.
-// INTEL: Upstreaming attempt is at https://reviews.llvm.org/D108424.
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/Intel_IMLUtils.h"                    // INTEL
-#include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h" // INTEL
-#include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
@@ -38,21 +16,20 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Intel_CPU_utils.h"
 #include "llvm/Support/X86TargetParser.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 using namespace llvm;
 using namespace llvm::X86;
 
 Value *llvm::formResolverCondition(IRBuilderBase &Builder,
-#if INTEL_CUSTOMIZATION
                                    const MultiVersionResolverOption &RO,
                                    bool UseLibIRC) {
-#endif // INTEL_CUSTOMIZATION
   llvm::Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
     Condition = llvm::X86::emitCpuIs(Builder, RO.Conditions.Architecture);
   if (!RO.Conditions.Features.empty()) {
-#if INTEL_CUSTOMIZATION
     llvm::Value *FeatureCond = nullptr;
     if (UseLibIRC) {
       std::array<uint64_t, 2> Bitmaps =
@@ -64,7 +41,6 @@ Value *llvm::formResolverCondition(IRBuilderBase &Builder,
            APSInt{APInt(64, Bitmaps[1]), true}});
     } else
       FeatureCond = llvm::X86::emitCpuSupports(Builder, RO.Conditions.Features);
-#endif // INTEL_CUSTOMIZATION
     Condition =
         Condition ? Builder.CreateAnd(Condition, FeatureCond) : FeatureCond;
   }
@@ -139,10 +115,8 @@ static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
 }
 
 void llvm::emitMultiVersionResolver(
-#if INTEL_CUSTOMIZATION
     Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool UseIFunc, bool UseLibIRC) {
-#endif // INTEL_CUSTOMIZATION
   assert(Triple(Resolver->getParent()->getTargetTriple()).isX86() &&
          "Only implemented for x86 targets");
 
@@ -151,7 +125,6 @@ void llvm::emitMultiVersionResolver(
   BasicBlock *CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
 
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
-#if INTEL_CUSTOMIZATION
   if (!UseIFunc) {
     emitResolverPtrTest(Resolver, Builder);
     CurBlock = Builder.GetInsertBlock();
@@ -160,13 +133,10 @@ void llvm::emitMultiVersionResolver(
     llvm::X86::emitCpuFeaturesInit(Builder, UseIFunc);
   else
     llvm::X86::emitCPUInit(Builder, UseIFunc);
-#endif // INTEL_CUSTOMIZATION
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-#if INTEL_CUSTOMIZATION
     llvm::Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
-#endif // INTEL_CUSTOMIZATION
 
     // The 'default' or 'generic' case.
     if (!Condition) {
@@ -224,7 +194,6 @@ static Value *getOrCreateGlobal(IRBuilderBase &Builder, StringRef Name,
   return New;
 }
 
-#if INTEL_CUSTOMIZATION
 static void emitInit(IRBuilderBase &Builder, StringRef FuncName, bool UseIFunc) {
 
   Module *M = Builder.GetInsertBlock()->getParent()->getParent();
@@ -254,7 +223,6 @@ void llvm::X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
 void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
 }
-#endif // INTEL_CUSTOMIZATION
 
 Value *llvm::X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   // Calculate the index needed to access the correct field based on the

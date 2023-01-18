@@ -85,7 +85,7 @@ class HIRLoopCollapse {
 
   class CollectRefs;
   class CollectCandidateLoops;
-  unsigned InnermostLevel;
+  unsigned InnermostLevel = 0;
   HLLoop *InnermostLp = nullptr;
 
   HLNodeUtils *HNU = nullptr;
@@ -103,7 +103,7 @@ class HIRLoopCollapse {
   //
   // CollapseLevel is 3 for A[i1][i2][i3], and 2 for B[2][i2][i3].
   // Thus, the NumCollapsableLoops (for this loop body) is min(3, 2) = 2.
-  unsigned NumCollapsableLoops;
+  unsigned NumCollapsableLoops = 0;
 
   // an array storing relevant constant or symbolic (in CanonExpr *) TripCount
   // for each relevant loop in the loop nest.
@@ -111,13 +111,16 @@ class HIRLoopCollapse {
 
   // an array storing the entire loop nest: [InnermostLp .. OutermostLp].
   // This helps mapping a particular level to its matching loop.
-  std::array<HLLoop *, MaxLoopNestLevel+1> LoopNest;
+  std::array<HLLoop *, MaxLoopNestLevel + 1> LoopNest;
 
   // Save IV type for the collapse-able loop nest:
   Type *IVType = nullptr;
 
 public:
-  HIRLoopCollapse(HIRFramework &HIRF, HIRDDAnalysis &DDA) : HIRF(HIRF), DDA(DDA) {}
+  HIRLoopCollapse(HIRFramework &HIRF, HIRDDAnalysis &DDA)
+      : HIRF(HIRF), DDA(DDA) {
+    LoopNest.fill(nullptr);
+  }
   bool run();
 
   // The only entry for all caller(s) to do HIR Loop Collapse.

@@ -36,11 +36,11 @@ define void @add16(i16 %x0, i16 %x1, i16 %x2, ptr %p) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    orl $16, %edi
 ; CHECK-NEXT:    orl $32, %esi
-; CHECK-NEXT:    addl %edi, %esi
 ; CHECK-NEXT:    addl $-8, %edx
 ; CHECK-NEXT:    orl $7, %edx
 ; CHECK-NEXT:    imull $100, %edx, %eax
 ; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    addl %edi, %eax ;INTEL
 ; CHECK-NEXT:    movw %ax, (%rcx)
 ; CHECK-NEXT:    retq
   %v0 = or i16 %x0, 16
@@ -59,11 +59,11 @@ define void @add32(i32 %x0, i32 %x1, i32 %x2, ptr %p) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    orl $16, %edi
 ; CHECK-NEXT:    orl $32, %esi
-; CHECK-NEXT:    addl %edi, %esi
 ; CHECK-NEXT:    addl $-8, %edx
 ; CHECK-NEXT:    orl $7, %edx
 ; CHECK-NEXT:    imull $100, %edx, %eax
 ; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    addl %edi, %eax ;INTEL
 ; CHECK-NEXT:    movl %eax, (%rcx)
 ; CHECK-NEXT:    retq
   %v0 = or i32 %x0, 16

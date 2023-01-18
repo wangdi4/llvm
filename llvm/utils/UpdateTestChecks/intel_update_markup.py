@@ -62,6 +62,13 @@ def get_llorg_ref(exp):
                                 cwd=dir_path,
                                 check=True)
     ref_commit = ref_commit.stdout.decode('utf-8').strip()
+
+    # Get the path of the file relative to git repository root, so that
+    # we can run the script in any subdirectory.
+    exp_path = subprocess.run(['git', 'ls-files', '--full-name', exp],
+                             stdout=PIPE,
+                             stderr=PIPE)
+    exp = exp_path.stdout.decode().strip()
     ref_str = subprocess.run(['git', 'show', f'{ref_commit}:{exp}'],
                              stdout=PIPE,
                              stderr=PIPE,
@@ -134,12 +141,11 @@ def add(exp, max_line, ref):
             subprocess.run(['sed', '-i', '-b', s_script, exp])
         else:
             # No new line here, so the line info from git diff is still valid
-            exp_end_next = exp_end + 1
-            m_script = f'{exp_start}s/./{m_markup_start} &/;{exp_end_next}s/./{m_markup_end} &/'
+            m_script = f'{exp_start}s/^/{m_markup_start} /;{exp_end}s/$/{m_markup_end} /'
             subprocess.run(['sed', '-i', '-b', m_script, exp])
 
     # Make multi-line markup in a stand-alone line
-    m_script = R's/^\({m_markup_start}\|{m_markup_end}\) /\1\n/'
+    m_script = R's/^\({m_markup_start}\) /\1\n/;s/\({m_markup_end}\) $/\n\1/'
     m_script = m_script.replace(R'{m_markup_start}', str(m_markup_start))
     m_script = m_script.replace(R'{m_markup_end}', str(m_markup_end))
     subprocess.run(['sed', '-i', '-b', m_script, exp])
