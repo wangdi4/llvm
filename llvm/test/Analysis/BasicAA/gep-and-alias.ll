@@ -1,6 +1,6 @@
 ; RUN: opt -S -aa-pipeline=basic-aa -passes=gvn < %s | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -S -aa-pipeline=basic-aa -gvn | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="gvn" -S -aa-pipeline=basic-aa | FileCheck %s
 
 target datalayout = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128"
 target triple = "i386-apple-macosx10.6.0"

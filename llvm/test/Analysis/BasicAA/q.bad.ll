@@ -1,5 +1,5 @@
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 target triple = "thumbv7--linux-gnueabi"

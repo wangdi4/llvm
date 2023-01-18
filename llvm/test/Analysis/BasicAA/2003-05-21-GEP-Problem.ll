@@ -1,6 +1,6 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -licm -disable-output
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="loop-mssa(licm)" -aa-pipeline=basic-aa -disable-output
 	%struct..apr_array_header_t = type { ptr, i32, i32, i32, ptr }
 	%struct..apr_table_t = type { %struct..apr_array_header_t, i32, [32 x i32], [32 x i32] }
 

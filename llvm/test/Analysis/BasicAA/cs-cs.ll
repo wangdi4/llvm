@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"

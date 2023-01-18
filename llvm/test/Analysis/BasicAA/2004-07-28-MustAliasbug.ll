@@ -1,6 +1,6 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=dse -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -dse -S | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="dse" -aa-pipeline=basic-aa -S | FileCheck %s
 
 define void @test(ptr %P) {
 ; CHECK: store i32 0, ptr %X

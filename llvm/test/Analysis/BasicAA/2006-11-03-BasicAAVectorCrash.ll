@@ -1,6 +1,6 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -licm -disable-output
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="loop-mssa(licm)" -aa-pipeline=basic-aa -disable-output
 target datalayout = "E-p:32:32"
 target triple = "powerpc-unknown-linux-gnu"
 

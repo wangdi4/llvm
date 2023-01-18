@@ -1,5 +1,5 @@
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -disable-output 2>/dev/null
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -disable-output 2>/dev/null
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -disable-output 2>/dev/null
 ; Test for a bug in BasicAA which caused a crash when querying equality of P1&P2
 define void @test(ptr %mask_bits) {

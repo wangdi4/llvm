@@ -1,6 +1,6 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -gvn -S | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="gvn" -aa-pipeline=basic-aa -S | FileCheck %s
 
 ; Check that section->word_ofs doesn't get reloaded in every iteration of the
 ; for loop.

@@ -1,5 +1,5 @@
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="aa-eval" -aa-pipeline=basic-aa -print-all-alias-modref-info 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=aa-eval -print-all-alias-modref-info 2>&1 | FileCheck %s
 ; PR4267
 

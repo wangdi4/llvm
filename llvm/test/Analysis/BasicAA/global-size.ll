@@ -3,7 +3,7 @@
 
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=gvn -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -gvn -S | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="gvn" -aa-pipeline=basic-aa -S | FileCheck %s
 target datalayout = "E-p:64:64:64-p1:16:16:16-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
 @B = global i16 8

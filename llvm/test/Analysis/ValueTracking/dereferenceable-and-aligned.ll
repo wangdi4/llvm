@@ -1,6 +1,6 @@
 ; RUN: opt < %s -passes=licm -S | FileCheck %s
 ; INTEL
-; RUN: opt -S -convert-to-subscript < %s | opt -S -licm | FileCheck %s
+; RUN: opt -S < %s | opt -passes="convert-to-subscript,loop-mssa(licm)" -S | FileCheck %s
 
 target datalayout = "e-p:32:32-p1:64:64-p4:64:64"
 
