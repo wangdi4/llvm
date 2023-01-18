@@ -31,13 +31,11 @@ define i32 @test1(i32 %X) nounwind {
 define i32 @test2(i32 inreg %a, i32 inreg %b, i32 %c, i32 %d) nounwind {
 ; CHECK-LABEL: test2:
 ; CHECK:       ## %bb.0: ## %entry
-; CHECK-NEXT:    ## kill: def $ecx killed $ecx def $rcx
-; CHECK-NEXT:    ## kill: def $edx killed $edx def $rdx
 ; CHECK-NEXT:    ## kill: def $esi killed $esi def $rsi
 ; CHECK-NEXT:    ## kill: def $edi killed $edi def $rdi
-; CHECK-NEXT:    addl %edi, %esi
-; CHECK-NEXT:    leal (%rdx,%rcx), %eax
-; CHECK-NEXT:    addl %esi, %eax
+; CHECK-NEXT:    leal (%rdi,%rsi), %eax ;INTEL
+; CHECK-NEXT:    addl %edx, %eax ;INTEL
+; CHECK-NEXT:    addl %ecx, %eax ;INTEL
 ; CHECK-NEXT:    retq
 entry:
  %add = add i32 %b, %a
