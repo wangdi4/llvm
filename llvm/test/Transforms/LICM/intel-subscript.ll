@@ -1,4 +1,3 @@
-; RUN: opt -S -licm < %s | FileCheck %s
 ; RUN: opt -S -aa-pipeline=basic-aa -passes='require<opt-remark-emit>,loop-mssa(licm)' < %s | FileCheck %s
 
 ; Check that loads %A.03 and %s may be hoisted of the loop by LICM.
