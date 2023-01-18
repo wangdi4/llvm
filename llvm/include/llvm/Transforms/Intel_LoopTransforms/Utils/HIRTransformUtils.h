@@ -56,7 +56,8 @@ const StringRef EnableSpecialLoopInterchangeMetaName =
 class HIRTransformUtils {
 public:
   typedef struct ProfInfo {
-    ProfInfo(uint64_t T, uint64_t F) : TrueWeight(T), FalseWeight(F) {}
+    ProfInfo(uint64_t T, uint64_t F)
+        : TrueWeight(T), FalseWeight(F), Quotient(0), Remainder(0) {}
     uint64_t TrueWeight;
     uint64_t FalseWeight;
 

@@ -112,7 +112,7 @@ bool HIRLoopDistribution::run() {
 
     if (Lp->hasDistributePoint()) {
       PragmaReturnCode RC = distributeLoopForDirective(Lp);
-      if (RC != NotProcessed) {
+      if (RC != Last) {
         ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
       }
       continue;
