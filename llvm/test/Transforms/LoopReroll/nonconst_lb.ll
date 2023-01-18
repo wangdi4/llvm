@@ -104,20 +104,12 @@ define void @daxpy_ur(i32 %n, float %da, ptr nocapture readonly %dx, ptr nocaptu
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVAR_NEXT:%.*]], [[FOR_BODY]] ]
-<<<<<<< HEAD
 ; INTEL - SCEV improvements prove stronger NoWrap flags
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[REM]], [[INDVAR]] ;INTEL
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[DY:%.*]], i32 [[TMP5]]
-; CHECK-NEXT:    [[TMP6:%.*]] = load float, float* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, float* [[DX:%.*]], i32 [[TMP5]]
-; CHECK-NEXT:    [[TMP7:%.*]] = load float, float* [[ARRAYIDX1]], align 4
-=======
-; CHECK-NEXT:    [[TMP5:%.*]] = add i32 [[REM]], [[INDVAR]]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[DY:%.*]], i32 [[TMP5]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, ptr [[DX:%.*]], i32 [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = load float, ptr [[ARRAYIDX1]], align 4
->>>>>>> 055fb7795aa219a3d274d280ec9129784f169f56
 ; CHECK-NEXT:    [[MUL:%.*]] = fmul float [[TMP7]], [[DA:%.*]]
 ; CHECK-NEXT:    [[ADD:%.*]] = fadd float [[TMP6]], [[MUL]]
 ; CHECK-NEXT:    store float [[ADD]], ptr [[ARRAYIDX]], align 4

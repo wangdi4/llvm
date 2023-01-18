@@ -62,15 +62,10 @@ bb41:
   br i1 %tmp44, label %bb52, label %bb45
 
 ;CHECK:     bb45:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-;CHECK-NOT:   %tmp47 = load i32, i32* %arg1, align 4
+;CHECK-NOT:   %tmp47 = load i32, ptr %arg1, align 4
 ;CHECK-NOT:   %tmp48 = icmp eq i32 %tmp47, 0
 ; end INTEL_CUSTOMIZATION
-=======
-;CHECK:   %tmp47 = load i32, ptr %arg1, align 4
-;CHECK:   %tmp48 = icmp eq i32 %tmp47, 0
->>>>>>> 055fb7795aa219a3d274d280ec9129784f169f56
 
 bb45:
   %tmp47 = load i32, ptr %arg1, align 4
@@ -90,21 +85,15 @@ bb55:
   %tmp57 = add nsw i32 %tmp8.0, 1
   br label %bb52
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ;CHECK:     bb58:
-;CHECK-NOT:   %tmp60 = load i32, i32* %arg1, align 4
+;CHECK-NOT:   %tmp60 = load i32, ptr %arg1, align 4
 ;CHECK-NOT:   %tmp61 = icmp eq i32 %tmp60, 0
 ; end INTEL_CUSTOMIZATION
-=======
-;CHECK: bb58:
-;CHECK: %tmp60 = load i32, ptr %arg1, align 4
-;CHECK: %tmp61 = icmp eq i32 %tmp60, 0
 ;CHECK: bb62:
 ;CHECK: load
 ;CHECK: bb64:
 ;CHECK: load
->>>>>>> 055fb7795aa219a3d274d280ec9129784f169f56
 
 bb58:
   %tmp60 = load i32, ptr %arg1, align 4
