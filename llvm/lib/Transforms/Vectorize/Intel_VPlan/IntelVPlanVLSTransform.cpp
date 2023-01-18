@@ -438,6 +438,7 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
 
   VPBuilder Builder;
   Builder.setInsertPoint(InsertPointInst);
+  Builder.setCurrentDebugLocation(InsertPointInst->getDebugLocation());
   VPValue *WideValue = Plan.getUndef(GroupTy);
 
   for (OVLSMemref *Memref : *Group) {
