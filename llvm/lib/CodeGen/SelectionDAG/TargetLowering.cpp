@@ -6039,8 +6039,6 @@ SDValue TargetLowering::BuildUDIV(SDNode *N, SelectionDAG &DAG,
   auto BuildUDIVPattern = [&](ConstantSDNode *C) {
     if (C->isZero())
       return false;
-    // FIXME: We should use a narrower constant when the upper
-    // bits are known to be zero.
     const APInt& Divisor = C->getAPIntValue();
 
     bool SelNPQ = false;
@@ -6056,16 +6054,15 @@ SDValue TargetLowering::BuildUDIV(SDNode *N, SelectionDAG &DAG,
 
       Magic = std::move(magics.Magic);
 
-      if (!magics.IsAdd) {
-        assert(magics.ShiftAmount < Divisor.getBitWidth() &&
-               "We shouldn't generate an undefined shift!");
-        PostShift = magics.ShiftAmount;
-        PreShift = magics.PreShift;
-      } else {
-        assert(magics.PreShift == 0 && "Unexpected pre-shift");
-        PostShift = magics.ShiftAmount - 1;
-        SelNPQ = true;
-      }
+      assert(magics.PreShift < Divisor.getBitWidth() &&
+             "We shouldn't generate an undefined shift!");
+      assert(magics.PostShift < Divisor.getBitWidth() &&
+             "We shouldn't generate an undefined shift!");
+      assert((!magics.IsAdd || magics.PreShift == 0) &&
+             "Unexpected pre-shift");
+      PreShift = magics.PreShift;
+      PostShift = magics.PostShift;
+      SelNPQ = magics.IsAdd;
     }
 
     PreShifts.push_back(DAG.getConstant(PreShift, dl, ShSVT));
