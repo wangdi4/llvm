@@ -149,7 +149,7 @@ public:
   param_iterator param_begin() const { return ContainedTys + 1; }
   param_iterator param_end() const { return &ContainedTys[NumContainedTys]; }
   ArrayRef<Type *> params() const {
-    return makeArrayRef(param_begin(), param_end());
+    return ArrayRef(param_begin(), param_end());
   }
 
   /// Parameter type accessors.
@@ -338,7 +338,7 @@ public:
   element_iterator element_begin() const { return ContainedTys; }
   element_iterator element_end() const { return &ContainedTys[NumContainedTys];}
   ArrayRef<Type *> elements() const {
-    return makeArrayRef(element_begin(), element_end());
+    return ArrayRef(element_begin(), element_end());
   }
 
   /// Return true if this is layout identical to the specified struct.
@@ -792,7 +792,7 @@ public:
   /// Return the type parameters for this particular target extension type. If
   /// there are no parameters, an empty array is returned.
   ArrayRef<Type *> type_params() const {
-    return makeArrayRef(type_param_begin(), type_param_end());
+    return ArrayRef(type_param_begin(), type_param_end());
   }
 
   using type_param_iterator = Type::subtype_iterator;
@@ -807,7 +807,7 @@ public:
   /// Return the integer parameters for this particular target extension type.
   /// If there are no parameters, an empty array is returned.
   ArrayRef<unsigned> int_params() const {
-    return makeArrayRef(IntParams, getNumIntParameters());
+    return ArrayRef(IntParams, getNumIntParameters());
   }
 
   unsigned getIntParameter(unsigned i) const { return IntParams[i]; }

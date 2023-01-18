@@ -1499,7 +1499,7 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
   }
 
   Constant *Ptr = Operands[0];
-  auto Indices = makeArrayRef(Operands.begin() + 1, Operands.end());
+  auto Indices = ArrayRef(Operands.begin() + 1, Operands.end());
 
   #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-22930: If the constant is an array and the value is a pointer,

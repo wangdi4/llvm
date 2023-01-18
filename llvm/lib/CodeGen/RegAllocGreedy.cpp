@@ -707,7 +707,7 @@ bool RAGreedy::addThroughConstraints(InterferenceCache::Cursor Intf,
       assert(T < GroupSize && "Array overflow");
       TBS[T] = Number;
       if (++T == GroupSize) {
-        SpillPlacer->addLinks(makeArrayRef(TBS, T));
+        SpillPlacer->addLinks(ArrayRef(TBS, T));
         T = 0;
       }
       continue;
@@ -736,13 +736,13 @@ bool RAGreedy::addThroughConstraints(InterferenceCache::Cursor Intf,
       BCS[B].Exit = SpillPlacement::PrefSpill;
 
     if (++B == GroupSize) {
-      SpillPlacer->addConstraints(makeArrayRef(BCS, B));
+      SpillPlacer->addConstraints(ArrayRef(BCS, B));
       B = 0;
     }
   }
 
-  SpillPlacer->addConstraints(makeArrayRef(BCS, B));
-  SpillPlacer->addLinks(makeArrayRef(TBS, T));
+  SpillPlacer->addConstraints(ArrayRef(BCS, B));
+  SpillPlacer->addLinks(ArrayRef(TBS, T));
   return true;
 }
 
@@ -783,7 +783,7 @@ bool RAGreedy::growRegion(GlobalSplitCandidate &Cand) {
 
     // Compute through constraints from the interference, or assume that all
     // through blocks prefer spilling when forming compact regions.
-    auto NewBlocks = makeArrayRef(ActiveBlocks).slice(AddedTo);
+    auto NewBlocks = ArrayRef(ActiveBlocks).slice(AddedTo);
     if (Cand.PhysReg) {
       if (!addThroughConstraints(Cand.Intf, NewBlocks))
         return false;

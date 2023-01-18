@@ -4321,7 +4321,7 @@ static Value *simplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
 
     if (auto *GEP = dyn_cast<GetElementPtrInst>(I))
       return PreventSelfSimplify(simplifyGEPInst(
-          GEP->getSourceElementType(), NewOps[0], makeArrayRef(NewOps).slice(1),
+          GEP->getSourceElementType(), NewOps[0], ArrayRef(NewOps).slice(1),
           GEP->isInBounds(), Q, MaxRecurse - 1));
 
     if (isa<SelectInst>(I))
@@ -6728,8 +6728,7 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
   case Instruction::GetElementPtr: {
     auto *GEPI = cast<GetElementPtrInst>(I);
     return simplifyGEPInst(GEPI->getSourceElementType(), NewOps[0],
-                           makeArrayRef(NewOps).slice(1), GEPI->isInBounds(),
-                           Q);
+                           ArrayRef(NewOps).slice(1), GEPI->isInBounds(), Q);
   }
   case Instruction::InsertValue: {
     InsertValueInst *IV = cast<InsertValueInst>(I);
