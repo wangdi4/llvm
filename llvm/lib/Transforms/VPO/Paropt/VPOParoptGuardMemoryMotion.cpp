@@ -29,9 +29,15 @@ using namespace llvm::vpo;
 static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " PASS_NAME " pass"));
-static cl::opt<bool> RunForScansOpt("vpo-paropt-guard-memory-motion-for-scan",
-                                    cl::init(false), cl::Hidden,
-                                    cl::desc("Process scan pointers"));
+// Toggles below are to be deprecated once frontends are able to generate the
+// same region structure for inscan reductions.
+static cl::opt<bool> RunForScansOpt(
+    "vpo-paropt-guard-memory-motion-for-scan", cl::init(false), cl::Hidden,
+    cl::desc("Process scan reductions if true, regular reductions if false"));
+static cl::opt<bool> DisableGuardGenerationForScan(
+    "vpo-paropt-disable-guard-memory-motion-for-scan", cl::init(false),
+    cl::Hidden,
+    cl::desc("Disable memory guard generation for scan in IR optimizations"));
 
 namespace {
 class VPOParoptGuardMemoryMotion : public FunctionPass {
@@ -114,7 +120,7 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     // Guarding is needed only for UDR variables or inscan reductions.
     if (!((RunForScans && IsInscanLoop) ||
-       (!RunForScans && !IsInscanLoop && IsUDRLoop)))
+          (!RunForScans && !IsInscanLoop && IsUDRLoop)))
       continue;
 
     Changed = true;
@@ -171,12 +177,15 @@ VPOParoptGuardMemoryMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!guardMemoryMotion(F, WI, RunForScans || RunForScansOpt))
-    return PreservedAnalyses::all();
+
+  bool Changed = false;
+  bool ForScans = RunForScans || RunForScansOpt;
+  if (!ForScans || !DisableGuardGenerationForScan)
+    Changed = guardMemoryMotion(F, WI, ForScans);
 
   LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
 
-  return PreservedAnalyses::none();
+  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
 #endif // INTEL_COLLAB

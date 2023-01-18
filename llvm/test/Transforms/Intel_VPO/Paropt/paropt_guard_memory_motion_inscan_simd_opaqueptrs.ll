@@ -3,6 +3,8 @@
 ; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
 ; RUN: opt -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
 
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -vpo-paropt-disable-guard-memory-motion-for-scan -S < %s 2>&1 | FileCheck %s --check-prefix=DISABLE_SCAN
+
 ; Test to verify the functionality of VPOParoptGuardMemoryMotion and VPORenameOperands passes.
 
 ; Test src:
@@ -85,6 +87,9 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; RESTORE: "DIR.VPO.GUARD.MEM.MOTION"(){{.*}}"QUAL.OMP.LIVEIN"(ptr [[RED]]) ]
 ; RESTORE: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; RESTORE: "DIR.OMP.END.SIMD"
+
+; DISABLE_SCAN-NOT: "DIR.VPO{{.*}}.GUARD.MEM.MOTION"
+
 entry:
   %m_scan_vec.addr = alloca ptr, align 8
   %m_out_vec.addr = alloca ptr, align 8
