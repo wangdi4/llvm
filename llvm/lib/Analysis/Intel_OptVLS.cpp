@@ -1327,6 +1327,35 @@ static void splitMrfsStep(OVLSMemref *Memref,
     if (!Dist)
       continue;
 
+    // VLS transformation currently only handles groups where the group stride
+    // matches the bit width of the group's access mask. As an example, a group
+    // containing refs {a[2 * i], a[2 * i + 1], a[2 * i + 2]} is not handled.
+    // ICC handles such a group by applying VLS optimization to refs {a[2 * i],
+    // a[2 * i + 1] and doing a gather/scatter for a[2 * i + 2]. For now, do
+    // the same in xmain by not considering a[2 * i + 2] for the group. This is
+    // done by skipping over refs whose distance from any of the refs in the
+    // group is >= group stride.
+    // TODO: We should be able to do a better job handling a group with all such
+    // refs by doing an appropriate wide access and avoiding the gather/scatter
+    // altogether. This will be done later.
+    if (SetFirstMrf->getConstStride()) {
+      auto DistExceedsStride =
+          find_if(*AdjMemrefSet, [Memref, SetFirstMrf](auto &x) {
+            Optional<int64_t> TDist = Memref->getConstDistanceFrom(*x.first);
+            if (!TDist)
+              return false;
+
+            return std::abs(*TDist) >= std::abs(*SetFirstMrf->getConstStride());
+          });
+
+      if (DistExceedsStride != AdjMemrefSet->end()) {
+        OVLSDebug(OVLSdbgs() << "Skipping: " << *Memref
+                             << " as distance >= group stride from: "
+                             << *(DistExceedsStride->first) << "\n");
+        continue;
+      }
+    }
+
     // Found a possible set. Check if the memref overlaps any of the memrefs
     // already in the set.
     auto OverlappedMemref =
