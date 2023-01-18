@@ -294,4 +294,17 @@ TEST(Attributes, MismatchedABIAttrs) {
   }
 }
 
+TEST(Attributes, RemoveParamAttributes) {
+  LLVMContext C;
+  AttributeList AL;
+  AL = AL.addParamAttribute(C, 1, Attribute::NoUndef);
+  EXPECT_EQ(AL.getNumAttrSets(), 4U);
+  AL = AL.addParamAttribute(C, 3, Attribute::NonNull);
+  EXPECT_EQ(AL.getNumAttrSets(), 6U);
+  AL = AL.removeParamAttributes(C, 3);
+  EXPECT_EQ(AL.getNumAttrSets(), 4U);
+  AL = AL.removeParamAttribute(C, 1, Attribute::NoUndef);
+  EXPECT_EQ(AL.getNumAttrSets(), 0U);
+}
+
 } // end anonymous namespace
