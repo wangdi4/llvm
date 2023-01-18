@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "LLVMSPIRVLib.h"
 #include "frontend_api.h"
 
 #include <cstdint> // std::uint32_t
@@ -33,18 +34,17 @@ namespace ClangFE {
 
 class OCLFESpecConstInfo : public IOCLFESpecConstInfo {
 public:
-  using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
   size_t getSpecConstCount() const override { return SpecConstInfo.size(); }
   cl_uint getSpecConstId(size_t Index) const override {
-    return SpecConstInfo[Index].first;
+    return SpecConstInfo[Index].ID;
   }
   cl_uint getSpecConstSize(size_t Index) const override {
-    return SpecConstInfo[Index].second;
+    return SpecConstInfo[Index].Size;
   }
-  std::vector<SpecConstInfoTy> &getRef() { return SpecConstInfo; }
+  std::vector<llvm::SpecConstInfoTy> &getRef() { return SpecConstInfo; }
 
 private:
-  std::vector<SpecConstInfoTy> SpecConstInfo;
+  std::vector<llvm::SpecConstInfoTy> SpecConstInfo;
 };
 
 // SPIR-V -> llvm::Module converter wrapper.
