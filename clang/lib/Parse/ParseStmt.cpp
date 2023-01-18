@@ -799,13 +799,6 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributes &Attrs,
         SubStmt = Actions.ActOnAttributedStmt(TempAttrs, SubStmt.get());
     }
   }
-#if INTEL_CUSTOMIZATION
-  // CQ#370084: allow label without statement just before '}'.
-  if (getLangOpts().IntelCompat && Tok.is(tok::r_brace)) {
-    Diag(ColonLoc, diag::warn_expected_statement);
-    SubStmt = Actions.ActOnNullStmt(ColonLoc);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // The label may have no statement following it
   if (SubStmt.isUnset() && Tok.is(tok::r_brace)) {
@@ -954,20 +947,10 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
   StmtResult SubStmt;
 
   if (Tok.is(tok::r_brace)) {
-#if INTEL_CUSTOMIZATION
-    if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
-      // CQ#370084: allow label without statement just before '}'.
-      SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-      Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
-          << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-      SubStmt = Actions.ActOnNullStmt(ColonLoc);
-    } else {
-      // "switch (X) { case 4: }", is valid and is treated as if label was
-      // followed by a null statement.
-      DiagnoseLabelAtEndOfCompoundStatement();
-      SubStmt = Actions.ActOnNullStmt(ColonLoc);
-    }
-#endif // INTEL_CUSTOMIZATION
+    // "switch (X) { case 4: }", is valid and is treated as if label was
+    // followed by a null statement.
+    DiagnoseLabelAtEndOfCompoundStatement();
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
   } else {
     SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
   }
@@ -1018,18 +1001,8 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
   if (Tok.is(tok::r_brace)) {
     // "switch (X) {... default: }", is valid and is treated as if label was
     // followed by a null statement.
-#if INTEL_CUSTOMIZATION
-    // CQ#370084: allow label without statement just before '}'.
-    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
-    if (getLangOpts().IntelCompat) {
-      Diag(AfterColonLoc, diag::warn_switch_label_end_of_compound_statement)
-        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
-      SubStmt = Actions.ActOnNullStmt(ColonLoc);
-    } else {
-      DiagnoseLabelAtEndOfCompoundStatement();
-      SubStmt = Actions.ActOnNullStmt(ColonLoc);
-    }
-#endif // INTEL_CUSTOMIZATION
+    DiagnoseLabelAtEndOfCompoundStatement();
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
   } else {
     SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
   }
