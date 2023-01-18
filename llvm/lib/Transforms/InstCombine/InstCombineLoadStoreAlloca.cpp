@@ -730,7 +730,7 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
         Zero,
         ConstantInt::get(IdxType, i),
       };
-      auto *Ptr = IC.Builder.CreateInBoundsGEP(ST, Addr, makeArrayRef(Indices),
+      auto *Ptr = IC.Builder.CreateInBoundsGEP(ST, Addr, ArrayRef(Indices),
                                                Name + ".elt");
       auto *L = IC.Builder.CreateAlignedLoad(
           ST->getElementType(i), Ptr,
@@ -776,7 +776,7 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
         Zero,
         ConstantInt::get(IdxType, i),
       };
-      auto *Ptr = IC.Builder.CreateInBoundsGEP(AT, Addr, makeArrayRef(Indices),
+      auto *Ptr = IC.Builder.CreateInBoundsGEP(AT, Addr, ArrayRef(Indices),
                                                Name + ".elt");
       auto *L = IC.Builder.CreateAlignedLoad(AT->getElementType(), Ptr,
                                              commonAlignment(Align, Offset),
@@ -1561,8 +1561,8 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
         Zero,
         ConstantInt::get(IdxType, i),
       };
-      auto *Ptr = IC.Builder.CreateInBoundsGEP(ST, Addr, makeArrayRef(Indices),
-                                               AddrName);
+      auto *Ptr =
+          IC.Builder.CreateInBoundsGEP(ST, Addr, ArrayRef(Indices), AddrName);
       auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);
       auto EltAlign = commonAlignment(Align, SL->getElementOffset(i));
       llvm::Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);
@@ -1607,8 +1607,8 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
         Zero,
         ConstantInt::get(IdxType, i),
       };
-      auto *Ptr = IC.Builder.CreateInBoundsGEP(AT, Addr, makeArrayRef(Indices),
-                                               AddrName);
+      auto *Ptr =
+          IC.Builder.CreateInBoundsGEP(AT, Addr, ArrayRef(Indices), AddrName);
       auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);
       auto EltAlign = commonAlignment(Align, Offset);
       Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);

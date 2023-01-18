@@ -3844,7 +3844,7 @@ Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
       Value *NewEV = Builder.CreateExtractValue(IV->getAggregateOperand(),
                                                 EV.getIndices());
       return InsertValueInst::Create(NewEV, IV->getInsertedValueOperand(),
-                                     makeArrayRef(insi, inse));
+                                     ArrayRef(insi, inse));
     }
     if (insi == inse)
       // The insert list is a prefix of the extract list
@@ -3856,7 +3856,7 @@ Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
       // with
       // %E extractvalue { i32 } { i32 42 }, 0
       return ExtractValueInst::Create(IV->getInsertedValueOperand(),
-                                      makeArrayRef(exti, exte));
+                                      ArrayRef(exti, exte));
   }
 
   if (Instruction *R = foldExtractOfOverflowIntrinsic(EV))

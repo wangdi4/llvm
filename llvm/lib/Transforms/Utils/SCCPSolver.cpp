@@ -1499,6 +1499,7 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
   }
 
   Constant *Ptr = Operands[0];
+<<<<<<< HEAD
   auto Indices = makeArrayRef(Operands.begin() + 1, Operands.end());
 
   #if INTEL_CUSTOMIZATION
@@ -1516,6 +1517,9 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  auto Indices = ArrayRef(Operands.begin() + 1, Operands.end());
+>>>>>>> 38818b60c58c76ba89b990978cdfd2d7b6799260
   Constant *C =
       ConstantExpr::getGetElementPtr(I.getSourceElementType(), Ptr, Indices);
   markConstant(&I, C);
