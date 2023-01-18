@@ -666,7 +666,8 @@ std::string SYCLUniqueStableNameExpr::ComputeName(ASTContext &Context) const {
 static llvm::Optional<unsigned>
 UniqueStableNameDiscriminator(ASTContext &, const NamedDecl *ND) {
   if (const auto *RD = dyn_cast<CXXRecordDecl>(ND))
-    return RD->getDeviceLambdaManglingNumber();
+    if (RD->isLambda())
+      return RD->getDeviceLambdaManglingNumber();
   return std::nullopt;
 }
 
