@@ -2,7 +2,7 @@
 ; INTEL_CUSTOMIZATION
 ; Customization note: added -slp-compatibility-mode and -max-split-load=0 options to suppress some xmain customizations
 
-; RUN: opt -S -passes=slp-vectorizer < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake -slp-threshold=-12 -slp-compatibility-mode -max-split-load=0 | FileCheck %s
+; RUN: opt -S -passes=slp-vectorizer < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake -slp-threshold=-13 -slp-compatibility-mode -max-split-load=0 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 
 define void @test(i1 %c, ptr %arg) {
