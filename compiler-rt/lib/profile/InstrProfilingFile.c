@@ -1237,25 +1237,47 @@ COMPILER_RT_VISIBILITY int __llvm_profile_set_file_object(FILE *File,
  * The calling sequence is:
  *   UserRoutine()
  *     _PGOPTI_Prof_Dump_All()
- *       pgopti_prof_dump_all_internal() // invoked via dl_iterate_phdr
+ *       pgopti_prof_process_shared_objects() // invoked via dl_iterate_phdr
  *         _PGOPTI_Prof_Dump_Global()
  *           __llvm_profile_dump()
  */
-void _PGOPTI_Prof_Dump_Global(void) { (void)__llvm_profile_dump(); }
 
 /*
- * Dump the data for a shared object library
+ * Configuration that controls behavior when iterating over the Dynamic Shared
+ * Object libraries.
  */
-static int pgopti_prof_dump_all_internal(struct dl_phdr_info *info, size_t size,
-                                         void *main_handle) {
+typedef struct DSOConfig {
+  /* The function address of the action method of the main module. This is to
+  avoid performing the action a second time when iterating over the DSOs
+  returned by dl_iterate_phdr. */
+  void (*MainHandle)();
+
+  /* Method name to look up in the DSO that is to be executed. */
+  const char *MethodName;
+} DSOConfig;
+
+void _PGOPTI_Prof_Dump_Global(void) { (void)__llvm_profile_dump(); }
+void _PGOPTI_Prof_Reset_Global(void) { __llvm_profile_reset_counters(); }
+void _PGOPTI_Prof_Dump_And_Reset_Global(void) {
+  (void)__llvm_profile_dump();
+  __llvm_profile_reset_counters();
+}
+
+/*
+ * Process all shared object libraries, by executing a specific member function
+ * specified by the 'Config' parameter.
+ */
+static int pgopti_prof_process_shared_objects(struct dl_phdr_info *info,
+                                              size_t size, void *Config) {
   void *handle;
   void *func;
 
+  DSOConfig *TheDSOConfig = (DSOConfig *)Config;
   if (!info->dlpi_name || info->dlpi_name[0] == '\0') {
     /*
      * If the name is empty then this may be the main executable or
-     * the runtime dynamic linker. Nothing to dump because the main
-     * executable was dumped outside of the shared object iterator.
+     * the runtime dynamic linker. No action to perform because the main
+     * executable was processed outside of the shared object iterator.
      */
     return 0;
   }
@@ -1266,18 +1288,32 @@ static int pgopti_prof_dump_all_internal(struct dl_phdr_info *info, size_t size,
     return -1;
   }
 
-  func = dlsym(handle, "_PGOPTI_Prof_Dump_Global");
-  // Skip the main_handle, since it has already been dumped.
-  if (func && (void *)func != main_handle)
+  func = dlsym(handle, TheDSOConfig->MethodName);
+  // Skip the main_handle, since it has already been processed.
+  if (func && (void *)func != TheDSOConfig->MainHandle)
     ((void (*)())func)();
 
   dlclose(handle);
   return 0;
 }
 #elif defined(_WIN32)
-// Windows function that can be retrieved via a call to GetProcAddress().
+// Windows function for writing profile data that can be retrieved via a call to
+// GetProcAddress().
 __declspec(dllexport) void _PGOPTI_Prof_Dump_Global() {
   (void)__llvm_profile_dump();
+}
+
+// Windows function for clearing profile data that can be retrieved via a call
+// to GetProcAddress().
+__declspec(dllexport) void _PGOPTI_Prof_Reset_Global() {
+  (void)__llvm_profile_reset_counters();
+}
+
+// Windows function for dumping and clearing profile data that can be retrieved
+// via a call to GetProcAddress().
+__declspec(dllexport) void _PGOPTI_Prof_Dump_And_Reset_Global() {
+  (void)__llvm_profile_dump();
+  (void)__llvm_profile_reset_counters();
 }
 
 // Element to hold memory address for module to store in array.
@@ -1346,7 +1382,7 @@ static int pgoptiGrowArrayInsert(GrowArray *GA, void *Data) {
   return 1;
 }
 
-static void pgoptiProfDumpAllInternal() {
+static void pgoptiProcessSharedObjects(const char *MethodName) {
   typedef void (*DLLFnPtr)();
   PBYTE PB = NULL;
   MEMORY_BASIC_INFORMATION MBI;
@@ -1386,8 +1422,7 @@ static void pgoptiProfDumpAllInternal() {
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            ListData[Idx].RawPtr, &Handle)) {
-      DLLFnPtr FnPtr =
-          (DLLFnPtr)GetProcAddress(Handle, "_PGOPTI_Prof_Dump_Global");
+      DLLFnPtr FnPtr = (DLLFnPtr)GetProcAddress(Handle, MethodName);
       if (FnPtr) {
         ((void (*)(void))FnPtr)();
       }
@@ -1415,13 +1450,66 @@ void _PGOPTI_Prof_Dump_All() {
   // Dump all the shared objects. Capture the address of the module already
   // dumped in case it was for a shared object, so that we don't try to dump the
   // shared object twice.
-  void (*main_handle)() = &_PGOPTI_Prof_Dump_Global;
-  dl_iterate_phdr(pgopti_prof_dump_all_internal, (void *)main_handle);
+  DSOConfig TheDSOConfig;
+  TheDSOConfig.MainHandle = &_PGOPTI_Prof_Dump_Global;
+  TheDSOConfig.MethodName = "_PGOPTI_Prof_Dump_Global";
+  dl_iterate_phdr(pgopti_prof_process_shared_objects, &TheDSOConfig);
 #elif defined(_WIN32)
-  pgoptiProfDumpAllInternal();
+  pgoptiProcessSharedObjects("_PGOPTI_Prof_Dump_Global");
 #else
   // Placeholder for any future operating system
   (void)__llvm_profile_dump();
+#endif // __linux__
+}
+
+void _PGOPTI_Prof_Reset_All() {
+#if defined(__linux__)
+  // First clear the data of the main module.  If this routine is called from
+  // the main module, or from a shared object, then it will clear the main
+  // module, if the main module is instrumented. If the main module is not
+  // instrumented, then the clear will be for the shared object module. This
+  // needs to be called directly, because the dl_iterate_phdr will not include
+  // the main module during its iteration.
+  _PGOPTI_Prof_Reset_Global();
+
+  // Clear all the shared objects. Capture the address of the module already
+  // cleared in case it was for a shared object, so that we don't call the
+  // reset method twice.
+  DSOConfig TheDSOConfig;
+  TheDSOConfig.MainHandle = &_PGOPTI_Prof_Reset_Global;
+  TheDSOConfig.MethodName = "_PGOPTI_Prof_Reset_Global";
+  dl_iterate_phdr(pgopti_prof_process_shared_objects, &TheDSOConfig);
+#elif defined(_WIN32)
+  pgoptiProcessSharedObjects("_PGOPTI_Prof_Reset_Global");
+#else
+  // Placeholder for any future operating system
+  (void)__llvm_profile_reset_counters();
+#endif // __linux__
+}
+
+void _PGOPTI_Prof_Dump_And_Reset_All() {
+#if defined(__linux__)
+  // First dump and clear the data of the main module.  If this routine is
+  // called from the main module, or from a shared object, then it will process
+  // the main module when the main module is instrumented. If the main module is
+  // not instrumented, then the method will be for the shared object module.
+  // This needs to be called directly, because the dl_iterate_phdr will not
+  // include the main module during its iteration.
+  _PGOPTI_Prof_Dump_And_Reset_Global();
+
+  // Process all the shared objects. Capture the address of the module already
+  // processed in case it was for a shared object, so that we don't call it
+  // twice for the current module.
+  DSOConfig TheDSOConfig;
+  TheDSOConfig.MainHandle = &_PGOPTI_Prof_Dump_And_Reset_Global;
+  TheDSOConfig.MethodName = "_PGOPTI_Prof_Dump_And_Reset_Global";
+  dl_iterate_phdr(pgopti_prof_process_shared_objects, &TheDSOConfig);
+#elif defined(_WIN32)
+  pgoptiProcessSharedObjects("_PGOPTI_Prof_Dump_And_Reset_Global");
+#else
+  // Placeholder for any future operating system
+  (void)__llvm_profile_dump();
+  (void)__llvm_profile_reset_counters();
 #endif // __linux__
 }
 #endif // INTEL_CUSTOMIZATION
