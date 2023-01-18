@@ -131,20 +131,16 @@
 // RUN:   | FileCheck %s -check-prefix=graniterapids
 // graniterapids: "-target-cpu" "graniterapids"
 //
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=gracemont 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=gracemont
 // gracemont: "-target-cpu" "gracemont"
 // end INTEL_CUSTOMIZATION
 //
-
-=======
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=emeraldrapids 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=emeraldrapids
 // emeraldrapids: "-target-cpu" "emeraldrapids"
 //
->>>>>>> 27b8f54f5174aa4d8ea254a7efefd7110b247c17
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=sapphirerapids 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=sapphirerapids
 // sapphirerapids: "-target-cpu" "sapphirerapids"
