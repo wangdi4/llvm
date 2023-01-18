@@ -54,7 +54,12 @@ static const char *LegalSYCLFunctions[] = {
     "^sycl::_V1::ext::oneapi::sub_group::.+",
     "^sycl::_V1::ext::oneapi::experimental::spec_constant<.+>::.+",
     "^sycl::_V1::ext::oneapi::experimental::this_sub_group",
+<<<<<<< HEAD
     "^sycl::_V1::ext::oneapi::bfloat16::.+"};
+=======
+    "^sycl::_V1::ext::oneapi::experimental::bfloat16::.+",
+    "^sycl::_V1::ext::oneapi::experimental::if_architecture_is"};
+>>>>>>> 7a811191635ce125d234d94e0f45c7720e52508d
 
 static const char *LegalSYCLFunctionsInStatelessMode[] = {
     "^sycl::_V1::multi_ptr<.+>::get",
