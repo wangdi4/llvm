@@ -263,9 +263,6 @@ def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
 // if INTEL_CUSTOMIZATION
-// CQ#370084
-def warn_expected_statement :
-  Warning<err_expected_statement.Summary>, InGroup<IntelCompat>;
 def warn_attributes_ignored_after_init
     : Warning<"variable attributes appearing after a parenthesized initializer "
               "are ignored">,
@@ -325,11 +322,6 @@ def note_force_empty_selector_name : Note<
   "and have an empty entry in the selector">;
 def err_switch_label_end_of_compound_statement : Error<
   "label at end of switch compound statement: expected statement">;
-// if INTEL_CUSTOMIZATION
-// CQ#370084
-def warn_switch_label_end_of_compound_statement :
-  Warning<err_switch_label_end_of_compound_statement.Summary>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def ext_c_label_end_of_compound_statement : ExtWarn<
   "label at end of compound statement is a C2x extension">,
    InGroup<C2x>;
