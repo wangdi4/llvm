@@ -51,19 +51,12 @@ define i32 @not_integer_reduce(<4 x i32> %x) {
   ret i32 %r
 }
 
-<<<<<<< HEAD
-define i32* @not_pointer_reduce2(<4 x i32*> %x) {
+define ptr @not_pointer_reduce2(<4 x ptr> %x) {
 ; INTEL_CUSTOMIZATION
 ; CHECK-NOT: Intrinsic has incorrect argument type!
 ; END INTEL_CUSTOMIZATION
-  %r = call i32* @llvm.vector.reduce.fmin.v4p0i32(<4 x i32*> %x)
-  ret i32* %r
-=======
-define ptr @not_pointer_reduce2(<4 x ptr> %x) {
-; CHECK: Intrinsic has incorrect argument type!
   %r = call ptr @llvm.vector.reduce.fmin.v4p0(<4 x ptr> %x)
   ret ptr %r
->>>>>>> c820f2a43eaba02db97c4ff60c58a58e6bdd391d
 }
 
 declare float @llvm.vector.reduce.umin.v4f32(<4 x float>)
