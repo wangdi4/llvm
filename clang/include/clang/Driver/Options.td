@@ -6182,16 +6182,12 @@ def : Flag<["-"], "fno-sycl-explicit-simd">,
   Flags<[CoreOption, Deprecated]>,
   Group<clang_ignored_legacy_options_Group>,
   HelpText<"Disable SYCL explicit SIMD extension. (deprecated)">;
-<<<<<<< HEAD
-defm sycl_early_optimizations : OptOutCC1FFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption, DpcppOption]>;
+defm sycl_early_optimizations : OptOutCC1FFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption, DpcppOption]>,
+MarshallingInfoFlag<CodeGenOpts<"DisableSYCLEarlyOpts">>;
 def fsycl_enable_function_pointers : Flag<["-"],
   "fsycl-enable-function-pointers">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Experimental Feature: Enables function pointers and support for "
   "virtual functions for DPC++ kernels and device functions.">;
-=======
-defm sycl_early_optimizations : OptOutCC1FFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption]>,
-  MarshallingInfoFlag<CodeGenOpts<"DisableSYCLEarlyOpts">>;
->>>>>>> c4622cf547f44f9a658c0f4e20d018da809eda72
 def fsycl_dead_args_optimization : Flag<["-"], "fsycl-dead-args-optimization">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption, DpcppOption]>, HelpText<"Enables "
   "elimination of DPC++ dead kernel arguments">;
