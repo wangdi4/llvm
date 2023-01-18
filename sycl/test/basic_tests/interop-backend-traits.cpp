@@ -1,9 +1,5 @@
 // RUN: %clangxx -fsycl -fsyntax-only -DUSE_OPENCL %s
-<<<<<<< HEAD
-// RUN: %clangxx %fsycl-host-only -fsyntax-only -DUSE_L0 %s
-=======
 // RUN: %clangxx -fsycl -fsyntax-only -DUSE_L0 %s
->>>>>>> 4b1f73f0a99ea92826b29acd023d92518dfa707c
 // RUN: %clangxx -fsycl -fsyntax-only -DUSE_CUDA %s
 // RUN: %clangxx -fsycl -fsyntax-only -DUSE_HIP %s
 // RUN: %clangxx -fsycl -fsyntax-only -DUSE_CUDA_EXPERIMENTAL %s
