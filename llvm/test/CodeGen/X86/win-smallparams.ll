@@ -65,57 +65,67 @@ define i32 @manyargs(i8 %a, i16 %b, i8 %c, i16 %d, i8 %e, i16 %f) {
 ; WIN64:       # %bb.0: # %entry
 ; WIN64-NEXT:    movzwl {{[0-9]+}}(%rsp), %r10d
 ; WIN64-NEXT:    movzbl {{[0-9]+}}(%rsp), %r11d
-; WIN64-NEXT:    movsbl %cl, %ecx
-; WIN64-NEXT:    movswl %dx, %eax
+; WIN64-NEXT:    movsbl %cl, %eax ;INTEL
+; WIN64-NEXT:    movswl %dx, %ecx ;INTEL
+; WIN64-NEXT:    addl %eax, %ecx ;INTEL
 ; WIN64-NEXT:    movzbl %r8b, %edx
-; WIN64-NEXT:    addl %eax, %edx
+; WIN64-NEXT:    addl %ecx, %edx ;INTEL
 ; WIN64-NEXT:    movzwl %r9w, %eax
 ; WIN64-NEXT:    addl %edx, %eax
 ; WIN64-NEXT:    addl %r11d, %eax
 ; WIN64-NEXT:    addl %r10d, %eax
-; WIN64-NEXT:    addl %ecx, %eax
 ; WIN64-NEXT:    retq
 ;
 ; WIN32-MSVC-LABEL: manyargs:
 ; WIN32-MSVC:       # %bb.0: # %entry
+; WIN32-MSVC-NEXT:    pushl %ebx ;INTEL
 ; WIN32-MSVC-NEXT:    pushl %edi
 ; WIN32-MSVC-NEXT:    pushl %esi
-; WIN32-MSVC-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
-; WIN32-MSVC-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx
-; WIN32-MSVC-NEXT:    movzwl {{[0-9]+}}(%esp), %edx
-; WIN32-MSVC-NEXT:    movzbl {{[0-9]+}}(%esp), %esi
-; WIN32-MSVC-NEXT:    movswl {{[0-9]+}}(%esp), %edi
-; WIN32-MSVC-NEXT:    addl %esi, %edi
-; WIN32-MSVC-NEXT:    addl %edx, %edi
-; WIN32-MSVC-NEXT:    addl %ecx, %edi
-; WIN32-MSVC-NEXT:    addl %eax, %edi
+; INTEL_CUSTOMIZATION
+; WIN32-MSVC-NEXT:    movzwl {{[0-9]+}}(%esp), %ecx
+; WIN32-MSVC-NEXT:    movzbl {{[0-9]+}}(%esp), %edx
+; WIN32-MSVC-NEXT:    movzwl {{[0-9]+}}(%esp), %esi
+; WIN32-MSVC-NEXT:    movzbl {{[0-9]+}}(%esp), %edi
+; WIN32-MSVC-NEXT:    movswl {{[0-9]+}}(%esp), %ebx
+; end INTEL_CUSTOMIZATION
 ; WIN32-MSVC-NEXT:    movsbl {{[0-9]+}}(%esp), %eax
+; WIN32-MSVC-NEXT:    addl %ebx, %eax ;INTEL
 ; WIN32-MSVC-NEXT:    addl %edi, %eax
+; WIN32-MSVC-NEXT:    addl %esi, %eax ;INTEL
+; WIN32-MSVC-NEXT:    addl %edx, %eax ;INTEL
+; WIN32-MSVC-NEXT:    addl %ecx, %eax ;INTEL
 ; WIN32-MSVC-NEXT:    popl %esi
 ; WIN32-MSVC-NEXT:    popl %edi
+; WIN32-MSVC-NEXT:    popl %ebx ;INTEL
 ; WIN32-MSVC-NEXT:    retl
 ;
 ; WIN32-GNU-LABEL: manyargs:
 ; WIN32-GNU:       # %bb.0: # %entry
-; WIN32-GNU-NEXT:    pushl %edi
+; WIN32-GNU-NEXT:    pushl %ebx ;INTEL
 ; WIN32-GNU-NEXT:    .cfi_def_cfa_offset 8
-; WIN32-GNU-NEXT:    pushl %esi
+; WIN32-GNU-NEXT:    pushl %edi ;INTEL
 ; WIN32-GNU-NEXT:    .cfi_def_cfa_offset 12
-; WIN32-GNU-NEXT:    .cfi_offset %esi, -12
-; WIN32-GNU-NEXT:    .cfi_offset %edi, -8
-; WIN32-GNU-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
-; WIN32-GNU-NEXT:    movzbl {{[0-9]+}}(%esp), %ecx
-; WIN32-GNU-NEXT:    movzwl {{[0-9]+}}(%esp), %edx
-; WIN32-GNU-NEXT:    movzbl {{[0-9]+}}(%esp), %esi
-; WIN32-GNU-NEXT:    movswl {{[0-9]+}}(%esp), %edi
-; WIN32-GNU-NEXT:    addl %esi, %edi
-; WIN32-GNU-NEXT:    addl %edx, %edi
-; WIN32-GNU-NEXT:    addl %ecx, %edi
-; WIN32-GNU-NEXT:    addl %eax, %edi
+; INTEL_CUSTOMIZATION
+; WIN32-GNU-NEXT:    pushl %esi
+; WIN32-GNU-NEXT:    .cfi_def_cfa_offset 16
+; WIN32-GNU-NEXT:    .cfi_offset %esi, -16
+; WIN32-GNU-NEXT:    .cfi_offset %edi, -12
+; WIN32-GNU-NEXT:    .cfi_offset %ebx, -8
+; WIN32-GNU-NEXT:    movzwl {{[0-9]+}}(%esp), %ecx
+; WIN32-GNU-NEXT:    movzbl {{[0-9]+}}(%esp), %edx
+; WIN32-GNU-NEXT:    movzwl {{[0-9]+}}(%esp), %esi
+; WIN32-GNU-NEXT:    movzbl {{[0-9]+}}(%esp), %edi
+; WIN32-GNU-NEXT:    movswl {{[0-9]+}}(%esp), %ebx
+; end INTEL_CUSTOMIZATION
 ; WIN32-GNU-NEXT:    movsbl {{[0-9]+}}(%esp), %eax
+; WIN32-GNU-NEXT:    addl %ebx, %eax ;INTEL
 ; WIN32-GNU-NEXT:    addl %edi, %eax
+; WIN32-GNU-NEXT:    addl %esi, %eax ;INTEL
+; WIN32-GNU-NEXT:    addl %edx, %eax ;INTEL
+; WIN32-GNU-NEXT:    addl %ecx, %eax ;INTEL
 ; WIN32-GNU-NEXT:    popl %esi
 ; WIN32-GNU-NEXT:    popl %edi
+; WIN32-GNU-NEXT:    popl %ebx ;INTEL
 ; WIN32-GNU-NEXT:    retl
 entry:
   %aa = sext i8 %a to i32
@@ -131,49 +141,3 @@ entry:
   %t4 = add i32 %t3, %ff
   ret i32 %t4
 }
-<<<<<<< HEAD
-
-; WIN64-LABEL: call:
-; WIN64-DAG: movw $6, 40(%rsp)
-; WIN64-DAG: movb $5, 32(%rsp)
-; WIN64-DAG: movb $1, %cl
-; WIN64-DAG: movw $2, %dx
-; WIN64-DAG: movb $3, %r8b
-; WIN64-DAG: movw $4, %r9w
-; WIN64: callq manyargs
-
-; WIN64-LABEL: manyargs:
-; WIN64-DAG: movsbl %cl,
-; WIN64-DAG: movswl %dx,
-; WIN64-DAG: movzbl %r8b,
-; WIN64-DAG: movzwl %r9w,
-; WIN64-DAG: movzbl 40(%rsp),
-; WIN64-DAG: movzwl 48(%rsp),
-; WIN64: retq
-
-
-; WIN32-LABEL: _call:
-; WIN32: pushl $6
-; WIN32: pushl $5
-; WIN32: pushl $4
-; WIN32: pushl $3
-; WIN32: pushl $2
-; WIN32: pushl $1
-; WIN32: calll _manyargs
-
-; WIN32-LABEL: _manyargs:
-; WIN32: pushl %ebx ;INTEL
-; WIN32: pushl %edi
-; WIN32: pushl %esi
-; INTEL_CUSTOMIZATION
-; WIN32-DAG: movsbl 16(%esp),
-; WIN32-DAG: movswl 20(%esp),
-; WIN32-DAG: movzbl 24(%esp),
-; WIN32-DAG: movzwl 28(%esp),
-; WIN32-DAG: movzbl 32(%esp),
-; WIN32-DAG: movzwl 36(%esp),
-; end INTEL_CUSTOMIZATION
-; WIN32: retl
-
-=======
->>>>>>> 56a40cd4abb17e984ae518a9ee838a8292de89d5
