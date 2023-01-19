@@ -52,13 +52,7 @@ public:
       LockGuard Guard(GlobalHandler::MSyclGlobalHandlerProtector);
       GlobalHandler *RTGlobalObjHandler = GlobalHandler::getInstancePtr();
       if (RTGlobalObjHandler) {
-<<<<<<< HEAD
-        RTGlobalObjHandler->drainThreadPool();
-        if (RTGlobalObjHandler->MScheduler.Inst)
-          RTGlobalObjHandler->MScheduler.Inst->releaseResources();
-=======
         RTGlobalObjHandler->prepareSchedulerToRelease();
->>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
       }
     }
   }
@@ -203,8 +197,6 @@ void GlobalHandler::unloadPlugins() {
   }
   // Clear after unload to avoid uses after unload.
   getPlugins().clear();
-<<<<<<< HEAD
-=======
 }
 
 void GlobalHandler::prepareSchedulerToRelease() {
@@ -213,7 +205,6 @@ void GlobalHandler::prepareSchedulerToRelease() {
   if (MScheduler.Inst)
     MScheduler.Inst->releaseResources();
 #endif
->>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
 }
 
 void GlobalHandler::drainThreadPool() {
@@ -229,13 +220,7 @@ void shutdown() {
 
   // Ensure neither host task is working so that no default context is accessed
   // upon its release
-<<<<<<< HEAD
-  Handler->drainThreadPool();
-  if (Handler->MScheduler.Inst)
-    Handler->MScheduler.Inst->releaseResources();
-=======
   Handler->prepareSchedulerToRelease();
->>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
 
   if (Handler->MHostTaskThreadPool.Inst)
     Handler->MHostTaskThreadPool.Inst->finishAndWait();
