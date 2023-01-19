@@ -1,6 +1,6 @@
 //===------------- SOAToAOSOPInternal.cpp - DTransSOAToAOSOPPass  ---------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -469,7 +469,7 @@ bool SOAToAOSOPCFGInfo::populateCFGInformation(Module &M,
       dbgs() << "   ; " << F->getName() << "\n";
     }
 
-    for (auto Pair : zip_first(fields(), methodsets())) {
+    for (const auto &Pair : zip_first(fields(), methodsets())) {
       dbgs() << "  ; Fields's " << std::get<0>(Pair)->getName()
              << " methods:\n";
       for (auto *F : *std::get<1>(Pair)) {
