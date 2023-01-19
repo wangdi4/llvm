@@ -64,7 +64,7 @@ include_directories(${BACKEND_ROOT_DIR}/arch_headers)
 add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
                    ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
 
-target_link_libraries(${TARGET_NAME} LLVMIntel_DPCPPKernelTransforms LLVMOrcJIT
+target_link_libraries(${TARGET_NAME} LLVMSYCLTransforms LLVMOrcJIT
                       LLVMSupport)
 
 if(OPENCL_INTREE_BUILD)

@@ -16,8 +16,8 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 

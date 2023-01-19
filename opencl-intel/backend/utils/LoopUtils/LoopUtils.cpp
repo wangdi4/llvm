@@ -23,7 +23,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace intel {

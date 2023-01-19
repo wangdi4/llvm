@@ -18,7 +18,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
 #include <map>
 #include <string>
 

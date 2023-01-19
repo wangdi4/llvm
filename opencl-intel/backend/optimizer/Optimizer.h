@@ -22,7 +22,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 enum class DebugLogging { None, Normal, Quiet, Verbose };
 

@@ -26,7 +26,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 #include <memory>
 

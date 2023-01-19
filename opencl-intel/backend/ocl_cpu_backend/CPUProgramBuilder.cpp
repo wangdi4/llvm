@@ -34,8 +34,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 

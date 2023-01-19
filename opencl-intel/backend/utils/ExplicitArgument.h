@@ -16,8 +16,8 @@
 #define __EXPLICIT_ARGUMENT_H__
 
 #include "cl_device_api.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
 
 namespace Intel {
 namespace OpenCL {

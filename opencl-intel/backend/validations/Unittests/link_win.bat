@@ -19,17 +19,17 @@ if "%1" == "Debug" goto debug
 
 :release
 if not "%1" == "Release" goto fail
-set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_RELEASE@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMIntel_DPCPPKernelTransforms.lib OCLBuiltins.lib ImathLibd.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib antlr.lib @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_RELEASE@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMSYCLTransforms.lib OCLBuiltins.lib ImathLibd.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib antlr.lib @BUILD_TYPE_ICC_LINKER_FLAGS_Release@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
 echo Running %CMDLINE%
 %CMDLINE%
-REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMIntel_DPCPPKernelTransforms.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib antlr.lib
+REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMSYCLTransforms.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib OCLKernelDataGenerator.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OpenCLKernelArgumentsParser.lib OCLBuilder.lib dynamic_load.lib antlr.lib
 goto fin
 
 :debug
-set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_DEBUG@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMIntel_DPCPPKernelTransforms.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib antlr.lib  @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
+set CMDLINE="@ICC_CPU_LD_NATIVE@" /nologo /INCREMENTAL:NO @LDIRS_DEBUG@ kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib tinyxml_STL.lib googletest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMSYCLTransforms.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib antlr.lib  @BUILD_TYPE_ICC_LINKER_FLAGS_Debug@ /OUT:%2 /PDB:%3 /IMPLIB:%4 %~6 >nul
 echo Running %CMDLINE%
 %CMDLINE%
-REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMIntel_DPCPPKernelTransforms.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib antlr.lib
+REM tinyxml_STL.lib gtest.lib NEAT.lib REFALU.lib Comparator.lib DataGenerator.lib DataManager.lib LLVMSupport.lib LLVMCore.lib LLVMAsmParser.lib LLVMSYCLTransforms.lib OpenCLKernelArgumentsParser.lib OCLKernelDataGenerator.lib OCLBuiltins.lib ImathLibd.lib gtest_main.lib PlugInNEAT.lib OclPluginManager.lib OCLRecorderStat.lib OCLBuilder.lib dynamic_load.lib antlr.lib
 :fin
 exit /b 0
 

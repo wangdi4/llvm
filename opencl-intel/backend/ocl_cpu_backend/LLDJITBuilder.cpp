@@ -23,7 +23,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <algorithm>

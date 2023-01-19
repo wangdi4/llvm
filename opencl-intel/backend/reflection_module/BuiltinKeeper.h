@@ -20,8 +20,8 @@
 #include "utils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include <exception>
 #include <string>
 #include <utility>

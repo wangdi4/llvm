@@ -8,7 +8,7 @@
 //
 // ===---------------------------------------------------------------------==//
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "gtest_wrapper.h"
 
 using namespace llvm::CompilationUtils;

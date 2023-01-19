@@ -380,9 +380,9 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 
 # COMPONENT: OpenCL CPU RT
 # JIRA: ???
-/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
-/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
-/llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/include/llvm/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/lib/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/test/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
 # COMPONENT: Vectorizer
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
@@ -458,11 +458,11 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.h @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @skozhukh @sguggill @karthik-senthil
 
-/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @mamasten @turinevgeny @skozhukh
-/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h @mamasten @turinevgeny @skozhukh
-/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.cpp @mamasten @turinevgeny @skozhukh
-/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.cpp @mamasten @turinevgeny @skozhukh
-/llvm/test/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone/ @mamasten @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/SYCLTransforms/DPCPPKernelVecClone.h @mamasten @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/SYCLTransforms/DPCPPPrepareKernelForVecClone.h @mamasten @turinevgeny @skozhukh
+/llvm/lib/Transforms/SYCLTransforms/DPCPPKernelVecClone.cpp @mamasten @turinevgeny @skozhukh
+/llvm/lib/Transforms/SYCLTransforms/DPCPPPrepareKernelForVecClone.cpp @mamasten @turinevgeny @skozhukh
+/llvm/test/Transforms/SYCLTransforms/DPCPPKernelVecClone/ @mamasten @turinevgeny @skozhukh
 
 /llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @mamasten @turinevgeny @skozhukh
 /llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @turinevgeny @skozhukh

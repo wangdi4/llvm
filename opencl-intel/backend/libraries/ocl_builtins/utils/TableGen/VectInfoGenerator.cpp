@@ -20,7 +20,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 
 #define DEBUG_TYPE "vect-info-gen"
 
