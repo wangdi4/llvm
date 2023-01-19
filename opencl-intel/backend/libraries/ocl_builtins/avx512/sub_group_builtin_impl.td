@@ -85,8 +85,8 @@ OclBuiltinImpl sub_group_non_uniform_reduce_and_avx512fiu64 = OclBuiltinImpl<sub
     __mmask8 mask_hi = _mm256_cmp_epi32_mask($Arg1VarName.hi, _mm256_setzero_ps(), _MM_CMPINT_NE);
     $Arg0BaseType#8 lo = $Arg0VarName.lo;
     $Arg0BaseType#8 hi = $Arg0VarName.hi;
-    __int64 lores = _mm512_mask_reduce_and_epi64(mask_lo, *(__m512i*)&lo);
-    __int64 hires = _mm512_mask_reduce_and_epi64(mask_hi, *(__m512i*)&hi);
+    long lores = _mm512_mask_reduce_and_epi64(mask_lo, *(__m512i*)&lo);
+    long hires = _mm512_mask_reduce_and_epi64(mask_hi, *(__m512i*)&hi);
     return lores & hires;
   }]>;
 OclBuiltinImpl sub_group_non_uniform_reduce_or_avx512fiu64 = OclBuiltinImpl<sub_group_non_uniform_reduce_or_vec, [ v16i64, v16u64 ], 0,
@@ -95,8 +95,8 @@ OclBuiltinImpl sub_group_non_uniform_reduce_or_avx512fiu64 = OclBuiltinImpl<sub_
     __mmask8 mask_hi = _mm256_cmp_epi32_mask($Arg1VarName.hi, _mm256_setzero_ps(), _MM_CMPINT_NE);
     $Arg0BaseType#8 lo = $Arg0VarName.lo;
     $Arg0BaseType#8 hi = $Arg0VarName.hi;
-    __int64 lores = _mm512_mask_reduce_or_epi64(mask_lo, *(__m512i*)&lo);
-    __int64 hires = _mm512_mask_reduce_or_epi64(mask_hi, *(__m512i*)&hi);
+    long lores = _mm512_mask_reduce_or_epi64(mask_lo, *(__m512i*)&lo);
+    long hires = _mm512_mask_reduce_or_epi64(mask_hi, *(__m512i*)&hi);
     return lores | hires;
   }]>;
 
