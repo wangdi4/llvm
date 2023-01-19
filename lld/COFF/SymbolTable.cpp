@@ -451,12 +451,12 @@ static void reportProblemSymbols(
 void SymbolTable::reportUnresolvable() {
 #if INTEL_CUSTOMIZATION
   // Return true if the input symbol is an SVML function
-  auto IsSVMLSymbol = [](StringRef &name) -> bool {
+  auto IsSVMLSymbol = [this](StringRef &name) -> bool {
     StringRef SVMLName;
     StringRef ImportSVMLName;
 
     // The __imp_ represents the dllimport version.
-    if (config->machine == I386) {
+    if (ctx.config.machine == I386) {
       SVMLName = "___svml_";
       ImportSVMLName = "__imp____svml_";
     } else {
@@ -601,7 +601,7 @@ Symbol *SymbolTable::addUndefined(StringRef name, InputFile *f,
 // The original version was removed by the community in D78221. We use it
 // to support calling runMSVCLinker from Driver.cpp.
 std::vector<StringRef> SymbolTable::compileBitcodeFilesForMSVCLinker() {
-  lto.reset(new BitcodeCompiler);
+  lto.reset(new BitcodeCompiler(ctx));
   for (BitcodeFile *f : ctx.bitcodeFileInstances)
     lto->add(*f);
 
@@ -926,7 +926,7 @@ void SymbolTable::compileBitcodeFiles() {
   lto.reset(new BitcodeCompiler(ctx));
   for (BitcodeFile *f : ctx.bitcodeFileInstances)
     lto->add(*f);
-  for (InputFile *newObj : lto->compile()) {
+  for (InputFile *newObj : lto->compile(ctx)) {
     ObjFile *obj = cast<ObjFile>(newObj);
     obj->parse();
     ctx.objFileInstances.push_back(obj);
