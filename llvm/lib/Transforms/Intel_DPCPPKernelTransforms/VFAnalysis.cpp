@@ -311,36 +311,42 @@ static unsigned getPreferredVectorizationWidth(VFISAKind ISA) {
 }
 
 void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
-  KernelToSGEmuSize[Kernel] = KernelToVF[Kernel];
-  LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << KernelToSGEmuSize[Kernel]
-                    << '\n');
+  KernelMetadataAPI KMD(Kernel);
+  KernelInternalMetadataAPI KIMD(Kernel);
+  auto MayNeedEmu = [&]() {
+    return (KIMD.KernelHasSubgroups.hasValue() &&
+            KIMD.KernelHasSubgroups.get()) ||
+           (KMD.VecLenHint.hasValue() && KMD.VecLenHint.get() > 1) ||
+           (KMD.ReqdIntelSGSize.hasValue() && KMD.ReqdIntelSGSize.get() > 1) ||
+           (isVFForced() && ForceVF > 1);
+  };
+  unsigned SGEmuSize = MayNeedEmu() ? KernelToVF[Kernel] : 0;
+  LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << SGEmuSize << '\n');
 
   // Explicitly disable vectorization by setting VF = 1.
   if (isSubgroupBroken(Kernel))
     KernelToVF[Kernel] = 1;
   else // No need to do emulation.
-    KernelToSGEmuSize[Kernel] = 0;
+    SGEmuSize = 0;
 
   // Relax subgroup emulation size, since we don't have scalar implementation
   // for subgroup builtins.
-  if (KernelToSGEmuSize[Kernel] == 1) {
-    KernelMetadataAPI KMD(Kernel);
-    KernelInternalMetadataAPI KIMD(Kernel);
+  if (SGEmuSize == 1) {
     if (KMD.hasVecLength() && KMD.getVecLength() > 1)
-      KernelToSGEmuSize[Kernel] = KMD.getVecLength();
+      SGEmuSize = KMD.getVecLength();
     else
-      KernelToSGEmuSize[Kernel] = getPreferredVectorizationWidth(ISA);
-    LLVM_DEBUG(dbgs() << "Get SGEmuSize from default VF: "
-                      << KernelToSGEmuSize[Kernel] << '\n');
+      SGEmuSize = getPreferredVectorizationWidth(ISA);
+    LLVM_DEBUG(dbgs() << "Get SGEmuSize from default VF: " << SGEmuSize
+                      << '\n');
   }
 
   if (!DPCPPEnableSubGroupEmulation) {
     LLVM_DEBUG(dbgs() << "Subgroup emulation disabled.\n");
-    KernelToSGEmuSize[Kernel] = 0;
+    SGEmuSize = 0;
   }
 
-  assert(KernelToSGEmuSize[Kernel] != 1 &&
-         "Subgroup emulation size = 1 is not supported.");
+  assert(SGEmuSize != 1 && "Subgroup emulation size = 1 is not supported.");
+  KernelToSGEmuSize[Kernel] = SGEmuSize;
 }
 
 void VFAnalysisInfo::analyzeModule(

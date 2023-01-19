@@ -987,8 +987,6 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
 HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
                                RegDDRef *LvalRef, FastMathFlags FMF) {
-  Value *InstVal;
-  HLInst *HInst;
 
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
@@ -1000,6 +998,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
 
   auto DummyVal = UndefValue::get(OpRef1->getDestType());
 
+  Value *InstVal = nullptr;
   if (OpRef1->getDestType()->isIntOrIntVectorTy() ||
       OpRef1->getDestType()->isPtrOrPtrVectorTy()) {
     InstVal =
@@ -1009,7 +1008,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
                                          DummyVal, Name);
   }
 
-  HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  HLInst *HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
   copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 
@@ -1023,8 +1022,6 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
                                   RegDDRef *LvalRef, FastMathFlags FMF) {
-  Value *InstVal;
-  HLInst *HInst;
 
   // LvalRef, OpRef3 and OpRef4 should be the same type.
   checkBinaryInstOperands(LvalRef, OpRef3, OpRef4);
@@ -1035,9 +1032,10 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
       UndefValue::get(Type::getInt1Ty(getHIRFramework().getContext()));
   auto DummyVal = UndefValue::get(OpRef3->getDestType());
 
-  InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
+  Value *InstVal =
+      DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
-  HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  HLInst *HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
   copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 

@@ -18,6 +18,23 @@
 |* and append to it. We'd like to achieve that and be thread-safe too.
 |*
 \*===----------------------------------------------------------------------===*/
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 
 #if !defined(__Fuchsia__)
 
@@ -112,6 +129,13 @@ struct fn_list reset_fn_list;
 
 static void fn_list_insert(struct fn_list* list, fn_ptr fn) {
   struct fn_node* new_node = malloc(sizeof(struct fn_node));
+#if INTEL_CUSTOMIZATION
+  if (!new_node) {
+    fprintf(stderr, "GCDAProfiling: Out of memory\n");
+    // Avoid any 'atexit' functions which may require more memory.
+    _exit(1);
+  }
+#endif // INTEL_CUSTOMIZATION
   new_node->fn = fn;
   new_node->next = NULL;
   new_node->id = CURRENT_ID;
@@ -161,6 +185,13 @@ static void resize_write_buffer(uint64_t size) {
   size = (size - 1) / WRITE_BUFFER_SIZE + 1;
   size *= WRITE_BUFFER_SIZE;
   write_buffer = realloc(write_buffer, size);
+#if INTEL_CUSTOMIZATION
+  if (!write_buffer) {
+    fprintf(stderr, "GCDAProfiling: Out of memory\n");
+    // Avoid any 'atexit' functions which may require more memory.
+    _exit(1);
+  }
+#endif // INTEL_CUSTOMIZATION
   cur_buffer_size = size;
 }
 
@@ -212,6 +243,13 @@ static char *mangle_filename(const char *orig_filename) {
     return strdup(orig_filename);
 
   new_filename = malloc(prefix_len + 1 + strlen(orig_filename) + 1);
+#if INTEL_CUSTOMIZATION
+  if (!new_filename) {
+    fprintf(stderr, "GCDAProfiling: Out of memory\n");
+    // Avoid any 'atexit' functions which may require more memory.
+    _exit(1);
+  }
+#endif // INTEL_CUSTOMIZATION
   lprofApplyPathPrefix(new_filename, orig_filename, prefix, prefix_len,
                        prefix_strip);
 
@@ -420,6 +458,13 @@ void llvm_gcda_emit_arcs(uint32_t num_counters, uint64_t *counters) {
     }
 
     old_ctrs = malloc(sizeof(uint64_t) * num_counters);
+#if INTEL_CUSTOMIZATION
+    if (!old_ctrs) {
+      fprintf(stderr, "GCDAProfiling: Out of memory\n");
+      // Avoid any 'atexit' functions which may require more memory.
+      _exit(1);
+    }
+#endif // INTEL_CUSTOMIZATION
     for (i = 0; i < num_counters; ++i)
       old_ctrs[i] = read_64bit_value();
   }
