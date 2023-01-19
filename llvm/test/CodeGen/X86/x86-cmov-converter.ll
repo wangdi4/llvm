@@ -466,7 +466,7 @@ define i32 @MaxValue(i32 %n, ptr nocapture readonly %a) #0 {
 ; CHECK-FORCEALL-NEXT:    movl (%rsi), %r8d
 ; CHECK-FORCEALL-NEXT:    cmpl $2, %edi
 ; CHECK-FORCEALL-NEXT:    jge .LBB4_3
-; CHECK-FORCEALL-NEXT:  # %bb.1: # %entry ;INTEL
+; CHECK-FORCEALL-NEXT:  # %bb.1:
 ; CHECK-FORCEALL-NEXT:    movl %r8d, %eax
 ; CHECK-FORCEALL-NEXT:  .LBB4_2: # %for.cond.cleanup
 ; CHECK-FORCEALL-NEXT:    retq
@@ -766,8 +766,8 @@ define i32 @test_cmov_memoperand_in_group(i32 %a, i32 %b, i32 %x, ptr %y.ptr) #0
 ; CHECK-NEXT:    movl %edi, %eax
 ; CHECK-NEXT:    movl %esi, %r8d
 ; CHECK-NEXT:  .LBB9_2: # %entry
+; CHECK-NEXT:    addl %r8d, %eax
 ; CHECK-NEXT:    addl %edx, %eax
-; CHECK-NEXT:    addl %r8d, %eax ;INTEL
 ; CHECK-NEXT:    retq
 ;
 ; CHECK-FORCEALL-LABEL: test_cmov_memoperand_in_group:
@@ -781,8 +781,8 @@ define i32 @test_cmov_memoperand_in_group(i32 %a, i32 %b, i32 %x, ptr %y.ptr) #0
 ; CHECK-FORCEALL-NEXT:    movl %edi, %eax
 ; CHECK-FORCEALL-NEXT:    movl %esi, %r8d
 ; CHECK-FORCEALL-NEXT:  .LBB9_2: # %entry
+; CHECK-FORCEALL-NEXT:    addl %r8d, %eax
 ; CHECK-FORCEALL-NEXT:    addl %edx, %eax
-; CHECK-FORCEALL-NEXT:    addl %r8d, %eax ;INTEL
 ; CHECK-FORCEALL-NEXT:    retq
 entry:
   %cond = icmp ugt i32 %a, %b
@@ -808,8 +808,8 @@ define i32 @test_cmov_memoperand_in_group2(i32 %a, i32 %b, i32 %x, ptr %y.ptr) #
 ; CHECK-NEXT:    movl %edi, %eax
 ; CHECK-NEXT:    movl %esi, %r8d
 ; CHECK-NEXT:  .LBB10_2: # %entry
+; CHECK-NEXT:    addl %r8d, %eax
 ; CHECK-NEXT:    addl %edx, %eax
-; CHECK-NEXT:    addl %r8d, %eax ;INTEL
 ; CHECK-NEXT:    retq
 ;
 ; CHECK-FORCEALL-LABEL: test_cmov_memoperand_in_group2:
@@ -823,8 +823,8 @@ define i32 @test_cmov_memoperand_in_group2(i32 %a, i32 %b, i32 %x, ptr %y.ptr) #
 ; CHECK-FORCEALL-NEXT:    movl %edi, %eax
 ; CHECK-FORCEALL-NEXT:    movl %esi, %r8d
 ; CHECK-FORCEALL-NEXT:  .LBB10_2: # %entry
+; CHECK-FORCEALL-NEXT:    addl %r8d, %eax
 ; CHECK-FORCEALL-NEXT:    addl %edx, %eax
-; CHECK-FORCEALL-NEXT:    addl %r8d, %eax ;INTEL
 ; CHECK-FORCEALL-NEXT:    retq
 entry:
   %cond = icmp ugt i32 %a, %b
