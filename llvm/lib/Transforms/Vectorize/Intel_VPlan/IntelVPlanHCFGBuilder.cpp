@@ -586,22 +586,27 @@ public:
 
   void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue->getRef());
-    auto *RefVal = CurValue->getRef();
+    // Skip any pointer casts and try to get alloca/global corresponding to the
+    // private. All casts will be later captured as memory aliases.
+    auto *RefVal = CurValue->getRef()->stripPointerCasts();
+    assertIsSingleElementAlloca(RefVal);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(RefVal);
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectMemoryAliases(Descriptor, CurValue->getRef());
+    collectMemoryAliases(Descriptor, RefVal);
 
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(CurValue->isCond());
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
-    Descriptor.setAllocatedType(CurValue->getType());
+    Type *AllocTy = isa<AllocaInst>(RefVal)
+                        ? cast<AllocaInst>(RefVal)->getAllocatedType()
+                        : CurValue->getType();
+    Descriptor.setAllocatedType(AllocTy);
     Descriptor.setIsF90(CurValue->isF90());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);

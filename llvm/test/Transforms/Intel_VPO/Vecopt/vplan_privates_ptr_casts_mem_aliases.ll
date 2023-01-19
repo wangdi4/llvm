@@ -17,8 +17,15 @@ define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     %"struct.std::complex" addrspace(4)* [[VP_MY_PRIV_ASCAST_PRIV_ASCAST:%.*]] = allocate-priv %"struct.std::complex" addrspace(4)*, OrigAlign = 8
+; CHECK-NEXT:     i64* [[VP_MY_PRIV_ASCAST_PRIV:%.*]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     call i64 8 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     float* [[VP_PRIV_FP_BC:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     i64 addrspace(4)* [[VP_PRIV_ASCAST:%.*]] = addrspacecast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     %"struct.std::complex"* [[VP_TMPCAST9:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     %"struct.std::complex" addrspace(4)* [[VP_MY_PRIV_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast %"struct.std::complex"* [[VP_TMPCAST9]]
 ; CHECK-NEXT:     float addrspace(4)* [[VP_VALUE_IMAGP:%.*]] = getelementptr inbounds %"struct.std::complex" addrspace(4)* [[VP_MY_PRIV_ASCAST_PRIV_ASCAST]] i64 0 i32 0 i32 1
+; CHECK-NEXT:     float addrspace(4)* [[VP_VALUE_REALP:%.*]] = addrspacecast float* [[VP_PRIV_FP_BC]]
 ; CHECK-NEXT:     i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -33,10 +40,9 @@ define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std
 ; CHECK-NEXT:     i64 [[VP_IMAG_LSHR:%.*]] = lshr i64 [[VP_A_LD]] i64 32
 ; CHECK-NEXT:     i32 [[VP_IMAG_TRUNC:%.*]] = trunc i64 [[VP_IMAG_LSHR]] to i32
 ; CHECK-NEXT:     float [[VP_IMAG_VAL:%.*]] = bitcast i32 [[VP_IMAG_TRUNC]]
-; TODO: VPEntities framework does not correctly identify memory alias related to %value.realp leading to incorrect handling of the private inside vectorized loop.
-; CHECK-NEXT:     store float [[VP_REAL_VAL]] float addrspace(4)* [[VALUE_REALP0:%.*]]
+; CHECK-NEXT:     store float [[VP_REAL_VAL]] float addrspace(4)* [[VP_VALUE_REALP]]
 ; CHECK-NEXT:     store float [[VP_IMAG_VAL]] float addrspace(4)* [[VP_VALUE_IMAGP]]
-; CHECK-NEXT:     i64 [[VP_LD_PRIV:%.*]] = load i64 addrspace(4)* [[PRIV_ASCAST0:%.*]]
+; CHECK-NEXT:     i64 [[VP_LD_PRIV:%.*]] = load i64 addrspace(4)* [[VP_PRIV_ASCAST]]
 ; CHECK-NEXT:     store i64 [[VP_LD_PRIV]] i64 addrspace(4)* [[VP_A_IDX_BC]]
 ; CHECK-NEXT:     i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 1024
@@ -44,6 +50,8 @@ define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     i8* [[VP1:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
+; CHECK-NEXT:     call i64 8 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

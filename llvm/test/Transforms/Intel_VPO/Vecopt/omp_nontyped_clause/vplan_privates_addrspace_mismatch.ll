@@ -11,13 +11,17 @@ define internal void @test_soa(i8** %arr) #3 {
 ; CHECK-NEXT:  DIR.OMP.SIMD.4:
 ; CHECK-NEXT:    [[ZII_PRIV:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[ZII_PRIV_ASCAST:%.*]] = addrspacecast i32* [[ZII_PRIV]] to i32 addrspace(4)*
-; CHECK-NEXT:    [[ZII_PRIV_ASCAST_VEC:%.*]] = alloca <2 x i32>, align 8
-; CHECK-NEXT:    [[ZII_PRIV_ASCAST_VEC_ASCAST:%.*]] = addrspacecast <2 x i32>* [[ZII_PRIV_ASCAST_VEC]] to <2 x i32> addrspace(4)*
-; CHECK-NEXT:    [[ZII_PRIV_ASCAST_VEC_ASCAST_BC:%.*]] = bitcast <2 x i32> addrspace(4)* [[ZII_PRIV_ASCAST_VEC_ASCAST]] to i32 addrspace(4)*
-; CHECK-NEXT:    [[ZII_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR:%.*]] = getelementptr i32, i32 addrspace(4)* [[ZII_PRIV_ASCAST_VEC_ASCAST_BC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[ZII_PRIV_VEC:%.*]] = alloca <2 x i32>, align 8
+; CHECK-NEXT:    [[ZII_PRIV_VEC_BC:%.*]] = bitcast <2 x i32>* [[ZII_PRIV_VEC]] to i32*
+; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[ZII_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x i32*> [[ZII_PRIV_VEC_BASE_ADDR]], i32 0
+
+; CHECK:       VPlannedBB2:
+; CHECK:         [[ASCAST:%.*]] = addrspacecast i32* [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to i32 addrspace(4)*
 
 ; CHECK:       vector.body:
-; CHECK:         store <2 x i32> [[VEC_PHI:%.*]], <2 x i32> addrspace(4)* [[ZII_PRIV_ASCAST_VEC_ASCAST]], align 4
+; CHECK:         [[BC:%.*]] = bitcast i32 addrspace(4)* [[ASCAST]] to <2 x i32> addrspace(4)*
+; CHECK:         store <2 x i32> [[VEC_PHI:%.*]], <2 x i32> addrspace(4)* [[BC]], align 4
 ;
 DIR.OMP.SIMD.4:
   %zii.priv = alloca i32, align 4
@@ -55,16 +59,19 @@ define internal void @test_lifetime_intrins() #3 {
 ; CHECK-NEXT:  DIR.OMP.SIMD.4:
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV:%.*]] = alloca float, align 4
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast float* [[XTMP_ASCAST_PRIV]] to float addrspace(4)*
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC:%.*]] = alloca <2 x float>, align 8
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST:%.*]] = addrspacecast <2 x float>* [[XTMP_ASCAST_PRIV_ASCAST_VEC]] to <2 x float> addrspace(4)*
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BC:%.*]] = bitcast <2 x float> addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST]] to float addrspace(4)*
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR:%.*]] = getelementptr float, float addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x float addrspace(4)*> [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC:%.*]] = alloca <2 x float>, align 8
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BC:%.*]] = bitcast <2 x float>* [[XTMP_ASCAST_PRIV_VEC]] to float*
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr float, float* [[XTMP_ASCAST_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x float*> [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR]], i32 0
+
+; CHECK:       VPlannedBB2:
+; CHECK:         [[ASCAST:%.*]] = addrspacecast float* [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to float addrspace(4)*
 
 ; CHECK:       vector.body:
-; CHECK:         [[TMP0:%.*]] = bitcast float addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR_EXTRACT_0]] to i8 addrspace(4)*
+; CHECK:         [[TMP0:%.*]] = bitcast float addrspace(4)* [[ASCAST]] to i8 addrspace(4)*
 ; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i8 addrspace(4)* [[TMP0]] to i8*
-; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float> addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST]], align 4
+; CHECK-NEXT:    [[BC:%.*]] = bitcast float addrspace(4)* [[ASCAST]] to <2 x float> addrspace(4)*
+; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float> addrspace(4)* [[BC]], align 4
 ;
 DIR.OMP.SIMD.4:
   %xtmp.ascast.priv = alloca float, align 4
