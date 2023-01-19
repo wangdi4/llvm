@@ -115,7 +115,7 @@
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: WGLoopBoundariesPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK:      Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: DCEPass
 
 ; CHECK:      Running pass: SimplifyCFGPass
@@ -167,7 +167,7 @@
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
 ; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: VectorVariantFillIn
@@ -308,7 +308,7 @@
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 

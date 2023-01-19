@@ -74,7 +74,7 @@
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
@@ -128,7 +128,7 @@
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
