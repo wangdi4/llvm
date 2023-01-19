@@ -1096,6 +1096,92 @@ static void PropagateOperandBundles(Function::iterator InlinedBB,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static Constant *CloneFunctionCS(ConstantStruct *CS, Value *Target,
+                                 Function *NewF) {
+  SmallVector<Constant *, 5> CSArgs;
+  for (Value *Ops : CS->operands()) {
+    if (Target == Ops) {
+      Constant *BC = ConstantExpr::getBitCast(NewF, Target->getType());
+      CSArgs.push_back(BC);
+    } else {
+      CSArgs.push_back(dyn_cast<Constant>(Ops));
+    }
+  }
+  return ConstantStruct::get(CS->getType(), CSArgs);
+}
+
+static void CopyGlobalAnnotations(CallBase &CB, Function *Caller) {
+  Function *Callee = CB.getCalledFunction();
+  if (!Callee)
+    return;
+  Module *M = Caller->getParent();
+  // Information is stored in llvm global annotations global variable.
+  GlobalVariable *GA = M->getGlobalVariable("llvm.global.annotations");
+  if (!GA)
+    return;
+  ArrayType *NewT = nullptr;
+  Constant *NewCA = nullptr;
+  // Each one of the operands of the variable holds one potential block as a
+  // Value which should contain a ConstantArray of structs.
+  for (Value *GlobalOp : GA->operands()) {
+    ConstantArray *CA = dyn_cast<ConstantArray>(GlobalOp);
+    if (!CA)
+      continue;
+    // For each of the elements of the ConstantArray, extract a struct.
+    SmallVector<Constant *, 8> CAOperands;
+    Constant *NewCS = nullptr;
+    for (Value *ConstantOp : CA->operands()) {
+      ConstantStruct *CS = dyn_cast<ConstantStruct>(ConstantOp);
+      // The annotation we want contains a function and a value, so we should
+      // look for at least 2 arguments.
+      if (CS && CS->getNumOperands() >= 2) {
+        // The first operand is the annotated function, check if it matches our
+        // target function.
+        auto FuncOp = CS->getOperand(0);
+        if (FuncOp) {
+          Function *AnnFunc = nullptr;
+          if (FuncOp->getType()->isOpaquePointerTy())
+            AnnFunc = dyn_cast<Function>(FuncOp);
+          else if (FuncOp->getNumOperands())
+            AnnFunc = dyn_cast<Function>(FuncOp->getOperand(0));
+          if (AnnFunc == Callee)
+            // At this point we want to copy the annotation to the caller.
+            NewCS = CloneFunctionCS(CS, CS->getOperand(0), Caller);
+        }
+      }
+    }
+
+    if (NewCS) {
+      for (Value *ConstantOp : CA->operands())
+        CAOperands.push_back(dyn_cast<Constant>(ConstantOp));
+      CAOperands.push_back(NewCS);
+      // Create a new CA
+      Type *BaseT = CA->getType()->getElementType();
+      NewT = ArrayType::get(BaseT, CA->getNumOperands() + 1);
+      NewCA = ConstantArray::get(NewT, CAOperands);
+      assert(NewCA != nullptr &&
+             "Constant array converted to null may cause data loss!");
+      break;
+    }
+  }
+
+  // Create new global variable.
+  if (NewCA) {
+    GlobalVariable *NewGA = new GlobalVariable(
+        *M, NewT, false, GA->getLinkage(), NewCA, "temp", GA);
+    NewGA->takeName(GA);
+    NewGA->setSection("llvm.metadata");
+
+    // Delete old one.
+    GA->removeDeadConstantUsers();
+    GA->setInitializer(nullptr);
+    GA->eraseFromParent();
+  }
+  return;
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 /// Utility for cloning !noalias and !alias.scope metadata. When a code region
 /// using scoped alias metadata is inlined, the aliasing relationships may not
@@ -2933,7 +3019,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // Now clone the inlined noalias scope metadata.
     SAMetadataCloner.clone();
     SAMetadataCloner.remap(FirstNewBlock, Caller->end());
-
+#if INTEL_CUSTOMIZATION
+    // Copy global function annotations from CB to Caller.
+    CopyGlobalAnnotations(CB, Caller);
+#endif // INTEL_CUSTOMIZATION
     // Add noalias metadata if necessary.
     AddAliasScopeMetadata(CB, VMap, DL, CalleeAAR, InlinedFunctionInfo);
 
