@@ -2165,6 +2165,7 @@ public:
 // Unsafe buffer usage analysis.
 //===----------------------------------------------------------------------===//
 
+namespace {
 class UnsafeBufferUsageReporter : public UnsafeBufferUsageHandler {
   Sema &S;
 
@@ -2185,7 +2186,7 @@ public:
       D << F;
   }
 };
-
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // AnalysisBasedWarnings - Worker object used by Sema to execute analysis-based

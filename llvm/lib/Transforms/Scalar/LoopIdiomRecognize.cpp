@@ -1377,6 +1377,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
                                     StoreEv, LoadEv, BECount);
 }
 
+namespace {
 class MemmoveVerifier {
 public:
   explicit MemmoveVerifier(const Value &LoadBasePtr, const Value &StoreBasePtr,
@@ -1420,6 +1421,7 @@ private:
 public:
   const bool IsSameObject;
 };
+} // namespace
 
 bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
     Value *DestPtr, Value *SourcePtr, const SCEV *StoreSizeSCEV,

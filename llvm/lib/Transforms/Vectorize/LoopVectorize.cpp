@@ -447,8 +447,10 @@ static std::optional<unsigned> getSmallBestKnownTC(ScalarEvolution &SE,
   return std::nullopt;
 }
 
+namespace {
 // Forward declare GeneratedRTChecks.
 class GeneratedRTChecks;
+} // namespace
 
 namespace llvm {
 
@@ -1895,6 +1897,7 @@ public:
 };
 } // end namespace llvm
 
+namespace {
 /// Helper struct to manage generating runtime checks for vectorization.
 ///
 /// The runtime checks are created up-front in temporary blocks to allow better
@@ -2159,6 +2162,7 @@ public:
     return MemCheckBlock;
   }
 };
+} // namespace
 
 // Return true if \p OuterLp is an outer loop annotated with hints for explicit
 // vectorization. The loop needs to be annotated with #pragma omp simd
