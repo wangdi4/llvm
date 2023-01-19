@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -129,7 +129,8 @@ class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
 #if INTEL_CUSTOMIZATION
   InlinerPass(bool OnlyMandatory = false,
-              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None);
+              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None,
+              bool IsAlwaysInline = false);
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
       : OnlyMandatory(Arg.OnlyMandatory), LTOPhase(std::move(Arg.LTOPhase)),

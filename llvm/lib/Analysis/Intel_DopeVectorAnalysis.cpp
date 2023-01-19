@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -3813,9 +3813,10 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
   // Generate a new nested dope vector that represents a copy of the
   // current dope vector. The alloc site will be AI and VBase is the
   // pointer to the original dope vector.
-  auto GenerateCopyNestedDV = [DL](AllocaInst *AI, Value *VBase,
-                                   uint64_t FieldNum,
-                                   Type *DVType) -> NestedDopeVectorInfo * {
+  auto GenerateCopyNestedDV = [&DL](AllocaInst *AI, Value *VBase,
+                                    uint64_t FieldNum,
+                                    Type *DVType) -> NestedDopeVectorInfo * {
+    (void)DL;
     assert(isDopeVectorType(DVType, DL) && "Trying to make a copy dope vector "
                                            "from a non-dope vector type");
     auto CopyNestedDV = new NestedDopeVectorInfo(AI, DVType, FieldNum,

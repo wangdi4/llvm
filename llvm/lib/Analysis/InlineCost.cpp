@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -762,7 +762,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   void onCallArgumentSetup(const CallBase &Call) override {
     // Pay the price of the argument setup. We account for the average 1
     // instruction per call argument setup here.
-    addCost(Call.arg_size() * InstrCost);
+    addCost(Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
   }
   void onLoadRelativeIntrinsic() override {
     // This is normally lowered to 4 LLVM instructions.
@@ -771,7 +771,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   void onLoweredCall(Function *F, CallBase &Call,
                      bool IsIndirectCall) override {
     // We account for the average 1 instruction per call argument setup here.
-    addCost(Call.arg_size() * InstrCost);
+    addCost(Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
 
     // If we have a constant that we are calling as a function, we can peer
     // through it and see the function target. This happens not infrequently
@@ -1376,7 +1376,7 @@ private:
 
   void onCallArgumentSetup(const CallBase &Call) override {
     increment(InlineCostFeatureIndex::CallArgumentSetup,
-              Call.arg_size() * InstrCost);
+              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
   }
 
   void onLoadRelativeIntrinsic() override {
@@ -1386,7 +1386,7 @@ private:
   void onLoweredCall(Function *F, CallBase &Call,
                      bool IsIndirectCall) override {
     increment(InlineCostFeatureIndex::LoweredCallArgSetup,
-              Call.arg_size() * InstrCost);
+              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
 
     if (IsIndirectCall) {
       InlineParams IndirectCallParams = {/* DefaultThreshold*/ 0,

@@ -1,6 +1,6 @@
 //=-- Intel_IPODeadArgElimination.cpp - Simplified dead arg elimination -*-=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -567,7 +567,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   // Clone the metadata from the function F to the new function
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
   F->getAllMetadata(MDs);
-  for (auto MD : MDs)
+  for (const auto &MD : MDs)
     NF->addMetadata(MD.first, *MD.second);
 
   // Set the inlining report for the new function
@@ -751,7 +751,7 @@ bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
   LLVM_DEBUG({
     dbgs() << "  Candidates collected: " << DeadArgsCandidatesMap.size()
            << "\n";
-    for (auto Pair : DeadArgsCandidatesMap) {
+    for (const auto &Pair : DeadArgsCandidatesMap) {
       dbgs() << "    Function: " << Pair.first->getName() << "\n";
       for (auto *Arg : Pair.second)
         dbgs() << "      Arg[" << Arg->getArgNo() << "]: " << *Arg << "\n";
