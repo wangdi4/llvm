@@ -141,8 +141,6 @@ entry:
   %t4 = add i32 %t3, %ff
   ret i32 %t4
 }
-<<<<<<< HEAD
-=======
 
 ; WIN64-LABEL: call:
 ; WIN64-DAG: movw $6, 40(%rsp)
@@ -183,4 +181,3 @@ entry:
 ; WIN32-DAG: movsbl 12(%esp),
 ; WIN32: retl
 
->>>>>>> 8e02e130d29c7df02dd47e7c5358c2f0626617a2
