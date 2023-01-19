@@ -1,4 +1,21 @@
 //===-- llvm-ar.cpp - LLVM archive librarian utility ----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -236,6 +253,10 @@ static bool Symtab = true;                ///< 's' modifier
 static bool Deterministic = true;         ///< 'D' and 'U' modifiers
 static bool Thin = false;                 ///< 'T' modifier
 static bool AddLibrary = false;           ///< 'L' modifier
+#ifdef INTEL_CUSTOMIZATION
+// used to enable opaque pointers
+static bool OpaquePointers = false;
+#endif // INTEL_CUSTOMIZATION
 
 // Relative Positional Argument (for insert/move). This variable holds
 // the name of the archive member to which the 'a', 'b' or 'i' modifier
@@ -1087,6 +1108,18 @@ static void performWriteOperation(ArchiveOperation Operation,
     llvm_unreachable("");
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  if (OpaquePointers) {
+    if (NewMembersP) {
+      for (NewArchiveMember &Nam : *NewMembersP)
+        Nam.setOpaquePointers();
+    } else {
+      for (NewArchiveMember &Nam : NewMembers)
+        Nam.setOpaquePointers();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   Error E =
       writeArchive(ArchiveName, NewMembersP ? *NewMembersP : NewMembers, Symtab,
                    Kind, Deterministic, Thin, std::move(OldArchiveBuf));
@@ -1370,6 +1403,13 @@ static int ar_main(int argc, char **argv) {
       Thin = true;
       continue;
     }
+
+#ifdef INTEL_CUSTOMIZATION
+    if (strcmp(*ArgIt, "-opaque-pointers") == 0) {
+      OpaquePointers = true;
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     Match = matchFlagWithArg("format", ArgIt, Argv);
     if (Match) {

@@ -1,4 +1,21 @@
 //===- ArchiveWriter.cpp - ar File Format implementation --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -443,13 +460,20 @@ static void writeSymbolTable(raw_ostream &Out, object::Archive::Kind Kind,
 }
 
 static Expected<std::vector<unsigned>>
-getSymbols(MemoryBufferRef Buf, raw_ostream &SymNames, bool &HasObject) {
+getSymbols(MemoryBufferRef Buf, raw_ostream &SymNames, bool &HasObject, // INTEL
+           bool IsOpaque = false) {                                     // INTEL
   std::vector<unsigned> Ret;
 
   // In the scenario when LLVMContext is populated SymbolicFile will contain a
   // reference to it, thus SymbolicFile should be destroyed first.
   LLVMContext Context;
   std::unique_ptr<object::SymbolicFile> Obj;
+
+#ifdef INTEL_CUSTOMIZATION
+  // enable opaque pointers support for the context
+  if (IsOpaque)
+    Context.setOpaquePointers(true);
+#endif // INTEL_CUSTOMIZATION
 
   const file_magic Type = identify_magic(Buf.getBuffer());
   // Treat unsupported file types as having no symbols.
@@ -594,10 +618,19 @@ computeMemberData(raw_ostream &StringTable, raw_ostream &SymNames,
     }
     Out.flush();
 
+#ifdef INTEL_CUSTOMIZATION
+    bool IsOpaque = false;
+    for (const NewArchiveMember &Nam : NewMembers)
+      if (Nam.isOpaque()) {
+        IsOpaque = true;
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
+
     std::vector<unsigned> Symbols;
     if (NeedSymbols) {
       Expected<std::vector<unsigned>> SymbolsOrErr =
-          getSymbols(Buf, SymNames, HasObject);
+          getSymbols(Buf, SymNames, HasObject, IsOpaque); // INTEL
       if (!SymbolsOrErr)
         return createFileError(M.MemberName, SymbolsOrErr.takeError());
       Symbols = std::move(*SymbolsOrErr);

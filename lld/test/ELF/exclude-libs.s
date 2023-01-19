@@ -6,7 +6,9 @@
 // RUN: llvm-as --data-layout=elf %p/Inputs/exclude-libs.ll -o %t3.o
 // RUN: mkdir -p %t.dir
 // RUN: rm -f %t.dir/exc.a
-// RUN: llvm-ar rcs %t.dir/exc.a %t2.o %t3.o
+// INTEL_CUSTOMIZATION
+// RUN: llvm-ar rcs -opaque-pointers %t.dir/exc.a %t2.o %t3.o
+// end INTEL_CUSTOMIZATION
 
 // RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=DEFAULT %s
