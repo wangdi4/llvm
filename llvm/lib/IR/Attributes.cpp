@@ -1397,18 +1397,20 @@ AttributeList
 AttributeList::removeAttributeAtIndex(LLVMContext &C, unsigned Index,
                                       Attribute::AttrKind Kind) const {
   AttributeSet Attrs = getAttributes(Index);
-  if (!Attrs.hasAttribute(Kind))
+  AttributeSet NewAttrs = Attrs.removeAttribute(C, Kind);
+  if (Attrs == NewAttrs)
     return *this;
-  return setAttributesAtIndex(C, Index, Attrs.removeAttribute(C, Kind));
+  return setAttributesAtIndex(C, Index, NewAttrs);
 }
 
 AttributeList AttributeList::removeAttributeAtIndex(LLVMContext &C,
                                                     unsigned Index,
                                                     StringRef Kind) const {
   AttributeSet Attrs = getAttributes(Index);
-  if (!Attrs.hasAttribute(Kind))
+  AttributeSet NewAttrs = Attrs.removeAttribute(C, Kind);
+  if (Attrs == NewAttrs)
     return *this;
-  return setAttributesAtIndex(C, Index, Attrs.removeAttribute(C, Kind));
+  return setAttributesAtIndex(C, Index, NewAttrs);
 }
 
 AttributeList AttributeList::removeAttributesAtIndex(
