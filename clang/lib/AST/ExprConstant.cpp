@@ -9168,7 +9168,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
 
   switch (BuiltinOp) {
   case Builtin::BI__fence: // INTEL
-    return !evaluatePointer(E->getArg(0), Result); // INTEL
+    return evaluatePointer(E->getArg(0), Result); // INTEL
   case Builtin::BIaddressof:
   case Builtin::BI__addressof:
   case Builtin::BI__builtin_addressof:
