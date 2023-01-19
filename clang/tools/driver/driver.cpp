@@ -390,12 +390,11 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
   StringRef Tool = ArgV[1];
   void *GetExecutablePathVP = (void *)(intptr_t)GetExecutablePath;
   if (Tool == "-cc1")
-    return cc1_main(makeArrayRef(ArgV).slice(1), ArgV[0], GetExecutablePathVP);
+    return cc1_main(ArrayRef(ArgV).slice(1), ArgV[0], GetExecutablePathVP);
   if (Tool == "-cc1as")
-    return cc1as_main(makeArrayRef(ArgV).slice(2), ArgV[0],
-                      GetExecutablePathVP);
+    return cc1as_main(ArrayRef(ArgV).slice(2), ArgV[0], GetExecutablePathVP);
   if (Tool == "-cc1gen-reproducer")
-    return cc1gen_reproducer_main(makeArrayRef(ArgV).slice(2), ArgV[0],
+    return cc1gen_reproducer_main(ArrayRef(ArgV).slice(2), ArgV[0],
                                   GetExecutablePathVP);
   // Reject unknown tools.
   llvm::errs() << "error: unknown integrated tool '" << Tool << "'. "
@@ -424,6 +423,7 @@ int clang_main(int Argc, char **Argv) {
   // Finally, our -cc1 tools don't care which tokenization mode we use because
   // response files written by clang will tokenize the same way in either mode.
   bool ClangCLMode =
+<<<<<<< HEAD
       IsClangCL(getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1)));
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
@@ -434,6 +434,9 @@ int clang_main(int Argc, char **Argv) {
          "backtrace (if any).\n";
   llvm::setBugReportMsg(Msg.c_str());
 #endif // INTEL_CUSTOMIZATION
+=======
+      IsClangCL(getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1)));
+>>>>>>> a3c248db87ebe88084386950846678c9a52dd7c0
   enum { Default, POSIX, Windows } RSPQuoting = Default;
   for (const char *F : Args) {
     if (strcmp(F, "--rsp-quoting=posix") == 0)

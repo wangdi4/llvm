@@ -9243,7 +9243,7 @@ public:
       std::tie(Components, MapType, MapModifiers, IsImplicit, Mapper, VarRef) =
           L;
       ++Count;
-      for (const MapData &L1 : makeArrayRef(DeclComponentLists).slice(Count)) {
+      for (const MapData &L1 : ArrayRef(DeclComponentLists).slice(Count)) {
         OMPClauseMappableExprCommon::MappableExprComponentListRef Components1;
         std::tie(Components1, MapType, MapModifiers, IsImplicit, Mapper,
                  VarRef) = L1;
@@ -12629,7 +12629,7 @@ void CGOpenMPRuntime::emitDoacrossInit(CodeGenFunction &CGF,
   llvm::FunctionCallee FiniRTLFn = OMPBuilder.getOrCreateRuntimeFunction(
       CGM.getModule(), OMPRTL___kmpc_doacross_fini);
   CGF.EHStack.pushCleanup<DoacrossCleanupTy>(NormalAndEHCleanup, FiniRTLFn,
-                                             llvm::makeArrayRef(FiniArgs));
+                                             llvm::ArrayRef(FiniArgs));
 }
 
 void CGOpenMPRuntime::emitDoacrossOrdered(CodeGenFunction &CGF,
