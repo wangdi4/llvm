@@ -150,8 +150,9 @@ File Name:  BLTImages.cpp
 #include "BLTImages.h"
 
 // !!!! HACK
-// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it generates
-// Removing annoying ‘ceil’ : attributes not present on previous declaration warning C4985
+// Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it
+// generates Removing annoying 'ceil': attributes not present on previous
+// declaration warning C4985
 #include "cl_types.h"
 #include "CL/cl.h"
 

@@ -1,6 +1,6 @@
 //==== AOSToSOAOP.cpp - AOS-to-SOA with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2106,7 +2106,9 @@ void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
   assert(GEP->getNumIndices() >= 2 && "Invalid dependent GEP to convert");
   auto *LLVMStructTy = cast<llvm::StructType>(GEP->getSourceElementType());
   Value *FieldNum = GEP->getOperand(2);
-  uint32_t FieldIdx = dyn_cast<ConstantInt>(FieldNum)->getLimitedValue();
+  assert(isa<ConstantInt>(FieldNum) &&
+         "Unsupported GEP added by visitGetElementPtrInst");
+  uint32_t FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
   DTransStructType *DTransStructTy = getDependentDTransType(LLVMStructTy);
   assert(DTransStructTy && "DTransStructType missing for dependent type");
   DTransType *FieldTy = DTransStructTy->getFieldType(FieldIdx);

@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1350,7 +1350,7 @@ private:
 
     // Exception paths have the same common successor blocks,
     // which results in immediate return from dtors caller.
-    for (auto P : zip_first(successors(BB1), successors(BB2))) {
+    for (const auto &P : zip_first(successors(BB1), successors(BB2))) {
       // Exception paths should be confluent.
       if (std::get<0>(P) != std::get<1>(P))
         return false;

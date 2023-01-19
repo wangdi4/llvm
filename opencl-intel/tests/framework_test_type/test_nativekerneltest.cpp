@@ -251,9 +251,9 @@ TEST_F(NativeKernelSuite, hostptr_read) {
 //| 2. Enqueue a write of data into buf_src
 //| 3. Enqueue a native kernel and an OpenCL kernel as follows:
 //|
-//|   a. Native kernel – copies data from input to output buffer. Its input is
+//|   a. Native kernel - copies data from input to output buffer. Its input is
 //|      buf_src and output is buf_temp
-//|   b. OpenCL kernel – inverts (logical NOT) the data in input into output
+//|   b. OpenCL kernel - inverts (logical NOT) the data in input into output
 //|      buffer. Its input is buf_temp and output is buf_dst
 //|
 //| 4. Enqueue a read from buf_dst

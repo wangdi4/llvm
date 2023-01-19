@@ -23,10 +23,12 @@
 #include "ImagesALU.h"
 #include "RefALU.h"
 #include "llvm/Support/Debug.h"
+
 // !!!! HACK
 // Do not move #include "CL/cl.h" before including <math.h> since on VS2008 it
-// generates Removing annoying ‘ceil’ : attributes not present on previous
+// generates Removing annoying 'ceil': attributes not present on previous
 // declaration warning C4985
+
 #include "CL/cl.h"
 #include "cl_types.h"
 
