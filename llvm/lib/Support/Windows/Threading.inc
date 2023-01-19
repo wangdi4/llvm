@@ -235,21 +235,6 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
     // possible for affinity masks to cross CPU group boundaries.
     DWORD_PTR ProcessAffinityMask = 0, SystemAffinityMask = 0;
     if (::GetProcessAffinityMask(GetCurrentProcess(), &ProcessAffinityMask,
-<<<<<<< HEAD
-                                 &SystemAffinityMask) &&
-        ProcessAffinityMask != SystemAffinityMask) {
-      // We don't expect more that 4 CPU groups on Windows (256 processors).
-      USHORT GroupCount = 4;
-      USHORT GroupArray[4]{};
-      if (::GetProcessGroupAffinity(GetCurrentProcess(), &GroupCount,
-                                    GroupArray)) {
-#if INTEL_CUSTOMIZATION
-        //assert(GroupCount == 1 &&
-        //"On startup, a program is expected to be assigned only to "
-        //"one processor group!");
-#endif
-        unsigned CurrentGroupID = GroupArray[0];
-=======
                                  &SystemAffinityMask)) {
 
       if (ProcessAffinityMask != SystemAffinityMask) {
@@ -261,9 +246,12 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
         assert(ActiveGroups->size() == 1 &&
                "When an affinity mask is set, the process is expected to be "
                "assigned to a single processor group!");
-
+#if INTEL_CUSTOMIZATION
+        //assert(GroupCount == 1 &&
+        //"On startup, a program is expected to be assigned only to "
+        //"one processor group!");
+#endif
         unsigned CurrentGroupID = (*ActiveGroups)[0];
->>>>>>> e66500c7749578cf5e1372d0b52781259cb1fa28
         ProcessorGroup NewG{Groups[CurrentGroupID]};
         NewG.Affinity = ProcessAffinityMask;
         NewG.UsableThreads = countPopulation(ProcessAffinityMask);
