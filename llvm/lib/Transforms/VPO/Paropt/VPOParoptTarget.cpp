@@ -1766,52 +1766,60 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   renameDuplicateBasesInMapClauses(W);
 
-  // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
+  // Outlining is not needed for target enter/exit data, target update.
+  bool GenOutlinedFunction = W->needsOutlining();
 
-  LLVM_DEBUG(
-      dbgs()
-      << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
-      << *NewF);
-  if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
-    NewF->addFnAttr("target.declare", "true");
+  // Set up Fn Attr for the new function
+  Function *NewF = nullptr;
+  CallInst *NewCall = nullptr;
+  if (GenOutlinedFunction) {
+    NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
+
+    LLVM_DEBUG(
+        dbgs()
+        << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
+        << *NewF);
+    if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+      NewF->addFnAttr("target.declare", "true");
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  if (isTargetCSA()) {
-    // Add "target.entry" attribute to the outlined function.
-    NewF->addFnAttr("omp.target.entry");
-    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
-  }
+    if (isTargetCSA()) {
+      // Add "target.entry" attribute to the outlined function.
+      NewF->addFnAttr("omp.target.entry");
+      NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+    }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-  CallInst *NewCall = cast<CallInst>(NewF->user_back());
-
+    NewCall = cast<CallInst>(NewF->user_back());
 #if INTEL_CUSTOMIZATION
-  if (EnableTargetArgsNoAlias) {
-    // Add noalias attribute to outlined function's pointer arguments. It should
-    // be safe to do it if actual value that is passed to the outlined region
-    // - is function local object that does not alias with any other object
-    // - is not captured before the call
-    // - does not alias with any other actual argument
-    SmallVector<Argument *, 16u> PtrArgs;
-    for (Argument &A : NewF->args())
-      if (isa<PointerType>(A.getType()))
-        PtrArgs.push_back(&A);
-    for (Argument *Arg : PtrArgs) {
-      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
 
-      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
-          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
-                                      /*StoreCaptures=*/true, NewCall, DT) &&
-          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
-            return A != Arg &&
-                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
-          }))
-        Arg->addAttr(Attribute::NoAlias);
+    if (EnableTargetArgsNoAlias) {
+      // Add noalias attribute to outlined function's pointer arguments. It
+      // should be safe to do it if actual value that is passed to the outlined
+      // region
+      // - is function local object that does not alias with any other object
+      // - is not captured before the call
+      // - does not alias with any other actual argument
+      SmallVector<Argument *, 16u> PtrArgs;
+      for (Argument &A : NewF->args())
+        if (isa<PointerType>(A.getType()))
+          PtrArgs.push_back(&A);
+      for (Argument *Arg : PtrArgs) {
+        Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
+
+        if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
+            !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
+                                        /*StoreCaptures=*/true, NewCall, DT) &&
+            none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
+              return A != Arg &&
+                     !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
+            }))
+          Arg->addAttr(Attribute::NoAlias);
+      }
     }
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   Constant *RegionId = nullptr;
   if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
@@ -1921,7 +1929,19 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   Value *VIf = W->getIf();
   CallInst *Call;
-  Instruction *InsertPt = NewCall;
+  Instruction *APIInsertPt = nullptr;
+  if (GenOutlinedFunction) {
+    APIInsertPt = NewCall;
+  } else {
+    // If no outlining is done (target enter/exit data and target update),
+    // we create an empty BB inside the region, and use that for inserting the
+    // code generated, like the tgt_target_... API calls etc.
+    Instruction *ExitDirective = W->getExitDirective();
+    BasicBlock *OldExitBB = ExitDirective->getParent();
+    BasicBlock *NewExitBB = SplitBlock(OldExitBB, ExitDirective, DT, LI);
+    W->setExitBBlock(NewExitBB);
+    APIInsertPt = OldExitBB->getFirstNonPHI();
+  }
 
   if (VIf) {
     // If the target construct has if clause, the compiler will generate a
@@ -1959,12 +1979,14 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // if.end:
     //   ...
     //
-    Builder.SetInsertPoint(NewCall);
+    Instruction *IfInsertPt = APIInsertPt;
+    Builder.SetInsertPoint(IfInsertPt);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
-    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT);
-    InsertPt = ThenTerm;
-    Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
+    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, IfInsertPt,
+                                        DT);
+    APIInsertPt = ThenTerm;
+    Call = genTargetInitCode(W, NewCall, RegionId, APIInsertPt);
     Builder.SetInsertPoint(ElseTerm);
     Builder.CreateStore(
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
@@ -1977,12 +1999,12 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       Builder.CreateCall(NewF, FnArgs, "");
     }
   } else {
-    Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
+    Call = genTargetInitCode(W, NewCall, RegionId, APIInsertPt);
   }
 
   if (!hasOffloadCompilation()) {
     if (isa<WRNTargetNode>(W)) {
-      Builder.SetInsertPoint(InsertPt);
+      Builder.SetInsertPoint(APIInsertPt);
       Builder.CreateStore(Call, OffloadError);
 
       Builder.SetInsertPoint(NewCall);
@@ -2010,16 +2032,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
       useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
-      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
-        NewF->removeFnAttr(Attribute::NoInline);
-        NewF->addFnAttr(Attribute::AlwaysInline);
-      }
-    } else if (isa<WRNTargetEnterDataNode>(W) ||
-               isa<WRNTargetExitDataNode>(W) ||
-               isa<WRNTargetUpdateNode>(W)) {
-      // We cannot delete the outlined functions, because they
-      // may contain some meaningful code (e.g. InstCombine may put
-      // something into the initially empty blocks).
       if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
         NewF->removeFnAttr(Attribute::NoInline);
         NewF->addFnAttr(Attribute::AlwaysInline);
@@ -2510,7 +2522,11 @@ unsigned VPOParoptTransform::getTargetDataInfo(
     SmallVectorImpl<bool> &IsFunctionPtr,
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
-  unsigned NumberOfPtrs = Call->arg_size();
+  auto Exiter = [&MapTypes]() {
+    LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::getTargetDataInfo\n");
+    return MapTypes.size();
+  };
+
   HasRuntimeEvaluationCaptureSize = false;
   bool ForceMapping =
       // These regions will not have any real references to the mapped
@@ -2518,41 +2534,37 @@ unsigned VPOParoptTransform::getTargetDataInfo(
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
 
-  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-    NumberOfPtrs++;
-
-  if (NumberOfPtrs || ForceMapping) {
-    if (ForceMapping) {
-      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+  if (ForceMapping) {
+    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
-                               IsWILocalFirstprivate,
+                             IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                               IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
-    } else {
-      for (unsigned II = 0; II < Call->arg_size(); ++II) {
-        Value *BPVal = Call->getArgOperand(II);
-        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
-#if INTEL_CUSTOMIZATION
-                                 IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
-      }
-      if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-        genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, Names, Mappers,
-#if INTEL_CUSTOMIZATION
-                                 IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/true);
-    }
-
-    NumberOfPtrs = MapTypes.size();
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
+    return Exiter();
   }
 
-  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::getTargetDataInfo\n");
-  return NumberOfPtrs;
+  assert(Call && "Call is required to cross reference clauses with call args.");
+
+  for (unsigned II = 0; II < Call->arg_size(); ++II) {
+    Value *BPVal = Call->getArgOperand(II);
+    genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                             IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
+                             /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
+  }
+
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+    genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
+                             MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                             IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
+                             /*VIsTargetKernelArg=*/true);
+
+  return Exiter();
 }
 
 // Generate the initialization code for the directive omp target.
@@ -3561,7 +3573,7 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
 // Generate the target intialization code for the pointers based
 // on the order of the map clause.
 void VPOParoptTransform::genOffloadArraysInitForClause(
-    WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
+    WRegionNode *W, TgDataInfo *Info, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
     IRBuilder<> &Builder, unsigned &Cnt) {
@@ -3726,7 +3738,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
       isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) {
-    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+    genOffloadArraysInitForClause(W, Info, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
     LLVM_DEBUG(dbgs() << "\nExit1 VPOParoptTransform::genOffloadArraysInit:"
@@ -3747,7 +3759,7 @@ void VPOParoptTransform::genOffloadArraysInit(
     BPVal = Call->getArgOperand(II);
 
     Match = false;
-    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+    genOffloadArraysInitForClause(W, Info, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, BPVal, Match,
                                   Builder, Cnt);
 

@@ -11190,6 +11190,9 @@ def warn_omp_spir64_no_string_literal_in_printf
     : Warning<"non-string-literal argument used in printf is not supported for "
               "spir64">,
       InGroup<DiagGroup<"device-printf-literals">>;
+def warn_omp_target_unsupported_api : Warning<
+  "call to %0 is not supported for target '%1'">,
+  InGroup<DiagGroup<"unsupported-omp-api">>;
 #endif // INTEL_COLLAB
 def err_omp_declare_variant_incompat_attributes : Error<
   "'#pragma omp declare variant' is not compatible with any target-specific attributes">;

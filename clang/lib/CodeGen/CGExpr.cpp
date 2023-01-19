@@ -5879,6 +5879,18 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
     }
   }
 
+#if INTEL_COLLAB
+  if (CGM.getTriple().getArch() == llvm::Triple::spir64 &&
+      CGM.inTargetRegion()) {
+    if (const FunctionDecl *FD = E->getDirectCallee()) {
+      if (FD->getDeclName().isIdentifier() && FD->getName() == "omp_get_wtime")
+        CGM.getDiags().Report(E->getExprLoc(),
+                              diag::warn_omp_target_unsupported_api)
+            << FD << "spir64";
+    }
+  }
+#endif // INTEL_COLLAB
+
   EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arguments(),
                E->getDirectCallee(), /*ParamsToSkip*/ 0, Order);
 

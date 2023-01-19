@@ -1252,8 +1252,11 @@ private:
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
-  /// Collect the data mapping information for the given region \p W
-  /// based on the \p Call instruction created during the region outlining.
+  /// Collect the data mapping information for the given region \p W.
+  /// For constructs like "target [enter/exit] data" and "target update", it is
+  /// done simply based on the map clauses in \p W, whereas for constructs that
+  /// require outlining, like "target", it is done based on the \p Call
+  /// instruction created during the region outlining.
   /// The method populates \p ConstSizes, \p MapTypes, \p Names and \p Mappers
   /// vectors with the mapping information for each argument of \p Call.
   /// See genTgtInformationForPtrs() for more details about the meaning
@@ -1974,7 +1977,7 @@ private:
   /// Generate the target intialization code for the pointers based
   /// on the order of the map clause.
   void genOffloadArraysInitForClause(WRegionNode *W, TgDataInfo *Info,
-                                     CallInst *Call, Instruction *InsertPt,
+                                     Instruction *InsertPt,
                                      SmallVectorImpl<Constant *> &ConstSizes,
                                      bool hasRuntimeEvaluationCaptureSize,
                                      Value *BPVal, bool &Match,
