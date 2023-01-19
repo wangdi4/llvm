@@ -443,12 +443,6 @@ Scheduler::~Scheduler() {
 }
 
 void Scheduler::releaseResources() {
-#ifndef _WIN32
-  if (DefaultHostQueue) {
-    DefaultHostQueue->wait();
-  }
-  GlobalHandler::instance().drainThreadPool();
-
   //  There might be some commands scheduled for post enqueue cleanup that
   //  haven't been freed because of the graph mutex being locked at the time,
   //  clean them up now.
@@ -463,7 +457,6 @@ void Scheduler::releaseResources() {
   // added to deferred mem obj storage. So we may end up with leak.
   while (!isDeferredMemObjectsEmpty())
     cleanupDeferredMemObjects(BlockingT::BLOCKING);
-#endif
 }
 
 MemObjRecord *Scheduler::getMemObjRecord(const Requirement *const Req) {
