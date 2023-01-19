@@ -9468,8 +9468,7 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst,
   switch (Inst.getOpcode()) {
   case X86::ADD8rr:
   case X86::ADD16rr:
-    //  case X86::ADD32rr: // INTEL
-    //  Revert part of D136396 as it makes 548@opt_speed -4%.
+  case X86::ADD32rr:
   case X86::ADD64rr:
   case X86::AND8rr:
   case X86::AND16rr:
