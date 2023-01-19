@@ -439,7 +439,7 @@ static int linkProgram() {
     cur = Binaries.find_first_of(',', prev);
   }
   binaries.push_back(Binaries.substr(prev, cur - prev));
-  DEBUG(unsigned i = 0; for (auto it
+  DEBUG(unsigned i = 0; for (auto &it
                              : binaries) {
     dbgs() << "Binary[" << i++ << "]: " << it << '\n';
   });
@@ -704,7 +704,7 @@ static void fixOptions() {
   optionsToHide.erase("version");
 
   // And hide the rest
-  for (auto it : optionsToHide) {
+  for (auto &it : optionsToHide) {
     Map[it]->setHiddenFlag(cl::ReallyHidden);
   }
 
@@ -986,7 +986,7 @@ cl_program_sptr getProgramsFromBinaries(const std::list<std::string> &lst,
   cl_program_sptr guard(progArr, deleter);
 
   int pos = 0;
-  for (auto iter : lst) {
+  for (auto &iter : lst) {
     std::ifstream irFile(iter.c_str(), std::ios::in | std::ios::binary);
     if (irFile.is_open()) {
       // get binary file data size and read its content to the buffer

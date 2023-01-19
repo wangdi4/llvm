@@ -501,7 +501,8 @@ set(TBB_INCLUDE_DIRS ${TBB_INC_DIR} utils/task_executor/enhancements)
 # paths
 add_llvm_external_project(opencl)
 set(CL_API_HEADERS ${OpenCL_INCLUDE_DIR} ${OCL_SOURCE_DIR}/framework/inc)
-set(CL_LOADER ${OpenCL_LOADER_DIR})
+# OPENCL_ICD_LOADER_HEADERS_DIR is defined in opencl/CMakeLists.txt
+set(CL_LOADER ${OPENCL_ICD_LOADER_HEADERS_DIR}/../ocl-icd-src/)
 
 get_property(SPIRV_HEADERS_DIR GLOBAL PROPERTY spirv_headers_dir_property)
 include_directories(
