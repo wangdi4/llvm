@@ -423,8 +423,7 @@ int clang_main(int Argc, char **Argv) {
   // Finally, our -cc1 tools don't care which tokenization mode we use because
   // response files written by clang will tokenize the same way in either mode.
   bool ClangCLMode =
-<<<<<<< HEAD
-      IsClangCL(getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1)));
+      IsClangCL(getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1)));
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
   Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
@@ -434,9 +433,6 @@ int clang_main(int Argc, char **Argv) {
          "backtrace (if any).\n";
   llvm::setBugReportMsg(Msg.c_str());
 #endif // INTEL_CUSTOMIZATION
-=======
-      IsClangCL(getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1)));
->>>>>>> a3c248db87ebe88084386950846678c9a52dd7c0
   enum { Default, POSIX, Windows } RSPQuoting = Default;
   for (const char *F : Args) {
     if (strcmp(F, "--rsp-quoting=posix") == 0)

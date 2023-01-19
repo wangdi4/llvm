@@ -1700,8 +1700,7 @@ Token ASTReader::ReadToken(ModuleFile &F, const RecordDataImpl &Record,
       Toks.reserve(NumTokens);
       for (unsigned I = 0; I < NumTokens; ++I)
         Toks.push_back(ReadToken(F, Record, Idx));
-<<<<<<< HEAD
-      Info->Toks = llvm::makeArrayRef(Toks).copy(PP.getPreprocessorAllocator());
+      Info->Toks = llvm::ArrayRef(Toks).copy(PP.getPreprocessorAllocator());
 #if INTEL_CUSTOMIZATION
       unsigned NumArrayTokens = Record[Idx++];
       SmallVector<Token, 4> ArrayToks;
@@ -1709,11 +1708,8 @@ Token ASTReader::ReadToken(ModuleFile &F, const RecordDataImpl &Record,
       for (unsigned I = 0; I < NumArrayTokens; ++I)
         ArrayToks.push_back(ReadToken(F, Record, Idx));
       Info->ArrayToks =
-          llvm::makeArrayRef(ArrayToks).copy(PP.getPreprocessorAllocator());
+          llvm::ArrayRef(ArrayToks).copy(PP.getPreprocessorAllocator());
 #endif // INTEL_CUSTOMIZATION
-=======
-      Info->Toks = llvm::ArrayRef(Toks).copy(PP.getPreprocessorAllocator());
->>>>>>> a3c248db87ebe88084386950846678c9a52dd7c0
       Tok.setAnnotationValue(static_cast<void *>(Info));
       break;
     }
