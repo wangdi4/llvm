@@ -714,7 +714,7 @@ cl_program ContextModule::CreateProgramWithBinary(
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext,
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p, %p) = NULL"), clContext,
               &pContext);
     if (NULL != pErrRet) {
       *pErrRet = CL_INVALID_CONTEXT;
@@ -1205,8 +1205,7 @@ cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel, cl_int *pErr) {
       m_mapKernels.GetOCLObject((_cl_kernel_int *)source_kernel)
           .DynamicCast<Kernel>();
   if (NULL == pSrcKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), source_kernel,
-              &pSrcKernel);
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) = NULL"), source_kernel, &pSrcKernel);
     if (NULL != pErr)
       *pErr = CL_INVALID_KERNEL;
     return CL_INVALID_HANDLE;
