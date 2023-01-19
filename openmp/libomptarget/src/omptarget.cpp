@@ -645,7 +645,11 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           HasCloseModifier, HasPresentModifier, HasHoldModifier, AsyncInfo);
 #endif // INTEL_COLLAB
       PointerTgtPtrBegin = PointerTpr.TargetPointer;
+#if INTEL_CUSTOMIZATION
+      // [Coverity] Definition to IsHostPtr is never used.
+#else  // INTEL_CUSTOMIZATION
       IsHostPtr = PointerTpr.Flags.IsHostPointer;
+#endif // INTEL_CUSTOMIZATION
       if (!PointerTgtPtrBegin) {
         REPORT("Call to getTargetPointer returned null pointer (%s).\n",
                HasPresentModifier ? "'present' map type modifier"
