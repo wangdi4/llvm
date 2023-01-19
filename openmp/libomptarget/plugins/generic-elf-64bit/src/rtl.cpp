@@ -156,8 +156,8 @@ public:
     for (auto &Lib : DynLibs) {
 #if INTEL_CUSTOMIZATION
       if (Lib.Handle) {
-        dlclose(Lib.Handle);
-        remove(Lib.FileName.c_str());
+        (void)dlclose(Lib.Handle);
+        (void)remove(Lib.FileName.c_str());
       }
 #else // INTEL_CUSTOMIZATION
       if (Lib.DynLib->isValid())
