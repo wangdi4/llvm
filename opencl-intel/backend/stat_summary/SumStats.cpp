@@ -17,7 +17,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
 
 #include <algorithm>
 #include <fstream>

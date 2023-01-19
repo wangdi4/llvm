@@ -35,7 +35,7 @@ if(OPENCL_INTREE_BUILD)
     IRReader
     Support
     TableGen
-    Intel_DPCPPKernelTransforms)
+    SYCLTransforms)
 endif()
 
 add_opencl_executable(

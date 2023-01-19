@@ -15,7 +15,7 @@
 #pragma once
 
 #include "common_dev_limits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
+#include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 
 #include "CL/cl.h"
 #include "CL/cl_fpga_ext.h"

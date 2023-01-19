@@ -15,7 +15,7 @@
 #ifndef __VECTORIZER_REFERENCE_H__
 #define __VECTORIZER_REFERENCE_H__
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
 
 //
 // This is an array of functions copied from the table by which the previous

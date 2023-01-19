@@ -15,7 +15,7 @@
 #ifndef __COMMON_DEV_LIMITES_H__
 #define __COMMON_DEV_LIMITES_H__
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
+#include "llvm/Transforms/SYCLTransforms/DevLimits.h"
 
 using namespace llvm;
 

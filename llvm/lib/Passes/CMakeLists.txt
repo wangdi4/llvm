@@ -50,7 +50,7 @@ add_llvm_component_library(LLVMPasses
   Vectorize
   Instrumentation
 # INTEL_CUSTOMIZATION
-  Intel_DPCPPKernelTransforms
+  SYCLTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

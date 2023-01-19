@@ -389,7 +389,7 @@ llvm_map_components_to_libnames(
   Symbolize
   Target
   TransformUtils
-  Intel_DPCPPKernelTransforms
+  SYCLTransforms
   )
 
 # Prepare common_clang dynamic library

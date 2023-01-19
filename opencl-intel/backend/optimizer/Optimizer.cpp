@@ -18,8 +18,8 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
 cl::opt<bool>
     DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,

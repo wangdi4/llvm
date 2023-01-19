@@ -20,7 +20,7 @@
 #include "cl_utils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string.h>

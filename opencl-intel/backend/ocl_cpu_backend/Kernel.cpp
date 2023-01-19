@@ -21,9 +21,9 @@
 #include "exceptions.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
 #include <cmath>
 #include <cstring>
 #include <iostream>

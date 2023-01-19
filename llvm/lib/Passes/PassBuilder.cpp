@@ -354,7 +354,7 @@
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 // DPC++ CPU Kernel Transformation passes
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/SYCLTransforms/Passes.h"
 
 // Intel Loop Optimization framework
 // Framework passes

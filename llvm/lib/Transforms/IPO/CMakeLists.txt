@@ -145,7 +145,7 @@ add_llvm_component_library(LLVMipo
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   VPOTransforms
-  Intel_DPCPPKernelTransforms
+  SYCLTransforms
 # end INTEL_CUSTOMIZATION
   )
 
