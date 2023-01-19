@@ -7020,69 +7020,6 @@ LLVM_ENABLE_BITMASK_ENUMS_IN_NAMESPACE();
 // code for that information.
 class MappableExprsHandler {
 public:
-<<<<<<< HEAD
-  /// Values for bit flags used to specify the mapping type for
-  /// offloading.
-  enum OpenMPOffloadMappingFlags : uint64_t {
-    /// No flags
-    OMP_MAP_NONE = 0x0,
-    /// Allocate memory on the device and move data from host to device.
-    OMP_MAP_TO = 0x01,
-    /// Allocate memory on the device and move data from device to host.
-    OMP_MAP_FROM = 0x02,
-    /// Always perform the requested mapping action on the element, even
-    /// if it was already mapped before.
-    OMP_MAP_ALWAYS = 0x04,
-    /// Delete the element from the device environment, ignoring the
-    /// current reference count associated with the element.
-    OMP_MAP_DELETE = 0x08,
-    /// The element being mapped is a pointer-pointee pair; both the
-    /// pointer and the pointee should be mapped.
-    OMP_MAP_PTR_AND_OBJ = 0x10,
-    /// This flags signals that the base address of an entry should be
-    /// passed to the target kernel as an argument.
-    OMP_MAP_TARGET_PARAM = 0x20,
-    /// Signal that the runtime library has to return the device pointer
-    /// in the current position for the data being mapped. Used when we have the
-    /// use_device_ptr or use_device_addr clause.
-    OMP_MAP_RETURN_PARAM = 0x40,
-    /// This flag signals that the reference being passed is a pointer to
-    /// private data.
-    OMP_MAP_PRIVATE = 0x80,
-    /// Pass the element to the device by value.
-    OMP_MAP_LITERAL = 0x100,
-    /// Implicit map
-    OMP_MAP_IMPLICIT = 0x200,
-    /// Close is a hint to the runtime to allocate memory close to
-    /// the target device.
-    OMP_MAP_CLOSE = 0x400,
-    /// 0x800 is reserved for compatibility with XLC.
-    /// Produce a runtime error if the data is not already allocated.
-    OMP_MAP_PRESENT = 0x1000,
-    // Increment and decrement a separate reference counter so that the data
-    // cannot be unmapped within the associated region.  Thus, this flag is
-    // intended to be used on 'target' and 'target data' directives because they
-    // are inherently structured.  It is not intended to be used on 'target
-    // enter data' and 'target exit data' directives because they are inherently
-    // dynamic.
-    // This is an OpenMP extension for the sake of OpenACC support.
-    OMP_MAP_OMPX_HOLD = 0x2000,
-#if INTEL_CUSTOMIZATION
-    /// allocate memory in host USM
-    OMP_MAP_HOST_MEM = 0x8000,
-#endif // INTEL_CUSTOMIZATION
-    /// Signal that the runtime library should use args as an array of
-    /// descriptor_dim pointers and use args_size as dims. Used when we have
-    /// non-contiguous list items in target update directive
-    OMP_MAP_NON_CONTIG = 0x100000000000,
-    /// The 16 MSBs of the flags indicate whether the entry is member of some
-    /// struct/class.
-    OMP_MAP_MEMBER_OF = 0xffff000000000000,
-    LLVM_MARK_AS_BITMASK_ENUM(/* LargestFlag = */ OMP_MAP_MEMBER_OF),
-  };
-
-=======
->>>>>>> 310eea1c78e3e7aac7c016ab9bdf00d04f354645
   /// Get the offset of the OMP_MAP_MEMBER_OF field.
   static unsigned getFlagMemberOffset() {
     unsigned Offset = 0;
@@ -8861,15 +8798,11 @@ public:
                          const ValueDecl *VD = nullptr,
                          bool NotTargetParams = true) const {
     if (CurTypes.size() == 1 &&
-<<<<<<< HEAD
-        ((CurTypes.back() & OMP_MAP_MEMBER_OF) != OMP_MAP_MEMBER_OF) &&
+        ((CurTypes.back() & OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) !=
+         OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) &&
 #if INTEL_COLLAB
         !PartialStruct.HasVTPtr &&
 #endif  // INTEL_COLLAB
-=======
-        ((CurTypes.back() & OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) !=
-         OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) &&
->>>>>>> 310eea1c78e3e7aac7c016ab9bdf00d04f354645
         !PartialStruct.IsArraySection)
       return;
     Address LBAddr = PartialStruct.LowestElem.second;
@@ -9033,28 +8966,33 @@ public:
 
 #if INTEL_COLLAB
   static SmallVector<OpenMPMapModifierKind, 1>
-  getMapModifiers(MappableExprsHandler::OpenMPOffloadMappingFlags Types) {
+  getMapModifiers(OpenMPOffloadMappingFlags Types) {
     SmallVector<OpenMPMapModifierKind, 1> MD;
-    if ((Types & MappableExprsHandler::OMP_MAP_ALWAYS))
-      MD.push_back(OMPC_MAP_MODIFIER_always);
-    if ((Types & MappableExprsHandler::OMP_MAP_CLOSE))
-      MD.push_back(OMPC_MAP_MODIFIER_close);
-    if ((Types & MappableExprsHandler::OMP_MAP_PRESENT))
-      MD.push_back(OMPC_MAP_MODIFIER_present);
+    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
+    // is not contextually convertible to 'bool'
+
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS))
+    //   MD.push_back(OMPC_MAP_MODIFIER_always);
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_CLOSE))
+    //   MD.push_back(OMPC_MAP_MODIFIER_close);
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_PRESENT))
+    //   MD.push_back(OMPC_MAP_MODIFIER_present);
     return MD;
   }
 
-  static OpenMPMapClauseKind
-  getMapType(MappableExprsHandler::OpenMPOffloadMappingFlags Types) {
-    if ((Types & MappableExprsHandler::OMP_MAP_TO) &&
-        (Types & MappableExprsHandler::OMP_MAP_FROM))
-      return OMPC_MAP_tofrom;
-    if ((Types & MappableExprsHandler::OMP_MAP_TO))
-      return OMPC_MAP_to;
-    if ((Types & MappableExprsHandler::OMP_MAP_FROM))
-      return OMPC_MAP_from;
-    if ((Types & MappableExprsHandler::OMP_MAP_DELETE))
-      return OMPC_MAP_delete;
+  static OpenMPMapClauseKind getMapType(OpenMPOffloadMappingFlags Types) {
+    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
+    // is not contextually convertible to 'bool'
+
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_TO) &&
+    //     (Types & OpenMPOffloadMappingFlags::OMP_MAP_FROM))
+    //   return OMPC_MAP_tofrom;
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_TO))
+    //   return OMPC_MAP_to;
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_FROM))
+    //   return OMPC_MAP_from;
+    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_DELETE))
+    //   return OMPC_MAP_delete;
     return OMPC_MAP_tofrom;
   }
 
@@ -9073,14 +9011,14 @@ public:
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)
         continue;
-      MappableExprsHandler::OpenMPOffloadMappingFlags Type =
-          MappableExprsHandler::OMP_MAP_MEMBER_OF |
-          MappableExprsHandler::OMP_MAP_PTR_AND_OBJ;
+      OpenMPOffloadMappingFlags Type =
+          OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
+          OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ;
       if (VD && isFirstPrivateDecls(VD))
-        Type |= MappableExprsHandler::OMP_MAP_IMPLICIT |
-                 MappableExprsHandler::OMP_MAP_LITERAL;
+        Type |= OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT |
+                OpenMPOffloadMappingFlags::OMP_MAP_LITERAL;
       else
-        Type |= MappableExprsHandler::OMP_MAP_TO;
+        Type |= OpenMPOffloadMappingFlags::OMP_MAP_TO;
       CurInfo.Exprs.emplace_back(VD ? VD : CurInfo.Exprs[0]);
       CurInfo.BasePointers.push_back(BP);
       CurInfo.Pointers.push_back(VPtrValue);
@@ -9945,9 +9883,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
             !PartialStruct.PreliminaryMapData.BasePointers.empty());
         if (VD && PartialStruct.HasVTPtr && MEHandler.isFirstPrivateDecls(VD))
           CombinedInfo.Types.back() =
-              MappableExprsHandler::OMP_MAP_PRIVATE |
-              MappableExprsHandler::OMP_MAP_TARGET_PARAM |
-              MappableExprsHandler::OMP_MAP_TO;
+              OpenMPOffloadMappingFlags::OMP_MAP_PRIVATE |
+              OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM |
+              OpenMPOffloadMappingFlags::OMP_MAP_TO;
       }
       if (CurInfo.BasePointers.size() > 0)
         CurInfo.VarChain.push_back(std::make_pair(VD, false));
@@ -9963,28 +9901,33 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         CombinedInfo.Types);
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
 #if INTEL_CUSTOMIZATION
-    if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
-      llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
-      for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
-        for (const Expr *E : C->varlists()) {
-          const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E);
-          assert(VD && "expected VarDecl in use_device_addr clause");
-          ReductionExprs.insert({VD, E});
-        }
-      if (!ReductionExprs.empty())
-        for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
-             ++I)
-          if (!CombinedInfo.VarChain[I].second &&
-              (CombinedInfo.Types[I] &
-               MappableExprsHandler::OMP_MAP_IMPLICIT)) {
-            auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl());
-            if (It != ReductionExprs.end()) {
-              if (!CombinedInfo.Exprs[I].getMapExpr() ||
-                  It->second == CombinedInfo.Exprs[I].getMapExpr())
-                CombinedInfo.Types[I] |= MappableExprsHandler::OMP_MAP_HOST_MEM;
-            }
-          }
-    }
+    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
+    // is not contextually convertible to 'bool'
+
+    // if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
+    //   llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
+    //   for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
+    //     for (const Expr *E : C->varlists()) {
+    //       const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E);
+    //       assert(VD && "expected VarDecl in use_device_addr clause");
+    //       ReductionExprs.insert({VD, E});
+    //     }
+    //   if (!ReductionExprs.empty())
+    //     for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
+    //          ++I)
+    //       if (!CombinedInfo.VarChain[I].second &&
+    //           (CombinedInfo.Types[I] &
+    //            OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)) {
+    //         auto It =
+    //         ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl()); if (It
+    //         != ReductionExprs.end()) {
+    //           if (!CombinedInfo.Exprs[I].getMapExpr() ||
+    //               It->second == CombinedInfo.Exprs[I].getMapExpr())
+    //             CombinedInfo.Types[I] |=
+    //                 OpenMPOffloadMappingFlags::OMP_MAP_HOST_MEM;
+    //         }
+    //       }
+    // }
 #endif // INTEL_CUSTOMIZATION
   }
   // The informations of offload map name are only built if there is
@@ -10001,17 +9944,20 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
 
   assert(CombinedInfo.BasePointers.size() == CombinedInfo.VarChain.size());
   for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
-    Info->push_back(
-        {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
-         CombinedInfo.Sizes[I],
-         llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
-         MappableExprsHandler::getMapModifiers(CombinedInfo.Types[I]),
-         MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
-         CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
-         InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
-         CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
-         static_cast<bool>(CombinedInfo.Types[I] &
-                           MappableExprsHandler::OMP_MAP_IMPLICIT)});
+    // FIXME: error: no matching function for call to 'get'
+    // llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I])
+
+    // Info->push_back(
+    //     {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
+    //      CombinedInfo.Sizes[I],
+    //      llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
+    //      MappableExprsHandler::getMapModifiers(CombinedInfo.Types[I]),
+    //      MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
+    //      CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
+    //      InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
+    //      CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
+    //      static_cast<bool>(CombinedInfo.Types[I] &
+    //                        OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)});
   }
 }
 #endif // INTEL_COLLAB

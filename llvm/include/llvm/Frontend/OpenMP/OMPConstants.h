@@ -239,6 +239,10 @@ enum class OpenMPOffloadMappingFlags : uint64_t {
   // dynamic.
   // This is an OpenMP extension for the sake of OpenACC support.
   OMP_MAP_OMPX_HOLD = 0x2000,
+#if INTEL_CUSTOMIZATION
+  /// allocate memory in host USM
+  OMP_MAP_HOST_MEM = 0x8000,
+#endif // INTEL_CUSTOMIZATION
   /// Signal that the runtime library should use args as an array of
   /// descriptor_dim pointers and use args_size as dims. Used when we have
   /// non-contiguous list items in target update directive
