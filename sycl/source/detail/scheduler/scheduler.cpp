@@ -391,7 +391,10 @@ Scheduler::Scheduler() {
 Scheduler::~Scheduler() { DefaultHostQueue.reset(); }
 
 void Scheduler::releaseResources() {
+<<<<<<< HEAD
 #ifndef _WIN32
+=======
+>>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
   //  There might be some commands scheduled for post enqueue cleanup that
   //  haven't been freed because of the graph mutex being locked at the time,
   //  clean them up now.
@@ -407,7 +410,6 @@ void Scheduler::releaseResources() {
   // added to deferred mem obj storage. So we may end up with leak.
   while (!isDeferredMemObjectsEmpty())
     cleanupDeferredMemObjects(BlockingT::BLOCKING);
-#endif
 }
 
 MemObjRecord *Scheduler::getMemObjRecord(const Requirement *const Req) {

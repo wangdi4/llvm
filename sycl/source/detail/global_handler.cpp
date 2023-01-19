@@ -52,9 +52,13 @@ public:
       LockGuard Guard(GlobalHandler::MSyclGlobalHandlerProtector);
       GlobalHandler *RTGlobalObjHandler = GlobalHandler::getInstancePtr();
       if (RTGlobalObjHandler) {
+<<<<<<< HEAD
         RTGlobalObjHandler->drainThreadPool();
         if (RTGlobalObjHandler->MScheduler.Inst)
           RTGlobalObjHandler->MScheduler.Inst->releaseResources();
+=======
+        RTGlobalObjHandler->prepareSchedulerToRelease();
+>>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
       }
     }
   }
@@ -93,7 +97,7 @@ void GlobalHandler::attachScheduler(Scheduler *Scheduler) {
   // The method is used in unit tests only. Do not protect with lock since
   // releaseResources will cause dead lock due to host queue release
   if (MScheduler.Inst)
-    MScheduler.Inst->releaseResources();
+    prepareSchedulerToRelease();
   MScheduler.Inst.reset(Scheduler);
 }
 
@@ -199,6 +203,17 @@ void GlobalHandler::unloadPlugins() {
   }
   // Clear after unload to avoid uses after unload.
   getPlugins().clear();
+<<<<<<< HEAD
+=======
+}
+
+void GlobalHandler::prepareSchedulerToRelease() {
+#ifndef _WIN32
+  drainThreadPool();
+  if (MScheduler.Inst)
+    MScheduler.Inst->releaseResources();
+#endif
+>>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
 }
 
 void GlobalHandler::drainThreadPool() {
@@ -214,9 +229,13 @@ void shutdown() {
 
   // Ensure neither host task is working so that no default context is accessed
   // upon its release
+<<<<<<< HEAD
   Handler->drainThreadPool();
   if (Handler->MScheduler.Inst)
     Handler->MScheduler.Inst->releaseResources();
+=======
+  Handler->prepareSchedulerToRelease();
+>>>>>>> 0e7468835d572e7695319401f76b8b3b77369ba1
 
   if (Handler->MHostTaskThreadPool.Inst)
     Handler->MHostTaskThreadPool.Inst->finishAndWait();
