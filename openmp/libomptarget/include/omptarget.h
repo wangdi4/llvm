@@ -412,7 +412,12 @@ class AsyncInfoTy {
 
 public:
   AsyncInfoTy(DeviceTy &Device) : Device(Device) {}
+#if INTEL_CUSTOMIZATION
+  // [Coverity] Return value is not checked
+  ~AsyncInfoTy() { (void)synchronize(); }
+#else  // INTEL_CUSTOMIZATION
   ~AsyncInfoTy() { synchronize(); }
+#endif // INTEL_CUSTOMIZATION
 
   /// Implicit conversion to the __tgt_async_info which is used in the
   /// plugin interface.

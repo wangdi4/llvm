@@ -206,8 +206,12 @@ public:
     if (ThisRefCount != INFRefCount) {
       if (ThisRefCount > 0)
         --ThisRefCount;
+#if INTEL_CUSTOMIZATION
+        // [Coverity] Comparison (>=) of unsigned to 0 is always true
+#else  // INTEL_CUSTOMIZATION
       else
         assert(OtherRefCount >= 0 && "total refcount underflow");
+#endif // INTEL_CUSTOMIZATION
     }
     return getTotalRefCount();
   }
@@ -262,7 +266,12 @@ struct HostDataToTargetMapKeyTy {
   HostDataToTargetMapKeyTy(void *Key) : KeyValue(uintptr_t(Key)) {}
   HostDataToTargetMapKeyTy(HostDataToTargetTy *HDTT)
       : KeyValue(HDTT->HstPtrBegin), HDTT(HDTT) {}
+#if INTEL_CUSTOMIZATION
+  // [Coverity] Uninitialized pointer field.
+  HostDataToTargetTy *HDTT = nullptr;
+#else  // INTEL_CUSTOMIZATION
   HostDataToTargetTy *HDTT;
+#endif // INTEL_CUSTOMIZATION
 };
 inline bool operator<(const HostDataToTargetMapKeyTy &LHS,
                       const uintptr_t &RHS) {
