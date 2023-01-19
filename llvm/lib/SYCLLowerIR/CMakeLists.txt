@@ -58,9 +58,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
         # Author: Igor Gorban <igor.gorban@intel.com>
-        # Date:   Tue Dec 13 23:10:52 2022 +0100
-        # [BugFix] VCWrappers does not installing, we can't use them in headers (#241)
-        set(LLVMGenXIntrinsics_GIT_TAG 73019eb10802e9dcf1715fd5c210f9d7ab7cc864)
+        # Date:   Thu Dec 22 01:04:39 2022 +0100
+        # [LLVM] Fix build against llvm tot (#243)
+        set(LLVMGenXIntrinsics_GIT_TAG 1517484e749dccbf40ca2f1b138e27316fdebed9)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
