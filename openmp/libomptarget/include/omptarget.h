@@ -425,19 +425,15 @@ private:
   DeviceTy &Device;
 
 public:
-<<<<<<< HEAD
   /// Synchronization method to be used.
   SyncTy SyncType;
 
   AsyncInfoTy(DeviceTy &Device, SyncTy SyncType = SyncTy::BLOCKING)
       : Device(Device), SyncType(SyncType) {}
-=======
-  AsyncInfoTy(DeviceTy &Device) : Device(Device) {}
 #if INTEL_CUSTOMIZATION
   // [Coverity] Return value is not checked
   ~AsyncInfoTy() { (void)synchronize(); }
 #else  // INTEL_CUSTOMIZATION
->>>>>>> bd14723167ca44cfa38c9f9d8eb77dcce15e2e0f
   ~AsyncInfoTy() { synchronize(); }
 #endif // INTEL_CUSTOMIZATION
 
