@@ -5339,7 +5339,7 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         break;
 
       case UPD_ADDED_ATTR_TO_RECORD:
-        Record.AddAttributes(llvm::makeArrayRef(Update.getAttr()));
+        Record.AddAttributes(llvm::ArrayRef(Update.getAttr()));
         break;
       }
     }

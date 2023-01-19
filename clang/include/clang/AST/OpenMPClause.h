@@ -353,7 +353,7 @@ public:
 
   /// Fetches list of all variables in the clause.
   ArrayRef<const Expr *> getVarRefs() const {
-    return llvm::makeArrayRef(
+    return llvm::ArrayRef(
         static_cast<const T *>(this)->template getTrailingObjects<Expr *>(),
         NumVars);
   }
@@ -3470,7 +3470,7 @@ class OMPPrivateClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivateCopies() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
 public:
@@ -3579,7 +3579,7 @@ class OMPFirstprivateClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivateCopies() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Sets the list of references to initializer variables for new
@@ -3593,7 +3593,7 @@ class OMPFirstprivateClause final
     return MutableArrayRef<Expr *>(getPrivateCopies().end(), varlist_size());
   }
   ArrayRef<const Expr *> getInits() const {
-    return llvm::makeArrayRef(getPrivateCopies().end(), varlist_size());
+    return llvm::ArrayRef(getPrivateCopies().end(), varlist_size());
   }
 
 public:
@@ -3741,7 +3741,7 @@ class OMPLastprivateClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivateCopies() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -3755,7 +3755,7 @@ class OMPLastprivateClause final
     return MutableArrayRef<Expr *>(getPrivateCopies().end(), varlist_size());
   }
   ArrayRef<const Expr *> getSourceExprs() const {
-    return llvm::makeArrayRef(getPrivateCopies().end(), varlist_size());
+    return llvm::ArrayRef(getPrivateCopies().end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -3769,7 +3769,7 @@ class OMPLastprivateClause final
     return MutableArrayRef<Expr *>(getSourceExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getDestinationExprs() const {
-    return llvm::makeArrayRef(getSourceExprs().end(), varlist_size());
+    return llvm::ArrayRef(getSourceExprs().end(), varlist_size());
   }
 
   /// Set list of helper assignment expressions, required for proper
@@ -3782,7 +3782,7 @@ class OMPLastprivateClause final
     return MutableArrayRef<Expr *>(getDestinationExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getAssignmentOps() const {
-    return llvm::makeArrayRef(getDestinationExprs().end(), varlist_size());
+    return llvm::ArrayRef(getDestinationExprs().end(), varlist_size());
   }
 
   /// Sets lastprivate kind.
@@ -4070,7 +4070,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivates() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -4083,7 +4083,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(getPrivates().end(), varlist_size());
   }
   ArrayRef<const Expr *> getLHSExprs() const {
-    return llvm::makeArrayRef(getPrivates().end(), varlist_size());
+    return llvm::ArrayRef(getPrivates().end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -4098,7 +4098,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(getLHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getRHSExprs() const {
-    return llvm::makeArrayRef(getLHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getLHSExprs().end(), varlist_size());
   }
 
   /// Set list of helper reduction expressions, required for proper
@@ -4112,7 +4112,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(getRHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getReductionOps() const {
-    return llvm::makeArrayRef(getRHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getRHSExprs().end(), varlist_size());
   }
 
   /// Set list of helper copy operations for inscan reductions.
@@ -4124,7 +4124,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(getReductionOps().end(), varlist_size());
   }
   ArrayRef<const Expr *> getInscanCopyOps() const {
-    return llvm::makeArrayRef(getReductionOps().end(), varlist_size());
+    return llvm::ArrayRef(getReductionOps().end(), varlist_size());
   }
 
   /// Set list of helper temp vars for inscan copy array operations.
@@ -4135,7 +4135,7 @@ class OMPReductionClause final
     return MutableArrayRef<Expr *>(getInscanCopyOps().end(), varlist_size());
   }
   ArrayRef<const Expr *> getInscanCopyArrayTemps() const {
-    return llvm::makeArrayRef(getInscanCopyOps().end(), varlist_size());
+    return llvm::ArrayRef(getInscanCopyOps().end(), varlist_size());
   }
 
   /// Set list of helper temp elements vars for inscan copy array operations.
@@ -4147,7 +4147,7 @@ class OMPReductionClause final
                                    varlist_size());
   }
   ArrayRef<const Expr *> getInscanCopyArrayElems() const {
-    return llvm::makeArrayRef(getInscanCopyArrayTemps().end(), varlist_size());
+    return llvm::ArrayRef(getInscanCopyArrayTemps().end(), varlist_size());
   }
 
 public:
@@ -4389,7 +4389,7 @@ class OMPTaskReductionClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivates() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the clause.
@@ -4402,7 +4402,7 @@ class OMPTaskReductionClause final
     return MutableArrayRef<Expr *>(getPrivates().end(), varlist_size());
   }
   ArrayRef<const Expr *> getLHSExprs() const {
-    return llvm::makeArrayRef(getPrivates().end(), varlist_size());
+    return llvm::ArrayRef(getPrivates().end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the clause.
@@ -4416,7 +4416,7 @@ class OMPTaskReductionClause final
     return MutableArrayRef<Expr *>(getLHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getRHSExprs() const {
-    return llvm::makeArrayRef(getLHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getLHSExprs().end(), varlist_size());
   }
 
   /// Set list of helper reduction expressions, required for proper
@@ -4430,7 +4430,7 @@ class OMPTaskReductionClause final
     return MutableArrayRef<Expr *>(getRHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getReductionOps() const {
-    return llvm::makeArrayRef(getRHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getRHSExprs().end(), varlist_size());
   }
 
 public:
@@ -4620,7 +4620,7 @@ class OMPInReductionClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivates() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the clause.
@@ -4633,7 +4633,7 @@ class OMPInReductionClause final
     return MutableArrayRef<Expr *>(getPrivates().end(), varlist_size());
   }
   ArrayRef<const Expr *> getLHSExprs() const {
-    return llvm::makeArrayRef(getPrivates().end(), varlist_size());
+    return llvm::ArrayRef(getPrivates().end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the clause.
@@ -4647,7 +4647,7 @@ class OMPInReductionClause final
     return MutableArrayRef<Expr *>(getLHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getRHSExprs() const {
-    return llvm::makeArrayRef(getLHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getLHSExprs().end(), varlist_size());
   }
 
   /// Set list of helper reduction expressions, required for proper
@@ -4661,7 +4661,7 @@ class OMPInReductionClause final
     return MutableArrayRef<Expr *>(getRHSExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getReductionOps() const {
-    return llvm::makeArrayRef(getRHSExprs().end(), varlist_size());
+    return llvm::ArrayRef(getRHSExprs().end(), varlist_size());
   }
 
   /// Set list of helper reduction taskgroup descriptors.
@@ -4672,7 +4672,7 @@ class OMPInReductionClause final
     return MutableArrayRef<Expr *>(getReductionOps().end(), varlist_size());
   }
   ArrayRef<const Expr *> getTaskgroupDescriptors() const {
-    return llvm::makeArrayRef(getReductionOps().end(), varlist_size());
+    return llvm::ArrayRef(getReductionOps().end(), varlist_size());
   }
 
 public:
@@ -4878,14 +4878,14 @@ class OMPLinearClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivates() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   MutableArrayRef<Expr *> getInits() {
     return MutableArrayRef<Expr *>(getPrivates().end(), varlist_size());
   }
   ArrayRef<const Expr *> getInits() const {
-    return llvm::makeArrayRef(getPrivates().end(), varlist_size());
+    return llvm::ArrayRef(getPrivates().end(), varlist_size());
   }
 
   /// Sets the list of update expressions for linear variables.
@@ -4893,7 +4893,7 @@ class OMPLinearClause final
     return MutableArrayRef<Expr *>(getInits().end(), varlist_size());
   }
   ArrayRef<const Expr *> getUpdates() const {
-    return llvm::makeArrayRef(getInits().end(), varlist_size());
+    return llvm::ArrayRef(getInits().end(), varlist_size());
   }
 
   /// Sets the list of final update expressions for linear variables.
@@ -4901,7 +4901,7 @@ class OMPLinearClause final
     return MutableArrayRef<Expr *>(getUpdates().end(), varlist_size());
   }
   ArrayRef<const Expr *> getFinals() const {
-    return llvm::makeArrayRef(getUpdates().end(), varlist_size());
+    return llvm::ArrayRef(getUpdates().end(), varlist_size());
   }
 
   /// Gets the list of used expressions for linear variables.
@@ -4909,7 +4909,7 @@ class OMPLinearClause final
     return MutableArrayRef<Expr *>(getFinals().end() + 2, varlist_size() + 1);
   }
   ArrayRef<const Expr *> getUsedExprs() const {
-    return llvm::makeArrayRef(getFinals().end() + 2, varlist_size() + 1);
+    return llvm::ArrayRef(getFinals().end() + 2, varlist_size() + 1);
   }
 
   /// Sets the list of the copies of original linear variables.
@@ -5238,7 +5238,7 @@ class OMPCopyinClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getSourceExprs() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -5251,7 +5251,7 @@ class OMPCopyinClause final
     return MutableArrayRef<Expr *>(getSourceExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getDestinationExprs() const {
-    return llvm::makeArrayRef(getSourceExprs().end(), varlist_size());
+    return llvm::ArrayRef(getSourceExprs().end(), varlist_size());
   }
 
   /// Set list of helper assignment expressions, required for proper
@@ -5265,7 +5265,7 @@ class OMPCopyinClause final
     return MutableArrayRef<Expr *>(getDestinationExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getAssignmentOps() const {
-    return llvm::makeArrayRef(getDestinationExprs().end(), varlist_size());
+    return llvm::ArrayRef(getDestinationExprs().end(), varlist_size());
   }
 
 public:
@@ -5403,7 +5403,7 @@ class OMPCopyprivateClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getSourceExprs() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -5416,7 +5416,7 @@ class OMPCopyprivateClause final
     return MutableArrayRef<Expr *>(getSourceExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getDestinationExprs() const {
-    return llvm::makeArrayRef(getSourceExprs().end(), varlist_size());
+    return llvm::ArrayRef(getSourceExprs().end(), varlist_size());
   }
 
   /// Set list of helper assignment expressions, required for proper
@@ -5430,7 +5430,7 @@ class OMPCopyprivateClause final
     return MutableArrayRef<Expr *>(getDestinationExprs().end(), varlist_size());
   }
   ArrayRef<const Expr *> getAssignmentOps() const {
-    return llvm::makeArrayRef(getDestinationExprs().end(), varlist_size());
+    return llvm::ArrayRef(getDestinationExprs().end(), varlist_size());
   }
 
 public:
@@ -6349,7 +6349,7 @@ protected:
   ArrayRef<Expr *> getUDMapperRefs() const {
     assert(SupportsMapper &&
            "Must be a clause that is possible to have user-defined mappers");
-    return llvm::makeArrayRef<Expr *>(
+    return llvm::ArrayRef<Expr *>(
         static_cast<const T *>(this)->template getTrailingObjects<Expr *>() +
             OMPVarListClause<T>::varlist_size(),
         OMPVarListClause<T>::varlist_size());
@@ -6847,12 +6847,12 @@ public:
 
   /// Fetches ArrayRef of map-type-modifiers.
   ArrayRef<OpenMPMapModifierKind> getMapTypeModifiers() const LLVM_READONLY {
-    return llvm::makeArrayRef(MapTypeModifiers);
+    return llvm::ArrayRef(MapTypeModifiers);
   }
 
   /// Fetches ArrayRef of location of map-type-modifiers.
   ArrayRef<SourceLocation> getMapTypeModifiersLoc() const LLVM_READONLY {
-    return llvm::makeArrayRef(MapTypeModifiersLoc);
+    return llvm::ArrayRef(MapTypeModifiersLoc);
   }
 
   /// Fetches location of clause mapping kind.
@@ -7803,12 +7803,12 @@ public:
 
   /// Fetches ArrayRef of motion-modifiers.
   ArrayRef<OpenMPMotionModifierKind> getMotionModifiers() const LLVM_READONLY {
-    return llvm::makeArrayRef(MotionModifiers);
+    return llvm::ArrayRef(MotionModifiers);
   }
 
   /// Fetches ArrayRef of location of motion-modifiers.
   ArrayRef<SourceLocation> getMotionModifiersLoc() const LLVM_READONLY {
-    return llvm::makeArrayRef(MotionModifiersLoc);
+    return llvm::ArrayRef(MotionModifiersLoc);
   }
 
   /// Get colon location.
@@ -8003,12 +8003,12 @@ public:
 
   /// Fetches ArrayRef of motion-modifiers.
   ArrayRef<OpenMPMotionModifierKind> getMotionModifiers() const LLVM_READONLY {
-    return llvm::makeArrayRef(MotionModifiers);
+    return llvm::ArrayRef(MotionModifiers);
   }
 
   /// Fetches ArrayRef of location of motion-modifiers.
   ArrayRef<SourceLocation> getMotionModifiersLoc() const LLVM_READONLY {
-    return llvm::makeArrayRef(MotionModifiersLoc);
+    return llvm::ArrayRef(MotionModifiersLoc);
   }
 
   /// Get colon location.
@@ -8103,7 +8103,7 @@ class OMPUseDevicePtrClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivateCopies() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
   /// Sets the list of references to initializer variables for new private
@@ -8117,7 +8117,7 @@ class OMPUseDevicePtrClause final
     return MutableArrayRef<Expr *>(getPrivateCopies().end(), varlist_size());
   }
   ArrayRef<const Expr *> getInits() const {
-    return llvm::makeArrayRef(getPrivateCopies().end(), varlist_size());
+    return llvm::ArrayRef(getPrivateCopies().end(), varlist_size());
   }
 
 public:
@@ -8551,7 +8551,7 @@ class OMPNontemporalClause final
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
   ArrayRef<const Expr *> getPrivateRefs() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
+    return llvm::ArrayRef(varlist_end(), varlist_size());
   }
 
 public:
