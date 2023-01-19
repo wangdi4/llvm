@@ -176,6 +176,22 @@ static bool IterateProcInfo(LOGICAL_PROCESSOR_RELATIONSHIP Relationship, F Fn) {
   return true;
 }
 
+static std::optional<std::vector<USHORT>> getActiveGroups() {
+  USHORT Count = 0;
+  if (::GetProcessGroupAffinity(GetCurrentProcess(), &Count, nullptr))
+    return std::nullopt;
+
+  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    return std::nullopt;
+
+  std::vector<USHORT> Groups;
+  Groups.resize(Count);
+  if (!::GetProcessGroupAffinity(GetCurrentProcess(), &Count, Groups.data()))
+    return std::nullopt;
+
+  return Groups;
+}
+
 static ArrayRef<ProcessorGroup> getProcessorGroups() {
   auto computeGroups = []() {
     SmallVector<ProcessorGroup, 4> Groups;
@@ -210,11 +226,16 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
     if (!IterateProcInfo(RelationProcessorCore, HandleProc))
       return std::vector<ProcessorGroup>();
 
+    auto ActiveGroups = getActiveGroups();
+    if (!ActiveGroups)
+      return std::vector<ProcessorGroup>();
+
     // If there's an affinity mask set, assume the user wants to constrain the
     // current process to only a single CPU group. On Windows, it is not
     // possible for affinity masks to cross CPU group boundaries.
     DWORD_PTR ProcessAffinityMask = 0, SystemAffinityMask = 0;
     if (::GetProcessAffinityMask(GetCurrentProcess(), &ProcessAffinityMask,
+<<<<<<< HEAD
                                  &SystemAffinityMask) &&
         ProcessAffinityMask != SystemAffinityMask) {
       // We don't expect more that 4 CPU groups on Windows (256 processors).
@@ -228,6 +249,21 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
         //"one processor group!");
 #endif
         unsigned CurrentGroupID = GroupArray[0];
+=======
+                                 &SystemAffinityMask)) {
+
+      if (ProcessAffinityMask != SystemAffinityMask) {
+        if (llvm::RunningWindows11OrGreater() && ActiveGroups->size() > 1) {
+          // The process affinity mask is spurious, due to an OS bug, ignore it.
+          return std::vector<ProcessorGroup>(Groups.begin(), Groups.end());
+        }
+
+        assert(ActiveGroups->size() == 1 &&
+               "When an affinity mask is set, the process is expected to be "
+               "assigned to a single processor group!");
+
+        unsigned CurrentGroupID = (*ActiveGroups)[0];
+>>>>>>> e66500c7749578cf5e1372d0b52781259cb1fa28
         ProcessorGroup NewG{Groups[CurrentGroupID]};
         NewG.Affinity = ProcessAffinityMask;
         NewG.UsableThreads = countPopulation(ProcessAffinityMask);
@@ -235,7 +271,6 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
         Groups.push_back(NewG);
       }
     }
-
     return std::vector<ProcessorGroup>(Groups.begin(), Groups.end());
   };
   static auto Groups = computeGroups();
@@ -292,6 +327,12 @@ llvm::ThreadPoolStrategy::compute_cpu_socket(unsigned ThreadPoolNum) const {
 // Assign the current thread to a more appropriate CPU socket or CPU group
 void llvm::ThreadPoolStrategy::apply_thread_strategy(
     unsigned ThreadPoolNum) const {
+
+  // After Windows 11 and Windows Server 2022, let the OS do the scheduling,
+  // since a process automatically gains access to all processor groups.
+  if (llvm::RunningWindows11OrGreater())
+    return;
+
   std::optional<unsigned> Socket = compute_cpu_socket(ThreadPoolNum);
   if (!Socket)
     return;
