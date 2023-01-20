@@ -36685,6 +36685,7 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     Results.push_back(Split);
     return;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case ISD::COMPLEX_MUL:
     // Widen the vector size smaller than 128 to 128
@@ -36703,6 +36704,8 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     Results.push_back(DAG.getNode(N->getOpcode(), dl, WideVT, LHS, RHS));
     return;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> d0742ac2e531e3dc38ca22b200059cfaef85d838
   }
 }
 
