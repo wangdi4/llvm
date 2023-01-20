@@ -146,11 +146,11 @@ static cl::opt<bool> DynAllocaAdjustable(
     cl::desc("Allow inlining of functions with adjustable dynamic allocas"));
 
 static cl::opt<unsigned> DynAllocaAdjustableMaxCount(
-    "inlining-dyn-alloca-adjustable-max-count", cl::init(350), cl::ReallyHidden,
+    "inlining-dyn-alloca-adjustable-max-count", cl::init(500), cl::ReallyHidden,
     cl::desc("Maximum number of dynamic allocas to add to caller"));
 
 static cl::opt<unsigned> DynAllocaSpecialArgCount(
-    "inlining-dyn-alloca-special-arg-count", cl::init(13), cl::ReallyHidden,
+    "inlining-dyn-alloca-special-arg-count", cl::init(10), cl::ReallyHidden,
     cl::desc("Minimum number of special args for extra hoisting of "
              "dynamic allocas"));
 
@@ -830,97 +830,6 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // whose presence in a function entry block should not inhibit inlining.
   auto IsSpecialFortranAdjustableArray =
       [](AllocaInst &I, CallBase &CandidateCall, bool LinkForLTO) -> bool {
-    auto IsGEP00PassThru = [](Value *V, Value *AArg) -> bool {
-      auto GEPI = dyn_cast<GetElementPtrInst>(V);
-      if (!GEPI)
-        return false;
-      if (GEPI->getNumOperands() != 3)
-        return false;
-      if (GEPI->getPointerOperand() != AArg)
-        return false;
-      if (!match(GEPI->getOperand(1), m_Zero()))
-        return false;
-      if (!match(GEPI->getOperand(2), m_Zero()))
-        return false;
-      return true;
-    };
-
-    // Return 'true' if 'SS' is the start of a chain of SubscriptInsts
-    // where two of the successive SubscriptInsts in the chain have the same
-    // constant stride. This indicates that the array being indexed has a
-    // dimension of size 1.
-    auto IsSingleEltSubChain = [](SubscriptInst *SS) -> bool {
-      auto CI = dyn_cast<ConstantInt>(SS->getStride());
-      if (!CI)
-        return false;
-      uint64_t LastStride = CI->getZExtValue();
-      if (!SS->hasOneUse())
-        return false;
-      Value *V = SS->user_back();
-      while (auto SS0 = dyn_cast<SubscriptInst>(V)) {
-        CI = dyn_cast<ConstantInt>(SS0->getStride());
-        if (!CI)
-          return false;
-        uint64_t ThisStride = CI->getZExtValue();
-        if (ThisStride == LastStride)
-          return true;
-        LastStride = ThisStride;
-        if (!SS0->hasOneUse())
-          return false;
-        V = SS0->user_back();
-      }
-      return false;
-    };
-
-    // Return 'true' if the actual argument 'AArg' represents a pointer to
-    // an adjustable array with at least one dimension of size 1.
-    auto IsSingleEltAdjArrayArg = [&](Value *AArg) -> bool {
-      auto AI0 = dyn_cast<AllocaInst>(AArg);
-      if (!AI0)
-        return false;
-      const DataLayout &DL = AI0->getFunction()->getParent()->getDataLayout();
-      if (!dvanalysis::isDopeVectorType(AI0->getAllocatedType(), DL))
-        return false;
-      Value *V = AArg;
-      for (User *U0 : AArg->users())
-        if (IsGEP00PassThru(U0, AArg)) {
-          V = U0;
-          break;
-        }
-      for (User *U1 : V->users())
-        if (auto SI = dyn_cast<StoreInst>(U1))
-          if (SI->getPointerOperand() == V)
-            if (auto AI1 = dyn_cast<AllocaInst>(SI->getValueOperand()))
-              for (User *U3 : AI1->users())
-                if (auto SS = dyn_cast<SubscriptInst>(U3))
-                  return IsSingleEltSubChain(SS);
-      return false;
-    };
-
-    // Return 'true' if 'CB' is a call to a single callsite function
-    // with at least 'DynAllocaSpecialArgCount' actual arguments which
-    // are adjustable arrays with at least one dimension of size 1.
-    auto HasManySingleEltZeroDims = [&](CallBase &CB) -> bool {
-      static SmallPtrSet<Function *, 10> MatchFunctionCache;
-      static SmallPtrSet<Function *, 10> NoMatchFunctionCache;
-      Function *Callee = CB.getCalledFunction();
-      if (!Callee->hasOneLiveUse())
-        return false;
-      if (MatchFunctionCache.count(Callee))
-        return true;
-      if (NoMatchFunctionCache.count(Callee))
-        return false;
-      unsigned Count = 0;
-      for (unsigned I = 0, E = CB.arg_size(); I < E; ++I)
-        if (IsSingleEltAdjArrayArg(CB.getArgOperand(I)))
-          Count++;
-      if (Count >= DynAllocaSpecialArgCount)
-        MatchFunctionCache.insert(Callee);
-      else
-        NoMatchFunctionCache.insert(Callee);
-      return Count >= DynAllocaSpecialArgCount;
-    };
-
     // Return 'true' if 'I' is hoistable to its function's entry block.
     auto IsHoistableToEntryBlock = [](AllocaInst &I,
                                       bool HasSpecialCondition) -> bool {
@@ -943,6 +852,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         case Instruction::ICmp:
         case Instruction::SExt:
         case Instruction::Select:
+        case Instruction::Add:
+        case Instruction::Load:
           if (!HasSpecialCondition)
             return false;
           LLVM_FALLTHROUGH;
@@ -972,7 +883,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
       return false;
     if (!F->isFortran())
       return false;
-    bool SpecialCond = HasManySingleEltZeroDims(CandidateCall);
+    bool SpecialCond = CandidateCall.hasFnAttr("prefer-inline-scdynalloca");
     if (I.getParent() != &F->getEntryBlock() &&
         !IsHoistableToEntryBlock(I, SpecialCond))
       return false;
@@ -1006,6 +917,115 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
       return false;
     return true;
   };
+
+  auto IsGEP00PassThru = [](Value *V, Value *AArg) -> bool {
+    auto GEPI = dyn_cast<GetElementPtrInst>(V);
+    if (!GEPI)
+      return false;
+    if (GEPI->getNumOperands() != 3)
+      return false;
+    if (GEPI->getPointerOperand() != AArg)
+      return false;
+    if (!match(GEPI->getOperand(1), m_Zero()))
+      return false;
+    if (!match(GEPI->getOperand(2), m_Zero()))
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'SS' is the start of a chain of SubscriptInsts
+  // where two of the successive SubscriptInsts in the chain have the same
+  // constant stride. This indicates that the array being indexed has a
+  // dimension of size 1.
+  auto IsSingleEltSubChain = [](SubscriptInst *SS) -> bool {
+    auto CI = dyn_cast<ConstantInt>(SS->getStride());
+    if (!CI)
+      return false;
+    uint64_t LastStride = CI->getZExtValue();
+    if (!SS->hasOneUse())
+      return false;
+    Value *V = SS->user_back();
+    while (auto SS0 = dyn_cast<SubscriptInst>(V)) {
+      CI = dyn_cast<ConstantInt>(SS0->getStride());
+      if (!CI)
+        return false;
+      uint64_t ThisStride = CI->getZExtValue();
+      if (ThisStride == LastStride)
+        return true;
+      LastStride = ThisStride;
+      if (!SS0->hasOneUse())
+        return false;
+      V = SS0->user_back();
+    }
+    return false;
+  };
+
+  // Return 'true' if the actual argument 'AArg' represents a pointer to
+  // an adjustable array with at least one dimension of size 1.
+  auto IsSingleEltAdjArrayArg = [&](Value *AArg) -> bool {
+    auto AI0 = dyn_cast<AllocaInst>(AArg);
+    if (!AI0)
+      return false;
+    const DataLayout &DL = AI0->getFunction()->getParent()->getDataLayout();
+    if (!dvanalysis::isDopeVectorType(AI0->getAllocatedType(), DL))
+      return false;
+    Value *V = AArg;
+    for (User *U0 : AArg->users())
+      if (IsGEP00PassThru(U0, AArg)) {
+        V = U0;
+        break;
+      }
+    for (User *U1 : V->users())
+      if (auto SI = dyn_cast<StoreInst>(U1))
+        if (SI->getPointerOperand() == V)
+          if (auto AI1 = dyn_cast<AllocaInst>(SI->getValueOperand()))
+            for (User *U3 : AI1->users())
+              if (auto SS = dyn_cast<SubscriptInst>(U3))
+                return IsSingleEltSubChain(SS);
+    return false;
+  };
+
+  // Return 'true' if 'CB' is a call to a single callsite function
+  // with at least 'DynAllocaSpecialArgCount' actual arguments which
+  // are adjustable arrays with at least one dimension of size 1.
+  auto HasManySingleEltZeroDims =
+      [&](CallBase &CB, SmallPtrSetImpl<CallBase *> &CBSet) -> bool {
+    static SmallPtrSet<Function *, 10> MatchFunctionCache;
+    static SmallPtrSet<Function *, 10> NoMatchFunctionCache;
+    Function *Callee = CB.getCalledFunction();
+    if (!Callee || !Callee->hasOneLiveUse())
+      return false;
+    if (MatchFunctionCache.count(Callee))
+      return true;
+    if (NoMatchFunctionCache.count(Callee))
+      return false;
+    unsigned Count = 0;
+    for (unsigned I = 0, E = CB.arg_size(); I < E; ++I)
+      if (IsSingleEltAdjArrayArg(CB.getArgOperand(I))) {
+        Argument *Arg = Callee->getArg(I);
+        for (User *U : Arg->users())
+          if (auto CB0 = dyn_cast<CallBase>(U))
+            if (auto Callee0 = CB0->getCalledFunction())
+              if (Callee0->hasOneLiveUse())
+                CBSet.insert(CB0);
+        Count++;
+      }
+    if (Count >= DynAllocaSpecialArgCount)
+      MatchFunctionCache.insert(Callee);
+    else
+      NoMatchFunctionCache.insert(Callee);
+    return Count >= DynAllocaSpecialArgCount;
+  };
+
+  bool PrepareForLTO = Params.PrepareForLTO.value_or(false);
+  if (PrepareForLTO) {
+    SmallPtrSet<CallBase *, 5> CBSet;
+    if (HasManySingleEltZeroDims(CandidateCall, CBSet)) {
+        CandidateCall.addFnAttr("prefer-inline-scdynalloca");
+        for (CallBase *CB : CBSet)
+          CB->addFnAttr("prefer-inline-scdynalloca");
+    }
+  }
 
   // CMPLRLLVM-21826: Ignore AllocaInsts that appear in an OMP_SIMD directive
   if (IsInOmpSimd(I))
@@ -4352,6 +4372,16 @@ static bool worthInliningUnderTBBParallelFor(CallBase &CB,
   return PreferForInlining(CB);
 }
 
+static bool worthInliningForSingleCallsiteWithDynAllocas(const CallBase &CB,
+                                                         bool LinkForLTO) {
+  if (!LinkForLTO)
+    return false;
+  if (!CB.hasFnAttr("prefer-inline-scdynalloca"))
+    return false;
+  Function *Callee = CB.getCalledFunction();
+  return Callee->hasLocalLinkage() && Callee->hasOneLiveUse();
+}
+
 //
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
@@ -4475,6 +4505,10 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   if (worthInliningUnderTBBParallelFor(CB, LinkForLTO)) {
     YesReasonVector.push_back(InlrUnderTBBParallelFor);
+    return -InlineConstants::InliningHeuristicBonus;
+  }
+  if (worthInliningForSingleCallsiteWithDynAllocas(CB, LinkForLTO)) {
+    YesReasonVector.push_back(InlrSingleLocalCall);
     return -InlineConstants::InliningHeuristicBonus;
   }
   return 0;
