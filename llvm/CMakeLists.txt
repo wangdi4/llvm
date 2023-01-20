@@ -514,6 +514,7 @@ set(LLVM_ALL_TARGETS
 # end INTEL_CUSTOMIZATION
   Hexagon
   Lanai
+  LoongArch
   Mips
   MSP430
   NVPTX

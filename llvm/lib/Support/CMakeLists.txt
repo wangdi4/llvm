@@ -285,7 +285,6 @@ set (SUPPORT_SOURCES
   Program.cpp
   RWMutex.cpp
   Signals.cpp
-  ThreadLocal.cpp
   Threading.cpp
   Valgrind.cpp
   Watchdog.cpp
