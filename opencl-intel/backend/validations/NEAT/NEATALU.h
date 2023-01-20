@@ -1490,7 +1490,7 @@ public:
       NEATValue res = f(vec1[i], vec2[i]);
       // These functions shall return a 0 if the specified relation is false and
       // a 1 if the specified relation is true for scalar argument types and a 0
-      // if the specified relation is false and a –1 (i.e. all bits set) if the
+      // if the specified relation is false and a -1 (i.e. all bits set) if the
       // specified relation is true for vector argument types
       if (res.IsAcc()) {
         // TODO: remove that workaround for "dereferencing pointer in static
@@ -1515,7 +1515,7 @@ public:
       NEATValue res = f(vec[i]);
       // These functions shall return a 0 if the specified relation is false and
       // a 1 if the specified relation is true for scalar argument types and a 0
-      // if the specified relation is false and a –1 (i.e. all bits set) if the
+      // if the specified relation is false and a -1 (i.e. all bits set) if the
       // specified relation is true for vector argument types
       if (res.IsAcc()) {
         // TODO: remove that workaround for "dereferencing pointer in static
@@ -2459,7 +2459,7 @@ public:
     }
 
     // 7.5.1 Additional Requirements Beyond C99 TC2
-    // atan2pi ( ±0, -0 ) = ±1
+    // atan2pi ( +-0, -0 ) = +-1
     if (flushedX.IsAcc() && Utils::eq<T>(*flushedX.GetAcc<T>(), -0.0)) {
       if (flushedY.IsAcc() && Utils::eq<T>(*flushedY.GetAcc<T>(), +0.0))
         return (NEATValue((T)(+1.0), (T)(+1.0)));
@@ -2467,7 +2467,7 @@ public:
         return (NEATValue((T)(-1.0), (T)(-1.0)));
     }
 
-    // atan2pi ( ±0, +0 ) = ± 0
+    // atan2pi ( +-0, +0 ) = +- 0
     if (flushedX.IsAcc() && Utils::eq<T>(*flushedX.GetAcc<T>(), +0.0)) {
       if (flushedY.IsAcc() && Utils::eq<T>(*flushedY.GetAcc<T>(), +0.0))
         return (NEATValue((T)(+0.0), (T)(+0.0)));
@@ -2475,7 +2475,7 @@ public:
         return (NEATValue((T)(-0.0), (T)(-0.0)));
     }
 
-    // atan2pi ( ±0, x ) returns ± 1 for x < 0
+    // atan2pi ( +-0, x ) returns +- 1 for x < 0
     if (flushedX.IsAcc() && Utils::lt<T>(*flushedX.GetAcc<T>(), 0.0)) {
       if (flushedY.IsAcc() && Utils::eq<T>(*flushedY.GetAcc<T>(), +0.0))
         return (NEATValue((T)(+1.0), (T)(+1.0)));
@@ -2483,7 +2483,7 @@ public:
         return (NEATValue((T)(-1.0), (T)(-1.0)));
     }
 
-    // atan2pi ( ±0, x ) returns ± 0 for x > 0
+    // atan2pi ( +-0, x ) returns +- 0 for x > 0
     if (flushedX.IsAcc() && Utils::gt<T>(*flushedX.GetAcc<T>(), 0.0)) {
       if (flushedY.IsAcc() && Utils::eq<T>(*flushedY.GetAcc<T>(), +0.0))
         return (NEATValue((T)(+0.0), (T)(+0.0)));
@@ -2491,8 +2491,8 @@ public:
         return (NEATValue((T)(-0.0), (T)(-0.0)));
     }
 
-    // atan2pi ( y, ±0 ) returns -0.5 for y < 0
-    // atan2pi ( y, ±0 ) returns 0.5 for y > 0
+    // atan2pi ( y, +-0 ) returns -0.5 for y < 0
+    // atan2pi ( y, +-0 ) returns 0.5 for y > 0
     if ((flushedX.IsAcc() && Utils::eq<T>(*flushedX.GetAcc<T>(), -0.0)) ||
         (flushedX.IsAcc() && Utils::eq<T>(*flushedX.GetAcc<T>(), +0.0))) {
       if (flushedY.IsAcc() && Utils::lt<T>(*flushedY.GetAcc<T>(), 0.0))
@@ -2501,9 +2501,9 @@ public:
         return (NEATValue((T)(0.5), (T)(0.5)));
     }
 
-    // atan2pi ( ±INF, x ) returns ± 0.5 for finite x
-    // atan2pi (±INF, -INF ) returns ±0.75
-    // atan2pi (±INF, +INF ) returns ±0.25
+    // atan2pi ( +-INF, x ) returns +- 0.5 for finite x
+    // atan2pi (+-INF, -INF ) returns +-0.75
+    // atan2pi (+-INF, +INF ) returns +-0.25
     if (flushedY.IsAcc() && Utils::IsPInf(*flushedY.GetAcc<T>())) {
       if (flushedX.IsFinite<T>())
         return (NEATValue((T)(0.5), (T)(0.5)));
@@ -2521,7 +2521,7 @@ public:
         return (NEATValue((T)(-0.75), (T)(-0.75)));
     }
 
-    // atan2pi ( ±y, -INF ) returns ± 1 for finite y > 0
+    // atan2pi ( +-y, -INF ) returns +- 1 for finite y > 0
     if (flushedX.IsAcc() && Utils::IsNInf(*flushedX.GetAcc<T>())) {
       if (flushedY.IsFinite<T>()) {
         if (flushedY.IsAcc() && Utils::lt<T>(*flushedY.GetAcc<T>(), 0.0))
@@ -2531,7 +2531,7 @@ public:
       }
     }
 
-    // atan2pi ( ±y, +INF ) returns ± 0 for finite y > 0
+    // atan2pi ( +-y, +INF ) returns +- 0 for finite y > 0
     if (flushedX.IsAcc() && Utils::IsPInf(*flushedX.GetAcc<T>())) {
       if (flushedY.IsFinite<T>()) {
         if (flushedY.IsAcc() && Utils::lt<T>(*flushedY.GetAcc<T>(), 0.0))
@@ -3338,7 +3338,7 @@ public:
       // gentype modf ( gentype value, gentype *iptr )
       // {
       //     *iptr = trunc( value );
-      //      return copysign( isinf( value ) ? 0.0 : value – *iptr, value );
+      //      return copysign( isinf( value ) ? 0.0 : value *iptr, value );
       // }
       SuperT val = SuperT(*flushed.GetAcc<T>());
       SuperT integr = RefALU::trunc(val);
@@ -6811,29 +6811,29 @@ protected:
       return NEATValue(NEATValue::UNKNOWN);
 
     // First check special case from OpenCL specs: 7.5.1 Additional Requirements
-    // Beyond C99 TC2 powr ( ±0, ±0 ) returns NaN.
+    // Beyond C99 TC2 powr ( +-0, +-0 ) returns NaN.
     if (y.IsAcc() && (Utils::eq<T>(*y.GetAcc<T>(), T(0.0)) ||
                       Utils::eq<T>(*y.GetAcc<T>(), T(-0.0)))) {
       if (x.IsAcc() && (Utils::eq<T>(*x.GetAcc<T>(), (T)0.0) ||
                         Utils::eq<T>(*x.GetAcc<T>(), (T)-0.0)))
         return NEATValue::NaN<T>();
-      // powr ( x, ±0 ) is 1 for finite x > 0.
+      // powr ( x, +-0 ) is 1 for finite x > 0.
       if (x.IsFinite<T>() && Utils::gt<T>(*x.GetMin<T>(), T(0.0)))
         return NEATValue((T)1.0);
-      // powr ( +Inf, ±0 ) returns NaN.
+      // powr ( +Inf, +-0 ) returns NaN.
       if (x.IsAcc() && Utils::eq<T>(*x.GetAcc<T>(), Utils::GetPInf<T>()))
         return NEATValue::NaN<T>();
     }
 
-    // powr ( ±0, y ) is +Inf for finite y < 0.
+    // powr ( +-0, y ) is +Inf for finite y < 0.
     if (x.IsAcc() && (Utils::eq<T>(*x.GetAcc<T>(), (T)0.0) ||
                       Utils::eq<T>(*x.GetAcc<T>(), (T)-0.0))) {
       if (y.IsFinite<T>() && Utils::lt<T>(*y.GetMax<T>(), T(0.0)))
         return NEATValue(Utils::GetPInf<T>());
-      // powr ( ±0, -Inf) is +Inf.
+      // powr ( +-0, -Inf) is +Inf.
       if (y.IsAcc() && Utils::eq<T>(*y.GetAcc<T>(), Utils::GetNInf<T>()))
         return NEATValue(Utils::GetPInf<T>());
-      // powr ( ±0, y ) is +0 for y > 0.
+      // powr ( +-0, y ) is +0 for y > 0.
       if (y.IsFinite<T>() && Utils::gt<T>(*y.GetMin<T>(), T(0.0)))
         return NEATValue(T(+0.0));
     }
@@ -6842,7 +6842,7 @@ protected:
     if (x.IsAcc() && Utils::eq<T>(*x.GetAcc<T>(), (T) + 1.0)) {
       if (y.IsFinite<T>())
         return NEATValue(T(1));
-      // powr ( +1, ±Inf ) returns NaN.
+      // powr ( +1, +-Inf ) returns NaN.
       if (y.IsAcc() && (Utils::eq<T>(*y.GetAcc<T>(), Utils::GetPInf<T>()) ||
                         Utils::eq<T>(*y.GetAcc<T>(), Utils::GetNInf<T>())))
         return NEATValue::NaN<T>();

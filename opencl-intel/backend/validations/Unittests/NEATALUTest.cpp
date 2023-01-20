@@ -5095,7 +5095,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi) {
                                 curWidth, NUM_TESTS, TypeP(-0.5), TypeP(0.5));
 
   /* test for specific values */
-  // tanpi ( ±0 ) returns ±0
+  // tanpi ( +-0 ) returns +-0
   NEATValue accVal = NEATValue(TypeP(+0.0));
   NEATValue testAccVal = NEATALU::tanpi<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(+0.0)));
@@ -5104,7 +5104,7 @@ TYPED_TEST(NEATAluTypedMath, tanpi) {
   testAccVal = NEATALU::tanpi<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(-0.0)));
 
-  // tanpi ( ±INF ) returns a NaN
+  // tanpi ( +-INF ) returns a NaN
   accVal = NEATValue(Utils::GetPInf<TypeP>());
   testAccVal = NEATALU::tanpi<TypeP>(accVal);
   EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
@@ -6459,7 +6459,7 @@ TYPED_TEST(NEATAluTypedMath, sinpi) {
   testAccVal = NEATALU::sinpi<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(-0.0)));
 
-  // sinpi ( ±INF ) returns a NaN
+  // sinpi ( +-INF ) returns a NaN
   accVal = NEATValue(Utils::GetPInf<TypeP>(), Utils::GetPInf<TypeP>());
   testAccVal = NEATALU::sinpi<TypeP>(accVal);
   EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
@@ -6756,7 +6756,7 @@ TYPED_TEST(NEATAluTypedMath, cospi) {
                                 curWidth, NUM_TESTS, TypeP(0.1), TypeP(0.9));
 
   /* test for specific values */
-  // cospi ( ±0 ) returns 1
+  // cospi ( +-0 ) returns 1
   NEATValue accVal = NEATValue(TypeP(+0.0), TypeP(+0.0));
   NEATValue testAccVal = NEATALU::cospi<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(1.0)));
@@ -6765,7 +6765,7 @@ TYPED_TEST(NEATAluTypedMath, cospi) {
   testAccVal = NEATALU::cospi<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(1.0)));
 
-  // cospi ( ±INF ) returns a NaN
+  // cospi ( +-INF ) returns a NaN
   accVal = NEATValue(Utils::GetPInf<TypeP>(), Utils::GetPInf<TypeP>());
   testAccVal = NEATALU::cospi<TypeP>(accVal);
   EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
@@ -7064,7 +7064,7 @@ TYPED_TEST(NEATAluTypedMath, asinpi) {
   testAccVal = NEATALU::asinpi<TypeP>(NEATValue::NaN<TypeP>());
   EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
 
-  // asinpi ( ±0 ) = ±0
+  // asinpi ( +-0 ) = +-0
   testAccVal = NEATALU::asinpi<TypeP>(NEATValue(TypeP(+0.0), TypeP(+0.0)));
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(+0.0)));
 
@@ -7444,7 +7444,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi) {
                                 TypeP(100.0));
 
   /* test for specific values */
-  // atanpi ( ±0 ) = ±0.
+  // atanpi ( +-0 ) = +-0.
   NEATValue testAccVal =
       NEATALU::atanpi<TypeP>(NEATValue(TypeP(+0.0), TypeP(+0.0)));
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(+0.0)));
@@ -7464,7 +7464,7 @@ TYPED_TEST(NEATAluTypedMath, atanpi) {
   testAccVal = NEATALU::atanpi<TypeP>(NEATValue::NaN<TypeP>());
   EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
 
-  // atanpi ( ±INF ) = ±0.5
+  // atanpi ( +-INF ) = +-0.5
   testAccVal = NEATALU::atanpi<TypeP>(
       NEATValue(Utils::GetNInf<TypeP>(), Utils::GetNInf<TypeP>()));
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(-0.5)));
@@ -8015,7 +8015,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi) {
   testAccVal = NEATALU::atan2pi<TypeP>(accValY, accValX);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(-0.0)));
 
-  // atan2pi ( y, ±0 ) returns -0.5 for y < 0
+  // atan2pi ( y, +-0 ) returns -0.5 for y < 0
   accValX = NEATValue(TypeP(+0.0), TypeP(+0.0));
   accValY = NEATValue(TypeP(-0.9), TypeP(-0.9));
   testAccVal = NEATALU::atan2pi<TypeP>(accValY, accValX);
@@ -8026,7 +8026,7 @@ TYPED_TEST(NEATAluTypedMath, atan2pi) {
   testAccVal = NEATALU::atan2pi<TypeP>(accValY, accValX);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(-0.5)));
 
-  // atan2pi ( y, ±0 ) returns 0.5 for y > 0
+  // atan2pi ( y, +-0 ) returns 0.5 for y > 0
   accValX = NEATValue(TypeP(+0.0), TypeP(+0.0));
   accValY = NEATValue(TypeP(0.9), TypeP(0.9));
   testAccVal = NEATALU::atan2pi<TypeP>(accValY, accValX);

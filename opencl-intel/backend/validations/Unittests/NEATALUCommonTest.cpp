@@ -864,8 +864,8 @@ TYPED_TEST_SUITE(NEATCommonTestThreeArgs, FloatTypesCommon2, );
 
 template <typename T>
 static void testSignResult(NEATValue xVal, NEATValue testVal) {
-  // refernce functionreturns  1.0 if x > 0, -0.0 if x = -0.0,
-  // +0.0 if x = +0.0, or –1.0 if x < 0.
+  // reference function returns 1.0 if x > 0, -0.0 if x = -0.0,
+  // +0.0 if x = +0.0, or -1.0 if x < 0.
   T min = *xVal.GetMin<T>();
   T max = *xVal.GetMax<T>();
 

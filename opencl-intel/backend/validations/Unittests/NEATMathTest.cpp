@@ -2495,19 +2495,19 @@ TYPED_TEST(NEATMathTestTwoArgs, powr) {
                                     (TypeP)0.0, TypeP(1.0)));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP)2.0,
                                     (TypeP)-0.0, TypeP(1.0)));
-  // powr ( ±0, y ) is +Inf for finite y < 0.
+  // powr ( +-0, y ) is +Inf for finite y < 0.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP) + 0.0,
                                     TypeP(-3.0), Utils::GetPInf<TypeP>()));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP)-0.0,
                                     TypeP(-3.0), Utils::GetPInf<TypeP>()));
-  // powr ( ±0, -Inf) is +Inf.
+  // powr ( +-0, -Inf) is +Inf.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP) + 0.0,
                                     Utils::GetNInf<TypeP>(),
                                     Utils::GetPInf<TypeP>()));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP)-0.0,
                                     Utils::GetNInf<TypeP>(),
                                     Utils::GetPInf<TypeP>()));
-  // powr ( ±0, y ) is +0 for y > 0.
+  // powr ( +-0, y ) is +0 for y > 0.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP) + 0.0,
                                     TypeP(3.0), (TypeP)0.0));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::powr<TypeP>, (TypeP)-0.0,
@@ -2528,7 +2528,7 @@ TYPED_TEST(NEATMathTestTwoArgs, powr) {
   // powr ( x, y ) returns NaN for x < 0.
   testVal = NEATALU::powr<TypeP>(nAccVal, accVal);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // powr ( ±0, ±0 ) returns NaN.
+  // powr ( +-0, +-0 ) returns NaN.
   testVal = NEATALU::powr<TypeP>(nZero, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::powr<TypeP>(zero, zero);
@@ -2537,12 +2537,12 @@ TYPED_TEST(NEATMathTestTwoArgs, powr) {
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::powr<TypeP>(zero, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // powr ( +Inf, ±0 ) returns NaN.
+  // powr ( +Inf, +-0 ) returns NaN.
   testVal = NEATALU::powr<TypeP>(pInf, zero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::powr<TypeP>(pInf, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // powr ( +1, ±Inf ) returns NaN.
+  // powr ( +1, +-Inf ) returns NaN.
   testVal = NEATALU::powr<TypeP>(one, pInf);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::powr<TypeP>(one, nInf);
@@ -2615,19 +2615,19 @@ TYPED_TEST(NEATMathTestTwoArgs, half_powr) {
                                     (TypeP)0.0, TypeP(1.0)));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP)2.0,
                                     (TypeP)-0.0, TypeP(1.0)));
-  // half_powr ( ±0, y ) is +Inf for finite y < 0.
+  // half_powr ( +-0, y ) is +Inf for finite y < 0.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP) + 0.0,
                                     TypeP(-3.0), Utils::GetPInf<TypeP>()));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP)-0.0,
                                     TypeP(-3.0), Utils::GetPInf<TypeP>()));
-  // half_powr ( ±0, -Inf) is +Inf.
+  // half_powr ( +-0, -Inf) is +Inf.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP) + 0.0,
                                     Utils::GetNInf<TypeP>(),
                                     Utils::GetPInf<TypeP>()));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP)-0.0,
                                     Utils::GetNInf<TypeP>(),
                                     Utils::GetPInf<TypeP>()));
-  // half_powr ( ±0, y ) is +0 for y > 0.
+  // half_powr ( +-0, y ) is +0 for y > 0.
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP) + 0.0,
                                     TypeP(3.0), (TypeP)0.0));
   EXPECT_TRUE(TestPreciseRes<TypeP>(NEATALU::half_powr<TypeP>, (TypeP)-0.0,
@@ -2648,7 +2648,7 @@ TYPED_TEST(NEATMathTestTwoArgs, half_powr) {
   // half_powr ( x, y ) returns NaN for x < 0.
   testVal = NEATALU::half_powr<TypeP>(nAccVal, accVal);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // half_powr ( ±0, ±0 ) returns NaN.
+  // half_powr ( +-0, +-0 ) returns NaN.
   testVal = NEATALU::half_powr<TypeP>(nZero, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::half_powr<TypeP>(zero, zero);
@@ -2657,12 +2657,12 @@ TYPED_TEST(NEATMathTestTwoArgs, half_powr) {
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::half_powr<TypeP>(zero, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // half_powr ( +Inf, ±0 ) returns NaN.
+  // half_powr ( +Inf, +-0 ) returns NaN.
   testVal = NEATALU::half_powr<TypeP>(pInf, zero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::half_powr<TypeP>(pInf, nZero);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
-  // half_powr ( +1, ±Inf ) returns NaN.
+  // half_powr ( +1, +-Inf ) returns NaN.
   testVal = NEATALU::half_powr<TypeP>(one, pInf);
   EXPECT_TRUE(testVal.IsNaN<TypeP>());
   testVal = NEATALU::half_powr<TypeP>(one, nInf);
@@ -2765,7 +2765,7 @@ TYPED_TEST(NEATMathTestOneArg, fabs) {
                                 TypeP(0.5));
 
   /* test for specific values */
-  // fabs ( ±0 ) returns +0
+  // fabs ( +-0 ) returns +0
   NEATValue accVal = NEATValue(TypeP(+0.0));
   NEATValue testAccVal = NEATALU::fabs<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(+0.0)));
@@ -2774,7 +2774,7 @@ TYPED_TEST(NEATMathTestOneArg, fabs) {
   testAccVal = NEATALU::fabs<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, TypeP(+0.0)));
 
-  // fabs ( ±INF ) returns a +INF
+  // fabs ( +-INF ) returns a +INF
   accVal = NEATValue(Utils::GetPInf<TypeP>());
   testAccVal = NEATALU::fabs<TypeP>(accVal);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, Utils::GetPInf<TypeP>()));
@@ -3175,7 +3175,7 @@ TYPED_TEST(NEATMathTestTwoArgs, fract) {
   EXPECT_TRUE(accValy.IsUnknown());
 
   // corner cases tests
-  // test fract( ±0 , iptr)
+  // test fract( +-0 , iptr)
   const TypeP Pz = +0.0;
   const TypeP Nz = -0.0;
   const NEATValue pzero = NEATValue(Pz);
@@ -3192,7 +3192,7 @@ TYPED_TEST(NEATMathTestTwoArgs, fract) {
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, Pz));
   EXPECT_TRUE(TestAccValue<TypeP>(accValy, Pz));
 
-  // test fract( ±INF , iptr)
+  // test fract( +-INF , iptr)
   const TypeP pi = Utils::GetPInf<TypeP>();
   const TypeP ni = Utils::GetNInf<TypeP>();
   const NEATValue pinf = NEATValue(pi);
@@ -3364,7 +3364,7 @@ TYPED_TEST(NEATMathTestTwoArgs, hypot) {
   EXPECT_TRUE(TestUnwritten<TypeP>(NEATALU::hypot<TypeP>));
   EXPECT_TRUE(TestAny<TypeP>(NEATALU::hypot<TypeP>));
 
-  // hypot ( ±0 ) returns ±0
+  // hypot ( +-0 ) returns +-0
   const TypeP Pz = +0.0;
   const TypeP Nz = -0.0;
   const NEATValue pzero = NEATValue(Pz);
@@ -3376,7 +3376,7 @@ TYPED_TEST(NEATMathTestTwoArgs, hypot) {
   testAccVal = NEATALU::hypot<TypeP>(nzero, nzero);
   EXPECT_TRUE(TestAccValue<TypeP>(testAccVal, Pz));
 
-  // hypot( ±INF ) returns a +INF
+  // hypot( +-INF ) returns a +INF
   const TypeP pi = Utils::GetPInf<TypeP>();
   const TypeP ni = Utils::GetNInf<TypeP>();
   const NEATValue pinf = NEATValue(pi);
