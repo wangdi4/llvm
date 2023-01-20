@@ -66,9 +66,7 @@ const Instruction *HIRParser::getCurInst() const {
     auto Latch = Lp->getLoopLatch();
 
     auto Term = Latch->getTerminator();
-    auto BrInst = dyn_cast<BranchInst>(Term);
-
-    assert(BrInst && "Loop latch is not a branch!");
+    auto BrInst = cast<BranchInst>(Term);
 
     return cast<Instruction>(BrInst->getCondition());
 
@@ -78,7 +76,7 @@ const Instruction *HIRParser::getCurInst() const {
   } else if (auto If = dyn_cast<HLIf>(CurNode)) {
     auto BB = HIRC.getSrcBBlock(If);
     auto Term = BB->getTerminator();
-    auto BrInst = dyn_cast<BranchInst>(Term);
+    auto BrInst = cast<BranchInst>(Term);
 
     if (isa<Instruction>(BrInst->getCondition())) {
       return cast<Instruction>(BrInst->getCondition());

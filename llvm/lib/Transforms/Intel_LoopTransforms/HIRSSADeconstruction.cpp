@@ -65,7 +65,9 @@ namespace {
 
 class HIRSSADeconstruction {
 public:
-  HIRSSADeconstruction() : ModifiedIR(false), NamingCounter(0) {}
+  HIRSSADeconstruction()
+      : DT(nullptr), LI(nullptr), RI(nullptr), ScopedSE(nullptr), SCCF(nullptr),
+        ModifiedIR(false), NamingCounter(0), CurRegIt(0) {}
 
   bool run(Function &F, DominatorTree &DT, LoopInfo &LI,
            HIRRegionIdentification &RI, HIRSCCFormation &SCCF);

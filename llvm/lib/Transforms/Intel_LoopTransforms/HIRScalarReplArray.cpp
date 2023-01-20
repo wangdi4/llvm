@@ -614,7 +614,7 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
       }
 
       // Check: OtherRef must be in the same MRG
-      if (!belongs(dyn_cast<RegDDRef>(OtherRef))) {
+      if (!belongs(cast<RegDDRef>(OtherRef))) {
         return false;
       }
     }

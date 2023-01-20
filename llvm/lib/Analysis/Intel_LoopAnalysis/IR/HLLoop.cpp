@@ -164,6 +164,11 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 }
 
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
+
+  if (&Lp == this) {
+    return *this;
+  }
+
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
   HasSignedIV = Lp.HasSignedIV;
