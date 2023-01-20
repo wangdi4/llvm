@@ -3585,7 +3585,16 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //                <VF x Ty addrspace(x)*>
   Type *FlattenedTy = getWidenedType(
       VecType->getElementType()->getPointerTo(AddrSpace), getVF());
-  WidePtr->setBitCastDestVecOrElemType(FlattenedTy);
+
+  if (WidePtr->isAddressOf()) {
+    WidePtr->setBitCastDestVecOrElemType(FlattenedTy);
+  } else if (FlattenedTy != WidePtr->getDestType()) {
+    auto *Cast = HLNodeUtilities.createBitCast(FlattenedTy, WidePtr,
+                                               "scattergather.cast");
+    addInstUnmasked(Cast);
+    WidePtr = Cast->getLvalDDRef()->clone();
+  }
+
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
              WidePtr->dump(1); dbgs() << "\n");
 
@@ -3620,7 +3629,8 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   RegDDRef *ReplWidePtr = ReplWidePtrInst->getLvalDDRef();
   RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(VecType->getElementType(),
       ReplWidePtr->getSelfBlobIndex(), ReplWidePtr->getDefinedAtLevel());
-  ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
+  if (WidePtr->isAddressOf())
+    ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
   ReplWidePtrAddr->addDimension(IndexCE);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplWidePtrAddr : ";
              ReplWidePtrAddr->dump(1); dbgs() << "\n");
