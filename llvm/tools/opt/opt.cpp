@@ -406,10 +406,6 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
       codegen::getExplicitCodeModel(), GetCodeGenOptLevel());
 }
 
-#ifdef BUILD_EXAMPLES
-void initializeExampleIRTransforms(llvm::PassRegistry &Registry);
-#endif
-
 struct TimeTracerRAII {
   TimeTracerRAII(StringRef ProgramName) {
     if (TimeTrace)
@@ -594,10 +590,6 @@ int main(int argc, char **argv) {
   initializeESIMDVerifierPass(Registry);
   initializeSYCLLowerWGLocalMemoryLegacyPass(Registry);
   initializeSYCLMutatePrintfAddrspaceLegacyPassPass(Registry);
-
-#ifdef BUILD_EXAMPLES
-  initializeExampleIRTransforms(Registry);
-#endif
 
   SmallVector<PassPlugin, 1> PluginList;
   PassPlugins.setCallback([&](const std::string &PluginPath) {

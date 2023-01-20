@@ -72,10 +72,6 @@ add_llvm_tool(opt
   )
 export_executable_symbols_for_plugins(opt)
 
-if(LLVM_BUILD_EXAMPLES)
-    target_link_libraries(opt PRIVATE ExampleIRTransforms)
-endif(LLVM_BUILD_EXAMPLES)
-
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
