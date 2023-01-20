@@ -882,9 +882,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-  case CK_Emeraldrapids:
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
   case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL
@@ -2573,9 +2570,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-    case CK_Emeraldrapids:
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
     case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL

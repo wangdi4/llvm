@@ -850,14 +850,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_EMR
-    // Emeraldrapids:
-    case 0xcf:
-      CPU = "emeraldrapids";
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_EMERALDRAPIDS;
-      break;
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
     // Royal:
     case 0x18:

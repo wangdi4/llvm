@@ -2150,10 +2150,6 @@ def : ProcModel<"gracemont", GRTModel,
 def : ProcModel<"diamondrapids", SPRModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-def : ProcModel<"emeraldrapids", SPRModel,
-                ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
 def : ProcModel<"royal", RYLModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
