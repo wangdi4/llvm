@@ -37,14 +37,15 @@ set(TARGET_INCLUDE_FILES
     ${TARGET_EXTRA_INCLUDE_FILES})
 
 set(TARGET_SOURCE_FILES
+    Atomics.cpp
     BackendUtils.cpp
     BlockUtils.cpp
-    debuggingservicetype.cpp
+    GDBRegistrationListener.cpp
     OptimizerConfig.cpp
     SerializerCompatibility.cpp
     TypeConversion.cpp
     VectorizerUtils.cpp
-    Atomics.cpp
+    debuggingservicetype.cpp
     ${TARGET_EXTRA_SOURCE_FILES})
 
 include_directories(
