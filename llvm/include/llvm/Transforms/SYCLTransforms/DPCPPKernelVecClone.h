@@ -71,6 +71,8 @@ public:
       VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm

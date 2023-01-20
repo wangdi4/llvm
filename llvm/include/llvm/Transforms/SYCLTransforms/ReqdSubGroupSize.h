@@ -24,6 +24,7 @@ class ReqdSubGroupSizePass : public PassInfoMixin<ReqdSubGroupSizePass> {
 public:
   bool runImpl(Module &M);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+  static bool isRequired() { return true; }
 };
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_SYCLTRANSFORMS_REQD_SUBGROUP_SIZE_PASS_H

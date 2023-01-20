@@ -373,6 +373,11 @@ static cl::opt<bool> EnableInlineAggAnalysis(
     cl::desc(
         "Enable Inline Aggressive Analysis for the new PM (default = on)"));
 
+// Enable vectorization at O0 optimization level.
+cl::opt<bool> EnableO0Vectorization(
+    "enable-o0-vectorization", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization at O0 optimization level"));
+
 #if INTEL_FEATURE_SW_ADVANCED
 // IP Cloning
 static cl::opt<bool> EnableIPCloning(
@@ -2033,7 +2038,7 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
 void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
                                OptimizationLevel Level, bool RunVec,
                                bool Simplify) {
-  if (!RunVPOParopt)
+  if (!EnableO0Vectorization && !RunVPOParopt)
     return;
 
   unsigned OptLevel = Level.getSpeedupLevel();
@@ -2089,7 +2094,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
   if (RunVec || EnableDeviceSimd) {
-    if (EnableDeviceSimd || (OptLevel == 0 && RunVPOVecopt)) {
+    if (EnableDeviceSimd || (OptLevel == 0 && (RunVPOVecopt || EnableO0Vectorization))) {
       // Makes sure #pragma omp if clause will be reduced before VPlan pass
       FPM.addPass(VPlanPragmaOmpSimdIfPass());
       // LegacyPM calls an equivalent addFunctionSimplificationPasses,
@@ -2107,7 +2112,8 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
         addLoopOptPasses(MPM, FPM, Level, /*IsLTO=*/false);
       }
 
-      if (RunVPOOpt && EnableVPlanDriver && RunPostLoopOptVPOPasses) {
+      if ((RunVPOOpt && EnableVPlanDriver) && (RunPostLoopOptVPOPasses ||
+          (OptLevel == 0 && EnableO0Vectorization))) {
         // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
         // vectorized after createVPlanDriverHIRPass
         if (OptLevel > 0)
@@ -3691,20 +3697,6 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
     MPM.addPass(
         createModuleToFunctionPassAdaptor(LowerMatrixIntrinsicsPass(true)));
 
-#if INTEL_COLLAB
-  if (RunVPOOpt) {
-#if INTEL_CUSTOMIZATION
-    if (RunVecClone && RunVPOVecopt)
-      MPM.addPass(VecClonePass());
-#endif // INTEL_CUSTOMIZATION
-    // Add VPO transform and vec passes.
-    FunctionPassManager FPM;
-    addVPOPasses(MPM, FPM, Level, /*RunVec=*/true);
-    if (!FPM.isEmpty())
-      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-  }
-
-#endif // INTEL_COLLAB
   if (!CGSCCOptimizerLateEPCallbacks.empty()) {
     CGSCCPassManager CGPM;
     for (auto &C : CGSCCOptimizerLateEPCallbacks)
@@ -3741,6 +3733,20 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   for (auto &C : OptimizerEarlyEPCallbacks)
     C(MPM, Level);
 
+#if INTEL_COLLAB
+  if (RunVPOOpt) {
+#if INTEL_CUSTOMIZATION
+    if (RunVecClone && RunVPOVecopt)
+      MPM.addPass(VecClonePass());
+#endif // INTEL_CUSTOMIZATION
+    // Add VPO transform and vec passes.
+    FunctionPassManager FPM;
+    addVPOPasses(MPM, FPM, Level, /*RunVec=*/true, false);
+    if (!FPM.isEmpty())
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  }
+
+#endif // INTEL_COLLAB
   if (!VectorizerStartEPCallbacks.empty()) {
     FunctionPassManager FPM;
     for (auto &C : VectorizerStartEPCallbacks)
