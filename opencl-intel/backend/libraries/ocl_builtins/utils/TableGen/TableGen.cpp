@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   int ret = 0;
   try {
     ret = TableGenMain(argv[0], &OCLTableGenMain);
-  } catch (std::bad_array_new_length &e) {
+  } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;
     return -1;
   }
