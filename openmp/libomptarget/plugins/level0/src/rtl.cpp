@@ -5483,8 +5483,12 @@ int32_t LevelZeroProgramTy::addModule(
     ze_module_format_t Format) {
   ze_module_constants_t SpecConstants =
       DeviceInfo->Option.CommonSpecConstants.getModuleConstants();
+  bool IsSPIRV = (Format == ZE_MODULE_FORMAT_IL_SPIRV);
+  bool IsXeHP = (DeviceInfo->DeviceArchs[DeviceId] == DeviceArch_XeHP);
+  bool OptLinkLibDevice = DeviceInfo->Option.Flags.LinkLibDevice;
+
   // Allow library module compilation only for XeHP.
-  if (IsLibModule && DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_XeHP)
+  if (IsLibModule && !IsXeHP)
     return OFFLOAD_SUCCESS;
 
   std::string BuildOptions(CommonBuildOptions);
@@ -5503,8 +5507,7 @@ int32_t LevelZeroProgramTy::addModule(
   ze_module_build_log_handle_t BuildLog = nullptr;
   ze_result_t RC;
 
-  if (DeviceInfo->Option.Flags.LinkLibDevice && !IsLibModule &&
-      Format == ZE_MODULE_FORMAT_IL_SPIRV && Modules.size() == 0) {
+  if (OptLinkLibDevice && !IsLibModule && IsSPIRV && Modules.size() == 0) {
     // Handle link libdevice option. Do this only for the first moudle build
 
     // Check if driver is capable of creating module from multiple SPV images.
@@ -5609,6 +5612,27 @@ int32_t LevelZeroProgramTy::addModule(
       return OFFLOAD_SUCCESS;
     return OFFLOAD_FAIL;
   } else {
+    // Check if the module contains any OpenMP kernels. Otherwise, we need to
+    // recompile it as a user library allowing global variables in the table.
+    if (!IsLibModule && IsXeHP && IsSPIRV) {
+      uint32_t NumKernels = 0;
+      CALL_ZE_RET_FAIL(zeModuleGetKernelNames, Module, &NumKernels, nullptr);
+      if (NumKernels == 0) {
+        IsLibModule = true;
+      } else if (NumKernels == 1) {
+        // Image created with the current tool may report 1 non-OpenMP kernel,
+        // so handle this case as a user library as well.
+        const char *Name = nullptr;
+        CALL_ZE_RET_FAIL(zeModuleGetKernelNames, Module, &NumKernels, &Name);
+        if (Name && std::strncmp(Name, "__omp_offloading_", 17) != 0)
+          IsLibModule = true;
+      }
+      if (IsLibModule) {
+        CALL_ZE_RET_FAIL(zeModuleDestroy, Module);
+        DP("Rebuilding current module as a user library\n");
+        return addModule(Size, Image, CommonBuildOptions, Format);
+      }
+    }
     // Check if module link is required. We do not need this check for
     // library module
     if (!RequiresModuleLink && !IsLibModule) {
