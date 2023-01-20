@@ -4608,17 +4608,19 @@ class OffloadingActionBuilder final {
           if (A->getOption().matches(options::OPT_no_offload_arch_EQ) &&
               ArchStr == "all") {
             GpuArchs.clear();
-          } else if (ArchStr == "native" &&
-                     ToolChains.front()->getTriple().isAMDGPU()) {
-            auto *TC = static_cast<const toolchains::HIPAMDToolChain *>(
-                ToolChains.front());
-            SmallVector<std::string, 1> GPUs;
-            auto Err = TC->detectSystemGPUs(Args, GPUs);
-            if (!Err) {
-              for (auto GPU : GPUs)
-                GpuArchs.insert(Args.MakeArgString(GPU));
-            } else
-              llvm::consumeError(std::move(Err));
+          } else if (ArchStr == "native") {
+            const ToolChain &TC = *ToolChains.front();
+            auto GPUsOrErr = ToolChains.front()->getSystemGPUArchs(Args);
+            if (!GPUsOrErr) {
+              TC.getDriver().Diag(diag::err_drv_undetermined_gpu_arch)
+                  << llvm::Triple::getArchTypeName(TC.getArch())
+                  << llvm::toString(GPUsOrErr.takeError()) << "--offload-arch";
+              continue;
+            }
+
+            for (auto GPU : *GPUsOrErr) {
+              GpuArchs.insert(Args.MakeArgString(GPU));
+            }
           } else {
             ArchStr = getCanonicalOffloadArch(ArchStr);
             if (ArchStr.empty()) {
@@ -8284,11 +8286,25 @@ Driver::getOffloadArchs(Compilation &C, const llvm::opt::DerivedArgList &Args,
     // invalid architecture is given we simply exit.
     if (Arg->getOption().matches(options::OPT_offload_arch_EQ)) {
       for (StringRef Arch : llvm::split(Arg->getValue(), ",")) {
-        StringRef ArchStr =
-            getCanonicalArchString(C, Args, Arch, TC->getTriple());
-        if (ArchStr.empty())
-          return Archs;
-        Archs.insert(ArchStr);
+        if (Arch == "native") {
+          auto GPUsOrErr = TC->getSystemGPUArchs(Args);
+          if (!GPUsOrErr) {
+            TC->getDriver().Diag(diag::err_drv_undetermined_gpu_arch)
+                << llvm::Triple::getArchTypeName(TC->getArch())
+                << llvm::toString(GPUsOrErr.takeError()) << "--offload-arch";
+            continue;
+          }
+
+          for (auto ArchStr : *GPUsOrErr)
+            Archs.insert(
+                getCanonicalArchString(C, Args, ArchStr, TC->getTriple()));
+        } else {
+          StringRef ArchStr =
+              getCanonicalArchString(C, Args, Arch, TC->getTriple());
+          if (ArchStr.empty())
+            return Archs;
+          Archs.insert(ArchStr);
+        }
       }
     } else if (Arg->getOption().matches(options::OPT_no_offload_arch_EQ)) {
       for (StringRef Arch : llvm::split(Arg->getValue(), ",")) {
