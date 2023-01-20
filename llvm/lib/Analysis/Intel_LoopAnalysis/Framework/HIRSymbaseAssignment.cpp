@@ -155,7 +155,7 @@ void HIRSymbaseAssignment::run() {
       LLVM_DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
                         << "\n");
 
-      for (auto AV : AliasSet) {
+      for (const auto &AV : AliasSet) {
         Value *Ptr = AV.getValue();
         auto &Refs = SV.getRefs(Ptr);
         for (auto CurRef : Refs) {

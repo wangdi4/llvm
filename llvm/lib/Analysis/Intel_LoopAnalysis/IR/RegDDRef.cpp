@@ -1747,7 +1747,7 @@ void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
 
     // Check for non-unit denominator to skip calling uitlity for compile time
     // savings.
-    if (!IsLoopBound && (CE->getDenominator() != 1)) {
+    if (!IsLoopBound && Node && (CE->getDenominator() != 1)) {
       // Utility may assert for non-attached nodes.
       IsNonNegative =
           (Node->isAttached() && HLNodeUtils::isKnownNonNegative(CE, Node));

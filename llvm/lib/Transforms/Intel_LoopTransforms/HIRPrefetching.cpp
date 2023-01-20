@@ -287,8 +287,10 @@ unsigned HIRPrefetching::getPrefetchingDist(HLLoop *Lp) {
   }
 
   RegDDRef *StrideRef = Lp->getStrideDDRef();
-  int64_t LpStride;
-  StrideRef->isIntConstant(&LpStride);
+  int64_t LpStride = 0;
+  bool Res = StrideRef->isIntConstant(&LpStride);
+  (void)Res;
+  assert(Res && "Loop stride expected to be integer constant!");
 
   return IterationDistance * LpStride;
 }
