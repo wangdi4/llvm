@@ -345,6 +345,7 @@ private:
   void Select_PSEUDO_LOOP_HEADER(SDNode *N);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
+  void Select_MEMBARRIER(SDNode *N);
 
   void pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops, SDValue Operand,
                                 SDLoc DL);
