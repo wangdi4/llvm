@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # Check if the host compiler is new enough.
 # These versions are updated based on the following policy:
 #   llvm.org/docs/DeveloperPolicy.html#toolchain
@@ -63,7 +80,7 @@ if ((${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC) AND
 endif()
 
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM") # INTEL
   if (CMAKE_CXX_SIMULATE_ID MATCHES "MSVC")
     if (CMAKE_CXX_SIMULATE_VERSION VERSION_LESS MSVC_MIN)
       message(FATAL_ERROR "Host Clang must have at least -fms-compatibility-version=${MSVC_MIN}, your version is ${CMAKE_CXX_SIMULATE_VERSION}.")
