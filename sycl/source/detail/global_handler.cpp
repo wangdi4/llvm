@@ -208,8 +208,10 @@ void GlobalHandler::prepareSchedulerToRelease() {
 }
 
 void GlobalHandler::drainThreadPool() {
+#ifndef _WIN32
   if (MHostTaskThreadPool.Inst)
     MHostTaskThreadPool.Inst->drain();
+#endif
 }
 
 void shutdown() {
