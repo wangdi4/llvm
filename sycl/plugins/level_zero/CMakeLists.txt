@@ -90,7 +90,10 @@ endif()
 find_package(Python3 REQUIRED)
 
 add_custom_target(ze-api DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def)
+<<<<<<< HEAD
 
+=======
+>>>>>>> c8a1e670af13857fbe559fe940883c82f0a87389
 add_custom_command(
   OUTPUT
   ${CMAKE_CURRENT_BINARY_DIR}/ze_api.def
