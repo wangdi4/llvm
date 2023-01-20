@@ -52,6 +52,7 @@ namespace DeviceBackend {
 extern const char *CPU_ARCH_AUTO;
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags();
+llvm::JITEventListener *getGDBRegistrationListenerInstance();
 
 /*
  * Utility methods
@@ -247,8 +248,7 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
   llvm::orc::RTDyldObjectLinkingLayer &LL =
       static_cast<llvm::orc::RTDyldObjectLinkingLayer &>(
           LLJIT->getObjLinkingLayer());
-  LL.registerJITEventListener(
-      *llvm::JITEventListener::createGDBRegistrationListener());
+  LL.registerJITEventListener(*getGDBRegistrationListenerInstance());
   if (m_pVTuneListener)
     LL.registerJITEventListener(*m_pVTuneListener);
 
