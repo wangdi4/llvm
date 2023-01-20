@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.cpp - DTrans Field ModRef Analysis-----------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -55,6 +55,10 @@ namespace llvm {
 // function, and the results printed.
 static cl::opt<bool> DTransFieldModRefEval("dtrans-fieldmodref-eval",
                                            cl::init(false), cl::ReallyHidden);
+
+// Print the module before running the DTrans field mod/ref analysis.
+static cl::opt<bool> DumpBeforeDTransFMR("dump-module-before-dtrans-fmr",
+                                         cl::init(false), cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 static const char *ModRefInfoToString(ModRefInfo &Info) {
@@ -822,8 +826,10 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
       continue;
 
     auto *StTy = cast<llvm::StructType>(StInfo->getLLVMType());
-    if (StTy->isLiteral())
+    if (StTy->isLiteral()) {
+      setAllFieldsToBottom(StInfo);
       continue;
+    }
 
     if (StInfo->testSafetyData(ModRefSafetyMask)) {
       setAllFieldsToBottom(StInfo);
@@ -902,10 +908,15 @@ void DTransModRefAnalyzerImpl<InfoClass>::setAllFieldsToBottom(
   for (auto &FI : StInfo->getFields()) {
     FI.setRWBottom();
     llvm::Type *FieldTy = FI.getLLVMType();
-    if (FieldTy->isStructTy()) {
-      dtrans::StructInfo *FieldStInfo =
-          DTInfo->getStructTypeInfo(cast<llvm::StructType>(FieldTy));
-      setAllFieldsToBottom(FieldStInfo);
+    if (auto *LLVMStType = dyn_cast<llvm::StructType>(FieldTy)) {
+      // Ignore literal types because they are not candidates for the analysis,
+      // and so have already been set to 'bottom'. Literal types cannot be
+      // passed to the getStructTypeInfo method of the DTransSafetyInfo here
+      // because that performs a lookup based on the structure's name.
+      if (!LLVMStType->isLiteral()) {
+        dtrans::StructInfo *FieldStInfo = DTInfo->getStructTypeInfo(LLVMStType);
+        setAllFieldsToBottom(FieldStInfo);
+      }
     }
   }
 }
@@ -1530,8 +1541,17 @@ bool DTransModRefAnalyzer::runAnalysis(Module &M,
                                        dtransOP::DTransSafetyInfo &DTransInfo,
                                        WholeProgramInfo &WPInfo,
                                        FieldModRefResult &FMRResult) {
-  if (!DTransInfo.useDTransSafetyAnalysis())
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (DumpBeforeDTransFMR)
+    M.dump();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  if (!DTransInfo.useDTransSafetyAnalysis()) {
+    DEBUG_WITH_TYPE(
+        DTRANS_FMR,
+        dbgs() << "DTrans safety analysis results are not available\n");
     return false;
+  }
 
   dtransOP::DTransSafetyInfoAdapter SIAdaptor(DTransInfo);
   DTransModRefAnalyzerImpl<dtransOP::DTransSafetyInfoAdapter> Impl;
