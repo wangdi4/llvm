@@ -25,25 +25,26 @@ using namespace llvm::X86;
 Value *llvm::formResolverCondition(IRBuilderBase &Builder,
                                    const MultiVersionResolverOption &RO,
                                    bool UseLibIRC) {
-  llvm::Value *Condition = nullptr;
+  Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
-    Condition = llvm::X86::emitCpuIs(Builder, RO.Conditions.Architecture);
+    Condition = X86::emitCpuIs(Builder, RO.Conditions.Architecture);
+
   if (!RO.Conditions.Features.empty()) {
-    llvm::Value *FeatureCond = nullptr;
+    Value *FeatureCond = nullptr;
     if (UseLibIRC) {
       std::array<uint64_t, 2> Bitmaps =
-          llvm::X86::getCpuFeatureBitmap(RO.Conditions.Features,
-                                         /*OnlyAutoGen=*/true);
-      FeatureCond = llvm::X86::mayIUseCpuFeatureHelper(
-          Builder,
-          {APSInt{APInt(64, Bitmaps[0]), true},
-           APSInt{APInt(64, Bitmaps[1]), true}});
+          X86::getCpuFeatureBitmap(RO.Conditions.Features, /*OnlyAutoGen=*/true);
+      FeatureCond = X86::mayIUseCpuFeatureHelper(
+          Builder, {APSInt{APInt(64, Bitmaps[0]), true},
+                    APSInt{APInt(64, Bitmaps[1]), true}});
     } else
-      FeatureCond = llvm::X86::emitCpuSupports(Builder, RO.Conditions.Features);
+      FeatureCond = X86::emitCpuSupports(Builder, RO.Conditions.Features);
+
     Condition =
         Condition ? Builder.CreateAnd(Condition, FeatureCond) : FeatureCond;
   }
+
   return Condition;
 }
 
@@ -114,9 +115,10 @@ static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
   Builder.SetInsertPoint(ElseBlock);
 }
 
-void llvm::emitMultiVersionResolver(
-    Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
-    bool UseIFunc, bool UseLibIRC) {
+void llvm::emitMultiVersionResolver(Function *Resolver,
+                                    ArrayRef<MultiVersionResolverOption> Options,
+                                    bool UseIFunc, bool UseLibIRC) {
+
   assert(Triple(Resolver->getParent()->getTargetTriple()).isX86() &&
          "Only implemented for x86 targets");
 
@@ -129,14 +131,15 @@ void llvm::emitMultiVersionResolver(
     emitResolverPtrTest(Resolver, Builder);
     CurBlock = Builder.GetInsertBlock();
   }
+
   if (UseLibIRC)
-    llvm::X86::emitCpuFeaturesInit(Builder, UseIFunc);
+    X86::emitCpuFeaturesInit(Builder, UseIFunc);
   else
-    llvm::X86::emitCPUInit(Builder, UseIFunc);
+    X86::emitCPUInit(Builder, UseIFunc);
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-    llvm::Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
+    Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
 
     // The 'default' or 'generic' case.
     if (!Condition) {
@@ -146,8 +149,7 @@ void llvm::emitMultiVersionResolver(
       return;
     }
 
-    llvm::BasicBlock *RetBlock =
-        BasicBlock::Create(Ctx, "resolver_return", Resolver);
+    BasicBlock *RetBlock = BasicBlock::Create(Ctx, "resolver_return", Resolver);
     {
       IRBuilderBase::InsertPointGuard Guard(Builder);
       Builder.SetInsertPoint(RetBlock);
@@ -216,28 +218,28 @@ static void emitInit(IRBuilderBase &Builder, StringRef FuncName, bool UseIFunc) 
     appendToGlobalCtors(*M, F, 0);
 }
 
-void llvm::X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
+void X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__cpu_indicator_init", UseIFunc);
 }
 
-void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
+void X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
 }
 
-Value *llvm::X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
+Value *X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   // Calculate the index needed to access the correct field based on the
   // range. Also adjust the expected value.
   unsigned Index;
   unsigned Val;
   std::tie(Index, Val) = StringSwitch<std::pair<unsigned, unsigned>>(CPUStr)
 #define X86_VENDOR(ENUM, STRING)                                               \
-  .Case(STRING, {0u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(STRING, {0u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_TYPE_ALIAS(ENUM, ALIAS)                                        \
-  .Case(ALIAS, {1u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(ALIAS, {1u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_TYPE(ENUM, STR)                                                \
-  .Case(STR, {1u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(STR, {1u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_SUBTYPE(ENUM, STR)                                             \
-  .Case(STR, {2u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(STR, {2u, static_cast<unsigned>(X86::ENUM)})
 #include "llvm/Support/X86TargetParser.def"
                              .Default({0, 0});
   assert(Val != 0 && "Invalid CPUStr passed to CpuIs");
@@ -255,8 +257,8 @@ Value *llvm::X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   return Builder.CreateICmpEQ(CpuValue, Builder.getInt32(Val));
 }
 
-Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
-                                  uint64_t FeaturesMask) {
+Value *X86::emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask) {
+
   uint32_t Features1 = Lo_32(FeaturesMask);
   uint32_t Features2 = Hi_32(FeaturesMask);
 
@@ -299,13 +301,13 @@ Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
   return Result;
 }
 
-Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
-                                  ArrayRef<StringRef> FeatureStrs) {
+Value *X86::emitCpuSupports(IRBuilderBase &Builder,
+                            ArrayRef<StringRef> FeatureStrs) {
   return emitCpuSupports(Builder, getCpuSupportsMask(FeatureStrs));
 }
 
-Value *llvm::X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                                          ArrayRef<llvm::APSInt> Pages) {
+Value *X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
+                                    ArrayRef<APSInt> Pages) {
 
   Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
   Value *IndicatorPtr = getOrCreateGlobal(
