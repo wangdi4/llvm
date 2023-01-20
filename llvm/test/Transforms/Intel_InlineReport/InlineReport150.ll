@@ -1,22 +1,37 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-GOOD,CHECK-GOOD-CL
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-GOOD,CHECK-GOOD-ML
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BAD,CHECK-BAD-CL
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BAD,CHECK-BAD-ML
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-GOOD,CHECK-GOOD-CL
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-GOOD,CHECK-GOOD-ML
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-BAD,CHECK-BAD-CL
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-BAD,CHECK-BAD-ML
 
 ; Check that with -inlining-dyn-alloca-special-arg-count=3 inlining happens
 ; with a dynamic alloca, but with -inlining-dyn-alloca-special-arg-count=4
 ; inlining does not happen with a dynamic alloca.
 
+; asa3_ also gets inlined because it is a single callsite function
+; which is passed down the special args from asa2_
+
 ; CHECK-GOOD-CL-NOT: call void @asa2_
-; CHECK-BAD-CL: call void @asa2_
-; CHECK-GOOD: DEAD STATIC FUNC: asa2_
-; CHECK-BAD: COMPILE FUNC: asa2_
-; CHECK: COMPILE FUNC: MAIN__
-; CHECK-BAD: asa2_ {{.*}}Callee has dynamic alloca
+; CHECK-GOOD-CL-NOT: call void @asa3_
+; CHECK-GOOD-CL: DEAD STATIC FUNC: asa2_
+; CHECK-GOOD-CL: DEAD STATIC FUNC: asa3_
+; CHECK-GOOD-ML: DEAD STATIC FUNC: asa3_
+; CHECK-GOOD-ML: DEAD STATIC FUNC: asa2_
+; CHECK-GOOD: COMPILE FUNC: MAIN__
 ; CHECK-GOOD: asa2_ {{.*}}Callee has single callsite and local linkage
+; CHECK-GOOD: asa3_ {{.*}}Callee has single callsite and local linkage
 ; CHECK-GOOD-ML-NOT: call void @asa2_
+; CHECK-GOOD-ML-NOT: call void @asa3_
+
+; CHECK-BAD-CL: call void @asa3_
+; CHECK-BAD-CL: call void @asa2_
+; CHECK-BAD: COMPILE FUNC: asa3_
+; CHECK-BAD: COMPILE FUNC: asa2_
+; CHECK-BAD: asa3_ {{.*}}Callee has dynamic alloca
+; CHECK-BAD: COMPILE FUNC: MAIN__
+; CHECK-BAD: asa2_ {{.*}}Callee has dynamic alloca
+; CHECK-BAD-ML: call void @asa3_
 ; CHECK-BAD-ML: call void @asa2_
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -29,6 +44,120 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.de2dcb5c6f60f26f7a15b3bfef1e9c01.1 = internal unnamed_addr constant i32 2, align 4
 
 declare dso_local void @__intel_new_feature_proc_init(i32, i64)
+
+; Function Attrs: nofree norecurse nosync nounwind memory(readwrite, inaccessiblemem: none) uwtable
+define internal void @asa3_(i32 %t0, i32 %t1, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg1, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg2) #0 !llfort.type_idx !4 {
+  %i = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg, i64 0, i32 0, !llfort.type_idx !5
+  %i3 = load double*, double** %i, align 1, !tbaa !6, !llfort.type_idx !12
+  %i4 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg, i64 0, i32 6, i64 0, i32 1
+  %i5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i4, i32 0), !llfort.type_idx !13
+  %i6 = load i64, i64* %i5, align 1, !tbaa !14, !llfort.type_idx !13
+  %i7 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg, i64 0, i32 6, i64 0, i32 0
+  %i8 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i4, i32 1), !llfort.type_idx !15
+  %i9 = load i64, i64* %i8, align 1, !tbaa !14, !llfort.type_idx !15
+  %i10 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i7, i32 1), !llfort.type_idx !16
+  %i11 = load i64, i64* %i10, align 1, !tbaa !17, !llfort.type_idx !16
+  %i12 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg1, i64 0, i32 0, !llfort.type_idx !18
+  %i13 = load double*, double** %i12, align 1, !tbaa !19, !llfort.type_idx !12
+  %i14 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg1, i64 0, i32 6, i64 0, i32 1
+  %i15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i14, i32 0), !llfort.type_idx !21
+  %i16 = load i64, i64* %i15, align 1, !tbaa !22, !llfort.type_idx !21
+  %i17 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg1, i64 0, i32 6, i64 0, i32 0
+  %i18 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i17, i32 0), !llfort.type_idx !23
+  %i19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i14, i32 1), !llfort.type_idx !24
+  %i20 = load i64, i64* %i19, align 1, !tbaa !22, !llfort.type_idx !24
+  %i21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i17, i32 1), !llfort.type_idx !25
+  %i22 = icmp slt i64 %i11, 1
+  br i1 %i22, label %bb44, label %bb23
+
+bb23:                                             ; preds = %bb
+  %i24 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i7, i32 0), !llfort.type_idx !26
+  %i25 = load i64, i64* %i24, align 1, !tbaa !17, !llfort.type_idx !26
+  %i26 = icmp slt i64 %i25, 1
+  %i27 = add nsw i64 %i25, 1
+  %i28 = add nuw nsw i64 %i11, 1
+  br label %bb39
+
+bb29:                                             ; preds = %bb41, %bb29
+  %i30 = phi i64 [ 1, %bb41 ], [ %i34, %bb29 ]
+  %i31 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %i16, double* elementtype(double) %i42, i64 %i30), !llfort.type_idx !27
+  %i32 = load double, double* %i31, align 1, !tbaa !28, !llfort.type_idx !27
+  %i33 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %i6, double* elementtype(double) %i43, i64 %i30), !llfort.type_idx !31
+  store double %i32, double* %i33, align 1, !tbaa !32
+  %i34 = add nuw nsw i64 %i30, 1
+  %i35 = icmp eq i64 %i34, %i27
+  br i1 %i35, label %bb36, label %bb29
+
+bb36:                                             ; preds = %bb39, %bb29
+  %i37 = add nuw nsw i64 %i40, 1
+  %i38 = icmp eq i64 %i37, %i28
+  br i1 %i38, label %bb44, label %bb39
+
+bb39:                                             ; preds = %bb36, %bb23
+  %i40 = phi i64 [ 1, %bb23 ], [ %i37, %bb36 ]
+  br i1 %i26, label %bb36, label %bb41
+
+bb41:                                             ; preds = %bb39
+  %i42 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %i20, double* elementtype(double) %i13, i64 %i40), !llfort.type_idx !34
+  %i43 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %i9, double* elementtype(double) %i3, i64 %i40), !llfort.type_idx !35
+  br label %bb29
+
+bb44:                                             ; preds = %bb36, %bb
+  %i45 = load i64, i64* %i21, align 1, !tbaa !36, !llfort.type_idx !37
+  %i46 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg2, i64 0, i32 0, !llfort.type_idx !38
+  %i47 = load double*, double** %i46, align 1, !tbaa !39, !llfort.type_idx !12
+  %i48 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %arg2, i64 0, i32 6, i64 0, i32 1
+  %i49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i48, i32 0), !llfort.type_idx !41
+  %i50 = load i64, i64* %i49, align 1, !tbaa !42, !llfort.type_idx !41
+  %i51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %i48, i32 1), !llfort.type_idx !43
+  %i52 = load i64, i64* %i51, align 1, !tbaa !42, !llfort.type_idx !43
+  %i53 = icmp slt i64 %i45, 1
+  br i1 %i53, label %bb74, label %bb54
+
+bb54:                                             ; preds = %bb44
+  %i55 = load i64, i64* %i18, align 1, !tbaa !36, !llfort.type_idx !44
+  %i56 = icmp slt i64 %i55, 1
+  %i57 = add nsw i64 %i55, 1
+  %i58 = add nuw nsw i64 %i45, 1
+  br label %bb69
+
+bb59:                                             ; preds = %bb71, %bb59
+  %i60 = phi i64 [ 1, %bb71 ], [ %i64, %bb59 ]
+  %i61 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %i50, double* elementtype(double) %i72, i64 %i60), !llfort.type_idx !45
+  %i62 = load double, double* %i61, align 1, !tbaa !46, !llfort.type_idx !45
+  %i63 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %i16, double* elementtype(double) %i73, i64 %i60), !llfort.type_idx !48
+  store double %i62, double* %i63, align 1, !tbaa !28
+  %i64 = add nuw nsw i64 %i60, 1
+  %i65 = icmp eq i64 %i64, %i57
+  br i1 %i65, label %bb66, label %bb59
+
+bb66:                                             ; preds = %bb69, %bb59
+  %i67 = add nuw nsw i64 %i70, 1
+  %i68 = icmp eq i64 %i67, %i58
+  br i1 %i68, label %bb74, label %bb69
+
+bb69:                                             ; preds = %bb66, %bb54
+  %i70 = phi i64 [ 1, %bb54 ], [ %i67, %bb66 ]
+  br i1 %i56, label %bb66, label %bb71
+
+bb71:                                             ; preds = %bb69
+  %i72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %i52, double* elementtype(double) %i47, i64 %i70), !llfort.type_idx !49
+  %i73 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %i20, double* elementtype(double) %i13, i64 %i70), !llfort.type_idx !50
+  br label %bb59
+
+bb74:                                             ; preds = %bb66, %bb44
+  %t232 = sext i32 %t0 to i64
+  %t233 = icmp sgt i64 %t232, 0
+  %t234 = select i1 %t233, i64 %t232, i64 0
+  %t235 = mul nuw nsw i64 %t234, 560
+  %t236 = sext i32 %t1 to i64
+  %t237 = icmp sgt i64 %t236, 0
+  %t238 = select i1 %t237, i64 %t236, i64 0
+  %t239 = mul nsw i64 %t235, %t238
+  %t240 = lshr exact i64 %t239, 2
+  %t241 = alloca i32, i64 %t240, align 4
+  ret void
+}
 
 ; Function Attrs: nofree norecurse nosync nounwind memory(readwrite, inaccessiblemem: none) uwtable
 define internal void @asa2_(i32 %t0, i32 %t1, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg1, %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg2) #0 !llfort.type_idx !4 {
@@ -142,6 +271,7 @@ bb74:                                             ; preds = %bb66, %bb44
   %t239 = mul nsw i64 %t235, %t238
   %t240 = lshr exact i64 %t239, 2
   %t241 = alloca i32, i64 %t240, align 4
+  call void @asa3_(i32 10, i32 20, %"QNCA_a0$double*$rank2$"* nonnull %arg, %"QNCA_a0$double*$rank2$"* nonnull %arg1, %"QNCA_a0$double*$rank2$"* nonnull %arg2), !llfort.type_idx !121
   ret void
 }
 
