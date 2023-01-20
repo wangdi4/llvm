@@ -1,6 +1,6 @@
 //===--------  Intel_X86EmitMultiVersionResolver.h ------------------------===//
 //
-// Copyright (C) Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,18 +16,16 @@
 #include "llvm/ADT/StringRef.h"
 
 namespace llvm {
+
 class Value;
-class Type;
 class Function;
 class IRBuilderBase;
-class GlobalVariable;
 
 struct MultiVersionResolverOption {
   Function *Fn;
   struct Conds {
     StringRef Architecture;
-    llvm::SmallVector<StringRef, 8> Features;
-
+    SmallVector<StringRef, 8> Features;
     Conds(StringRef Arch, ArrayRef<StringRef> Feats)
         : Architecture(Arch), Features(Feats.begin(), Feats.end()) {}
   } Conditions;
@@ -43,18 +41,22 @@ struct MultiVersionResolverOption {
 void emitMultiVersionResolver(Function *Resolver,
                               ArrayRef<MultiVersionResolverOption> Options,
                               bool UseIFunc, bool UseLibIRC);
+
 Value *formResolverCondition(IRBuilderBase &Builder,
                              const MultiVersionResolverOption &RO,
                              bool UseLibIRC);
+
 namespace X86 {
+
 void emitCPUInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr);
 Value *emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask);
 Value *emitCpuSupports(IRBuilderBase &Builder, ArrayRef<StringRef> FeatureStrs);
 void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc);
-Value *mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                               ArrayRef<llvm::APSInt> Pages);
+Value *mayIUseCpuFeatureHelper(IRBuilderBase &Builder, ArrayRef<APSInt> Pages);
+
 } // namespace X86
+
 } // namespace llvm
 
 #endif
