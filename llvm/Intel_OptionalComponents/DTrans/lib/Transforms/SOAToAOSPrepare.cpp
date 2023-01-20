@@ -1402,7 +1402,7 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     }
 
     // Get function body for NF.
-    NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+    NF->splice(NF->begin(), F);
 
     // Fix argument usages since dead arg is moved at the end of param list,
     Pos = 0;
@@ -2375,7 +2375,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 
   updateCallBase(CB, NewPAL, NF, NewArgs);
 
-  NF->getBasicBlockList().splice(NF->begin(), AppendFunc->getBasicBlockList());
+  NF->splice(NF->begin(), AppendFunc);
 
   // Update argument uses.
   unsigned Pos = 0;

@@ -1088,8 +1088,8 @@ bool dtrans::PaddedMallocGlobals<InfoClass>::buildFuncBadCastValidation(
   BasicBlock *CheckBB = BasicBlock::Create(Func->getContext());
   BasicBlock *SetBB = BasicBlock::Create(Func->getContext());
 
-  Func->getBasicBlockList().push_front(SetBB);
-  Func->getBasicBlockList().push_front(CheckBB);
+  Func->insert(Func->begin(), SetBB);
+  Func->insert(Func->begin(), CheckBB);
 
   // Construct BB with a check
   Builder.SetInsertPoint(CheckBB);
@@ -1133,8 +1133,8 @@ void dtrans::PaddedMallocGlobals<InfoClass>::destroyGlobalsInfo(Module &M) {
     GlobalCounter->eraseFromParent();
 
   for (auto *F : BadCastValidatedFuncs) {
-    F->getBasicBlockList().pop_front();
-    F->getBasicBlockList().pop_front();
+    Function::iterator IterBegin = F->begin();
+    F->erase(IterBegin, ++IterBegin);
   }
   BadCastValidatedFuncs.clear();
 }
