@@ -2123,7 +2123,7 @@ private:
     }
 
     Function *Declaration;
-    GlobalValue::LinkageTypes LinkageType;
+    GlobalValue::LinkageTypes LinkageType{}; // INTEL
   };
 
   /// The underlying module.
