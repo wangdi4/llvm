@@ -31,8 +31,6 @@ class Context;
  *
  * Inherit:    OCLObject
  * Description:  represents a sampler object
- * Author:    Uri Levy
- * Date:      May 2008
  ******************************************************************************/
 class Sampler : public OCLObject<_cl_sampler_int> {
 public:
@@ -46,8 +44,6 @@ public:
    * Function:   Sampler
    * Description:  The Sampler class constructor
    * Arguments:
-   * Author:    Uri Levy
-   * Date:      May 2008
    ****************************************************************************/
   Sampler(_cl_context_int *context);
 
@@ -74,8 +70,6 @@ protected:
    * Function:   ~Sampler
    * Description:  The Sampler class destructor
    * Arguments:
-   * Author:    Uri Levy
-   * Date:      May 2008
    ****************************************************************************/
   virtual ~Sampler();
 

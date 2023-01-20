@@ -25,8 +25,6 @@
 /*        -nVidia, 3.1 */
 /*      -more info at GEHC wiki "Ray-Driven Forward Projection" */
 /*                                                                              */
-/*    Original Creation Date:  11 August 2010 */
-/*    Original Author:         David Coccarelli */
 /*                                                                              */
 /********************************************************************************/
 __kernel void raySum81(__global short *inVolume /* Input Image Volume */

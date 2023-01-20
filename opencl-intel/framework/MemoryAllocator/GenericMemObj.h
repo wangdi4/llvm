@@ -50,8 +50,6 @@ const unsigned int
  * Inherit:        MemoryObject
  * Description:    Represents a memory object that operates with multiple
  *                 devices with either unified and/or descrete memories
- * Author:         Dmitry Kaptsenel
- * Date:           August 2011
  ******************************************************************************/
 class GenericMemObject : public MemoryObject, public IOCLDevRTMemObjectService {
 

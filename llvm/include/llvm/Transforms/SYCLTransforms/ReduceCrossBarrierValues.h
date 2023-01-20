@@ -121,7 +121,6 @@ class WIRelatedValue;
 ///   its copies, just create a Phi node in R and stop copying instructions it
 ///   depends on instead of copying the instruction).
 ///
-/// Author: Senran Zhang
 ///
 /// This pass was converted from a function pass to a module pass, because it
 /// depends on module-level analysis results (DPV, WIRV, DPB) while those

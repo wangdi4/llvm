@@ -35,8 +35,6 @@ class IAtExitCentralPoint;
  *              Programmers willing to log messages in their module, need to
  *              create a logger client for their module (or more than one), and
  *              log messages using it's Log interface
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class LoggerClient {
 public:
@@ -45,8 +43,6 @@ public:
    * Description: The LoggerClient class constructor - creater logger client
    * Arguments: handle [in] - client unique string handle
    *            loglevel [in] - log level
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   LoggerClient(const char *handle, ELogLevel loglevel);
 
@@ -54,8 +50,6 @@ public:
    * Function: ~LoggerClient
    * Description: The LoggerClient class destructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual ~LoggerClient();
 
@@ -69,8 +63,6 @@ public:
    *            sourceLine [in] - the sourceLine where the message was generated
    *            message [in] - the message body with a variable arguments list
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void Log(ELogLevel level, const char *sourceFile, const char *functionName,
            __int32 sourceLine, const char *message, ...);
@@ -86,8 +78,6 @@ public:
    *            message [in] - the message body with a variable arguments list
    *            va [in] - the message variable arguments list
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void LogArgList(ELogLevel level, const char *sourceFile,
                   const char *functionName, __int32 sourceLine,
@@ -103,8 +93,6 @@ private:
  * Class name: Logger
  *
  * Description: represents the logging interface for clients.
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class Logger {
 public:
@@ -112,8 +100,6 @@ public:
    * Function: Logger
    * Description: The Logger class constructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   Logger();
 
@@ -121,8 +107,6 @@ public:
    * Function: ~Logger
    * Description: The Logger class destructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual ~Logger();
 
@@ -133,8 +117,6 @@ public:
    *              instance of the logger module users should call this method
    * Arguments:
    * Return value: an instance of the logger
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   static Logger *GetInstance();
 
@@ -150,8 +132,6 @@ public:
    *            message [in]    - the message body
    *            va [in] - the message variable arguments list
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void Log(ELogLevel level, ELogConfigField config, const char *psClientName,
            const char *sourceFile, const char *functionName, __int32 sourceLine,
@@ -165,8 +145,6 @@ public:
    *              will be sent to output
    * Arguments: handle [in] - log handler unique string handle
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   const char *GetLogHandlerParams(const char *handle);
 
@@ -178,8 +156,6 @@ public:
    *              will be sent to output
    * Arguments: logHandler [in] - pointer to LogHandler instance
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code AddLogHandler(LogHandler *logHandler);
 

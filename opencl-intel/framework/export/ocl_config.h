@@ -60,8 +60,6 @@ namespace Framework {
  * Class name:  OCLConfig
  *
  * Description:  represents an OCLConfig object
- * Author:    Uri Levy
- * Date:      December 2008
  ******************************************************************************/
 class OCLConfig : public Intel::OpenCL::Utils::BasicCLConfigWrapper {
 public:

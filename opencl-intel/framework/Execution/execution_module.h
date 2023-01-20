@@ -49,8 +49,6 @@ using OclKernelEventMapTy = std::unordered_map<std::string, cl_event>;
 //              operations. this include queues, events, enqueue calls etc.
 //              TODO: verify synchronization on access to all functions!!!
 //
-// Author:      Arnon Peleg
-// Date:        January 2009
 ///////////////////////////////////////////////////////////////////////////////////
 
 class ExecutionModule : public IExecution {

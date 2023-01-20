@@ -33,8 +33,6 @@ namespace Utils {
  *              registered to it. log handlers will output only messages with
  *              level >= m_logLevel in order to turn off a log handler, its
  *              m_logLevel need to be set to LEVEL_OFF framework's moduls
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class LogHandler {
 public:
@@ -42,8 +40,6 @@ public:
    * Function: LogHandler
    * Description: The LogHandler class constructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   LogHandler() : m_handle(nullptr){};
 
@@ -51,8 +47,6 @@ public:
    * Function: ~LogHandler
    * Description: The LogHandler class destructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual ~LogHandler() {
     assert(m_handle == nullptr && "Base handle expected to be released");
@@ -67,8 +61,6 @@ public:
    *              stream (i.e. stdout).
    * Arguments: message [in] - message to be logged
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual void Log(LogMessage &message) = 0;
 
@@ -82,8 +74,6 @@ public:
    *            title [in] - title to be used for logger, NULL for default title
    *            fileDesc [in] - file descriptor to output the log
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_err_code Init(ELogLevel level, const char *fileName,
                            const char *title, FILE *fileDesc = stderr) = 0;
@@ -94,8 +84,6 @@ public:
    *              upon return from this function
    * Arguments:
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual void Flush() = 0;
 
@@ -110,8 +98,6 @@ protected:
  *
  * Inherit: LogHandler
  * Description: simple file logger. dumps all log messages to file 'm_fileName'
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class FileDescriptorLogHandler : public LogHandler {
 
@@ -120,8 +106,6 @@ public:
    * Function: FileLogHandler
    * Description: The FileLogHandler class constructor
    * Arguments: handle [in] - unique string handle
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   FileDescriptorLogHandler(const char *handle);
 
@@ -129,8 +113,6 @@ public:
    * Function: ~FileLogHandler
    * Description: The FileLogHandler class destructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ~FileDescriptorLogHandler();
 
@@ -143,8 +125,6 @@ public:
    *            title [in] - title to be used for logger, NULL for default title
    *            fileDesc [in] - file descriptor to output the log message
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code Init(ELogLevel level, const char *fileName, const char *title,
                    FILE *fileDesc = stderr) override;
@@ -154,8 +134,6 @@ public:
    * Description: log message
    * Arguments: logMessage [in] - wrappes all message info
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void Log(LogMessage &logMessage) override;
 
@@ -164,8 +142,6 @@ public:
    * Description: dump data to file
    * Arguments:
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void Flush() override;
 
@@ -192,8 +168,6 @@ public:
    * Function: ConsoleLogHandler
    * Description: The ConsoleLogHandler class constructor
    * Arguments: handle [in] - unique string handle
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   FileLogHandler(const char *handle);
 
@@ -201,8 +175,6 @@ public:
    * Function: ~ConsoleLogHandler
    * Description: The ConsoleLogHandler class destructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ~FileLogHandler();
 
@@ -215,8 +187,6 @@ public:
    *            title [in] - title to be used for logger, NULL for default title
    *            fileDesc [in] - file descriptor to output the log message
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code Init(ELogLevel level, const char *fileName,
                    const char *title = nullptr,

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2127,7 +2127,7 @@ private:
     }
 
     Function *Declaration;
-    GlobalValue::LinkageTypes LinkageType;
+    GlobalValue::LinkageTypes LinkageType{}; // INTEL
   };
 
   /// The underlying module.
@@ -4783,7 +4783,7 @@ private:
   std::optional<Value *> SimplifiedValue;
 
   /// The runtime function kind of the callee of the associated call site.
-  RuntimeFunction RFKind;
+  RuntimeFunction RFKind{}; // INTEL
 };
 
 } // namespace

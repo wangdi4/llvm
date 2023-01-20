@@ -1,12 +1,9 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -enable-new-pm=0 -vpo-paropt-loop-transform  -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that #pragma omp tile generate loop-tiled code.
 ; Notice that outer loop's tile pragma is expecting two level normalized loops to be tiled.
 ; The inner level loop of those two level loops should come from the tiling of the inner loop & its tile pragma.
-; Also, notice that the input IR is manually edited. From omp.pdo.body4, the commented out parts are hoisted to alloca_0.
-; This is because outer-loop's upper bound is needed before DIR.OMP.TILE3.
 ;
 ;
 ; Test src:
@@ -157,16 +154,16 @@ alloca_0:
   %"$io_ctx" = alloca [8 x i64], align 16, !llfort.type_idx !2
   %"test_$J" = alloca i32, align 8, !llfort.type_idx !3
   %"test_$I" = alloca i32, align 8, !llfort.type_idx !4
-  %omp.pdo.norm.iv1 = alloca i32, align 4, !llfort.type_idx !5
-  %omp.pdo.norm.lb2 = alloca i32, align 4, !llfort.type_idx !5
-  store i32 0, ptr %omp.pdo.norm.lb2, align 4, !tbaa !6
-  %omp.pdo.norm.ub3 = alloca i32, align 4, !llfort.type_idx !5
-  store i32 99, ptr %omp.pdo.norm.ub3, align 4, !tbaa !6
   %omp.pdo.norm.iv = alloca i32, align 4, !llfort.type_idx !5
   %omp.pdo.norm.lb = alloca i32, align 4, !llfort.type_idx !5
   store i32 0, ptr %omp.pdo.norm.lb, align 4, !tbaa !6
   %omp.pdo.norm.ub = alloca i32, align 4, !llfort.type_idx !5
   store i32 47, ptr %omp.pdo.norm.ub, align 4, !tbaa !6
+  %omp.pdo.norm.iv1 = alloca i32, align 4, !llfort.type_idx !5
+  %omp.pdo.norm.lb2 = alloca i32, align 4, !llfort.type_idx !5
+  store i32 0, ptr %omp.pdo.norm.lb2, align 4, !tbaa !6
+  %omp.pdo.norm.ub3 = alloca i32, align 4, !llfort.type_idx !5
+  store i32 99, ptr %omp.pdo.norm.ub3, align 4, !tbaa !6
   br label %bb_new6
 
 bb_new6:  ; preds = %alloca_0

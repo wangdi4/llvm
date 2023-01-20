@@ -41,8 +41,6 @@ class OCLConfig;
  * Class name:    PlatformModule
  *
  * Description:    platform module class
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 class PlatformModule : public OCLObjectBase, public IPlatform {
 
@@ -51,8 +49,6 @@ public:
    * Function:     PlatformModule
    * Description:    The Platform Module class constructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   PlatformModule();
 
@@ -60,8 +56,6 @@ public:
    * Function:     ~PlatformModule
    * Description:    The Platform Module class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~PlatformModule();
 
@@ -71,8 +65,6 @@ public:
    *              information and load devices
    * Arguments:
    * Return value: CL_SUCCESS - The initialization operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code Initialize(ocl_entry_points *pOclEntryPoints, OCLConfig *pConfig,
                          ocl_gpa_data *pGPAData);
@@ -82,8 +74,6 @@ public:
    * Description:    Release the platform module's resources
    * Arguments:
    * Return value:    CL_SUCCESS - The release operation succeeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code Release(bool bTerminate);
 
@@ -93,8 +83,6 @@ public:
    * Arguments:    clDeviceId [in] -    device id
    *                ppDevice [out] -    pointer to the device
    * Return value:    CL_SUCCESS - The operation succeeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code GetRootDevice(cl_device_id IN clDeviceId,
                             SharedPtr<Device> *OUT ppDevice);
@@ -105,8 +93,6 @@ public:
    * Ariguments:    clDeviceId [in] -    device id
    * Return value: a SharedPtr<FissionableDevice> pointing to the device object
    *               or NULL if it cannot be found
-   * Author: Doron Singer
-   * Date: March 2011
    ****************************************************************************/
   SharedPtr<FissionableDevice> GetDevice(cl_device_id IN clDeviceId);
 
@@ -115,8 +101,6 @@ public:
    * Description: Returns a DeviceMode enum value
    * Arguments: None
    * Return value: DeviceMode
-   * Author:
-   * Date:
    ****************************************************************************/
   DeviceMode GetDeviceMode() const { return m_deviceMode; }
 
@@ -125,8 +109,6 @@ public:
    * Description:    Returns a pointer to the GPA data object.
    * Arguments:    None
    * Return value:    ocl_gpa_data
-   * Author:        Oded Perez
-   * Date:            July 2011
    ****************************************************************************/
   ocl_gpa_data *GetGPAData() const { return m_pGPAData; }
 
@@ -193,8 +175,6 @@ private:
    * Return value: CL_SUCCESS - The initializtion operation succeeded
    *               CL_ERR_DEVICE_INIT_FAIL - one or more devices falied to
    *                                         initialize
-   * Author:        Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code InitDevices(const std::vector<std::string> &devices,
                           const std::string &defaultDevice);

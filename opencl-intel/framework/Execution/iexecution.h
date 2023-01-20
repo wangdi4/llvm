@@ -26,8 +26,6 @@ namespace Framework {
 //              This abstract class provide the execution interface as is in the
 //              OpenCL Spec Spec version: 1.0, Revision: 29, Official OpenCL 1.0
 //              release from 12/8/08
-// Author:      Peleg, Arnon
-// Date:        January 2009
 ////////////////////////////////////////////////////////////////////////////////
 
 class IExecution {
@@ -71,8 +69,6 @@ public:
    *                                       resources required by the OpenCL
    *                                       implementation on the host.
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_command_queue
   CreateCommandQueue(cl_context IN clContext, cl_device_id IN clDevice,
@@ -87,8 +83,6 @@ public:
    * Return value: CL_SUCCESS - If the function is executed successfully
    *               CL_INVALID_COMMAND_QUEUE - If clCommandQueue is not a valid
    *                                          command-queue.
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code
   RetainCommandQueue(cl_command_queue IN clCommandQueue) = 0;
@@ -105,8 +99,6 @@ public:
    * Return value: CL_SUCCESS - If the function is executed successfully
    *               CL_INVALID_COMMAND_QUEUE - If clCommandQueue is not a valid
    *                                          command-queue.
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code
   ReleaseCommandQueue(cl_command_queue IN clCommandQueue) = 0;
@@ -149,8 +141,6 @@ public:
    *                                                       properties are
    *                                                       specified by the
    *                                                       properties
-   * Author:      Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code GetCommandQueueInfo(cl_command_queue IN clCommandQueue,
                                           cl_command_queue_info IN clParamName,
@@ -191,8 +181,6 @@ public:
    *                                             properties are not supported by
    *                                             the device.
    *
-   * Author:        Arnon Peleg
-   * Date:          January 2009
    ****************************************************************************/
   virtual cl_err_code SetCommandQueueProperty(
       cl_command_queue IN clCommandQueue,
@@ -220,8 +208,6 @@ public:
    *               CL_INVALID_EVENT - If event objects specified in cpEventList
    *                                  are not valid event objects.
    *
-   * Author:       Arnon Peleg
-   * Date:         January 2009
    ****************************************************************************/
   virtual cl_err_code WaitForEvents(cl_uint IN uiNumEvents,
                                     const cl_event *IN cpEventList) = 0;
@@ -267,8 +253,6 @@ public:
    *                                                negative integer value.
    *   CL_EVENT_REFERENCE_COUNT [cl_uint] - Return the event reference count
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code GetEventInfo(cl_event IN clEvent,
                                    cl_event_info IN clParamName,
@@ -284,8 +268,6 @@ public:
    * Return value: CL_SUCCESS - The function is executed successfully.
    *               CL_INVALID_EVENT - If clEvent is not a valid event object.
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code RetainEvent(cl_event IN clEevent) = 0;
 
@@ -302,8 +284,6 @@ public:
    * Return value: CL_SUCCESS - If the function is executed successfully
    *               CL_INVALID_EVENT - If clEevent is not a valid event object.
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code ReleaseEvent(cl_event IN clEvent) = 0;
 
@@ -371,8 +351,6 @@ public:
    *                                  specified by (offset, cb) is out of bounds
    *                                  or if ptr is a NULL value.
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueReadBuffer(cl_command_queue IN clCommandQueue, cl_mem IN clBuffer,
@@ -442,8 +420,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueWriteBuffer(cl_command_queue IN clCommandQueue, cl_mem IN clBuffer,
@@ -507,8 +483,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueCopyBuffer(cl_command_queue IN clCommandQueue, cl_mem IN clSrcBuffer,
@@ -663,8 +637,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueReadImage(cl_command_queue IN clCommandQueue, cl_mem IN clImage,
@@ -762,8 +734,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueWriteImage(cl_command_queue IN clCommandQueue, cl_mem IN clImage,
@@ -859,8 +829,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueCopyImage(cl_command_queue IN clCommandQueue, cl_mem IN clSrcImage,
@@ -938,8 +906,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueCopyImageToBuffer(
       cl_command_queue IN clCommandQueue, cl_mem IN clSrcImage,
@@ -1015,8 +981,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueCopyBufferToImage(
       cl_command_queue IN clCommandQueue, cl_mem IN clSrcBuffer,
@@ -1102,8 +1066,6 @@ public:
    *               the buffer object. In case of error, a NULL pointer is
    *               returned.
    *
-   * Author:      Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual void *EnqueueMapBuffer(cl_command_queue IN clCommandQueue,
                                  cl_mem IN clBuffer, cl_bool IN bBlockingMap,
@@ -1202,8 +1164,6 @@ public:
    *               returned otherwise with one of the aboce error codes returned
    *               in pErrcodeRet:
    *
-   * Author:      Arnon Peleg
-   * Date:        April 2009
    ****************************************************************************/
   virtual void *
   EnqueueMapImage(cl_command_queue IN clCommandQueue, cl_mem IN clImage,
@@ -1261,8 +1221,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueUnmapMemObject(cl_command_queue IN clCommandQueue, cl_mem IN clMemObj,
@@ -1362,8 +1320,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        January 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueNDRangeKernel(
       cl_command_queue IN clCommandQueue, cl_kernel IN clKernel,
@@ -1432,8 +1388,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueTask(cl_command_queue IN clCommandQueue,
                                   cl_kernel IN clKernel,
@@ -1518,8 +1472,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code
   EnqueueNativeKernel(cl_command_queue IN clCommandQueue,
@@ -1552,8 +1504,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:      Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueMarker(cl_command_queue IN clCommandQueue,
                                     cl_event *OUT pEvent,
@@ -1582,8 +1532,6 @@ public:
    *                                  are not valid events
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueWaitForEvents(cl_command_queue IN clCommandQueue,
                                            cl_uint IN uiNumEvents,
@@ -1606,8 +1554,6 @@ public:
    *                                          command-queue.
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
-   * Author:        Arnon Peleg
-   * Date:        February 2009
    ****************************************************************************/
   virtual cl_err_code EnqueueBarrier(cl_command_queue IN clCommandQueue,
                                      ApiLogger *pApiLogger) = 0;
@@ -1631,8 +1577,6 @@ public:
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
    *
-   * Author:        Arnon Peleg
-   * Date:        March 2009
    ****************************************************************************/
   virtual cl_err_code Flush(cl_command_queue IN clCommandQueue) = 0;
 
@@ -1651,8 +1595,6 @@ public:
    *                                          command-queue.
    *               CL_OUT_OF_HOST_MEMORY - If there is a failure to allocate
    *                                       resources on the host
-   * Author:        Arnon Peleg
-   * Date:        March 2009
    ****************************************************************************/
   virtual cl_err_code Finish(cl_command_queue IN clCommandQueue) = 0;
 
@@ -1690,8 +1632,6 @@ public:
    *                                  bytes specified by param_value_size is <
    *                                  size of return type
    *               CL_INVALID_EVENT - if event is a not a valid event object
-   * Author:    Uri Levy
-   * Date:        May 2009
    ****************************************************************************/
   virtual cl_err_code GetEventProfilingInfo(cl_event clEvent,
                                             cl_profiling_info clParamName,

@@ -28,8 +28,6 @@ namespace Framework {
  * Class name:   FECompiler
  *
  * Description:  front-end compiler class
- * Author:       Uri Levy
- * Date:         March 2008
  ******************************************************************************/
 class FrontEndCompiler : public OCLObject<_cl_object> {
 
@@ -38,8 +36,6 @@ private:
    * Function:     FrontEndCompiler
    * Description:  Private copy constructor to avoid wrong assignment (Klocwork)
    * Arguments:
-   * Author:       Guy Benyei
-   * Date:         June 2012
    ****************************************************************************/
   FrontEndCompiler(const FrontEndCompiler &)
       : OCLObject<_cl_object>(nullptr, ""){};
@@ -48,8 +44,6 @@ private:
    * Function:     FECompiler
    * Description:  The Frontend compiler class constructor
    * Arguments:
-   * Author:       Uri Levy
-   * Date:         March 2008
    ****************************************************************************/
   FrontEndCompiler();
 
@@ -65,8 +59,6 @@ public:
    * Description:  Initialize the front-end compiler
    * Arguments:
    * Return value: CL_SUCCESS - The initialization operation succeeded
-   * Author:       Uri Levy
-   * Date:         March 2008
    ****************************************************************************/
   cl_err_code Initialize(const void *pDeviceInfo, size_t stDevInfoSize);
 
@@ -75,8 +67,6 @@ public:
    * Description:  Frees the front-end compiler resources
    * Arguments:
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Doron Singer
-   * Date:         March 2008
    ****************************************************************************/
   void FreeResources();
 
@@ -95,8 +85,6 @@ public:
    *               puiBinarySize - pBinary size in bytes
    *               pszCompileLog - compile log string
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code CompileProgram(const char *szProgramSource,
                              unsigned int uiNumInputHeaders,
@@ -115,8 +103,6 @@ public:
    *               puiBinarySize - pBinary size in bytes.
    *               pszCompileLog - compile log string.
    * Return value: CL_SUCCESS - The operation succeeded.
-   * Author: Vlad Romanov
-   * Date:         January 2016
    ****************************************************************************/
   cl_err_code ParseSpirv(const char *szProgramBinary,
                          unsigned int uiProgramBinarySize,
@@ -153,8 +139,6 @@ public:
    *               uiBinarySize - pBinary size in bytes
    *               szCompileLog - link log string
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code LinkProgram(const void **ppBinaries,
                           unsigned int uiNumInputBinaries,
@@ -175,8 +159,6 @@ public:
    *               CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without
    *                                                -cl-kernel-arg-info
    *               CL_OUT_OF_HOST_MEMORY for out of host memory
-   * Author:       Sagi Shahar
-   * Date:         March 2012
    ****************************************************************************/
   cl_err_code GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                                const char *szKernelName,
@@ -190,8 +172,6 @@ public:
    *                                       unrecognized options separated by
    *                                       spaces
    * Return value: true - the compile options are legal false otherwise
-   * Author:       Sagi Shahar
-   * Date: May 2012
    ****************************************************************************/
   bool CheckCompileOptions(const char *szOptions, char *szUnrecognizedOptions,
                            size_t uiUnrecognizedOptionsSize) const;
@@ -204,8 +184,6 @@ public:
    *                                       unrecognized options separated by
    *                                       spaces
    * Return value: true - the link options are legal false otherwise
-   * Author:       Sagi Shahar
-   * Date: May 2012
    ****************************************************************************/
   bool CheckLinkOptions(const char *szOptions, char *szUnrecognizedOptions,
                         size_t uiUnrecongnizedOptionsSize) const;
@@ -217,8 +195,6 @@ public:
    *            uiProgramSize - size of the binary
    * Output:    SpecConstInfo - id of constants available for specialization and
    *                            their size in bytes
-   * Author:       Alexey Sotkin
-   * Date: January 2020
    ****************************************************************************/
   using SpecConstInfoTy = std::pair<uint32_t, uint32_t>;
   void GetSpecConstInfo(const char *szProgramBinary, size_t uiProgramSize,
@@ -236,8 +212,6 @@ protected:
    * Function:     ~FECompiler
    * Description:  The Frontend compiler class destructor
    * Arguments:
-   * Author:       Uri Levy
-   * Date:         March 2008
    ****************************************************************************/
   virtual ~FrontEndCompiler();
 

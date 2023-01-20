@@ -15,9 +15,7 @@
 #pragma once
 /*******************************************************************************
  *  cl_types.h
- *  Created on: 10-Dec-2008 11:42:24 AM
  *  Implementation of the Class OpenCLFramework
- *  Original author: ulevy
  ******************************************************************************/
 
 #include "cl_device_api.h"
