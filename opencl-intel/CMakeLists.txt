@@ -181,8 +181,7 @@ if(WIN32 AND NOT OPENCL_INTREE_BUILD)
   )
 endif()
 
-# See llvm commit adc4af6a5b70c31110559bdeb2f3f52646600b90 Author: Edwin Vane
-# <edwin.vane@intel.com> Date:   Thu Jan 31 18:05:54 2013 +0000
+# See llvm community commit c64108430f43dc98b1c8aa9d45215003e7a6fc58
 #
 # Turn off missing field initializer warnings for gcc to avoid noise from false
 # positives with empty {}. Turn them on otherwise (they're off by default for

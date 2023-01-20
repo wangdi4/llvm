@@ -69,8 +69,6 @@ typedef enum {
      * Description:
      *      Holds the profiling information of the event
      *
-     * Author:        Uri Levy
-     * Date:        May 2009
      ******************************************************************************/
     struct SProfilingInfo {
   cl_ulong m_ulCommandQueued; // A 64-bit value that describes the current
@@ -118,8 +116,6 @@ typedef enum {
  *                - EVENT_STATE_EXECUTING_ON_DEVICE: The command is been
  *                                                   executed on the device.
  *                - EVENT_STATE_DONE: Command is done and ready for deletion.
- * Author:        Doron Singer
- * Date:        July 2010
  ******************************************************************************/
 class OclEvent : public OCLObject<_cl_event_int>, public IEventObserver {
 public:

@@ -46,8 +46,6 @@ objects across multiple command-queues will require the application to perform
 appropriate synchronization
 
  *
- * Author:        Arnon Peleg
- * Date:        December 2008
 *******************************************************************************/
 class OclCommandQueue : public OCLObject<_cl_command_queue_int> {
 

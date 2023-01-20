@@ -68,8 +68,6 @@ typedef unsigned int cl_rt_memobj_creation_flags;
  * Class name:    MemoryObject
  *
  * Description:    Declares a memory object interface
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 class MemoryObject : public OCLObject<_cl_mem_int> {
 public:
@@ -85,8 +83,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret [out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
                               void *pParamValue,
@@ -102,8 +98,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret [out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Arnon Peleg
-   * Date: April 2009
    ****************************************************************************/
   virtual cl_err_code GetImageInfo(cl_image_info /*clParamName*/,
                                    size_t /*szParamValueSize*/,
@@ -328,8 +322,6 @@ public:
    * Function:     CreateSubBuffer
    * Description:    Creates sub-buffer for specific buffer.
    * Arguments:
-   * Author:        Evgeny Fiksman
-   * Date:            November 2010
    ****************************************************************************/
   virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags,
                                       cl_buffer_create_type buffer_create_type,
@@ -342,8 +334,6 @@ public:
    * Description: Returns the pointer to parrent object if exists, otherwise
    *              NULL.
    * Arguments: None
-   * Author: Rami Jioussy
-   * Date: August 2010
    ****************************************************************************/
   SharedPtr<MemoryObject> GetParent() { return m_pParentObject; }
   ConstSharedPtr<MemoryObject> GetParent() const { return m_pParentObject; }
@@ -353,8 +343,6 @@ public:
    * Description: Sets the parrent object. This method should not be called if a
    *              parent object already exists.
    * Arguments: pParentObject the parrent object to set
-   * Author: Aharon Abramson
-   * Date: September 2014
    ****************************************************************************/
   void SetParent(const SharedPtr<MemoryObject> &pParentObject) {
     assert(0 == m_pParentObject);
@@ -366,8 +354,6 @@ public:
    * Description: Performs logig test if memory object is supported by specific
    *              device
    * Arguments:   pDevice - pointer to the device to be testeted.
-   * Author: Rami Jioussy
-   * Date: August 2010
    ****************************************************************************/
   virtual bool
   IsSupportedByDevice(const SharedPtr<FissionableDevice> &pDevice) = 0;

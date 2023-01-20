@@ -43,8 +43,6 @@ namespace Framework {
  *
  * Description: the framework proxy class design to pass the OpenCL api calls to
  *              the framework's modules
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class FrameworkProxy : public Intel::OpenCL::Utils::IAtExitCentralPoint {
 private:
@@ -56,8 +54,6 @@ public:
    * Description: Get the instance of the framework proxy module.
    * Arguments:
    * Return value:    instance to the framework factory
-   * Author:        Uri Levy
-   * Date:          December 2008
    ****************************************************************************/
   static FrameworkProxy *Instance();
 
@@ -69,8 +65,6 @@ public:
    * Arguments:
    * Return value: pointer to the ContextModule class. NULL if context module
    *               wasn't initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ContextModule *GetContextModule() const { return m_pContextModule; }
 
@@ -80,8 +74,6 @@ public:
    * Arguments:
    * Return value: pointer to the ExecutionModule class. NULL if module wasn't
    *               initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ExecutionModule *GetExecutionModule() const { return m_pExecutionModule; }
 
@@ -91,8 +83,6 @@ public:
    * Arguments:
    * Return value: pointer to the PlatformModule class. NULL if module wasn't
    *               initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   PlatformModule *GetPlatformModule() const { return m_pPlatformModule; }
 
@@ -101,8 +91,6 @@ public:
    * Description:    Get global TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   Intel::OpenCL::TaskExecutor::ITaskExecutor *GetTaskExecutor() const;
 
@@ -111,8 +99,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool ActivateTaskExecutor() const;
 
@@ -121,8 +107,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   void DeactivateTaskExecutor() const;
 
@@ -131,8 +115,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   void CancelAllTasks(bool wait_for_finish) const;
 
@@ -142,8 +124,6 @@ public:
    *
    * Arguments:
    * Return value:    true for WIN32 and FPGA, false for
-   * Linux Author:
-   * Date:
    ****************************************************************************/
   bool NeedToDisableAPIsAtShutdown() const;
 
@@ -154,8 +134,6 @@ public:
    * Arguments:
    * Return
    * value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool Execute(const Intel::OpenCL::Utils::SharedPtr<
                Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
@@ -167,8 +145,6 @@ public:
    *
    * Arguments:
    * Return value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<
                         Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
@@ -177,8 +153,6 @@ public:
    * Function:     ~FrameworkProxy
    * Description:    The FrameworkProxy class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   bool API_Disabled() const { return (gGlobalState >= TERMINATING); }
 
@@ -199,8 +173,6 @@ private:
    * Function:     FrameworkProxy
    * Description:    The FrameworkProxy class constructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   FrameworkProxy();
 
@@ -208,8 +180,6 @@ private:
    * Function:     ~FrameworkProxy
    * Description:    The FrameworkProxy class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~FrameworkProxy();
 

@@ -41,8 +41,6 @@ namespace Utils {
  * Class name: ConfigFile
  *
  * Description: represents an ConfigFile object
- * Author: Uri Levy
- * Date:   December 2008
  ******************************************************************************/
 class ConfigFile {
 protected:
@@ -66,8 +64,6 @@ public:
    *                             - separator between value and comments
    *            strSentry   [in] represents end of file - optional string to
    *                             signal end of file
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ConfigFile(const string &strFileName, string strDelimiter = "=",
              string strComment = "#", string strSentry = "EndConfigFile");
@@ -76,8 +72,6 @@ public:
    * Function:  ConfigFile
    * Description:  The ConfigFile class constructor
    * Arguments:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ConfigFile();
 
@@ -90,8 +84,6 @@ public:
    *            loadEnvFirst define whether read the value from environment
    *                         variables first or not
    * Return value: the value which assign to the key
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T>
   T Read(const string &strKey, const T &value, bool loadEnvFirst = true) const;
@@ -107,8 +99,6 @@ public:
    *                      variable
    *               False - the value doesn't exists or can't assign value to the
    *                       variable
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T> bool ReadInto(T &var, const string &key) const;
 
@@ -124,8 +114,6 @@ public:
    *                      variable
    *               False - the value doesn't exists or can't assign value to the
    *                       variable
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T>
   bool ReadInto(T &var, const string &key, const T &value) const;
@@ -137,8 +125,6 @@ public:
    * Arguments: key [in] - represents the key of the configuration item
    *            value [in] - reference to the value of the configuration item
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T> void Add(string key, const T &value);
 
@@ -147,8 +133,6 @@ public:
    * Description: remove configuration item call as Remove(key)
    * Arguments: key [in] - represents the key of the configuration item
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   void Remove(const string &key);
 
@@ -159,8 +143,6 @@ public:
    * Arguments: key [in] - represents the key of the configuration item
    * Return value: True - the key exists in configuration
    *               False - the key doesn't exist in configuration
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   bool KeyExists(const string &key) const;
 
@@ -170,8 +152,6 @@ public:
    *              GetDelimiter()
    * Arguments:
    * Return value: delimiter of configuration syntax
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   string GetDelimiter() const { return m_sDelimiter; }
 
@@ -181,8 +161,6 @@ public:
    *              GetComment()
    * Arguments:
    * Return value: comment of configuration syntax
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   string GetComment() const { return m_sComment; }
 
@@ -192,8 +170,6 @@ public:
    *              sentry = GetSentry()
    * Arguments:
    * Return value: sentry of configuration syntax
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   string GetSentry() const { return m_sSentry; }
 
@@ -203,8 +179,6 @@ public:
    *              old_delimiter = SetDelimiter(new_delimiter)
    * Arguments: strDelimiter [in] - new delimiter
    * Return value: previous value of delimiter of configuration syntax
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   string SetDelimiter(const string &strDelimiter) {
     string strPrefDelimiter = m_sDelimiter;
@@ -218,8 +192,6 @@ public:
    *              old_commens = SetComment(new_comment)
    * Arguments: s [in] -  new comment
    * Return value: previous value of comment of configuration syntax
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   string SetComment(const string &strComment) {
     string strOldComment = m_sComment;
@@ -234,8 +206,6 @@ public:
    *            cf [in] - reference to configuration file object
    * Return value: CL_SUCCESS - file was read successfully
    *               CL_ERR_FILE_NOT_EXISTS - file name doesn't exists
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   static cl_err_code ReadFile(const string &fileName, ConfigFile &cf);
 
@@ -245,8 +215,6 @@ public:
    * Arguments: fileName [in] - full path of configuration file
    *            cf [in] - reference to configuration file object
    * Return value: CL_SUCCESS - file was read successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   static cl_err_code WriteFile(string fileName, ConfigFile &cf);
 
@@ -257,8 +225,6 @@ public:
    * Arguments: sin [in] - input string
    *            tokens [in] -  output substrings vector
    * Return value: number of substrings in vector
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   static int tokenize(const string &sin, std::vector<string> &tokens);
 
@@ -267,8 +233,6 @@ public:
    * Description: convert class T to string (Type T must support << operator)
    * Arguments: t [in] - input class
    * Return value:  string which represents the class
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T> static string ConvertTypeToString(const T &t);
 
@@ -277,8 +241,6 @@ public:
    * Description: convert string to class T (Type T must support << operator)
    * Arguments: s [in] - input string
    * Return value: class T
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   template <class T> static T ConvertStringToType(const string &str);
 
@@ -298,8 +260,6 @@ public:
    * Arguments: name [in] - the name of the registry value or etc file
    *            defaultVal - default value that is returned in any case of error
    * Return value: the value stored in the registry
-   * Author: Aharon Abramson
-   * Date: October 2013
    ****************************************************************************/
   template <class T>
   static T GetRegistryOrEtcValue(const string &name, const T &defaultVal);
@@ -310,8 +270,6 @@ protected:
    * Description: trim operation - remove unnecessary empty strings
    * Arguments: s [in] - reference to input string
    * Return value:
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   static void trim(string &str);
 };

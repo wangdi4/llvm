@@ -39,8 +39,6 @@ class OclCommandQueue;
  * Class name:    ContextModule
  *
  * Description:    context module class
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 class ContextModule {
 
@@ -49,8 +47,6 @@ public:
    * Function:     ContextModule
    * Description:    The Context Module class constructor
    * Arguments:    pPlatformModule [in] -    pointer to the platform module
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   ContextModule(PlatformModule *pPlatformModule);
 
@@ -58,8 +54,6 @@ public:
    * Function:     ~ContextModule
    * Description:    The Context Module class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~ContextModule();
 
@@ -68,8 +62,6 @@ public:
    * Description: Initialize the context module object and load devices
    * Arguments:
    * Return value:    CL_SUCCESS - The initializtion operation succeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code Initialize(ocl_entry_points *pOclEntryPoints,
                          ocl_gpa_data *pGPAData);
@@ -79,8 +71,6 @@ public:
    * Description:    Release the context module's resources
    * Arguments:
    * Return value:    CL_SUCCESS - The release operation succeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code Release(bool bTerminate);
 

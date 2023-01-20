@@ -35,26 +35,20 @@ class Context;
  * Class name:   ProgramService
  *
  * Description:  represents a program service
- * Author:       Sagi Shahar
- * Date:         January 2012
  ******************************************************************************/
 class ProgramService {
 public:
   /*****************************************************************************
    * Function:     ~ProgramService
    * Description:  The Program Service class destructor
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   ~ProgramService();
 
   /*****************************************************************************
    * Function:     SetContext
    * Description:  set the Context of this ProgramService
-   * Author:       Aharon Abramson
    * Arguments:    pContext a SharedPtr<Context> pointing to the Context to be
    *               set
-   * Date:         March 2012
    ****************************************************************************/
   void SetContext(Context *pContext) { m_pContext = pContext; }
 
@@ -73,8 +67,6 @@ public:
    *               pfn_notify - the notify function from the user
    *               user_data - user data to be passed to pfn_notify
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Sagi Shahar
-   * Date: January 2012
    ****************************************************************************/
   cl_err_code
   CompileProgram(const SharedPtr<Program> &program, cl_uint num_devices,
@@ -96,8 +88,6 @@ public:
    *               pfn_notify - the notify function from the user
    *               user_data - user data to be passed to pfn_notify
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code LinkProgram(const SharedPtr<Program> &program,
                           cl_uint num_devices, const cl_device_id *device_list,
@@ -117,8 +107,6 @@ public:
    *               pfn_notify - the notify function from the user
    *               user_data - user data to be passed to pfn_notify
    * Return value: CL_SUCCESS - The operation succeeded
-   * Author:       Sagi Shahar
-   * Date: January 2012
    ****************************************************************************/
   cl_err_code BuildProgram(SharedPtr<Program> &program, cl_uint num_devices,
                            const cl_device_id *device_list, const char *options,
@@ -143,8 +131,6 @@ public:
    *               CL_INVALID_VALUE   if spec_size does not match the size of
    *                                  the specialization constant in the module,
    *                                  or if spec_value is NULL.
-   * Author:       Alexey Sotkin
-   * Date:         January 2020
    * **************************************************************************/
   cl_err_code SetSpecializationConstant(const SharedPtr<Program> &program,
                                         cl_uint spec_const_id,

@@ -34,8 +34,6 @@ class Command;
  * Description:
  *      TODO
  *
- * Author:      Doron Singer
- * Date:        July 2010
  ******************************************************************************/
 class QueueEvent : public OclEvent {
 

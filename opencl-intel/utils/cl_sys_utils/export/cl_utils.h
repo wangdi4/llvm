@@ -60,8 +60,6 @@ typedef enum { OCL_BUFFER, OCL_IMAGE, OCL_PIPE, OCL_UNKNOWN } OclMemObjectType;
  * Description:    returns a wide-character string of the error code
  * Arguments:    error_code [in] -    error code
  * Return value:    wide-character string - representing the error code
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 const char *ClErrTxt(cl_err_code error_code);
 
@@ -70,8 +68,6 @@ const char *ClErrTxt(cl_err_code error_code);
  * Description: Turn any type supporting the ostream&<< operator into a string
  * Arguments:    a variable to convert into string
  * Return value:    string
- * Author:        Eli Bendersky
- * Date:            ?
  ******************************************************************************/
 template <typename T> inline std::string stringify(const T &x) {
   std::ostringstream out;
@@ -150,8 +146,6 @@ bool SplitStringInteger(const std::string &s, char delim,
 the object are merely a typedefs
 * Arguments:    a variable to convert into string
 * Return value:    string
-* Author:        Nitzan Dori, additional by Oren Sarid August 2012
-* Date:            May 2012
 *******************************************************************************/
 const string channelOrderToString(const cl_channel_order &co);
 const string channelTypeToString(const cl_channel_type &ct);
@@ -160,15 +154,13 @@ const string channelTypeToString(const cl_channel_type &ct);
  * Function:     clIsNumaAvailable
  * Description:    Checks if machine supports NUMA
  * Return value:    bool
- * Author:        Evgeny Fiksman
- * Date:            November 2011
  ******************************************************************************/
 bool clIsNumaAvailable();
 
 /*******************************************************************************
  * Function:     clNUMASetLocalNodeAlloc
- * Description:    Set prefered node for memory allocation for the calling
- *thread Return value:    void Author:        Evgeny Fiksman Date: November 2011
+ * Description:  Set prefered node for memory allocation for the calling thread
+ * Return value: void
  ******************************************************************************/
 void clNUMASetLocalNodeAlloc();
 
@@ -177,8 +169,6 @@ void clNUMASetLocalNodeAlloc();
  * Description:    put the calling thread on sleep for time 'milliseconds'
  * Arguments:    milliseconds [ int ] - duration of required thread sleep
  * Return value:    void
- * Author:        Rami Jioussy
- * Date:            June 2010
  ******************************************************************************/
 void clSleep(int milliseconds);
 
@@ -187,8 +177,6 @@ void clSleep(int milliseconds);
  * Description:    sets the given affinity mask
  * Arguments:    mask [ affinityMask_t* ] - a pointer to the mask to use
  * Return value:    void
- * Author:        Doron Singer
- * Date:            March 2011
  ******************************************************************************/
 void clSetThreadAffinityMask(affinityMask_t *mask, threadid_t tid = 0);
 
@@ -197,8 +185,6 @@ void clSetThreadAffinityMask(affinityMask_t *mask, threadid_t tid = 0);
  * Description:    retrieves the given thread affinity mask
  * Arguments:    mask [ affinityMask_t* ] - a pointer to the mask to be set
  * Return value:    void
- * Author:        Evgeny Fiksman
- * Date:            March 2012
  ******************************************************************************/
 void clGetThreadAffinityMask(affinityMask_t *mask, threadid_t tid = 0);
 
@@ -209,8 +195,6 @@ void clGetThreadAffinityMask(affinityMask_t *mask, threadid_t tid = 0);
  *] - a pointer to the mask to use IDs  [ unsigned int*   ] - the array to fill
  *               len  [ size_t          ] - the size of the array
  * Return value:    bool
- * Author:        Doron Singer
- * Date:            March 2011
  ******************************************************************************/
 bool clTranslateAffinityMask(affinityMask_t *mask, unsigned int *arr,
                              size_t len);
@@ -220,8 +204,6 @@ bool clTranslateAffinityMask(affinityMask_t *mask, unsigned int *arr,
  * Description:    affinitizes the calling thread to the requested core
  * Arguments:    core [ unsigned int ] - the index of the core
  * Return value:    void
- * Author:        Doron Singer
- * Date:            August 2011
  ******************************************************************************/
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid = 0);
 
@@ -229,8 +211,6 @@ void clSetThreadAffinityToCore(unsigned int core, threadid_t tid = 0);
  * Function:     clResetThreadAffinityMask
  * Description:    allows the thread to run on any CPU in the process
  * Return value:    void
- * Author:        Doron Singer
- * Date:            March 2011
  ******************************************************************************/
 void clResetThreadAffinityMask(threadid_t tid = 0);
 
@@ -238,8 +218,6 @@ void clResetThreadAffinityMask(threadid_t tid = 0);
  * Function:     clMyThreadId
  * Description:    returns the caller's OS-specific tid
  * Return value:    threadid_t
- * Author:        Doron Singer
- * Date:            October 2011
  ******************************************************************************/
 threadid_t clMyThreadId();
 
@@ -247,8 +225,6 @@ threadid_t clMyThreadId();
  * Function:     clMyParentThreadId
  * Description:    returns the caller's parent thread's OS-specific tid
  * Return value:    threadid_t
- * Author:        Doron Singer
- * Date:            June 2013
  ******************************************************************************/
 threadid_t clMyParentThreadId();
 
@@ -256,8 +232,6 @@ threadid_t clMyParentThreadId();
  * Function:     clCopyMemoryRegion
  * Description:    Copies memory region defined in SMemCpyParams
  * Return value:    void
- * Author:        Evgeny Fiksman
- * Date:            March 2011
  ******************************************************************************/
 struct SMemCpyParams {
   cl_uint uiDimCount;
@@ -275,8 +249,6 @@ void clCopyMemoryRegion(SMemCpyParams *pCopyCmd);
  * Parameters:
  *  pclImageFormat  a cl_image_format
  * Return value:    the size in bytes of each pixel in this image format
- * Author:          Aharon Abramson
- * Date:            January 2012
  ************************************************************************/
 size_t clGetPixelBytesCount(const cl_image_format *pclImageFormat);
 
@@ -285,8 +257,6 @@ size_t clGetPixelBytesCount(const cl_image_format *pclImageFormat);
  * Parameters:
  *  pclImageFormat  a cl_image_format
  * Return value:    the element number in a pixel of the specified order
- * Author:          Arik Zur
- * Date:            October 2014
  ************************************************************************/
 size_t clGetPixelElementsCount(const cl_image_format *pclImageFormat);
 
@@ -295,7 +265,7 @@ size_t clGetPixelElementsCount(const cl_image_format *pclImageFormat);
  * Parameters:
  *  pclImageChannelType  a cl_channel_type
  * Return value:    the size in bytes of each element in an image of the
- *specified channel type Author:          Arik Zur Date:            October 2014
+ *                  specified channel type
  ************************************************************************/
 size_t clGetChannelTypeBytesCount(cl_channel_type pclImageChannelType);
 
@@ -303,8 +273,6 @@ size_t clGetChannelTypeBytesCount(cl_channel_type pclImageChannelType);
 // float2half_rte
 // Parameters: float
 // Output: half
-// Author: Arik Zur - From conformance12
-// Date:   February 2013
 //
 /////////////////////////////////////////////////////////////////////////
 cl_ushort float2half_rte(float f);
@@ -313,8 +281,6 @@ cl_ushort float2half_rte(float f);
 // half2float
 // Parameters: half
 // Output: float
-// Author: Arik Zur - From conformance12
-// Date:   February 2013
 //
 /////////////////////////////////////////////////////////////////////////
 float half2float(cl_ushort us);

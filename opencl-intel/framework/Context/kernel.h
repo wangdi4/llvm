@@ -63,8 +63,6 @@ struct SKernelArgumentInfo {
  *                 m_szKernelAttributes - space seperated list of kernel
  *                                        attributes
  *
- * Author:         Uri Levy
- * Date:           January 2008
  ******************************************************************************/
 struct SKernelPrototype {
   std::string m_szKernelName;
@@ -78,8 +76,6 @@ struct SKernelPrototype {
  * Class name:    DeviceKernel
  *
  * Description:    represents a device kernel object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class DeviceKernel : public OCLObjectBase {
 public:
@@ -167,8 +163,6 @@ private:
  *
  * Inherit:
  * Description:    represents a kernel argument object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class KernelArg {
 public:
@@ -254,8 +248,6 @@ private:
  *
  * Inherit:        OCLObject
  * Description:    represents a kernel object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class Kernel : public OCLObject<_cl_kernel_int> {
 public:
@@ -267,8 +259,6 @@ public:
    * Arguments:    pProgram [in]        - associated program object
    *               psKernelName [in]    - kernel's name
    * Return:       a SharedPtr<Kernel> holding the new Kernel
-   * Author:       Aharon Abramson
-   * Date:         March 2012
    ****************************************************************************/
   static SharedPtr<Kernel> Allocate(const SharedPtr<Program> &pProgram,
                                     const char *psKernelName,
@@ -292,8 +282,6 @@ public:
    *                                  size in bytes specified by
    *                                  szParamValueSize is < size of return
    *                                  type and pParamValue is not NULL
-   * Author:        Uri Levy
-   * Date:          December 2008
    ****************************************************************************/
   cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
                       void *pParamValue,
@@ -316,8 +304,6 @@ public:
    * Return value:  CL_INVALID_DEVICE - device is not valid device
    *                CL_INVALID_VALUE  - iParamName is not valid parameter
    *                CL_SUCCESS        - operation succeeded
-   * Author:        Vlad Romanov
-   * Date:          October 2015
    ****************************************************************************/
   cl_err_code GetSubGroupInfo(const SharedPtr<FissionableDevice> &device,
                               cl_int iParamName, size_t szParamValueSize,
@@ -336,8 +322,6 @@ public:
    * Return value: CL_INVALID_DEVICE - ckDevice is not valid device
    *               CL_INVALID_VALUE - iParamName is not valid parameter
    *               CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: April 2008
    ****************************************************************************/
   cl_err_code GetWorkGroupInfo(const SharedPtr<FissionableDevice> &pDevice,
                                cl_int iParamName, size_t szParamValueSize,
@@ -429,8 +413,6 @@ public:
    *               CL_KERNEL_ARG_INFO_NOT_AVAILABLE - if the argument
    *                                                  information is not
    *                                                  available for kernel.
-   * Author: Evgeny Fiksman
-   * Date: August 2011
    ****************************************************************************/
   cl_err_code GetKernelArgInfo(cl_uint argIndx, cl_kernel_arg_info paramName,
                                size_t szParamValueSize, void *pParamValue,
@@ -530,8 +512,6 @@ protected:
    * Function:     ~Kernel
    * Description:    The Kernel class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~Kernel();
 
@@ -578,8 +558,6 @@ private:
    * Description: The Kernel class constructor
    * Arguments:   pProgram [in]        - associated program object
    *              psKernelName [in]    - kernel's name
-   * Author:      Uri Levy
-   * Date:        January 2008
    ****************************************************************************/
   Kernel(const SharedPtr<Program> &pProgram, const char *psKernelName,
          size_t szNumDevices);

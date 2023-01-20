@@ -32,8 +32,6 @@ using Intel::OpenCL::Utils::SmartPtr;
  * Class name:    OCLObject
  *
  * Description:    represents an OpneCL object
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 
 /*******************************************************************************
@@ -63,8 +61,6 @@ public:
    * Function:     OCLObject
    * Description:    The OCLObject class constructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   OCLObject(ParentHandleType *context, const std::string &typeName);
 
@@ -73,8 +69,6 @@ public:
    * Description: Called when the reference count for the object is decremented
    *              to zero, indicating the object is no longer user-visible
    * Arguments:
-   * Author:        Doron Singer
-   *
    ****************************************************************************/
   virtual void NotifyInvisible() {}
 
@@ -84,8 +78,6 @@ public:
    *              inherited objects might want to add functionality to this
    *              method Arguments:
    * Return value:    The new ref count or -1 in case of error
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual long Release();
 
@@ -95,8 +87,6 @@ public:
    *              objects might want to add functionality to this method
    * Arguments:
    * Return value: CL_SUCCESS - retain operation succeeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual cl_err_code Retain();
 
@@ -108,8 +98,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret [out] parameter's value return size
    * Return value:    CL_SUCCESS - operation succeeded
-   * Author:        Uri Levy
-   * Date:          December 2008
    ****************************************************************************/
   virtual cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
                               void *pParamValue,
@@ -131,8 +119,6 @@ public:
    * Description:    set the logger client to the object
    * Arguments:    pLoggerClient - pointer to the logger client
    * Return value:    void
-   * Author:        Uri Levy
-   * Date:            July 2009
    ****************************************************************************/
   void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient *pLoggerClient) {
     SET_LOGGER_CLIENT(pLoggerClient);
@@ -143,8 +129,6 @@ public:
    * Description:  retrieve the logger client to the object
    * Arguments:  void
    * Return value:  pointer to the logger client
-   * Author:    Evgeny Fiksman
-   * Date:      May 2013
    ****************************************************************************/
   Intel::OpenCL::Utils::LoggerClient *GetLoggerClient() const {
     return GET_LOGGER_CLIENT;
@@ -155,8 +139,6 @@ public:
    * Description:  set the terminate flag (process shutdown)
    * Arguments:  bTerminate - is true if process terminate sequence is running
    * Return value:  void
-   * Author:    Uri Levy
-   * Date:      July 2009
    ****************************************************************************/
   void SetTerminate(bool bTerminate) { m_bTerminate = bTerminate; }
 
@@ -175,8 +157,6 @@ protected:
    * Function:     ~OCLObject
    * Description:    The OCLObject class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~OCLObject(){};
 
