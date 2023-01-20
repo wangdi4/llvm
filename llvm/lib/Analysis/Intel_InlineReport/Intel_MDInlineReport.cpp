@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -277,6 +277,7 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   Function *Caller = CB->getCaller();
   Function *Callee = CB->getCalledFunction();
   std::string FuncName = std::string(Callee ? Callee->getName() : "");
+  FuncName.insert(0, "name: ");
   CB->setMetadata(CallSiteTag, CSIR.get());
   LLVMContext &Ctx = CB->getFunction()->getParent()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
@@ -521,9 +522,21 @@ void InlineReportBuilder::setDead(Function *F) {
 // copy metadata list node. It also creates a map between original and copied
 // metadata nodes. \pLeafMDIR is a set of not-inlined call site nodes which have
 // no children - those we expect to see in the function after inlining.
+
+// CMPLRLLVM-43269: We need to keep track of the type of metadata nodes we are
+// traversing through, so that if we need to access an operand, we are sure
+// that we are getting the right type of metadata.
+enum MDDescentType {
+  MDDT_Terminal,    // A MDDT_Func or MDDT_CallSite with no children.
+  MDDT_Func,        // Represents a Function
+  MDDT_CallSite,    // Represents a CallSite
+  MDDT_CallSiteList // Represents a list of CallSites
+};
+
 static Metadata *cloneInliningReportHelper(
     LLVMContext &C, Metadata *OldMD, DenseMap<Metadata *, Metadata *> &MDMap,
-    std::set<MDTuple *> &LeafMDIR, Metadata *CurrentCallInstReport) {
+    std::set<MDTuple *> &LeafMDIR, Metadata *CurrentCallInstReport,
+    MDDescentType MDDType) {
   if (!OldMD)
     return nullptr;
   Metadata *NewMD = nullptr;
@@ -544,17 +557,26 @@ static Metadata *cloneInliningReportHelper(
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
     int NumOps = OldTupleMD->getNumOperands();
-    for (int I = 0; I < NumOps; ++I)
-      Ops.push_back(cloneInliningReportHelper(C, OldTupleMD->getOperand(I),
-                                              MDMap, LeafMDIR,
-                                              CurrentCallInstReport));
+    for (int I = 0; I < NumOps; ++I) {
+      // Compute the metadata type of the operand
+      MDDescentType NewMDDType = MDDT_Terminal;
+      if (MDDType == MDDT_Func && I == FMDIR_CSs ||
+          MDDType == MDDT_CallSite && I == FMDIR_CSs)
+        NewMDDType = MDDT_CallSiteList;
+      else if (MDDType == MDDT_CallSiteList)
+        NewMDDType = MDDT_CallSite;
+      Ops.push_back(cloneInliningReportHelper(
+          C, OldTupleMD->getOperand(I), MDMap, LeafMDIR, CurrentCallInstReport,
+          NewMDDType));
+    }
     MDTuple *NewTupleMD = nullptr;
     if (OldTupleMD->isDistinct())
       NewTupleMD = MDTuple::getDistinct(C, Ops);
     else
       NewTupleMD = MDTuple::get(C, Ops);
 
-    if (NumOps == CallSiteMDSize) {
+    // Here is a place where we need to test for the metadata type.
+    if (MDDType == MDDT_CallSite) {
       int64_t IsInlined = 0;
       getOpVal(OldTupleMD->getOperand(CSMDIR_IsInlined),
                "isInlined: ", &IsInlined);
@@ -581,8 +603,8 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
     return nullptr;
   std::set<MDTuple *> LeafMDIR;
   LLVMContext &C = F->getParent()->getContext();
-  Metadata *NewFuncMD = cloneInliningReportHelper(C, FuncMD, MDMap, LeafMDIR,
-                                                  CurrentCallInstReport);
+  Metadata *NewFuncMD = cloneInliningReportHelper(
+      C, FuncMD, MDMap, LeafMDIR, CurrentCallInstReport, MDDT_Func);
   if (!NewFuncMD)
     return nullptr;
 
