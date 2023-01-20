@@ -145,18 +145,16 @@ static cl::opt<uint32_t> MaxBBSpeculations(
              "into) when deducing if a value is fully available or not in GVN "
              "(default = 600)"));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<uint64_t> MaxInstTimesBB(
     "gvn-max-inst-x-bb", cl::Hidden, cl::init((uint64_t)100000 * 50000),
     cl::desc("Skip this entire pass, if num insts * num BBs is too large."));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<uint32_t> MaxNumInsnsPerBlock(
     "gvn-max-num-insns", cl::Hidden, cl::init(100),
     cl::desc("Max number of instructions to scan in each basic block in GVN "
              "(default = 100)"));
->>>>>>> 1f1d501843e5cf8741599035d6ef66a3eb5e1e9e
 
 struct llvm::GVNPass::Expression {
   uint32_t opcode;
@@ -1403,7 +1401,6 @@ void GVNPass::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
          "post condition violation");
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We don't call into LTO here because ScalarOpt must build as a standalone
 // library with -slibs.
@@ -1565,7 +1562,6 @@ static bool isLoadPREProfitable(LoadInst *Load, DominatorTree *DT,
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
 /// Given the following code, v1 is partially available on some edges, but not
 /// available on the edge from PredBB. This function tries to find if there is
 /// another identical load in the other successor of PredBB.
@@ -1616,7 +1612,6 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
   return nullptr;
 }
 
->>>>>>> 1f1d501843e5cf8741599035d6ef66a3eb5e1e9e
 void GVNPass::eliminatePartiallyRedundantLoad(
     LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     MapVector<BasicBlock *, Value *> &AvailableLoads,
@@ -1853,7 +1848,6 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   assert(NumUnavailablePreds != 0 &&
          "Fully available value should already be eliminated!");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check for xz load pattern (described above).
   PHINode *PH = PREProfitableWithPaddedMalloc(Load);
@@ -1866,42 +1860,42 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   // critical edges together. This block can be the landing zone for the PRE
   // reload.
   if (PH) {
-    if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
-      !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
-      // Make a vector containing the head blocks of the incoming critical
-      // edges, and the blocks where the load is unavailable (PredLoads).
-      // Duplication is OK.
-      SmallVector<BasicBlock *, 2> BlocksToSplit;
-      BlocksToSplit.append(CriticalEdgePred);
-      for (auto &PredLoad : PredLoads)
-        BlocksToSplit.push_back(PredLoad.first);
-      // Insert a single empty block into all these edges.
-      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, BlocksToSplit,
-                                                 ".split", DT, this->LI,
-                                                 MSSAU);
-      if (NewBB) {
-        LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *Load
-                          << '\n');
-        // There are 0 critical edges now, and only 1 unavailable block
-        // (the new block). Update the lists.
-        // The PRE algorithm below is now free to move the loads into this
-        // block.
-        CriticalEdgePred.clear();
-        PredLoads.clear();
-        PredLoads[NewBB] = nullptr;
-        NumUnavailablePreds = 1;
-        if (MD)
-          MD->invalidateCachedPredecessors();
-        InvalidBlockRPONumbers = true;
-      }
-    }
+    // FIXME: CriticalEdgePred was deleted in
+    // 1f1d501843e5cf8741599035d6ef66a3eb5e1e9e
+
+    // if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
+    //   !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
+    //   // Make a vector containing the head blocks of the incoming critical
+    //   // edges, and the blocks where the load is unavailable (PredLoads).
+    //   // Duplication is OK.
+    //   SmallVector<BasicBlock *, 2> BlocksToSplit;
+    //   BlocksToSplit.append(CriticalEdgePred);
+    //   for (auto &PredLoad : PredLoads)
+    //     BlocksToSplit.push_back(PredLoad.first);
+    //   // Insert a single empty block into all these edges.
+    //   BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, BlocksToSplit,
+    //                                              ".split", DT, this->LI,
+    //                                              MSSAU);
+    //   if (NewBB) {
+    //     LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *Load
+    //                       << '\n');
+    //     // There are 0 critical edges now, and only 1 unavailable block
+    //     // (the new block). Update the lists.
+    //     // The PRE algorithm below is now free to move the loads into this
+    //     // block.
+    //     CriticalEdgePred.clear();
+    //     PredLoads.clear();
+    //     PredLoads[NewBB] = nullptr;
+    //     NumUnavailablePreds = 1;
+    //     if (MD)
+    //       MD->invalidateCachedPredecessors();
+    //     InvalidBlockRPONumbers = true;
+    //   }
+    // }
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // If this load is unavailable in multiple predecessors, reject it.
-=======
   // If we need to insert new load in multiple predecessors, reject it.
->>>>>>> 1f1d501843e5cf8741599035d6ef66a3eb5e1e9e
   // FIXME: If we could restructure the CFG, we could make a common pred with
   // all the preds that don't have an available Load and insert a new load into
   // that one block.
