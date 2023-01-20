@@ -1951,6 +1951,17 @@ public:
   static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W, StructType *IdentTy,
                                            Value *Tid, Instruction *InsertPt);
 
+  /// Insert a call to `__kmpc_team_reduction_buffers_ready[_teamzero]` after \p
+  /// NumGroup. Example:
+  /// \code
+  ///   i1 @__kmpc_team_reduction_buffers_ready[_teamzero](i32* teams_counter /*
+  ///   GlobalCounter */, i32 %num_teams /* NumGroup */)
+  /// \endcode
+  static CallInst *
+  genKmpcTeamReductionBufferReadyCall(WRegionNode *W,
+                                      GlobalVariable *GlobalCounter,
+                                      Instruction *NumGroup, bool UseTeamZero);
+
   /// Generate a generic call to `get_global_id, get_local_id...`. Example:
   /// \code
   ///    %11 = call i64 @_Z14get_local_sizej(i32 0)

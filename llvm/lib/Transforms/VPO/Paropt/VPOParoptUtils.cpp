@@ -1341,6 +1341,34 @@ CallInst *VPOParoptUtils::genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
   return Call;
 }
 
+// Call to i1 __kmpc_team_reduction_ready_teamzero(i32 addrspace(4)
+// *teams_counter, i32 num_teams) or i1 __kmpc_team_reduction_ready(i32
+// addrspace(4) *teams_counter, i32 num_teams)
+CallInst *VPOParoptUtils::genKmpcTeamReductionBufferReadyCall(
+    WRegionNode *W, GlobalVariable *GlobalCounter, Instruction *NumGroup,
+    bool UseTeamZero) {
+  assert(W && "WRegionNode is null.");
+  assert(GlobalCounter && "GlobalCounter is null.");
+  assert(NumGroup && "NumGroup is null.");
+
+  Function *F = NumGroup->getFunction();
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+  Type *RetType = Type::getInt1Ty(C);
+  auto *TeamsCounter = VPOParoptUtils::genAddrSpaceCast(
+      GlobalCounter, NumGroup, vpo::ADDRESS_SPACE_GENERIC);
+  SmallVector<Type *, 2> FnArgTypes = {TeamsCounter->getType(),
+                                       Type::getInt32Ty(C)};
+
+  StringRef FnName = UseTeamZero ? "__kmpc_team_reduction_ready_teamzero"
+                                 : "__kmpc_team_reduction_ready";
+
+  CallInst *Call = genCall(M, FnName, RetType, {TeamsCounter, NumGroup},
+                           FnArgTypes, nullptr);
+  Call->insertAfter(NumGroup);
+  return Call;
+}
+
 // Generate a generic call to `get_global_id, get_local_id...`.
 // Example
 //   call i64 @_Z14get_local_sizej(i32 0)
