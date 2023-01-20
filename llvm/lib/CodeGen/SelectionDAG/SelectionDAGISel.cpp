@@ -2281,7 +2281,6 @@ void SelectionDAGISel::Select_ARITH_FENCE(SDNode *N) {
                        N->getOperand(0));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
 void SelectionDAGISel::Select_PSEUDO_FUNCTION_PROLOG(SDNode *N) {
@@ -2298,12 +2297,11 @@ void SelectionDAGISel::Select_PSEUDO_LOOP_HEADER(SDNode *N) {
 }
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
-=======
+
 void SelectionDAGISel::Select_MEMBARRIER(SDNode *N) {
   CurDAG->SelectNodeTo(N, TargetOpcode::MEMBARRIER, N->getValueType(0),
                        N->getOperand(0));
 }
->>>>>>> eb44226986fcbeb4325e5f668e5646e9646958bc
 
 void SelectionDAGISel::pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops,
                                                 SDValue OpVal, SDLoc DL) {

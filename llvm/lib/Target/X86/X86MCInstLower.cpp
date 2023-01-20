@@ -2616,12 +2616,6 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   case TargetOpcode::DBG_VALUE:
     llvm_unreachable("Should be handled target independently");
 
-<<<<<<< HEAD
-  // Emit nothing here but a comment if we can.
-  case X86::Int_MemBarrier:
-    OutStreamer->emitRawComment("MEMBARRIER");
-    return;
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   // Pseudo marker count is expanded at a late stage b/c
@@ -2644,8 +2638,6 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> eb44226986fcbeb4325e5f668e5646e9646958bc
   case X86::EH_RETURN:
   case X86::EH_RETURN64: {
     // Lower these as normal, but add some comments.

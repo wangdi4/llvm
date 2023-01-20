@@ -338,7 +338,6 @@ private:
 
   void Select_FREEZE(SDNode *N);
   void Select_ARITH_FENCE(SDNode *N);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
   void Select_PSEUDO_FUNCTION_PROLOG(SDNode *N);
@@ -346,9 +345,7 @@ private:
   void Select_PSEUDO_LOOP_HEADER(SDNode *N);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
-=======
   void Select_MEMBARRIER(SDNode *N);
->>>>>>> eb44226986fcbeb4325e5f668e5646e9646958bc
 
   void pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops, SDValue Operand,
                                 SDLoc DL);
