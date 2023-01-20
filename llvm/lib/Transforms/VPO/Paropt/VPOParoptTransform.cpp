@@ -199,6 +199,32 @@ static cl::opt<bool> AtomicFreeReductionParallelGlobal(
     "vpo-paropt-atomic-free-reduction-par-global", cl::Hidden, cl::init(true),
     cl::desc("Parallelize global stage of atomic-free reduction"));
 
+namespace {
+enum class TeamsReductionCombinerSelector {
+  LastTeamInlined,
+  LastTeamRTL,
+  TeamZeroRTL
+};
+} // namespace
+
+static cl::opt<TeamsReductionCombinerSelector> TeamsReductionCombiner(
+    "vpo-paropt-atomic-free-red-global-combiner-selector", cl::Hidden,
+    cl::init(TeamsReductionCombinerSelector::LastTeamInlined),
+    cl::desc("Method of selecting the team to do the combining of cross-team "
+             "atomic-free reduction buffers."),
+    cl::values(
+        clEnumValN(TeamsReductionCombinerSelector::LastTeamInlined,
+                   "last-team-inlined",
+                   "the last team to finish populating its reduction buffer "
+                   "location, using compiler-generated code."),
+        clEnumValN(TeamsReductionCombinerSelector::LastTeamRTL, "last-team-rtl",
+                   "the last team to finish populating its reduction buffer "
+                   "location, using an RTL call."),
+        clEnumValN(
+            TeamsReductionCombinerSelector::TeamZeroRTL, "team-zero-rtl",
+            "team zero, after waiting for all teams to finish populating their "
+            "reduction buffer locations, using an RTL call.")));
+
 static cl::opt<bool> EmitTargetPrivCtorDtors(
     "vpo-paropt-emit-target-priv-ctor-dtor", cl::Hidden, cl::init(true),
     cl::desc("Enable emission of constructors/destructors for private "
@@ -3722,39 +3748,14 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       assert(TeamsCntrIt != MapC.items().end() && "No teams counter found");
       GlobalCounter = cast<GlobalVariable>((*TeamsCntrIt)->getOrig());
 
-      Builder.SetInsertPoint(StartPoint);
+      // insert compiler generated or RTL generated code to increment
+      // team-counter and check if the current teams is responsible for
+      // combining final cross-team atomic reduction buffers
+      const auto &[CntrCheckBB, GroupCmp] =
+          genTeamsCounterCheck(W, GlobalCounter, StartPoint);
 
-      auto *OldCntr = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
-      auto *NewCntr = Builder.CreateAdd(OldCntr, Builder.getInt32(1));
-      Builder.CreateStore(NewCntr, GlobalCounter);
-      Instruction *CntrToCheck =
-          Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
-
-      auto *LocalCntr = Builder.CreateAlloca(CntrToCheck->getType());
-      Builder.CreateStore(CntrToCheck, LocalCntr);
-      auto *CntrCheckBB =
-          SplitBlock(StartPoint->getParent(), StartPoint, DT, LI);
-      auto *AtomicUpdate = VPOParoptAtomics::handleAtomicCaptureInBlock(
-          W, OldCntr->getParent(), nullptr, nullptr, true);
-      assert(AtomicUpdate &&
-             "No atomic was generated for global teams counter");
-      assert(AtomicUpdate->hasOneUse());
-      cast<Instruction>(*AtomicUpdate->users().begin())->eraseFromParent();
-      LocalCntr->eraseFromParent();
-      AtomicUpdate->moveBefore(StartPoint);
-      CntrToCheck = AtomicUpdate;
-
-      CntrCheckBB->setName("counter_check");
-
-      CntrCheckBBs[W] = CntrCheckBB;
-
-      Builder.SetInsertPoint(StartPoint);
-
-      auto *NumGroups0 = VPOParoptUtils::genNumGroupsCall(0, CntrToCheck);
-      auto *NumGroupsCall = cast<Instruction>(
-          Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
-
-      auto *GroupCmp = Builder.CreateICmpNE(CntrToCheck, NumGroupsCall);
+      assert(CntrCheckBB && "CntrCheckBB is null.");
+      assert(GroupCmp && "GroupCmp is null.");
 
       SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, DT, LI,
                                 ExitBB);
@@ -4238,6 +4239,154 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   auto *StoreBB = cast<BranchInst>(HeaderBB->getTerminator())->getSuccessor(0);
   Builder.SetInsertPoint(IsArrayOrArraySection ? UpdateBB : StoreBB);
   return false;
+}
+
+/// Insert code to increment teams_counter once a team is done writing its value
+/// to the `red_buffer` array and also insert code to check if the current team
+/// is responsible for combining of cross-team atomic-free reduction buffers
+/// based on the global teams reduction combiner selector. The code generation
+/// requires the following input params:
+///
+/// \param GlobalCounter The global team counter to be incremented.
+///
+/// \param InsertPt The start of insertion point of the generated code.
+//
+// The final global teams reduction combiner
+// (vpo-paropt-atomic-free-red-global-combiner-selector) could be chosen from
+// thee option:
+// (1) last-team-inlined: the last team to finish populating its reduction
+// buffer location using compiler-generated code
+// (2) last-team-rtl: the last team to finish populating its reduction buffer
+// location, using an RTL call
+// (3) team-zero-rtl: team zero, after waiting for all teams to finish
+// populating their reduction buffer locations, using an RTL call.
+//
+// Pseudo IR with 3 options look like:
+//
+// (1) vpo-paropt-atomic-free-red-global-combiner-selector=last-team-inlined
+// -----------------------------------------------------------------------------
+//
+// counter_check:
+//   %8 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+//   %9 = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   br i1 %is.master.thread3, label %master.thread.code6, label
+//   %master.thread.fallthru7
+//
+// master.thread.code6:
+//   %10 = call spir_func i32 @__kmpc_atomic_fixed4_add_cpt(ptr addrspace(4) %9,
+//   i32 1, i32 1) store i32 %10, ptr addrspace(3) @.broadcast.ptr.__local,
+//   align 4 br label %master.thread.fallthru7
+//
+// master.thread.fallthru7:
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
+//   %11 = trunc i64 %8 to i32
+//   %12 = icmp ne i32 %.new, %11
+//   br i1 %12, label %bb4.split.split, label %team.red.buffers.ready
+//
+// (2) vpo-paropt-atomic-free-red-global-combiner-selector=last-team-rtl
+// -----------------------------------------------------------------------------
+//
+// counter_check:
+//   %8 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+//   %9 = trunc i64 %8 to i32
+//   %10 = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   br i1 %is.master.thread3, label %master.thread.code6, label
+//   %master.thread.fallthru7
+//
+// master.thread.code6:
+//   %11 = call spir_func i1 @__kmpc_team_reduction_ready(ptr addrspace(4) %10,
+//   i32 %9) store i1 %11, ptr addrspace(3) @.broadcast.ptr.__local, align 1 br
+//   label %master.thread.fallthru7
+//
+// master.thread.fallthru7:
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   %.new = load i1, ptr addrspace(3) @.broadcast.ptr.__local, align 1
+//   %12 = icmp ne i1 %.new, true
+//   br i1 %12, label %bb4.split.split, label %team.red.buffers.ready
+//
+// (3) vpo-paropt-atomic-free-red-global-combiner-selector=team-zero-rtl
+// -----------------------------------------------------------------------------
+//
+// counter_check:
+//   %8 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+//   %9 = trunc i64 %8 to i32
+//   %10 = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   br i1 %is.master.thread3, label %master.thread.code6, label
+//   %master.thread.fallthru7
+//
+// master.thread.code6:
+//   %11 = call spir_func i1 @__kmpc_team_reduction_ready_teamzero(ptr
+//   addrspace(4) %10, i32 %9) store i1 %11, ptr addrspace(3)
+//   @.broadcast.ptr.__local, align 1 br label %master.thread.fallthru7
+//
+// master.thread.fallthru7:
+//   call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+//   %.new = load i1, ptr addrspace(3) @.broadcast.ptr.__local, align 1
+//   %12 = icmp ne i1 %.new, true
+//   br i1 %12, label %bb4.split.split, label %team.red.buffers.ready
+//
+std::pair<BasicBlock *, Value *> VPOParoptTransform::genTeamsCounterCheck(
+    WRegionNode *W, GlobalVariable *GlobalCounter, Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *CntrToCheck = nullptr;
+  BasicBlock *CntrCheckBB = nullptr;
+
+  if (TeamsReductionCombiner ==
+      TeamsReductionCombinerSelector::LastTeamInlined) {
+    auto *OldCntr = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+    auto *NewCntr = Builder.CreateAdd(OldCntr, Builder.getInt32(1));
+    Builder.CreateStore(NewCntr, GlobalCounter);
+    CntrToCheck = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+    assert(CntrToCheck && "CntrToCheck is null.");
+
+    auto *LocalCntr = Builder.CreateAlloca(CntrToCheck->getType());
+    Builder.CreateStore(CntrToCheck, LocalCntr);
+    CntrCheckBB = SplitBlock(InsertPt->getParent(), InsertPt, DT, LI);
+    auto *AtomicUpdate = VPOParoptAtomics::handleAtomicCaptureInBlock(
+        W, OldCntr->getParent(), nullptr, nullptr, true);
+    assert(AtomicUpdate && "No atomic was generated for global teams counter");
+    assert(AtomicUpdate->hasOneUse());
+    cast<Instruction>(*AtomicUpdate->users().begin())->eraseFromParent();
+    LocalCntr->eraseFromParent();
+    AtomicUpdate->moveBefore(InsertPt);
+    CntrToCheck = AtomicUpdate;
+  } else {
+    CntrCheckBB = SplitBlock(InsertPt->getParent(), InsertPt, DT, LI);
+  }
+
+  assert(CntrCheckBB && "CntrCheckBB is null.");
+
+  CntrCheckBB->setName("counter_check");
+
+  CntrCheckBBs[W] = CntrCheckBB;
+
+  Builder.SetInsertPoint(InsertPt);
+
+  auto *NumGroups0 = VPOParoptUtils::genNumGroupsCall(
+      0,
+      TeamsReductionCombiner == TeamsReductionCombinerSelector::LastTeamInlined
+          ? cast<Instruction>(CntrToCheck)
+          : InsertPt);
+  auto *NumGroupsCall =
+      cast<Instruction>(Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
+
+  Value *GroupCmp = nullptr;
+  if (TeamsReductionCombiner ==
+      TeamsReductionCombinerSelector::LastTeamInlined) {
+    GroupCmp = Builder.CreateICmpNE(CntrToCheck, NumGroupsCall);
+  } else {
+    auto *IsTeamRedBuffersReady =
+        VPOParoptUtils::genKmpcTeamReductionBufferReadyCall(
+            W, GlobalCounter, NumGroupsCall,
+            TeamsReductionCombiner ==
+                TeamsReductionCombinerSelector::TeamZeroRTL);
+    GroupCmp = Builder.CreateICmpNE(IsTeamRedBuffersReady, Builder.getInt1(1));
+  }
+  return std::make_pair(CntrCheckBB, GroupCmp);
 }
 
 /// Insert code to reset the teams_counter to zero when generating code for the

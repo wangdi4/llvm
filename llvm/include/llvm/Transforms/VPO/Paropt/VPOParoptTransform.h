@@ -808,6 +808,14 @@ private:
       Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
 
+  /// Insert code to increment teams_counter once a team is done writing its
+  /// value to the `red_buffer` array and check if the current team is
+  /// responsible for combining of cross-team atomic-free reduction buffers
+  /// based on the global teams reduction combiner selector.
+  std::pair<BasicBlock *, Value *>
+  genTeamsCounterCheck(WRegionNode *W, GlobalVariable *GlobalCounter,
+                       Instruction *InsertPt);
+
   // Insert code to Reset the teams_counter to zero when generating code for
   // the global (teams) stage of atomic-free reduction.
   void resetTeamsCounterAfterCopyingBackRedItem(GlobalVariable *TeamsCounter,
