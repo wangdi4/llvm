@@ -1209,6 +1209,12 @@ public:
     return VectorizableTree.front()->getMainOp();
   }
 
+  /// Returns whether the root node has in-tree uses.
+  bool doesRootHaveInTreeUses() const {
+    return !VectorizableTree.empty() &&
+           !VectorizableTree.front()->UserTreeIndices.empty();
+  }
+
   /// Builds external uses of the vectorized scalars, i.e. the list of
   /// vectorized scalars to be extracted, their lanes and their scalar users. \p
   /// ExternallyUsedValues contains additional list of external uses to handle
@@ -13965,7 +13971,9 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
       if (R.isTreeTinyAndNotFullyVectorizable())
         continue;
       R.reorderTopToBottom();
-      R.reorderBottomToTop(!isa<InsertElementInst>(Ops.front()));
+      R.reorderBottomToTop(
+          /*IgnoreReorder=*/!isa<InsertElementInst>(Ops.front()) &&
+          !R.doesRootHaveInTreeUses());
       R.buildExternalUses();
 
       R.computeMinimumValueSizes();
