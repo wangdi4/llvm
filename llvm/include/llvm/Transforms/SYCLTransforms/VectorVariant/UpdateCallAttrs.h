@@ -20,6 +20,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);
+
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm
