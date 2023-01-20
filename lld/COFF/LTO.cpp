@@ -80,19 +80,14 @@ static std::string getThinLTOOutputFile(StringRef path) {
 static lto::Config createConfig() {
   lto::Config c;
   c.Options = initTargetOptionsFromCodeGenFlags();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This change has caused numerous CompFails in CPU2017 LIT testing.
   // Disabling it here
   // TODO: Enable after fixing CMPLRLLVM-28261
   // c.Options.EmitAddrsig = true;
-  c.Options.IntelLibIRCAllowed = ctx.config.intelLibIRCAllowed;
+  c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
-  for (StringRef C : ctx.config.mllvmOpts)
-=======
-  c.Options.EmitAddrsig = true;
   for (StringRef C : config->mllvmOpts)
->>>>>>> 398c2ad6f684a6d06daef52f5aee1d9d2761a659
     c.MllvmArgs.emplace_back(C.str());
 
   // Always emit a section per function/datum with LTO. LLVM LTO should get most
@@ -116,16 +111,15 @@ static lto::Config createConfig() {
   c.OptLevel = config->ltoo;
   c.CPU = getCPUStr();
   c.MAttrs = getMAttrs();
-<<<<<<< HEAD
-  c.CGOptLevel = args::getCGOptLevel(ctx.config.ltoo);
-  c.AlwaysEmitRegularLTOObj = !ctx.config.ltoObjPath.empty();
-  c.UseNewPM = ctx.config.ltoNewPassManager; // INTEL
-  c.DebugPassManager = ctx.config.ltoDebugPassManager;
-  c.CSIRProfile = std::string(ctx.config.ltoCSProfileFile);
-  c.RunCSIRInstr = ctx.config.ltoCSProfileGenerate;
-  c.PGOWarnMismatch = ctx.config.ltoPGOWarnMismatch;
+  c.CGOptLevel = args::getCGOptLevel(config->ltoo);
+  c.AlwaysEmitRegularLTOObj = !config->ltoObjPath.empty();
+  c.UseNewPM = config->ltoNewPassManager; // INTEL
+  c.DebugPassManager = config->ltoDebugPassManager;
+  c.CSIRProfile = std::string(config->ltoCSProfileFile);
+  c.RunCSIRInstr = config->ltoCSProfileGenerate;
+  c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
 #if INTEL_CUSTOMIZATION
-  c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
+  c.ShouldDiscardValueNames = config->intelShouldDiscardValueNames;
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;
 #endif // INTEL_CUSTOMIZATION
@@ -135,23 +129,12 @@ static lto::Config createConfig() {
   // NOTE: Whole program can't be achieved when linking a DLL, it is only
   // for executables. On the other hand, whole program read can be achieved
   // when linking an executable and a DLL is present.
-  if (!ctx.config.dll)
+  if (!config->dll)
     c.WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
 
-  if (ctx.config.saveTemps)
-    checkError(c.addSaveTemps(std::string(ctx.config.outputFile) + ".",
-=======
-  c.CGOptLevel = args::getCGOptLevel(config->ltoo);
-  c.AlwaysEmitRegularLTOObj = !config->ltoObjPath.empty();
-  c.DebugPassManager = config->ltoDebugPassManager;
-  c.CSIRProfile = std::string(config->ltoCSProfileFile);
-  c.RunCSIRInstr = config->ltoCSProfileGenerate;
-  c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
-
   if (config->saveTemps)
     checkError(c.addSaveTemps(std::string(config->outputFile) + ".",
->>>>>>> 398c2ad6f684a6d06daef52f5aee1d9d2761a659
                               /*UseInputModulePath*/ true));
   return c;
 }
@@ -240,15 +223,11 @@ void BitcodeCompiler::add(BitcodeFile &f) {
 
 // Merge all the bitcode files we have seen, codegen the result
 // and return the resulting objects.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 std::vector<InputFile *>
 BitcodeCompiler::compile(COFFLinkerContext &ctx,
                          std::vector<StringRef> *buffersOut) {
 #endif // INTEL_CUSTOMIZATION
-=======
-std::vector<InputFile *> BitcodeCompiler::compile(COFFLinkerContext &ctx) {
->>>>>>> 398c2ad6f684a6d06daef52f5aee1d9d2761a659
   unsigned maxTasks = ltoObj->getMaxTasks();
   buf.resize(maxTasks);
   files.resize(maxTasks);

@@ -60,14 +60,10 @@ public:
   ~BitcodeCompiler();
 
   void add(BitcodeFile &f);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   std::vector<InputFile *>
   compile(COFFLinkerContext &ctx, std::vector<StringRef> *buffersOut = nullptr);
 #endif // INTEL_CUSTOMIZATION
-=======
-  std::vector<InputFile *> compile(COFFLinkerContext &ctx);
->>>>>>> 398c2ad6f684a6d06daef52f5aee1d9d2761a659
 
 private:
   std::unique_ptr<llvm::lto::LTO> ltoObj;
