@@ -2,8 +2,12 @@
 // REQUIRES: nvptx-registered-target
 // REQUIRES: amdgpu-registered-target
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-new-driver \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
+>>>>>>> ede7a7963fcdfa137336fec891844e6c599270d6
 // RUN:          --offload-arch=sm_52 --offload-arch=gfx803 \
 // RUN:          --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib/libomptarget-amdgpu-gfx803.bc \
 // RUN:          --libomptarget-nvptx-bc-path=%S/Inputs/libomptarget/libomptarget-nvptx-test.bc %s 2>&1 \
@@ -17,8 +21,12 @@
 // CHECK: "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}}"-emit-obj"
 // CHECK: clang-linker-wrapper{{.*}}"--"{{.*}} "-o" "a.out"
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
+>>>>>>> ede7a7963fcdfa137336fec891844e6c599270d6
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908:sramecc+:xnack- \
 // RUN:     -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-NVIDIA-AMDGPU
 // end INTEL_CUSTOMIZATION
@@ -31,8 +39,12 @@
 // CHECK-NVIDIA-AMDGPU: "x86_64-unknown-linux-gnu" - "clang", inputs: ["[[HOST_BC]]", "[[BINARY]]"], output: "[[HOST_OBJ:.+]]"
 // CHECK-NVIDIA-AMDGPU: "x86_64-unknown-linux-gnu" - "Offload::Linker", inputs: ["[[HOST_OBJ]]"], output: "a.out"
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
+>>>>>>> ede7a7963fcdfa137336fec891844e6c599270d6
 // RUN:     --offload-arch=sm_52 --offload-arch=sm_70 -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-ARCH-BINDINGS
 // end INTEL_CUSTOMIZATION
 
@@ -45,16 +57,24 @@
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "clang", inputs: ["[[HOST_BC]]", "[[BINARY]]"], output: "[[HOST_OBJ:.*]]"
 // CHECK-ARCH-BINDINGS: "x86_64-unknown-linux-gnu" - "Offload::Linker", inputs: ["[[HOST_OBJ]]"], output: "a.out"
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
+>>>>>>> ede7a7963fcdfa137336fec891844e6c599270d6
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 --offload-arch=native \
 // RUN:     -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-FAILED
 // end INTEL_CUSTOMIZATION
 
 // CHECK-FAILED: error: failed to deduce triple for target architecture 'native'; specify the triple using '-fopenmp-targets' and '-Xopenmp-target' instead.
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp -fopenmp-new-driver \
+=======
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-bindings -fopenmp=libomp \
+>>>>>>> ede7a7963fcdfa137336fec891844e6c599270d6
 // RUN:     --offload-arch=sm_70 --offload-arch=gfx908 -fno-openmp \
 // RUN:     -nogpulib %s 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLED
 // end INTEL_CUSTOMIZATION
