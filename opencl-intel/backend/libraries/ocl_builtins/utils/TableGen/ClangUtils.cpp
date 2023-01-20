@@ -53,8 +53,9 @@ void build(const std::string &code, std::string fileName) {
   const char *wide_vec_types_include_dir = XSTR(CL_BUILTIN_SOURCE_DIR);
 
   std::stringstream options;
-  options << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc "
-             "-include opencl-c.h -include long_vector_types.h";
+  options
+      << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc "
+         "-no-opaque-pointers -include opencl-c.h -include long_vector_types.h";
   options
       << " "
       << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";

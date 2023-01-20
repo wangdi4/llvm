@@ -327,6 +327,11 @@ void VectInfoGenerator::run(raw_ostream &os) {
   llvm::SMDiagnostic errDiagnostic;
   std::unique_ptr<llvm::Module> pModule =
       llvm::parseIRFile("protos.ll", errDiagnostic, context);
+  if (!pModule) {
+    llvm::errs() << "Parse \"protos.ll\" failed: " << errDiagnostic.getMessage()
+                 << "\n";
+    exit(1);
+  }
   int err = remove("protos.ll");
   (void)err;
   assert(!err && "failed to remove file \"protos.ll\"");
