@@ -429,6 +429,7 @@ cc_library(
     ]),
     copts = llvm_copts,
     deps = [
+        ":DebugInfo",
         ":DebugInfoDWARF",
         ":DebugInfoPDB",
         ":MC",
@@ -527,6 +528,7 @@ cc_library(
     hdrs = glob(["include/llvm/DebugInfo/GSYM/*.h"]),
     copts = llvm_copts,
     deps = [
+        ":DebugInfo",
         ":DebugInfoDWARF",
         ":MC",
         ":Object",
@@ -782,6 +784,7 @@ cc_library(
     copts = llvm_copts,
     deps = [
         ":Object",
+        ":Remarks",
         ":Support",
     ],
 )
@@ -894,9 +897,11 @@ cc_library(
     copts = llvm_copts,
     includes = ["lib/ObjCopy"],
     deps = [
+        ":BinaryFormat",
         ":MC",
         ":Object",
         ":ObjectYAML",
+        ":Option",
         ":Support",
         ":Target",
         ":intrinsics_impl_gen",
@@ -939,6 +944,7 @@ cc_library(
     deps = [
         ":BinaryFormat",
         ":DebugInfoCodeView",
+        ":MC",
         ":Object",
         ":Support",
     ],
@@ -2229,6 +2235,7 @@ gentbl(
             "lib/Target/" + target["name"] + "/Disassembler/*.h",
         ]),
         copts = llvm_copts,
+        features = ["-layering_check"],
         deps = [
             ":CodeGen",
             ":Core",
@@ -2250,6 +2257,7 @@ gentbl(
             "lib/Target/" + target["name"] + "/MCA/*.h",
         ]),
         copts = llvm_copts,
+        features = ["-layering_check"],
         deps = [
             ":MC",
             ":MCA",
@@ -2340,6 +2348,7 @@ cc_library(
         ":InstCombine",
         ":Instrumentation",
         ":MLPolicies",
+        ":ObjCARC",
         ":Scalar",
         ":Support",
         ":Target",
@@ -2468,6 +2477,7 @@ cc_library(
     ]),
     copts = llvm_copts,
     deps = [
+        ":BinaryFormat",
         ":ExecutionEngine",
         ":JITLinkTableGen",
         ":Object",
@@ -2522,15 +2532,19 @@ cc_library(
         ],
     }),
     deps = [
+        ":Analysis",
+        ":BinaryFormat",
         ":BitReader",
         ":BitWriter",
         ":Core",
         ":ExecutionEngine",
         ":JITLink",
         ":MC",
+        ":MCDisassembler",
         ":Object",
         ":OrcShared",
         ":OrcTargetProcess",
+        ":Passes",
         ":Support",
         ":Target",
         ":TransformUtils",
@@ -2608,7 +2622,9 @@ cc_library(
     deps = [
         ":CodeGen",
         ":DebugInfoDWARF",
+        ":MC",
         ":Support",
+        ":Target",
     ],
 )
 
@@ -2656,6 +2672,7 @@ cc_library(
     copts = llvm_copts,
     deps = [
         ":BinaryFormat",
+        ":BitReader",
         ":LibOptionsTableGen",
         ":Object",
         ":Option",
@@ -2674,6 +2691,8 @@ cc_library(
     ]),
     copts = llvm_copts,
     deps = [
+        ":BinaryFormat",
+        ":MC",
         ":Object",
         ":Support",
         ":config",
@@ -2910,6 +2929,7 @@ cc_binary(
         ":IRPrinter",
         ":IRReader",
         ":MC",
+        ":Remarks",
         ":Support",
         ":Target",
         ":TransformUtils",
@@ -2982,6 +3002,7 @@ cc_binary(
     deps = [
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
+        ":BinaryFormat",
         ":Core",
         ":DlltoolDriver",
         ":LibDriver",
@@ -3117,6 +3138,7 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":BinaryFormat",
         ":CvtResTableGen",
         ":Object",
         ":Option",
@@ -3135,6 +3157,7 @@ cc_binary(
     deps = [
         ":AllTargetsCodeGens",
         ":BitReader",
+        ":MC",
         ":Object",
         ":Support",
     ],
@@ -3283,6 +3306,7 @@ cc_binary(
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
         ":DWARFLinker",
+        ":DebugInfoDWARF",
         ":DwarfutilOptionsTableGen",
         ":MC",
         ":ObjCopy",
@@ -3360,6 +3384,7 @@ cc_binary(
     stamp = 0,
     deps = [
         ":AllTargetsCodeGens",
+        ":DebugInfo",
         ":DebugInfoDWARF",
         ":DebugInfoGSYM",
         ":MC",
@@ -3399,6 +3424,7 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":BinaryFormat",
         ":IfsOptionsTableGen",
         ":InterfaceStub",
         ":ObjectYAML",
@@ -3459,8 +3485,10 @@ cc_binary(
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
         ":BinaryFormat",
+        ":Core",
         ":Object",
         ":Support",
+        ":TextAPI",
     ],
 )
 
@@ -3474,6 +3502,7 @@ cc_binary(
     stamp = 0,
     deps = [
         ":AsmParser",
+        ":BinaryFormat",
         ":BitReader",
         ":BitWriter",
         ":Core",
@@ -3517,10 +3546,13 @@ cc_binary(
     stamp = 0,
     deps = [
         ":AllTargetsAsmParsers",
+        ":BinaryFormat",
+        ":Core",
         ":LipoOptsTableGen",
         ":Object",
         ":Option",
         ":Support",
+        ":TextAPI",
     ],
 )
 
@@ -3562,6 +3594,8 @@ cc_binary(
         ":CodeGen",
         ":Core",
         ":LTO",
+        ":Passes",
+        ":Remarks",
         ":Support",
     ],
 )
@@ -3634,6 +3668,7 @@ cc_binary(
         ":AllTargetsCodeGens",
         ":AllTargetsDisassemblers",
         ":MC",
+        ":MCDisassembler",
         ":MCParser",
         ":MlTableGen",
         ":Option",
@@ -3972,6 +4007,7 @@ cc_binary(
     stamp = 0,
     deps = [
         ":Core",
+        ":Object",
         ":ProfileData",
         ":Support",
     ],
@@ -3988,6 +4024,7 @@ cc_binary(
     deps = [
         ":AllTargetsCodeGens",
         ":AllTargetsDisassemblers",
+        ":Support",
         ":Symbolize",
     ],
 )
@@ -4090,6 +4127,7 @@ cc_binary(
         ":DebugInfoCodeView",
         ":DebugInfoDWARF",
         ":Demangle",
+        ":MC",
         ":Object",
         ":Option",
         ":ReadobjOptsTableGen",
@@ -4115,8 +4153,18 @@ cc_binary(
     deps = [
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
+        ":Analysis",
         ":BitReader",
+        ":BitWriter",
+        ":CodeGen",
         ":Core",
+        ":IPO",
+        ":IRReader",
+        ":MC",
+        ":Passes",
+        ":Support",
+        ":Target",
+        ":TransformUtils",
     ],
 )
 
@@ -4271,6 +4319,7 @@ cc_binary(
         ":Support",
         ":Symbolize",
         ":SymbolizerOptsTableGen",
+        ":config",
     ],
 )
 
@@ -4415,6 +4464,7 @@ cc_library(
         ":Core",
         ":Scalar",
         ":Support",
+        ":TransformUtils",
     ],
 )
 
@@ -4479,7 +4529,10 @@ cc_binary(
     ]),
     copts = llvm_copts,
     stamp = 0,
-    deps = [":FileCheckLib"],
+    deps = [
+        ":FileCheckLib",
+        ":Support",
+    ],
 )
 
 cc_binary(
@@ -4499,10 +4552,12 @@ cc_binary(
         ":BitWriter",
         ":CodeGen",
         ":Core",
+        ":IPO",
         ":IRPrinter",
         ":IRReader",
         ":Linker",
         ":Passes",
+        ":Scalar",
         ":Support",
         ":TransformUtils",
         ":common_transforms",
@@ -4543,6 +4598,7 @@ cc_binary(
     stamp = 0,
     deps = [
         ":OrcJIT",
+        ":OrcTargetProcess",
         ":Support",
         ":attributes_gen",
         ":config",
@@ -4569,14 +4625,18 @@ cc_binary(
         ":Core",
         ":ExecutionEngine",
         ":IPO",
+        ":IRReader",
+        ":InstCombine",
         ":LTO",
         ":Linker",
         ":MCDisassembler",
         ":Object",
         ":OrcJIT",
+        ":Remarks",
         ":Scalar",
         ":Support",
         ":Target",
+        ":TransformUtils",
         ":Vectorize",
     ],
 )
@@ -4619,6 +4679,7 @@ cc_binary(
         ":FuzzMutate",
         ":IRPrinter",
         ":IRReader",
+        ":MC",
         ":Support",
         ":Target",
     ],
@@ -4730,6 +4791,7 @@ cc_binary(
         ":Support",
         ":TLICheckerOptsTableGen",
         ":TextAPI",
+        ":config",
     ],
 )
 
