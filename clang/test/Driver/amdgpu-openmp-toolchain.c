@@ -26,7 +26,6 @@
 // CHECK-PHASES: 0: input, "{{.*}}amdgpu-openmp-toolchain.c", c, (host-openmp)
 // CHECK-PHASES: 1: preprocessor, {0}, cpp-output, (host-openmp)
 // CHECK-PHASES: 2: compiler, {1}, ir, (host-openmp)
-<<<<<<< HEAD
 // CHECK-PHASES: 3: backend, {2}, assembler, (host-openmp)
 // CHECK-PHASES: 4: assembler, {3}, object, (host-openmp)
 // CHECK-PHASES: 5: input, "{{.*}}amdgpu-openmp-toolchain.c", c, (device-openmp)
@@ -43,19 +42,6 @@
 // CHECK-PHASES: 14: backend, {13}, assembler, (host-openmp)
 // CHECK-PHASES: 15: assembler, {14}, object, (host-openmp)
 // CHECK-PHASES: 16: linker, {4, 15}, image, (host-openmp)
-=======
-// CHECK-PHASES: 3: input, "[[INPUT]]", c, (device-openmp)
-// CHECK-PHASES: 4: preprocessor, {3}, cpp-output, (device-openmp)
-// CHECK-PHASES: 5: compiler, {4}, ir, (device-openmp)
-// CHECK-PHASES: 6: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (amdgcn-amd-amdhsa)" {5}, ir
-// CHECK-PHASES: 7: backend, {6}, ir, (device-openmp)
-// CHECK-PHASES: 8: offload, "device-openmp (amdgcn-amd-amdhsa)" {7}, ir
-// CHECK-PHASES: 9: clang-offload-packager, {8}, image, (device-openmp)
-// CHECK-PHASES: 10: offload, "host-openmp (x86_64-unknown-linux-gnu)" {2}, "device-openmp (x86_64-unknown-linux-gnu)" {9}, ir
-// CHECK-PHASES: 11: backend, {10}, assembler, (host-openmp)
-// CHECK-PHASES: 12: assembler, {11}, object, (host-openmp)
-// CHECK-PHASES: 13: clang-linker-wrapper, {12}, image, (host-openmp)
->>>>>>> 3d67eb0cbe309bdd52363d5b5b59824aeeb56f11
 
 // handling of --libomptarget-amdgpu-bc-path
 // RUN:   %clang -### --target=x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx803 --libomptarget-amdgpu-bc-path=%S/Inputs/hip_dev_lib/libomptarget-amdgpu-gfx803.bc %s 2>&1 | FileCheck %s --check-prefix=CHECK-LIBOMPTARGET
