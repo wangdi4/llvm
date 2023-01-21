@@ -5662,9 +5662,9 @@ LoopVectorizationCostModel::getSmallestAndWidestTypes() {
   } else {
     for (Type *T : ElementTypesInLoop) {
       MinWidth = std::min<unsigned>(
-          MinWidth, DL.getTypeSizeInBits(T->getScalarType()).getFixedSize());
+          MinWidth, DL.getTypeSizeInBits(T->getScalarType()).getFixedValue());
       MaxWidth = std::max<unsigned>(
-          MaxWidth, DL.getTypeSizeInBits(T->getScalarType()).getFixedSize());
+          MaxWidth, DL.getTypeSizeInBits(T->getScalarType()).getFixedValue());
     }
   }
   return {MinWidth, MaxWidth};
@@ -7505,7 +7505,7 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
     if (UserVF.isZero()) {
       VF = ElementCount::getFixed(determineVPlanVF(
           TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-              .getFixedSize(),
+              .getFixedValue(),
           CM));
       LLVM_DEBUG(dbgs() << "LV: VPlan computed VF " << VF << ".\n");
 

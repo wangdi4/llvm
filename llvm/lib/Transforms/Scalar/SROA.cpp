@@ -790,7 +790,7 @@ class AllocaSlices::SliceBuilder : public PtrUseVisitor<SliceBuilder> {
 public:
   SliceBuilder(const DataLayout &DL, AllocaInst &AI, AllocaSlices &AS)
       : PtrUseVisitor<SliceBuilder>(DL),
-        AllocSize(DL.getTypeAllocSize(AI.getAllocatedType()).getFixedSize()),
+        AllocSize(DL.getTypeAllocSize(AI.getAllocatedType()).getFixedValue()),
         AS(AS) {}
 
 private:
@@ -883,7 +883,7 @@ private:
           GEPOffset +=
               Index *
               APInt(Offset.getBitWidth(),
-                    DL.getTypeAllocSize(GTI.getIndexedType()).getFixedSize());
+                    DL.getTypeAllocSize(GTI.getIndexedType()).getFixedValue());
         }
 
         // If this index has computed an intermediate pointer which is not
@@ -918,7 +918,7 @@ private:
     if (isa<ScalableVectorType>(LI.getType()))
       return PI.setAborted(&LI);
 
-    uint64_t Size = DL.getTypeStoreSize(LI.getType()).getFixedSize();
+    uint64_t Size = DL.getTypeStoreSize(LI.getType()).getFixedValue();
     return handleLoadOrStore(LI.getType(), LI, Offset, Size, LI.isVolatile());
   }
 
@@ -932,7 +932,7 @@ private:
     if (isa<ScalableVectorType>(ValOp->getType()))
       return PI.setAborted(&SI);
 
-    uint64_t Size = DL.getTypeStoreSize(ValOp->getType()).getFixedSize();
+    uint64_t Size = DL.getTypeStoreSize(ValOp->getType()).getFixedValue();
 
     // If this memory access can be shown to *statically* extend outside the
     // bounds of the allocation, it's behavior is undefined, so simply
@@ -1106,16 +1106,16 @@ private:
       std::tie(UsedI, I) = Uses.pop_back_val();
 
       if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-        Size = std::max(Size,
-                        DL.getTypeStoreSize(LI->getType()).getFixedSize());
+        Size =
+            std::max(Size, DL.getTypeStoreSize(LI->getType()).getFixedValue());
         continue;
       }
       if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
         Value *Op = SI->getOperand(0);
         if (Op == UsedI)
           return SI;
-        Size = std::max(Size,
-                        DL.getTypeStoreSize(Op->getType()).getFixedSize());
+        Size =
+            std::max(Size, DL.getTypeStoreSize(Op->getType()).getFixedValue());
         continue;
       }
 
@@ -1423,7 +1423,8 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     return false;
 #endif // INTEL_CUSTOMIZATION
 
-  APInt LoadSize = APInt(APWidth, DL.getTypeStoreSize(LoadType).getFixedSize());
+  APInt LoadSize =
+      APInt(APWidth, DL.getTypeStoreSize(LoadType).getFixedValue());
 
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
@@ -2080,8 +2081,8 @@ static bool canConvertValue(const DataLayout &DL, Type *OldTy, Type *NewTy) {
     return false;
   }
 
-  if (DL.getTypeSizeInBits(NewTy).getFixedSize() !=
-      DL.getTypeSizeInBits(OldTy).getFixedSize())
+  if (DL.getTypeSizeInBits(NewTy).getFixedValue() !=
+      DL.getTypeSizeInBits(OldTy).getFixedValue())
     return false;
   if (!NewTy->isSingleValueType() || !OldTy->isSingleValueType())
     return false;
@@ -2259,13 +2260,13 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
 static bool checkVectorTypeForPromotion(Partition &P, VectorType *VTy,
                                         const DataLayout &DL) {
   uint64_t ElementSize =
-      DL.getTypeSizeInBits(VTy->getElementType()).getFixedSize();
+      DL.getTypeSizeInBits(VTy->getElementType()).getFixedValue();
 
   // While the definition of LLVM vectors is bitpacked, we don't support sizes
   // that aren't byte sized.
   if (ElementSize % 8)
     return false;
-  assert((DL.getTypeSizeInBits(VTy).getFixedSize() % 8) == 0 &&
+  assert((DL.getTypeSizeInBits(VTy).getFixedValue() % 8) == 0 &&
          "vector size not a multiple of element size?");
   ElementSize /= 8;
 
@@ -2303,8 +2304,8 @@ static VectorType *isVectorPromotionViable(Partition &P, const DataLayout &DL) {
       // Return if bitcast to vectors is different for total size in bits.
       if (!CandidateTys.empty()) {
         VectorType *V = CandidateTys[0];
-        if (DL.getTypeSizeInBits(VTy).getFixedSize() !=
-            DL.getTypeSizeInBits(V).getFixedSize()) {
+        if (DL.getTypeSizeInBits(VTy).getFixedValue() !=
+            DL.getTypeSizeInBits(V).getFixedValue()) {
           CandidateTys.clear();
           return;
         }
@@ -2364,8 +2365,8 @@ static VectorType *isVectorPromotionViable(Partition &P, const DataLayout &DL) {
     // they're all integer vectors. We sort by ascending number of elements.
     auto RankVectorTypes = [&DL](VectorType *RHSTy, VectorType *LHSTy) {
       (void)DL;
-      assert(DL.getTypeSizeInBits(RHSTy).getFixedSize() ==
-                 DL.getTypeSizeInBits(LHSTy).getFixedSize() &&
+      assert(DL.getTypeSizeInBits(RHSTy).getFixedValue() ==
+                 DL.getTypeSizeInBits(LHSTy).getFixedValue() &&
              "Cannot have vector types of different sizes!");
       assert(RHSTy->getElementType()->isIntegerTy() &&
              "All non-integer types eliminated!");
@@ -2415,7 +2416,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
                                             Type *AllocaTy,
                                             const DataLayout &DL,
                                             bool &WholeAllocaOp) {
-  uint64_t Size = DL.getTypeStoreSize(AllocaTy).getFixedSize();
+  uint64_t Size = DL.getTypeStoreSize(AllocaTy).getFixedValue();
 
   uint64_t RelBegin = S.beginOffset() - AllocBeginOffset;
   uint64_t RelEnd = S.endOffset() - AllocBeginOffset;
@@ -2440,7 +2441,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     if (LI->isVolatile())
       return false;
     // We can't handle loads that extend past the allocated memory.
-    if (DL.getTypeStoreSize(LI->getType()).getFixedSize() > Size)
+    if (DL.getTypeStoreSize(LI->getType()).getFixedValue() > Size)
       return false;
     // So far, AllocaSliceRewriter does not support widening split slice tails
     // in rewriteIntegerLoad.
@@ -2452,7 +2453,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     if (!isa<VectorType>(LI->getType()) && RelBegin == 0 && RelEnd == Size)
       WholeAllocaOp = true;
     if (IntegerType *ITy = dyn_cast<IntegerType>(LI->getType())) {
-      if (ITy->getBitWidth() < DL.getTypeStoreSizeInBits(ITy).getFixedSize())
+      if (ITy->getBitWidth() < DL.getTypeStoreSizeInBits(ITy).getFixedValue())
         return false;
     } else if (RelBegin != 0 || RelEnd != Size ||
                !canConvertValue(DL, AllocaTy, LI->getType())) {
@@ -2465,7 +2466,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     if (SI->isVolatile())
       return false;
     // We can't handle stores that extend past the allocated memory.
-    if (DL.getTypeStoreSize(ValueTy).getFixedSize() > Size)
+    if (DL.getTypeStoreSize(ValueTy).getFixedValue() > Size)
       return false;
     // So far, AllocaSliceRewriter does not support widening split slice tails
     // in rewriteIntegerStore.
@@ -2477,7 +2478,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     if (!isa<VectorType>(ValueTy) && RelBegin == 0 && RelEnd == Size)
       WholeAllocaOp = true;
     if (IntegerType *ITy = dyn_cast<IntegerType>(ValueTy)) {
-      if (ITy->getBitWidth() < DL.getTypeStoreSizeInBits(ITy).getFixedSize())
+      if (ITy->getBitWidth() < DL.getTypeStoreSizeInBits(ITy).getFixedValue())
         return false;
     } else if (RelBegin != 0 || RelEnd != Size ||
                !canConvertValue(DL, ValueTy, AllocaTy)) {
@@ -2505,13 +2506,13 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
 /// promote the resulting alloca.
 static bool isIntegerWideningViable(Partition &P, Type *AllocaTy,
                                     const DataLayout &DL) {
-  uint64_t SizeInBits = DL.getTypeSizeInBits(AllocaTy).getFixedSize();
+  uint64_t SizeInBits = DL.getTypeSizeInBits(AllocaTy).getFixedValue();
   // Don't create integer types larger than the maximum bitwidth.
   if (SizeInBits > IntegerType::MAX_INT_BITS)
     return false;
 
   // Don't try to handle allocas with bit-padding.
-  if (SizeInBits != DL.getTypeStoreSizeInBits(AllocaTy).getFixedSize())
+  if (SizeInBits != DL.getTypeStoreSizeInBits(AllocaTy).getFixedValue())
     return false;
 
   // We need to ensure that an integer type with the appropriate bitwidth can
@@ -2549,13 +2550,13 @@ static Value *extractInteger(const DataLayout &DL, IRBuilderTy &IRB, Value *V,
                              const Twine &Name) {
   LLVM_DEBUG(dbgs() << "       start: " << *V << "\n");
   IntegerType *IntTy = cast<IntegerType>(V->getType());
-  assert(DL.getTypeStoreSize(Ty).getFixedSize() + Offset <=
-             DL.getTypeStoreSize(IntTy).getFixedSize() &&
+  assert(DL.getTypeStoreSize(Ty).getFixedValue() + Offset <=
+             DL.getTypeStoreSize(IntTy).getFixedValue() &&
          "Element extends past full value");
   uint64_t ShAmt = 8 * Offset;
   if (DL.isBigEndian())
-    ShAmt = 8 * (DL.getTypeStoreSize(IntTy).getFixedSize() -
-                 DL.getTypeStoreSize(Ty).getFixedSize() - Offset);
+    ShAmt = 8 * (DL.getTypeStoreSize(IntTy).getFixedValue() -
+                 DL.getTypeStoreSize(Ty).getFixedValue() - Offset);
   if (ShAmt) {
     V = IRB.CreateLShr(V, ShAmt, Name + ".shift");
     LLVM_DEBUG(dbgs() << "     shifted: " << *V << "\n");
@@ -2580,13 +2581,13 @@ static Value *insertInteger(const DataLayout &DL, IRBuilderTy &IRB, Value *Old,
     V = IRB.CreateZExt(V, IntTy, Name + ".ext");
     LLVM_DEBUG(dbgs() << "    extended: " << *V << "\n");
   }
-  assert(DL.getTypeStoreSize(Ty).getFixedSize() + Offset <=
-             DL.getTypeStoreSize(IntTy).getFixedSize() &&
+  assert(DL.getTypeStoreSize(Ty).getFixedValue() + Offset <=
+             DL.getTypeStoreSize(IntTy).getFixedValue() &&
          "Element store outside of alloca store");
   uint64_t ShAmt = 8 * Offset;
   if (DL.isBigEndian())
-    ShAmt = 8 * (DL.getTypeStoreSize(IntTy).getFixedSize() -
-                 DL.getTypeStoreSize(Ty).getFixedSize() - Offset);
+    ShAmt = 8 * (DL.getTypeStoreSize(IntTy).getFixedValue() -
+                 DL.getTypeStoreSize(Ty).getFixedValue() - Offset);
   if (ShAmt) {
     V = IRB.CreateShl(V, ShAmt, Name + ".shift");
     LLVM_DEBUG(dbgs() << "     shifted: " << *V << "\n");
@@ -2762,16 +2763,16 @@ public:
             IsIntegerPromotable
                 ? Type::getIntNTy(NewAI.getContext(),
                                   DL.getTypeSizeInBits(NewAI.getAllocatedType())
-                                      .getFixedSize())
+                                      .getFixedValue())
                 : nullptr),
         VecTy(PromotableVecTy),
         ElementTy(VecTy ? VecTy->getElementType() : nullptr),
-        ElementSize(VecTy ? DL.getTypeSizeInBits(ElementTy).getFixedSize() / 8
+        ElementSize(VecTy ? DL.getTypeSizeInBits(ElementTy).getFixedValue() / 8
                           : 0),
         PHIUsers(PHIUsers), SelectUsers(SelectUsers),
         IRB(NewAI.getContext(), ConstantFolder()) {
     if (VecTy) {
-      assert((DL.getTypeSizeInBits(ElementTy).getFixedSize() % 8) == 0 &&
+      assert((DL.getTypeSizeInBits(ElementTy).getFixedValue() % 8) == 0 &&
              "Only multiple-of-8 sized vector elements are viable");
       ++NumVectorized;
     }
@@ -2940,7 +2941,7 @@ private:
     Type *TargetTy = IsSplit ? Type::getIntNTy(LI.getContext(), SliceSize * 8)
                              : LI.getType();
     const bool IsLoadPastEnd =
-        DL.getTypeStoreSize(TargetTy).getFixedSize() > SliceSize;
+        DL.getTypeStoreSize(TargetTy).getFixedValue() > SliceSize;
     bool IsPtrAdjusted = false;
     Value *V;
     if (VecTy) {
@@ -3012,7 +3013,7 @@ private:
       assert(!LI.isVolatile());
       assert(LI.getType()->isIntegerTy() &&
              "Only integer type loads and stores are split");
-      assert(SliceSize < DL.getTypeStoreSize(LI.getType()).getFixedSize() &&
+      assert(SliceSize < DL.getTypeStoreSize(LI.getType()).getFixedValue() &&
              "Split load isn't smaller than original load");
       assert(DL.typeSizeEqualsStoreSize(LI.getType()) &&
              "Non-byte-multiple bit width");
@@ -3080,7 +3081,7 @@ private:
   bool rewriteIntegerStore(Value *V, StoreInst &SI, AAMDNodes AATags) {
     assert(IntTy && "We cannot extract an integer from the alloca");
     assert(!SI.isVolatile());
-    if (DL.getTypeSizeInBits(V->getType()).getFixedSize() !=
+    if (DL.getTypeSizeInBits(V->getType()).getFixedValue() !=
         IntTy->getBitWidth()) {
       Value *Old = IRB.CreateAlignedLoad(NewAI.getAllocatedType(), &NewAI,
                                          NewAI.getAlign(), "oldload");
@@ -3118,7 +3119,7 @@ private:
       if (AllocaInst *AI = dyn_cast<AllocaInst>(V->stripInBoundsOffsets()))
         Pass.PostPromotionWorklist.insert(AI);
 
-    if (SliceSize < DL.getTypeStoreSize(V->getType()).getFixedSize()) {
+    if (SliceSize < DL.getTypeStoreSize(V->getType()).getFixedValue()) {
       assert(!SI.isVolatile());
       assert(V->getType()->isIntegerTy() &&
              "Only integer type loads and stores are split");
@@ -3135,7 +3136,7 @@ private:
       return rewriteIntegerStore(V, SI, AATags);
 
     const bool IsStorePastEnd =
-        DL.getTypeStoreSize(V->getType()).getFixedSize() > SliceSize;
+        DL.getTypeStoreSize(V->getType()).getFixedValue() > SliceSize;
     StoreInst *NewSI;
     if (NewBeginOffset == NewAllocaBeginOffset &&
         NewEndOffset == NewAllocaEndOffset &&
@@ -3262,7 +3263,7 @@ private:
       auto *Int8Ty = IntegerType::getInt8Ty(NewAI.getContext());
       auto *SrcTy = FixedVectorType::get(Int8Ty, Len);
       return canConvertValue(DL, SrcTy, AllocaTy) &&
-             DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy).getFixedSize());
+             DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy).getFixedValue());
     }();
 
     // If this doesn't map cleanly onto the alloca type, and that type isn't
@@ -3302,7 +3303,7 @@ private:
              "Too many elements!");
 
       Value *Splat = getIntegerSplat(
-          II.getValue(), DL.getTypeSizeInBits(ElementTy).getFixedSize() / 8);
+          II.getValue(), DL.getTypeSizeInBits(ElementTy).getFixedValue() / 8);
       Splat = convertValue(DL, IRB, Splat, ElementTy);
       if (NumElements > 1)
         Splat = getVectorSplat(Splat, NumElements);
@@ -3336,7 +3337,7 @@ private:
       assert(NewEndOffset == NewAllocaEndOffset);
 
       V = getIntegerSplat(II.getValue(),
-                          DL.getTypeSizeInBits(ScalarTy).getFixedSize() / 8);
+                          DL.getTypeSizeInBits(ScalarTy).getFixedValue() / 8);
       if (VectorType *AllocaVecTy = dyn_cast<VectorType>(AllocaTy))
         V = getVectorSplat(
             V, cast<FixedVectorType>(AllocaVecTy)->getNumElements());
@@ -3412,7 +3413,7 @@ private:
         !VecTy && !IntTy &&
         (BeginOffset > NewAllocaBeginOffset || EndOffset < NewAllocaEndOffset ||
          SliceSize !=
-             DL.getTypeStoreSize(NewAI.getAllocatedType()).getFixedSize() ||
+             DL.getTypeStoreSize(NewAI.getAllocatedType()).getFixedValue() ||
          !NewAI.getAllocatedType()->isSingleValueType());
 
     // If we're just going to emit a memcpy, the alloca hasn't changed, and the
@@ -4153,8 +4154,8 @@ static Type *stripAggregateTypeWrapping(const DataLayout &DL, Type *Ty) {
   if (Ty->isSingleValueType())
     return Ty;
 
-  uint64_t AllocSize = DL.getTypeAllocSize(Ty).getFixedSize();
-  uint64_t TypeSize = DL.getTypeSizeInBits(Ty).getFixedSize();
+  uint64_t AllocSize = DL.getTypeAllocSize(Ty).getFixedValue();
+  uint64_t TypeSize = DL.getTypeSizeInBits(Ty).getFixedValue();
 
   Type *InnerTy;
   if (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty)) {
@@ -4167,8 +4168,8 @@ static Type *stripAggregateTypeWrapping(const DataLayout &DL, Type *Ty) {
     return Ty;
   }
 
-  if (AllocSize > DL.getTypeAllocSize(InnerTy).getFixedSize() ||
-      TypeSize > DL.getTypeSizeInBits(InnerTy).getFixedSize())
+  if (AllocSize > DL.getTypeAllocSize(InnerTy).getFixedValue() ||
+      TypeSize > DL.getTypeSizeInBits(InnerTy).getFixedValue())
     return Ty;
 
   return stripAggregateTypeWrapping(DL, InnerTy);
@@ -4189,10 +4190,10 @@ static Type *stripAggregateTypeWrapping(const DataLayout &DL, Type *Ty) {
 /// return a type if necessary.
 static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
                               uint64_t Size) {
-  if (Offset == 0 && DL.getTypeAllocSize(Ty).getFixedSize() == Size)
+  if (Offset == 0 && DL.getTypeAllocSize(Ty).getFixedValue() == Size)
     return stripAggregateTypeWrapping(DL, Ty);
-  if (Offset > DL.getTypeAllocSize(Ty).getFixedSize() ||
-      (DL.getTypeAllocSize(Ty).getFixedSize() - Offset) < Size)
+  if (Offset > DL.getTypeAllocSize(Ty).getFixedValue() ||
+      (DL.getTypeAllocSize(Ty).getFixedValue() - Offset) < Size)
     return nullptr;
 
   if (isa<ArrayType>(Ty) || isa<VectorType>(Ty)) {
@@ -4208,7 +4209,7 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
        ElementTy = VT->getElementType();
        TyNumElements = VT->getNumElements();
     }
-    uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedSize();
+    uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedValue();
     uint64_t NumSkippedElements = Offset / ElementSize;
     if (NumSkippedElements >= TyNumElements)
       return nullptr;
@@ -4248,7 +4249,7 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
   Offset -= SL->getElementOffset(Index);
 
   Type *ElementTy = STy->getElementType(Index);
-  uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedSize();
+  uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedValue();
   if (Offset >= ElementSize)
     return nullptr; // The offset points into alignment padding.
 
@@ -4813,7 +4814,7 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       findCommonType(P.begin(), P.end(), P.endOffset());
   // Do all uses operate on the same type?
   if (CommonUseTy.first)
-    if (DL.getTypeAllocSize(CommonUseTy.first).getFixedSize() >= P.size()) {
+    if (DL.getTypeAllocSize(CommonUseTy.first).getFixedValue() >= P.size()) {
       SliceTy = CommonUseTy.first;
       SliceVecTy = dyn_cast<VectorType>(SliceTy);
     }
@@ -4831,7 +4832,7 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
 
   // If still not, can we use the largest bitwidth integer type used?
   if (!SliceTy && CommonUseTy.second)
-    if (DL.getTypeAllocSize(CommonUseTy.second).getFixedSize() >= P.size()) {
+    if (DL.getTypeAllocSize(CommonUseTy.second).getFixedValue() >= P.size()) {
       SliceTy = CommonUseTy.second;
       SliceVecTy = dyn_cast<VectorType>(SliceTy);
     }
@@ -4854,7 +4855,7 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
 
   if (!SliceTy)
     SliceTy = ArrayType::get(Type::getInt8Ty(*C), P.size());
-  assert(DL.getTypeAllocSize(SliceTy).getFixedSize() >= P.size());
+  assert(DL.getTypeAllocSize(SliceTy).getFixedValue() >= P.size());
 
   bool IsIntegerPromotable = isIntegerWideningViable(P, SliceTy, DL);
 
@@ -5017,7 +5018,7 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   bool IsSorted = true;
 
   uint64_t AllocaSize =
-      DL.getTypeAllocSize(AI.getAllocatedType()).getFixedSize();
+      DL.getTypeAllocSize(AI.getAllocatedType()).getFixedValue();
   const uint64_t MaxBitVectorSize = 1024;
   if (AllocaSize <= MaxBitVectorSize) {
     // If a byte boundary is included in any load or store, a slice starting or
@@ -5082,7 +5083,7 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
       if (NewAI != &AI) {
         uint64_t SizeOfByte = 8;
         uint64_t AllocaSize =
-            DL.getTypeSizeInBits(NewAI->getAllocatedType()).getFixedSize();
+            DL.getTypeSizeInBits(NewAI->getAllocatedType()).getFixedValue();
         // Don't include any padding.
         uint64_t Size = std::min(AllocaSize, P.size() * SizeOfByte);
         Fragments.push_back(Fragment(NewAI, P.beginOffset() * SizeOfByte, Size));
@@ -5103,7 +5104,7 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
     auto *Expr = DbgDeclare->getExpression();
     DIBuilder DIB(*AI.getModule(), /*AllowUnresolved*/ false);
     uint64_t AllocaSize =
-        DL.getTypeSizeInBits(AI.getAllocatedType()).getFixedSize();
+        DL.getTypeSizeInBits(AI.getAllocatedType()).getFixedValue();
     for (auto Fragment : Fragments) {
       // Create a fragment expression describing the new partition or reuse AI's
       // expression if there is only one partition.
@@ -5224,7 +5225,7 @@ SROAPass::runOnAlloca(AllocaInst &AI) {
   // Skip alloca forms that this analysis can't handle.
   auto *AT = AI.getAllocatedType();
   if (AI.isArrayAllocation() || !AT->isSized() || isa<ScalableVectorType>(AT) ||
-      DL.getTypeAllocSize(AT).getFixedSize() == 0)
+      DL.getTypeAllocSize(AT).getFixedValue() == 0)
     return {Changed, CFGChanged};
 
   // First, split any FCA loads and stores touching this alloca to promote

@@ -1661,6 +1661,7 @@ bool InductionDescriptor::isInductionPHI(
   // the scalable type.
   if (TySize.isZero() || TySize.isScalable())
     return false;
+<<<<<<< HEAD
   int64_t Size = static_cast<int64_t>(TySize.getFixedSize());
 
 #if INTEL_CUSTOMIZATION
@@ -1682,5 +1683,16 @@ bool InductionDescriptor::isInductionPHI(
                             /* BinOp */ nullptr, ElementType);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+
+  int64_t Size = static_cast<int64_t>(TySize.getFixedValue());
+  int64_t CVSize = CV->getSExtValue();
+  if (CVSize % Size)
+    return false;
+  auto *StepValue =
+      SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
+  D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
+                          /* BinOp */ nullptr, ElementType);
+>>>>>>> 8fd5558b29761aec91143129cb23c90581a944e9
   return true;
 }
