@@ -29,6 +29,7 @@ VERS1.0 {
     __tgt_target_nowait_query;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
+<<<<<<< HEAD
 # INTEL_COLLAB
     __tgt_is_device_available;
     __tgt_get_device_name;
@@ -51,6 +52,11 @@ VERS1.0 {
     __tgt_target_alloc_per_hw_thread_scratch;
     __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
+=======
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
+    omp_get_mapped_ptr;
+>>>>>>> 6e18277a51187ce8e861cdf0ab1395235e5b83d4
     omp_get_num_devices;
     omp_get_device_num;
     omp_get_initial_device;

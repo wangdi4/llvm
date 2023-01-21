@@ -35,6 +35,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #if INTEL_COLLAB
 /// API functions that can access host-to-target data map need to load device
@@ -360,6 +361,7 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   DP("omp_target_disassociate_ptr returns %d\n", Rc);
   return Rc;
 }
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN void *omp_get_mapped_ptr(void *HostPtr, int DeviceNum) {
   DP("Call to omp_get_mapped_ptr with host pointer " DPxMOD
@@ -768,10 +770,37 @@ EXTERN void ompx_target_unregister_host_pointer(void *HostPtr, int DeviceNum) {
 EXTERN void *omp_target_get_context(int DeviceNum) {
   if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s returns null for the host device\n", __func__);
+=======
+
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
+  TIMESCOPE();
+  DP("Call to omp_get_mapped_ptr with ptr " DPxMOD ", device_num %d.\n",
+     DPxPTR(Ptr), DeviceNum);
+
+  if (!Ptr) {
+    REPORT("Call to omp_get_mapped_ptr with nullptr.\n");
+    return nullptr;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    REPORT("Device %d is initial device, returning Ptr " DPxMOD ".\n",
+           DeviceNum, DPxPTR(Ptr));
+    return const_cast<void *>(Ptr);
+  }
+
+  int DevicesSize = omp_get_initial_device();
+  {
+    std::lock_guard<std::mutex> LG(PM->RTLsMtx);
+    DevicesSize = PM->Devices.size();
+  }
+  if (DevicesSize <= DeviceNum) {
+    DP("DeviceNum %d is invalid, returning nullptr.\n", DeviceNum);
+>>>>>>> 6e18277a51187ce8e861cdf0ab1395235e5b83d4
     return nullptr;
   }
 
   if (!deviceIsReady(DeviceNum)) {
+<<<<<<< HEAD
     REPORT("%s returns null for device %d\n", __func__, DeviceNum);
     return nullptr;
   }
@@ -934,3 +963,26 @@ EXTERN int ompx_target_prefetch_shared_mem(
 }
 #endif  // INTEL_COLLAB
 
+=======
+    REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
+    return nullptr;
+  }
+
+  bool IsLast = false;
+  bool IsHostPtr = false;
+  auto &Device = *PM->Devices[DeviceNum];
+  TargetPointerResultTy TPR =
+      Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1, IsLast,
+                            /*UpdateRefCount=*/false,
+                            /*UseHoldRefCount=*/false, IsHostPtr);
+  if (!TPR.isPresent()) {
+    DP("Ptr " DPxMOD "is not present on device %d, returning nullptr.\n",
+       DPxPTR(Ptr), DeviceNum);
+    return nullptr;
+  }
+
+  DP("omp_get_mapped_ptr returns " DPxMOD ".\n", DPxPTR(TPR.TargetPointer));
+
+  return TPR.TargetPointer;
+}
+>>>>>>> 6e18277a51187ce8e861cdf0ab1395235e5b83d4
