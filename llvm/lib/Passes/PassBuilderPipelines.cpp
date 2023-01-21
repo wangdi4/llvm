@@ -102,6 +102,7 @@
 #include "llvm/Transforms/Scalar/Float2Int.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
+#include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
@@ -2246,6 +2247,12 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
   // Create OCL sincos from sin/cos and sincos
   if (OptLevel > 0)
     FPM.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
+  // IGC Vector Backend wants to get as less generic addrspaces as possible,
+  // but InferAddressSpacesPass is not good with handling vectors, so placing
+  // it here
+  if (EnableDeviceSimd)
+    FPM.addPass(InferAddressSpacesPass(vpo::ADDRESS_SPACE_GENERIC));
 
   FPM.addPass(vpo::VPlanDriverPass());
 
