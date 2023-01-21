@@ -1661,7 +1661,7 @@ bool InductionDescriptor::isInductionPHI(
   // the scalable type.
   if (TySize.isZero() || TySize.isScalable())
     return false;
-  int64_t Size = static_cast<int64_t>(TySize.getFixedSize());
+  int64_t Size = static_cast<int64_t>(TySize.getFixedValue());
 
 #if INTEL_CUSTOMIZATION
   if (ConstStep) {

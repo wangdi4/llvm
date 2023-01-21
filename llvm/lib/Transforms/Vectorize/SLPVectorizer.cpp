@@ -1163,7 +1163,7 @@ public:
     else
       MaxVecRegSize =
           TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-              .getFixedSize();
+              .getFixedValue();
 
     if (MinVectorRegSizeOption.getNumOccurrences())
       MinVecRegSize = MinVectorRegSizeOption;
