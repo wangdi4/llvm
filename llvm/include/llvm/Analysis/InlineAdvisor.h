@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Modifications, Copyright (C) 2021-2022 Intel Corporation
+ * Modifications, Copyright (C) 2021-2023 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -102,6 +102,10 @@ public:
 #endif // INTEL_CUSTOMIZATION
   InlineAdvice(InlineAdvice &&) = delete;
   InlineAdvice(const InlineAdvice &) = delete;
+#if INTEL_CUSTOMIZATION
+  InlineAdvice &operator=(const InlineAdvice &) = delete;
+  InlineAdvice &operator=(InlineAdvice &&) = delete;
+#endif // INTEL_CUSTOMIZATION
   virtual ~InlineAdvice() {
     assert(Recorded && "InlineAdvice should have been informed of the "
                        "inliner's decision in all cases");
@@ -192,6 +196,10 @@ private:
 class InlineAdvisor {
 public:
   InlineAdvisor(InlineAdvisor &&) = delete;
+#if INTEL_CUSTOMIZATION
+  InlineAdvisor &operator=(const InlineAdvisor &) = delete;
+  InlineAdvisor &operator=(InlineAdvisor &&) = delete;
+#endif // INTEL_CUSTOMIZATION
   virtual ~InlineAdvisor();
 
   /// Get an InlineAdvice containing a recommendation on whether to
