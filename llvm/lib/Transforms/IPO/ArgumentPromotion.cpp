@@ -254,7 +254,7 @@ static Function *doPromotion(
   for (auto *I : Params)
     if (auto *VT = dyn_cast<llvm::VectorType>(I))
       LargestVectorWidth = std::max(
-          LargestVectorWidth, VT->getPrimitiveSizeInBits().getKnownMinSize());
+          LargestVectorWidth, VT->getPrimitiveSizeInBits().getKnownMinValue());
 
   // Recompute the parameter attributes list based on the new arguments for
   // the function.
