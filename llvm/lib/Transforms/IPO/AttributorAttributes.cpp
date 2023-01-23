@@ -1243,7 +1243,7 @@ struct AAPointerInfoImpl
         return false;
       if (!DominatingWrites.count(&Acc))
         return false;
-      return LeastDominatingWriteInst != Acc.getLocalInst();
+      return LeastDominatingWriteInst != Acc.getRemoteInst();
     };
 
     // Run the user callback on all accesses we cannot skip and return if
