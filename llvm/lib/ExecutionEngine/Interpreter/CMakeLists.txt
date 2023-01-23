@@ -34,6 +34,7 @@ if( LLVM_ENABLE_FFI )
   target_link_libraries( LLVMInterpreter PRIVATE FFI::ffi )
 endif()
 
+<<<<<<< HEAD
 if (INTEL_CUSTOMIZATION)
   configure_file(
     Interpreter.h
@@ -41,3 +42,10 @@ if (INTEL_CUSTOMIZATION)
 
   install(FILES Interpreter.h DESTINATION include/llvm/ExecutionEngine/Interpreter)
 endif (INTEL_CUSTOMIZATION)
+=======
+configure_file(
+  Interpreter.h
+  ${LLVM_BINARY_DIR}/include/llvm/ExecutionEngine/Interpreter/Interpreter.h)
+
+install(FILES Interpreter.h DESTINATION include/llvm/ExecutionEngine/Interpreter)
+>>>>>>> a2614ef15c7acfb4e9b6d368a2502cfc45eddfa9
