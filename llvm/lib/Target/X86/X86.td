@@ -1645,6 +1645,23 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
+#if INTEL_FEATURE_CPU_RYL
+#define ENABLE_CPU_RYL
+  list<SubtargetFeature> RYLAdditionalFeatures = [
+#endif // INTEL_FEATURE_CPU_RYL
+#ifdef ENABLE_CPU_RYL
+#if INTEL_FEATURE_ISA_AVX256P
+    FeatureAVX256P,
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // ENABLE_CPU_RYL
+#if INTEL_FEATURE_CPU_RYL
+  ];
+  list<SubtargetFeature> RYLFeatures =
+    !listconcat(ADLFeatures, RYLAdditionalFeatures);
+  list<SubtargetFeature> RYLAdditionalTuning = [TuningMRN];
+  list<SubtargetFeature> RYLTuning =
+    !listconcat(ICLTuning, RYLAdditionalTuning);
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   // Sierraforest
   list<SubtargetFeature> SRFAdditionalFeatures = [FeatureCMPCCXADD,
@@ -2152,7 +2169,7 @@ def : ProcModel<"diamondrapids", SPRModel,
 #endif // INTEL_FEATURE_CPU_DMR
 #if INTEL_FEATURE_CPU_RYL
 def : ProcModel<"royal", RYLModel,
-                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+                ProcessorFeatures.RYLFeatures, ProcessorFeatures.RYLTuning>;
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 def : ProcModel<"raptorlake", AlderlakePModel,
