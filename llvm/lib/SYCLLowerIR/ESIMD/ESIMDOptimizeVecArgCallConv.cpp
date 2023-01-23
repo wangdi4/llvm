@@ -461,9 +461,9 @@ static bool processFunction(Function *F) {
       NewParamTs.push_back(Arg.getType());
       continue;
     }
-    OptimizeableParams.emplace_back(std::move(PI));
+    OptimizeableParams.push_back(PI);
 
-    if (OptimizeableParams.back().isSret()) {
+    if (PI.isSret()) {
       continue; // optimizeable 'sret' parameter is removed in the clone
     }
     // parameter is converted from 'by pointer' to 'by value' passing, its type
@@ -509,7 +509,7 @@ ESIMDOptimizeVecArgCallConvPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
   for (Function &F : M) {
     const bool FReplaced = processFunction(&F);
-    Modified &= FReplaced;
+    Modified |= FReplaced;
 
     if (FReplaced) {
       ToErase.push_back(&F);
