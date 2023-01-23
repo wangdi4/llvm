@@ -434,6 +434,22 @@ static constexpr FeatureBitset FeaturesZNVER3 = FeaturesZNVER2 |
                                                 FeatureINVPCID | FeaturePKU |
                                                 FeatureVAES | FeatureVPCLMULQDQ;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RYL
+#define ENABLE_CPU_RYL
+constexpr FeatureBitset FeaturesRoyal =
+#endif // INTEL_FEATURE_CPU_RYL
+#ifdef ENABLE_CPU_RYL
+#if INTEL_FEATURE_ISA_AVX256P
+    FeatureAVX256P |
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // ENABLE_CPU_RYL
+#if INTEL_FEATURE_CPU_RYL
+    FeaturesAlderlake;
+#undef ENABLE_CPU_RYL
+#endif // INTEL_FEATURE_CPU_RYL
+#endif // INTEL_CUSTOMIZATION
+
 constexpr ProcInfo Processors[] = {
   // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
   { {""}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B },
@@ -534,7 +550,7 @@ constexpr ProcInfo Processors[] = {
 #endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
   // Royal microarchitecture based processors.
-  { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesAlderlake },
+  { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal },
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
   // Raptorlake microarchitecture based processors.
