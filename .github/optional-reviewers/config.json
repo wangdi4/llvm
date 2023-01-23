@@ -16,6 +16,11 @@
       "aeloviko"
     ],
     "match": ".*[Pp]redicator.*"
+  },
+  {
+    "ids": [
+      "e-kud"
+    ],
+    "match": "llvm/lib/Target/X86/X86.td"
   }
-
 ]

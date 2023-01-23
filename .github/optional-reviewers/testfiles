@@ -9,3 +9,4 @@ llvm/Intel_OptionalComponents/DTrans/lib/Analysis/DTransAnalysis.cpp
 llvm/Intel_OptionalComponents/DTrans/lib/Transforms/DTransNormalizeOP.cpp
 llvm/lib/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.cpp
 llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h
+llvm/lib/Target/X86/X86.td
