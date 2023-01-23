@@ -2211,6 +2211,7 @@ ChangeStatus Attributor::cleanupIR() {
           Arg.removeAttr(Attribute::Returned);
     }
 
+<<<<<<< HEAD
     // Do not perform call graph altering changes outside the SCC.
     if (auto *CB = dyn_cast_or_null<CallBase>(I))
       if (CB->isCallee(U))
@@ -2229,6 +2230,8 @@ ChangeStatus Attributor::cleanupIR() {
       return;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 5d64ad85446b3edbc0c5bbae97809e28873f3161
     LLVM_DEBUG(dbgs() << "Use " << *NewV << " in " << *U->getUser()
                       << " instead of " << *OldV << "\n");
     U->set(NewV);
