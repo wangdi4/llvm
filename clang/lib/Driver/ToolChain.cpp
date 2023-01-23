@@ -1618,8 +1618,11 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))
       DAALLibs.push_back("onedal_thread");
+    // Use of -qdaal=sequential is not supported, the supporting library has
+    // been removed from the package.
     if (A->getValue() == StringRef("sequential"))
-      DAALLibs.push_back("onedal_sequential");
+      getDriver().Diag(diag::err_drv_unsupported_option_argument)
+          << A->getSpelling() << A->getValue();
     for (const auto &Lib : DAALLibs) {
       std::string LibName(Lib);
       if (Prefix.size() > 0)
