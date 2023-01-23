@@ -3655,6 +3655,7 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
       V = Start;
       UpdateVPInsts = Alias.value().UpdateVPInsts;
     }
+    assert(V && "Unexpected null induction operand");
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPPHINode>(User))
         if (Loop->contains(Instr) && getLiveInOrConstOperand(Instr, *Loop)) {
