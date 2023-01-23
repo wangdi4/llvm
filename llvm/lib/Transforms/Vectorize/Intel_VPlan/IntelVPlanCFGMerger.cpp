@@ -156,6 +156,7 @@ void VPlanCFGMerger::updateMergeBlockIncomings(PlanDescr &Descr,
         MergeVals[PN.getMergeId()] = Plan.getLiveOutValue(PN.getMergeId());
     }
   } else {
+    assert(Src && "Unexpected null basic block");
     // It's a merge block after VPlan. Make its phis feeding the MergeBlock
     for (auto &PN : Src->getVPPhis())
       MergeVals[PN.getMergeId()] = &PN;
