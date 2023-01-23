@@ -361,39 +361,8 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   DP("omp_target_disassociate_ptr returns %d\n", Rc);
   return Rc;
 }
-<<<<<<< HEAD
+
 #if INTEL_COLLAB
-EXTERN void *omp_get_mapped_ptr(void *HostPtr, int DeviceNum) {
-  DP("Call to omp_get_mapped_ptr with host pointer " DPxMOD
-     ", device number %d\n", DPxPTR(HostPtr), DeviceNum);
-
-  if (!HostPtr) {
-    DP("Call to omp_get_mapped_ptr with invalid host pointer\n");
-    return NULL;
-  }
-
-  if (DeviceNum == omp_get_initial_device()) {
-    DP("omp_get_mapped_ptr: Mapped pointer is same as host\n");
-    return HostPtr;
-  }
-
-  if (!deviceIsReady(DeviceNum)) {
-    DP("omp_get_mapped_ptr: returns NULL\n");
-    return NULL;
-  }
-  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, NULL);
-
-  DeviceTy& Device = *PM->Devices[DeviceNum];
-  bool IsLast, IsHostPtr;
-  TargetPointerResultTy TPR = Device.getTgtPtrBegin(HostPtr, 1, IsLast, false,
-                                                    false, IsHostPtr);
-  void *TgtPtr = TPR.TargetPointer;
-  if (TgtPtr == NULL)
-    DP("omp_get_mapped_ptr: cannot find device pointer\n");
-  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(TgtPtr));
-  return TgtPtr;
-}
-
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum) {
   TIMESCOPE();
@@ -770,37 +739,10 @@ EXTERN void ompx_target_unregister_host_pointer(void *HostPtr, int DeviceNum) {
 EXTERN void *omp_target_get_context(int DeviceNum) {
   if (DeviceNum == omp_get_initial_device()) {
     REPORT("%s returns null for the host device\n", __func__);
-=======
-
-EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
-  TIMESCOPE();
-  DP("Call to omp_get_mapped_ptr with ptr " DPxMOD ", device_num %d.\n",
-     DPxPTR(Ptr), DeviceNum);
-
-  if (!Ptr) {
-    REPORT("Call to omp_get_mapped_ptr with nullptr.\n");
-    return nullptr;
-  }
-
-  if (DeviceNum == omp_get_initial_device()) {
-    REPORT("Device %d is initial device, returning Ptr " DPxMOD ".\n",
-           DeviceNum, DPxPTR(Ptr));
-    return const_cast<void *>(Ptr);
-  }
-
-  int DevicesSize = omp_get_initial_device();
-  {
-    std::lock_guard<std::mutex> LG(PM->RTLsMtx);
-    DevicesSize = PM->Devices.size();
-  }
-  if (DevicesSize <= DeviceNum) {
-    DP("DeviceNum %d is invalid, returning nullptr.\n", DeviceNum);
->>>>>>> 6e18277a51187ce8e861cdf0ab1395235e5b83d4
     return nullptr;
   }
 
   if (!deviceIsReady(DeviceNum)) {
-<<<<<<< HEAD
     REPORT("%s returns null for device %d\n", __func__, DeviceNum);
     return nullptr;
   }
@@ -963,7 +905,29 @@ EXTERN int ompx_target_prefetch_shared_mem(
 }
 #endif  // INTEL_COLLAB
 
-=======
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
+  TIMESCOPE();
+  DP("Call to omp_get_mapped_ptr with ptr " DPxMOD ", device_num %d.\n",
+     DPxPTR(Ptr), DeviceNum);
+
+  if (!Ptr) {
+    REPORT("Call to omp_get_mapped_ptr with nullptr.\n");
+    return nullptr;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    REPORT("Device %d is initial device, returning Ptr " DPxMOD ".\n",
+           DeviceNum, DPxPTR(Ptr));
+    return const_cast<void *>(Ptr);
+  }
+
+  int DevicesSize = omp_get_initial_device();
+  {
+    std::lock_guard<std::mutex> LG(PM->RTLsMtx);
+    DevicesSize = PM->Devices.size();
+  }
+  if (DevicesSize <= DeviceNum) {
+    DP("DeviceNum %d is invalid, returning nullptr.\n", DeviceNum);
     REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
     return nullptr;
   }
@@ -985,4 +949,3 @@ EXTERN int ompx_target_prefetch_shared_mem(
 
   return TPR.TargetPointer;
 }
->>>>>>> 6e18277a51187ce8e861cdf0ab1395235e5b83d4
