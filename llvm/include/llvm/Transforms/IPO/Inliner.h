@@ -95,18 +95,20 @@ private:
   // Insert @llvm.lifetime intrinsics.
   bool InsertLifetime = true;
 
-  // INTEL The inline report
-  InlineReport *Report; // INTEL
-  InlineReportBuilder *MDReport; // INTEL
+#if INTEL_CUSTOMIZATION
+  // The inline report
+  InlineReport *Report = nullptr;
+  InlineReportBuilder *MDReport = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
 protected:
 #if INTEL_CUSTOMIZATION
   virtual const InlineParams *getInlineParams() const { return nullptr; }
+  AssumptionCacheTracker *ACT = nullptr;
+  InliningLoopInfoCache *ILIC = nullptr;
+  ProfileSummaryInfo *PSI = nullptr;
+  WholeProgramInfo *WPI = nullptr;
 #endif // INTEL_CUSTOMIZATION
-  AssumptionCacheTracker *ACT;
-  InliningLoopInfoCache *ILIC; // INTEL
-  ProfileSummaryInfo *PSI;
-  WholeProgramInfo *WPI;       // INTEL
   std::function<const TargetLibraryInfo &(Function &)> GetTLI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
 };
