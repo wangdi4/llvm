@@ -696,10 +696,14 @@ def OMP_Target : Directive<"target"> {
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_Device>,
+<<<<<<< HEAD
 #if INTEL_COLLAB
     VersionedClause<OMPC_Subdevice>,
     VersionedClause<OMPC_OmpxPlaces>,
 #endif // INTEL_COLLAB
+=======
+    VersionedClause<OMPC_ThreadLimit, 51>,
+>>>>>>> 02023bca7f7d6ac1b84a7f5aad8abf4f9c92095e
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_NoWait>
   ];
