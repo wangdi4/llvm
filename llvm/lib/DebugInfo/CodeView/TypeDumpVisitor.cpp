@@ -589,9 +589,9 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
 Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
                                         OEMTypeRecord &OEMType) {
   W->printEnum("OEMId", unsigned(OEMType.getOEMIdentifier()),
-               makeArrayRef(LeafTypeNames));
+               ArrayRef(LeafTypeNames));
   W->printEnum("OEMType", unsigned(OEMType.getOEMTypeID()),
-               makeArrayRef(LeafTypeNames));
+               ArrayRef(LeafTypeNames));
 
   auto Indices = OEMType.getTypeIndices();
   auto Data = OEMType.getData();

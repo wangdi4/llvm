@@ -671,7 +671,7 @@ bool VPOParoptTransform::addPrivateClausesToRegion(
   }
 
   CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
-      cast<CallInst>(W->getEntryDirective()), makeArrayRef(PrivateBundles));
+      cast<CallInst>(W->getEntryDirective()), ArrayRef(PrivateBundles));
   W->setEntryDirective(NewEntry);
   return true;
 }

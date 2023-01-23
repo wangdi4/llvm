@@ -194,7 +194,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
         for (OperandBundleDef &BD : OpBundles) {
           StringRef ClauseString = BD.getTag();
           BD = OperandBundleDef(ClauseString.str(),
-                                makeArrayRef(Ops).slice(CurrentIndex, BD.input_size()));
+                                ArrayRef(Ops).slice(CurrentIndex, BD.input_size()));
           CurrentIndex += BD.input_size();
         }
         SerialInst = Builder.CreateAssumption(Ops.front(), OpBundles);

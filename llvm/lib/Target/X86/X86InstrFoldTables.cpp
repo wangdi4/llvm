@@ -7218,11 +7218,11 @@ const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTable(unsigned RegOp,
                                                               unsigned OpNum) {
   ArrayRef<X86MemoryFoldTableEntry> FoldTable;
   if (OpNum == 2)
-    FoldTable = makeArrayRef(BroadcastFoldTable2);
+    FoldTable = ArrayRef(BroadcastFoldTable2);
   else if (OpNum == 3)
-    FoldTable = makeArrayRef(BroadcastFoldTable3);
+    FoldTable = ArrayRef(BroadcastFoldTable3);
   else if (OpNum == 4)
-    FoldTable = makeArrayRef(BroadcastFoldTable4);
+    FoldTable = ArrayRef(BroadcastFoldTable4);
   else
     return nullptr;
 

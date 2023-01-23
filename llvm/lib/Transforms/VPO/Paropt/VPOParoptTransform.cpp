@@ -13422,7 +13422,7 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   }
 
   StructType *KmpCopyPrivateTy = StructType::create(
-      C, makeArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
+      C, ArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
       "__struct.kmp_copy_privates_t", false); // (1)
 
   AllocaInst *CopyPrivateBase =
@@ -13654,7 +13654,7 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   if (OptLevel < 2)
     return;
   W->populateBBSet();
-  VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
+  VPOUtils::genAliasSet(ArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
 }
 #endif  // INTEL_CUSTOMIZATION
@@ -14737,7 +14737,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     AddToNewClauses(FirstPrivateString, OldUBPtrAndElemTys);
   }
   EntryCI =
-      VPOUtils::addOperandBundlesInCall(EntryCI, makeArrayRef(NewClauses));
+      VPOUtils::addOperandBundlesInCall(EntryCI, ArrayRef(NewClauses));
   W->setEntryDirective(EntryCI);
 
   WRegionNode *P = W;

@@ -891,9 +891,9 @@ void LimitingInstrumentation::registerCallbacks(
 
 bool LimitingInstrumentation::shouldRun(StringRef PassID, LoopOptLimiter Limiter, Any IR) {
   const Function *F = nullptr;
-  if (any_isa<const Function *>(IR)) {
+  if (any_cast<const Function *>(IR)) {
     F = any_cast<const Function *>(IR);
-  } else if (any_isa<const Loop *>(IR)) {
+  } else if (any_cast<const Loop *>(IR)) {
     F = any_cast<const Loop *>(IR)->getHeader()->getParent();
   }
   if (!F)

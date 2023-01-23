@@ -169,7 +169,7 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     }
 
     if (NeedsReplaced) {
-      return FunctionType::get(ReplRetTy, makeArrayRef(DataTypes),
+      return FunctionType::get(ReplRetTy, ArrayRef(DataTypes),
                                FunctionTy->isVarArg());
     }
   }

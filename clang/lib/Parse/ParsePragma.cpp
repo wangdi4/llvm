@@ -4291,7 +4291,7 @@ void PragmaLoopFuseHandler::HandlePragma(Preprocessor &PP,
     EOFTok.setLocation(Tok.getLocation());
     DepthValueList.push_back(EOFTok); // Terminates expression for parsing.
     Info->DepthToks =
-        llvm::makeArrayRef(DepthValueList).copy(PP.getPreprocessorAllocator());
+        llvm::ArrayRef(DepthValueList).copy(PP.getPreprocessorAllocator());
   }
 
   // Generate the attribute token.
@@ -4455,7 +4455,7 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
     EOFTok.setLocation(Tok.getLocation());
     ArrayValueList.push_back(EOFTok); // Terminates expression list.
     Info->ArrayToks =
-        llvm::makeArrayRef(ArrayValueList).copy(PP.getPreprocessorAllocator());
+        llvm::ArrayRef(ArrayValueList).copy(PP.getPreprocessorAllocator());
   }
 
   // Generate the hint token.

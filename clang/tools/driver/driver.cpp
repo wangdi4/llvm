@@ -567,7 +567,7 @@ int clang_main(int Argc, char **Argv) {
 #if INTEL_CUSTOMIZATION
   if (HasIntelOption) {
     StringRef DrBasename(llvm::sys::path::stem(Args[0]));
-    auto DriverMode = getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1));
+    auto DriverMode = getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1));
     bool HasICXOption = std::find(
         Args.begin(), Args.end(), StringRef("--icx")) != Args.end();
     if (DrBasename.str() == "clang" && DriverMode.equals_insensitive("g++")) {

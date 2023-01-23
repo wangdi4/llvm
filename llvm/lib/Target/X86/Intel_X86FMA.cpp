@@ -507,8 +507,8 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][12] = {
 const FMAOpcodesInfo::FMAOpcodeDesc *
 FMAOpcodesInfo::findByOpcode(unsigned Opcode, FMAOpcodeKind OpcodeKind,
                              bool EVEX) {
-  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
-                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? ArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : ArrayRef(VEXOpcodes[OpcodeKind]);
   auto I = llvm::find_if(Table, [Opcode](const FMAOpcodeDesc &OD) {
     return OD.RegOpc == Opcode || OD.MemOpc == Opcode;
   });
@@ -520,8 +520,8 @@ FMAOpcodesInfo::findByOpcode(unsigned Opcode, FMAOpcodeKind OpcodeKind,
 
 const FMAOpcodesInfo::FMAOpcodeDesc *
 FMAOpcodesInfo::findByVT(MVT VT, FMAOpcodeKind OpcodeKind, bool EVEX) {
-  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
-                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? ArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : ArrayRef(VEXOpcodes[OpcodeKind]);
   auto I = llvm::find_if(Table,
                          [VT](const FMAOpcodeDesc &OD) { return OD.VT == VT; });
   if (I != Table.end())

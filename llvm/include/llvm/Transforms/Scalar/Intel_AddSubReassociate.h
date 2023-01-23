@@ -47,7 +47,7 @@ public:
   unsigned getOpcode() const { return Opcode; }
 
   ArrayRef<DistributedOp> getDistributedOps() const {
-    return makeArrayRef(DistributedOps);
+    return ArrayRef(DistributedOps);
   }
 
   bool areDistributedOpsEqual(const OpcodeData &Other) const {

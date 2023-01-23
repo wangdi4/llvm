@@ -2804,7 +2804,7 @@ private:
         VecMode getMode() const { return Mode; }
         void setState(GroupState S) { State = S; }
         GroupState getState() const { return State; }
-        ArrayRef<int> getOpVec() const { return makeArrayRef(OperandsVec); }
+        ArrayRef<int> getOpVec() const { return ArrayRef(OperandsVec); }
         void clear() {
           Score = -1;
           Mode = VecMode::Uninit;
@@ -3284,7 +3284,7 @@ private:
         auto It = DefUseOverride.find(I);
         if (It != DefUseOverride.end()) {
           assert(!It->second.empty() && "Override with no users?");
-          return makeArrayRef(It->second);
+          return ArrayRef(It->second);
         }
         return std::nullopt;
       }
@@ -3376,7 +3376,7 @@ private:
     }
 
     ArrayRef<struct OperandInfo> getNonReorderableOperands() const {
-      return makeArrayRef(PostponedOperands);
+      return ArrayRef(PostponedOperands);
     }
 
     /// \returns a vector of scalars across all lanes and the edge that
@@ -5322,7 +5322,7 @@ static bool canVectorizeSplitLoads(
         IdxN = PointersOrder[First + GroupSize - 1];
       } else {
         ArrayRef<Value *> Slice =
-            makeArrayRef(Pointers).slice(First, GroupSize);
+            ArrayRef(Pointers).slice(First, GroupSize);
         if (!llvm::sortPtrAccesses(Slice, ScalarTy, DL, SE, GroupOrder) ||
             (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
           return false;

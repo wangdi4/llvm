@@ -767,7 +767,7 @@ Type* TypeMapTy::tryToRepairType(Type *Ty,
     Arguments.push_back(get(Arg->getLLVMType(), Visited));
 
   FunctionType *NewFunc =
-      FunctionType::get(FuncRetTy, makeArrayRef(Arguments),
+      FunctionType::get(FuncRetTy, ArrayRef(Arguments),
                         DTFuncTy->isVarArg());
 
   // Map the empty structure with the new function type

@@ -146,7 +146,7 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     for (auto *GuardDirective : GuardDirectives)
       GuardDirective = VPOUtils::addOperandBundlesInCall(
-          GuardDirective, makeArrayRef(LiveinBundles));
+          GuardDirective, ArrayRef(LiveinBundles));
   }
 
   return Changed;

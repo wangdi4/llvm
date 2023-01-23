@@ -2456,7 +2456,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   }
   StructType *CLLoopParameterRecType =
       StructType::get(C,
-                      makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
+                      ArrayRef(CLLoopParameterRecTypeArgs.begin(),
                                    CLLoopParameterRecTypeArgs.end()),
                       false);
   // FIXME: Use getInsertionPtForAllocas() for this alloca.
@@ -5471,7 +5471,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   assert(BaseCall->use_empty());
 
   Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
-      *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
+      *W, DT, AC, ArrayRef(BBSet), (VariantName + ".wrapper").str()); //    (5)
   CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
   // BaseCall may have arguments with the ByVal attribute, with or without an

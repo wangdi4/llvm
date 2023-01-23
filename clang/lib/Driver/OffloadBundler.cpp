@@ -855,7 +855,7 @@ public:
       if (!SymbolsOrErr->empty()) {
         // Add section with symbols names to fat object.
         Expected<StringRef> SymbolsFileOrErr =
-            TempFiles.Create(makeArrayRef(*SymbolsOrErr));
+            TempFiles.Create(ArrayRef(*SymbolsOrErr));
         if (!SymbolsFileOrErr)
           return SymbolsFileOrErr.takeError();
 

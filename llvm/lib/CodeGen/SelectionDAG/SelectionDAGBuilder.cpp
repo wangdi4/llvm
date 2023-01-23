@@ -4604,7 +4604,7 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   SmallVector<Value *, 4> ResIdx(GEP->idx_begin(), GEP->idx_begin() + 1);
   // Get the type for stride.
   Type *ResTy = GetElementPtrInst::getIndexedType(GEP->getSourceElementType(),
-    makeArrayRef(ResIdx));
+    ArrayRef(ResIdx));
 
   // Get the alloc stride size of ResTy.
   TypeSize PotentialScale = DL.getTypeAllocSize(ResTy);

@@ -577,8 +577,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   StructType *KmpTaskTTWithPrivatesTy =
       StructType::create(C,
-                         makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
-                                      KmpTaksTWithPrivatesTyArgs.end()),
+                         ArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+                                  KmpTaksTWithPrivatesTyArgs.end()),
                          "__struct.kmp_task_t_with_privates", false);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Task thunk type for privates: '"
@@ -1529,8 +1529,8 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 
   StructType *KmpTaskTDependVecTy =
       StructType::create(C,
-                         makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
-                                      KmpTaskTDependVecTyArgs.end()),
+                         ArrayRef(KmpTaskTDependVecTyArgs.begin(),
+                                  KmpTaskTDependVecTyArgs.end()),
                          "__struct.kmp_task_depend_vec", false);
 
   IRBuilder<> Builder(InsertBefore);

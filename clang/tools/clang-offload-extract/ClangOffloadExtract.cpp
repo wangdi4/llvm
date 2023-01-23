@@ -119,7 +119,7 @@ int main(int argc, const char **argv) {
       uintptr_t Size;
     };
 
-    auto ImgInfo = makeArrayRef<ImgInfoTy>(
+    auto ImgInfo = ArrayRef<ImgInfoTy>(
         reinterpret_cast<const ImgInfoTy *>(DataOrErr->data()),
         DataOrErr->size() / sizeof(ImgInfoTy));
 

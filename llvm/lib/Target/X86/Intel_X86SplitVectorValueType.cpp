@@ -857,8 +857,8 @@ bool X86SplitVectorValueType::createSplitConstant(Constant *C, unsigned Depth) {
   for (unsigned I = 0; I < NumElmts; I++)
     ElmtsVec.push_back(C->getAggregateElement(I));
 
-  auto Elmts0 = makeArrayRef(ElmtsVec).drop_back(NumElmts / 2);
-  auto Elmts1 = makeArrayRef(ElmtsVec).drop_front(NumElmts / 2);
+  auto Elmts0 = ArrayRef(ElmtsVec).drop_back(NumElmts / 2);
+  auto Elmts1 = ArrayRef(ElmtsVec).drop_front(NumElmts / 2);
   ConstantMap[C].push_back(ConstantVector::get(Elmts0));
   ConstantMap[C].push_back(ConstantVector::get(Elmts1));
 

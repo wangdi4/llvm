@@ -257,7 +257,7 @@ class X86InterleavedAccessGroup {
                                   FixedVectorType::get(ShuffleEltTy, NumSubVecElems),
                                   StoreShuffles);
       // Makes Shuffles point to the new set of Decomposed ShuffleVectorInsts.
-      Shuffles = makeArrayRef(StoreShuffles);
+      Shuffles = ArrayRef(StoreShuffles);
     }
 
     // Create OVLSMemref for each shuffle.

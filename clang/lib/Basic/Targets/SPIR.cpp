@@ -65,7 +65,7 @@ const Builtin::Info SPIR32INTELFpgaTargetInfo::BuiltinInfo[] = {
 
 ArrayRef<Builtin::Info>
 SPIR32INTELFpgaTargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfo,
+  return llvm::ArrayRef(BuiltinInfo,
       clang::SPIRINTELFpga::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 
@@ -79,7 +79,7 @@ const Builtin::Info SPIR64INTELFpgaTargetInfo::BuiltinInfo[] = {
 
 ArrayRef<Builtin::Info>
 SPIR64INTELFpgaTargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfo,
+  return llvm::ArrayRef(BuiltinInfo,
       clang::SPIRINTELFpga::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 

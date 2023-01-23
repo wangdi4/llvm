@@ -6788,10 +6788,10 @@ Function *VPOParoptUtils::genOutlineFunction(
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
   auto ExtractArray =
-      BBsToExtractIn.value_or(makeArrayRef(W.bbset_begin(), W.bbset_end()));
+      BBsToExtractIn.value_or(ArrayRef(W.bbset_begin(), W.bbset_end()));
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
-    ExtractArray = makeArrayRef(FixedBlocks);
+    ExtractArray = ArrayRef(FixedBlocks);
 
   // Order the blocks being extracted the same way they are originally ordered,
   // otherwise, CodeExtractor will change the blocks layout, which may
@@ -6800,7 +6800,7 @@ Function *VPOParoptUtils::genOutlineFunction(
 
   if (KeepBlocksOrder) {
     OrderedBlocks = orderBlocksForOutlining(ExtractArray);
-    ExtractArray = makeArrayRef(OrderedBlocks);
+    ExtractArray = ArrayRef(OrderedBlocks);
   }
 
   CodeExtractor CE(ExtractArray, DT,

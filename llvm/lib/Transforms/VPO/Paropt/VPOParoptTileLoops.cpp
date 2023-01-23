@@ -454,11 +454,11 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
     if (WParent->canHaveFirstprivate())
       NewBundles.emplace_back(
           VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_FIRSTPRIVATE),
-          makeArrayRef({GenLBs[I], TypeV, NumElemsOne}));
+          ArrayRef({GenLBs[I], TypeV, NumElemsOne}));
     else if (WParent->canHaveShared())
       NewBundles.emplace_back(
           VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_SHARED),
-          makeArrayRef({GenLBs[I], TypeV, NumElemsOne}));
+          ArrayRef({GenLBs[I], TypeV, NumElemsOne}));
     else if (WParent->canHaveLivein())
       NewBundles.emplace_back(
           VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN).str(), GenLBs[I]);
