@@ -725,7 +725,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
         }
 
         InductionDescriptor ID;
-        if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID)) {
+        if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID, false,
+                                                false /* OnlyConstPtrStep */)) {
           addInductionPhi(Phi, ID, AllowedExit);
           continue;
         }

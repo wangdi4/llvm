@@ -475,7 +475,8 @@ public:
   static bool
   isInductionPHI(PHINode *Phi, const Loop *L, ScalarEvolution *SE,
                  InductionDescriptor &D, const SCEV *Expr = nullptr,
-                 SmallVectorImpl<Instruction *> *CastsToIgnore = nullptr);
+                 SmallVectorImpl<Instruction *> *CastsToIgnore = nullptr,
+                 bool OnlyConstPtrStep = true); // INTEL
 
   /// Returns true if \p Phi is a floating point induction in the loop \p L.
   /// If \p Phi is an induction, the induction descriptor \p D will contain
@@ -491,7 +492,8 @@ public:
   /// induction.
   static bool isInductionPHI(PHINode *Phi, const Loop *L,
                              PredicatedScalarEvolution &PSE,
-                             InductionDescriptor &D, bool Assume = false);
+                             InductionDescriptor &D, bool Assume = false,
+                             bool OnlyConstPtrStep = true); // INTEL
 
   /// Returns floating-point induction operator that does not allow
   /// reassociation (transforming the induction requires an override of normal

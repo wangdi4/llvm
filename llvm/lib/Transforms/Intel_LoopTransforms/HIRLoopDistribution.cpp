@@ -73,7 +73,7 @@ const unsigned OptReportMsg[Last] = {
     25483u,
     //"Distribute point pragma not processed: Unsupported constructs in loops",
     25484u,
-    //"Distribute point pragma not processed: Loop is too complex",
+    //"Distribute point pragma not processed: Loopnest too large for stripmine",
     25485u,
     //"Distribute point pragma not processed: Too many Distribute points"
     25486u};
@@ -193,9 +193,14 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    // Stripmine is always be possible with extra setup, but not always needed.
-    // We should check this before splitting the loop up below.
-    bool ExtraStripmineSetup = !Lp->canStripmine(StripmineSize);
+    // Stripmine should be possible with extra setup, but not always needed.
+    // In rare cases we should bail out for max depth loopnests before doing
+    // the transformation below.
+    bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
+    if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
+      LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
+      continue;
+    }
 
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
@@ -254,8 +259,8 @@ bool HIRLoopDistribution::run() {
         }
       }
 
-      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder, ExtraStripmineSetup,
-                     false);
+      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder,
+                     StripmineRequiresExtraSetup, false);
 
       Modified = true;
     } else {
@@ -1087,7 +1092,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-    bool ExtraStripmineSetup, bool ForDirective) {
+    bool StripmineRequiresExtraSetup, bool ForDirective) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
@@ -1166,7 +1171,7 @@ void HIRLoopDistribution::distributeLoop(
     // For constant trip count <= StripmineSize, no stripmine is done
     if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
-                                   StripmineSize, ExtraStripmineSetup);
+                                   StripmineSize, StripmineRequiresExtraSetup);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
       fixTempArrayCoeff(NewLoops[0]->getParentLoop());
     }
@@ -1670,7 +1675,10 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     return NotProcessed;
   }
 
-  bool ExtraStripmineSetup = !Lp->canStripmine(StripmineSize);
+  bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
+  if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
+    return CannotStripmine;
+  }
 
   HLDDNode *Node = cast<HLDDNode>(Lp->getFirstChild());
   // Distribute point placed right before first stmt implies
@@ -1751,7 +1759,7 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   ScalarExpansion SCEX(Lp, true, DistributedLoops);
   invalidateLoop(Lp);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(),
-                 ExtraStripmineSetup, true);
+                 StripmineRequiresExtraSetup, true);
   return Success;
 }
 

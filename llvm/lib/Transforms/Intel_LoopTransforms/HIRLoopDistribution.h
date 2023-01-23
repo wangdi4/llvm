@@ -48,7 +48,7 @@ enum PragmaReturnCode {
   NoDistribution,
   Success,
   UnsupportedStmts,
-  TooComplex,
+  CannotStripmine,
   TooManyDistributePoints,
   Last
 };

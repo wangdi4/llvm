@@ -813,6 +813,19 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
     }
   }
 
+  // Check that Loop CEs are compatible for multiplication for creating
+  // our alloca.
+  if (!InnerDimSize && !OuterDimSize) {
+    const CanonExpr *OuterTCCE =
+        FirstUse.OrigOuterLoop->getTripCountCanonExpr();
+    const CanonExpr *InnerTCCE =
+        FirstUse.OrigInnerLoop->getTripCountCanonExpr();
+
+    if (!CanonExprUtils::isTypeEqual(OuterTCCE, InnerTCCE)) {
+      return false;
+    }
+  }
+
   // Check that the program must access the baseptr and/or loop bounds.
   // If normal execution could skip the accesses due to control flow,
   // we should abandon the transformation, as creating the alloca would
@@ -916,6 +929,9 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
     // UseCandidate's OrigInnerLoop TripCountCE.
     CanonExpr *InnerTCCE = const_cast<CanonExpr *>(
         UseCandidate.OrigInnerLoop->getTripCountCanonExpr());
+    assert(InnerTCCE->getDestType() == ArraySizeCE->getDestType() &&
+           "LoopCE Type Mismatch!");
+
     unsigned TCIndex = 0;
     int64_t ConstVal = 0;
     if (InnerTCCE->isIntConstant(&ConstVal)) {
