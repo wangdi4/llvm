@@ -2211,11 +2211,6 @@ ChangeStatus Attributor::cleanupIR() {
           Arg.removeAttr(Attribute::Returned);
     }
 
-    // Do not perform call graph altering changes outside the SCC.
-    if (auto *CB = dyn_cast_or_null<CallBase>(I))
-      if (CB->isCallee(U))
-        return;
-
 #if INTEL_CUSTOMIZATION
     // Do not perform modification of a ConstantExpression.
     // (CMPLRLLVM-39584)
