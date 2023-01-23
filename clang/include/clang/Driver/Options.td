@@ -1022,16 +1022,16 @@ def qmkl_ilp64 : Flag<["-"], "qmkl-ilp64">, Alias<qmkl_ilp64_EQ>,
   AliasArgs<["parallel"]>;
 def qtbb : Flag<["-"], "qtbb">, HelpText<"Link Intel(R) Threading Building "
   "Blocks (Intel(R) TBB) libraries and bring in the associated headers">;
-def qdaal_EQ : Joined<["-"], "qdaal=">, Values<"parallel,sequential">,
+def qdaal_EQ : Joined<["-"], "qdaal=">, Values<"parallel">,
   HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
-  "libraries and bring in the associated headers (parallel,sequential)">;
+  "libraries and bring in the associated headers (parallel)">;
 def qdaal : Flag<["-"], "qdaal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def : Flag<["-"], "tbb">, Alias<qtbb>, HelpText<"Link Intel(R) Threading "
   "Building Blocks (Intel(R) TBB) libraries and bring in the associated "
   "headers">;
 def : Joined<["-"], "daal=">, Alias<qdaal_EQ>, HelpText<"Link Intel(R) Data "
   "Analytics Acceleration Library (Intel(R) DAAL) libraries and bring in the "
-  "associated headers (parallel,sequential)">;
+  "associated headers (parallel)">;
 def : Flag<["-"], "daal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def x_intel : Joined<["-"], "x">, Flags<[NoXarchOption]>,
   HelpText<"Generate specialized code to run exclusively on processors "
@@ -9149,7 +9149,7 @@ def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<qtbb>,
   "and bring in the associated headers">;
 def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<qdaal_EQ>,
   HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
-  "libraries and bring in the associated headers (parallel,sequential)">;
+  "libraries and bring in the associated headers (parallel)">;
 def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<qdaal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<qdaal_EQ>, AliasArgs<["parallel"]>;
 def _SLASH_Qfma : CLFlag<"Qfma">, Alias<ffp_contract>, AliasArgs<["fast"]>,

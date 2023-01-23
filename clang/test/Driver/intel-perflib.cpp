@@ -180,9 +180,8 @@
 // RUN: env DAALROOT=%t_dir/dal TBBROOT=/dummy/tbb \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal=parallel -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-PARALLEL %s
-// RUN: env DAALROOT=%t_dir/dal TBBROOT=/dummy/tbb \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal=sequential -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-LIN,CHECK-DAAL-LIN-SEQUENTIAL %s
+// RUN: | FileCheck -check-prefixes=CHECK-DAAL-SEQUENTIAL,CHECK-DAAL-LIN-SEQUENTIAL %s
 // RUN: env DAALROOT=%t_dir/dal TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qdaal -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-WIN-PARALLEL %s
@@ -192,12 +191,12 @@
 // RUN: env DAALROOT=%t_dir/dal TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qdaal=parallel -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-WIN-PARALLEL %s
-// RUN: env DAALROOT=%t_dir/dal TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qdaal=sequential -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-DAAL,CHECK-DAAL-WIN-SEQUENTIAL %s
+// RUN: | FileCheck -check-prefixes=CHECK-DAAL-SEQUENTIAL,CHECK-DAAL-WIN-SEQUENTIAL %s
+// CHECK-DAAL-SEQUENTIAL: unsupported argument 'sequential' to option '-qdaal='
 // CHECK-DAAL-WIN-SYCL: clang{{.*}} "--dependent-lib=onedal_sycl" "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
 // CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
-// CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_sequential"
+// CHECK-DAAL-WIN-SEQUENTIAL-NOT: clang{{.*}} "--dependent-lib=onedal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}dal{{/|\\\\}}include"
 // CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-output=[[WINLIB:.+\.a]]" "-unbundle"
 // CHECK-DAAL-WIN-SYCL: spirv-to-ir-wrapper{{.*}} "[[WINLIB]]" "-o" "[[WINTXT:.+\.txt]]"
@@ -211,7 +210,7 @@
 // CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" "-L{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-DAAL-LIN-PARALLEL: "--start-group" "-lonedal_core" "-lonedal_thread" "--end-group" "-ltbb"
 // CHECK-DAAL-LIN-SYCL: "--start-group" "-lonedal_sycl" "-lonedal_core" "-lonedal_thread" "--end-group" "-ltbb"
-// CHECK-DAAL-LIN-SEQUENTIAL: "--start-group" "-lonedal_core" "-lonedal_sequential" "--end-group" "-ltbb"
+// CHECK-DAAL-LIN-SEQUENTIAL-NOT: "-lonedal_sequential"
 // CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
 
 // Check phases for -qmkl and objects
