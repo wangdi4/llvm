@@ -2,6 +2,7 @@
 
 
 ; CHECK:      @baz.ptr = internal global ptr null
+; CHECK-NEXT: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }]
 ; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]
 ; CHECK-NEXT: @foo.ptr = internal global ptr null
 ; CHECK-EMPTY:
@@ -37,7 +38,6 @@
 ; CHECK-NEXT:   ret i32 %2
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   call void @__intel_cpu_features_init()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
 ; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330092
 ; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330092
@@ -54,7 +54,7 @@
 ; CHECK-NEXT:   ret i32 %4
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: declare dso_local intel_features_init_cc void @__intel_cpu_features_init()
+; CHECK-NEXT: declare intel_features_init_cc void @__intel_cpu_features_init()
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @foo.V(i32 %a) #1 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %ret = call i32 @baz.V(i32 33)
@@ -73,7 +73,6 @@
 ; CHECK-NEXT:   ret i32 %2
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   call void @__intel_cpu_features_init()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
 ; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330092
 ; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330092
