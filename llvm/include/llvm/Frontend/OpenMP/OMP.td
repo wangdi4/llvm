@@ -700,6 +700,7 @@ def OMP_Target : Directive<"target"> {
     VersionedClause<OMPC_Subdevice>,
     VersionedClause<OMPC_OmpxPlaces>,
 #endif // INTEL_COLLAB
+    VersionedClause<OMPC_ThreadLimit, 51>,
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_NoWait>
   ];
