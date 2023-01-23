@@ -51,6 +51,9 @@ VERS1.0 {
     __tgt_target_alloc_per_hw_thread_scratch;
     __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
+    omp_get_mapped_ptr;
     omp_get_num_devices;
     omp_get_device_num;
     omp_get_initial_device;
@@ -62,7 +65,6 @@ VERS1.0 {
     omp_target_associate_ptr;
     omp_target_disassociate_ptr;
 # INTEL_COLLAB
-    omp_get_mapped_ptr;
     omp_target_is_accessible;
     omp_target_alloc_device;
     omp_target_alloc_host;
@@ -94,9 +96,6 @@ VERS1.0 {
     ompx_target_aligned_alloc_shared_with_hint;
     ompx_target_prefetch_shared_mem;
 # end INTEL_COLLAB
-    __kmpc_push_target_tripcount;
-    __kmpc_push_target_tripcount;
-    __kmpc_push_target_tripcount_mapper;
     llvm_omp_target_alloc_host;
     llvm_omp_target_alloc_shared;
     llvm_omp_target_alloc_device;

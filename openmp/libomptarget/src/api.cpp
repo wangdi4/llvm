@@ -35,6 +35,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #if INTEL_COLLAB
 /// API functions that can access host-to-target data map need to load device
@@ -360,38 +361,8 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   DP("omp_target_disassociate_ptr returns %d\n", Rc);
   return Rc;
 }
+
 #if INTEL_COLLAB
-EXTERN void *omp_get_mapped_ptr(void *HostPtr, int DeviceNum) {
-  DP("Call to omp_get_mapped_ptr with host pointer " DPxMOD
-     ", device number %d\n", DPxPTR(HostPtr), DeviceNum);
-
-  if (!HostPtr) {
-    DP("Call to omp_get_mapped_ptr with invalid host pointer\n");
-    return NULL;
-  }
-
-  if (DeviceNum == omp_get_initial_device()) {
-    DP("omp_get_mapped_ptr: Mapped pointer is same as host\n");
-    return HostPtr;
-  }
-
-  if (!deviceIsReady(DeviceNum)) {
-    DP("omp_get_mapped_ptr: returns NULL\n");
-    return NULL;
-  }
-  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, NULL);
-
-  DeviceTy& Device = *PM->Devices[DeviceNum];
-  bool IsLast, IsHostPtr;
-  TargetPointerResultTy TPR = Device.getTgtPtrBegin(HostPtr, 1, IsLast, false,
-                                                    false, IsHostPtr);
-  void *TgtPtr = TPR.TargetPointer;
-  if (TgtPtr == NULL)
-    DP("omp_get_mapped_ptr: cannot find device pointer\n");
-  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(TgtPtr));
-  return TgtPtr;
-}
-
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum) {
   TIMESCOPE();
@@ -934,3 +905,47 @@ EXTERN int ompx_target_prefetch_shared_mem(
 }
 #endif  // INTEL_COLLAB
 
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
+  TIMESCOPE();
+  DP("Call to omp_get_mapped_ptr with ptr " DPxMOD ", device_num %d.\n",
+     DPxPTR(Ptr), DeviceNum);
+
+  if (!Ptr) {
+    REPORT("Call to omp_get_mapped_ptr with nullptr.\n");
+    return nullptr;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    REPORT("Device %d is initial device, returning Ptr " DPxMOD ".\n",
+           DeviceNum, DPxPTR(Ptr));
+    return const_cast<void *>(Ptr);
+  }
+
+  int DevicesSize = omp_get_initial_device();
+  {
+    std::lock_guard<std::mutex> LG(PM->RTLsMtx);
+    DevicesSize = PM->Devices.size();
+  }
+  if (DevicesSize <= DeviceNum) {
+    DP("DeviceNum %d is invalid, returning nullptr.\n", DeviceNum);
+    REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
+    return nullptr;
+  }
+
+  bool IsLast = false;
+  bool IsHostPtr = false;
+  auto &Device = *PM->Devices[DeviceNum];
+  TargetPointerResultTy TPR =
+      Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1, IsLast,
+                            /*UpdateRefCount=*/false,
+                            /*UseHoldRefCount=*/false, IsHostPtr);
+  if (!TPR.isPresent()) {
+    DP("Ptr " DPxMOD "is not present on device %d, returning nullptr.\n",
+       DPxPTR(Ptr), DeviceNum);
+    return nullptr;
+  }
+
+  DP("omp_get_mapped_ptr returns " DPxMOD ".\n", DPxPTR(TPR.TargetPointer));
+
+  return TPR.TargetPointer;
+}

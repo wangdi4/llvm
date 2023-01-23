@@ -559,7 +559,7 @@ EXTERN
 int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum);
 
 #if INTEL_COLLAB
-EXTERN void * omp_get_mapped_ptr(void *HostPtr, int DeviceNum);
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum);
 
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum);
