@@ -20,12 +20,12 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-deduce-max-dim"
+#define DEBUG_TYPE "sycl-kernel-deduce-max-dim"
 
 static bool runOnFunction(Function &F, CallGraph &CG) {
   // If we have subgroups, then at least one vector iteration is expected,
   // it can't be achieved without a loop.
-  auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+  auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
   if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
     return false;
 

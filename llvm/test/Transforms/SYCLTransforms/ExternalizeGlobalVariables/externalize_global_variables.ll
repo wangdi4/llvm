@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-externalize-global-variables -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-externalize-global-variables -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-externalize-global-variables -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-externalize-global-variables -S %s | FileCheck %s
 
 ; CHECK: @x1 = dso_local addrspace(1) global i32 0, align 4
 ; CHECK: @x2 = dso_local addrspace(1) global i32 0, align 4

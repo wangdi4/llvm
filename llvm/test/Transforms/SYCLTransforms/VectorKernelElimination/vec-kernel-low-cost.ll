@@ -1,4 +1,4 @@
-; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,dpcpp-kernel-vec-kernel-elim' -S %s | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,sycl-kernel-vec-kernel-elim' -S %s | FileCheck %s
 
 ; This test checks that vectorized kernel is kept if its cost is not large. 
 

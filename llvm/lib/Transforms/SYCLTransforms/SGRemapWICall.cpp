@@ -25,10 +25,10 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-remap-wi-call"
+#define DEBUG_TYPE "sycl-kernel-sg-remap-wi-call"
 
-static cl::opt<SubGroupConstructionMode> DPCPPRemapWIMode(
-    "dpcpp-sg-construction-mode", cl::init(SubGroupConstructionMode::X),
+static cl::opt<SubGroupConstructionMode> SYCLRemapWIMode(
+    "sycl-sg-construction-mode", cl::init(SubGroupConstructionMode::X),
     cl::Hidden, cl::desc("Sub-group construction mode"),
     cl::values(clEnumValN(SubGroupConstructionMode::Linear, "linear",
                           "Construct sub-groups in linearized work-group"),
@@ -227,14 +227,14 @@ static void updateKernelMetadata(Module &M,
                                  SubGroupConstructionMode RemapMode) {
   auto Kernels = getAllKernels(M);
   for (auto *K : Kernels) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(K);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(K);
     KIMD.SubGroupConstructionMode.set(static_cast<int>(RemapMode));
   }
 }
 
 PreservedAnalyses SGRemapWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (DPCPPRemapWIMode.getNumOccurrences())
-    RemapMode = DPCPPRemapWIMode;
+  if (SYCLRemapWIMode.getNumOccurrences())
+    RemapMode = SYCLRemapWIMode;
 
   assert((RemapMode == SubGroupConstructionMode::Linear ||
           RemapMode == SubGroupConstructionMode::X ||

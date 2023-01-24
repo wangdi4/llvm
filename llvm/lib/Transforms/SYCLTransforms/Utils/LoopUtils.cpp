@@ -121,7 +121,7 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
     } else {
       assert(CI->arg_size() == 1 && "Expected one-operand call!");
       ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-      // Do not expect a non-const arg in current DPCPP HOST impl.
+      // Do not expect a non-const arg in current SYCL HOST impl.
       assert(C && "tid arg must be constant");
       // But skip it if we have it.
       if (!C)

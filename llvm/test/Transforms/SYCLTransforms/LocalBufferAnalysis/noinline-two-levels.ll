@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-local-buffer-analysis>' -S --disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes='print<sycl-kernel-local-buffer-analysis>' -S --disable-output %s 2>&1 | FileCheck %s
 
 ; Check local buffer size and offset in following case:
 ;     test (kernel)

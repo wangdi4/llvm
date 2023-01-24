@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector-indirect -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector-indirect -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
 %class.S1A.A = type { i32 (...)** }

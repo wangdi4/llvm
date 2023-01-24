@@ -18,7 +18,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 BarrierUtils::BarrierUtils()
     : M(nullptr), UISizeT(0), SizetTy(nullptr), I32Ty(nullptr) {

@@ -3,7 +3,7 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -14,7 +14,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
@@ -49,7 +49,7 @@
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
@@ -67,7 +67,7 @@
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Running pass: SYCLKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
@@ -82,7 +82,7 @@
 ; CHECK-NOT:  Running pass: VecClonePass
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
-; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
@@ -101,7 +101,7 @@
 
 ; CHECK:      Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass

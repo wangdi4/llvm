@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass computes value dependency within a workgroup loop constructed by
-// either DPCPPKernelWGLoopCreatorPass or KernelBarrier pass. If kernel is
+// either SYCLKernelWGLoopCreatorPass or KernelBarrier pass. If kernel is
 // vectorized, some of the loops in the kernel contain vectorized code.
 //
 // A value is classified as uniform, strided or random. We are interested in

@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=dpcpp-kernel-indirect-call-lowering -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
 
 ; CHECK: "vector-variant-failure"="failed to find a masked vector variant for an indirect call"
 

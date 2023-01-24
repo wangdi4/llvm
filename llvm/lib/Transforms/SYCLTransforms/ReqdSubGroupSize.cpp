@@ -18,13 +18,13 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-reqd-sub-group-size"
+#define DEBUG_TYPE "sycl-kernel-reqd-sub-group-size"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 cl::opt<std::string>
-    OptReqdSubGroupSizes("dpcpp-reqd-sub-group-size", cl::init(""), cl::Hidden,
+    OptReqdSubGroupSizes("sycl-reqd-sub-group-size", cl::init(""), cl::Hidden,
                          cl::desc("Per-kernel required subgroup"
                                   "size. Comma separated list of"
                                   " name(num)"));

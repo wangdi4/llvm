@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-loop-wi-analysis"
+#define DEBUG_TYPE "sycl-kernel-loop-wi-analysis"
 
 static constexpr unsigned MinIndexBitwidthToPreserve = 16;
 

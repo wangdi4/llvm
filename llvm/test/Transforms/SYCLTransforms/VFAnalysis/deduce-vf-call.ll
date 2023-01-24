@@ -1,6 +1,6 @@
 ; Checks the deduced VF after analyzing VF constraints.
 
-; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK: Kernel --> VF:
 ; CHECK-DAG: <call_reqd_sg_size> : 8

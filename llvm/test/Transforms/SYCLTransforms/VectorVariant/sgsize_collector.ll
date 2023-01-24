@@ -1,7 +1,7 @@
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=false -passes=dpcpp-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=false -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=true -passes=sycl-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=true -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=false -passes=sycl-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=false -passes=sycl-kernel-sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {

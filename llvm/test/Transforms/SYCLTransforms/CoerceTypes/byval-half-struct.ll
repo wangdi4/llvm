@@ -1,11 +1,11 @@
-; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-NONOPAQUE
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-OPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-NONOPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -passes=sycl-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-OPAQUE
 
 %struct.single.half = type { half } ; 2 bytes
 %struct.half.float = type { half, float } ; 2 + 2 (padding) + 4 = 8 bytes

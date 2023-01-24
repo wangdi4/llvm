@@ -1,5 +1,5 @@
-; RUN: opt -dpcpp-force-prefer-vector-width=256 -passes=dpcpp-kernel-set-prefer-vector-width -S %s | FileCheck %s
-; RUN: opt -dpcpp-force-prefer-vector-width=256 -passes=dpcpp-kernel-set-prefer-vector-width -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-force-prefer-vector-width=256 -passes=sycl-kernel-set-prefer-vector-width -S %s | FileCheck %s
+; RUN: opt -sycl-force-prefer-vector-width=256 -passes=sycl-kernel-set-prefer-vector-width -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; Check that the pass won't overwrite existing "prefer-vector-width".
 
 define void @foo() #0 {

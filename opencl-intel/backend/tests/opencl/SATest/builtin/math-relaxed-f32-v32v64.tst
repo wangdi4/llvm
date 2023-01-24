@@ -1,12 +1,12 @@
 ; Check that v32 and v64(expand from v32) builtins are used.
 
-; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch=skx -llvm-option=-print-after=dpcpp-kernel-relaxed-math -dump-llvm-file %t.32 2>&1 | FileCheck %s -check-prefix=CHECK32
-; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch=skx -llvm-option=-print-after=dpcpp-kernel-relaxed-math -dump-llvm-file %t.64 2>&1 | FileCheck %s -check-prefix=CHECK64
+; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch=skx -llvm-option=-print-after=sycl-kernel-relaxed-math -dump-llvm-file %t.32 2>&1 | FileCheck %s -check-prefix=CHECK32
+; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch=skx -llvm-option=-print-after=sycl-kernel-relaxed-math -dump-llvm-file %t.64 2>&1 | FileCheck %s -check-prefix=CHECK64
 ; RUN: FileCheck %s --input-file=%t.32 -check-prefix=CHECK32-SVML
 ; RUN: FileCheck %s --input-file=%t.64 -check-prefix=CHECK64-SVML
 
-; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch=core-avx2 -llvm-option=-print-after=dpcpp-kernel-relaxed-math 2>&1 | FileCheck %s -check-prefix=CHECK32
-; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch=core-avx2 -llvm-option=-print-after=dpcpp-kernel-relaxed-math 2>&1 | FileCheck %s -check-prefix=CHECK64
+; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch=core-avx2 -llvm-option=-print-after=sycl-kernel-relaxed-math 2>&1 | FileCheck %s -check-prefix=CHECK32
+; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch=core-avx2 -llvm-option=-print-after=sycl-kernel-relaxed-math 2>&1 | FileCheck %s -check-prefix=CHECK64
 
 ; CHECK32: call{{.*}} <32 x float> @_Z6cos_rmDv32_f(<32 x float> {{.*}})
 ; CHECK32: call{{.*}} <32 x float> @_Z6exp_rmDv32_f(<32 x float> {{.*}})

@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-extern bool DPCPPEnableVectorVariantPasses;
+extern bool SYCLEnableVectorVariantPasses;
 
 namespace llvm {
 
@@ -32,7 +32,7 @@ PreservedAnalyses IndirectCallLowering::run(Module &M,
 }
 
 bool IndirectCallLowering::runImpl(Module &M) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

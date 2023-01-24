@@ -20,7 +20,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-internalize-global-variables"
+#define DEBUG_TYPE "sycl-kernel-internalize-global-variables"
 
 PreservedAnalyses
 InternalizeGlobalVariablesPass::run(Module &M, ModuleAnalysisManager &AM) {

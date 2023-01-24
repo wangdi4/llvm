@@ -3,7 +3,7 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -14,7 +14,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
@@ -26,7 +26,7 @@
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
@@ -37,7 +37,7 @@
 ; CHECK:      Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering
 ; CHECK:      Skipping pass RemoveRegionDirectivesPass
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass

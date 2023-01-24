@@ -21,10 +21,10 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-builtin-import"
+#define DEBUG_TYPE "sycl-kernel-builtin-import"
 
 static cl::opt<std::string>
-    OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::Hidden, cl::init(""),
+    OptCPUPrefix("sycl-kernel-cpu-prefix", cl::Hidden, cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
 
 static Function *FindFunctionDef(const Function *F,

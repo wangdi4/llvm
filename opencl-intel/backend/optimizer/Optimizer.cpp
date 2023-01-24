@@ -18,7 +18,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
 cl::opt<bool>
@@ -37,7 +37,7 @@ cl::opt<bool> EnableO0Vectorization(
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
-extern bool DPCPPForceOptnone;
+extern bool SYCLForceOptnone;
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
@@ -82,14 +82,14 @@ public:
             "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
       return true;
     }
-    if (auto *DKADI = dyn_cast<llvm::DPCPPKernelAnalysisDiagInfo>(&DI)) {
+    if (auto *DKADI = dyn_cast<llvm::SYCLKernelAnalysisDiagInfo>(&DI)) {
       OS << llvm::LLVMContext::getDiagnosticMessagePrefix(DKADI->getSeverity())
          << ": ";
       DKADI->print(OS);
       OS << ".\n";
       if (DKADI->getSeverity() == DS_Error)
         throw Exceptions::CompilerException(
-            "Analyzing DPCPP kernel properties failed", CL_DEV_INVALID_BINARY);
+            "Analyzing SYCL kernel properties failed", CL_DEV_INVALID_BINARY);
       return true;
     }
     return false;
@@ -111,7 +111,7 @@ Optimizer::Optimizer(llvm::Module &M,
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
-  DPCPPForceOptnone = Config.GetDisableOpt();
+  SYCLForceOptnone = Config.GetDisableOpt();
   m_IsOcl20 = llvm::CompilationUtils::fetchCLVersionFromMetadata(M) >=
               llvm::CompilationUtils::OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
@@ -149,7 +149,7 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
   std::vector<std::string> Res;
 
   for (auto &GV : m_M.globals()) {
-    auto GVM = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
+    auto GVM = SYCLKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
 
     switch (Ty) {
     case FPGA_DEPTH_IS_IGNORED:
@@ -169,7 +169,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
   std::vector<std::string> Res;
 
   for (auto &F : m_M) {
-    auto KMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(&F);
+    auto KMD = SYCLKernelMetadataAPI::FunctionMetadataAPI(&F);
 
     bool Invalid = false;
 

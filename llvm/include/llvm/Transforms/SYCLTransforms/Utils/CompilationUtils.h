@@ -550,7 +550,7 @@ std::pair<bool, unsigned> isTIDGenerator(const CallInst *CI);
 
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
-  return DPCPPKernelMetadataAPI::KernelList(M);
+  return SYCLKernelMetadataAPI::KernelList(M);
 }
 
 /// Collect all kernel functions including vectorized and vectorized masked

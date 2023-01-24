@@ -20,7 +20,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-infinite-loop-creator"
+#define DEBUG_TYPE "sycl-kernel-infinite-loop-creator"
 
 PreservedAnalyses InfiniteLoopCreatorPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
@@ -56,8 +56,8 @@ static bool runOnFunction(Function *F) {
 
 bool InfiniteLoopCreatorPass::runImpl(Module &M) {
   bool HasChanges = false;
-  for (auto *Kernel : DPCPPKernelMetadataAPI::KernelList(M)) {
-    auto Kmd = DPCPPKernelMetadataAPI::KernelMetadataAPI(Kernel);
+  for (auto *Kernel : SYCLKernelMetadataAPI::KernelList(M)) {
+    auto Kmd = SYCLKernelMetadataAPI::KernelMetadataAPI(Kernel);
     // Since work-group autorun kernels must be launched with global_size =
     // (2^32, 2^32, 2^32), local_size = reqd_work_group_size and execution of
     // work-groups inside autorun kernels is serialized we don't need to wrap

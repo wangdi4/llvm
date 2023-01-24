@@ -22,9 +22,9 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
-#define DEBUG_TYPE "dpcpp-kernel-replace-scalar-with-mask"
+#define DEBUG_TYPE "sycl-kernel-replace-scalar-with-mask"
 
 PreservedAnalyses ReplaceScalarWithMaskPass::run(Module &M,
                                                  ModuleAnalysisManager &) {

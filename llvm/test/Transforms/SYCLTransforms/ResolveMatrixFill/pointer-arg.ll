@@ -1,7 +1,7 @@
-; RUN: opt -passes=dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -passes=dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
-; RUN: opt -passes=dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers -passes=dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test() {
 ; NONOPAQUE: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, i32 addrspace(4)* %load

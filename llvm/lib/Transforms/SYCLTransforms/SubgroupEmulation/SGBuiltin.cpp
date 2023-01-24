@@ -19,12 +19,12 @@
 
 #include <tuple>
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-builtin"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-builtin"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
-extern bool DPCPPEnableSubGroupEmulation;
+extern bool SYCLEnableSubGroupEmulation;
 
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
@@ -45,7 +45,7 @@ PreservedAnalyses SGBuiltinPass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!DPCPPEnableSubGroupEmulation)
+  if (!SYCLEnableSubGroupEmulation)
     return false;
 
   // Load all vector info into ExtendedVectInfo, at most once.
@@ -64,7 +64,7 @@ bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
 
   return Changed;
 }
-// This function works like handleLanguageSpecifics of DPCPPKernelVecClone, but
+// This function works like handleLanguageSpecifics of SYCLKernelVecClone, but
 // the vector-varaints attribute is attached to the function not the call. We
 // can benifit from this when vectorizing sub-group calls, because the
 // vectorized function prototype can be created with the same logic as other

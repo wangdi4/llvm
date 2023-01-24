@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-prevent-div-crashes"
+#define DEBUG_TYPE "sycl-kernel-prevent-div-crashes"
 
 PreservedAnalyses PreventDivCrashesPass::run(Function &F,
                                              FunctionAnalysisManager &FAM) {

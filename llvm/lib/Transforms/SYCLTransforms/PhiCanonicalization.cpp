@@ -19,11 +19,11 @@
 using namespace llvm;
 
 cl::opt<bool> SkipNonBarrierFunction(
-    "dpcpp-skip-non-barrier-function", cl::init(true), cl::Hidden,
+    "sycl-skip-non-barrier-function", cl::init(true), cl::Hidden,
     cl::desc("Skip non-barrier function when processing phi node to "
              "reduce compile time."));
 
-#define DEBUG_TYPE "dpcpp-kernel-phi-canonicalization"
+#define DEBUG_TYPE "sycl-kernel-phi-canonicalization"
 
 PreservedAnalyses PhiCanonicalization::run(Function &F,
                                            FunctionAnalysisManager &FAM) {

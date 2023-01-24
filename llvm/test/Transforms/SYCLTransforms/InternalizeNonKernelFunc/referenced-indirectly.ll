@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-internalize-func -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-internalize-func -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-internalize-func -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-internalize-func -S %s | FileCheck %s
 ;
 ; Generated from:
 ; __attribute__((referenced_indirectly));

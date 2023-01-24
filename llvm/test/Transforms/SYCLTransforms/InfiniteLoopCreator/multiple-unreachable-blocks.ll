@@ -30,8 +30,8 @@
 ; !3 = !{i1 true}
 ; !4 = !{i32 0}
 ; ----------------------------------------------------
-; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-infinite-loop-creator %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

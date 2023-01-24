@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-relaxed-math -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-relaxed-math -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-relaxed-math -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-relaxed-math -S %s | FileCheck %s
 
 
 define void @check_sincos_float_global() {

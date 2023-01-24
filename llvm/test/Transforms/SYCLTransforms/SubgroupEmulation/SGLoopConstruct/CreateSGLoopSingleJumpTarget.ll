@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,dpcpp-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='dpcpp-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where each sg_barrier only has one jump target
 ; 1. Alloca sg.lid.ptr and sg.loop.src.ptr in "sg.loop.exclude" BB

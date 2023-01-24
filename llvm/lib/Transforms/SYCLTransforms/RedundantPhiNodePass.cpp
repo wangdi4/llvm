@@ -18,7 +18,7 @@ using namespace llvm;
 
 extern cl::opt<bool> SkipNonBarrierFunction;
 
-#define DEBUG_TYPE "dpcpp-kernel-redundant-phi-node"
+#define DEBUG_TYPE "sycl-kernel-redundant-phi-node"
 
 PreservedAnalyses RedundantPhiNode::run(Function &F,
                                         FunctionAnalysisManager &) {

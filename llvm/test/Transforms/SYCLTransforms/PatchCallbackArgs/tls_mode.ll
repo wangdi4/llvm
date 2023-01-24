@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-kernel-enable-tls-globals -passes='dpcpp-kernel-add-tls-globals,dpcpp-kernel-patch-callback-args' -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-patch-callback-args' -S %s | FileCheck %s
 ; Check thread-local storage globals mode in PatchCallbackArgs pass
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

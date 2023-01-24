@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-deduce-max-dim -S %s | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-deduce-max-dim -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-deduce-max-dim -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-deduce-max-dim -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ; Call to an internal function (which was not inlined)
 

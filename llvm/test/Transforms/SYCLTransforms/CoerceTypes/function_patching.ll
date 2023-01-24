@@ -1,8 +1,8 @@
-; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -o - | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -o - | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
 
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -o - | FileCheck %s --check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -S %s -o - | FileCheck %s --check-prefixes=CHECK,OPAQUE
 
 ; This test checks caller and callee patching that makes use of the coerced arguments
 

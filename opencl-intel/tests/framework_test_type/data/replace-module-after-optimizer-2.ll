@@ -26,11 +26,11 @@ attributes #1 = { inaccessiblememonly nocallback nofree nosync nounwind willretu
 !opencl.compiler.options = !{!1}
 !llvm.ident = !{!2}
 !sycl.kernels = !{!3}
-!dpcpp.stat.type = !{!4}
-!dpcpp.stat.exec_time = !{!5}
-!dpcpp.stat.run_time_version = !{!6}
-!dpcpp.stat.workload_name = !{!7}
-!dpcpp.stat.module_name = !{!8}
+!sycl.stat.type = !{!4}
+!sycl.stat.exec_time = !{!5}
+!sycl.stat.run_time_version = !{!6}
+!sycl.stat.workload_name = !{!7}
+!sycl.stat.module_name = !{!8}
 
 !0 = !{i32 1, i32 2}
 !1 = !{}

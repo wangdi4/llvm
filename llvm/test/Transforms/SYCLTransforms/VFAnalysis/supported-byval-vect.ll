@@ -1,4 +1,4 @@
-; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ;; Have a has-sub-group function calling byref function.
 ;; We can vectorize with serialization of byval.

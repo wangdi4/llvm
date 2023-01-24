@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-linear-id-resolver"
+#define DEBUG_TYPE "sycl-kernel-linear-id-resolver"
 
 PreservedAnalyses LinearIdResolverPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {

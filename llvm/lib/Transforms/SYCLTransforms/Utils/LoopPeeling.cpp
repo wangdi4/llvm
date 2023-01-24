@@ -18,7 +18,7 @@
 
 #include <numeric>
 
-#define DEBUG_TYPE "dpcpp-kernel-loop-peeling"
+#define DEBUG_TYPE "sycl-kernel-loop-peeling"
 
 namespace llvm {
 

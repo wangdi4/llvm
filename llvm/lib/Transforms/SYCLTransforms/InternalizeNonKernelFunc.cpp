@@ -14,10 +14,10 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-internalize-func"
+#define DEBUG_TYPE "sycl-kernel-internalize-func"
 
 bool InternalizeNonKernelFuncPass::runImpl(Module &M) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   bool Changed = false;
   auto Kernels = KernelList(&M).getList();
 

@@ -21,10 +21,10 @@
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation -verify %s -S
+;   opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -sycl-demangle-fpga-pipes -sycl-kernel-equalizer -sycl-kernel-channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK: define void @foo(i32 %iters)
 ; CHECK-LABEL: for.cond:

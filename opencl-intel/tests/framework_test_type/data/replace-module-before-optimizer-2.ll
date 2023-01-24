@@ -20,11 +20,11 @@ attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "min-lega
 !opencl.spir.version = !{!0}
 !opencl.compiler.options = !{!1}
 !llvm.ident = !{!2}
-!dpcpp.stat.type = !{!3}
-!dpcpp.stat.exec_time = !{!4}
-!dpcpp.stat.run_time_version = !{!5}
-!dpcpp.stat.workload_name = !{!6}
-!dpcpp.stat.module_name = !{!7}
+!sycl.stat.type = !{!3}
+!sycl.stat.exec_time = !{!4}
+!sycl.stat.run_time_version = !{!5}
+!sycl.stat.workload_name = !{!6}
+!sycl.stat.module_name = !{!7}
 
 !0 = !{i32 1, i32 2}
 !1 = !{}

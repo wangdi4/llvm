@@ -22,7 +22,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-wi-slice"
+#define DEBUG_TYPE "sycl-kernel-resolve-matrix-wi-slice"
 
 static Value *resolveSliceLengthCall(CallInst *CI) {
   // Extract row, col size of the matrix from the second, third args.

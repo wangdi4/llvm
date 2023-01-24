@@ -15,7 +15,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-data-per-value-analysis"
+#define DEBUG_TYPE "sycl-kernel-data-per-value-analysis"
 
 using namespace llvm;
 

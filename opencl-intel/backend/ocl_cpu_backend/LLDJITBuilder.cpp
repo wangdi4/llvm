@@ -124,7 +124,7 @@ void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {
   for (auto *F : Kernels) {
     F->setDLLStorageClass(
         llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
-    auto KIMD = llvm::DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
+    auto KIMD = llvm::SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (KIMD.KernelWrapper.hasValue()) {
       auto *KernelWrapper = KIMD.KernelWrapper.get();
       KernelWrapper->setDLLStorageClass(

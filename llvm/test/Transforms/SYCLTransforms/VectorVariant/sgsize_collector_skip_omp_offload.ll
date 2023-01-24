@@ -1,5 +1,5 @@
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=true -passes=sycl-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization=true -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
 
 ; CHECK-NOT: vector-variant
 ; CHECK: define internal fastcc void @_Z24calcBoxBlurFloatLocal_V2PfS_iiii

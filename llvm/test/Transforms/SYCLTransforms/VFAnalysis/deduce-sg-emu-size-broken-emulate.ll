@@ -1,7 +1,7 @@
-; Deduce subgroup emulation size when subgroup semantics is broken.; RUN: opt -dpcpp-vector-variant-isa-encoding-override=AVX512Core -dpcpp-enable-subgroup-emulation -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMULATION
+; Deduce subgroup emulation size when subgroup semantics is broken.; RUN: opt -sycl-vector-variant-isa-encoding-override=AVX512Core -sycl-enable-subgroup-emulation -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMULATION
 
 ; If emulation is not enabled, then emit diagnosis.
-; RUN: not opt -dpcpp-enable-subgroup-emulation=false -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-EMULATION
+; RUN: not opt -sycl-enable-subgroup-emulation=false -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-EMULATION
 
 ; CHECK-EMULATION-LABEL: Kernel --> VF:
 ; CHECK-EMULATION-COUNT-2: <{{.*}}> : 1

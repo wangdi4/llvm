@@ -26,7 +26,7 @@ using namespace llvm;
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 
 static cl::opt<bool> ReplaceFDivFastWithSVML(
-    "dpcpp-kernel-replace-fdiv-fast-with-svml", cl::init(false), cl::Hidden,
+    "sycl-kernel-replace-fdiv-fast-with-svml", cl::init(false), cl::Hidden,
     cl::desc("Replace fdiv fast with svml relaxed divide"));
 
 namespace {

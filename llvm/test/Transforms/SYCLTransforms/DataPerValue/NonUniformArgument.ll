@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>'  %s -S | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>'  %s -S | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass

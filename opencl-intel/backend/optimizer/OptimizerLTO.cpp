@@ -75,7 +75,7 @@ cl::opt<bool> VerifyEachPass("verify-each-pass", cl::Hidden,
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
-extern bool DPCPPForceOptnone;
+extern bool SYCLForceOptnone;
 
 extern cl::opt<bool> DisableVPlanCM;
 extern cl::opt<bool> EnableO0Vectorization;
@@ -122,7 +122,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   FAM.registerPass([&] {
     AAManager AAM = PB.buildDefaultAAPipeline();
     if (Config.EnableOCLAA())
-      AAM.registerFunctionAnalysis<DPCPPAliasAnalysis>();
+      AAM.registerFunctionAnalysis<SYCLAliasAnalysis>();
     return AAM;
   });
 
@@ -154,7 +154,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
-  DPCPPForceOptnone = Config.GetDisableOpt();
+  SYCLForceOptnone = Config.GetDisableOpt();
 
   registerLastPasses(MPM);
 
@@ -167,7 +167,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [this](ModulePassManager &MPM, OptimizationLevel Level) {
-        MPM.addPass(DPCPPPreprocessSPIRVFriendlyIRPass());
+        MPM.addPass(SYCLPreprocessSPIRVFriendlyIRPass());
         MPM.addPass(SPIRVLowerConstExprPass());
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
@@ -177,7 +177,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(VerifierPass());
 #endif // #ifndef NDEBUG
 
-        MPM.addPass(DPCPPEqualizerPass());
+        MPM.addPass(SYCLEqualizerPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
@@ -219,7 +219,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
             Config.GetSubGroupConstructionMode())));
 
         if (m_IsFpgaEmulator) {
-          MPM.addPass(DPCPPRewritePipesPass());
+          MPM.addPass(SYCLRewritePipesPass());
           MPM.addPass(ChannelPipeTransformationPass());
           MPM.addPass(PipeIOTransformationPass());
           MPM.addPass(PipeOrderingPass());
@@ -307,7 +307,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
 
     MPM.addPass(DuplicateCalledKernelsPass());
 
-    MPM.addPass(DPCPPKernelAnalysisPass(
+    MPM.addPass(SYCLKernelAnalysisPass(
         Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
 
     if (Level != OptimizationLevel::O0) {
@@ -349,7 +349,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
 
     MPM.addPass(
-        DPCPPKernelVecClonePass(getVectInfos(), ISA, !m_IsSYCL && !m_IsOMP));
+        SYCLKernelVecClonePass(getVectInfos(), ISA, !m_IsSYCL && !m_IsOMP));
     MPM.addPass(VectorVariantFillIn());
     MPM.addPass(UpdateCallAttrs());
   });
@@ -377,7 +377,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     if (Config.GetTransposeSize() != 1 &&
         (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
       // Post-vectorizer cleanup.
-      MPM.addPass(DPCPPKernelPostVecPass());
+      MPM.addPass(SYCLKernelPostVecPass());
       if (Level != OptimizationLevel::O0) {
         FunctionPassManager FPM;
         FPM.addPass(InstCombinePass());
@@ -433,7 +433,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
     if (m_debugType == intel::Native)
       MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
-    MPM.addPass(DPCPPKernelWGLoopCreatorPass(m_UseTLSGlobals));
+    MPM.addPass(SYCLKernelWGLoopCreatorPass(m_UseTLSGlobals));
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which can benefit from LoopIdiom.

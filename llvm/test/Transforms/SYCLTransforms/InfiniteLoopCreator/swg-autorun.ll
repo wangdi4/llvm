@@ -13,15 +13,15 @@
 ; ----------------------------------------------------
 ; Compilation command:
 ;   clang -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
-;   opt -dpcpp-kernel-equalizer -S
+;   opt -sycl-kernel-equalizer -S
 ; ----------------------------------------------------
 ; Only single work-item (with max_global_work_dim(0) kernel attribute) kernels
 ; should be wrapped by while (true). Check that pass doesn't change the IR
 ; ----------------------------------------------------
-; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-analysis %s -S > %t1.ll
-; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S > %t3.ll
+; RUN: opt -passes=sycl-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-analysis %s -S > %t1.ll
+; RUN: opt -passes=sycl-kernel-analysis,sycl-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-analysis,sycl-kernel-infinite-loop-creator %s -S > %t3.ll
 ; RUN: diff %t1.ll %t3.ll
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

@@ -20,7 +20,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <stack>
 
-#define DEBUG_TYPE "dpcpp-kernel-work-item-analysis"
+#define DEBUG_TYPE "sycl-kernel-work-item-analysis"
 
 using namespace llvm;
 using namespace CompilationUtils;

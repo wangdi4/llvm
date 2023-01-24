@@ -16,7 +16,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-vec-dim-analysis"
+#define DEBUG_TYPE "sycl-kernel-vec-dim-analysis"
 
 static void print(raw_ostream &OS,
                   const MapVector<Function *, VectorizeDimInfo> &VDInfos) {
@@ -31,7 +31,7 @@ AnalysisKey VectorizationDimensionAnalysis::Key;
 
 VectorizationDimensionAnalysis::Result
 VectorizationDimensionAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(M).getList();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Result VDInfos;
   for (Function *F : Kernels) {
@@ -64,7 +64,7 @@ VectorizeDimInfo::VectorizeDimInfo()
 ///      get_enqueued_local_size.
 ///   3. no access to local memory.
 static bool canSwitchDimension(Function *F) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
 
   // 1. Check whether KernelAnalysis pass said "no barrier", otherwise
   // switching dimension is not supported.

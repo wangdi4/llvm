@@ -1,4 +1,4 @@
-; RUN: opt -passes=dpcpp-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
 
 ; This test checks that new alloca and llvm.dbg.declare are created for kernel
 ; byval argument %group_pid.

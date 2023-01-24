@@ -2,9 +2,9 @@
 ; structure return type. Structure return type is not supported yet.
 
 ; REQUIRES: asserts
-; RUN: opt %s --debug-only=dpcpp-kernel-sg-size-collector -enable-debugify -passes="dpcpp-kernel-update-call-attrs,dpcpp-kernel-vec-clone,dpcpp-kernel-vector-variant-lowering,dpcpp-kernel-sg-size-collector,dpcpp-kernel-sg-size-collector-indirect,dpcpp-kernel-vector-variant-fillin" -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt %s --debug-only=sycl-kernel-sg-size-collector -enable-debugify -passes="sycl-kernel-update-call-attrs,sycl-kernel-vec-clone,sycl-kernel-vector-variant-lowering,sycl-kernel-sg-size-collector,sycl-kernel-sg-size-collector-indirect,sycl-kernel-vector-variant-fillin" -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
-; RUN: opt %s --debug-only=dpcpp-kernel-sg-size-collector -passes="dpcpp-kernel-update-call-attrs,dpcpp-kernel-vec-clone,dpcpp-kernel-vector-variant-lowering,dpcpp-kernel-sg-size-collector,dpcpp-kernel-sg-size-collector-indirect,dpcpp-kernel-vector-variant-fillin" -S 2>&1 | FileCheck %s
+; RUN: opt %s --debug-only=sycl-kernel-sg-size-collector -passes="sycl-kernel-update-call-attrs,sycl-kernel-vec-clone,sycl-kernel-vector-variant-lowering,sycl-kernel-sg-size-collector,sycl-kernel-sg-size-collector-indirect,sycl-kernel-vector-variant-fillin" -S 2>&1 | FileCheck %s
 
 define void @test(float %x, i32 addrspace(1)* noalias %a) !recommended_vector_length !13 {
 entry:

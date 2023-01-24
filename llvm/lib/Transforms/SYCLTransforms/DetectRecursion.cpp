@@ -21,9 +21,9 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
-#define DEBUG_TYPE "dpcpp-kernel-detect-recursion"
+#define DEBUG_TYPE "sycl-kernel-detect-recursion"
 
 PreservedAnalyses DetectRecursionPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {

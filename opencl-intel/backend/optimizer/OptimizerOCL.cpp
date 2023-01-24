@@ -68,7 +68,7 @@ using namespace llvm;
 
 extern cl::opt<DebugLogging> DebugPM;
 extern cl::opt<bool> VerifyEachPass;
-extern bool DPCPPForceOptnone;
+extern bool SYCLForceOptnone;
 extern cl::opt<bool> DisableVPlanCM;
 extern cl::opt<bool> EnableO0Vectorization;
 
@@ -115,7 +115,7 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   FAM.registerPass([&] {
     AAManager AAM = PB.buildDefaultAAPipeline();
     if (Config.EnableOCLAA())
-      AAM.registerFunctionAnalysis<DPCPPAliasAnalysis>();
+      AAM.registerFunctionAnalysis<SYCLAliasAnalysis>();
     return AAM;
   });
 
@@ -155,7 +155,7 @@ void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
     MPM.addPass(SPIRVToOCL20Pass());
 
   MPM.addPass(NameAnonGlobalPass());
-  MPM.addPass(DPCPPEqualizerPass());
+  MPM.addPass(SYCLEqualizerPass());
   Triple TargetTriple(m_M.getTargetTriple());
   if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
@@ -344,7 +344,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
       Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
-    MPM.addPass(DPCPPRewritePipesPass());
+    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(ChannelPipeTransformationPass());
     MPM.addPass(PipeIOTransformationPass());
     MPM.addPass(PipeOrderingPass());
@@ -421,7 +421,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
-  MPM.addPass(DPCPPKernelAnalysisPass(
+  MPM.addPass(SYCLKernelAnalysisPass(
       Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
@@ -473,7 +473,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     if (!m_IsSYCL)
       MPM.addPass(
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
-    MPM.addPass(DPCPPKernelVecClonePass(Optimizer::getVectInfos(), ISA,
+    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA,
                                         !m_IsSYCL && !m_IsOMP));
 
     MPM.addPass(VectorVariantFillIn());
@@ -497,7 +497,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // }
     FPM2.addPass(vpo::VPlanDriverPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
-    MPM.addPass(DPCPPKernelPostVecPass());
+    MPM.addPass(SYCLKernelPostVecPass());
 
     // Final cleaning up
     FunctionPassManager FPM3;
@@ -570,7 +570,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   if (m_debugType == intel::Native)
     MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
-  MPM.addPass(DPCPPKernelWGLoopCreatorPass(m_UseTLSGlobals));
+  MPM.addPass(SYCLKernelWGLoopCreatorPass(m_UseTLSGlobals));
 
   MPM.addPass(IndirectCallLowering());
 

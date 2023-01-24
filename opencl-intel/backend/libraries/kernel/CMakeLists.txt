@@ -34,12 +34,12 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR
     DEPENDS ${CLANG} ${OPT} ${INPUT_CL} process-intrin-headers
     COMMAND ${CLANG} ${CLANG_FLAGS} ${INPUT_CL} -o ${TMP_DIR}/${OUTPUT_BC_FILE}
     COMMAND
-      ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} "-passes=verify,dpcpp-kernel-equalizer,\
-dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound,\
-dpcpp-kernel-deduce-max-dim,dpcpp-kernel-wgloop-creator,loop-idiom,\
-loop-deletion,dpcpp-kernel-add-implicit-args,\
-dpcpp-kernel-resolve-wi-call,dpcpp-kernel-prepare-args,inline,dce,\
-globaldce,instcombine,dpcpp-kernel-cleanup-wrapped"
+      ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} "-passes=verify,sycl-kernel-equalizer,\
+sycl-kernel-analysis,sycl-kernel-wg-loop-bound,\
+sycl-kernel-deduce-max-dim,sycl-kernel-wgloop-creator,loop-idiom,\
+loop-deletion,sycl-kernel-add-implicit-args,\
+sycl-kernel-resolve-wi-call,sycl-kernel-prepare-args,inline,dce,\
+globaldce,instcombine,sycl-kernel-cleanup-wrapped"
       -o ${OUTPUT_FILE}
     COMMENT "Compiling ${RTL_FILE}")
 

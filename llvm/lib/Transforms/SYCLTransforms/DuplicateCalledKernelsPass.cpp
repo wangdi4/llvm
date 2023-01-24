@@ -23,7 +23,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-duplicate-called-kernels"
+#define DEBUG_TYPE "sycl-kernel-duplicate-called-kernels"
 
 using FuncPtrSet = SmallPtrSet<Function *, 16>;
 
@@ -403,7 +403,7 @@ static bool cloneLocalVariables(Module &M, const CallGraph &CG,
 bool DuplicateCalledKernelsPass::runImpl(Module &M, CallGraph &CG,
                                          LocalBufferInfo &LBI) {
   bool Changed = false;
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(&M);
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(&M);
   if (Kernels.size() < 2)
     return Changed;
 

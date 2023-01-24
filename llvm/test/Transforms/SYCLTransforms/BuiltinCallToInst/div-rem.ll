@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
 
 ; This test checks that scalar integer div/rem builtin calls are replaced with
 ; sdiv/srem/udiv/urem instruction.

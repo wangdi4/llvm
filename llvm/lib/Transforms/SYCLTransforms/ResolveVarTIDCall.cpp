@@ -24,7 +24,7 @@ using namespace llvm;
 using namespace CompilationUtils;
 using namespace LoopUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-var-tid-call"
+#define DEBUG_TYPE "sycl-kernel-resolve-var-tid-call"
 
 static bool runOnTID(Module &M, IRBuilder<> &Builder, Constant *ConstZero,
                      StringRef TIDName, const Twine &Prefix) {

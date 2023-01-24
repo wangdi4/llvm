@@ -1,5 +1,5 @@
-; RUN: opt -dpcpp-kernel-enable-tls-globals -passes='dpcpp-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-enable-tls-globals -passes='dpcpp-kernel-prepare-args' -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-prepare-args' -S %s | FileCheck %s
 
 %"class.cl::sycl::ext::intel::experimental::task_sequence" = type { i32, i64 }
 %"class.cl::sycl::range" = type { %"class.cl::sycl::detail::array" }

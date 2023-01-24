@@ -1,7 +1,7 @@
 ; This test checks the source correlation of the load and store instructions created by the Barrier pass. These instructions have a zero-source correlation because-
 ; 1) They are not directly related to user's code (artifact of the runtime chosen)
 ; 2) Assigning any source correlation to these instruction causes incorrect stepping behavior 
-; RUN: opt -passes=dpcpp-kernel-barrier -enable-native-debug=true %s -S -enable-debugify  | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify  | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

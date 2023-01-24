@@ -10,11 +10,11 @@
 ; }
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2
-; Opt options: opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-kernel-channel-pipe-transformation -S
+; Opt options: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -sycl-kernel-channel-pipe-transformation -S
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-support %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-support %s -S | FileCheck %s
 
 ; CHECK:      %[[SELECT:[0-9]+]] = select i1 %tobool, %opencl.pipe_rw_t
 ; CHECK:      %[[PIPERO:[0-9]+]] = bitcast %opencl.pipe_rw_t {{.*}} %[[SELECT]] to %opencl.pipe_ro_t

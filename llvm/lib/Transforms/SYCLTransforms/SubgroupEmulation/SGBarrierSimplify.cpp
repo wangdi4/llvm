@@ -16,9 +16,9 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-extern bool DPCPPEnableSubGroupEmulation;
+extern bool SYCLEnableSubGroupEmulation;
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-barrier-simplify"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-barrier-simplify"
 
 PreservedAnalyses SGBarrierSimplifyPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
@@ -31,7 +31,7 @@ PreservedAnalyses SGBarrierSimplifyPass::run(Module &M,
 }
 
 bool SGBarrierSimplifyPass::runImpl(Module &M) {
-  if (!DPCPPEnableSubGroupEmulation)
+  if (!SYCLEnableSubGroupEmulation)
     return false;
 
   Helper.initialize(M);

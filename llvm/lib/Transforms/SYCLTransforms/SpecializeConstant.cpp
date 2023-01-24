@@ -31,13 +31,13 @@
 using namespace llvm;
 
 cl::list<std::string>
-    DPCPPSpecConstantOpt("dpcpp-spec-constant", cl::Hidden,
+    SYCLSpecConstantOpt("sycl-spec-constant", cl::Hidden,
                          cl::desc("Specialize specific constant."),
                          cl::value_desc("id:type:value"));
 
-#define DEBUG_TYPE "dpcpp-kernel-spec-constant"
+#define DEBUG_TYPE "sycl-kernel-spec-constant"
 
-/// Emitting warning messages if specified -dpcpp-spec-constant is invalid.
+/// Emitting warning messages if specified -sycl-spec-constant is invalid.
 class SpecializeConstantDiagInfo : public DiagnosticInfo {
   const StringRef OptionValue;
   const Twine &Msg;
@@ -49,7 +49,7 @@ public:
       : DiagnosticInfo(Kind, DS_Warning), OptionValue(OptionValue), Msg(Msg) {}
 
   void print(DiagnosticPrinter &DP) const override {
-    DP << "Option --dpcpp-spec-constant=" << OptionValue
+    DP << "Option --sycl-spec-constant=" << OptionValue
        << " is ignored because " << Msg;
   }
 };
@@ -91,7 +91,7 @@ static Type *parseTypeName(LLVMContext &C, StringRef Name) {
 static void collectExternalSpecializations(LLVMContext &C,
                                            SpecConstantMap &ExtSpecConstants) {
   SmallVector<StringRef, 3> Params;
-  for (StringRef SpecConstOpt : DPCPPSpecConstantOpt) {
+  for (StringRef SpecConstOpt : SYCLSpecConstantOpt) {
     Params.clear();
     SpecConstOpt.split(Params, ':', 2);
     if (Params.size() != 3) {

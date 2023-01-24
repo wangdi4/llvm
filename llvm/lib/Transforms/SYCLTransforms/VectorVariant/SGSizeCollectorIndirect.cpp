@@ -15,9 +15,9 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace llvm::DPCPPKernelMetadataAPI;
+using namespace llvm::SYCLKernelMetadataAPI;
 
-extern bool DPCPPEnableVectorVariantPasses;
+extern bool SYCLEnableVectorVariantPasses;
 
 static bool hasVecLength(Function *F, int &VecLength) {
   auto KIMD = KernelInternalMetadataAPI(F);
@@ -50,7 +50,7 @@ static bool hasVecLength(Function *F, int &VecLength) {
 // clang-format on
 //
 bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;
