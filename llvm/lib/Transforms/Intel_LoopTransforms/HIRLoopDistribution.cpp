@@ -541,7 +541,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
 
 bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
                                         unsigned ChunkIdx,
-                                        const SymbaseLoopSetTy &SCEXAnalyzedSBs,
+                                        const SymbaseLoopSetTy &RecomputableSBs,
                                         const HLInst *&DepInst) {
   assert(TmpDef->isLval() && "TmpDef is expected to be LVal");
   unsigned Level = Loop->getNestingLevel();
@@ -560,20 +560,21 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
 
     if (RVal->isSelfBlob()) {
       // If SB relies on previous SCEX candidate, then check that it exists in
-      // SCEXAnalyzedSBs
+      // RecomputableSBs
       if (SymbaseToCandidatesMap.count(SB)) {
-        return SCEXAnalyzedSBs.count({SB, ChunkIdx});
+        return RecomputableSBs.count({SB, ChunkIdx});
       }
 
       return (findDepInst(RVal, DepInst) &&
               isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                SCEXAnalyzedSBs, DepInst));
+                                RecomputableSBs, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
       unsigned BlobSB = Blob->getSymbase();
-      if (SymbaseToCandidatesMap.count(BlobSB)) {
-        return SCEXAnalyzedSBs.count({BlobSB, ChunkIdx});
+      if (SymbaseToCandidatesMap.count(BlobSB) &&
+          RecomputableSBs.count({BlobSB, ChunkIdx})) {
+        continue;
       }
 
       if (!Blob->isLinearAtLevel(Level)) {
@@ -747,7 +748,7 @@ void ScalarExpansion::getInsertNodeForTmpDefsUses(Candidate &Cand) {
 // Compute SCEX temp load/store insertion points. Factor in any conditional
 // def/uses for all chunks.
 void ScalarExpansion::computeInsertNodes() {
-  SymbaseLoopSetTy RecomputeSet;
+  SymbaseLoopSetTy RecomputableSBs;
   for (auto &Cand : Candidates) {
     getInsertNodeForTmpDefsUses<true>(Cand);  // For Defs
     getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
@@ -764,17 +765,17 @@ void ScalarExpansion::computeInsertNodes() {
       bool ConditionalUse = !isa<HLLoop>(UseInsertNode->getParent());
 
       // Illegal or already recomputed
-      if (RecomputeSet.count({SB, UseChunkID})) {
+      if (RecomputableSBs.count({SB, UseChunkID})) {
         continue;
       }
 
       const HLInst *DepInst = nullptr;
       Cand.SafeToRecompute &=
-          isSafeToRecompute(TmpDef, UseChunkID, RecomputeSet, DepInst);
+          isSafeToRecompute(TmpDef, UseChunkID, RecomputableSBs, DepInst);
 
       // If Use is conditional, don't save for recompute set
       if (!ConditionalUse) {
-        RecomputeSet.insert({SB, UseChunkID});
+        RecomputableSBs.insert({SB, UseChunkID});
       }
     }
   }
@@ -782,7 +783,8 @@ void ScalarExpansion::computeInsertNodes() {
 
 void ScalarExpansion::replaceWithArrayTemps(
     unsigned OrigLoopLevel, SmallSet<unsigned, 12> &TempArraySB) {
-  SymbaseLoopSetTy SCEXAnalyzedSBs;
+  // Used to skip SBs that are already scalar expanded
+  SymbaseLoopSetTy ProcessedSBs;
 
   for (auto &Cand : Candidates) {
     unsigned SB = Cand.getSymbase();
@@ -791,7 +793,7 @@ void ScalarExpansion::replaceWithArrayTemps(
     // No Temp Required, can recompute
     if (!Cand.isTempRequired()) {
       for (auto &TmpUse : Cand.TmpUses) {
-        if (SCEXAnalyzedSBs.count({SB, TmpUse.ChunkIdx})) {
+        if (ProcessedSBs.count({SB, TmpUse.ChunkIdx})) {
           continue;
         }
         HLNode *UseInsertNode =
@@ -805,7 +807,7 @@ void ScalarExpansion::replaceWithArrayTemps(
         }
 
         HLNodeUtils::insertBefore(UseInsertNode, DefInst->clone());
-        SCEXAnalyzedSBs.insert({SB, TmpUse.ChunkIdx});
+        ProcessedSBs.insert({SB, TmpUse.ChunkIdx});
       }
     } else {
       RegDDRef *TmpArrayRef = nullptr;
@@ -827,14 +829,14 @@ void ScalarExpansion::replaceWithArrayTemps(
       // Insert tx = TEMP[i]
       assert(TmpArrayRef && "Temp Store missing");
       for (auto &TmpUse : Cand.TmpUses) {
-        if (SCEXAnalyzedSBs.count({SB, TmpUse.ChunkIdx})) {
+        if (ProcessedSBs.count({SB, TmpUse.ChunkIdx})) {
           continue;
         }
 
         HLNode *UseInsertNode =
             Cand.LoopUseInsertNode[TmpUse.Ref->getHLDDNode()->getParentLoop()];
         createTempArrayLoad(TmpArrayRef, UseInsertNode, TmpUse);
-        SCEXAnalyzedSBs.insert({SB, TmpUse.ChunkIdx});
+        ProcessedSBs.insert({SB, TmpUse.ChunkIdx});
       }
     }
   }
@@ -874,7 +876,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   }
 
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
-    SymbaseLoopSetTy SCEXAnalyzedSBs;
+    SymbaseLoopSetTy RecomputableSBs;
     for (DDRef *TmpDefDDRef : RefGroups[I]) {
 
       if (TmpDefDDRef->isRval()) {
@@ -937,9 +939,9 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           // logic requires modifying HIR.
           const HLInst *DepInst = nullptr;
           Cand.SafeToRecompute &=
-              isSafeToRecompute(TmpDef, J, SCEXAnalyzedSBs, DepInst);
+              isSafeToRecompute(TmpDef, J, RecomputableSBs, DepInst);
 
-          SCEXAnalyzedSBs.insert({SB, J});
+          RecomputableSBs.insert({SB, J});
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.
