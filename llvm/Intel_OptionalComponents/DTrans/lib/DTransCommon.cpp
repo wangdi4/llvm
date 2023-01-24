@@ -279,6 +279,11 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
+#if INTEL_PRODUCT_RELEASE
+  // Set the "Intel Proprietary" module flag when any DTrans passes are run
+  MPM.addPass(dtrans::SetIntelPropPass());
+#endif // INTEL_PRODUCT_RELEASE
+
   // Try to run the typed-pointer passes. These passes should be no-ops when
   // opaque pointers are in use.
   // TODO: These will be removed when only opaque pointers are supported.

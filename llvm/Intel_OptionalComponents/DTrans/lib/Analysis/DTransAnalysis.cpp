@@ -9606,12 +9606,6 @@ bool DTransAnalysisInfo::analyzeModule(
     return false;
   }
 
-#if INTEL_PRODUCT_RELEASE
-  // Set a flag to induce an error if anyone attempts to write the IR
-  // to a file after this pass has been run.
-  M.setIntelProprietary();
-#endif // INTEL_PRODUCT_RELEASE
-
   setCallGraphStats(M);
   buildRelatedTypesMap(M);
 
