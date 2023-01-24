@@ -95,16 +95,12 @@ macro(add_sycl_unittest test_dirname link_variant)
       OpenCL-Headers
       ${SYCL_LINK_LIBS}
     )
-<<<<<<< HEAD
 # end INTEL_CUSTOMIZATION
-
-=======
 
   if(SYCL_ENABLE_KERNEL_FUSION)
     target_link_libraries(${test_dirname} PRIVATE sycl-fusion)
   endif(SYCL_ENABLE_KERNEL_FUSION)
   
->>>>>>> e2dc6d1c39bca4d772f6962d9b420d089001d950
   target_include_directories(${test_dirname}
     PRIVATE SYSTEM
       ${sycl_inc_dir}
