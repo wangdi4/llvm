@@ -87,3 +87,25 @@
 // OCLOC_PHASES: 9: file-table-tform, {5, 8}, tempfiletable, (device-sycl)
 // OCLOC_PHASES: 10: clang-offload-wrapper, {9}, object, (device-sycl)
 // OCLOC_PHASES: 11: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64_gen-unknown-unknown)" {10}, image
+
+/// Verify OpenMP behaviors (splitting not default)
+// RUN: %clangxx -fiopenmp -fopenmp-targets=spir64_gen -Xs "-device *" \
+// RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
+// RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_OMP_STAR
+// OCLOC_OMP_STAR-NOT: llvm-foreach{{.*}}
+// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
+// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
+// OCLOC_OMP_STAR-NOT: llvm-foreach{{.*}}
+// OCLOC_OMP_STAR: "{{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
+
+// RUN: %clangxx -fiopenmp -fopenmp-targets=spir64_gen -Xs "-device *" \
+// RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
+// RUN:   -fopenmp-device-code-split=per_kernel \
+// RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
+// RUN:   | FileCheck %s -check-prefixes=OCLOC_OMP_SPLIT_STAR
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
