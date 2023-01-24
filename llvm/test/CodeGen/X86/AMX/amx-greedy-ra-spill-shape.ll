@@ -67,17 +67,11 @@ define void @foo(i32 %M, i32 %N, i32 %K, ptr %A, ptr %B_rcr4, ptr %C, i32 %c_row
   ; CHECK-NEXT:   MOV64mr %stack.8, 1, $noreg, 0, $noreg, [[MOVSX64rr32_6]] :: (store (s64) into %stack.8)
   ; CHECK-NEXT:   MOV64mr %stack.6, 1, $noreg, 0, $noreg, [[MOVSX64rr32_4]] :: (store (s64) into %stack.6)
   ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:gr64_nosp = COPY [[MOVSX64rr32_4]]
-<<<<<<< HEAD
   ; INTEL_CUSTOMIZATION
   ; CHECK-NEXT:   [[IMUL64rr:%[0-9]+]]:gr64_nosp = nsw IMUL64rr [[IMUL64rr]], [[MOVSX64rr32_2]], implicit-def dead $eflags
   ; CHECK-NEXT:   [[ADD64rr:%[0-9]+]]:gr64_nosp = nsw ADD64rr [[ADD64rr]], [[MOVSX64rm32_]], implicit-def dead $eflags
   ; end INTEL_CUSTOMIZATION
-  ; CHECK-NEXT:   [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY2]], 4, [[ADD64rr]], 0, $noreg
-=======
-  ; CHECK-NEXT:   [[IMUL64rr:%[0-9]+]]:gr64_nosp = IMUL64rr [[IMUL64rr]], [[MOVSX64rr32_2]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ADD64rr:%[0-9]+]]:gr64_nosp = ADD64rr [[ADD64rr]], [[MOVSX64rm32_]], implicit-def dead $eflags
   ; CHECK-NEXT:   [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 4, [[ADD64rr]], 0, $noreg
->>>>>>> 20ecc0799146db11cdb7cab04184ee33620692f9
   ; CHECK-NEXT:   MOV64mr %stack.9, 1, $noreg, 0, $noreg, [[LEA64r]] :: (store (s64) into %stack.9)
   ; CHECK-NEXT:   MOV64mr %stack.7, 1, $noreg, 0, $noreg, [[MOVSX64rr32_5]] :: (store (s64) into %stack.7)
   ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:gr64 = COPY [[MOVSX64rr32_5]]
