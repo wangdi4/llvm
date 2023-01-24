@@ -29,9 +29,6 @@ public:
 
   // Glue for old PM.
   bool runImpl(Module &M, const VFAnalysisInfo *VFInfo);
-
-  static bool isRequired() { return true; }
-
 };
 } // namespace llvm
 

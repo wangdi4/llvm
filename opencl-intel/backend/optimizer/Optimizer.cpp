@@ -31,7 +31,9 @@ cl::opt<bool> EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
                           cl::desc("Enable VPlan Kernel Vectorizer"));
 
 // Enable vectorization at O0 optimization level.
-extern cl::opt<bool> EnableO0Vectorization;
+cl::opt<bool> EnableO0Vectorization(
+    "enable-o0-vectorization", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization at O0 optimization level"));
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
