@@ -260,12 +260,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-<<<<<<< HEAD
 ; COM: CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
-=======
 ; CHECK-OSZ-NEXT: Running analysis: LoopAnalysis on foo
->>>>>>> 572a757fa78722fddeb9b651120607f8eee5d13f
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
