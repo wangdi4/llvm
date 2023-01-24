@@ -310,5 +310,93 @@ DIR.OMP.END.SIMD.2:
   ret i32 %r.1.lcssa
 }
 
+; CHECK-LABEL: @reduc_select_icmp_and3
+; CHECK: vector.body
+; CHECK:  [[PHI:%.*]] = phi <8 x i32>
+; CHECK:  [[ICMP:%.*]] = icmp sgt <8 x i32>
+; CHECK: VPlannedBB5
+; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
+; CHECK:  [[ICMP2:%.*]] = icmp eq <8 x i32> [[LOAD]]
+; CHECK: VPlannedBB7
+; CHECK:  [[AND:%.*]] = and <8 x i1> [[ICMP]], [[ICMP2]]
+; CHECK: VPlannedBB8
+; CHECK:  [[LOAD2:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
+; CHECK:  [[ICMP3:%.*]] = icmp slt <8 x i32> [[LOAD2]]
+; CHECK:  [[SEL:%.*]] = select <8 x i1> [[ICMP3]]
+; CHECK: VPlannedBB11
+; CHECK:  [[PHI2:%.*]] = select <8 x i1> [[ICMP]], <8 x i32> [[PHI]], <8 x i32> [[PHI]]
+; CHECK:  [[SEL2:%.*]] = select <8 x i1> [[AND]], <8 x i32> [[SEL]], <8 x i32> [[PHI2]]
+; CHECK: VPlannedBB13
+; CHECK:  [[ICMP4:%.*]] = icmp ne <8 x i32> [[SEL2]]
+; CHECK:  [[REDOR:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[ICMP4]])
+; CHECK:  [[SEL3:%.*]] = select i1 [[REDOR]], i32 1, i32 2
+
+; Original source:
+;
+;int reduc_select_icmp_and3(int *src1, int *src2, int *src3, long n)
+;{
+;  int r = 2;
+;#pragma omp simd simdlen(8)
+;  for (long i = 0; i < n; i++)
+;    if (src1[i] > 35 && src2[i] == 2 && src3[i] < 90)
+;      r = 1;
+;  return r;
+;}
+
+define i32 @reduc_select_icmp_and3(i32* readonly %src1, i32* readonly %src2, i32* readonly %src3, i64 %n) {
+entry:
+  %i.linear.iv = alloca i64, align 8
+  %cmp = icmp sgt i64 %n, 0
+  br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
+
+DIR.OMP.SIMD.1:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i64* %i.linear.iv, i32 1) ]
+  br label %DIR.OMP.SIMD.128
+
+DIR.OMP.SIMD.128:
+  %1 = bitcast i64* %i.linear.iv to i8*
+  br label %omp.inner.for.body
+
+omp.inner.for.body:
+  %r.024 = phi i32 [ 2, %DIR.OMP.SIMD.128 ], [ %r.1, %omp.body.continue ]
+  %.omp.iv.local.022 = phi i64 [ 0, %DIR.OMP.SIMD.128 ], [ %add11, %omp.body.continue ]
+  %arrayidx = getelementptr inbounds i32, i32* %src1, i64 %.omp.iv.local.022
+  %2 = load i32, i32* %arrayidx, align 4
+  %cmp5 = icmp sgt i32 %2, 35
+  br i1 %cmp5, label %land.lhs.true, label %omp.body.continue
+
+land.lhs.true:
+  %arrayidx6 = getelementptr inbounds i32, i32* %src2, i64 %.omp.iv.local.022
+  %3 = load i32, i32* %arrayidx6, align 4
+  %cmp7 = icmp eq i32 %3, 2
+  br i1 %cmp7, label %land.lhs.true8, label %omp.body.continue
+
+land.lhs.true8:
+  %arrayidx9 = getelementptr inbounds i32, i32* %src3, i64 %.omp.iv.local.022
+  %4 = load i32, i32* %arrayidx9, align 4
+  %cmp10 = icmp slt i32 %4, 90
+  %spec.select = select i1 %cmp10, i32 1, i32 %r.024
+  br label %omp.body.continue
+
+omp.body.continue:
+  %r.1 = phi i32 [ %r.024, %land.lhs.true ], [ %r.024, %omp.inner.for.body ], [ %spec.select, %land.lhs.true8 ]
+  %add11 = add nuw nsw i64 %.omp.iv.local.022, 1
+  %exitcond.not = icmp eq i64 %add11, %n
+  br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.2:
+  %r.1.lcssa = phi i32 [ %r.1, %omp.body.continue ]
+  br label %DIR.OMP.END.SIMD.229
+
+DIR.OMP.END.SIMD.229:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %omp.precond.end
+
+omp.precond.end:
+  %r.3 = phi i32 [ 2, %entry ], [ %r.1.lcssa, %DIR.OMP.END.SIMD.229 ]
+  ret i32 %r.3
+}
+
+
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)

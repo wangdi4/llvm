@@ -1184,29 +1184,36 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *ChangeValue = nullptr;
   if (Reduction->isSelectCmp()) {
     // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
-    // instruction.  The pattern may also recognize two logically ANDed
-    // conditions, in which case we must look through a PHI.  No more complex
-    // conditions are recognized.  In the PHI case, one of the predecessor
-    // blocks will be the loop header.  The other block will contain the
-    // select.
+    // instruction.  In more complex cases the Exit instruction is a PHI.
+    // The PHI may have any number of predecessors, but only one of them
+    // is a select; the rest produce the PHI recurrence from the loop
+    // header.
     VPInstruction *Select = Exit;
     VPBasicBlock *Header = Loop.getHeader();
     if (auto *Phi = dyn_cast<VPPHINode>(Select)) {
-      assert(Phi->getNumOperands() == 2 && "Phi must have 2 arguments!");
-      VPBasicBlock *BB0 = Phi->getIncomingBlock((unsigned)0);
-      unsigned Index = BB0 == Header ? 1 : 0;
-      VPValue *Incoming = Phi->getIncomingValue(Index);
-      if (!(Select = dyn_cast<VPInstruction>(Incoming)))
-        llvm_unreachable("Phi predecessor isn't an instruction!");
+      for (unsigned K = 0; K < Phi->getNumOperands(); K++) {
+       VPValue *Incoming = Phi->getIncomingValue(K);
+       auto *IncPhi = dyn_cast<VPPHINode>(Incoming);
+       if (IncPhi) {
+          assert(IncPhi->getParent() == Header &&
+                 "Incoming Phi must be in loop header!");
+       } else {
+          VPInstruction *IncSel = dyn_cast<VPInstruction>(Incoming);
+          assert(IncSel && IncSel->getOpcode() == Instruction::Select &&
+                 "Incoming value must be Phi or Select!");
+          assert(Select == Exit && "Multiple incoming selects not allowed!");
+          Select = IncSel;
+       }
+      }
     }
-    assert(Select->getOpcode() == Instruction::Select
-           && "Exit is not a select!");
+    assert(Select->getOpcode() == Instruction::Select &&
+           "Exit is not a select!");
     // One of the operands comes from the PHI recurrence.  The other is
     // the change value.  Note the change value can come from a PHI
     // outside the loop, so we have to make sure we have the right PHI.
     ChangeValue = Select->getOperand(1);
-    if (isa<VPPHINode>(ChangeValue)
-        && cast<VPInstruction>(ChangeValue)->getParent() == Header)
+    if (isa<VPPHINode>(ChangeValue) &&
+        cast<VPInstruction>(ChangeValue)->getParent() == Header)
       ChangeValue = Select->getOperand(2);
   }
 
