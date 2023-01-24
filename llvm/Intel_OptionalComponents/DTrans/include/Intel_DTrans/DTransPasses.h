@@ -53,8 +53,9 @@
 #include "Intel_DTrans/Transforms/ReuseFieldOP.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
-#include "Intel_DTrans/Transforms/SOAToAOSPrepare.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOPPrepare.h"
+#include "Intel_DTrans/Transforms/SOAToAOSPrepare.h"
+#include "Intel_DTrans/Transforms/SetIntelPropPass.h"
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 
