@@ -2013,7 +2013,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, VTableType, llvm::GlobalValue::ExternalLinkage,
-      getContext().toCharUnitsFromBits(PAlign).getQuantity());
+      getContext().toCharUnitsFromBits(PAlign).getAsAlign());
   VTable->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
   // In MS C++ if you have a class with virtual functions in which you are using
@@ -2621,6 +2621,7 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #endif // INTEL_CUSTOMIZATION
     } else {
       guardTy = CGF.Int64Ty;
+<<<<<<< HEAD
       guardAlignment = CharUnits::fromQuantity(
                              CGM.getDataLayout().getABITypeAlignment(guardTy));
 #if INTEL_CUSTOMIZATION
@@ -2629,6 +2630,10 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
           CGF.CGM.getContext().getIntTypeForBitwidth(64, /*signed*/ 0);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+      guardAlignment =
+          CharUnits::fromQuantity(CGM.getDataLayout().getABITypeAlign(guardTy));
+>>>>>>> bf5c17ed0f402f603782d28264dab1157994c43d
     }
   }
 #if INTEL_CUSTOMIZATION
@@ -3466,7 +3471,7 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
   auto Align = CGM.getContext().getTypeAlignInChars(CGM.getContext().CharTy);
 
   llvm::GlobalVariable *GV = CGM.CreateOrReplaceCXXRuntimeVariable(
-      Name, Init->getType(), Linkage, Align.getQuantity());
+      Name, Init->getType(), Linkage, Align.getAsAlign());
 
   GV->setInitializer(Init);
 
