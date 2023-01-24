@@ -382,7 +382,7 @@ HLLoop *HIRMVForVariableStride::MVTransformer::calcOutermostLoopToMV(
 
   // Calc maxDefAtLevel for all strides to MV.
   unsigned MaxDefAtLevel = 0;
-  for (auto StrideCEWithSize : StrideAndConstSize) {
+  for (auto const &StrideCEWithSize : StrideAndConstSize) {
     unsigned DefAtLevel = StrideCEWithSize.first->getDefinedAtLevel();
     if (MaxDefAtLevel < DefAtLevel)
       MaxDefAtLevel = DefAtLevel;

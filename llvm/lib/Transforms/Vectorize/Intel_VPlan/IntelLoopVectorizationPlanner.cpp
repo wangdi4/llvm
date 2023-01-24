@@ -2653,7 +2653,13 @@ void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
           Operand, Plan.getVPConstant(ConstantInt::get(Operand->getType(), V)));
       AndI->setDebugLocation(Inst.getDebugLocation());
       Inst.replaceAllUsesWith(AndI);
-      Plan.getVPlanDA()->updateDivergence(*AndI);
+      VPlanDivergenceAnalysis *DA =
+          cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+      // Copy shape from the zext instruction. Avoid calling updateDivergence()
+      // because this will invalidate underlying IR and will overwrite any
+      // results computed from improveStrideUsingIR in DA. In addition, it's
+      // not necessary to do so and will take more compile time.
+      DA->updateVectorShape(AndI, DA->getVectorShape(Inst));
       InstToRemove.push_back(&Inst); // Need first to remove the use
       InstToRemove.push_back(TruncI);
       return true;

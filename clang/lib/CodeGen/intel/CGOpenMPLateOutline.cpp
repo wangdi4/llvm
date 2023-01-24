@@ -497,6 +497,79 @@ void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V,
          CGF.Builder.getInt32(1));
 }
 
+struct ArraySectionConstantInfo {
+  unsigned Elements;
+  unsigned Offset;
+};
+
+/// Try to calculate a constant number of elements and offset. This is possible
+/// when all pieces of the array section are constant. If any non-constants
+/// are found the Elements returned will be 0.
+static ArraySectionConstantInfo
+getArraySectionConstantInfo(CodeGenFunction &CGF, const Expr *E,
+                            unsigned Size = 1) {
+  E = E->IgnoreParenImpCasts();
+  QualType BaseTy;
+  const Expr *Base = nullptr;
+  auto *ASec = dyn_cast<OMPArraySectionExpr>(E);
+  const ArraySubscriptExpr *ASub = nullptr;
+
+  if (ASec) {
+    Base = ASec->getBase()->IgnoreParenImpCasts();
+    BaseTy = OMPArraySectionExpr::getBaseOriginalType(Base);
+  } else {
+    ASub = cast<ArraySubscriptExpr>(E);
+    Base = ASub->getBase()->IgnoreParenImpCasts();
+    BaseTy = Base->getType();
+  }
+
+  auto *CAT = CGF.getContext().getAsConstantArrayType(BaseTy);
+  if (!CAT)
+    return {0, 0};
+  unsigned ArraySize = llvm::APSInt{CAT->getSize()}.getExtValue();
+
+  unsigned Elements;
+  unsigned Offset;
+
+  if (ASec) {
+    if (const Expr *LengthExpr = ASec->getLength()) {
+      Expr::EvalResult LengthResult;
+      if (!LengthExpr->EvaluateAsInt(LengthResult, CGF.CGM.getContext()))
+        return {0, 0};
+      Elements = LengthResult.Val.getInt().getExtValue();
+    } else {
+      Elements = ArraySize;
+    }
+    if (const Expr *LowerExpr = ASec->getLowerBound()) {
+      Expr::EvalResult LowerResult;
+      if (!LowerExpr->EvaluateAsInt(LowerResult, CGF.CGM.getContext()))
+        return {0, 0};
+      Offset = LowerResult.Val.getInt().getExtValue();
+    } else {
+      Offset = 0;
+    }
+  } else {
+    Elements = 1;
+    Expr::EvalResult IdxResult;
+    if (!ASub->getIdx()->EvaluateAsInt(IdxResult, CGF.CGM.getContext()))
+      return {0, 0};
+    Offset = IdxResult.Val.getInt().getExtValue();
+  }
+
+  unsigned ChildElements = 1;
+  unsigned ChildOffset = 0;
+  if (Base && (Base->getType()->isSpecificPlaceholderType(
+                   BuiltinType::OMPArraySection) ||
+               isa<ArraySubscriptExpr>(Base))) {
+    ArraySectionConstantInfo ChildInfo =
+        getArraySectionConstantInfo(CGF, Base, ArraySize * Size);
+    ChildElements = ChildInfo.Elements;
+    ChildOffset = ChildInfo.Offset;
+  }
+
+  return {ChildElements * Elements, ChildOffset + Offset * Size};
+}
+
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
                                 bool NeedsTypedElements,
                                 llvm::Type *ElementType,
@@ -509,6 +582,9 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
     // section-base, type specifier, number of elements, offset in elements.
     // If ArraySecUsesBase is false, then it is emiitted as:
     // address of first element of section, type specifier, number of elements.
+
+    ArraySectionConstantInfo AI = getArraySectionConstantInfo(CGF, E);
+    bool IsConstantCase = AI.Elements != 0;
 
     ArraySectionTy AS;
     llvm::Value *BaseAddr = nullptr;
@@ -523,7 +599,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
     }
 
     LValue LowerBound;
-    if (IsTyped) {
+    if (IsTyped && (!IsConstantCase || !ArraySecUsesBase)) {
       if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()))
         LowerBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/true);
       else
@@ -544,7 +620,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
           ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
       llvm::Value *BaseCast = nullptr;
-      if (ArraySecUsesBase) {
+      if (ArraySecUsesBase && !IsConstantCase) {
         // If the array section variable is a pointer or reference, it contains
         // the address of the first element and it differs from the address
         // used in the first Arg. Load it here.
@@ -559,45 +635,56 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
       llvm::Value *NumElements;
       llvm::Value *OffsetInElements;
 
-      if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
-        llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
-            LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
-
-        LValue UpperBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/false);
-        llvm::Value *UpperCast = CGF.Builder.CreatePtrToInt(
-            UpperBound.getPointer(CGF), CGF.PtrDiffTy, "sec.upper.cast");
-
-        llvm::Value *NumElementsInChars = CGF.Builder.CreateSub(UpperCast, LowerCast);
-        NumElements = ElementSize.isOne() ? NumElementsInChars :
-              CGF.Builder.CreateExactSDiv(NumElementsInChars, Size);
-        NumElements = CGF.Builder.CreateAdd(
-            NumElements, llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1),
-            "sec.number_of_elements");
-
-        if (ArraySecUsesBase) {
-          llvm::Value *OffsetInChars =
-              CGF.Builder.CreateSub(LowerCast, BaseCast);
-          OffsetInElements =
-              ElementSize.isOne()
-                  ? OffsetInChars
-                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
-                                                "sec.offset_in_elements");
-        }
+      if (IsConstantCase) {
+        NumElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Elements);
+        if (ArraySecUsesBase)
+          OffsetInElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Offset);
       } else {
-        assert(isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) &&
-               "expected subscript expression");
-
-        NumElements = llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1);
-        if (ArraySecUsesBase) {
+        if (auto *AS =
+                dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
           llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
               LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
-          llvm::Value *OffsetInChars =
-              CGF.Builder.CreateSub(LowerCast, BaseCast);
-          OffsetInElements =
+
+          LValue UpperBound =
+              CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/false);
+          llvm::Value *UpperCast = CGF.Builder.CreatePtrToInt(
+              UpperBound.getPointer(CGF), CGF.PtrDiffTy, "sec.upper.cast");
+
+          llvm::Value *NumElementsInChars =
+              CGF.Builder.CreateSub(UpperCast, LowerCast);
+          NumElements =
               ElementSize.isOne()
-                  ? OffsetInChars
-                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
-                                                "sec.offset_in_elements");
+                  ? NumElementsInChars
+                  : CGF.Builder.CreateExactSDiv(NumElementsInChars, Size);
+          NumElements = CGF.Builder.CreateAdd(
+              NumElements, llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1),
+              "sec.number_of_elements");
+
+          if (ArraySecUsesBase) {
+            llvm::Value *OffsetInChars =
+                CGF.Builder.CreateSub(LowerCast, BaseCast);
+            OffsetInElements =
+                ElementSize.isOne()
+                    ? OffsetInChars
+                    : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                  "sec.offset_in_elements");
+          }
+        } else {
+          assert(isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) &&
+                 "expected subscript expression");
+
+          NumElements = llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1);
+          if (ArraySecUsesBase) {
+            llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
+                LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
+            llvm::Value *OffsetInChars =
+                CGF.Builder.CreateSub(LowerCast, BaseCast);
+            OffsetInElements =
+                ElementSize.isOne()
+                    ? OffsetInChars
+                    : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                  "sec.offset_in_elements");
+          }
         }
       }
       addArg(NumElements);

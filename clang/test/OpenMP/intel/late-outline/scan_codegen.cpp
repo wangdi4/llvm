@@ -32,74 +32,61 @@ int y;
 // CHECK-NEXT:    store ptr [[X:%.*]], ptr [[X_ADDR]], align 8
 // CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB]], align 4
 // CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP1]], i64 0, i64 2
-// CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[TMP2]] to i64
-// CHECK-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
-// CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP3]], i64 0, i64 6
-// CHECK-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX1]] to i64
-// CHECK-NEXT:    [[TMP4:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-NEXT:    [[TMP5:%.*]] = sdiv exact i64 [[TMP4]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP5]], 1
-// CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-// CHECK-NEXT:    [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP6]], 4
-// CHECK-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:BYREF.ARRSECT.INSCAN.TYPED"(ptr [[X_ADDR]], [[CLASS_C:%.*]] zeroinitializer, i64 [[SEC_NUMBER_OF_ELEMENTS]], i64 [[SEC_OFFSET_IN_ELEMENTS]], ptr null, ptr null, ptr @.omp_combiner., ptr @.omp_initializer., i64 1), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr @y, i32 0, i32 1, i64 2), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 1) ]
+// CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:BYREF.ARRSECT.INSCAN.TYPED"(ptr [[X_ADDR]], [[CLASS_C:%.*]] zeroinitializer, i64 5, i64 2, ptr null, ptr null, ptr @.omp_combiner., ptr @.omp_initializer., i64 1), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr @y, i32 0, i32 1, i64 2), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 1) ]
 // CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
 // CHECK:       omp.inner.for.cond:
-// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
-// CHECK-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP8]], [[TMP9]]
+// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
+// CHECK-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP2]], [[TMP3]]
 // CHECK-NEXT:    br i1 [[CMP]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK:       omp.inner.for.body:
-// CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP10]], 1
+// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP4]], 1
 // CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
 // CHECK-NEXT:    store i32 [[ADD]], ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP11:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP11]], i64 0, i64 5
-// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[TMP12]] to i64
-// CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds [10 x %class.C], ptr @p, i64 0, i64 [[IDXPROM]]
-// CHECK-NEXT:    call void @_Z7my_combR1CS0_(ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX2]], ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX3]]) #[[ATTR2:[0-9]+]]
-// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[IDXPROM4:%.*]] = sext i32 [[TMP13]] to i64
-// CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [10 x %class.C], ptr @p, i64 0, i64 [[IDXPROM4]]
-// CHECK-NEXT:    [[A:%.*]] = getelementptr inbounds [[CLASS_C]], ptr [[ARRAYIDX5]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[A]], align 4
-// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr @y, align 4
-// CHECK-NEXT:    [[ADD6:%.*]] = add nsw i32 [[TMP15]], [[TMP14]]
-// CHECK-NEXT:    store i32 [[ADD6]], ptr @y, align 4
-// CHECK-NEXT:    [[TMP16:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[TMP17:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr @y, i64 2), "QUAL.OMP.INCLUSIVE"(ptr [[X_ADDR]], i64 1) ]
+// CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr [[X_ADDR]], align 8
+// CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP5]], i64 0, i64 5
+// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[TMP6]] to i64
+// CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [10 x %class.C], ptr @p, i64 0, i64 [[IDXPROM]]
+// CHECK-NEXT:    call void @_Z7my_combR1CS0_(ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX]], ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX1]]) #[[ATTR2:[0-9]+]]
+// CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[IDXPROM2:%.*]] = sext i32 [[TMP7]] to i64
+// CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds [10 x %class.C], ptr @p, i64 0, i64 [[IDXPROM2]]
+// CHECK-NEXT:    [[A:%.*]] = getelementptr inbounds [[CLASS_C]], ptr [[ARRAYIDX3]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[A]], align 4
+// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr @y, align 4
+// CHECK-NEXT:    [[ADD4:%.*]] = add nsw i32 [[TMP9]], [[TMP8]]
+// CHECK-NEXT:    store i32 [[ADD4]], ptr @y, align 4
+// CHECK-NEXT:    [[TMP10:%.*]] = load ptr, ptr [[X_ADDR]], align 8
+// CHECK-NEXT:    [[TMP11:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr @y, i64 2), "QUAL.OMP.INCLUSIVE"(ptr [[X_ADDR]], i64 1) ]
 // CHECK-NEXT:    fence acq_rel
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP17]]) [ "DIR.OMP.END.SCAN"() ]
-// CHECK-NEXT:    [[TMP18:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[IDXPROM7:%.*]] = sext i32 [[TMP18]] to i64
-// CHECK-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [10 x %class.C], ptr @q, i64 0, i64 [[IDXPROM7]]
-// CHECK-NEXT:    [[TMP19:%.*]] = load ptr, ptr [[X_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP19]], i64 0, i64 5
-// CHECK-NEXT:    call void @_Z7my_initR1CS0_(ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX8]], ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX9]]) #[[ATTR2]]
-// CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr @y, align 4
-// CHECK-NEXT:    [[TMP21:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[IDXPROM10:%.*]] = sext i32 [[TMP21]] to i64
-// CHECK-NEXT:    [[ARRAYIDX11:%.*]] = getelementptr inbounds [10 x %class.C], ptr @q, i64 0, i64 [[IDXPROM10]]
-// CHECK-NEXT:    [[A12:%.*]] = getelementptr inbounds [[CLASS_C]], ptr [[ARRAYIDX11]], i32 0, i32 0
-// CHECK-NEXT:    store i32 [[TMP20]], ptr [[A12]], align 4
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP11]]) [ "DIR.OMP.END.SCAN"() ]
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[IDXPROM5:%.*]] = sext i32 [[TMP12]] to i64
+// CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x %class.C], ptr @q, i64 0, i64 [[IDXPROM5]]
+// CHECK-NEXT:    [[TMP13:%.*]] = load ptr, ptr [[X_ADDR]], align 8
+// CHECK-NEXT:    [[ARRAYIDX7:%.*]] = getelementptr inbounds [10 x %class.C], ptr [[TMP13]], i64 0, i64 5
+// CHECK-NEXT:    call void @_Z7my_initR1CS0_(ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX6]], ptr noundef nonnull align 4 dereferenceable(4) [[ARRAYIDX7]]) #[[ATTR2]]
+// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr @y, align 4
+// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[IDXPROM8:%.*]] = sext i32 [[TMP15]] to i64
+// CHECK-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [10 x %class.C], ptr @q, i64 0, i64 [[IDXPROM8]]
+// CHECK-NEXT:    [[A10:%.*]] = getelementptr inbounds [[CLASS_C]], ptr [[ARRAYIDX9]], i32 0, i32 0
+// CHECK-NEXT:    store i32 [[TMP14]], ptr [[A10]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
 // CHECK:       omp.body.continue:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
 // CHECK:       omp.inner.for.inc:
-// CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[ADD13:%.*]] = add nsw i32 [[TMP22]], 1
-// CHECK-NEXT:    store i32 [[ADD13]], ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[ADD11:%.*]] = add nsw i32 [[TMP16]], 1
+// CHECK-NEXT:    store i32 [[ADD11]], ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP3:![0-9]+]]
 // CHECK:       omp.inner.for.end:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK:       omp.loop.exit:
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP1]]) [ "DIR.OMP.END.SIMD"() ]
 // CHECK-NEXT:    ret void
 //
 void test(C (&x)[10]) {
@@ -202,163 +189,140 @@ void test1() {
 // CHECK-NEXT:    [[DOTOMP_IV:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[DOTOMP_UB:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP3:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_IV4:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_UB5:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[I16:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP24:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_IV25:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_UB26:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[I30:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP38:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_IV39:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[DOTOMP_UB40:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[I44:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_IV3:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_UB4:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[I8:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP16:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_IV17:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_UB18:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[I22:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP30:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_IV31:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[DOTOMP_UB32:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[I36:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    store ptr [[ARR_REF:%.*]], ptr [[ARR_REF_ADDR]], align 8
 // CHECK-NEXT:    store ptr [[IREF:%.*]], ptr [[IREF_ADDR]], align 8
 // CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB]], align 4
-// CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i32], ptr [[ARR]], i64 0, i64 2
-// CHECK-NEXT:    [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[ARR]] to i64
-// CHECK-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
-// CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds [10 x i32], ptr [[ARR]], i64 0, i64 6
-// CHECK-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX1]] to i64
-// CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-NEXT:    [[TMP1:%.*]] = sdiv exact i64 [[TMP0]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP1]], 1
-// CHECK-NEXT:    [[TMP2:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-// CHECK-NEXT:    [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP2]], 4
-// CHECK-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.INSCAN.TYPED"(ptr [[ARR]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS]], i64 [[SEC_OFFSET_IN_ELEMENTS]], i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 1) ]
+// CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.INSCAN.TYPED"(ptr [[ARR]], i32 0, i64 5, i64 2, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 1) ]
 // CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
 // CHECK:       omp.inner.for.cond:
-// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
-// CHECK-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP4]], [[TMP5]]
+// CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
+// CHECK-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP1]], [[TMP2]]
 // CHECK-NEXT:    br i1 [[CMP]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK:       omp.inner.for.body:
-// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP6]], 1
+// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP3]], 1
 // CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
 // CHECK-NEXT:    store i32 [[ADD]], ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr [[ARR]], i64 1) ]
+// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr [[ARR]], i64 1) ]
 // CHECK-NEXT:    fence acq_rel
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.SCAN"() ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP4]]) [ "DIR.OMP.END.SCAN"() ]
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
 // CHECK:       omp.body.continue:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
 // CHECK:       omp.inner.for.inc:
-// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[ADD2:%.*]] = add nsw i32 [[TMP8]], 1
-// CHECK-NEXT:    store i32 [[ADD2]], ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[ADD1:%.*]] = add nsw i32 [[TMP5]], 1
+// CHECK-NEXT:    store i32 [[ADD1]], ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP6:![0-9]+]]
 // CHECK:       omp.inner.for.end:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK:       omp.loop.exit:
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP3]]) [ "DIR.OMP.END.SIMD"() ]
-// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB5]], align 4
-// CHECK-NEXT:    [[TMP9:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
-// CHECK-NEXT:    [[TMP10:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x i32], ptr [[TMP10]], i64 0, i64 2
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB4]], align 4
+// CHECK-NEXT:    [[TMP6:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
+// CHECK-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.INSCAN.TYPED"(ptr [[ARR_REF_ADDR]], i32 0, i64 5, i64 2, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV3]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB4]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I8]], i32 0, i32 1, i32 1) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV3]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND5:%.*]]
+// CHECK:       omp.inner.for.cond5:
+// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[DOTOMP_IV3]], align 4
+// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[DOTOMP_UB4]], align 4
+// CHECK-NEXT:    [[CMP6:%.*]] = icmp sle i32 [[TMP8]], [[TMP9]]
+// CHECK-NEXT:    br i1 [[CMP6]], label [[OMP_INNER_FOR_BODY7:%.*]], label [[OMP_INNER_FOR_END14:%.*]]
+// CHECK:       omp.inner.for.body7:
+// CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[DOTOMP_IV3]], align 4
+// CHECK-NEXT:    [[MUL9:%.*]] = mul nsw i32 [[TMP10]], 1
+// CHECK-NEXT:    [[ADD10:%.*]] = add nsw i32 0, [[MUL9]]
+// CHECK-NEXT:    store i32 [[ADD10]], ptr [[I8]], align 4
 // CHECK-NEXT:    [[TMP11:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
-// CHECK-NEXT:    [[SEC_BASE_CAST7:%.*]] = ptrtoint ptr [[TMP11]] to i64
-// CHECK-NEXT:    [[SEC_LOWER_CAST8:%.*]] = ptrtoint ptr [[ARRAYIDX6]] to i64
-// CHECK-NEXT:    [[TMP12:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
-// CHECK-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [10 x i32], ptr [[TMP12]], i64 0, i64 6
-// CHECK-NEXT:    [[SEC_UPPER_CAST10:%.*]] = ptrtoint ptr [[ARRAYIDX9]] to i64
-// CHECK-NEXT:    [[TMP13:%.*]] = sub i64 [[SEC_UPPER_CAST10]], [[SEC_LOWER_CAST8]]
-// CHECK-NEXT:    [[TMP14:%.*]] = sdiv exact i64 [[TMP13]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS11:%.*]] = add i64 [[TMP14]], 1
-// CHECK-NEXT:    [[TMP15:%.*]] = sub i64 [[SEC_LOWER_CAST8]], [[SEC_BASE_CAST7]]
-// CHECK-NEXT:    [[SEC_OFFSET_IN_ELEMENTS12:%.*]] = sdiv exact i64 [[TMP15]], 4
-// CHECK-NEXT:    [[TMP16:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.INSCAN.TYPED"(ptr [[ARR_REF_ADDR]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS11]], i64 [[SEC_OFFSET_IN_ELEMENTS12]], i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV4]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB5]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I16]], i32 0, i32 1, i32 1) ]
-// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV4]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND13:%.*]]
-// CHECK:       omp.inner.for.cond13:
-// CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[DOTOMP_IV4]], align 4
-// CHECK-NEXT:    [[TMP18:%.*]] = load i32, ptr [[DOTOMP_UB5]], align 4
-// CHECK-NEXT:    [[CMP14:%.*]] = icmp sle i32 [[TMP17]], [[TMP18]]
-// CHECK-NEXT:    br i1 [[CMP14]], label [[OMP_INNER_FOR_BODY15:%.*]], label [[OMP_INNER_FOR_END22:%.*]]
-// CHECK:       omp.inner.for.body15:
-// CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[DOTOMP_IV4]], align 4
-// CHECK-NEXT:    [[MUL17:%.*]] = mul nsw i32 [[TMP19]], 1
-// CHECK-NEXT:    [[ADD18:%.*]] = add nsw i32 0, [[MUL17]]
-// CHECK-NEXT:    store i32 [[ADD18]], ptr [[I16]], align 4
-// CHECK-NEXT:    [[TMP20:%.*]] = load ptr, ptr [[ARR_REF_ADDR]], align 8
-// CHECK-NEXT:    [[TMP21:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr [[ARR_REF_ADDR]], i64 1) ]
+// CHECK-NEXT:    [[TMP12:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr [[ARR_REF_ADDR]], i64 1) ]
 // CHECK-NEXT:    fence acq_rel
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP21]]) [ "DIR.OMP.END.SCAN"() ]
-// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE19:%.*]]
-// CHECK:       omp.body.continue19:
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC20:%.*]]
-// CHECK:       omp.inner.for.inc20:
-// CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTOMP_IV4]], align 4
-// CHECK-NEXT:    [[ADD21:%.*]] = add nsw i32 [[TMP22]], 1
-// CHECK-NEXT:    store i32 [[ADD21]], ptr [[DOTOMP_IV4]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND13]], !llvm.loop [[LOOP7:![0-9]+]]
-// CHECK:       omp.inner.for.end22:
-// CHECK-NEXT:    br label [[OMP_LOOP_EXIT23:%.*]]
-// CHECK:       omp.loop.exit23:
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP16]]) [ "DIR.OMP.END.SIMD"() ]
-// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB26]], align 4
-// CHECK-NEXT:    [[TMP23:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr [[IFOO]], i32 0, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV25]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB26]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I30]], i32 0, i32 1, i32 1) ]
-// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV25]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND27:%.*]]
-// CHECK:       omp.inner.for.cond27:
-// CHECK-NEXT:    [[TMP24:%.*]] = load i32, ptr [[DOTOMP_IV25]], align 4
-// CHECK-NEXT:    [[TMP25:%.*]] = load i32, ptr [[DOTOMP_UB26]], align 4
-// CHECK-NEXT:    [[CMP28:%.*]] = icmp sle i32 [[TMP24]], [[TMP25]]
-// CHECK-NEXT:    br i1 [[CMP28]], label [[OMP_INNER_FOR_BODY29:%.*]], label [[OMP_INNER_FOR_END36:%.*]]
-// CHECK:       omp.inner.for.body29:
-// CHECK-NEXT:    [[TMP26:%.*]] = load i32, ptr [[DOTOMP_IV25]], align 4
-// CHECK-NEXT:    [[MUL31:%.*]] = mul nsw i32 [[TMP26]], 1
-// CHECK-NEXT:    [[ADD32:%.*]] = add nsw i32 0, [[MUL31]]
-// CHECK-NEXT:    store i32 [[ADD32]], ptr [[I30]], align 4
-// CHECK-NEXT:    [[TMP27:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr [[IFOO]], i64 1) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP12]]) [ "DIR.OMP.END.SCAN"() ]
+// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE11:%.*]]
+// CHECK:       omp.body.continue11:
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC12:%.*]]
+// CHECK:       omp.inner.for.inc12:
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[DOTOMP_IV3]], align 4
+// CHECK-NEXT:    [[ADD13:%.*]] = add nsw i32 [[TMP13]], 1
+// CHECK-NEXT:    store i32 [[ADD13]], ptr [[DOTOMP_IV3]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND5]], !llvm.loop [[LOOP7:![0-9]+]]
+// CHECK:       omp.inner.for.end14:
+// CHECK-NEXT:    br label [[OMP_LOOP_EXIT15:%.*]]
+// CHECK:       omp.loop.exit15:
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB18]], align 4
+// CHECK-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr [[IFOO]], i32 0, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV17]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB18]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I22]], i32 0, i32 1, i32 1) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV17]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND19:%.*]]
+// CHECK:       omp.inner.for.cond19:
+// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[DOTOMP_IV17]], align 4
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[DOTOMP_UB18]], align 4
+// CHECK-NEXT:    [[CMP20:%.*]] = icmp sle i32 [[TMP15]], [[TMP16]]
+// CHECK-NEXT:    br i1 [[CMP20]], label [[OMP_INNER_FOR_BODY21:%.*]], label [[OMP_INNER_FOR_END28:%.*]]
+// CHECK:       omp.inner.for.body21:
+// CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[DOTOMP_IV17]], align 4
+// CHECK-NEXT:    [[MUL23:%.*]] = mul nsw i32 [[TMP17]], 1
+// CHECK-NEXT:    [[ADD24:%.*]] = add nsw i32 0, [[MUL23]]
+// CHECK-NEXT:    store i32 [[ADD24]], ptr [[I22]], align 4
+// CHECK-NEXT:    [[TMP18:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr [[IFOO]], i64 1) ]
 // CHECK-NEXT:    fence acq_rel
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP27]]) [ "DIR.OMP.END.SCAN"() ]
-// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE33:%.*]]
-// CHECK:       omp.body.continue33:
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC34:%.*]]
-// CHECK:       omp.inner.for.inc34:
-// CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[DOTOMP_IV25]], align 4
-// CHECK-NEXT:    [[ADD35:%.*]] = add nsw i32 [[TMP28]], 1
-// CHECK-NEXT:    store i32 [[ADD35]], ptr [[DOTOMP_IV25]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND27]], !llvm.loop [[LOOP8:![0-9]+]]
-// CHECK:       omp.inner.for.end36:
-// CHECK-NEXT:    br label [[OMP_LOOP_EXIT37:%.*]]
-// CHECK:       omp.loop.exit37:
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP23]]) [ "DIR.OMP.END.SIMD"() ]
-// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB40]], align 4
-// CHECK-NEXT:    [[TMP29:%.*]] = load ptr, ptr [[IREF_ADDR]], align 8
-// CHECK-NEXT:    [[TMP30:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:BYREF.INSCAN.TYPED"(ptr [[IREF_ADDR]], i32 0, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV39]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB40]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I44]], i32 0, i32 1, i32 1) ]
-// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV39]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND41:%.*]]
-// CHECK:       omp.inner.for.cond41:
-// CHECK-NEXT:    [[TMP31:%.*]] = load i32, ptr [[DOTOMP_IV39]], align 4
-// CHECK-NEXT:    [[TMP32:%.*]] = load i32, ptr [[DOTOMP_UB40]], align 4
-// CHECK-NEXT:    [[CMP42:%.*]] = icmp sle i32 [[TMP31]], [[TMP32]]
-// CHECK-NEXT:    br i1 [[CMP42]], label [[OMP_INNER_FOR_BODY43:%.*]], label [[OMP_INNER_FOR_END50:%.*]]
-// CHECK:       omp.inner.for.body43:
-// CHECK-NEXT:    [[TMP33:%.*]] = load i32, ptr [[DOTOMP_IV39]], align 4
-// CHECK-NEXT:    [[MUL45:%.*]] = mul nsw i32 [[TMP33]], 1
-// CHECK-NEXT:    [[ADD46:%.*]] = add nsw i32 0, [[MUL45]]
-// CHECK-NEXT:    store i32 [[ADD46]], ptr [[I44]], align 4
-// CHECK-NEXT:    [[TMP34:%.*]] = load ptr, ptr [[IREF_ADDR]], align 8
-// CHECK-NEXT:    [[TMP35:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr [[IREF_ADDR]], i64 1) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP18]]) [ "DIR.OMP.END.SCAN"() ]
+// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE25:%.*]]
+// CHECK:       omp.body.continue25:
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC26:%.*]]
+// CHECK:       omp.inner.for.inc26:
+// CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[DOTOMP_IV17]], align 4
+// CHECK-NEXT:    [[ADD27:%.*]] = add nsw i32 [[TMP19]], 1
+// CHECK-NEXT:    store i32 [[ADD27]], ptr [[DOTOMP_IV17]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND19]], !llvm.loop [[LOOP8:![0-9]+]]
+// CHECK:       omp.inner.for.end28:
+// CHECK-NEXT:    br label [[OMP_LOOP_EXIT29:%.*]]
+// CHECK:       omp.loop.exit29:
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP14]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB32]], align 4
+// CHECK-NEXT:    [[TMP20:%.*]] = load ptr, ptr [[IREF_ADDR]], align 8
+// CHECK-NEXT:    [[TMP21:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:BYREF.INSCAN.TYPED"(ptr [[IREF_ADDR]], i32 0, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV31]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB32]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I36]], i32 0, i32 1, i32 1) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV31]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND33:%.*]]
+// CHECK:       omp.inner.for.cond33:
+// CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTOMP_IV31]], align 4
+// CHECK-NEXT:    [[TMP23:%.*]] = load i32, ptr [[DOTOMP_UB32]], align 4
+// CHECK-NEXT:    [[CMP34:%.*]] = icmp sle i32 [[TMP22]], [[TMP23]]
+// CHECK-NEXT:    br i1 [[CMP34]], label [[OMP_INNER_FOR_BODY35:%.*]], label [[OMP_INNER_FOR_END42:%.*]]
+// CHECK:       omp.inner.for.body35:
+// CHECK-NEXT:    [[TMP24:%.*]] = load i32, ptr [[DOTOMP_IV31]], align 4
+// CHECK-NEXT:    [[MUL37:%.*]] = mul nsw i32 [[TMP24]], 1
+// CHECK-NEXT:    [[ADD38:%.*]] = add nsw i32 0, [[MUL37]]
+// CHECK-NEXT:    store i32 [[ADD38]], ptr [[I36]], align 4
+// CHECK-NEXT:    [[TMP25:%.*]] = load ptr, ptr [[IREF_ADDR]], align 8
+// CHECK-NEXT:    [[TMP26:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.EXCLUSIVE"(ptr [[IREF_ADDR]], i64 1) ]
 // CHECK-NEXT:    fence acq_rel
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP35]]) [ "DIR.OMP.END.SCAN"() ]
-// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE47:%.*]]
-// CHECK:       omp.body.continue47:
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC48:%.*]]
-// CHECK:       omp.inner.for.inc48:
-// CHECK-NEXT:    [[TMP36:%.*]] = load i32, ptr [[DOTOMP_IV39]], align 4
-// CHECK-NEXT:    [[ADD49:%.*]] = add nsw i32 [[TMP36]], 1
-// CHECK-NEXT:    store i32 [[ADD49]], ptr [[DOTOMP_IV39]], align 4
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND41]], !llvm.loop [[LOOP9:![0-9]+]]
-// CHECK:       omp.inner.for.end50:
-// CHECK-NEXT:    br label [[OMP_LOOP_EXIT51:%.*]]
-// CHECK:       omp.loop.exit51:
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP30]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP26]]) [ "DIR.OMP.END.SCAN"() ]
+// CHECK-NEXT:    br label [[OMP_BODY_CONTINUE39:%.*]]
+// CHECK:       omp.body.continue39:
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_INC40:%.*]]
+// CHECK:       omp.inner.for.inc40:
+// CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[DOTOMP_IV31]], align 4
+// CHECK-NEXT:    [[ADD41:%.*]] = add nsw i32 [[TMP27]], 1
+// CHECK-NEXT:    store i32 [[ADD41]], ptr [[DOTOMP_IV31]], align 4
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND33]], !llvm.loop [[LOOP9:![0-9]+]]
+// CHECK:       omp.inner.for.end42:
+// CHECK-NEXT:    br label [[OMP_LOOP_EXIT43:%.*]]
+// CHECK:       omp.loop.exit43:
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP21]]) [ "DIR.OMP.END.SIMD"() ]
 // CHECK-NEXT:    ret void
 //
 void test2(int (&arr_ref)[10], int &iref) {
