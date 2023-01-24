@@ -2621,19 +2621,14 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #endif // INTEL_CUSTOMIZATION
     } else {
       guardTy = CGF.Int64Ty;
-<<<<<<< HEAD
-      guardAlignment = CharUnits::fromQuantity(
-                             CGM.getDataLayout().getABITypeAlignment(guardTy));
+      guardAlignment =
+          CharUnits::fromQuantity(CGM.getDataLayout().getABITypeAlign(guardTy));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
       ClangGuardTy =
           CGF.CGM.getContext().getIntTypeForBitwidth(64, /*signed*/ 0);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-      guardAlignment =
-          CharUnits::fromQuantity(CGM.getDataLayout().getABITypeAlign(guardTy));
->>>>>>> bf5c17ed0f402f603782d28264dab1157994c43d
     }
   }
 #if INTEL_CUSTOMIZATION
