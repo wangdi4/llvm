@@ -200,17 +200,6 @@ void GlobalHandler::unloadPlugins() {
 }
 
 void GlobalHandler::prepareSchedulerToRelease() {
-<<<<<<< HEAD
-#ifndef _WIN32
-  drainThreadPool();
-  if (MScheduler.Inst)
-    MScheduler.Inst->releaseResources();
-#endif
-}
-
-void GlobalHandler::drainThreadPool() {
-=======
->>>>>>> 75227870a607c16f273001f30a5bb03cfbd2a027
 #ifndef _WIN32
   drainThreadPool();
   if (MScheduler.Inst)
