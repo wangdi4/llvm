@@ -51,7 +51,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/AtomicOrdering.h"
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"
@@ -60,9 +59,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #endif // INTEL_CUSTOMIZATION
 
-=======
 #include <optional>
->>>>>>> 7b69fee9d57c415131e77757fc17529675432942
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
