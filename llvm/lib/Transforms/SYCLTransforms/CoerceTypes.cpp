@@ -94,7 +94,7 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
       Changed = true;
       Type *ArgMemTy = Arg.getParamByValType();
       uint64_t MemSize = PDataLayout->getTypeAllocSize(ArgMemTy);
-      ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
+      ValueMap[Arg.getArgNo()] = {Arg.getParamAlign()->value(), MemSize};
       TP = {Arg.getType(), nullptr};
     }
     Changed |= (Arg.getType() != TP.first);
