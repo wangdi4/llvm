@@ -1500,9 +1500,10 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 // TODO: implement without initializer.
 //
 // Preheader:
-//   %uds.temp = allocate-private %UDSType
+//   %uds.temp = allocate-private %UDSType ;; for exclusive scan
 //   %uds.vec = allocate-private %UDSType
-//   lifetime.start(%uds.temp)
+//   lifetime.start(%uds.temp)             ;; for exclusive scan
+//   lifetime.start(%uds.vec)
 //
 // Loop:
 //   call @udr.ctor(%uds.vec)
@@ -1519,7 +1520,8 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 //   br i1 %cond
 //
 // Postexit:
-//   lifetime.end(%uds.temp)
+//   lifetime.end(%uds.temp)               ;; for exclusive scan
+//   lifetime.end(%uds.vec)
 void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
                                          VPBasicBlock *FenceBlock,
                                          VPBuilder &Builder) {
@@ -1535,17 +1537,15 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   // Replace all uses of original UDS with the created private memory.
   AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
 
-  // Create temp memory.
+  bool IsExclusive = (UDS->getInscanKind() == InscanReductionKind::Exclusive);
+  // Create temp memory for exclusive UDS.
   // TODO: Ideally, we can emit it as scalar, so far rely on further opts to
   // clean it.
-  auto *Temp = Builder.create<VPAllocatePrivate>(
-      AI->getName() + ".temp", AI->getType(), PrivateMem->getAllocatedType(),
-      PrivateMem->getOrigAlignment());
-  Temp->setDebugLocation({});
-  // Create a lifetime.start marker for the temp.
-  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
-  createLifetimeMarker(Builder, Plan, Preheader, Temp, OrigAI,
-                       Intrinsic::lifetime_start);
+  VPAllocatePrivate *Temp = nullptr;
+  if (IsExclusive) {
+    Temp = createPrivateMemory(*const_cast<VPUserDefinedScanReduction *>(UDS),
+                               Builder, AI, Preheader);
+  }
 
   VPBasicBlock *Header = Loop.getHeader();
   Builder.setInsertPointFirstNonPhi(Header);
@@ -1563,16 +1563,15 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   Builder.setCurrentDebugLocation(
       FenceBlock->getTerminator()->getDebugLocation());
 
-  bool IsInclusive = (UDS->getInscanKind() == InscanReductionKind::Inclusive);
-  if (IsInclusive) {
-    Builder.create<VPRunningInclusiveUDS>(
-        ".running.incl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
-        ArrayRef<VPValue *>{PrivateMem, AI}, UDS->getCombiner(),
-        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
-  } else {
+  if (IsExclusive) {
     Builder.create<VPRunningExclusiveUDS>(
         ".running.excl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
         ArrayRef<VPValue *>{PrivateMem, AI, Temp}, UDS->getCombiner(),
+        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
+  } else {
+    Builder.create<VPRunningInclusiveUDS>(
+        ".running.incl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
+        ArrayRef<VPValue *>{PrivateMem, AI}, UDS->getCombiner(),
         UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
   }
 
@@ -1585,8 +1584,12 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   }
 
   // Create a lifetime.end marker for the temp.
+  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
   VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
-  createLifetimeMarker(Builder, Plan, PostExit, Temp, OrigAI,
+  if (IsExclusive)
+    createLifetimeMarker(Builder, Plan, PostExit, Temp, OrigAI,
+                         Intrinsic::lifetime_end);
+  createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                        Intrinsic::lifetime_end);
 }
 

@@ -40,9 +40,10 @@
 ; CHECK-NEXT: Memory: ptr %red.red
 
 ; CHECK: ptr [[VP_LINEAR_IV:%vp.*]] = allocate-priv ptr
-; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv ptr
 ; CHECK: ptr [[VP_TEMP:%vp.*]] = allocate-priv ptr
 ; CHECK: call i64 4 ptr [[VP_TEMP]] ptr @llvm.lifetime.start.p0
+; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv ptr
+; CHECK: call i64 4 ptr [[VP_PRIV]] ptr @llvm.lifetime.start.p0
 
 ;; Initialization in the loop.
 ; CHECK: call ptr [[VP_PRIV]] ptr %red.red ptr @.omp_initializer.
@@ -52,6 +53,7 @@
 
 ;; Postexit
 ; CHECK: call i64 4 ptr [[VP_TEMP]] ptr @llvm.lifetime.end.p0
+; CHECK: call i64 4 ptr [[VP_PRIV]] ptr @llvm.lifetime.end.p0
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -22,19 +22,23 @@
 
 ; CHECK-LABEL: DIR.OMP.SIMD.1:
 ; CHECK:         [[RED_ORIG:%.*]] = alloca float, align 4
-; CHECK:         [[RED_VEC:%.*]] = alloca <2 x float>, align 8
+; CHECK:         [[RED_VEC_TEMP:%.*]] = alloca <2 x float>, align 8
+; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR:%.*]] = getelementptr float, ptr [[RED_VEC_TEMP]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_TEMP_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[RED_VEC:%.*]] = alloca <2 x float>, align 8
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR:%.*]] = getelementptr float, ptr [[RED_VEC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 0
-; CHECK-NEXT:    [[RED_VEC_TEMP:%.*]] = alloca <2 x float>, align 8
-; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR:%.*]] = getelementptr float, ptr [[RED_VEC_TEMP]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_TEMP_BASE_ADDR]], i32 0
+
+; CHECK-LABEL: VPlannedBB1:
+; CHECK:         call void @llvm.lifetime.start.p0(i64 8, ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
 
 ; CHECK-LABEL: vector.body:
 ; CHECK:         call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB13:
+; CHECK-LABEL: VPlannedBB14:
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
@@ -46,6 +50,10 @@
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    br label
+
+; CHECK-LABEL: VPlannedBB19:
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

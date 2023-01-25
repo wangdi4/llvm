@@ -146,7 +146,7 @@ static cl::opt<bool> DynAllocaAdjustable(
     cl::desc("Allow inlining of functions with adjustable dynamic allocas"));
 
 static cl::opt<unsigned> DynAllocaAdjustableMaxCount(
-    "inlining-dyn-alloca-adjustable-max-count", cl::init(500), cl::ReallyHidden,
+    "inlining-dyn-alloca-adjustable-max-count", cl::init(350), cl::ReallyHidden,
     cl::desc("Maximum number of dynamic allocas to add to caller"));
 
 static cl::opt<unsigned> DynAllocaSpecialArgCount(
@@ -891,6 +891,8 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     // found to be useful.
     if (!F->hasOneUser())
       return false;
+    if (SpecialCond)
+      return true;
     // Do not inline too many dynamic allocas into the caller.
     if (DynamicAllocaCountMap[CandidateCall.getCaller()] + DynamicAllocaCount >
         DynAllocaAdjustableMaxCount)
