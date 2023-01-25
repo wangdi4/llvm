@@ -311,7 +311,7 @@ bool CoerceWin64TypesPass::runOnFunction(Function *F) {
       } else
         MemSize = DL.getTypeAllocSize(ArgMemTy);
       assert(MemSize != 0 && "Invalid memory size for byval type!");
-      ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
+      ValueMap[Arg.getArgNo()] = {Arg.getParamAlign()->value(), MemSize};
       if (shouldPassByval(MemSize))
         NewArgTypes.push_back(getBitCastType(MemSize, C));
       else

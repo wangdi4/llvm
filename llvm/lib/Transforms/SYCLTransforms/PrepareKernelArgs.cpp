@@ -573,7 +573,8 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     if (CI->isByValArgument(ArgNo)) {
       ActualArg =
           HandleByValArgument(CI->getParamByValType(ArgNo), ActualArg, CI,
-                              CalledFunc, CalledFunc->getParamAlignment(ArgNo));
+                              CalledFunc,
+                              CalledFunc->getParamAlign(ArgNo)->value());
       if (ActualArg != *CIArgIt)
         ByValInits.push_back(
             {ActualArg, (Value *)*CIArgIt, CI->getParamByValType(ArgNo)});
