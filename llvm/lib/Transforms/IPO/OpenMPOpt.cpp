@@ -1178,6 +1178,7 @@ private:
     // __kmpc_fork_call uses in a basic block.
     auto DetectPRsCB = [&](Use &U, Function &F) {
       CallInst *CI = getCallIfRegularCall(U, &RFI);
+      assert(CI && "CallInst can't be nullptr"); // INTEL
       BB2PRMap[CI->getParent()].insert(CI);
 
       return false;
