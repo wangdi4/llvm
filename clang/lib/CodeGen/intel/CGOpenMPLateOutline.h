@@ -562,7 +562,7 @@ public:
   void emitOMPPrefetchDirective();
   void emitOMPScopeDirective();
   void emitOMPScanDirective();
-  void emitLiveinClauseForUseDeviceAddrClause();
+  void emitLiveinClauses();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();
