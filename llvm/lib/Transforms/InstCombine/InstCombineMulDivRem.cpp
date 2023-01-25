@@ -718,12 +718,23 @@ Instruction *InstCombinerImpl::visitFMul(BinaryOperator &I) {
     }
 
     if (I.isOnlyUserOfAnyOperand()) {
+<<<<<<< HEAD
       Value *Z; // INTEL
       // pow(x, y) * pow(x, z) -> pow(x, y + z)
+=======
+      // pow(X, Y) * pow(X, Z) -> pow(X, Y + Z)
+>>>>>>> 914576c1f0b66994ca97867676ab6074b9be6f3e
       if (match(Op0, m_Intrinsic<Intrinsic::pow>(m_Value(X), m_Value(Y))) &&
           match(Op1, m_Intrinsic<Intrinsic::pow>(m_Specific(X), m_Value(Z)))) {
         auto *YZ = Builder.CreateFAddFMF(Y, Z, &I);
         auto *NewPow = Builder.CreateBinaryIntrinsic(Intrinsic::pow, X, YZ, &I);
+        return replaceInstUsesWith(I, NewPow);
+      }
+      // pow(X, Y) * pow(Z, Y) -> pow(X * Z, Y)
+      if (match(Op0, m_Intrinsic<Intrinsic::pow>(m_Value(X), m_Value(Y))) &&
+          match(Op1, m_Intrinsic<Intrinsic::pow>(m_Value(Z), m_Specific(Y)))) {
+        auto *XZ = Builder.CreateFMulFMF(X, Z, &I);
+        auto *NewPow = Builder.CreateBinaryIntrinsic(Intrinsic::pow, XZ, Y, &I);
         return replaceInstUsesWith(I, NewPow);
       }
 
