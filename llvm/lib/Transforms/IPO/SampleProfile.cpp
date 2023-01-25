@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -585,7 +585,7 @@ protected:
   // list and -profile-accurate-for-symsinlist flag, but it can be
   // overriden by -profile-sample-accurate or profile-sample-accurate
   // attribute.
-  bool ProfAccForSymsInList;
+  bool ProfAccForSymsInList = false; // INTEL
 
   // External inline advisor used to replay inline decision from remarks.
   std::unique_ptr<InlineAdvisor> ExternalInlineAdvisor;
@@ -999,7 +999,7 @@ bool SampleProfileLoader::tryPromoteAndInlineCandidate(
       Candidate.CallInstr = DI;
       if (isa<CallInst>(DI) || isa<InvokeInst>(DI)) {
         bool Inlined = tryInlineCandidate(Candidate, InlinedCallSite);
-        if (!Inlined) {
+        if (!Inlined && SumOrigin) { // INTEL
           // Prorate the direct callsite distribution so that it reflects real
           // callsite counts.
           setProbeDistributionFactor(
@@ -2342,8 +2342,15 @@ bool SampleProfileLoader::runOnFunction(Function &F, ModuleAnalysisManager *AM) 
   else
     Samples = Reader->getSamplesFor(F);
 
-  if (Samples && !Samples->empty())
-    return emitAnnotations(F);
+#if INTEL_CUSTOMIZATION
+  if (Samples && !Samples->empty()) {
+    bool Changed = emitAnnotations(F);
+    // Clear the member 'ORE' to prevent a dangling pointer because the original
+    // object may be deleted when the function returns.
+    ORE = nullptr;
+    return Changed;
+  }
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 
