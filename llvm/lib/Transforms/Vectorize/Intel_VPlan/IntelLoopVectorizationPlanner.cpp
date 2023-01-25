@@ -2116,7 +2116,6 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
         LLVM_DEBUG(dbgs() << "LVP: Registerized UDR/Scan found.\n");
-        assert(false && "Registerized UDR/Scan unexpected.");
         return false;
       }
 

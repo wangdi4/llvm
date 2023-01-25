@@ -586,13 +586,6 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    if (InscanRedKind) {
-      UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse);
-      // TODO: make this assert to be a proper bailout in prod.
-      assert(UseMemory &&
-             "Fully registerized inscan reduction is not supported!");
-      (void)UseMemory;
-    }
     RecurrenceDescriptor RD(StartV, Combiner, nullptr /*IntermediateStore*/,
                             Kind, FMF, nullptr, ReductionPhi->getType(),
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
