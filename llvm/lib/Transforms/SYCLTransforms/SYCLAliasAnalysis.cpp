@@ -176,15 +176,9 @@ SYCLAAResult::ResolveResult SYCLAAResult::resolveAddressSpace(const Value *V,
 
 // Check aliasing using the fact that in openCL pointers from different
 // memory addresses do not alias.
-<<<<<<< HEAD:llvm/lib/Transforms/SYCLTransforms/DPCPPAliasAnalysis.cpp
-AliasResult DPCPPAAResult::alias(const MemoryLocation &LocA,
+AliasResult SYCLAAResult::alias(const MemoryLocation &LocA,
                                  const MemoryLocation &LocB, AAQueryInfo &AAQI,
                                  const Instruction *) {
-=======
-AliasResult SYCLAAResult::alias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
->>>>>>> f17814116fe460a75ec3342370d89bdb974d8f8a:llvm/lib/Transforms/SYCLTransforms/SYCLAliasAnalysis.cpp
   const Value *A = LocA.Ptr;
   const Value *B = LocB.Ptr;
 
