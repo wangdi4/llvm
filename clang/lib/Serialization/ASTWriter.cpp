@@ -128,6 +128,7 @@
 #include <ctime>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <tuple>
 #include <utility>

@@ -36,6 +36,7 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/StringExtras.h"
+#include <optional>
 
 using namespace clang;
 using namespace sema;

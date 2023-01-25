@@ -59,6 +59,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <numeric>
+#include <optional>
 
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"

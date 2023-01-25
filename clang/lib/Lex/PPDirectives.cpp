@@ -64,6 +64,7 @@
 #include <cassert>
 #include <cstring>
 #include <new>
+#include <optional>
 #include <string>
 #include <utility>
 

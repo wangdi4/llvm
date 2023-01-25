@@ -55,6 +55,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
+#include <optional>
 
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"

@@ -60,6 +60,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
+#include <optional>
 
 using namespace llvm::omp;
 

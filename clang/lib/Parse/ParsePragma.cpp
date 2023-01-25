@@ -39,6 +39,7 @@
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <optional>
 using namespace clang;
 
 namespace {

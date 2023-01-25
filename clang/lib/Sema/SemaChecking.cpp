@@ -112,6 +112,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>

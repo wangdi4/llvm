@@ -47,11 +47,15 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/SmallVector.h"
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #include "clang/Sema/Lookup.h"
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include <optional>
+>>>>>>> 7b69fee9d57c415131e77757fc17529675432942
 using namespace clang;
 
 /// Simple precedence-based parser for binary/ternary operators.

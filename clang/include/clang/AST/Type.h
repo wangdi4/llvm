@@ -67,6 +67,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>

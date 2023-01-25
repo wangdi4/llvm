@@ -63,6 +63,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include <map>
+#include <optional>
 #include <set>
 
 using namespace clang;

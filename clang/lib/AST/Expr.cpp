@@ -54,11 +54,15 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstring>
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Support/Path.h"
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include <optional>
+>>>>>>> 7b69fee9d57c415131e77757fc17529675432942
 using namespace clang;
 
 const Expr *Expr::getBestDynamicClassTypeExpr() const {

@@ -66,6 +66,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/TimeProfiler.h"
+#include <optional>
 
 using namespace clang;
 using namespace sema;

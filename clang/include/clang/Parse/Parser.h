@@ -45,6 +45,7 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include <memory>
+#include <optional>
 #include <stack>
 
 namespace clang {

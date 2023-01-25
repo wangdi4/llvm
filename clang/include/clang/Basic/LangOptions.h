@@ -41,6 +41,7 @@
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticSema.h"
@@ -50,6 +51,9 @@
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
+=======
+#include <optional>
+>>>>>>> 7b69fee9d57c415131e77757fc17529675432942
 #include <string>
 #include <vector>
 

@@ -86,6 +86,7 @@
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
