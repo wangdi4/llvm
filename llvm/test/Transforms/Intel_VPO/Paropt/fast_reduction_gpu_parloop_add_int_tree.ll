@@ -15,7 +15,7 @@
 ;   return 0;
 ; }
 
-; CHECK-LABEL: DIR.OMP.END.PARALLEL.LOOP.{{[0-9]+}}
+; CHECK-LABEL: omp.loop.exit
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: lshr i64 %[[LOCAL_SIZE]], 1

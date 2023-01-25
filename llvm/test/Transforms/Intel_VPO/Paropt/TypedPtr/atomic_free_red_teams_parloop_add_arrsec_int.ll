@@ -75,7 +75,7 @@ target device_triples = "spir64"
 ; CHECK: %[[DST_VAL_GLOBAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[DST_PTR_GLOBAL]]
 ; CHECK: %[[NEW_VAL_GLOBAL:[^,]+]] = add i32 %[[DST_VAL_GLOBAL]], %[[SRC_VAL_GLOBAL]]
 ; CHECK: store i32 %[[NEW_VAL_GLOBAL]], i32 addrspace(1)* %[[DST_PTR_GLOBAL]]
-; CHECK: br i1 %red.cpy.done73, label %item.exit, label %red.update.body
+; CHECK: br i1 %red.cpy.done{{.*}}, label %item.exit, label %red.update.body
 ; CHECK-NOT: store
 
 ; Function Attrs: convergent noinline nounwind optnone
