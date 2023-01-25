@@ -35,13 +35,13 @@
 
 ; CHECK-LABEL:  entry:
 ; CHECK:         [[RED_ORIG:%.*]] = alloca %struct.Dummy
-; CHECK:         [[RED_VEC:%.*]] = alloca [2 x %struct.Dummy]
+; CHECK:         [[RED_VEC_TEMP:%.*]] = alloca [2 x %struct.Dummy]
+; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR:%.*]] = getelementptr %struct.Dummy, ptr [[RED_VEC_TEMP]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_TEMP_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[RED_VEC:%.*]] = alloca [2 x %struct.Dummy]
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR:%.*]] = getelementptr %struct.Dummy, ptr [[RED_VEC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_1:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[RED_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_BASE_ADDR]], i32 0
-; CHECK-NEXT:    [[RED_VEC_TEMP:%.*]] = alloca [2 x %struct.Dummy]
-; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR:%.*]] = getelementptr %struct.Dummy, ptr [[RED_VEC_TEMP]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[RED_VEC_TEMP_BASE_ADDR]], i32 0
 
 ; CHECK-LABEL: vector.body:
 ; CHECK:         call ptr @_ZTS5Dummy.omp.def_constr(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
@@ -49,7 +49,7 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB18:
+; CHECK-LABEL: VPlannedBB19:
 ; CHECK-NEXT:    call ptr @_ZTS5Dummy.omp.def_constr(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
