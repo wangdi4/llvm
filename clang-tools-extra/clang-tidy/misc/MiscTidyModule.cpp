@@ -46,8 +46,7 @@
 #include "UnusedUsingDeclsCheck.h"
 #include "UseAnonymousNamespaceCheck.h"
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 namespace misc {
 
 class MiscModule : public ClangTidyModule {
@@ -101,5 +100,4 @@ static ClangTidyModuleRegistry::Add<misc::MiscModule>
 // and thus register the MiscModule.
 volatile int MiscModuleAnchorSource = 0;
 
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy
