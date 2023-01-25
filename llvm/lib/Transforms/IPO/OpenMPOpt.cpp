@@ -1440,7 +1440,7 @@ private:
 
     class BarrierInfo {
       Instruction *I;
-      enum ImplicitBarrierType Type;
+      enum ImplicitBarrierType Type {}; // INTEL
 
     public:
       BarrierInfo(enum ImplicitBarrierType Type) : I(nullptr), Type(Type) {}
