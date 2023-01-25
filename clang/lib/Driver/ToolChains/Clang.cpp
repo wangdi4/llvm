@@ -5719,6 +5719,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-enable-64bit-opencl-atomics=true");
       }
+
+      CmdArgs.push_back("-mlong-double-64");
     }
 #endif // INTEL_CUSTOMIZATION
   }
