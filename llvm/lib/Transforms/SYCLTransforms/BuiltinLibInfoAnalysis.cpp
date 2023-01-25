@@ -16,10 +16,10 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-builtin-info-analysis"
+#define DEBUG_TYPE "sycl-kernel-builtin-info-analysis"
 
 static cl::list<std::string>
-    OptBuiltinModuleFiles("dpcpp-kernel-builtin-lib", cl::Hidden,
+    OptBuiltinModuleFiles("sycl-kernel-builtin-lib", cl::Hidden,
                           cl::CommaSeparated,
                           cl::desc("Builtin declarations (bitcode) libraries"),
                           cl::value_desc("filename1,filename2"));

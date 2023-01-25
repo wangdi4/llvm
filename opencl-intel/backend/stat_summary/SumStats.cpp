@@ -26,7 +26,7 @@
 #include "Stats.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 extern "C" LLVMContextRef LLVMGetGlobalContext(void);
 

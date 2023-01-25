@@ -1,6 +1,6 @@
 ; Emit error when subgroup semantics is really broken (because intel_reqd_sub_group_size = 1).
 
-; RUN: not opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: not opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK: error: kernel "reqd_sg_size": Required subgroup size can't be 1 for subgroup calls
 

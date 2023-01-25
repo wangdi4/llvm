@@ -14,8 +14,8 @@
 ; Optimizer options:
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ;
 ; This test checks the the DuplicateCalledKernels pass clone a called kernel.

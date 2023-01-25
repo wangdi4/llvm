@@ -16,7 +16,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-add-function-attrs"
+#define DEBUG_TYPE "sycl-kernel-add-function-attrs"
 
 static bool isAMXMatrixIntrinsicFunction(Function &F) {
   switch (F.getIntrinsicID()) {

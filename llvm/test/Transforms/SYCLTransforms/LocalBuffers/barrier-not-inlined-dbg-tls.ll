@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-kernel-enable-tls-globals -passes=dpcpp-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check for tls mode. Local variable used in scalar kernel and vector kernel has
 ; the same offset in both kernels. Local buffer size is the same for both kernels.

@@ -18,7 +18,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-function-widen"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-function-widen"
 
 using namespace llvm;
 using namespace CompilationUtils;
@@ -35,7 +35,7 @@ void FunctionWidener::run(FuncSet &Functions,
   Utils.init(&M);
   WGSyncFunctions = Utils.getAllFunctionsWithSynchronization();
 
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
 

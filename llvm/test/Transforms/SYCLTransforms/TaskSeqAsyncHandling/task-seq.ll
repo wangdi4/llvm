@@ -1,5 +1,5 @@
-; RUN: opt -S -passes=dpcpp-kernel-handle-taskseq-async %s | FileCheck %s
-; RUN: opt -S -passes=dpcpp-kernel-handle-taskseq-async %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -S -passes=sycl-kernel-handle-taskseq-async %s | FileCheck %s
+; RUN: opt -S -passes=sycl-kernel-handle-taskseq-async %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 %class.task_sequence = type { i32, i64 }
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }

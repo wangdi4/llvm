@@ -20,11 +20,11 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-set-prefer-vector-width"
+#define DEBUG_TYPE "sycl-kernel-set-prefer-vector-width"
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 
-static cl::opt<unsigned> ForcedVecWidth("dpcpp-force-prefer-vector-width",
+static cl::opt<unsigned> ForcedVecWidth("sycl-force-prefer-vector-width",
                                         cl::init(0), cl::Hidden);
 
 static StringRef PreferVecWidth = "prefer-vector-width";

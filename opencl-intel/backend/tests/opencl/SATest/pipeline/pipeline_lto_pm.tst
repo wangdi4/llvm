@@ -9,7 +9,7 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -20,7 +20,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
@@ -55,7 +55,7 @@
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
@@ -73,7 +73,7 @@
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Running pass: SYCLKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
@@ -88,7 +88,7 @@
 ; CHECK-NOT:  Running pass: VecClonePass
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
-; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
@@ -105,7 +105,7 @@
 ; CHECK:      Running pass: VectorCombinePass
 ; CHECK:      Running pass: JumpThreadingPass
 
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
@@ -188,13 +188,13 @@
 
 
 ; need not to check all outputs
-; QUIET:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; QUIET:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; QUIET-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; QUIET-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; QUIET-NEXT: Running pass: NameAnonGlobalPass
 ; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
-; QUIET-NEXT: Running pass: DPCPPEqualizerPass
+; QUIET-NEXT: Running pass: SYCLEqualizerPass
 ; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; QUIET-NEXT: Running pass: AddFunctionAttrsPass
@@ -209,7 +209,7 @@
 
 
 ; need not to check all outputs
-; VERIFY-EACH:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; VERIFY-EACH:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; VERIFY-EACH-NEXT: Verifying module main
 ; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; VERIFY-EACH-NEXT: Verifying module main

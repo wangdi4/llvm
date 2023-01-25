@@ -14,10 +14,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-size-analysis"
+#define DEBUG_TYPE "sycl-kernel-sg-size-analysis"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey SGSizeAnalysisPass::Key;

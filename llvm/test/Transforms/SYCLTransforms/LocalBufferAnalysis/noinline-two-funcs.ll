@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='print<sycl-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check local buffer size and offset of local variables in the case a kernel
 ; calls two noinline functions.
@@ -47,11 +47,11 @@ entry:
 !opencl.spir.version = !{!0}
 !opencl.compiler.options = !{!1}
 !llvm.ident = !{!2}
-!dpcpp.stat.type = !{!3}
-!dpcpp.stat.exec_time = !{!4}
-!dpcpp.stat.run_time_version = !{!5}
-!dpcpp.stat.workload_name = !{!6}
-!dpcpp.stat.module_name = !{!7}
+!sycl.stat.type = !{!3}
+!sycl.stat.exec_time = !{!4}
+!sycl.stat.run_time_version = !{!5}
+!sycl.stat.workload_name = !{!6}
+!sycl.stat.module_name = !{!7}
 !sycl.kernels = !{!8}
 
 !0 = !{i32 2, i32 0}

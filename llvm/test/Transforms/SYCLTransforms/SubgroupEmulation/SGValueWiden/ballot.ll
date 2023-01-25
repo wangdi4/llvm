@@ -1,6 +1,6 @@
 
-; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 ; CHECK: call <32 x i32> @_Z16sub_group_ballotDv8_iDv8_j(<8 x i32> {{.*}}, <8 x i32> {{.*}})
 

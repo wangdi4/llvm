@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,dpcpp-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='dpcpp-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
 
 declare i64 @get_sub_group_slice_length.(i32) local_unnamed_addr
 

@@ -1,5 +1,5 @@
-; RUN: opt -passes='dpcpp-kernel-resolve-sub-group-wi-call' -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
-; RUN: opt -passes='debugify,dpcpp-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-resolve-sub-group-wi-call' -sycl-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ; Checks that "sub_group_rowslice_insertelement(undef, data)" is properly removed.
 

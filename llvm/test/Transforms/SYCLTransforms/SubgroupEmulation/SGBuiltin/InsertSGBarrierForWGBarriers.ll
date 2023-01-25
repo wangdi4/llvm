@@ -1,5 +1,5 @@
-; RUN: opt -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -passes='debugify,dpcpp-kernel-sg-emu-builtin,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -dpcpp-vect-info=%p/../../Inputs/VectInfo64.gen -passes='dpcpp-kernel-sg-emu-builtin' -S %s | FileCheck %s
+; RUN: opt -sycl-vect-info=%p/../../Inputs/VectInfo64.gen -passes='debugify,sycl-kernel-sg-emu-builtin,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -sycl-vect-info=%p/../../Inputs/VectInfo64.gen -passes='sycl-kernel-sg-emu-builtin' -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

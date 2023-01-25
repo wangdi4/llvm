@@ -23,7 +23,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InstructionCost.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/PostDominanceFrontier.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/Predicator.h"
@@ -32,7 +32,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-weighted-inst-count-analysis"
+#define DEBUG_TYPE "sycl-kernel-weighted-inst-count-analysis"
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 
@@ -270,7 +270,7 @@ InstCountResultImpl::InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
   // If function is already vectorized, PreVec should be forced to be false.
   // E.g. when this pass is run before VectorKernelElimination, vectorized
   // kernel probably exists.
-  auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+  auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
   static constexpr StringRef VolcanoVectorKernelPrefix = "__Vectorized_";
   if (!F.getName().startswith(VolcanoVectorKernelPrefix) &&
       KIMD.ScalarKernel.hasValue() && KIMD.ScalarKernel.get())
@@ -284,7 +284,7 @@ void InstCountResultImpl::analyze() {
     return;
 
   // for statistics:
-  DPCPP_STAT_GATHER_CHECK(BlockCosts.clear(););
+  SYCL_STAT_GATHER_CHECK(BlockCosts.clear(););
 
   // Check if this is the "pre" stage.
   // If it is, compute things that are relevant only here.
@@ -363,7 +363,7 @@ void InstCountResultImpl::analyze() {
                       << " Prob: " << format("%4.2f", Probability)
                       << " TripCount: " << TripCount << '\n');
     // for statistics:
-    DPCPP_STAT_GATHER_CHECK(BlockCosts[&BB] = BlockWeights;);
+    SYCL_STAT_GATHER_CHECK(BlockCosts[&BB] = BlockWeights;);
   }
   LLVM_DEBUG(dbgs() << "Cost of function " << F.getName() << ": "
                     << format("%.2f", TotalWeight) << '\n');
@@ -389,7 +389,7 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
   // This logic was inherited from the old heuristic, but the types
   // are computed slightly more rationally now.
   if (ISA == VFISAKind::AVX) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     // For AVX, there is only x4 native sub-group implementation.
     if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
       return 4;
@@ -1334,14 +1334,14 @@ void InstCountResultImpl::estimateDataDependence(
 }
 
 void InstCountResultImpl::copyBlockCosts(std::map<BasicBlock *, int> *Dest) {
-  DPCPP_STAT_GATHER_CHECK(Dest->insert(BlockCosts.begin(), BlockCosts.end()););
+  SYCL_STAT_GATHER_CHECK(Dest->insert(BlockCosts.begin(), BlockCosts.end()););
 }
 
 void InstCountResultImpl::countPerBlockHeuristics(
     std::map<BasicBlock *, int> *PreCosts, int PacketWidth) {
   // this method is just for statistical purposes.
-  DPCPP_STAT_GATHER_CHECK(
-      DPCPPStatistic::ActiveStatsT kernelStats;
+  SYCL_STAT_GATHER_CHECK(
+      SYCLStatistic::ActiveStatsT kernelStats;
       int vectorizedVersionIsBetter = 0; int scalarVersionIsBetter = 0;
       for (auto &Pair : *PreCosts) {
         // Do not try to access to the object 'BB' points,
@@ -1355,17 +1355,17 @@ void InstCountResultImpl::countPerBlockHeuristics(
           scalarVersionIsBetter++;
         else
           vectorizedVersionIsBetter++;
-      } DPCPP_STAT_DEFINE(Blocks_That_Are_Better_Vectorized,
+      } SYCL_STAT_DEFINE(Blocks_That_Are_Better_Vectorized,
                           "blocks for which the heuristics says it is better "
                           "to vectorize",
                           kernelStats);
       Blocks_That_Are_Better_Vectorized = vectorizedVersionIsBetter;
-      DPCPP_STAT_DEFINE(Blocks_That_Are_Better_Scalarized,
+      SYCL_STAT_DEFINE(Blocks_That_Are_Better_Scalarized,
                         "blocks for which the heuristics says it is better to "
                         "leave scalar version",
                         kernelStats);
       Blocks_That_Are_Better_Scalarized = scalarVersionIsBetter;
-      DPCPPStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE););
+      SYCLStatistic::pushFunctionStats(kernelStats, F, DEBUG_TYPE););
 }
 
 void InstCountResultImpl::print(raw_ostream &OS) {

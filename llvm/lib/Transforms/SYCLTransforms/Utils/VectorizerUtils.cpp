@@ -368,7 +368,7 @@ bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
                                       bool EnableDirectCallVectorization,
                                       bool EnableSGDirectCallVectorization) {
   if (!EnableDirectCallVectorization) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     bool HasSG =
         KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get();
     if (!(EnableSGDirectCallVectorization && HasSG))
@@ -384,7 +384,7 @@ FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
 
   // Add all kernels to root functions.
   // Kernels assumes to have implicit barrier.
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(&M);
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(&M);
   FuncSet Roots;
   Roots.insert(Kernels.begin(), Kernels.end());
 

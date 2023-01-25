@@ -23,7 +23,7 @@
 #include <string>
 
 namespace llvm {
-namespace DPCPPKernelMetadataAPI {
+namespace SYCLKernelMetadataAPI {
 
 // Generic template for the traits types.
 // Assumes the the T type is inherited from the llvm::Metadata
@@ -594,7 +594,7 @@ private:
   T m_mdlist;
 };
 
-} // namespace DPCPPKernelMetadataAPI
+} // namespace SYCLKernelMetadataAPI
 } // namespace llvm
 
 #endif

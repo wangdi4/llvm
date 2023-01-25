@@ -20,7 +20,7 @@
 #include "cl_utils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 
 #include <sstream>
 #include <string.h>
@@ -76,9 +76,9 @@ void GlobalCompilerConfig::LoadConfig() {
       (Intel::OpenCL::Utils::getEnvVar(Env,
                                        "CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER") &&
        ConfigFile::ConvertStringToType<bool>(Env))) {
-    DPCPPStatistic::enableStats();
+    SYCLStatistic::enableStats();
     // all statistic will be dumped.
-    DPCPPStatistic::setCurrentStatType("all");
+    SYCLStatistic::setCurrentStatType("all");
   }
 
   // INTEL VPO BEGIN
@@ -121,7 +121,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
 
   if (TRANSPOSE_SIZE_AUTO != TransposeSize &&
       TRANSPOSE_SIZE_NOT_SET != TransposeSize)
-    m_LLVMOptions.emplace_back("-dpcpp-force-vf=" +
+    m_LLVMOptions.emplace_back("-sycl-force-vf=" +
                                std::to_string((int)TransposeSize));
 
   m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
@@ -131,16 +131,16 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
     int channelDepthEmulationMode = pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
         (int)CHANNEL_DEPTH_MODE_STRICT);
-    m_LLVMOptions.emplace_back("--dpcpp-channel-depth-emulation-mode=" +
+    m_LLVMOptions.emplace_back("--sycl-channel-depth-emulation-mode=" +
                                std::to_string(channelDepthEmulationMode));
-    m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
-    m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");
+    m_LLVMOptions.emplace_back("--sycl-remove-fpga-reg");
+    m_LLVMOptions.emplace_back("--sycl-demangle-fpga-pipes");
   }
 
   bool EnableSubgroupEmulation = pBackendOptions->GetBooleanValue(
       (int)CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION, true);
   if (!EnableSubgroupEmulation)
-    m_LLVMOptions.emplace_back("-dpcpp-enable-subgroup-emulation=false");
+    m_LLVMOptions.emplace_back("-sycl-enable-subgroup-emulation=false");
 
   // Set machinesink's machine-sink-load-instrs-threshold and
   // machine-sink-load-blocks-threshold to 0 otherwise it may possibly

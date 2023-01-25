@@ -17,27 +17,27 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-size-collector"
+#define DEBUG_TYPE "sycl-kernel-sg-size-collector"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
-bool DPCPPEnableDirectFunctionCallVectorization = true;
+bool SYCLEnableDirectFunctionCallVectorization = true;
 static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
-    "dpcpp-enable-direct-function-call-vectorization",
-    cl::location(DPCPPEnableDirectFunctionCallVectorization), cl::Hidden,
+    "sycl-enable-direct-function-call-vectorization",
+    cl::location(SYCLEnableDirectFunctionCallVectorization), cl::Hidden,
     cl::desc("Enable direct function call vectorization"));
 
-bool DPCPPEnableSubgroupDirectCallVectorization = true;
+bool SYCLEnableSubgroupDirectCallVectorization = true;
 static cl::opt<bool, true> EnableSubgroupDirectCallVectorizationOpt(
-    "dpcpp-enable-direct-subgroup-function-call-vectorization",
-    cl::location(DPCPPEnableSubgroupDirectCallVectorization), cl::Hidden,
+    "sycl-enable-direct-subgroup-function-call-vectorization",
+    cl::location(SYCLEnableSubgroupDirectCallVectorization), cl::Hidden,
     cl::desc("Enable direct subgroup function call vectorization"));
 
-bool DPCPPEnableVectorizationOfByvalByrefFunctions = false;
+bool SYCLEnableVectorizationOfByvalByrefFunctions = false;
 static cl::opt<bool, true> EnableVectorizationOfByvalByrefFunctionsOpt(
-    "dpcpp-enable-byval-byref-function-call-vectorization",
-    cl::location(DPCPPEnableVectorizationOfByvalByrefFunctions), cl::Hidden,
+    "sycl-enable-byval-byref-function-call-vectorization",
+    cl::location(SYCLEnableVectorizationOfByvalByrefFunctions), cl::Hidden,
     cl::desc(
         "Enable direct function call vectorization for byval/byref functions"));
 
@@ -69,7 +69,7 @@ static bool hasVecLength(Function *F, int &VecLength) {
 //   attributes #0 = { "vector-variants"="_ZGVbM8_foo,_ZGVbN8_foo" }
 //
 bool SGSizeCollectorPass::runImpl(Module &M) {
-  if (!DPCPPEnableDirectFunctionCallVectorization)
+  if (!SYCLEnableDirectFunctionCallVectorization)
     return false;
   // No need to vectorize function calls in OMP offload,
   // we are not enforced by the execution model.

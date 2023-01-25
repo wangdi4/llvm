@@ -1,5 +1,5 @@
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=0 | FileCheck %s -check-prefix=CHECK-LOG
-; RUN: SATest -BUILD --config=%s.cfg -tsize=0 -llvm-option=-print-before=dpcpp-kernel-builtin-import 2>&1 | FileCheck %s
+; RUN: SATest -BUILD --config=%s.cfg -tsize=0 -llvm-option=-print-before=sycl-kernel-builtin-import 2>&1 | FileCheck %s
 
 ; CHECK-LOG: Test program was successfully built.
 

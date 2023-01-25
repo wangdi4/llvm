@@ -1,4 +1,4 @@
-; RUN: opt '-passes=print<dpcpp-kernel-barrier-wi-analysis>' -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt '-passes=print<sycl-kernel-barrier-wi-analysis>' -disable-output %s 2>&1 | FileCheck %s
 
 declare i64 @foo(i64) #0
 declare i64 @bar(i64)

@@ -1,7 +1,7 @@
 ; RUN: llvm-as %S/builtin-0.rtl -o %t.0.rtl.bc
 ; RUN: llvm-as %S/builtin-1.rtl -o %t.1.rtl.bc
 ; RUN: llvm-as %S/builtin-2.rtl -o %t.2.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.0.rtl.bc,%t.1.rtl.bc,%t.2.rtl.bc -passes='print<dpcpp-kernel-builtin-info-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.0.rtl.bc,%t.1.rtl.bc,%t.2.rtl.bc -passes='print<sycl-kernel-builtin-info-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check that BuiltinLibInfoAnalysis loads builtin RTLs successfully.
 

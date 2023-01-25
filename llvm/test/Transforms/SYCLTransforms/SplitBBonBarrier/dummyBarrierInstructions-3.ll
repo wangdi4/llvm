@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-split-on-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-split-on-barrier  -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier  -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass

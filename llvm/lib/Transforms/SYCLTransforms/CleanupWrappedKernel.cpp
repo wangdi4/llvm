@@ -21,7 +21,7 @@ bool runImpl(Module &M) {
   auto Kernels = CompilationUtils::getAllKernels(M);
   for (auto *Kernel : Kernels) {
     // If a kernel is wrapped - delete its body
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     if (KIMD.KernelWrapper.hasValue() && KIMD.KernelWrapper.get()) {
       Kernel->eraseMetadata(LLVMContext::MD_dbg);
       Kernel->eraseMetadata(LLVMContext::MD_prof);

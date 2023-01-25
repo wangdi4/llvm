@@ -1,7 +1,7 @@
 ; Test that CallGraphAnalysis is invalidated.
 
 ; RUN: opt -disable-output -disable-verify -debug-pass-manager %s 2>&1 \
-; RUN:     -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-resolve-wi-call' \
+; RUN:     -passes='sycl-kernel-add-implicit-args,sycl-kernel-resolve-wi-call' \
 ; RUN:     | FileCheck %s
 
 ; CHECK: Running pass: ResolveWICallPass

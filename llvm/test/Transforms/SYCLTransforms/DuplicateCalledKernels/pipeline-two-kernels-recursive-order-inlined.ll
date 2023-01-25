@@ -1,4 +1,4 @@
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels,dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers -S --disable-output %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels,sycl-kernel-add-implicit-args,sycl-kernel-local-buffers -S --disable-output %s
 
 ; Check that assert in LocalBufferInfoImpl::computeLocalsSizeOffset() isn't
 ; triggered.

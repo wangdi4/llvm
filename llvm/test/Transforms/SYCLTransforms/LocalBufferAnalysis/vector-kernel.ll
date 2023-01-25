@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='print<sycl-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check local buffer size and offset of local variables are the same for a
 ; kernel and its vectorized kernel.

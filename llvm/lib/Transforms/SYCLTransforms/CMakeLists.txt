@@ -36,15 +36,6 @@ add_llvm_component_library(LLVMSYCLTransforms
   DataPerValuePass.cpp
   DeduceMaxWGDim.cpp
   DetectRecursion.cpp
-  DPCPPAliasAnalysis.cpp
-  DPCPPEqualizer.cpp
-  DPCPPKernelAnalysis.cpp
-  DPCPPKernelPostVec.cpp
-  DPCPPKernelVecClone.cpp
-  DPCPPKernelWGLoopCreator.cpp
-  DPCPPPrepareKernelForVecClone.cpp
-  DPCPPPreprocessSPIRVFriendlyIR.cpp
-  DPCPPRewritePipes.cpp
   DuplicateCalledKernelsPass.cpp
   ExternalizeGlobalVariables.cpp
   GroupBuiltinPass.cpp
@@ -99,11 +90,18 @@ add_llvm_component_library(LLVMSYCLTransforms
   SubgroupEmulation/SGLoopConstruct.cpp
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
+  SYCLAliasAnalysis.cpp
+  SYCLEqualizer.cpp
+  SYCLKernelAnalysis.cpp
+  SYCLKernelPostVec.cpp
+  SYCLKernelVecClone.cpp
+  SYCLKernelWGLoopCreator.cpp
+  SYCLPrepareKernelForVecClone.cpp
+  SYCLPreprocessSPIRVFriendlyIR.cpp
+  SYCLRewritePipes.cpp
   TaskSeqAsyncHandling.cpp
   Utils/BarrierUtils.cpp
   Utils/CompilationUtils.cpp
-  Utils/DPCPPChannelPipeUtils.cpp
-  Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp
@@ -115,6 +113,8 @@ add_llvm_component_library(LLVMSYCLTransforms
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
   Utils/WGBoundDecoder.cpp
+  Utils/SYCLChannelPipeUtils.cpp
+  Utils/SYCLStatistic.cpp
   VectorizationDimensionAnalysis.cpp
   VectorKernelElimination.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp

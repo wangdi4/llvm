@@ -1,6 +1,6 @@
 ; This test checks caller and callee patching that makes use of the coerced arguments
-; RUN: opt -passes='debugify,dpcpp-kernel-coerce-win64-types,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='dpcpp-kernel-coerce-win64-types' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-coerce-win64-types,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-coerce-win64-types' -S %s | FileCheck %s
 
 %struct.A = type { i8 }
 %struct.B = type { i16 }

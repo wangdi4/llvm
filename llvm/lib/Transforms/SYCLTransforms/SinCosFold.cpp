@@ -26,7 +26,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-sin-cos-fold"
+#define DEBUG_TYPE "sycl-kernel-sin-cos-fold"
 
 struct SinCosPairData {
   SinCosPairData(CallInst *SinCall, CallInst *CosCall, bool IsNativeCall,

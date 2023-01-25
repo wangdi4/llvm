@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-builtin-import -dpcpp-kernel-cpu-prefix=prefix %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-builtin-import -dpcpp-kernel-cpu-prefix=prefix %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-builtin-import -sycl-kernel-cpu-prefix=prefix %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-builtin-import -sycl-kernel-cpu-prefix=prefix %s -S | FileCheck %s
 
 ;*****************************************************************************
 ; This test checks what the BuiltInFuncImport pass resolves the names of called

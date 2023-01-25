@@ -127,14 +127,14 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
 
 bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 
-// Check whether the module contains OpenCL or DPCPP version metadata.
-// Add "not-ocl-dpcpp" attribute to functions from neither ocl nor dpcpp
+// Check whether the module contains OpenCL or SYCL version metadata.
+// Add "not-ocl-sycl" attribute to functions from neither ocl nor sycl
 // binary.
-void addAttrForNoneOCLDPCPPCode(llvm::Module *M) {
+void addAttrForNoneOCLSYCLCode(llvm::Module *M) {
   if (M->getNamedMetadata("opencl.ocl.version") == nullptr &&
       M->getNamedMetadata("spirv.Source") == nullptr) {
     for (auto &F : M->getFunctionList()) {
-      F.addFnAttr("not-ocl-dpcpp", "true");
+      F.addFnAttr("not-ocl-sycl", "true");
     }
   }
 }
@@ -317,9 +317,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 
     saveKernelNames(composite.get(), pKernelsName);
 
-    // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+    // Add not-ocl-sycl attribute to functions from neither ocl nor sycl
     // binary.
-    addAttrForNoneOCLDPCPPCode(composite.get());
+    addAttrForNoneOCLSYCLCode(composite.get());
     // Parse options
     ClangLinkOptions optionsParser(pszOptions);
 
@@ -336,9 +336,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 
       saveKernelNames(module.get(), pKernelsName);
 
-      // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+      // Add not-ocl-sycl attribute to functions from neither ocl nor sycl
       // binary.
-      addAttrForNoneOCLDPCPPCode(module.get());
+      addAttrForNoneOCLSYCLCode(module.get());
 
       if (llvm::Linker::linkModules(*composite, std::move(module))) {
         throw std::string("Linking has failed");

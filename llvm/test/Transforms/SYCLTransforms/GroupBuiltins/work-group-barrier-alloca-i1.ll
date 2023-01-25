@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-split-on-barrier,dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-split-on-barrier,dpcpp-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

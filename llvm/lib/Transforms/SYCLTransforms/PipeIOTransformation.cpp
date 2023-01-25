@@ -22,15 +22,15 @@
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-pipe-io-transform"
+#define DEBUG_TYPE "sycl-kernel-pipe-io-transform"
 
 using namespace llvm;
-using namespace DPCPPChannelPipeUtils;
+using namespace SYCLChannelPipeUtils;
 using namespace CompilationUtils;
 
 // Vector of <Pipe, Pipe Id> pairs.
@@ -92,9 +92,9 @@ static bool processIOPipesFromKernelArg(Module &M,
                                         PipeNameIdMap &PipeNameIds) {
   bool Changed = false;
 
-  for (auto *Kernel : DPCPPKernelMetadataAPI::KernelList(M)) {
+  for (auto *Kernel : SYCLKernelMetadataAPI::KernelList(M)) {
     auto ArgIOAttributeList =
-        DPCPPKernelMetadataAPI::KernelMetadataAPI(Kernel).ArgIOAttributeList;
+        SYCLKernelMetadataAPI::KernelMetadataAPI(Kernel).ArgIOAttributeList;
     PipesWithIdVector Pipes;
     if (ArgIOAttributeList.hasValue()) {
       auto IOList = ArgIOAttributeList.getList();

@@ -21,7 +21,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-remove-atexit"
+#define DEBUG_TYPE "sycl-kernel-remove-atexit"
 
 PreservedAnalyses RemoveAtExitPass::run(Module &M, ModuleAnalysisManager &AM) {
   return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();

@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes="function(instnamer),dpcpp-kernel-vector-variant-fillin" -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes="function(instnamer),sycl-kernel-vector-variant-fillin" -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }

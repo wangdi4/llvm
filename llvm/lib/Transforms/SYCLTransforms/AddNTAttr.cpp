@@ -12,7 +12,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-add-nt-attr"
+#define DEBUG_TYPE "sycl-kernel-add-nt-attr"
 
 using namespace llvm;
 

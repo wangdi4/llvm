@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-vector-variant-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=dpcpp-kernel-vector-variant-lowering -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-vector-variant-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-vector-variant-lowering -S | FileCheck %s
 
 define void @bar(i32, float) {
 entry:

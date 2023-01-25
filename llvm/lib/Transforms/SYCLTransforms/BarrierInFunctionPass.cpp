@@ -16,7 +16,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-barrier-in-function"
+#define DEBUG_TYPE "sycl-kernel-barrier-in-function"
 
 PreservedAnalyses BarrierInFunction::run(Module &M, ModuleAnalysisManager &) {
   if (!runImpl(M))

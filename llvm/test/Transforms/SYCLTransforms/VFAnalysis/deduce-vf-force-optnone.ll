@@ -1,6 +1,6 @@
-; Checks VF = 1 if dpcpp-force-optnone is enabled even when optnone is not present.
+; Checks VF = 1 if sycl-force-optnone is enabled even when optnone is not present.
 
-; RUN: opt -dpcpp-force-optnone=true -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -sycl-force-optnone=true -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Kernel --> VF:
 

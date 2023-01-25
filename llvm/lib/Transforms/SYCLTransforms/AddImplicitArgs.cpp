@@ -19,7 +19,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-add-implicit-args"
+#define DEBUG_TYPE "sycl-kernel-add-implicit-args"
 
 PreservedAnalyses AddImplicitArgsPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {

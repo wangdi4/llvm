@@ -1,28 +1,28 @@
-; RUN: opt -passes=dpcpp-kernel-spec-constant \
-; RUN:   -dpcpp-spec-constant='invalid:format' \
-; RUN:   -dpcpp-spec-constant='2.0:i8:0' \
-; RUN:   -dpcpp-spec-constant='2:i32*:0' \
-; RUN:   -dpcpp-spec-constant='1:i8:42' \
-; RUN:   -dpcpp-spec-constant='1:i8:-42' \
-; RUN:   -dpcpp-spec-constant='2:i32:-42' \
-; RUN:   -dpcpp-spec-constant='3:i32:-42' \
+; RUN: opt -passes=sycl-kernel-spec-constant \
+; RUN:   -sycl-spec-constant='invalid:format' \
+; RUN:   -sycl-spec-constant='2.0:i8:0' \
+; RUN:   -sycl-spec-constant='2:i32*:0' \
+; RUN:   -sycl-spec-constant='1:i8:42' \
+; RUN:   -sycl-spec-constant='1:i8:-42' \
+; RUN:   -sycl-spec-constant='2:i32:-42' \
+; RUN:   -sycl-spec-constant='3:i32:-42' \
 ; RUN:   -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-spec-constant \
-; RUN:   -dpcpp-spec-constant='invalid:format' \
-; RUN:   -dpcpp-spec-constant='2.0:i8:0' \
-; RUN:   -dpcpp-spec-constant='2:i32*:0' \
-; RUN:   -dpcpp-spec-constant='1:i8:42' \
-; RUN:   -dpcpp-spec-constant='1:i8:-42' \
-; RUN:   -dpcpp-spec-constant='2:i32:-42' \
-; RUN:   -dpcpp-spec-constant='3:i32:-42' \
+; RUN: opt -passes=sycl-kernel-spec-constant \
+; RUN:   -sycl-spec-constant='invalid:format' \
+; RUN:   -sycl-spec-constant='2.0:i8:0' \
+; RUN:   -sycl-spec-constant='2:i32*:0' \
+; RUN:   -sycl-spec-constant='1:i8:42' \
+; RUN:   -sycl-spec-constant='1:i8:-42' \
+; RUN:   -sycl-spec-constant='2:i32:-42' \
+; RUN:   -sycl-spec-constant='3:i32:-42' \
 ; RUN:   -S < %s 2>&1 | FileCheck %s
 
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=invalid:format is ignored because the format is invalid. The expected format is id:type:value
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=2.0:i8:0 is ignored because the id must be an unsigned int
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=2:i32*:0 is ignored because the type is invalid. The expected type is one of i1, i8, i16, i32, i64, f16, f32 and f64
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=1:i8:42 is ignored because it is overrided by the later option with same id (1:i8:-42)
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=2:i32:-42 is ignored because the specified type doesn't match with the spec constant type defined in the module
-; CHECK-DAG: warning: Option --dpcpp-spec-constant=3:i32:-42 is ignored because there's no matched spec constant in the module of the given id
+; CHECK-DAG: warning: Option --sycl-spec-constant=invalid:format is ignored because the format is invalid. The expected format is id:type:value
+; CHECK-DAG: warning: Option --sycl-spec-constant=2.0:i8:0 is ignored because the id must be an unsigned int
+; CHECK-DAG: warning: Option --sycl-spec-constant=2:i32*:0 is ignored because the type is invalid. The expected type is one of i1, i8, i16, i32, i64, f16, f32 and f64
+; CHECK-DAG: warning: Option --sycl-spec-constant=1:i8:42 is ignored because it is overrided by the later option with same id (1:i8:-42)
+; CHECK-DAG: warning: Option --sycl-spec-constant=2:i32:-42 is ignored because the specified type doesn't match with the spec constant type defined in the module
+; CHECK-DAG: warning: Option --sycl-spec-constant=3:i32:-42 is ignored because there's no matched spec constant in the module of the given id
 
 define void @foo() {
 entry:

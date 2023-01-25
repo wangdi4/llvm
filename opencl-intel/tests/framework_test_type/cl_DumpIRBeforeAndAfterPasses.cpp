@@ -70,7 +70,7 @@ static void CheckOutput(int fd) {
   static const int TEST_NUM = 2;
   static char *refs[TEST_NUM] = {
       "*** IR Dump Before SimplifyCFGPass",
-      "*** IR Dump After DPCPPKernelWGLoopCreatorPass"};
+      "*** IR Dump After SYCLKernelWGLoopCreatorPass"};
 
   size_t size = 256;
   char *buf = (char *)malloc(size);
@@ -98,7 +98,7 @@ void cl_DumpIRBeforeAndAfterPasses() {
 
   rc = setenv(
       "CL_CONFIG_LLVM_OPTIONS",
-      "-print-before=simplifycfg -print-after=dpcpp-kernel-wgloop-creator", 1);
+      "-print-before=simplifycfg -print-after=sycl-kernel-wgloop-creator", 1);
   ASSERT_EQ(rc, 0) << "setenv: " << strerror(errno);
 
   int pipe_fds[2];

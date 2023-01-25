@@ -1,7 +1,7 @@
 ;; TODO: Add opaque pointer check when PrepareKernelArgs removes typed
 ;; pointer API call.
-; RUN: opt -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify,dpcpp-kernel-prepare-args' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers,dpcpp-kernel-prepare-args' -S < %s | FileCheck %s
+; RUN: opt -passes='sycl-kernel-add-implicit-args,debugify,sycl-kernel-local-buffers,check-debugify,sycl-kernel-prepare-args' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-local-buffers,sycl-kernel-prepare-args' -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
 ; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356.

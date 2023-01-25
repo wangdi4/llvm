@@ -1,6 +1,6 @@
-; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-sg-emu-value-widen -S %s -disable-output -debug-only=dpcpp-kernel-sg-emu-value-widen 2>&1 | FileCheck %s -check-prefix=CHECK-DT
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -disable-output -debug-only=sycl-kernel-sg-emu-value-widen 2>&1 | FileCheck %s -check-prefix=CHECK-DT
 
 ; Checks that DomTree is updated correctly after splitting the barrier-containing basic block.
 

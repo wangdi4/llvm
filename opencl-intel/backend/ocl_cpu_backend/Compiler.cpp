@@ -262,7 +262,7 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
 
   // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
   // obtain correct ISA.
-  std::string ISA = "-dpcpp-vector-variant-isa-encoding-override=";
+  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
   ISA += CPUId->HasAVX512Core() ? "AVX512Core"
          : CPUId->HasAVX2()     ? "AVX2"
          : CPUId->HasAVX1()     ? "AVX1"

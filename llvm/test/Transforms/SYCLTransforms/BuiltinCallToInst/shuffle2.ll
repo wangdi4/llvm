@@ -1,6 +1,6 @@
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes=dpcpp-kernel-builtin-call-to-inst -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
 
 ; CHECK: @sample_test
 define void @sample_test(<4 x i32> %x, <4 x i32> %y, <2 x i8> %c, <2 x double> %d, <4 x i32> addrspace(1)* %p1, <8 x i32> addrspace(1)* %p2, <16 x i32> addrspace(1)* %p3, <4 x i32> addrspace(1)* %p4, <4 x i8> addrspace(1)* %p5, <4 x double> addrspace(1)* %p6) nounwind {

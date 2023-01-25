@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S < %s | FileCheck %s
 
 declare void @__builtin_IB_kmp_acquire_lock(i32 addrspace(1)*) #0
 declare void @__builtin_IB_kmp_release_lock(i32 addrspace(1)*) #0

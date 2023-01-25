@@ -22,7 +22,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-local-buffer-analysis"
+#define DEBUG_TYPE "sycl-kernel-local-buffer-analysis"
 
 namespace llvm {
 
@@ -178,7 +178,7 @@ void LocalBufferInfoImpl::computeLocalsSizeOffset() {
     // variable layout is the same between a kernel and its vectorized kernel.
     // Need not to handle vectorized masked kernel because at this point masked
     // kernel is already inlined.
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
     if (auto *VectorizedF = KIMD.VectorizedKernel.hasValue()
                                 ? KIMD.VectorizedKernel.get()
                                 : nullptr)

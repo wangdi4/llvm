@@ -22,7 +22,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-layout"
+#define DEBUG_TYPE "sycl-kernel-resolve-matrix-layout"
 
 static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
                               ArrayRef<Value *> Args, IRBuilder<> &Builder,

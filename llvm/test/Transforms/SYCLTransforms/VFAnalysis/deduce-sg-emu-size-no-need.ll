@@ -1,9 +1,9 @@
 ; No need to do emulation if kernel has no subgroup.
 ; No need to do emulation if kernel with subgroup can be vectorized to VF > 1.
 
-; RUN: opt -dpcpp-enable-subgroup-emulation -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -sycl-enable-subgroup-emulation -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
-; RUN: opt -dpcpp-enable-subgroup-emulation=false -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -sycl-enable-subgroup-emulation=false -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Kernel --> SGEmuSize:
 ; CHECK-DAG: <none> : 0

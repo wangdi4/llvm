@@ -415,7 +415,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
   }
 }
 
-//VecInfo for DPCPPKernelVecClone
+//VecInfo for SYCLKernelVecClone
 let Types = [v1f32, v1f64] in {
   foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                 "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",

@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check local variable used in noinline function which is called by both scalar
 ; kernel and vector kernel has the same offset in both kernels.

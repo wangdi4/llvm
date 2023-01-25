@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-local-buffers"
+#define DEBUG_TYPE "sycl-kernel-local-buffers"
 
 extern bool EnableTLSGlobals;
 
@@ -38,7 +38,7 @@ PreservedAnalyses LocalBuffersPass::run(Module &M, ModuleAnalysisManager &AM) {
   return PA;
 }
 bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
 
   this->M = &M;
   this->LBInfo = LBInfo;

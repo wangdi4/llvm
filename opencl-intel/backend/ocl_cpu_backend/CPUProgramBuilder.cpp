@@ -250,7 +250,7 @@ Kernel *CPUProgramBuilder::CreateKernel(Function *pFunc,
 std::unique_ptr<KernelSet>
 CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
                                  ProgramBuildResult &buildResult) const {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
 
   std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
@@ -602,7 +602,7 @@ void CPUProgramBuilder::JitProcessing(
 
   // Record kernel names and trigger JIT compilation of kernels
   std::vector<std::string> kernelNames;
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(module).getList();
   if (Kernels.empty()) {
     auto FSet = CompilationUtils::getKernels(*module);
@@ -611,7 +611,7 @@ void CPUProgramBuilder::JitProcessing(
   }
   for (auto *pFunc : Kernels) {
     Function *pWrapperFunc = nullptr;
-    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
+    auto kimd = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
     if (kimd.KernelWrapper.hasValue())
       pWrapperFunc = kimd.KernelWrapper.get();
     else if (pFunc->hasFnAttribute("kernel_wrapper"))

@@ -17,7 +17,7 @@
 #include "llvm/Transforms/SYCLTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/IR/Instructions.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-remove-duplicated-barrier"
+#define DEBUG_TYPE "sycl-kernel-remove-duplicated-barrier"
 
 using namespace llvm;
 

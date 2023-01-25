@@ -18,7 +18,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-group-builtin"
+#define DEBUG_TYPE "sycl-kernel-group-builtin"
 
 #if (defined(_WIN32) && defined(_MSC_VER))
 typedef signed __int64 cl_long;

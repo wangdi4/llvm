@@ -23,10 +23,10 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-pipe-ordering"
+#define DEBUG_TYPE "sycl-kernel-pipe-ordering"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 static bool isCalledFromNDRange(const SmallPtrSetImpl<Function *> &Kernels,
                                 Function *F,

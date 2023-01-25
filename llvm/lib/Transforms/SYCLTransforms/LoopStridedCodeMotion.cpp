@@ -25,7 +25,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-loop-strided-code-motion"
+#define DEBUG_TYPE "sycl-kernel-loop-strided-code-motion"
 
 using namespace llvm;
 

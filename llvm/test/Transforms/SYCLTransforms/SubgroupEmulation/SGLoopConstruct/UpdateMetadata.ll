@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,dpcpp-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='dpcpp-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::updateMetadata()
 ; 1. For emulated kernels, vectorized_width is set as sg_emu_size (the first one),

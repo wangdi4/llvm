@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -S -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector -S -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-direct-function-call-vectorization -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector -S -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-direct-function-call-vectorization | FileCheck %s
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {

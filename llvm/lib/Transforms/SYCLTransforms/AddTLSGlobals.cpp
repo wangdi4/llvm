@@ -20,7 +20,7 @@ using namespace llvm;
 // Command line option for other passes to use TLS mode
 bool EnableTLSGlobals;
 static cl::opt<bool, true> OptEnableTLSGlobals(
-    "dpcpp-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
+    "sycl-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
     cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
 
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {

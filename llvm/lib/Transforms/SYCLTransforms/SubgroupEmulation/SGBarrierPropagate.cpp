@@ -15,12 +15,12 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-extern bool DPCPPEnableSubGroupEmulation;
+extern bool SYCLEnableSubGroupEmulation;
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-barrier-propagate"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-barrier-propagate"
 
 bool SGBarrierPropagatePass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!DPCPPEnableSubGroupEmulation)
+  if (!SYCLEnableSubGroupEmulation)
     return false;
 
   Helper.initialize(M);

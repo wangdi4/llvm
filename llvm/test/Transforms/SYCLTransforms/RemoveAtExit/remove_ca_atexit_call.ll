@@ -1,7 +1,7 @@
 ; This test case is to check that __cxa_atexit function call is removed
 ; by remove-atexit pass.
-; RUN: opt -passes=dpcpp-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-remove-atexit -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-remove-atexit -S %s | FileCheck %s
 
 ; CHECK: call void @_ZN4globC1Ei(%struct.glob* @globobj, i32 4)
 ; CHECK-NEXT:  ret void
@@ -48,7 +48,7 @@ entry:
   ret void
 }
 
-attributes #0 = { nounwind "not-ocl-dpcpp"="true"}
+attributes #0 = { nounwind "not-ocl-sycl"="true"}
 
 ; DEBUGIFY: WARNING: Missing line 2
 ; DEBUGIFY-NOT: WARNING

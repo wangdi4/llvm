@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S < %s | FileCheck %s
 
 ; This is a hand-written sample mimicking output of llvm-spirv.
 

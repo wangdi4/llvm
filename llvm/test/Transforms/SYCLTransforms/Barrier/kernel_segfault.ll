@@ -25,8 +25,8 @@
 ;
 ;--------------------------------------------------------------------------
 ;
-; RUN: opt -passes=dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-barrier %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 ; CHECK-NOT: !5 = !{void (double addrspace(1)*)* @__loopy_kernel_before.BarrierPass}
 ; CHECK:     !6 = !{void (double addrspace(1)*, [3 x i64]*)* @loopy_kernel}
 ;
