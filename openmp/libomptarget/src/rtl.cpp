@@ -446,6 +446,7 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_async_info");
   *((void **)&RTL.init_device_info) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_device_info");
+<<<<<<< HEAD
 #if INTEL_COLLAB
     #define SET_OPTIONAL_INTERFACE(entry, name)                                \
       do {                                                                     \
@@ -512,6 +513,12 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       RTL.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
+=======
+  *((void **)&RTL.data_lock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_lock");
+  *((void **)&RTL.data_unlock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_unlock");
+>>>>>>> b215932e69912bd4ad800b695469252417a9e543
 
   RTL.LibraryHandler = std::move(DynLibrary);
 
