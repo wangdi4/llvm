@@ -4,7 +4,6 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx2                 | FileCheck %s --check-prefixes=AVX,AVX2
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512vl    | FileCheck %s --check-prefixes=AVX512,AVX512F
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16,+avx512vl | FileCheck %s --check-prefixes=AVX512,AVX512FP16
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512vl | FileCheck %s
 
 define <2 x double> @prefer_f32_v2f64(ptr %p) nounwind {
 ; SSE-LABEL: prefer_f32_v2f64:
@@ -67,7 +66,45 @@ define <4 x double> @prefer(float* %p) {
 ; CHECK-NEXT:    vbroadcastsd %xmm0, %ymm0
 ; CHECK-NEXT:    retq
 entry:
-  %0 = load float, float* %p, align 4
+  %0 = load float, ptr %p, align 4
+  %vecinit.i = insertelement <2 x float> undef, float %0, i64 0
+  %vecinit3.i = shufflevector <2 x float> %vecinit.i, <2 x float> poison, <2 x i32> zeroinitializer
+  %conv.i = fpext <2 x float> %vecinit3.i to <2 x double>
+  ret <2 x double> %conv.i
+}
+
+define <4 x double> @prefer_f32_v4f64(ptr %p) nounwind {
+; SSE-LABEL: prefer_f32_v4f64:
+; SSE:       # %bb.0: # %entry
+; SSE-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; SSE-NEXT:    cvtss2sd %xmm0, %xmm0
+; SSE-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0,0]
+; SSE-NEXT:    movaps %xmm0, %xmm1
+; SSE-NEXT:    retq
+;
+; AVX1-LABEL: prefer_f32_v4f64:
+; AVX1:       # %bb.0: # %entry
+; AVX1-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; AVX1-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
+; AVX1-NEXT:    vmovddup {{.*#+}} xmm0 = xmm0[0,0]
+; AVX1-NEXT:    vinsertf128 $1, %xmm0, %ymm0, %ymm0
+; AVX1-NEXT:    retq
+;
+; AVX2-LABEL: prefer_f32_v4f64:
+; AVX2:       # %bb.0: # %entry
+; AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; AVX2-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
+; AVX2-NEXT:    vbroadcastsd %xmm0, %ymm0
+; AVX2-NEXT:    retq
+;
+; AVX512-LABEL: prefer_f32_v4f64:
+; AVX512:       # %bb.0: # %entry
+; AVX512-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; AVX512-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
+; AVX512-NEXT:    vbroadcastsd %xmm0, %ymm0
+; AVX512-NEXT:    retq
+entry:
+  %0 = load float, ptr %p, align 4
   %vecinit.i = insertelement <4 x float> undef, float %0, i64 0
   %vecinit3.i = shufflevector <4 x float> %vecinit.i, <4 x float> poison, <4 x i32> zeroinitializer
   %conv.i = fpext <4 x float> %vecinit3.i to <4 x double>
@@ -261,5 +298,3 @@ entry:
   %conv.i = fpext <4 x half> %vecinit3.i to <4 x double>
   ret <4 x double> %conv.i
 }
-=======
->>>>>>> 53296d818a0ae4cd738c0c1f2f6d1fef15254311
