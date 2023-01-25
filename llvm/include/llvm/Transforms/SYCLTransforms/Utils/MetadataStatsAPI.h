@@ -15,7 +15,7 @@
 #include <algorithm>
 
 namespace llvm {
-namespace DPCPPKernelMetadataAPI {
+namespace SYCLKernelMetadataAPI {
 
 // Module level statistics
 struct ModuleStatMetadataAPI {
@@ -26,11 +26,11 @@ struct ModuleStatMetadataAPI {
   typedef NamedMDValue<std::string, MDValueModuleStrategy> ExecTimeTy;
 
   ModuleStatMetadataAPI(Module *M)
-      : StatType(M, "dpcpp.stat.type"),
-        RunTimeVersion(M, "dpcpp.stat.run_time_version"),
-        WorkloadName(M, "dpcpp.stat.workload_name"),
-        ModuleName(M, "dpcpp.stat.module_name"),
-        ExecTime(M, "dpcpp.stat.exec_time") {}
+      : StatType(M, "sycl.stat.type"),
+        RunTimeVersion(M, "sycl.stat.run_time_version"),
+        WorkloadName(M, "sycl.stat.workload_name"),
+        ModuleName(M, "sycl.stat.module_name"),
+        ExecTime(M, "sycl.stat.exec_time") {}
 
   NamedMDValueAccessor<StatTypeTy> StatType;
   NamedMDValueAccessor<RunTimeVersionTy> RunTimeVersion;
@@ -103,7 +103,7 @@ private:
         assert(StatDescription.hasValue() && "Description must have value!");
         auto Description = StatDescription.get();
 
-        Stats.push_back({stripDPCPPStatKind(Name), Value, Description});
+        Stats.push_back({stripSYCLStatKind(Name), Value, Description});
       }
     }
 
@@ -122,7 +122,7 @@ public:
 
     for (auto &NamedMetadata : MDList) {
       auto Name = NamedMetadata.getName();
-      if (isDPCPPStatKind(Name)) {
+      if (isSYCLStatKind(Name)) {
         StatDescriptionTy StatDescription(&M, Name.data());
         Descs.push_back({std::string(Name), StatDescription.get()});
       }
@@ -131,7 +131,7 @@ public:
 
   static void set(GlobalObject &Global, const StatListTy &Stats) {
     for (const auto &Stat : Stats) {
-      std::string ClStatKind = toDPCPPStatKind(Stat.Name);
+      std::string ClStatKind = toSYCLStatKind(Stat.Name);
       FunctionStatTy MDStat(&Global, ClStatKind.c_str());
       MDStat.set(Stat.Value);
 
@@ -179,17 +179,17 @@ private:
       NamedMDValue<int32_t, MDValueGlobalObjectStrategy>>
       FunctionStatTy;
 
-  static bool isDPCPPStatKind(StringRef Kind) {
-    return Kind.startswith("dpcpp.stats.");
+  static bool isSYCLStatKind(StringRef Kind) {
+    return Kind.startswith("sycl.stats.");
   }
 
-  static std::string toDPCPPStatKind(std::string Kind) {
-    return Kind.insert(0, "dpcpp.stats.");
+  static std::string toSYCLStatKind(std::string Kind) {
+    return Kind.insert(0, "sycl.stats.");
   }
 
-  static std::string stripDPCPPStatKind(std::string Kind) {
-    assert(isDPCPPStatKind(Kind) && "Expected stats prefix!");
-    return Kind.erase(0, 12);
+  static std::string stripSYCLStatKind(std::string Kind) {
+    assert(isSYCLStatKind(Kind) && "Expected stats prefix!");
+    return Kind.erase(0, std::string("sycl.stats.").length());
   }
 
   // populates statistic names
@@ -201,11 +201,11 @@ private:
 
     std::copy_if(MDKindNames.begin(), MDKindNames.end(),
                  std::back_inserter(Result),
-                 [](StringRef Kind) { return isDPCPPStatKind(Kind); });
+                 [](StringRef Kind) { return isSYCLStatKind(Kind); });
   }
 };
 
-} // namespace DPCPPKernelMetadataAPI
+} // namespace SYCLKernelMetadataAPI
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_METADATASTATSAPI_H

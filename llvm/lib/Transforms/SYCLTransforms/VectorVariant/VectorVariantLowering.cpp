@@ -20,7 +20,7 @@
 
 using namespace llvm;
 
-extern bool DPCPPEnableVectorVariantPasses;
+extern bool SYCLEnableVectorVariantPasses;
 
 PreservedAnalyses VectorVariantLowering::run(Module &M,
                                              ModuleAnalysisManager &MAM) {
@@ -49,7 +49,7 @@ PreservedAnalyses VectorVariantLowering::run(Module &M,
 //   attributes #0 = { "vector-variants"="_ZGVdN0lu_XXX,_ZGVdM0vv_XXX" }
 //
 bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

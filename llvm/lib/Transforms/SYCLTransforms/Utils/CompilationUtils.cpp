@@ -180,7 +180,7 @@ const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
     "sub_group_insert_rowslice_to_matrix";
 } // namespace
 
-static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info", cl::Hidden,
+static cl::opt<std::string> OptVectInfoFile("sycl-vect-info", cl::Hidden,
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 
@@ -358,7 +358,7 @@ bool isGlobalCtorDtor(Function *F) {
 
 bool isGlobalCtorDtorOrCPPFunc(Function *F) {
   assert(F && "Invalid input for global ctor / dtor / cpp func check");
-  return isGlobalCtorDtor(F) || F->hasFnAttribute("not-ocl-dpcpp");
+  return isGlobalCtorDtor(F) || F->hasFnAttribute("not-ocl-sycl");
 }
 
 bool isGlobalOffset(StringRef S) {
@@ -1211,7 +1211,7 @@ FuncSet getAllKernels(Module &M) {
   for (auto *F : Kernels) {
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
     Function *VectorizedF = KIMD.VectorizedKernel.hasValue()
                                 ? KIMD.VectorizedKernel.get()
                                 : nullptr;
@@ -1342,7 +1342,7 @@ static std::string addSuffixInFunctionName(std::string FuncName,
 static void
 replaceScalarKernelInVectorizerMetadata(Function *VFunc, Function *ScalarFunc,
                                         StringRef ScalarFuncNameWithSuffix) {
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VFunc);
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VFunc);
   if (!VKIMD.ScalarKernel.hasValue())
     return;
   Function *ScalarF = VKIMD.ScalarKernel.get();
@@ -1360,7 +1360,7 @@ static void replaceScalarKernelInMetadata(Function *ScalarFunc,
   std::string ScalarFuncNameWithSuffix =
       addSuffixInFunctionName(ScalarFuncName, Suffix);
 
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
   if (KIMD.VectorizedKernel.hasValue()) {
     Function *VectorizedF = KIMD.VectorizedKernel.get();
     replaceScalarKernelInVectorizerMetadata(VectorizedF, ScalarFunc,
@@ -1385,7 +1385,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
   Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
   if (ScalarFunc == nullptr)
     return;
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
   if (!Variant->isMasked()) {
     if (KIMD.VectorizedKernel.hasValue()) {
       assert(KIMD.VectorizedKernel.get() == OldF &&
@@ -1468,7 +1468,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     I->replaceAllUsesWith(&*NI);
   }
   // Replace F by NewF in KernelList module Metadata (if any)
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   llvm::Module *M = F->getParent();
   assert(M && "Module is NULL");
   auto Kernels = KernelList(M).getList();
@@ -1693,7 +1693,7 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // in that case 0 argument is block_literal pointer
       // update with special type
       // should be before handling ptrs by addr space
-      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+      SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
       if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
         auto *PTy = dyn_cast<PointerType>(pArg->getType());
         if (!PTy || !PTy->getElementType()->isIntegerTy(8))
@@ -1838,7 +1838,7 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
     } break;
 
     case Type::IntegerTyID: {
-      DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(F);
+      SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
       if (KMD.ArgBaseTypeList.hasValue() &&
           KMD.ArgBaseTypeList.getItem(i) == SAMPLER) {
         CurArg.Ty = KRNL_ARG_SAMPLER;
@@ -2597,7 +2597,7 @@ void calculateMemorySizeWithPostOrderTraversal(
       if (!CalledFunc || CalledFunc->isDeclaration())
         continue;
 
-      auto CalledFMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(CalledFunc);
+      auto CalledFMD = SYCLKernelMetadataAPI::FunctionMetadataAPI(CalledFunc);
       bool IsRecursive =
           CalledFMD.RecursiveCall.hasValue() && CalledFMD.RecursiveCall.get();
       if (!FnSize.count(CalledFunc)) {

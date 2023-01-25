@@ -51,7 +51,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -63,7 +63,7 @@
 
 #define DEBUG_TYPE "ProgramBuilder"
 
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 using namespace intel;
 using namespace llvm;
 
@@ -152,7 +152,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
     if (name.empty())
       name = "Program";
     m_dumpFilenamePrefix += name;
-    if (DPCPPStatistic::isEnabled())
+    if (SYCLStatistic::isEnabled())
       m_statWkldName = name;
   }
 }
@@ -168,7 +168,7 @@ ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
 
 void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
                                      bool isEqualizerStats) {
-  if (!DPCPPStatistic::isEnabled())
+  if (!SYCLStatistic::isEnabled())
     return;
 
   // use sequential number to distinguish dumped files
@@ -179,8 +179,8 @@ void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
       generateDumpFilename(program->GenerateHash(), fileId, suffix);
 
   // if stats are enabled dump module info
-  if (DPCPPStatistic::isEnabled()) {
-    DPCPPStatistic::setModuleStatInfo(
+  if (SYCLStatistic::isEnabled()) {
+    SYCLStatistic::setModuleStatInfo(
         pModule, VERSIONSTRING,
         m_statWkldName.c_str(),                           // workload name
         (m_statWkldName + std::to_string(fileId)).c_str() // module name

@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='print<sycl-kernel-local-buffer-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check local buffer size and offset of local variables in not-inlined case
 ; with recursive function calls. The recursive part has 3 functions.

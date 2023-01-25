@@ -1,8 +1,8 @@
-; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s | FileCheck %s --check-prefixes=CHECK,NONOPAQUE
 
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -S %s | FileCheck %s --check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-coerce-types -opaque-pointers -S %s | FileCheck %s --check-prefixes=CHECK,OPAQUE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

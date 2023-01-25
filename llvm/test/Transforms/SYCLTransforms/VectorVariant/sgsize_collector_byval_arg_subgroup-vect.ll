@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S | FileCheck %s
-; RUN: opt %s -enable-debugify -disable-output -passes=dpcpp-kernel-sg-size-collector -dpcpp-enable-direct-subgroup-function-call-vectorization -dpcpp-enable-direct-function-call-vectorization -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-direct-function-call-vectorization -S | FileCheck %s
+; RUN: opt %s -enable-debugify -disable-output -passes=sycl-kernel-sg-size-collector -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-direct-function-call-vectorization -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ;; Have a has-sub-group function calling byref function.
 ;; We can vectorize with serializartion of byval.

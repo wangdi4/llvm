@@ -1,4 +1,4 @@
-; RUN: opt '-passes=print<dpcpp-kernel-barrier-wi-analysis>' -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt '-passes=print<sycl-kernel-barrier-wi-analysis>' -disable-output %s 2>&1 | FileCheck %s
 
 declare void @_Z7barrierj(i32)
 declare i64 @_Z13get_global_idj(i32)

@@ -15,11 +15,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-update-call-attrs"
+#define DEBUG_TYPE "sycl-kernel-update-call-attrs"
 
 using namespace llvm;
 
-extern bool DPCPPEnableVectorVariantPasses;
+extern bool SYCLEnableVectorVariantPasses;
 
 namespace llvm {
 
@@ -28,7 +28,7 @@ PreservedAnalyses UpdateCallAttrs::run(Module &M, ModuleAnalysisManager &MAM) {
 }
 
 bool UpdateCallAttrs::runImpl(Module &M) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

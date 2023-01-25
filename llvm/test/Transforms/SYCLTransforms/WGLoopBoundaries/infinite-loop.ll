@@ -1,6 +1,6 @@
-; dpcpp-kernel-wg-loop-bound pass hung on following code.
-; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes="dpcpp-kernel-analysis,dpcpp-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; sycl-kernel-wg-loop-bound pass hung on following code.
+; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 ;; The IR is dumped at the beginning of WGLoopBoundaries::runOnModule()
 ;; when calling clBuildProgram from the following source.

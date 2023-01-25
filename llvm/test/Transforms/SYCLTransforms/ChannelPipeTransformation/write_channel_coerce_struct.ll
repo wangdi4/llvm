@@ -14,8 +14,8 @@
 ; }
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-channel-pipe-transformation -S %s -o - | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -S %s -o - | FileCheck %s
 
 %opencl.channel_t = type opaque
 %struct.TS = type { i32, [12 x i8] }

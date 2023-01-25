@@ -17,10 +17,10 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include <utility>
 
-#define DEBUG_TYPE "dpcpp-kernel-coerce-win64-types"
+#define DEBUG_TYPE "sycl-kernel-coerce-win64-types"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
 CoerceWin64TypesPass::CoerceWin64TypesPass() {}

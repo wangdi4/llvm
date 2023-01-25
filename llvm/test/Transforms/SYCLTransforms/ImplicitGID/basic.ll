@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; Compiled from:
 ; ----------------------------------------------------

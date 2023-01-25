@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-relaxed-math -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-relaxed-math -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-relaxed-math -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-relaxed-math -S %s | FileCheck %s
 
 
 define void @check_cospi_float(float %f1, <2 x float> %f2, <3 x float> %f3, <4 x float> %f4, <8 x float> %f8, <16 x float> %f16) nounwind {

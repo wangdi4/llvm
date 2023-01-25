@@ -1,6 +1,6 @@
 ; Checks unimplemented builtin can fallback to heuristic VF in the context of "intel_vec_len_hint".
 
-; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; intel_vec_len_hint allow fallback
 ; CHECK: warning: kernel "test": Fall back vectorization width to 4 due to unsupported vec_len_hint value for workgroup/subgroup builtins

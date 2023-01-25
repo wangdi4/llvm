@@ -19,16 +19,16 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <stack>
 
 using namespace llvm;
-using namespace DPCPPChannelPipeUtils;
+using namespace SYCLChannelPipeUtils;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-pipe-support"
+#define DEBUG_TYPE "sycl-kernel-pipe-support"
 
 struct PipeArrayView {
   Value *Ptr;
@@ -309,7 +309,7 @@ bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     bool FuncUseFPGAPipes = addImplicitFlushCalls(&M, F, RTS, PipeTypes);
     Changed |= FuncUseFPGAPipes;
 
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
         FuncUseFPGAPipes);
     if (!FuncUseFPGAPipes)
       continue;
@@ -318,7 +318,7 @@ bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     // operations. Disable vectorization of the functions with
     // these operations by setting vector width to 1.
 
-    DPCPPKernelMetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(
+    SYCLKernelMetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(
         1 /* TRANSPOSE_SIZE_1 */);
 
     WorkList.push(&F);
@@ -331,7 +331,7 @@ bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
       if (CallInst *Call = dyn_cast<CallInst>(U)) {
         auto *ParentFunction = Call->getFunction();
         auto UseFPGAPipesMD =
-            DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(ParentFunction)
+            SYCLKernelMetadataAPI::KernelInternalMetadataAPI(ParentFunction)
                 .UseFPGAPipes;
         // In WorkList all functions have pipes, so all parent functions
         // should have pipes.

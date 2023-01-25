@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-spec-constant -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-spec-constant -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-spec-constant -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-spec-constant -S < %s | FileCheck %s
 
 define weak dso_local spir_func void @__itt_offload_wi_start_wrapper() {
 entry:

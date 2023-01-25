@@ -17,16 +17,16 @@
 #include "llvm/Transforms/SYCLTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <stack>
 
 using namespace llvm;
-using namespace DPCPPChannelPipeUtils;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLChannelPipeUtils;
+using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-channel-pipe-transformation"
+#define DEBUG_TYPE "sycl-kernel-channel-pipe-transformation"
 
 using ValueToValueMap = DenseMap<Value *, Value *>;
 using ValueToValueStableMap = MapVector<Value *, Value *>;
@@ -38,7 +38,7 @@ using ValueValuePair = std::pair<Value *, Value *>;
 // overheads on accessing elements
 using WorkListType = std::stack<ValueValuePair, std::vector<ValueValuePair>>;
 
-extern unsigned DPCPPChannelDepthEmulationMode;
+extern unsigned SYCLChannelDepthEmulationMode;
 
 static bool isGlobalChannel(const GlobalValue *GV, const Type *ChannelTy) {
   auto *GVValueTy = GV->getValueType();
@@ -157,7 +157,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
   SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
 
   size_t BSItemSize = OpenCLInterface::__pipe_get_total_size_fpga(
-      PipeMD.PacketSize, PipeMD.Depth, DPCPPChannelDepthEmulationMode);
+      PipeMD.PacketSize, PipeMD.Depth, SYCLChannelDepthEmulationMode);
   size_t BSItemsCount = getNumElementsOfNestedArray(PipePtrArrayTy);
 
   // iterate over all elements from backing store
@@ -188,7 +188,7 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
                                       const ChannelPipeMD &MD,
                                       Function *GlobalCtor,
                                       Function *PipeInitArray) {
-  auto *BS = DPCPPChannelPipeUtils::createPipeBackingStore(PipeGV, MD);
+  auto *BS = SYCLChannelPipeUtils::createPipeBackingStore(PipeGV, MD);
 
   IRBuilder<> Builder(GlobalCtor->getEntryBlock().getTerminator());
 
@@ -203,7 +203,7 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   ArrayType *PipePtrArrayTy = cast<ArrayType>(PipeGV->getValueType());
 
   size_t BSNumItems = getNumElementsOfNestedArray(PipePtrArrayTy);
-  Value *Mode = Builder.getInt32(DPCPPChannelDepthEmulationMode);
+  Value *Mode = Builder.getInt32(SYCLChannelDepthEmulationMode);
 
   Value *CallArgs[] = {
       Builder.CreateBitCast(PipeGV,
@@ -226,7 +226,7 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       GlobalCtor = createPipeGlobalCtor(M);
 
     ChannelPipeMD MD =
-        getChannelPipeMetadata(&ChannelGV, DPCPPChannelDepthEmulationMode);
+        getChannelPipeMetadata(&ChannelGV, SYCLChannelDepthEmulationMode);
     GlobalVariable *PipeGV = nullptr;
     if (auto *GVArrTy = dyn_cast<ArrayType>(ChannelGV.getValueType())) {
       SmallVector<size_t, 8> Dimensions;

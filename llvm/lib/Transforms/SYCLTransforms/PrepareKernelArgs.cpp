@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-prepare-args"
+#define DEBUG_TYPE "sycl-kernel-prepare-args"
 
 extern bool EnableTLSGlobals;
 
@@ -113,7 +113,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
 
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
@@ -653,7 +653,7 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F, AssumptionCache *AC) {
   // a call of a device execution built-in) by ones to the wrapper
   replaceFunctionPointers(Wrapper, F);
 
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
   KIMD.KernelWrapper.set(Wrapper);
   // TODO move stats from original kernel to the wrapper
 

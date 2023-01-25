@@ -14,7 +14,7 @@
 #include "MetadataAPIImpl.h"
 
 namespace llvm {
-namespace DPCPPKernelMetadataAPI {
+namespace SYCLKernelMetadataAPI {
 
 struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> DepthIsIgnoredTy;
@@ -270,7 +270,7 @@ struct KernelList : public NamedMDList<llvm::Function, MDValueModuleStrategy> {
   KernelList(llvm::Module &Module) : NamedMDList(&Module, "sycl.kernels") {}
 };
 
-} // namespace DPCPPKernelMetadataAPI
+} // namespace SYCLKernelMetadataAPI
 } // namespace llvm
 
 #endif

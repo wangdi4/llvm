@@ -16,7 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
@@ -26,7 +26,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-wg-loop-bound"
+#define DEBUG_TYPE "sycl-kernel-wg-loop-bound"
 
 namespace {
 
@@ -34,7 +34,7 @@ class WGLoopBoundariesImpl {
 public:
   explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService)
       : M(M), RTService(RTService),
-        DPCPP_STAT_INIT(CreatedEarlyExit,
+        SYCL_STAT_INIT(CreatedEarlyExit,
                         "one if early exit (or late start) was done for the "
                         "kernel. Value is never greater for one, even if "
                         "early-exit done for several dimensions.",
@@ -109,11 +109,11 @@ private:
   bool ReverseLowerUpperBound = false;
 
   /// Statistics
-  DPCPPStatistic::ActiveStatsT KernelStats;
+  SYCLStatistic::ActiveStatsT KernelStats;
   /// Set to 1 if early exit (or late start) was done for this kernel. This
   /// counter is only 0 or 1, even if early-exit was done for several conditions
   /// and/or dimension.
-  DPCPPStatistic CreatedEarlyExit;
+  SYCLStatistic CreatedEarlyExit;
 
   /// Collect kernels MaxD WG loop boundaries must be always created for.
   void collectWIUniqueFuncUsers();
@@ -323,7 +323,7 @@ private:
 bool WGLoopBoundariesImpl::run() {
   bool Changed = false;
 
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(&M);
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(&M);
   if (Kernels.empty())
     return Changed;
 
@@ -338,7 +338,7 @@ bool WGLoopBoundariesImpl::run() {
 
   // Get the kernels using the barrier for work group loops.
   for (auto *Kernel : Kernels) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Kernel);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(Kernel);
     // No need to check if NoBarrierPath value exists, it is guaranteed that
     // KernelAnalysisPass run before WGLoopBoundariesPass.
     if (KIMD.NoBarrierPath.get()) {
@@ -545,7 +545,7 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
     I->eraseFromParent();
   }
 
-  DPCPPStatistic::pushFunctionStats(KernelStats, F, DEBUG_TYPE);
+  SYCLStatistic::pushFunctionStats(KernelStats, F, DEBUG_TYPE);
 
   LLVM_DEBUG(print(dbgs(), F.getName()));
 

@@ -1,6 +1,6 @@
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-builtin-call-to-inst -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes=dpcpp-kernel-builtin-call-to-inst -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s
 
 ;;;; OpenCL source code
 ;;void __kernel foo_double(double* a, double*b, long* c) {

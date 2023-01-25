@@ -28,7 +28,7 @@
 #include <sstream>
 #include <vector>
 
-#define DEBUG_TYPE "dpcpp-kernel-barrier"
+#define DEBUG_TYPE "sycl-kernel-barrier"
 
 using namespace llvm;
 
@@ -1173,7 +1173,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
     } else
       BaseGID = Utils.createGetBaseGlobalId(Dim, OldCall);
 
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(Func);
     // Non-kernel function doesn't have NoBarrierPath metadata.
     if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
       OldCall->replaceAllUsesWith(BaseGID);
@@ -1434,7 +1434,7 @@ bool KernelBarrier::eraseAllToRemoveInstructions() {
 
 unsigned KernelBarrier::computeNumDim(Function *F) {
   auto MaxWGDimMDApi =
-      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F).MaxWGDimensions;
+      SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F).MaxWGDimensions;
   if (MaxWGDimMDApi.hasValue()) {
     return MaxWGDimMDApi.get();
   }
@@ -1489,13 +1489,13 @@ void KernelBarrier::updateStructureStride(Module &M,
   DenseMap<Function *, size_t> FuncToPrivSize;
 
   auto TodoList = BarrierUtils::getAllKernelsAndVectorizedCounterparts(
-      DPCPPKernelMetadataAPI::KernelList(&M).getList());
+      SYCLKernelMetadataAPI::KernelList(&M).getList());
 
   calculatePrivateSize(M, FunctionsWithSync, FuncToPrivSize);
 
   // Get the kernels using the barrier for work group loops.
   for (auto *Func : TodoList) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(Func);
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that  Vectorized is running in all scenarios.
     int VecWidth =

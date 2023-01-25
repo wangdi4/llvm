@@ -22,7 +22,7 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-relaxed-math"
+#define DEBUG_TYPE "sycl-kernel-relaxed-math"
 
 static bool runImpl(Module &M) {
   static const StringSet<> NativeBuiltins{

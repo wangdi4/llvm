@@ -2,7 +2,7 @@
 
 ; CHECK: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
-; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -25,7 +25,7 @@
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
@@ -41,7 +41,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
-; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: VFAnalysis
 ; CHECK:      Running pass: IndirectCallLowering

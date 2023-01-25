@@ -1,4 +1,4 @@
-; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,function(require<dpcpp-kernel-weighted-inst-count-analysis>)' -S %s | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,function(require<sycl-kernel-weighted-inst-count-analysis>)' -S %s | FileCheck %s
 
 ; FIXME move to a transform pass.
 

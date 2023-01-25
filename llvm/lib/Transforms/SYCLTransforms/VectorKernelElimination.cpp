@@ -20,10 +20,10 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/WeightedInstCount.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-vec-kernel-elim"
+#define DEBUG_TYPE "sycl-kernel-vec-kernel-elim"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 static constexpr float ScalarCostMultiplier = .92f;
 

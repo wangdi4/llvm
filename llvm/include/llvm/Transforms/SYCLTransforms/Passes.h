@@ -1,4 +1,4 @@
-//==----- Passes.h - DPCPP Kernel transforms pass headers -------*- C++ -*-===//
+//==----- Passes.h - SYCL Kernel transforms pass headers -------*- C++ -*-===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
@@ -26,14 +26,14 @@
 #include "llvm/Transforms/SYCLTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceTypes.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceWin64Types.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPAliasAnalysis.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPEqualizer.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPKernelPostVec.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPKernelVecClone.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPKernelWGLoopCreator.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPPreprocessSPIRVFriendlyIR.h"
-#include "llvm/Transforms/SYCLTransforms/DPCPPRewritePipes.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLAliasAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLEqualizer.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLKernelPostVec.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLKernelWGLoopCreator.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLPreprocessSPIRVFriendlyIR.h"
+#include "llvm/Transforms/SYCLTransforms/SYCLRewritePipes.h"
 #include "llvm/Transforms/SYCLTransforms/DeduceMaxWGDim.h"
 #include "llvm/Transforms/SYCLTransforms/DetectRecursion.h"
 #include "llvm/Transforms/SYCLTransforms/DuplicateCalledKernelsPass.h"

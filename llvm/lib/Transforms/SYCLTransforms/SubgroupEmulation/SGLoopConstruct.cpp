@@ -15,13 +15,13 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-loop-construct"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-loop-construct"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
-extern bool DPCPPEnableSubGroupEmulation;
+extern bool SYCLEnableSubGroupEmulation;
 
 PreservedAnalyses SGLoopConstructPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
@@ -34,7 +34,7 @@ PreservedAnalyses SGLoopConstructPass::run(Module &M,
 }
 
 bool SGLoopConstructPass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!DPCPPEnableSubGroupEmulation)
+  if (!SYCLEnableSubGroupEmulation)
     return false;
 
   Helper.initialize(M);
@@ -394,7 +394,7 @@ void SGLoopConstructPass::resolveSGLIdCalls(Module &M) {
 }
 
 void SGLoopConstructPass::updateMetadata(Module &M) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
   for (auto &Pair : FuncToSGBarriers) {

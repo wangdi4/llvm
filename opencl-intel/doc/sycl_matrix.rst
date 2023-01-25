@@ -220,7 +220,7 @@ The element extraction/insertion operation will be performed at the row slice le
 Implementation: attaching VectInfo for internal subgroup rowslice builtins
 --------------------------------------------------------------------------
 
-``DPCPPKernelVecClone`` pass will generate VectInfo dynamically for ``sub_group_rowslice_extractelement`` and ``sub_group_rowslice_insertelement`` builtins, so that their argument/return values get vectorized.
+``SYCLKernelVecClone`` pass will generate VectInfo dynamically for ``sub_group_rowslice_extractelement`` and ``sub_group_rowslice_insertelement`` builtins, so that their argument/return values get vectorized.
 
 .. code-block:: llvm
 

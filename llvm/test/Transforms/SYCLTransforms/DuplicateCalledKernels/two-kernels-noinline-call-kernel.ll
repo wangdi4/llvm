@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ; Check the case that kernel 'test' is called by a noninline function 'foo',
 ; which is called by another kernel 'test2'.

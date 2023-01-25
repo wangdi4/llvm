@@ -25,10 +25,10 @@
 #include <map>
 #include <utility>
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-sub-group-wi-call"
+#define DEBUG_TYPE "sycl-kernel-resolve-sub-group-wi-call"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
 ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(bool ResolveSGBarrier)

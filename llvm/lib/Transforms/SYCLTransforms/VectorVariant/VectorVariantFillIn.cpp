@@ -21,10 +21,10 @@
 
 using namespace llvm;
 
-bool DPCPPEnableVectorVariantPasses = true;
+bool SYCLEnableVectorVariantPasses = true;
 static cl::opt<bool, true> EnableVectorVariantPassesOpt(
-    "dpcpp-enable-vector-variant-passes",
-    cl::location(DPCPPEnableVectorVariantPasses), cl::Hidden,
+    "sycl-enable-vector-variant-passes",
+    cl::location(SYCLEnableVectorVariantPasses), cl::Hidden,
     cl::desc(
         "Enable vector-variant/vector_function_ptrs attributes processing."));
 
@@ -59,7 +59,7 @@ PreservedAnalyses VectorVariantFillIn::run(Module &M,
 // vector_function_ptrs attributes witch actual pointers tables.
 //
 bool VectorVariantFillIn::runImpl(Module &M) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

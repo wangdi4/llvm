@@ -413,7 +413,7 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
 }
 
 //
-// Generate VectInfo for DPCPPKernelVecClone
+// Generate VectInfo for SYCLKernelVecClone
 //
 
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {

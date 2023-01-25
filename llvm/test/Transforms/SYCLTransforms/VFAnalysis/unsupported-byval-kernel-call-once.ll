@@ -1,8 +1,8 @@
 ;; Have a byval function with kernel-call-once attribute, checks that vectorization is disabled.
-; RUN: opt -passes="dpcpp-kernel-add-function-attrs,print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NO-VECTORIZATION
+; RUN: opt -passes="sycl-kernel-add-function-attrs,print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NO-VECTORIZATION
 
 ; If vectorization on byval/byref function is enabled, no need to do emulation then.
-; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -passes="dpcpp-kernel-add-function-attrs,print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-VECTORIZATION
+; RUN: opt -sycl-enable-byval-byref-function-call-vectorization -passes="sycl-kernel-add-function-attrs,print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-VECTORIZATION
 
 ; CHECK-LABEL: Kernel --> VF:
 ; CHECK-NO-VECTORIZATION: <kernel> : 1
@@ -12,7 +12,7 @@
 
 %struct.A = type { float, i32, double, i64 }
 
-; dpcpp-kernel-add-function-attrs will add "kernel-call-once" to all barrier-calling functions.
+; sycl-kernel-add-function-attrs will add "kernel-call-once" to all barrier-calling functions.
 define void @f1(%struct.A* byval(%struct.A) align 8 %arg) {
 entry:
   call void @_Z18work_group_barrierj12memory_scope(i32 1, i32 1)

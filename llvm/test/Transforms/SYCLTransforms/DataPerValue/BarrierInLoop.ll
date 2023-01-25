@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' %s | FileCheck %s
 
 define void @test() {
 entry:

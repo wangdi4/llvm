@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-internalize-global-variables,globaldce -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-internalize-global-variables,globaldce -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-internalize-global-variables,globaldce -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-internalize-global-variables,globaldce -S %s | FileCheck %s
 
 ; CHECK: @coord_translate_i_callback
 

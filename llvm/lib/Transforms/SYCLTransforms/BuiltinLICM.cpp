@@ -24,7 +24,7 @@
 using namespace llvm;
 using namespace LoopUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-builtin-licm"
+#define DEBUG_TYPE "sycl-kernel-builtin-licm"
 
 namespace {
 

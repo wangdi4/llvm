@@ -20,11 +20,11 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-wi-call"
+#define DEBUG_TYPE "sycl-kernel-resolve-wi-call"
 
 // Add command line to specify work groups size as uniform.
 static cl::opt<bool> OptUniformWGSize(
-    "dpcpp-uniform-wg-size", cl::init(false), cl::Hidden,
+    "sycl-uniform-wg-size", cl::init(false), cl::Hidden,
     cl::desc("The flag speficies work groups size as uniform"));
 
 extern bool EnableTLSGlobals;

@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes="function(instnamer),dpcpp-kernel-vector-variant-fillin" -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes="function(instnamer),sycl-kernel-vector-variant-fillin" -S | FileCheck %s
 
 
 ; This test is to check the VectorVariantFillIn pass correctly replace operand

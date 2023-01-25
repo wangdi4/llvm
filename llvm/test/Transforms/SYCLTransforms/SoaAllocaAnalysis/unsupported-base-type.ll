@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<dpcpp-kernel-soa-alloca-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='print<sycl-kernel-soa-alloca-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check SoaAllocaAnalysis decides not to optimize unsupported base types.
 

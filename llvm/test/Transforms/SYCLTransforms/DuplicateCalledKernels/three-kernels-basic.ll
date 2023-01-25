@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ; Check that kernel 'test' and functon 'foo' are cloned correctly.
 ; Local variables used in these two functions are also cloned.

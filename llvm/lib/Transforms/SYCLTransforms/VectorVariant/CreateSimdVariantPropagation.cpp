@@ -18,7 +18,7 @@
 
 using namespace llvm;
 
-extern bool DPCPPEnableVectorVariantPasses;
+extern bool SYCLEnableVectorVariantPasses;
 
 PreservedAnalyses
 CreateSimdVariantPropagation::run(Module &M, ModuleAnalysisManager &MAM) {
@@ -31,7 +31,7 @@ CreateSimdVariantPropagation::run(Module &M, ModuleAnalysisManager &MAM) {
 }
 
 bool CreateSimdVariantPropagation::runImpl(Module &M) {
-  if (!DPCPPEnableVectorVariantPasses)
+  if (!SYCLEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

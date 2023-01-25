@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <utility>
 
-using namespace llvm::DPCPPKernelMetadataAPI;
+using namespace llvm::SYCLKernelMetadataAPI;
 
 TEST_F(MetadataTest, Test_RecursiveCallMetadata) {
   auto pModule = GetTestModule();

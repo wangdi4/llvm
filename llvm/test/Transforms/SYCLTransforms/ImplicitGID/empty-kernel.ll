@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks that we are able to insert a gid_alloca at an
 ; empty kernel (very degenerative case), i.e. fourth_kernel, the

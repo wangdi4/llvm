@@ -26,27 +26,27 @@
 
 using namespace llvm;
 using namespace CompilationUtils;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
-#define DEBUG_TYPE "dpcpp-kernel-vf-analysis"
+#define DEBUG_TYPE "sycl-kernel-vf-analysis"
 
-static cl::opt<unsigned> DPCPPForceVF("dpcpp-force-vf", cl::init(0),
+static cl::opt<unsigned> SYCLForceVF("sycl-force-vf", cl::init(0),
                                       cl::ReallyHidden);
 
-bool DPCPPEnableSubGroupEmulation = true;
+bool SYCLEnableSubGroupEmulation = true;
 static cl::opt<bool, true>
-    DPCPPEnableSubGroupEmulationOpt("dpcpp-enable-subgroup-emulation",
-                                    cl::location(DPCPPEnableSubGroupEmulation),
+    SYCLEnableSubGroupEmulationOpt("sycl-enable-subgroup-emulation",
+                                    cl::location(SYCLEnableSubGroupEmulation),
                                     cl::Hidden,
                                     cl::desc("Enable sub-group emulation"));
 
-bool DPCPPForceOptnone = false;
-static cl::opt<bool, true> DPCPPForceOptnoneOpt(
-    "dpcpp-force-optnone", cl::location(DPCPPForceOptnone), cl::Hidden,
+bool SYCLForceOptnone = false;
+static cl::opt<bool, true> SYCLForceOptnoneOpt(
+    "sycl-force-optnone", cl::location(SYCLForceOptnone), cl::Hidden,
     cl::desc("Force passes to process functions as if they have the optnone "
              "attribute"));
 
-extern bool DPCPPEnableVectorizationOfByvalByrefFunctions;
+extern bool SYCLEnableVectorizationOfByvalByrefFunctions;
 
 DiagnosticKind VFAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
@@ -55,7 +55,7 @@ extern cl::opt<VFISAKind> IsaEncodingOverride;
 // Always get ISA, ForceVF from the global options.
 // So that we could pass parameters to VFAnalysisInfo.
 VFAnalysisInfo::VFAnalysisInfo()
-    : ISA(IsaEncodingOverride.getValue()), ForceVF(DPCPPForceVF.getValue()),
+    : ISA(IsaEncodingOverride.getValue()), ForceVF(SYCLForceVF.getValue()),
       CanFallBackToDefaultVF(false) {}
 
 bool VFAnalysisInfo::hasConflictVFConstraints(Function *Kernel) {
@@ -110,7 +110,7 @@ unsigned VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
   CanFallBackToDefaultVF = false;
 
   // optnone --> disable vectorization
-  if (Kernel->hasOptNone() || DPCPPForceOptnone) {
+  if (Kernel->hasOptNone() || SYCLForceOptnone) {
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: 1\n");
     return 1;
   }
@@ -168,7 +168,7 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   // - Either the called function contains subgroups.
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
   //   serialize in this situation).
-  if (!DPCPPEnableVectorizationOfByvalByrefFunctions) {
+  if (!SYCLEnableVectorizationOfByvalByrefFunctions) {
     if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
           return hasByvalByrefArgs(CalledFunc) &&
                  (CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) ||
@@ -235,7 +235,7 @@ bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel,
     if (!(CalledFunc && CalledFunc->isDeclaration()))
       return false;
     FuncName = CalledFunc->getName();
-    bool CanEmulate = DPCPPEnableSubGroupEmulation && (VF == 1);
+    bool CanEmulate = SYCLEnableSubGroupEmulation && (VF == 1);
     if ((isSubGroupBuiltin(FuncName) && !SupportedSubGroupVFs.count(VF) &&
          !CanEmulate) ||
         (isWorkGroupBuiltin(FuncName) && !SupportedWorkGroupVFs.count(VF))) {
@@ -285,7 +285,7 @@ bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
     }
   }
 
-  if (Broken && !DPCPPEnableSubGroupEmulation) {
+  if (Broken && !SYCLEnableSubGroupEmulation) {
     LLVM_DEBUG(dbgs() << "Subgroup is broken and emulation is disabled!\n");
     Kernel->getContext().diagnose(VFAnalysisDiagInfo(
         *Kernel, "Subgroup calls in scalar function can't be resolved",
@@ -340,7 +340,7 @@ void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
                       << '\n');
   }
 
-  if (!DPCPPEnableSubGroupEmulation) {
+  if (!SYCLEnableSubGroupEmulation) {
     LLVM_DEBUG(dbgs() << "Subgroup emulation disabled.\n");
     SGEmuSize = 0;
   }

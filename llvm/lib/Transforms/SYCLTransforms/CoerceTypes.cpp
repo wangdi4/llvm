@@ -13,10 +13,10 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
-#define DEBUG_TYPE "dpcpp-kernel-coerce-types"
+#define DEBUG_TYPE "sycl-kernel-coerce-types"
 
 PreservedAnalyses CoerceTypesPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M))

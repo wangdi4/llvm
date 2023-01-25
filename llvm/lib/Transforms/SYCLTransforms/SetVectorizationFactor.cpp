@@ -16,7 +16,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-set-vf"
+#define DEBUG_TYPE "sycl-kernel-set-vf"
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 SetVectorizationFactorPass::SetVectorizationFactorPass(
@@ -28,9 +28,9 @@ SetVectorizationFactorPass::SetVectorizationFactorPass(
 
 bool SetVectorizationFactorPass::runImpl(Module &M,
                                          const VFAnalysisInfo *VFInfo) {
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(M).getList();
   for (auto *Kernel : Kernels) {
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     unsigned VF = VFInfo->getVF(Kernel);
     KIMD.RecommendedVL.set(VF);
     LLVM_DEBUG(dbgs() << "Set VF=" << VF << " for kernel " << Kernel->getName()

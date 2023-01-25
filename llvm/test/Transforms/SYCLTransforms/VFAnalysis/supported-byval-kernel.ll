@@ -1,4 +1,4 @@
-; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ;; Have a has-sub-group kernel with byref parameter.
 ;; We can proceed with vectorization as the kernel args are uniform.

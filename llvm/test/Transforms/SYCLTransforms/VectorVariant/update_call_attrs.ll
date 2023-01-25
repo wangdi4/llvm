@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=dpcpp-kernel-update-call-attrs -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=dpcpp-kernel-update-call-attrs -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-update-call-attrs -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-update-call-attrs -S | FileCheck %s
 
 define void @bar() #0 {
 entry:

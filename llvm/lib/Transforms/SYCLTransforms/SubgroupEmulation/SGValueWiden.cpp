@@ -26,12 +26,12 @@ using namespace llvm;
 using namespace CompilationUtils;
 using namespace LoopUtils;
 
-extern bool DPCPPEnableSubGroupEmulation;
+extern bool SYCLEnableSubGroupEmulation;
 
-#define DEBUG_TYPE "dpcpp-kernel-sg-emu-value-widen"
+#define DEBUG_TYPE "sycl-kernel-sg-emu-value-widen"
 
 static std::string encodeVectorVariant(Function *F, unsigned EmuSize) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(F->getParent()).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
   std::string Buffer;
@@ -55,7 +55,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
   const SGSizeInfo &SSI = AM.getResult<SGSizeAnalysisPass>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  if (!DPCPPEnableSubGroupEmulation)
+  if (!SYCLEnableSubGroupEmulation)
     return PreservedAnalyses::all();
 
   Helper.initialize(M);
@@ -142,7 +142,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   // Kernels to be emulated must be scalar kernels, no need to
   // find all kernels.
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
   for (auto *Fn : FunctionsToBeWidened) {

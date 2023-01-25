@@ -28,7 +28,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-implicit-gid"
+#define DEBUG_TYPE "sycl-kernel-implicit-gid"
 
 /// For test purpose only.
 static cl::opt<bool> HandleBarrierOpt("implicit-gid-handle-barrier",
@@ -142,7 +142,7 @@ bool ImplicitGIDImpl::run() {
   IndDIType = getOrCreateIndDIType();
 
   // Collect kernels.
-  auto KL = DPCPPKernelMetadataAPI::KernelList(&M);
+  auto KL = SYCLKernelMetadataAPI::KernelList(&M);
   SmallPtrSet<Function *, 8> Kernels(KL.begin(), KL.end());
   DenseMap<Function *, bool> KernelsNoBarrierPath;
 
@@ -157,7 +157,7 @@ bool ImplicitGIDImpl::run() {
 
   // Process kernel functions.
   for (auto *F : KL) {
-    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
+    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (HandleBarrier) {
       if (!KIMD.NoBarrierPath.get())
         Changed |= runOnFunction(*F);

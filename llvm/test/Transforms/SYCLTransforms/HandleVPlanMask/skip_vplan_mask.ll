@@ -4,8 +4,8 @@
 ; REQUIRES: linux
 ; UNSUPPORTED: linux
 
-; RUN: opt -passes=dpcpp-kernel-convert-vplan-mask %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-convert-vplan-mask %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-convert-vplan-mask %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-convert-vplan-mask %s -S | FileCheck %s
 
 ; This test checks that HandleVPlanMask pass keeps the mask argument
 ; of function vector variants already using VPlan-styled masks.

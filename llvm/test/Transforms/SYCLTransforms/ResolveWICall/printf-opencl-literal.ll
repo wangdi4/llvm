@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,dpcpp-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='dpcpp-kernel-resolve-wi-call' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-resolve-wi-call' -S %s | FileCheck %s
 
 ; Check that un-promoted and integer literals are stored into argument buffer
 ; according to their actual sizes.

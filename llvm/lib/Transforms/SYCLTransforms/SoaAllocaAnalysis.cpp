@@ -15,7 +15,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-soa-alloca-analysis"
+#define DEBUG_TYPE "sycl-kernel-soa-alloca-analysis"
 
 AnalysisKey SoaAllocaAnalysis::Key;
 

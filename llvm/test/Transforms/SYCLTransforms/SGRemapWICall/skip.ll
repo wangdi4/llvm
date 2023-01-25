@@ -1,5 +1,5 @@
-; RUN: opt --passes=dpcpp-kernel-sg-remap-wi-call -dpcpp-sg-construction-mode=0 -S %s | FileCheck %s
-; RUN: opt --passes=dpcpp-kernel-sg-remap-wi-call -dpcpp-sg-construction-mode=0 -enable-debugify -disable-output -S %s 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt --passes=sycl-kernel-sg-remap-wi-call -sycl-sg-construction-mode=0 -S %s | FileCheck %s
+; RUN: opt --passes=sycl-kernel-sg-remap-wi-call -sycl-sg-construction-mode=0 -enable-debugify -disable-output -S %s 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Under default sg construction mode, the pass doesn't do anything.
 

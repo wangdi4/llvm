@@ -3,8 +3,8 @@
 ; - "kernel-call-once"
 ; - "kernel-uniform-call"
 
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-add-function-attrs -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-function-attrs -S < %s | FileCheck %s
 
 define void @load_mad_store(i32 addrspace(4)* %ptr, i64 %Stride, <616 x i8> %x, <560 x i8> %y) {
   %1 = call <110 x i32> @llvm.experimental.matrix.load.v110i32.p4i32(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 11, i32 10, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")

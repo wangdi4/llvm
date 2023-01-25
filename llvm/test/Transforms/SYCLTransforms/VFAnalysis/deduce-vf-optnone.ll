@@ -1,6 +1,6 @@
 ; Checks VF = 1 if there's optnone.
 
-; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes="print<sycl-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Kernel --> VF:
 

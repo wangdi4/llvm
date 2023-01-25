@@ -1,5 +1,5 @@
-; RUN: opt %s -dpcpp-enable-vector-variant-passes -passes=dpcpp-kernel-create-simd-variant-propagation -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -dpcpp-enable-vector-variant-passes -passes=dpcpp-kernel-create-simd-variant-propagation -S | FileCheck %s
+; RUN: opt %s -sycl-enable-vector-variant-passes -passes=sycl-kernel-create-simd-variant-propagation -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -sycl-enable-vector-variant-passes -passes=sycl-kernel-create-simd-variant-propagation -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi16ELi16EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedENS1_7uniformESB_EEEE.cl::sycl::INTEL::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" }
 %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" = type { [4 x i32 (i32, i32)*] }

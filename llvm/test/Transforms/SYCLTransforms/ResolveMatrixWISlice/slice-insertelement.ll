@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-resolve-matrix-wi-slice -S %s | FileCheck %s
-; RUN: opt -passes='debugify,dpcpp-kernel-resolve-matrix-wi-slice,check-debugify' -disable-output -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-resolve-matrix-wi-slice -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-resolve-matrix-wi-slice,check-debugify' -disable-output -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test(<144 x i32> %mat, i32 %val, i64 %element.index) {
 entry:

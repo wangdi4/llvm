@@ -20,7 +20,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-patch-callback-args"
+#define DEBUG_TYPE "sycl-kernel-patch-callback-args"
 
 struct ImplicitArgAccessorFunc {
   const char *FuncName;

@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-loop-strided-code-motion -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-loop-strided-code-motion -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Check that stride is computed from operands of icmp.
 

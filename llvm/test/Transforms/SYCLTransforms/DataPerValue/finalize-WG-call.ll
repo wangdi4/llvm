@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S %s 2>&1 | FileCheck %s
 
 ; The IR originates from the following pseudo-code:
 ;

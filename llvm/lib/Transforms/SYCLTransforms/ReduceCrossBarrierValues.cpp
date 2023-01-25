@@ -22,10 +22,10 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-reduce-cross-barrier-values"
+#define DEBUG_TYPE "sycl-kernel-reduce-cross-barrier-values"
 
-static cl::opt<unsigned> DPCPPBarrierCopyInstructionThreshold(
-    "dpcpp-barrier-copy-instruction-threshold", cl::init(15), cl::Hidden);
+static cl::opt<unsigned> SYCLBarrierCopyInstructionThreshold(
+    "sycl-barrier-copy-instruction-threshold", cl::init(15), cl::Hidden);
 
 PreservedAnalyses
 ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
@@ -460,7 +460,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     BasicBlock *RegionHeader = BRI.getRegionHeaderFor(RegionBB);
 
     SmallVector<Use *, 16> Uses;
-    if (!collectDependencies(TheUse, DPCPPBarrierCopyInstructionThreshold, DPB,
+    if (!collectDependencies(TheUse, SYCLBarrierCopyInstructionThreshold, DPB,
                              WIRV, RTS, Uses))
       continue;
 

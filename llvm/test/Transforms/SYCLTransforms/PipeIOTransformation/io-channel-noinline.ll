@@ -1,10 +1,10 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S | FileCheck %s
 ;
 ; This test checks that io channel is replaced with builtin correctly when
 ; user-defined functions are not inlined.
-; IR is dumped from VOLCANO_LLVM_OPTIONS=-print-before=dpcpp-kernel-pipe-io-transform
+; IR is dumped from VOLCANO_LLVM_OPTIONS=-print-before=sycl-kernel-pipe-io-transform
 ; from following cl source:
 ;
 ; #pragma OPENCL EXTENSION cl_intel_channels:enable

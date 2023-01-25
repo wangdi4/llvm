@@ -1,5 +1,5 @@
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ; Check the case kernel 'test' is called in noinline function 'xyz', which
 ; is called by two other kernels 'test2' and 'test3'.

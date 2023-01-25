@@ -1,6 +1,6 @@
 ; Checks that auto-memory is working as expected when the kernel requires a large barrier buffer.
 
-; RUN: SATest --VAL --config=%s.cfg -noref -llvm-option='-debug-only=dpcpp-kernel-prepare-args,dpcpp-kernel-barrier' 2>&1 | FileCheck %s
+; RUN: SATest --VAL --config=%s.cfg -noref -llvm-option='-debug-only=sycl-kernel-prepare-args,sycl-kernel-barrier' 2>&1 | FileCheck %s
 
 ; The local sizes for kernel execution are {1, 1, 1}
 ; but the kernel is vectorized to VF=64.

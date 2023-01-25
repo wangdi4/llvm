@@ -19,7 +19,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-builtin-call-to-inst"
+#define DEBUG_TYPE "sycl-kernel-builtin-call-to-inst"
 
 /// Shuffle and Shuffle2 arguments positions.
 static const unsigned SHUFFLE_VEC1_POS = 0;

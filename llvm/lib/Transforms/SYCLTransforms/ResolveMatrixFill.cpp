@@ -22,7 +22,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dpcpp-kernel-resolve-matrix-fill"
+#define DEBUG_TYPE "sycl-kernel-resolve-matrix-fill"
 
 static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,

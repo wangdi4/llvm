@@ -33,10 +33,10 @@ PreservedAnalyses AutorunReplicatorPass::run(Module &M,
 bool AutorunReplicatorPass::runImpl(Module &M) {
   bool HasChanges = false;
 
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M);
+  auto Kernels = SYCLKernelMetadataAPI::KernelList(M);
   SmallVector<Function *, 32> Replicas;
   for (auto *Kernel : Kernels) {
-    auto Kmd = DPCPPKernelMetadataAPI::KernelMetadataAPI(Kernel);
+    auto Kmd = SYCLKernelMetadataAPI::KernelMetadataAPI(Kernel);
 
     if (Kmd.Autorun.hasValue() && Kmd.Autorun.get() &&
         Kmd.NumComputeUnits.hasValue())
@@ -75,7 +75,7 @@ bool AutorunReplicatorPass::runImpl(Module &M) {
 
 bool AutorunReplicatorPass::createReplicas(
     Function *F, SmallVectorImpl<Function *> &Replicas) {
-  auto Kmd = DPCPPKernelMetadataAPI::KernelMetadataAPI(F);
+  auto Kmd = SYCLKernelMetadataAPI::KernelMetadataAPI(F);
   // assume original function as first replica
   ComputeIDs.insert(std::make_pair(F, ComputeID(0, 0, 0)));
 
@@ -91,7 +91,7 @@ bool AutorunReplicatorPass::createReplicas(
         assert(Cloned && "Failed to clone function");
         ComputeIDs.insert(std::make_pair(Cloned, ComputeID(X, Y, Z)));
 
-        auto Kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Cloned);
+        auto Kimd = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(Cloned);
 
         if (Kimd.VectorizedKernel.hasValue() && Kimd.VectorizedKernel.get()) {
           ValueToValueMapTy VecVMap;
@@ -99,7 +99,7 @@ bool AutorunReplicatorPass::createReplicas(
           assert(VecCloned && "Failed to clone function");
 
           auto Vkimd =
-              DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(VecCloned);
+              SYCLKernelMetadataAPI::KernelInternalMetadataAPI(VecCloned);
           Kimd.VectorizedKernel.set(VecCloned);
           Vkimd.ScalarKernel.set(Cloned);
         }

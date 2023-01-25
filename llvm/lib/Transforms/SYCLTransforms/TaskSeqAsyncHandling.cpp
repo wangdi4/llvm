@@ -14,7 +14,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
-#define DEBUG_TYPE "dpcpp-kernel-handle-taskseq-async"
+#define DEBUG_TYPE "sycl-kernel-handle-taskseq-async"
 
 using namespace llvm;
 using namespace llvm::CompilationUtils;
@@ -465,7 +465,7 @@ void Impl::createAsyncFunctionInvokes() {
   //   ReturnT *result_addr = literal.ResultAddr;
   //   *result_addr = func(args...);
   // }
-  auto KernelMD = DPCPPKernelMetadataAPI::KernelList(M);
+  auto KernelMD = SYCLKernelMetadataAPI::KernelList(M);
   auto Kernels = KernelMD.getList();
   auto *Int32Ty = Type::getInt32Ty(Ctx);
   auto *Zero = ConstantInt::get(Int32Ty, 0);
@@ -516,7 +516,7 @@ void Impl::createAsyncFunctionInvokes() {
       }
       IRB.CreateRetVoid();
 
-      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(FuncInvoke);
+      SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(FuncInvoke);
       KIMD.BlockLiteralSize.set(LiteralSize);
       Kernels.push_back(FuncInvoke);
     }

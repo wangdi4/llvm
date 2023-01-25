@@ -26,7 +26,7 @@ using namespace llvm;
 
 // TODO: move this functionality to InstToFuncCall pass
 
-#define DEBUG_TYPE "dpcpp-kernel-optimize-idiv-and-irem"
+#define DEBUG_TYPE "sycl-kernel-optimize-idiv-and-irem"
 
 PreservedAnalyses OptimizeIDivAndIRemPass::run(Function &F,
                                                FunctionAnalysisManager &FAM) {
