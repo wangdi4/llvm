@@ -512,6 +512,10 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       RTL.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
+  *((void **)&RTL.data_lock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_lock");
+  *((void **)&RTL.data_unlock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_unlock");
 
   RTL.LibraryHandler = std::move(DynLibrary);
 
