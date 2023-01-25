@@ -620,8 +620,8 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   return true;
 }
 
-static Optional<GCOVOptions> getGCOVOptions(const CodeGenOptions &CodeGenOpts,
-                                            const LangOptions &LangOpts) {
+static std::optional<GCOVOptions>
+getGCOVOptions(const CodeGenOptions &CodeGenOpts, const LangOptions &LangOpts) {
   if (!CodeGenOpts.EmitGcovArcs && !CodeGenOpts.EmitGcovNotes)
     return std::nullopt;
   // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
@@ -637,7 +637,7 @@ static Optional<GCOVOptions> getGCOVOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-static Optional<InstrProfOptions>
+static std::optional<InstrProfOptions>
 getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
                     const LangOptions &LangOpts) {
   if (!CodeGenOpts.hasProfileClangInstr())
@@ -1356,12 +1356,13 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       addKCFIPass(TargetTriple, LangOpts, PB);
     }
 
-    if (Optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts))
+    if (std::optional<GCOVOptions> Options =
+            getGCOVOptions(CodeGenOpts, LangOpts))
       PB.registerPipelineStartEPCallback(
           [Options](ModulePassManager &MPM, OptimizationLevel Level) {
             MPM.addPass(GCOVProfilerPass(*Options));
           });
-    if (Optional<InstrProfOptions> Options =
+    if (std::optional<InstrProfOptions> Options =
             getInstrProfOptions(CodeGenOpts, LangOpts))
       PB.registerPipelineStartEPCallback(
           [Options](ModulePassManager &MPM, OptimizationLevel Level) {

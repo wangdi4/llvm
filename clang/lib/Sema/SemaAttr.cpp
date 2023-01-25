@@ -361,7 +361,7 @@ void Sema::ActOnPragmaPack(SourceLocation PragmaLoc, PragmaMsStackAction Action,
   AlignPackInfo::Mode ModeVal = CurVal.getAlignMode();
 
   if (Alignment) {
-    Optional<llvm::APSInt> Val;
+    std::optional<llvm::APSInt> Val;
     Val = Alignment->getIntegerConstantExpr(Context);
 
     // pack(0) is like pack(), which just works out since that is what
@@ -909,7 +909,7 @@ void Sema::AddCFAuditedAttribute(Decl *D) {
 
 namespace {
 
-Optional<attr::SubjectMatchRule>
+std::optional<attr::SubjectMatchRule>
 getParentAttrMatcherRule(attr::SubjectMatchRule Rule) {
   using namespace attr;
   switch (Rule) {
@@ -984,7 +984,7 @@ void Sema::ActOnPragmaAttributeAttribute(
         RulesToFirstSpecifiedNegatedSubRule;
     for (const auto &Rule : Rules) {
       attr::SubjectMatchRule MatchRule = attr::SubjectMatchRule(Rule.first);
-      Optional<attr::SubjectMatchRule> ParentRule =
+      std::optional<attr::SubjectMatchRule> ParentRule =
           getParentAttrMatcherRule(MatchRule);
       if (!ParentRule)
         continue;
@@ -1008,7 +1008,7 @@ void Sema::ActOnPragmaAttributeAttribute(
     bool IgnoreNegatedSubRules = false;
     for (const auto &Rule : Rules) {
       attr::SubjectMatchRule MatchRule = attr::SubjectMatchRule(Rule.first);
-      Optional<attr::SubjectMatchRule> ParentRule =
+      std::optional<attr::SubjectMatchRule> ParentRule =
           getParentAttrMatcherRule(MatchRule);
       if (!ParentRule)
         continue;
