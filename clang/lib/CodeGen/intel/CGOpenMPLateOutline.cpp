@@ -2085,8 +2085,19 @@ void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
     const OMPUseDevicePtrClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_use_device_ptr);
   addArg("QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR");
-  for (auto *E : Cl->varlists())
-    addArg(E);
+  for (auto *E : Cl->varlists()) {
+    assert(E->isGLValue());
+    LValue LV = CGF.EmitLValue(E);
+    llvm::Value *V = LV.getPointer(CGF);
+    addArg(V, /*Handled=*/true);
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in is_device_ptr clause");
+    QualType Ty = VD->getType();
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && Ty->isReferenceType();
+    if (IsRef)
+      MapTemps.emplace_back(V, VD);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
@@ -2644,7 +2655,7 @@ void OpenMPLateOutliner::emitOMPOmpxMonotonicClause(
   }
 }
 
-void OpenMPLateOutliner::emitLiveinClauseForUseDeviceAddrClause() {
+void OpenMPLateOutliner::emitLiveinClauses() {
   for (const auto *Cl : Directive.getClausesOfKind<OMPUseDeviceAddrClause>()) {
     for (const auto *E : Cl->varlists()) {
       const DeclRefExpr *DRE = getExplicitDeclRefOrNull(E);
@@ -2664,6 +2675,22 @@ void OpenMPLateOutliner::emitLiveinClauseForUseDeviceAddrClause() {
         assert(It != LocalDeclMaps.end());
         Address A = It->second;
         addArg(A.getPointer(), /*Handled=*/true);
+      }
+    }
+  }
+  for (const auto *Cl : Directive.getClausesOfKind<OMPUseDevicePtrClause>()) {
+    for (const auto *E : Cl->varlists()) {
+      const VarDecl *VD = getExplicitVarDecl(E);
+      assert(VD && "expected VarDecl in use_device_ptr clause");
+      QualType Ty = VD->getType();
+      bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+      bool IsRef = !IsCapturedExpr && Ty->isReferenceType();
+      if (IsRef) {
+        ClauseEmissionHelper CEH(*this, llvm::omp::OMPC_unknown);
+        addArg("QUAL.OMP.LIVEIN");
+        const auto &It = LocalDeclMaps.find(VD);
+        assert(It != LocalDeclMaps.end());
+        addArg(It->second.getPointer());
       }
     }
   }
@@ -4309,6 +4336,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
     CodeGenFunction::OMPPrivateScope MapClausePointerScope(*this);
     Outliner.privatizeMappedPointers(MapClausePointerScope);
+    Outliner.emitLiveinClauses();
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind = nextDirectiveKind(S, CurrentDirectiveKind);
@@ -4349,7 +4377,6 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
       addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     Outliner.emitVLAExpressions();
-    Outliner.emitLiveinClauseForUseDeviceAddrClause();
     EmitBody(*this, S);
     Outliner.emitOMPAllNeedDevicePtrClauses();
   }

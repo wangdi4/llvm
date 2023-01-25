@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -98,6 +98,9 @@ class GlobalsAAResult : public AAResultBase {
 public:
   GlobalsAAResult(GlobalsAAResult &&Arg);
   ~GlobalsAAResult();
+  GlobalsAAResult(const GlobalsAAResult &) = delete;            // INTEL
+  GlobalsAAResult &operator=(const GlobalsAAResult &) = delete; // INTEL
+  GlobalsAAResult &operator=(GlobalsAAResult &&) = delete;      // INTEL
 
   bool invalidate(Module &M, const PreservedAnalyses &PA,
                   ModuleAnalysisManager::Invalidator &);

@@ -5,7 +5,7 @@
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 int printf(const char*,...);
-// CHECK-LABEL: @_Z3noov(
+// CHECK-LABEL: define {{[^@]+}}@_Z3noov(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[B:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[BR:%.*]] = alloca ptr, align 8
@@ -55,7 +55,7 @@ void noo() {
     }
   }
 }
-// CHECK-LABEL: @_Z3ooov(
+// CHECK-LABEL: define {{[^@]+}}@_Z3ooov(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A:%.*]] = alloca i16, align 2
 // CHECK-NEXT:    store i16 1, ptr [[A]], align 2
@@ -75,7 +75,7 @@ void ooo() {
     a = 222;
   }
 }
-// CHECK-LABEL: @_Z5test1v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test1v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i32], align 16
 // CHECK-NEXT:    [[X_MAP_PTR_TMP:%.*]] = alloca ptr, align 8
@@ -103,7 +103,7 @@ void test1() {
   }
 }
 
-// CHECK-LABEL: @_Z5test2v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test2v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca ptr, align 8
@@ -117,7 +117,7 @@ void test1() {
 // CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[X]], ptr [[X]], i64 20, i64 3, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP0]], ptr [[TMP0]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP0]]), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP0]], ptr [[XP_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP2]], ptr [[TMP2]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[XP_MAP_PTR_TMP2]]) ]
+// CHECK-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3), "QUAL.OMP.LIVEIN"(ptr %xp.map.ptr.tmp), "QUAL.OMP.MAP.TOFROM"(ptr %2, ptr %2, i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr %xp.map.ptr.tmp2)
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[XP_MAP_PTR_TMP2]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP2]], align 8
 // CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds i16, ptr [[TMP4]], i64 1
@@ -139,7 +139,7 @@ void test2() {
   }
 }
 
-// CHECK-LABEL: @_Z5test3v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test3v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca ptr, align 8
@@ -155,7 +155,7 @@ void test2() {
 // CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP0]], ptr [[ARRAYIDX2]], i64 20, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP0]]), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP0]], ptr [[XP_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.LIVEIN"(ptr [[XP_MAP_PTR_TMP]]), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP3]], ptr [[TMP3]], i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr [[XP_MAP_PTR_TMP3]]) ]
+// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.LIVEIN"(ptr %xp.map.ptr.tmp), "QUAL.OMP.MAP.TOFROM"(ptr %3, ptr %3, i64 8, i64 288, ptr null, ptr null), "QUAL.OMP.PRIVATE"(ptr %xp.map.ptr.tmp3) ]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[XP_MAP_PTR_TMP3]], align 8
 // CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr [[XP_MAP_PTR_TMP3]], align 8
 // CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds i16, ptr [[TMP5]], i64 1
@@ -177,7 +177,7 @@ void test3() {
   }
 }
 
-// CHECK-LABEL: @_Z5test4v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test4v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[P:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[X:%.*]] = alloca i16, align 2
@@ -230,7 +230,7 @@ void test4() {
   }
 }
 
-// CHECK-LABEL: @_Z5test6v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test6v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A:%.*]] = alloca [10 x i32], align 16
 // CHECK-NEXT:    [[P:%.*]] = alloca ptr, align 8
@@ -269,7 +269,7 @@ void test6() {
     }
   }
 }
-// CHECK-LABEL: @_Z5test5v(
+// CHECK-LABEL: define {{[^@]+}}@_Z5test5v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[X:%.*]] = alloca [10 x i16], align 16
 // CHECK-NEXT:    [[XP:%.*]] = alloca [10 x ptr], align 16

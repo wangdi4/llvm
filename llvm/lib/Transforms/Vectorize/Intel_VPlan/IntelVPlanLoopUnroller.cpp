@@ -301,7 +301,7 @@ void VPlanLoopUnroller::run() {
 
   // Reduce the partial sum values for each candidate to a single
   // value to replace the original reduction's live-outs.
-  for (auto It : PSumCandidates) {
+  for (const auto &It : PSumCandidates) {
     const PSumCandidate &PS = It.second;
     VPValue *A = PS.Accum[0];
     VPBldr.setInsertPointFirstNonPhi(Exit);

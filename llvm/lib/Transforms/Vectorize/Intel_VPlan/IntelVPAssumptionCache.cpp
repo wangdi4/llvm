@@ -22,15 +22,17 @@ using namespace vpo;
 #define DEBUG_TYPE "IntelVPAssumptionCache"
 
 static bool isAssumeCall(const VPCallInstruction &Call) {
-  return Call.getCalledFunction()->getIntrinsicID() == Intrinsic::assume;
+  if (auto *Func = Call.getCalledFunction())
+    return Func->getIntrinsicID() == Intrinsic::assume;
+  return false;
 }
 
 std::unique_ptr<VPAssumptionCache>
 VPAssumptionCache::clone(const VPValueMapper &Mapper) const {
   auto *Clone = new VPAssumptionCache(*getLLVMCache(), DT);
 
-  for (auto It : AffectedValues)
-    for (auto Assumption : It.second) {
+  for (auto &It : AffectedValues)
+    for (auto &Assumption : It.second) {
       if (auto *RemappedVal = Mapper.getRemappedValue(It.first))
         Clone->insertAssume(RemappedVal, Assumption.Assume, Assumption.Index);
     }

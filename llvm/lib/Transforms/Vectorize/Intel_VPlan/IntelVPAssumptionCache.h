@@ -99,7 +99,7 @@ private:
   template <typename FrontEnd>
   void importExternalAssumptions(const FrontEnd &FE, const VPValue *VPVal,
                                  const Value *IRVal) {
-    for (auto Assumption : AssumptionCacheLLVM.assumptionsFor(IRVal)) {
+    for (const auto &Assumption : AssumptionCacheLLVM.assumptionsFor(IRVal)) {
       auto *Assume = cast<AssumeInst>(Assumption);
       if (FE.isValidExternalAssume(Assume, &DT))
         insertAssume(VPVal, Assume, Assumption.Index);
