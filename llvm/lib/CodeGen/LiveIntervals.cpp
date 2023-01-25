@@ -197,7 +197,7 @@ LLVM_DUMP_METHOD void LiveIntervals::dumpInstrs() const {
 #endif
 
 LiveInterval *LiveIntervals::createInterval(Register reg) {
-  float Weight = Register::isPhysicalRegister(reg) ? huge_valf : 0.0F;
+  float Weight = reg.isPhysical() ? huge_valf : 0.0F;
   return new LiveInterval(reg, Weight);
 }
 
@@ -466,8 +466,7 @@ void LiveIntervals::extendSegmentsToUses(LiveRange &Segments,
 bool LiveIntervals::shrinkToUses(LiveInterval *li,
                                  SmallVectorImpl<MachineInstr*> *dead) {
   LLVM_DEBUG(dbgs() << "Shrink: " << *li << '\n');
-  assert(Register::isVirtualRegister(li->reg()) &&
-         "Can only shrink virtual registers");
+  assert(li->reg().isVirtual() && "Can only shrink virtual registers");
 
   // Shrink subregister live ranges.
   bool NeedsCleanup = false;
@@ -568,8 +567,7 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
 
 void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, Register Reg) {
   LLVM_DEBUG(dbgs() << "Shrink: " << SR << '\n');
-  assert(Register::isVirtualRegister(Reg) &&
-         "Can only shrink virtual registers");
+  assert(Reg.isVirtual() && "Can only shrink virtual registers");
   // Find all the values used, including PHI kills.
   ShrinkToUsesWorkList WorkList;
 
@@ -1038,7 +1036,7 @@ public:
       Register Reg = MO.getReg();
       if (!Reg)
         continue;
-      if (Register::isVirtualRegister(Reg)) {
+      if (Reg.isVirtual()) {
         LiveInterval &LI = LIS.getInterval(Reg);
         if (LI.hasSubRanges()) {
           unsigned SubReg = MO.getSubReg();
@@ -1092,7 +1090,7 @@ private:
       return;
     LLVM_DEBUG({
       dbgs() << "     ";
-      if (Register::isVirtualRegister(Reg)) {
+      if (Reg.isVirtual()) {
         dbgs() << printReg(Reg);
         if (LaneMask.any())
           dbgs() << " L" << PrintLaneMask(LaneMask);
@@ -1468,7 +1466,7 @@ private:
   // Return the last use of reg between NewIdx and OldIdx.
   SlotIndex findLastUseBefore(SlotIndex Before, Register Reg,
                               LaneBitmask LaneMask) {
-    if (Register::isVirtualRegister(Reg)) {
+    if (Reg.isVirtual()) {
       SlotIndex LastUse = Before;
       for (MachineOperand &MO : MRI.use_nodbg_operands(Reg)) {
         if (MO.isUndef())
@@ -1512,8 +1510,7 @@ private:
 
       // Check if MII uses Reg.
       for (MIBundleOperands MO(*MII); MO.isValid(); ++MO)
-        if (MO->isReg() && !MO->isUndef() &&
-            Register::isPhysicalRegister(MO->getReg()) &&
+        if (MO->isReg() && !MO->isUndef() && MO->getReg().isPhysical() &&
             TRI.hasRegUnit(MO->getReg(), Reg))
           return Idx.getRegSlot();
     }

@@ -657,8 +657,7 @@ bool MachineInstr::isIdenticalTo(const MachineInstr &Other,
       if (Check == IgnoreDefs)
         continue;
       else if (Check == IgnoreVRegDefs) {
-        if (!Register::isVirtualRegister(MO.getReg()) ||
-            !Register::isVirtualRegister(OMO.getReg()))
+        if (!MO.getReg().isVirtual() || !OMO.getReg().isVirtual())
           if (!MO.isIdenticalTo(OMO))
             return false;
       } else {
@@ -1070,7 +1069,7 @@ MachineInstr::readsWritesVirtualRegister(Register Reg,
 int
 MachineInstr::findRegisterDefOperandIdx(Register Reg, bool isDead, bool Overlap,
                                         const TargetRegisterInfo *TRI) const {
-  bool isPhys = Register::isPhysicalRegister(Reg);
+  bool isPhys = Reg.isPhysical();
   for (unsigned i = 0, e = getNumOperands(); i != e; ++i) {
     const MachineOperand &MO = getOperand(i);
     // Accept regmask operands when Overlap is set.
@@ -1081,7 +1080,7 @@ MachineInstr::findRegisterDefOperandIdx(Register Reg, bool isDead, bool Overlap,
       continue;
     Register MOReg = MO.getReg();
     bool Found = (MOReg == Reg);
-    if (!Found && TRI && isPhys && Register::isPhysicalRegister(MOReg)) {
+    if (!Found && TRI && isPhys && MOReg.isPhysical()) {
       if (Overlap)
         Found = TRI->regsOverlap(MOReg, Reg);
       else
@@ -1239,7 +1238,7 @@ void MachineInstr::clearKillInfo() {
 void MachineInstr::substituteRegister(Register FromReg, Register ToReg,
                                       unsigned SubIdx,
                                       const TargetRegisterInfo &RegInfo) {
-  if (Register::isPhysicalRegister(ToReg)) {
+  if (ToReg.isPhysical()) {
     if (SubIdx)
       ToReg = RegInfo.getSubReg(ToReg, SubIdx);
     for (MachineOperand &MO : operands()) {
@@ -1918,7 +1917,7 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
 bool MachineInstr::addRegisterKilled(Register IncomingReg,
                                      const TargetRegisterInfo *RegInfo,
                                      bool AddIfNotFound) {
-  bool isPhysReg = Register::isPhysicalRegister(IncomingReg);
+  bool isPhysReg = IncomingReg.isPhysical();
   bool hasAliases = isPhysReg &&
     MCRegAliasIterator(IncomingReg, RegInfo, false).isValid();
   bool Found = false;
@@ -1949,7 +1948,7 @@ bool MachineInstr::addRegisterKilled(Register IncomingReg,
         MO.setIsKill();
         Found = true;
       }
-    } else if (hasAliases && MO.isKill() && Register::isPhysicalRegister(Reg)) {
+    } else if (hasAliases && MO.isKill() && Reg.isPhysical()) {
       // A super-register kill already exists.
       if (RegInfo->isSuperRegister(IncomingReg, Reg))
         return true;
@@ -1983,7 +1982,7 @@ bool MachineInstr::addRegisterKilled(Register IncomingReg,
 
 void MachineInstr::clearRegisterKills(Register Reg,
                                       const TargetRegisterInfo *RegInfo) {
-  if (!Register::isPhysicalRegister(Reg))
+  if (!Reg.isPhysical())
     RegInfo = nullptr;
   for (MachineOperand &MO : operands()) {
     if (!MO.isReg() || !MO.isUse() || !MO.isKill())
@@ -1997,7 +1996,7 @@ void MachineInstr::clearRegisterKills(Register Reg,
 bool MachineInstr::addRegisterDead(Register Reg,
                                    const TargetRegisterInfo *RegInfo,
                                    bool AddIfNotFound) {
-  bool isPhysReg = Register::isPhysicalRegister(Reg);
+  bool isPhysReg = Reg.isPhysical();
   bool hasAliases = isPhysReg &&
     MCRegAliasIterator(Reg, RegInfo, false).isValid();
   bool Found = false;
@@ -2013,8 +2012,7 @@ bool MachineInstr::addRegisterDead(Register Reg,
     if (MOReg == Reg) {
       MO.setIsDead();
       Found = true;
-    } else if (hasAliases && MO.isDead() &&
-               Register::isPhysicalRegister(MOReg)) {
+    } else if (hasAliases && MO.isDead() && MOReg.isPhysical()) {
       // There exists a super-register that's marked dead.
       if (RegInfo->isSuperRegister(Reg, MOReg))
         return true;
@@ -2065,7 +2063,7 @@ void MachineInstr::setRegisterDefReadUndef(Register Reg, bool IsUndef) {
 
 void MachineInstr::addRegisterDefined(Register Reg,
                                       const TargetRegisterInfo *RegInfo) {
-  if (Register::isPhysicalRegister(Reg)) {
+  if (Reg.isPhysical()) {
     MachineOperand *MO = findRegisterDefOperand(Reg, false, false, RegInfo);
     if (MO)
       return;
@@ -2113,7 +2111,7 @@ MachineInstrExpressionTrait::getHashValue(const MachineInstr* const &MI) {
   HashComponents.reserve(MI->getNumOperands() + 1);
   HashComponents.push_back(MI->getOpcode());
   for (const MachineOperand &MO : MI->operands()) {
-    if (MO.isReg() && MO.isDef() && Register::isVirtualRegister(MO.getReg()))
+    if (MO.isReg() && MO.isDef() && MO.getReg().isVirtual())
       continue;  // Skip virtual register defs.
 
     HashComponents.push_back(hash_value(MO));

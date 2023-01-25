@@ -2258,7 +2258,7 @@ void RAGreedy::tryHintRecoloring(const LiveInterval &VirtReg) {
     Reg = RecoloringCandidates.pop_back_val();
 
     // We cannot recolor physical register.
-    if (Register::isPhysicalRegister(Reg))
+    if (Reg.isPhysical())
       continue;
 
     // This may be a skipped class
@@ -2352,7 +2352,7 @@ void RAGreedy::tryHintRecoloring(const LiveInterval &VirtReg) {
 /// getting rid of 2 copies.
 void RAGreedy::tryHintsRecoloring() {
   for (const LiveInterval *LI : SetOfBrokenHints) {
-    assert(Register::isVirtualRegister(LI->reg()) &&
+    assert(LI->reg().isVirtual() &&
            "Recoloring is possible only for virtual registers");
     // Some dead defs may be around (e.g., because of debug uses).
     // Ignore those.
