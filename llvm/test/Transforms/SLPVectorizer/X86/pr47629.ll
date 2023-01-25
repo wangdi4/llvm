@@ -1072,7 +1072,6 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; AVX512VL-NEXT:    store <8 x float> [[TMP8]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    ret void
 ;
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; XMAINSSE-LABEL: @gather_load_div(
 ; XMAINSSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, ptr [[TMP1:%.*]], i64 4
@@ -1256,8 +1255,6 @@ define void @gather_load_div(ptr noalias nocapture %0, ptr noalias nocapture rea
 ; XMAINAVX512VL-NEXT:    ret void
 ;
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> d1fbe2ba6d40e5066060f37093b029a48c49aea7
   %3 = load float, ptr %1, align 4, !tbaa !2
   %4 = getelementptr inbounds float, ptr %1, i64 4
   %5 = load float, ptr %4, align 4, !tbaa !2
