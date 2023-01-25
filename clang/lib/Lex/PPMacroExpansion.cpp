@@ -70,6 +70,7 @@
 #include <cstddef>
 #include <cstring>
 #include <ctime>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>

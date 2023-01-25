@@ -52,6 +52,7 @@
 #include "clang/Sema/Lookup.h"
 #endif // INTEL_CUSTOMIZATION
 
+#include <optional>
 using namespace clang;
 
 /// Simple precedence-based parser for binary/ternary operators.

@@ -65,6 +65,7 @@
 #include <algorithm>
 #include <deque>
 #include <iterator>
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/TargetInfo.h"

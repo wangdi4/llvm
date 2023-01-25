@@ -47,6 +47,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
 #include "llvm/Support/TimeProfiler.h"
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "intel/SemaIntelImpl.h"

@@ -64,6 +64,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "intel/SemaIntelImpl.h"

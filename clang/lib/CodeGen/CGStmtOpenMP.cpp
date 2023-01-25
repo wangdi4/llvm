@@ -59,6 +59,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #endif // INTEL_CUSTOMIZATION
 
+#include <optional>
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;

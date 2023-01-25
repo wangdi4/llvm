@@ -50,6 +50,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
+#include <optional>
 #include <string>
 #include <vector>
 

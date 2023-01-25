@@ -87,6 +87,7 @@
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
 #include "llvm/Support/xxhash.h"
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "CGRecordLayout.h"

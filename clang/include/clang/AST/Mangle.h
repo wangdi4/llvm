@@ -36,6 +36,7 @@
 #include "clang/Basic/ABI.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Casting.h"
+#include <optional>
 
 namespace llvm {
   class raw_ostream;

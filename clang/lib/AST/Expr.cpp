@@ -54,6 +54,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstring>
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Support/Path.h"
