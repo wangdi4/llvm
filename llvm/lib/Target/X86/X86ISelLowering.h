@@ -957,6 +957,9 @@ namespace llvm {
     LBTS,
     LBTC,
     LBTR,
+    LBTS_RM,
+    LBTC_RM,
+    LBTR_RM,
 
     /// RAO arithmetic instructions.
     /// OUTCHAIN = AADD(INCHAIN, PTR, RHS)
