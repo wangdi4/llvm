@@ -190,7 +190,7 @@ bool NontemporalStore::run() {
 
         // Is it misaligned?
         Type *StoreType = SI->getValueOperand()->getType();
-        Align DesiredAlignment(DL.getABITypeAlignment(StoreType));
+        Align DesiredAlignment(DL.getABITypeAlign(StoreType));
         Align ActualAlignment = DL.getValueOrABITypeAlignment(SI->getAlign(),
             StoreType);
         const bool IsUnaligned = (ActualAlignment < DesiredAlignment);
@@ -207,7 +207,7 @@ bool NontemporalStore::run() {
         // be converted. It should still be helpful for scalar stores and
         // aligned vector stores, so only drop it for unaligned vector stores.
         const bool IsScalar =
-            (DL.getTypeStoreSizeInBits(StoreType).getFixedSize() < 128);
+            (DL.getTypeStoreSizeInBits(StoreType).getFixedValue() < 128);
         const bool DropNontemporalIfNotConverted = IsUnaligned && !IsScalar;
 
         LLVM_DEBUG(dbgs() << "Found nontemporal store: " << *SI << "\n");
@@ -323,7 +323,7 @@ bool NontemporalStore::run() {
     // possible buffer sizes. There should always be at least one buffer
     // element.
     StringRef Name = FirstStore->getPointerOperand()->getName();
-    uint64_t StoreSize = DL.getTypeStoreSize(Block.BlockType).getFixedSize();
+    uint64_t StoreSize = DL.getTypeStoreSize(Block.BlockType).getFixedValue();
     const uint64_t NumBufferElements = std::max<uint64_t>(
         (BufferSize % StoreSize <= StoreSize / 2) ? BufferSize / StoreSize
                                                   : BufferSize / StoreSize + 1,
@@ -331,7 +331,7 @@ bool NontemporalStore::run() {
     uint64_t BufferCount = StoreSize * NumBufferElements;
     Type *StoreArrayTy = PointerType::getUnqual(Block.BlockType);
     Builder.SetInstDebugLocation(FirstStore);
-    Align DesiredAlign(DL.getABITypeAlignment(Block.BlockType));
+    Align DesiredAlign(DL.getABITypeAlign(Block.BlockType));
 
     // Create the alloca for the data. We're allocating as a char array, so
     // that the buffer is allocated in the padding of the store struct.
@@ -388,7 +388,7 @@ bool NontemporalStore::run() {
           SI.value()->getValueOperand(),
           Builder.CreateGEP(Block.BlockType, StoreBufferPtr,
                             {IndexPHI, Builder.getInt64(SI.index())}),
-          MaybeAlign(DL.getABITypeAlignment(IntptrTy)));
+          MaybeAlign(DL.getABITypeAlign(IntptrTy)));
     }
 
     // Insert a branch, if we are drained.
@@ -461,7 +461,7 @@ NontemporalStore::getStaticStrideInLoop(StoreInst &SI) {
   if (!AddRec || AddRec->getLoop() != ContainingLoop)
     return {};
   Type *StoreType = SI.getValueOperand()->getType();
-  uint64_t StoreSize = DL.getTypeStoreSize(StoreType).getFixedSize();
+  uint64_t StoreSize = DL.getTypeStoreSize(StoreType).getFixedValue();
   const SCEV *StepSCEV = AddRec->getStepRecurrence(SE);
   const auto *const ConstStepSCEV = dyn_cast<SCEVConstant>(StepSCEV);
   if (!ConstStepSCEV) {

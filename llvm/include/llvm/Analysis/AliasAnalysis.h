@@ -703,22 +703,22 @@ public:
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const VAArgInst *V, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const LoadInst *L, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const StoreInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
                            const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const CatchPadInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
@@ -726,7 +726,7 @@ public:
   ModRefInfo getModRefInfo(const Instruction *I,
                            const std::optional<MemoryLocation> &OptLoc,
                            AAQueryInfo &AAQIP,                       // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc, DominatorTree *DT,
                                 AAQueryInfo &AAQIP);

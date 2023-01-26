@@ -27,7 +27,7 @@ namespace LoopDynamicPeeling {
 /// \param InitGIDs initial global IDs.
 /// \param MaxPeelSize the upper bound of peel loop size.
 /// \returns Peeling loop size.
-Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
+std::optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
                                    ArrayRef<Value *> InitGIDs,
                                    Value *MaxPeelSize);
 
