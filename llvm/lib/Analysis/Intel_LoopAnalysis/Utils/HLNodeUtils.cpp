@@ -1268,7 +1268,7 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
   std::tie(HInst, Call) = createCallImpl(MemcpyFunc, Ops);
 
   MemCpyInst *MemCpyCall = cast<MemCpyInst>(Call);
-  MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
+  MemCpyCall->setSourceAlignment(MaybeAlign(LoadRef->getAlignment()));
   MemCpyCall->setDestAlignment(MaybeAlign(StoreRef->getAlignment()));
 
   Call->setDebugLoc(StoreRef->getDebugLoc());
