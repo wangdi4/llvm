@@ -72,9 +72,20 @@ if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
 endif()
 
 add_library (LevelZeroLoader INTERFACE)
-target_link_libraries(LevelZeroLoader
-  INTERFACE "${LEVEL_ZERO_LIBRARY}"
-)
+if (INTEL_CUSTOMIZATION)
+  get_filename_component(LEVEL_ZERO_LIBRARY_SRC "${LEVEL_ZERO_LIBRARY}" DIRECTORY)
+  get_filename_component(LEVEL_ZERO_LIB_NAME "${LEVEL_ZERO_LIBRARY}" NAME)
+  target_link_directories(LevelZeroLoader
+    INTERFACE "${LEVEL_ZERO_LIBRARY_SRC}"
+  )
+  target_link_libraries(LevelZeroLoader
+    INTERFACE "${LEVEL_ZERO_LIB_NAME}"
+  )
+else()
+  target_link_libraries(LevelZeroLoader
+    INTERFACE "${LEVEL_ZERO_LIBRARY}"
+  )
+endif(INTEL_CUSTOMIZATION)
 
 add_library (LevelZeroLoader-Headers INTERFACE)
 target_include_directories(LevelZeroLoader-Headers
