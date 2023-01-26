@@ -60,7 +60,7 @@ VPlanSCEV *VPlanScalarEvolutionLLVM::getMinusExpr(VPlanSCEV *LHS,
   return toVPlanSCEV(Minus);
 }
 
-Optional<VPConstStepLinear>
+std::optional<VPConstStepLinear>
 VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
   // FIXME: We cannot really look for linear values using llvm::ScalarEvolution.
   //        The best we can do is to look for induction variables instead. That
@@ -72,13 +72,13 @@ VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
   //            for (j = 0; j < jN; ++j)
   //              x = ptr[i + j*j];
   //
-  Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
+  std::optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
   return llvm::transformOptional(Ind, [](auto &I) {
     return VPConstStepLinear{I.InvariantBase, I.Step};
   });
 }
 
-Optional<VPConstStepInduction>
+std::optional<VPConstStepInduction>
 VPlanScalarEvolutionLLVM::asConstStepInduction(VPlanSCEV *Expr) const {
   if (!Expr)
     return std::nullopt;

@@ -59,7 +59,7 @@ public:
                                       const VFInfo &Variant);
 
   /// \Returns the best simd function variant and its index.
-  llvm::Optional<std::pair<VFInfo, unsigned>>
+  std::optional<std::pair<VFInfo, unsigned>>
   matchVectorVariant(const VPCallInstruction *VPCall, bool Masked, unsigned VF,
                      const TargetTransformInfo *TTI);
 

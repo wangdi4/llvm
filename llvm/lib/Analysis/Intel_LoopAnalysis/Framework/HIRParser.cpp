@@ -5021,7 +5021,7 @@ uint64_t HIRParser::getPossibleMaxPointerDimensionSize(const Value *Ptr) {
   return MaxSize;
 }
 
-Optional<HIRParser::DelinearizedCoeffBlobIndex>
+std::optional<HIRParser::DelinearizedCoeffBlobIndex>
 HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                                 SmallVectorImpl<BlobTy> &DimSizes) {
 

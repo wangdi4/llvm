@@ -1399,7 +1399,7 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
     // Get a memory location for both ops, assuming aliasing if the other op
     // doesn't have one and blanking out its size field to perform an
     // arbitrary-size query.
-    Optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
+    std::optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
     if (not AOML)
       return true;
     MemoryLocation &AML      = AOML.getValue();
@@ -1494,8 +1494,8 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
     return false;
 
   // Figure out the memory locations for both instructions.
-  Optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
-  Optional<MemoryLocation> BOML = MemoryLocation::getOrNone(B.I);
+  std::optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
+  std::optional<MemoryLocation> BOML = MemoryLocation::getOrNone(B.I);
 
   // If either don't have one (as is the case with calls), assume strict
   // ordering. Otherwise, both are valid.

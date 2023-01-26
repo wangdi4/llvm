@@ -272,7 +272,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
   return { VPlanStaticPeeling(BestPeelCount), MaxProfit };
 }
 
-Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
+std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
     int VF, VPlanPeelingCostModel &CM) {
   if (CandidateMemrefs.empty())
@@ -322,7 +322,8 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
         continue;
 
       auto *Expr = LS->getAddressSCEV();
-      Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
+      std::optional<VPConstStepInduction> Ind =
+          VPSE->asConstStepInduction(Expr);
 
       // Skip if access address is not an induction variable.
       if (!Ind)

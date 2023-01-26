@@ -99,7 +99,7 @@ public:
                      uint64_t ElementSize, llvm::Type *ElementType,
                      dtrans::TransposeTLIType GetTLI,
                      DopeVectorInfo *DVI = nullptr,
-                     Optional<uint64_t> NestedFieldNum = std::nullopt)
+                     std::optional<uint64_t> NestedFieldNum = std::nullopt)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
@@ -129,7 +129,7 @@ public:
 
   StringRef getName() const { return GV->getName(); }
 
-  Optional<uint64_t> getNestedFieldNumber() const {
+  std::optional<uint64_t> getNestedFieldNumber() const {
     return NestedFieldNumber;
   }
 
@@ -910,7 +910,7 @@ private:
   bool IsGlobalDV;
 
   // If present, the field in the structure containing the candidate
-  Optional<uint64_t> NestedFieldNumber;
+  std::optional<uint64_t> NestedFieldNumber;
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
@@ -1164,7 +1164,7 @@ public:
       for (auto &Cand : Candidates) {
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, {
           dbgs() << "Transform candidate: " << Cand.getName();
-          Optional<uint64_t> NFN = Cand.getNestedFieldNumber();
+          std::optional<uint64_t> NFN = Cand.getNestedFieldNumber();
           if (NFN)
             dbgs() << "[" << *NFN << "]";
           dbgs() << "\n";

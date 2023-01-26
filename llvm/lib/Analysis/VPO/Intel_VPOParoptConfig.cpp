@@ -120,8 +120,8 @@ VPOParoptConfig::VPOParoptConfig(LLVMContext &Context) {
                              "Could not parse YAML: " + EC.message()));
 }
 
-Optional<const vpo::KernelConfig>
-    VPOParoptConfig::getKernelConfig(StringRef Name) const {
+std::optional<const vpo::KernelConfig>
+VPOParoptConfig::getKernelConfig(StringRef Name) const {
   for (const auto &KC : Config.KernelEntries)
     if (Name.str().find(KC.Name) != std::string::npos)
       return KC;

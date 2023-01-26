@@ -451,7 +451,7 @@ VPValue* VPlanAllZeroBypass::loopWasMadeUniform(VPLoop *VPLp) {
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
-    Optional<unsigned> VF) {
+    std::optional<unsigned> VF) {
 
   // Probability is very low that for large VFs all lanes are 0.
   if (VF && *VF >= 32)

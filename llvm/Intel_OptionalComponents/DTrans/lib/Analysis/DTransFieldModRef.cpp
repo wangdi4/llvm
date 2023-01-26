@@ -546,7 +546,7 @@ void DTransModRefAnalyzerImpl<InfoClass>::initialize(
   };
 
   auto GetCallSiteAndArgNum =
-      [](const Use *U) -> Optional<std::pair<CallBase *, unsigned>> {
+      [](const Use *U) -> std::optional<std::pair<CallBase *, unsigned>> {
     if (auto *Call = dyn_cast<CallBase>(U->getUser())) {
       if (Call->isArgOperand(U))
         return std::make_pair(Call, Call->getDataOperandNo(U));

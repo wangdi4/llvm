@@ -1799,7 +1799,7 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
   unsigned Alignment = WideRef->getAlignment();
   if (!Alignment) {
     auto DL = WideRef->getDDRefUtils().getDataLayout();
-    Alignment = DL.getABITypeAlignment(ScalRefTy);
+    Alignment = DL.getABITypeAlign(ScalRefTy).value();
     WideRef->setAlignment(Alignment);
   }
 }
@@ -2671,7 +2671,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
   assert(MaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
 
-  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For example:
     //
@@ -3724,7 +3724,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
         MemRef->setMetadata("intel.preferred_alignment",
                             MDTuple::get(Context, Ops));
         auto DL = MemRef->getDDRefUtils().getDataLayout();
-        auto LdStValAlignment = DL.getABITypeAlignment(VPLdSt->getValueType());
+        auto LdStValAlignment = DL.getABITypeAlign(VPLdSt->getValueType());
 
         // If memory ref is properly aligned on element boundary, we can set
         // its alignment to the target alignment from dynamic peeling.
@@ -4342,7 +4342,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // FinalLoopVF = 4 (since array size is less than max VF)
     const unsigned MaxVectorWidth =
         TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-            .getFixedSize();
+            .getFixedValue();
     unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
     unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
     unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
@@ -4365,7 +4365,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                                             unsigned LoopUB) -> HLLoop * {
       const DataLayout &DL = *Plan->getDataLayout();
       // Determine alignment of wide load/store using element type of array.
-      Align Alignment = Align(DL.getABITypeAlignment(ArrTy->getElementType()));
+      Align Alignment = Align(DL.getABITypeAlign(ArrTy->getElementType()));
       assert(PrivateMemBlobRefs.count(PrivArr) &&
              "Wide alloca missing for VPAllocatePrivate");
       unsigned PrivArrSym = PrivateMemBlobRefs[PrivArr].second;

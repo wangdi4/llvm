@@ -123,13 +123,12 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
   return false;
 }
 
-Optional<std::pair<StringRef, unsigned>>
+std::optional<std::pair<StringRef, unsigned>>
 MapIntrinToImlImpl::searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
                                                   StringRef ScalarFuncName,
                                                   unsigned ComponentBitWidth,
                                                   unsigned LogicalVL,
-                                                  bool Masked,
-                                                  Instruction *I) {
+                                                  bool Masked, Instruction *I) {
   assert(isPowerOf2_32(LogicalVL) && "Can't handle non-power-of-two VL");
 
   unsigned MaxVectorBitWidth =
@@ -573,8 +572,8 @@ bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
   VectorType *ValVecType = cast<VectorType>(ValType);
   VectorType *LegalVecType = cast<VectorType>(LegalType);
 
-  if (ValVecType->getPrimitiveSizeInBits().getFixedSize() <
-      LegalVecType->getPrimitiveSizeInBits().getFixedSize())
+  if (ValVecType->getPrimitiveSizeInBits().getFixedValue() <
+      LegalVecType->getPrimitiveSizeInBits().getFixedValue())
     return true;
 
   return false;
@@ -1009,7 +1008,7 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
                                              const Twine &Name) {
   CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
   StringRef FunctionName = cast<Function>(Callee.getCallee())->getName();
-  Optional<CallingConv::ID> UnifiedCC =
+  std::optional<CallingConv::ID> UnifiedCC =
       getSVMLCallingConvByNameAndType(FunctionName, Callee.getFunctionType());
   CallingConv::ID CC =
       getLegacyCSVMLCallingConvFromUnified(UnifiedCC.value());

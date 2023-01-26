@@ -84,7 +84,8 @@ protected:
   friend class llvm::OVLSContext;
   X86InterleavedClientMemref(OVLSContext &Context, char MemrefId, int Distance,
                              Type *ElemType, unsigned NumElements,
-                             OVLSAccessKind AKind, Optional<int64_t> VStride)
+                             OVLSAccessKind AKind,
+                             std::optional<int64_t> VStride)
       : OVLSMemref(Context, VLSK_X86InterleavedClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
                    AKind) {
@@ -95,9 +96,11 @@ protected:
   }
 
 public:
-  static X86InterleavedClientMemref *
-  get(OVLSContext &Context, char MemrefId, int Distance, Type *ElemType,
-      unsigned NumElements, OVLSAccessKind AKind, Optional<int64_t> VStride) {
+  static X86InterleavedClientMemref *get(OVLSContext &Context, char MemrefId,
+                                         int Distance, Type *ElemType,
+                                         unsigned NumElements,
+                                         OVLSAccessKind AKind,
+                                         std::optional<int64_t> VStride) {
     return Context.create<X86InterleavedClientMemref>(
         MemrefId, Distance, ElemType, NumElements, AKind, VStride);
   }
@@ -106,14 +109,14 @@ public:
     return Memref->getKind() == VLSK_X86InterleavedClientMemref;
   }
 
-  Optional<int64_t>
+  std::optional<int64_t>
   getConstDistanceFrom(const OVLSMemref &Memref) const override {
     // Dist(this) = Dist(Memref) + *Distance;
     return Dist - cast<X86InterleavedClientMemref>(&Memref)->getDistance();
   }
   bool canMoveTo(const OVLSMemref &MemRef) override { return true; }
 
-  Optional<int64_t> getConstStride() const override { return VecStride; }
+  std::optional<int64_t> getConstStride() const override { return VecStride; }
 
   // Returning true since in this application all the queiried memrefs have the
   // same location.
@@ -126,7 +129,7 @@ private:
   char MId;
   VectorType *DataType; // Data type for the memref.
   int64_t Dist;         // Distance between two memrefs in bytes.
-  Optional<int64_t> VecStride;
+  std::optional<int64_t> VecStride;
 };
 #endif // INTEL_CUSTOMIZATION
 

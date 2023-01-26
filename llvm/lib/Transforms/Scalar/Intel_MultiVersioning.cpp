@@ -373,7 +373,7 @@ class BoolMultiVersioningImpl {
 
   // Return the branch weights for the 'true' and 'false' path, if there is
   // profiling data.
-  static Optional<std::pair<uint64_t, uint64_t>>
+  static std::optional<std::pair<uint64_t, uint64_t>>
   getBranchWeights(const BranchInst *I) {
     MDNode *ProfMD = I->getMetadata(LLVMContext::MD_prof);
     if (!ProfMD)
@@ -471,7 +471,7 @@ class BoolMultiVersioningImpl {
           // based on which way the branches will be revised below.
           bool PredIsNE = Pred == ICmpInst::ICMP_NE;
           for (auto *BrInst : Branches) {
-            if (Optional<std::pair<uint64_t, uint64_t>> Weights =
+            if (std::optional<std::pair<uint64_t, uint64_t>> Weights =
                     getBranchWeights(BrInst)) {
               auto *BrInstClone = VMap.getClone(BrInst);
               assert(BrInstClone && "Branch should have a clone");

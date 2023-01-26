@@ -852,7 +852,7 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.setVectorMain(VF, UF);
 }
 
-Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
+std::optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
   if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vecremainder")) {
     DEBUG_WITH_TYPE("VPlan_pragma_metadata",
                      dbgs() << "Vector Remainder was set by the user's "

@@ -576,19 +576,19 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  Value *genPrivatizationAlloca(
-      Item *I, Instruction *InsertPt,
-      const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
-      bool PreserveAddressSpace = true) const;
+  Value *
+  genPrivatizationAlloca(Item *I, Instruction *InsertPt,
+                         const Twine &NameSuffix = "",
+                         std::optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
   /// If the return value is std::nullopt, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
-  llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
-      const WRegionNode *W, const Item *I) const;
+  std::optional<unsigned> getPrivatizationAllocaAddrSpace(const WRegionNode *W,
+                                                          const Item *I) const;
 
   /// Replace the variable with the privatized variable.
   /// If \p ExcludeEntryDirective is true, then uses in the entry
@@ -691,7 +691,7 @@ private:
   /// otherwise.
   static bool addPrivateClausesToRegion(
       WRegionNode *W,
-      ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+      ArrayRef<std::pair<Value *, std::optional<ElementTypeAndNumElements>>>
           ToPrivatize);
 
   /// Update references of use_device_ptr operands in tgt data region to use the
@@ -2247,14 +2247,14 @@ private:
   /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
   StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
-                           llvm::Optional<uint64_t> &InteropPositionOut,
+                           std::optional<uint64_t> &InteropPositionOut,
                            StringRef &NeedDevicePtrStr, StringRef &InteropStr);
 
   /// Get substrings from the "openmp-variant" string attribute to support
   /// the TARGET VARIANT DISPATCH construct
   StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
-                           llvm::Optional<uint64_t> &InteropPositionOut);
+                           std::optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
   void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall,
@@ -2406,7 +2406,8 @@ template <> struct OptReportTraits<vpo::WRegionNode> {
     return Handle.first.getEntryDirective()->getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+  static std::optional<std::string>
+  getOptReportTitle(const ObjectHandleTy &Handle) {
     return "OMP " + Handle.first.getSourceName().upper();
   }
 

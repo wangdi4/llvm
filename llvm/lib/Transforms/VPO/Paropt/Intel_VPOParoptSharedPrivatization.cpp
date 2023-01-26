@@ -551,7 +551,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 template <typename ItemTy>
 static bool cleanupItem(
     WRegionNode *W, ItemTy *Item, int ClauseID,
-    MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> &ToPrivatize,
+    MapVector<Value *, std::optional<ElementTypeAndNumElements>> &ToPrivatize,
     Function *F, WRegionListTy &WRegionList, OptReportBuilder &ORBuilder,
     bool hasOffloadCompilation) {
   bool Changed = false;
@@ -628,7 +628,7 @@ static bool cleanupItem(
 
 bool VPOParoptTransform::addPrivateClausesToRegion(
     WRegionNode *W,
-    ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+    ArrayRef<std::pair<Value *, std::optional<ElementTypeAndNumElements>>>
         ToPrivatize) {
 
   if (ToPrivatize.empty())
@@ -860,7 +860,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
     return false;
 
   bool Changed = false;
-  MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> ToPrivatize;
+  MapVector<Value *, std::optional<ElementTypeAndNumElements>> ToPrivatize;
 
   auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
     bool Changed = false;
@@ -942,7 +942,7 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
     return false;
 
   bool Changed = false;
-  MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> ToPrivatize;
+  MapVector<Value *, std::optional<ElementTypeAndNumElements>> ToPrivatize;
 
   for (LastprivateItem *Item : W->getLpriv().items()) {
     // Do not try to simplify byref items because existing analysis is not

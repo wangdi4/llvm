@@ -99,7 +99,7 @@ bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) const {
 //   - they have the same memref id, and same access type
 //   - for indexed accesses, they have to have the same index vectors or,
 //   - for strided accesses, they have to have the same vector strides
-Optional<int64_t>
+std::optional<int64_t>
 ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) const {
   assert(isa<ClientMemref>(&Mrf) && "Expected ClientMemref!!!");
   const ClientMemref *CLMrf = cast<const ClientMemref>(&Mrf);

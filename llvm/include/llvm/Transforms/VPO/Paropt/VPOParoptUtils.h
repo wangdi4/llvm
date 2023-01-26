@@ -1135,8 +1135,8 @@ public:
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
                          bool IsTargetSPIRV, const Twine &VarName = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
-                         llvm::Optional<unsigned> ValueAddrSpace = std::nullopt,
+                         std::optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         std::optional<unsigned> ValueAddrSpace = std::nullopt,
                          AllocateItem *AllocItem = nullptr);
 
   /// Return true if address spaces \p AS1 and \p AS2 are compatible
@@ -2092,7 +2092,7 @@ public:
   /// if no interop obj is added into the variant call.
   static CallInst *
   genVariantCall(CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
-                 llvm::Optional<uint64_t> InteropPosition,
+                 std::optional<uint64_t> InteropPosition,
                  uint64_t &InteropPositionIfEmitted, Instruction *InsertPt,
                  WRegionNode *W = nullptr, bool IsTail = false);
 
@@ -2113,7 +2113,7 @@ public:
   /// full body of \p W.
   static Function *genOutlineFunction(
       const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
+      std::optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
       std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given

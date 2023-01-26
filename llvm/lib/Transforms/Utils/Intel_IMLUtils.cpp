@@ -44,7 +44,7 @@ VectorType *llvm::getVectorTypeForCSVMLFunction(FunctionType *FT) {
     return dyn_cast<VectorType>(CallRetType);
 }
 
-static Optional<CallingConv::ID>
+static std::optional<CallingConv::ID>
 getCSVMLCallingConvByVectorSize(unsigned Size) {
   if (!isPowerOf2_32(Size))
     return std::nullopt;
@@ -73,7 +73,7 @@ constexpr const size_t OCL_TARGET_ID_END_POS =
 /// indicated by the function name, and the list of callee-saved registers is
 /// determined by the maximum vector length supported by that target, not the
 /// type of argument and return values.
-static Optional<CallingConv::ID>
+static std::optional<CallingConv::ID>
 getOCLSVMLCallingConvByName(StringRef FnName) {
   // Mapping between target IDs and corresponding calling conventions
   static const llvm::StringMap<CallingConv::ID> TargetIDToCallConvMap({
@@ -113,7 +113,7 @@ getOCLSVMLCallingConvByName(StringRef FnName) {
   return I->second;
 }
 
-Optional<CallingConv::ID>
+std::optional<CallingConv::ID>
 llvm::getSVMLCallingConvByNameAndType(StringRef FnName, FunctionType *FT) {
   if (FnName.startswith("__svml_"))
     if (VectorType *VecTy = getVectorTypeForCSVMLFunction(FT))

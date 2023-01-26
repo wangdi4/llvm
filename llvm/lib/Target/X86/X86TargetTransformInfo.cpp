@@ -1570,7 +1570,7 @@ bool X86TTIImpl::isAggressiveVLSProfitable() const {
 
 bool X86TTIImpl::targetMatchesVariantISA(
     VFISAKind VariantISAClass) const {
-  Optional<VFISAKind> TargetISAClass;
+  std::optional<VFISAKind> TargetISAClass;
   if (ST->hasAVX512())
     TargetISAClass = VFISAKind::AVX512;
   else if (ST->hasAVX2())
@@ -1597,7 +1597,7 @@ int X86TTIImpl::getMatchingVectorVariant(
   // used as a tiebreaker when selecting the best variant.
   int BestArg = -1;
   int BestScore = 0;
-  Optional<VFISAKind> BestISA;
+  std::optional<VFISAKind> BestISA;
   for (auto &CallVariant : ForCall) {
     int CurrIndex = -1;
     for (auto &Variant : Variants) {

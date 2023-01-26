@@ -4634,7 +4634,7 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchsOut, llvm::Optional<uint64_t> &InteropPositionOut,
+    uint64_t &DeviceArchsOut, std::optional<uint64_t> &InteropPositionOut,
     StringRef &NeedDevicePtrStrOut, StringRef &InteropStrOut) {
 
   assert(BaseCall && "BaseCall is null");
@@ -4847,7 +4847,7 @@ StringRef VPOParoptTransform::getVariantInfo(
 // NeedDevicePtrStr and InteropStr
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut) {
+    uint64_t &DeviceArchs, std::optional<uint64_t> &InteropPositionOut) {
 
   StringRef NeedDevicePtrStr; // unused
   StringRef InteropStr;       // unused
@@ -5354,8 +5354,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("target_variant_dispatch");
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
 
   CallInst *BaseCall = nullptr;
 
@@ -5791,8 +5791,8 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
   StringRef VariantName =

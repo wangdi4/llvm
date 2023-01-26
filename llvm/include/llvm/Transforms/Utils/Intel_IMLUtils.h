@@ -37,8 +37,8 @@ VectorType *getVectorTypeForCSVMLFunction(FunctionType *FT);
 /// Determine which variant of SVML calling convention a function should use
 /// according to its name and type. Returns std::nullopt if a variant can't
 /// be chosen with the given input.
-Optional<CallingConv::ID> getSVMLCallingConvByNameAndType(StringRef FnName,
-                                                          FunctionType *FT);
+std::optional<CallingConv::ID>
+getSVMLCallingConvByNameAndType(StringRef FnName, FunctionType *FT);
 
 /// Convert a unified SVML calling convention to its corresponding variant among
 /// legacy C/C++ SVML calling conventions. Used for calling functions from

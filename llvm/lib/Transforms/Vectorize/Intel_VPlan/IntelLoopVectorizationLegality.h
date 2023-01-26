@@ -346,7 +346,7 @@ private:
 
     if (Kind == RecurKind::Udr) {
       // Check for UDR and inscan flags, that would make this UDS.
-      Optional<InscanReductionKind> InscanRedKind = std::nullopt;
+      std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
       if (Item->getIsInscan()) {
         InscanRedKind =
             isa<InclusiveItem>(
@@ -393,14 +393,14 @@ private:
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
-                    Optional<InscanReductionKind> InscanRedKind) {
+                    std::optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
       V, Kind, InscanRedKind);
   }
 
   void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
                     Function *Constr, Function *Destr,
-                    Optional<InscanReductionKind> InscanRedKind) {
+                    std::optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
         V, Combiner, Initializer, Constr, Destr, InscanRedKind);
   }
@@ -419,11 +419,11 @@ public:
   struct ExplicitReductionDescr {
     RecurrenceDescriptor RD;
     Value *RedVarPtr;
-    Optional<InscanReductionKind> InscanRedKind;
+    std::optional<InscanReductionKind> InscanRedKind;
   };
   struct InMemoryReductionDescr {
     RecurKind Kind;
-    Optional<InscanReductionKind> InscanRedKind;
+    std::optional<InscanReductionKind> InscanRedKind;
     Instruction *UpdateInst;
   };
 
@@ -676,23 +676,23 @@ private:
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
   void addReduction(Value *V, RecurKind Kind,
-                    Optional<InscanReductionKind> InscanRedKind);
+                    std::optional<InscanReductionKind> InscanRedKind);
 
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
   void addReduction(Value *V, Function *Combiner, Function *Initializer,
                     Function *Constr, Function *Destr,
-                    Optional<InscanReductionKind> InscanRedKind) {
+                    std::optional<InscanReductionKind> InscanRedKind) {
     UserDefinedReductions.emplace_back(std::make_unique<UDRDescrTy>(
         V, Combiner, Initializer, Constr, Destr, InscanRedKind));
   }
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind,
-                            Optional<InscanReductionKind> InscanRedKind);
+                            std::optional<InscanReductionKind> InscanRedKind);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
-                           Optional<InscanReductionKind> InscanRedKind);
+                           std::optional<InscanReductionKind> InscanRedKind);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

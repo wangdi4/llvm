@@ -58,7 +58,7 @@ public:
                                                 Ref);
   }
 
-  Optional<int64_t>
+  std::optional<int64_t>
   getConstDistanceFrom(const OVLSMemref &From) const override {
     auto *FromMem = cast<VPVLSClientMemrefHIR>(&From);
     int64_t Dist;
@@ -199,7 +199,7 @@ public:
     return true;
   }
 
-  Optional<int64_t> getConstStride() const override {
+  std::optional<int64_t> getConstStride() const override {
     int64_t Stride;
     if (getRegDDRef()->getConstStrideAtLevel(getLoopLevel(), &Stride))
       return Stride;

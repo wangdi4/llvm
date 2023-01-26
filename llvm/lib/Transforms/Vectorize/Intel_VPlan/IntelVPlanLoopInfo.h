@@ -212,7 +212,7 @@ private:
   // the loop induction increment. In case of LckUnknown IndIncr is nullptr.
   LatchCondDescr classifyLatchCond() const;
 
-  Optional<bool> HasNormalizedInduction;
+  std::optional<bool> HasNormalizedInduction;
   // Flag indicating how the loop iteration count is related to the
   // upper bound (invariant operand of the latch condition). False means
   // trip count is equal to upper bound + 1, true means trip count is
@@ -281,7 +281,8 @@ template <> struct OptReportTraits<vpo::VPLoop> {
     return DebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+  static std::optional<std::string>
+  getOptReportTitle(const ObjectHandleTy &Handle) {
     return std::nullopt;
   }
 
