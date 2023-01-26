@@ -5112,7 +5112,6 @@ Instruction *InstCombinerImpl::foldICmpWithCastOp(ICmpInst &ICmp) {
   return foldICmpWithZextOrSext(ICmp);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 /// calcReducedICmpSize - Returns the size it would profitable to reduce
@@ -5245,10 +5244,7 @@ bool InstCombinerImpl::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool isNeutralValue(Instruction::BinaryOps BinaryOp, Value *RHS) {
-=======
 static bool isNeutralValue(Instruction::BinaryOps BinaryOp, Value *RHS, bool IsSigned) {
->>>>>>> 0ad5909958157c72db861b2b4b46a504c1a76ca4
   switch (BinaryOp) {
     default:
       llvm_unreachable("Unsupported binary op");
