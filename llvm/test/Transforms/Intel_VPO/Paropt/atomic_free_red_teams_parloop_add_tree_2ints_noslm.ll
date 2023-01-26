@@ -20,7 +20,6 @@
 ; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_GLOBAL_BUF1]]
 ; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]]
 ; CHECK-LABEL: omp.loop.exit:
-; CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP{{[0-9.]*}}:
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 
 ; - Local reduction - tree pattern, see the pseudocode below:

@@ -19,7 +19,6 @@
 ; CHECK: %[[LOCAL_SUM_GEP1:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf.1
 ; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr inbounds i32, ptr addrspace(1) %red_buf
 ; CHECK-LABEL: omp.loop.exit:
-; CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP{{[0-9.]*}}:
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK-COUNT-7: lshr
 ; CHECK: add

@@ -6604,11 +6604,23 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     bool NeedsKmpcCritical = false;
     BasicBlock *RedInitEntryBB = nullptr;
+
+    bool UseAFReduction =
+        isTargetSPIRV() &&
+        ((VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
+          WRegionUtils::supportsLocalAtomicFreeReduction(W)) ||
+         (VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() &&
+          WRegionUtils::supportsGlobalAtomicFreeReduction(W)));
+
     // Insert reduction update at the region's exit block
     // for SPIRV target, so that potential __kmpc_[end_]critical
     // calls are executed the same number of times for all work
     // items. The results should be the same, as long as the reduction
     // variable is initialized at the region's entry block.
+    // Keep old reduction and atomic-free reduction separate as
+    // only the old one needs to be wrapped in critsect later.
+    BasicBlock *AFRedUpdateEntryBB =
+        UseAFReduction ? createEmptyPrivFiniBB(W, !isTargetSPIRV()) : nullptr;
     BasicBlock *RedUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
     StructType *FastRedStructTy = nullptr;
@@ -6851,7 +6863,19 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                        PrevBB->getTerminator(), DT);
       }
 
-      BasicBlock *BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      BasicBlock *BeginBB = nullptr;
+      // In order to separate atomic-free reduction BBs from the old reduction
+      // ones (which need critsect) we simulate behavior of
+      // createEmptyPrivFiniBB for AFRedUpdateEntryBB.
+      if (AFRedUpdateEntryBB &&
+          VPOParoptUtils::supportsAtomicFreeReduction(RedI)) {
+        BeginBB = AFRedUpdateEntryBB;
+        AFRedUpdateEntryBB = SplitBlock(
+            AFRedUpdateEntryBB, AFRedUpdateEntryBB->getFirstNonPHI(), DT, LI);
+      } else {
+        BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      }
+
       // FIXME: if NeedsKmpcCritical is true, then for SPIR targets
       //        all reduction update instructions will be wrapped
       //        into a loop. The loop is not needed for reductions
