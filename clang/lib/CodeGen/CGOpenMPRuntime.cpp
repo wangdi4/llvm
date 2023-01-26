@@ -8993,34 +8993,35 @@ public:
   }
 
 #if INTEL_COLLAB
+  static bool hasOffloadMappingFlag(OpenMPOffloadMappingFlags Types,
+                                    OpenMPOffloadMappingFlags Flag) {
+    return static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+        Types & Flag);
+  }
+
   static SmallVector<OpenMPMapModifierKind, 1>
   getMapModifiers(OpenMPOffloadMappingFlags Types) {
     SmallVector<OpenMPMapModifierKind, 1> MD;
-    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
-    // is not contextually convertible to 'bool'
-
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS))
-    //   MD.push_back(OMPC_MAP_MODIFIER_always);
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_CLOSE))
-    //   MD.push_back(OMPC_MAP_MODIFIER_close);
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_PRESENT))
-    //   MD.push_back(OMPC_MAP_MODIFIER_present);
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS))
+      MD.push_back(OMPC_MAP_MODIFIER_always);
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_CLOSE))
+      MD.push_back(OMPC_MAP_MODIFIER_close);
+    if (hasOffloadMappingFlag(Types,
+                              OpenMPOffloadMappingFlags::OMP_MAP_PRESENT))
+      MD.push_back(OMPC_MAP_MODIFIER_present);
     return MD;
   }
 
   static OpenMPMapClauseKind getMapType(OpenMPOffloadMappingFlags Types) {
-    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
-    // is not contextually convertible to 'bool'
-
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_TO) &&
-    //     (Types & OpenMPOffloadMappingFlags::OMP_MAP_FROM))
-    //   return OMPC_MAP_tofrom;
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_TO))
-    //   return OMPC_MAP_to;
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_FROM))
-    //   return OMPC_MAP_from;
-    // if ((Types & OpenMPOffloadMappingFlags::OMP_MAP_DELETE))
-    //   return OMPC_MAP_delete;
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_TO) &&
+        hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_FROM))
+      return OMPC_MAP_tofrom;
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_TO))
+      return OMPC_MAP_to;
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_FROM))
+      return OMPC_MAP_from;
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_DELETE))
+      return OMPC_MAP_delete;
     return OMPC_MAP_tofrom;
   }
 
@@ -9929,33 +9930,30 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         CombinedInfo.Types);
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
 #if INTEL_CUSTOMIZATION
-    // FIXME: error: value of type 'llvm::omp::OpenMPOffloadMappingFlags'
-    // is not contextually convertible to 'bool'
-
-    // if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
-    //   llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
-    //   for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
-    //     for (const Expr *E : C->varlists()) {
-    //       const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E);
-    //       assert(VD && "expected VarDecl in use_device_addr clause");
-    //       ReductionExprs.insert({VD, E});
-    //     }
-    //   if (!ReductionExprs.empty())
-    //     for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
-    //          ++I)
-    //       if (!CombinedInfo.VarChain[I].second &&
-    //           (CombinedInfo.Types[I] &
-    //            OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)) {
-    //         auto It =
-    //         ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl()); if (It
-    //         != ReductionExprs.end()) {
-    //           if (!CombinedInfo.Exprs[I].getMapExpr() ||
-    //               It->second == CombinedInfo.Exprs[I].getMapExpr())
-    //             CombinedInfo.Types[I] |=
-    //                 OpenMPOffloadMappingFlags::OMP_MAP_HOST_MEM;
-    //         }
-    //       }
-    // }
+    if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
+      llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
+      for (const auto *C : Dir.getClausesOfKind<OMPReductionClause>())
+        for (const Expr *E : C->varlists()) {
+          const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E);
+          assert(VD && "expected VarDecl in use_device_addr clause");
+          ReductionExprs.insert({VD, E});
+        }
+      if (!ReductionExprs.empty())
+        for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
+             ++I)
+          if (!CombinedInfo.VarChain[I].second &&
+              MappableExprsHandler::hasOffloadMappingFlag(
+                  CombinedInfo.Types[I],
+                  OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)) {
+            auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl());
+            if (It != ReductionExprs.end()) {
+              if (!CombinedInfo.Exprs[I].getMapExpr() ||
+                  It->second == CombinedInfo.Exprs[I].getMapExpr())
+                CombinedInfo.Types[I] |=
+                    OpenMPOffloadMappingFlags::OMP_MAP_HOST_MEM;
+            }
+          }
+    }
 #endif // INTEL_CUSTOMIZATION
   }
   // The informations of offload map name are only built if there is
@@ -9972,20 +9970,21 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
 
   assert(CombinedInfo.BasePointers.size() == CombinedInfo.VarChain.size());
   for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
-    // FIXME: error: no matching function for call to 'get'
-    // llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I])
-
-    // Info->push_back(
-    //     {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
-    //      CombinedInfo.Sizes[I],
-    //      llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
-    //      MappableExprsHandler::getMapModifiers(CombinedInfo.Types[I]),
-    //      MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
-    //      CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
-    //      InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
-    //      CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
-    //      static_cast<bool>(CombinedInfo.Types[I] &
-    //                        OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)});
+    Info->push_back(
+        {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
+         CombinedInfo.Sizes[I],
+         llvm::ConstantInt::get(
+             CGF.CGM.Int64Ty,
+             static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                 CombinedInfo.Types[I])),
+         MappableExprsHandler::getMapModifiers(CombinedInfo.Types[I]),
+         MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
+         CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
+         InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
+         CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
+         MappableExprsHandler::hasOffloadMappingFlag(
+             CombinedInfo.Types[I],
+             OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)});
   }
 }
 #endif // INTEL_COLLAB
