@@ -58,7 +58,7 @@ define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_ar
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ne i64 [[SCALAR_SIZE]], 0
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[MASK_GENERATE:%.*]], label [[RET:%.*]]
 ; CHECK:       mask_generate:
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[SCALAR_SIZE]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[SCALAR_SIZE]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[MASK_I1:%.*]] = icmp ult <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT]]
 ; CHECK-NEXT:    [[MASK_I32:%.*]] = sext <4 x i1> [[MASK_I1]] to <4 x i32>

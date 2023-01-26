@@ -1,8 +1,8 @@
 ; Check no assertion is raised if UnifyFunctionExitNodes pass changes the
 ; function with multiple return blocks.
 
-; RUN: opt -passes='function(mergereturn),module(sycl-kernel-wgloop-creator)' %s -S | FileCheck %s -check-prefix=CHECK-NEW
-; RUN: opt -passes='function(mergereturn),module(sycl-kernel-wgloop-creator)' %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY-NEW %s
+; RUN: opt -passes='function(mergereturn),module(sycl-kernel-wgloop-creator)' %s -S | FileCheck %s
+; RUN: opt -passes='function(mergereturn),module(sycl-kernel-wgloop-creator)' %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

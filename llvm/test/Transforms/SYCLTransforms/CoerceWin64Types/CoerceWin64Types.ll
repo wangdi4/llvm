@@ -42,7 +42,7 @@ define dso_local spir_func void @foo(%struct.A* byval(%struct.A) align 1 %0, %st
 }
 
 ; Make sure alloca memory with right addrspace.
-define void @foo1(%struct.D addrspace(4)* byval(%struct.D) %arg) #0 {
+define void @foo1(%struct.D addrspace(4)* byval(%struct.D) align 8 %arg) #0 {
 ; CHECK: define void @foo1(i64 %arg) #1 {
 ; CHECK:      %1 = alloca %struct.D, align 8
 ; CHECK-NEXT: %2 = addrspacecast %struct.D* %1 to %struct.D addrspace(4)*

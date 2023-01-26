@@ -8,7 +8,7 @@
 ; CHECK: entry:
 ; CHECK-NEXT: %sg.size. = call i32 @_Z18get_sub_group_sizev()
 ; CHECK-NEXT: %sg.size.zext = zext i32 %sg.size. to i64
-; CHECK-NEXT: %.splatinsert = insertelement <4 x i64> poison, i64 %sg.size.zext, i32 0
+; CHECK-NEXT: %.splatinsert = insertelement <4 x i64> poison, i64 %sg.size.zext, i64 0
 ; CHECK-NEXT: %.splat = shufflevector <4 x i64> %.splatinsert, <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT: %mask.i1 = icmp ult <4 x i64> <i64 0, i64 1, i64 2, i64 3>, %.splat
 ; CHECK-NEXT: %mask.i32 = sext <4 x i1> %mask.i1 to <4 x i32>
