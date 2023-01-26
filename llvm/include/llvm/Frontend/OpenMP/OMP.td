@@ -900,16 +900,18 @@ def OMP_TargetParallelDo : Directive<"target parallel do"> {
 }
 def OMP_TargetUpdate : Directive<"target update"> {
   let allowedClauses = [
-    VersionedClause<OMPC_If>,
-    VersionedClause<OMPC_Device>,
 #if INTEL_COLLAB
     VersionedClause<OMPC_Subdevice>,
     VersionedClause<OMPC_OmpxPlaces>,
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_To>,
     VersionedClause<OMPC_From>,
-    VersionedClause<OMPC_NoWait>,
     VersionedClause<OMPC_Depend>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_Device>,
+    VersionedClause<OMPC_If>,
+    VersionedClause<OMPC_NoWait>
   ];
 }
 def OMP_ParallelFor : Directive<"parallel for"> {
