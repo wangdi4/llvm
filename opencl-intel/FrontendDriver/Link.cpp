@@ -83,7 +83,7 @@ static const ArrayRef<llvm::opt::OptTable::Info> ClangOptionsInfoTable = {
 };
 
 OpenCLLinkOptTable::OpenCLLinkOptTable()
-    : llvm::opt::OptTable(ClangOptionsInfoTable) {}
+    : llvm::opt::GenericOptTable(ClangOptionsInfoTable) {}
 
 ClangLinkOptions::ClangLinkOptions(const char *pszOptions) {
   BumpPtrAllocator A;

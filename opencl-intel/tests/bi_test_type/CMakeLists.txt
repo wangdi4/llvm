@@ -22,6 +22,7 @@ calculate_target_sources()
 
 set(TARGET_LIBS
   LLVMSupport
+  LLVMTargetParser
   test_utils
   intelocl${BUILD_PLATFORM}
   cl_hw_utils
