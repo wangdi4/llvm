@@ -13443,6 +13443,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // C++ [module.import/6] external definitions are not permitted in header
   // units.
   if (getLangOpts().CPlusPlusModules && currentModuleIsHeaderUnit() &&
+      VDecl->isThisDeclarationADefinition() &&
       VDecl->getFormalLinkage() == Linkage::ExternalLinkage &&
       !VDecl->isInline()) {
     Diag(VDecl->getLocation(), diag::err_extern_def_in_header_unit);
