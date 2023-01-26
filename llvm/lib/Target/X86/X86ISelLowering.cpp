@@ -37595,7 +37595,7 @@ bool X86TargetLowering::shouldFoldSelectWithIdentityConstant(unsigned Opcode,
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     return false;
-  if (!VT.isVector())
+  if (!VT.isVector() || VT.getScalarType() == MVT::i1)
     return false;
 
   return true;

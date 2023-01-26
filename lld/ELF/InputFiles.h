@@ -205,7 +205,7 @@ public:
                           numSymbols - firstGlobal);
   }
   MutableArrayRef<Symbol *> getMutableGlobalSymbols() {
-    return llvm::makeMutableArrayRef(symbols.get() + firstGlobal,
+    return llvm::MutableArrayRef(symbols.get() + firstGlobal,
                                      numSymbols - firstGlobal);
   }
 
