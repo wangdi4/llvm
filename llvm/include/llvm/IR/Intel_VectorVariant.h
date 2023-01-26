@@ -260,7 +260,7 @@ public:
 
   std::string getBaseName() const { return BaseName; }
 
-  Optional<std::string> getName() const {
+  std::optional<std::string> getName() const {
     if (!Alias.empty())
       return Alias;
 

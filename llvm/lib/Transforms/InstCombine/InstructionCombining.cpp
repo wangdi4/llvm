@@ -2646,8 +2646,8 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
     return nullptr;
 
   // Convert GEP's src element type to load/store type.
-  uint64_t LoadStoreSize = DL.getTypeAllocSize(LoadStoreTy).getFixedSize();
-  uint64_t SrcElemSize = DL.getTypeAllocSize(SrcElemTy).getFixedSize();
+  uint64_t LoadStoreSize = DL.getTypeAllocSize(LoadStoreTy).getFixedValue();
+  uint64_t SrcElemSize = DL.getTypeAllocSize(SrcElemTy).getFixedValue();
 
   if (SrcElemSize && (LoadStoreSize % SrcElemSize == 0)) {
 

@@ -61,7 +61,7 @@ VFAnalysisInfo::VFAnalysisInfo()
 bool VFAnalysisInfo::hasConflictVFConstraints(Function *Kernel) {
   KernelMetadataAPI KMD(Kernel);
   bool MultiConflictConstraints = false;
-  Optional<unsigned> VecLen;
+  std::optional<unsigned> VecLen;
 
   if (KMD.VecLenHint.hasValue())
     VecLen = KMD.VecLenHint.get();

@@ -249,7 +249,7 @@ public:
     ControlDeps[Dst] = std::make_pair(Src, Branch);
   }
 
-  Optional<std::pair<DistPPNode *, bool>>
+  std::optional<std::pair<DistPPNode *, bool>>
   getControlDependence(DistPPNode *Dst) {
     auto Iter = ControlDeps.find(Dst);
     if (Iter == ControlDeps.end()) {
