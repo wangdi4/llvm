@@ -2,13 +2,8 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown                              | FileCheck %s --check-prefixes=SSE
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx                  | FileCheck %s --check-prefixes=AVX,AVX1
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx2                 | FileCheck %s --check-prefixes=AVX,AVX2
-<<<<<<< HEAD
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512vl    | FileCheck %s --check-prefixes=AVX512,AVX512F
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16,+avx512vl | FileCheck %s --check-prefixes=AVX512,AVX512FP16
-=======
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+avx512vl    | FileCheck %s --check-prefixes=AVX,AVX512
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16,+avx512vl | FileCheck %s --check-prefixes=AVX,AVX512FP16
->>>>>>> 2d73295c43442302bda99a09708fca6265742a13
 
 define <2 x double> @prefer_f32_v2f64(ptr %p) nounwind {
 ; SSE-LABEL: prefer_f32_v2f64:
@@ -151,17 +146,6 @@ define <4 x float> @prefer_f16_v4f32(ptr %p) nounwind {
 ; AVX2-NEXT:    popq %rax
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512F-LABEL: prefer_f16_v4f32:
-; AVX512F:       # %bb.0: # %entry
-; AVX512F-NEXT:    vpbroadcastw (%rdi), %xmm0
-; AVX512F-NEXT:    vcvtph2ps %xmm0, %xmm0
-; AVX512F-NEXT:    retq
-;
-; AVX512FP16-LABEL: prefer_f16_v4f32:
-; AVX512FP16:       # %bb.0: # %entry
-; AVX512FP16-NEXT:    vcvtph2psx (%rdi){1to4}, %xmm0
-=======
 ; AVX512-LABEL: prefer_f16_v4f32:
 ; AVX512:       # %bb.0: # %entry
 ; AVX512-NEXT:    movzwl (%rdi), %eax
@@ -175,7 +159,6 @@ define <4 x float> @prefer_f16_v4f32(ptr %p) nounwind {
 ; AVX512FP16-NEXT:    vmovsh (%rdi), %xmm0
 ; AVX512FP16-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    vbroadcastss %xmm0, %xmm0
->>>>>>> 2d73295c43442302bda99a09708fca6265742a13
 ; AVX512FP16-NEXT:    retq
 entry:
   %0 = load half, ptr %p, align 4
@@ -215,17 +198,6 @@ define <8 x float> @prefer_f16_v8f32(ptr %p) nounwind {
 ; AVX2-NEXT:    popq %rax
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512F-LABEL: prefer_f16_v8f32:
-; AVX512F:       # %bb.0: # %entry
-; AVX512F-NEXT:    vpbroadcastw (%rdi), %xmm0
-; AVX512F-NEXT:    vcvtph2ps %xmm0, %ymm0
-; AVX512F-NEXT:    retq
-;
-; AVX512FP16-LABEL: prefer_f16_v8f32:
-; AVX512FP16:       # %bb.0: # %entry
-; AVX512FP16-NEXT:    vcvtph2psx (%rdi){1to8}, %ymm0
-=======
 ; AVX512-LABEL: prefer_f16_v8f32:
 ; AVX512:       # %bb.0: # %entry
 ; AVX512-NEXT:    movzwl (%rdi), %eax
@@ -239,7 +211,6 @@ define <8 x float> @prefer_f16_v8f32(ptr %p) nounwind {
 ; AVX512FP16-NEXT:    vmovsh (%rdi), %xmm0
 ; AVX512FP16-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    vbroadcastss %xmm0, %ymm0
->>>>>>> 2d73295c43442302bda99a09708fca6265742a13
 ; AVX512FP16-NEXT:    retq
 entry:
   %0 = load half, ptr %p, align 4
@@ -279,11 +250,6 @@ define <2 x double> @prefer_f16_v2f64(ptr %p) nounwind {
 ; AVX512F-NEXT:    vcvtps2pd %xmm0, %xmm0
 ; AVX512F-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512FP16-LABEL: prefer_f16_v2f64:
-; AVX512FP16:       # %bb.0: # %entry
-; AVX512FP16-NEXT:    vcvtph2pd (%rdi){1to2}, %xmm0
-=======
 ; AVX512-LABEL: prefer_f16_v2f64:
 ; AVX512:       # %bb.0: # %entry
 ; AVX512-NEXT:    movzwl (%rdi), %eax
@@ -298,7 +264,6 @@ define <2 x double> @prefer_f16_v2f64(ptr %p) nounwind {
 ; AVX512FP16-NEXT:    vmovsh (%rdi), %xmm0
 ; AVX512FP16-NEXT:    vcvtsh2sd %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    vmovddup {{.*#+}} xmm0 = xmm0[0,0]
->>>>>>> 2d73295c43442302bda99a09708fca6265742a13
 ; AVX512FP16-NEXT:    retq
 entry:
   %0 = load half, ptr %p, align 4
@@ -341,18 +306,6 @@ define <4 x double> @prefer_f16_v4f64(ptr %p) nounwind {
 ; AVX2-NEXT:    popq %rax
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512F-LABEL: prefer_f16_v4f64:
-; AVX512F:       # %bb.0: # %entry
-; AVX512F-NEXT:    vpbroadcastw (%rdi), %xmm0
-; AVX512F-NEXT:    vcvtph2ps %xmm0, %xmm0
-; AVX512F-NEXT:    vcvtps2pd %xmm0, %ymm0
-; AVX512F-NEXT:    retq
-;
-; AVX512FP16-LABEL: prefer_f16_v4f64:
-; AVX512FP16:       # %bb.0: # %entry
-; AVX512FP16-NEXT:    vcvtph2pd (%rdi){1to4}, %ymm0
-=======
 ; AVX512-LABEL: prefer_f16_v4f64:
 ; AVX512:       # %bb.0: # %entry
 ; AVX512-NEXT:    movzwl (%rdi), %eax
@@ -367,7 +320,6 @@ define <4 x double> @prefer_f16_v4f64(ptr %p) nounwind {
 ; AVX512FP16-NEXT:    vmovsh (%rdi), %xmm0
 ; AVX512FP16-NEXT:    vcvtsh2sd %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    vbroadcastsd %xmm0, %ymm0
->>>>>>> 2d73295c43442302bda99a09708fca6265742a13
 ; AVX512FP16-NEXT:    retq
 entry:
   %0 = load half, ptr %p, align 4
