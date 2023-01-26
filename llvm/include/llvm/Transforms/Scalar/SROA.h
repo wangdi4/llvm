@@ -96,7 +96,15 @@ using RewriteableMemOps = SmallVector<RewriteableMemOp, 2>;
 
 } // end namespace sroa
 
-enum class SROAOptions : bool { ModifyCFG, PreserveCFG };
+#if INTEL_CUSTOMIZATION
+// enum class SROAOptions : bool { ModifyCFG, PreserveCFG };
+enum class SROAOptions : unsigned {
+  ModifyCFG,
+  PreserveCFG,
+  IntelModifyCFG,
+  IntelPreserveCFG
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// An optimization pass providing Scalar Replacement of Aggregates.
 ///
@@ -219,6 +227,13 @@ private:
   void clobberUse(Use &U);
   bool deleteDeadInstructions(SmallPtrSetImpl<AllocaInst *> &DeletedAllocas);
   bool promoteAllocas(Function &F);
+
+#if INTEL_CUSTOMIZATION
+  /// If true then SROA will only be applied on functions that contain inline
+  /// hints. Use the SROAOptions::IntelPreserveCFG and
+  /// SROAOptions::IntelModifyCFG options to enable it.
+  const bool RunForInlineInLoopsOnly;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

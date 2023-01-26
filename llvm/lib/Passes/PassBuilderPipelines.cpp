@@ -1379,7 +1379,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
     if (Level.getSpeedupLevel() > 2) {
       CGSCCPassManager &PMICgsccPM = PMIWP.getPM();
       PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(
-          SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+          SROAPass(SROAPass(SROAOptions::IntelModifyCFG))));
       PMICgsccPM.addPass(createCGSCCToFunctionPassAdaptor(SimplifyCFGPass()));
     }
 #endif // INTEL_CUSTOMIZATION

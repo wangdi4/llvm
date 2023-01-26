@@ -5166,6 +5166,13 @@ bool SROAPass::promoteAllocas(Function &F) {
 
 PreservedAnalyses SROAPass::runImpl(Function &F, DomTreeUpdater &RunDTU,
                                     AssumptionCache &RunAC) {
+#if INTEL_CUSTOMIZATION
+  // If RunForInlineInLoopsOnly is enabled then we are going to perform SROA
+  // only for functions with inline hint.
+  if (RunForInlineInLoopsOnly && !F.hasFnAttribute(Attribute::InlineHint))
+    return PreservedAnalyses::all();
+#endif // INTEL_CUSTOMIZATION
+
   LLVM_DEBUG(dbgs() << "SROA function: " << F.getName() << "\n");
   C = &F.getContext();
   DTU = &RunDTU;
@@ -5276,8 +5283,13 @@ void SROAPass::printPipeline(
   OS << (PreserveCFG ? "<preserve-cfg>" : "<modify-cfg>");
 }
 
+#if INTEL_CUSTOMIZATION
 SROAPass::SROAPass(SROAOptions PreserveCFG_)
-    : PreserveCFG(PreserveCFG_ == SROAOptions::PreserveCFG) {}
+    : PreserveCFG(PreserveCFG_ == SROAOptions::PreserveCFG ||
+                  PreserveCFG_ == SROAOptions::IntelPreserveCFG),
+      RunForInlineInLoopsOnly(PreserveCFG_ == SROAOptions::IntelPreserveCFG ||
+                              PreserveCFG_ == SROAOptions::IntelModifyCFG) {}
+#endif // INTEL_CUSTOMIZATION
 
 /// A legacy pass for the legacy pass manager that wraps the \c SROA pass.
 ///

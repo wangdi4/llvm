@@ -1085,12 +1085,19 @@ Expected<SROAOptions> parseSROAOptions(StringRef Params) {
     return SROAOptions::ModifyCFG;
   if (Params == "preserve-cfg")
     return SROAOptions::PreserveCFG;
+#if INTEL_CUSTOMIZATION
+  if (Params == "intel-preserve-cfg")
+    return SROAOptions::IntelPreserveCFG;
+  if (Params == "intel-modify-cfg")
+    return SROAOptions::IntelModifyCFG;
   return make_error<StringError>(
-      formatv("invalid SROA pass parameter '{0}' (either preserve-cfg or "
-              "modify-cfg can be specified)",
+      formatv("invalid SROA pass parameter '{0}' (either preserve-cfg, "
+              "modify-cfg, intel-preserve-cfg or intel-modify-cfg can be "
+              "specified)",
               Params)
           .str(),
       inconvertibleErrorCode());
+#endif // INTEL_CUSTOMIZATION
 }
 
 Expected<StackLifetime::LivenessType>
