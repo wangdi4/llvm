@@ -290,10 +290,9 @@ static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
 
 // Returns true if IV replacement succeeded, false if failed and {} if no
 // replacement required.
-static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
-                                       const HLLoop *InnerLoop,
-                                       bool IsLowerBound,
-                                       RegDDRef *UnknownLoopUBRef = nullptr) {
+static std::optional<bool>
+replaceIVByBound(CanonExpr *CE, const HLLoop *Loop, const HLLoop *InnerLoop,
+                 bool IsLowerBound, RegDDRef *UnknownLoopUBRef = nullptr) {
   unsigned Level = Loop->getNestingLevel();
 
   unsigned IVBlobIndex;

@@ -368,7 +368,7 @@ public:
                               size_t Multiplier);
 
   // Query function for saved results about flattened GEPs.
-  llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+  std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
   getFlattenedGEPElement(GEPOperator *GEP) const;
 
   void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
@@ -461,7 +461,7 @@ public:
   // deepest nested aggregate type, and the second element returns the type of
   // element zero of that type.
   using AggregateElementPair = std::pair<DTransType *, DTransType *>;
-  Optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
+  std::optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
 
   void setUnsupportedAddressSpaceSeen() { UnsupportedAddressSpaceSeen = true; }
   bool getUnsupportedAddressSpaceSeen() const {
@@ -4869,7 +4869,7 @@ void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
     });
 }
 
-llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
 PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
   auto Entry = FlattenedGEPInfoMap.find(GEP);
   if (Entry != FlattenedGEPInfoMap.end())
@@ -5309,7 +5309,7 @@ bool PtrTypeAnalyzerImpl::isPointeeElementZeroAccess(
   return false;
 }
 
-Optional<PtrTypeAnalyzerImpl::AggregateElementPair>
+std::optional<PtrTypeAnalyzerImpl::AggregateElementPair>
 PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
   if (!Ty->isAggregateType())
     return std::nullopt;
@@ -5420,7 +5420,7 @@ PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
 }
 
-llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
 PtrTypeAnalyzer::getFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getFlattenedGEPElement(GEP);
 }

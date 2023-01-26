@@ -45,14 +45,15 @@ public:
     return Context.create<VPVLSClientMemref>(Kind, AccKind, Ty, Inst, VLSA);
   }
 
-  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) const override;
+  std::optional<int64_t>
+  getConstDistanceFrom(const OVLSMemref &From) const override;
 
   bool canMoveTo(const OVLSMemref &To) override;
 
   bool static isConstStride(const VPLoadStoreInst *Inst,
                             const VPlanScalarEvolutionLLVM *VPSE,
-                            Optional<int64_t> &Stride);
-  Optional<int64_t> getConstStride() const override;
+                            std::optional<int64_t> &Stride);
+  std::optional<int64_t> getConstStride() const override;
 
   bool dominates(const OVLSMemref &Mrf) const override;
   bool postDominates(const OVLSMemref &Mrf) const override;

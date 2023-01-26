@@ -9902,8 +9902,8 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
 /// corresponding to \p Name.
 ///
 /// If it isn't present, this returns std::nullopt.
-static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
-                                                            StringRef Name) {
+static std::optional<uint64_t>
+getMaxTripCountFromSingleMetadata(const Loop *L, StringRef Name) {
   if (const MDOperand *const Opnd =
           findStringMetadataForLoop(L, Name).value_or(nullptr))
     if (const auto *const Constant =
@@ -9917,12 +9917,12 @@ static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
 /// metadata.
 ///
 /// If there isn't any maximum trip count metadata, returns std::nullopt.
-static Optional<uint64_t> getMaxTripCountFromMetadata(const Loop *L) {
+static std::optional<uint64_t> getMaxTripCountFromMetadata(const Loop *L) {
   // Our compiler is fancy enough to have two different metadata for this, so
   // check both.
-  const Optional<uint64_t> LoopcountMaximum =
+  const std::optional<uint64_t> LoopcountMaximum =
       getMaxTripCountFromSingleMetadata(L, "llvm.loop.intel.loopcount_maximum");
-  const Optional<uint64_t> MaxTripCount =
+  const std::optional<uint64_t> MaxTripCount =
       getMaxTripCountFromSingleMetadata(L, "llvm.loop.intel.max.trip_count");
   if (!MaxTripCount)
     return LoopcountMaximum;
@@ -9981,7 +9981,7 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
 #if INTEL_CUSTOMIZATION
   // If the loop has maximum trip count metadata of some form, compute an upper
   // bound for the backedge-taken count.
-  const Optional<uint64_t> MaxTripCountFromMetadata =
+  const std::optional<uint64_t> MaxTripCountFromMetadata =
       getMaxTripCountFromMetadata(L);
   const SCEV *MaxBackedgeTakenFromMetadata = getCouldNotCompute();
   if (MaxTripCountFromMetadata) {
@@ -13418,7 +13418,7 @@ static void stripCastsForConstDiffAnalysis(ScalarEvolution &SE,
 
 /// Tries to prove condition by comparing constant difference between
 /// (FoundLHS - LHS) and (FoundRHS - RHS).
-static Optional<bool> isImpliedCondOperandsViaConstantDifference(
+static std::optional<bool> isImpliedCondOperandsViaConstantDifference(
     ScalarEvolution &SE, ICmpInst::Predicate Pred, const SCEV *LHS,
     const SCEV *RHS, const SCEV *FoundLHS, const SCEV *FoundRHS) {
 

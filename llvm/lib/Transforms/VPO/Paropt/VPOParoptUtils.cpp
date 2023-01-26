@@ -4691,9 +4691,8 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // of the interop obj if one was added into the variant call, or zero if not.
 CallInst *VPOParoptUtils::genVariantCall(
     CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
-    llvm::Optional<uint64_t> InteropPosition,
-    uint64_t &InteropPositionIfEmitted, Instruction *InsertPt, WRegionNode *W,
-    bool IsTail) {
+    std::optional<uint64_t> InteropPosition, uint64_t &InteropPositionIfEmitted,
+    Instruction *InsertPt, WRegionNode *W, bool IsTail) {
   assert(BaseCall && "BaseCall is null");
 
   Module *M = BaseCall->getModule();
@@ -5714,8 +5713,8 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 Value *VPOParoptUtils::genPrivatizationAlloca(
     Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
     Instruction *InsertPt, bool IsTargetSPIRV, const Twine &VarName,
-    llvm::Optional<unsigned> AllocaAddrSpace,
-    llvm::Optional<unsigned> ValueAddrSpace, AllocateItem *AllocItem) {
+    std::optional<unsigned> AllocaAddrSpace,
+    std::optional<unsigned> ValueAddrSpace, AllocateItem *AllocItem) {
   assert(ElementType && "Null element type.");
   assert(InsertPt && "Null insertion anchor.");
 
@@ -6710,7 +6709,7 @@ CallInst *VPOParoptUtils::getSingleCallSite(Function *F) {
 
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-    llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
+    std::optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
 #if 0
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": WRN BBSet {\n";
            formatted_raw_ostream OS(dbgs());
@@ -6935,7 +6934,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   // Reduction operation is defined by the operation kind (e.g. add)
   // and its signedness (true/false for integer types and std::nullopt
   // for floating point types).
-  typedef Optional<bool> IsSignedTy;
+  typedef std::optional<bool> IsSignedTy;
   typedef std::pair<ReductionItem::WRNReductionKind, IsSignedTy>
       ReductionOperationTy;
 
@@ -7004,7 +7003,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     return nullptr;
 
   ReductionItem::WRNReductionKind Kind = RedI->getType();
-  Optional<bool> IsSigned = std::nullopt;
+  std::optional<bool> IsSigned = std::nullopt;
   if (ScalarTy->isIntegerTy())
     IsSigned = !RedI->getIsUnsigned();
 

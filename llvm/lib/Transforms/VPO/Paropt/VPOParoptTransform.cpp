@@ -7600,10 +7600,8 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 // Generate a private variable version for a ClauseItem I for various
 // data-sharing clauses.
 Value *VPOParoptTransform::genPrivatizationAlloca(
-    Item *I, Instruction *InsertPt,
-    const Twine &NameSuffix,
-    llvm::Optional<unsigned> AllocaAddrSpace,
-    bool PreserveAddressSpace) const {
+    Item *I, Instruction *InsertPt, const Twine &NameSuffix,
+    std::optional<unsigned> AllocaAddrSpace, bool PreserveAddressSpace) const {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
@@ -7628,7 +7626,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt, isTargetSPIRV(),
       Orig->getName() + NameSuffix, AllocaAddrSpace,
-      !PreserveAddressSpace ? std::nullopt : llvm::Optional<unsigned>(AddrSpace),
+      !PreserveAddressSpace ? std::nullopt : std::optional<unsigned>(AddrSpace),
       AllocItem);
   assert(NewVal && "Failed to create local copy.");
 
@@ -9855,8 +9853,9 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
   return Changed;
 }
 
-llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
-    const WRegionNode *W, const Item *I) const {
+std::optional<unsigned>
+VPOParoptTransform::getPrivatizationAllocaAddrSpace(const WRegionNode *W,
+                                                    const Item *I) const {
   if (!isTargetSPIRV())
     return std::nullopt;
 
@@ -10830,7 +10829,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   // Try to find loop's upper bound to get maximum trip count.
   // TODO: add support for collapsed loops with more than one normalized UB.
-  Optional<APInt> MaxIV;
+  std::optional<APInt> MaxIV;
   if (W->getWRNLoopInfo().getNormUBSize() == 1) {
     if (auto *UB = dyn_cast<AllocaInst>(W->getWRNLoopInfo().getNormUB(0))) {
       // Walk UB uses trying to find single store that initializes UB.
@@ -10869,7 +10868,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   // Try to find average and maximum trip counts for the loop. If loop has
   // static or dynamic schedule and known chunk then both average and maximum
   // trip counts will be equal to the chunk value.
-  Optional<APInt> MaxTC, AvgTC;
+  std::optional<APInt> MaxTC, AvgTC;
   if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
                                SchedKind == WRNScheduleOrderedStatic ||
                                SchedKind == WRNScheduleDynamic ||
@@ -15042,23 +15041,24 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
   for (BasicBlock &BB : *F)
     OrphanBlocks.insert(&BB);
 
-  auto GetConstantValue = [](Value *V) -> Optional<APInt> {
+  auto GetConstantValue = [](Value *V) -> std::optional<APInt> {
     if (auto *CI = dyn_cast_or_null<ConstantInt>(V))
       return CI->getValue();
     return std::nullopt;
   };
 
-  auto GetParentValue = [](WRegionNode *W,
-                           SmallDenseMap<WRegionNode *, Optional<APInt>> &Map)
-      -> Optional<APInt> {
+  auto GetParentValue =
+      [](WRegionNode *W,
+         SmallDenseMap<WRegionNode *, std::optional<APInt>> &Map)
+      -> std::optional<APInt> {
     if (WRegionNode *PW = W->getParent())
       return Map[PW];
     return std::nullopt;
   };
 
   // Propagate number of teams and threads from outer regions to inner.
-  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumTeams;
-  SmallDenseMap<WRegionNode *, Optional<APInt>> W2NumThreads;
+  SmallDenseMap<WRegionNode *, std::optional<APInt>> W2NumTeams;
+  SmallDenseMap<WRegionNode *, std::optional<APInt>> W2NumThreads;
   for (WRegionNode *W : reverse(WRegionList)) {
     W->populateBBSet();
 
@@ -15091,7 +15091,7 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
   // Adds [Lo, Hi) range metadata to the given call instruction. If upper
   // bound is not specified then max positive value of the call's result type
   // is used.
-  auto AddRangeMD = [](CallBase *Call, int64_t Lo, Optional<APInt> Hi) {
+  auto AddRangeMD = [](CallBase *Call, int64_t Lo, std::optional<APInt> Hi) {
     auto *Ty = cast<IntegerType>(Call->getType());
     APInt Max = Hi ? *Hi : APInt::getSignedMaxValue(Ty->getBitWidth());
     MDNode *RangeMD =
@@ -15104,8 +15104,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
   // Annotate OpenMP API calls in the given basic block using provided number of
   // teams and threads in the block.
   auto AnnotateCalls = [this, &AddRangeMD](BasicBlock *BB,
-                                           Optional<APInt> NumTeams,
-                                           Optional<APInt> NumThreads) {
+                                           std::optional<APInt> NumTeams,
+                                           std::optional<APInt> NumThreads) {
     bool Changed = false;
     for (Instruction &I : *BB) {
       auto *Call = dyn_cast<CallBase>(&I);
@@ -15123,7 +15123,8 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
       switch (TheLibFunc) {
       case LibFunc_omp_get_num_teams:
         AddRangeMD(Call, 1,
-                   NumTeams ? *NumTeams + 1u : Optional<APInt>{std::nullopt});
+                   NumTeams ? *NumTeams + 1u
+                            : std::optional<APInt>{std::nullopt});
         Changed = true;
         break;
       case LibFunc_omp_get_team_num:
@@ -15133,7 +15134,7 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
       case LibFunc_omp_get_num_threads:
         AddRangeMD(Call, 1,
                    NumThreads ? *NumThreads + 1u
-                              : Optional<APInt>{std::nullopt});
+                              : std::optional<APInt>{std::nullopt});
         Changed = true;
         break;
       case LibFunc_omp_get_thread_num:

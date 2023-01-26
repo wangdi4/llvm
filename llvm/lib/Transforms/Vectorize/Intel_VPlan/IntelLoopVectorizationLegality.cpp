@@ -468,7 +468,7 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
 
 void VPOVectorizationLegality::parseMinMaxReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing some possible scenarios:
   // (1)
@@ -545,7 +545,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(
 
 void VPOVectorizationLegality::parseBinOpReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -599,7 +599,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
 
 void VPOVectorizationLegality::addReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 

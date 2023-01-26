@@ -1249,7 +1249,7 @@ struct VLSInsert {
 // group 0: <i32 0, i32 undef, i32 undef>
 // group 1: <i32 1, i32 undef, i32 undef>
 // This function also saves NumElem/ElemTy for matching other vls-insert.
-static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
+static std::optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
   const ArrayRef<int>& Mask = Shuf->getShuffleMask();
   auto LHS = Shuf->getOperand(0);
   auto RHS = Shuf->getOperand(1);
@@ -1303,7 +1303,7 @@ static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
 // %ext_vec = shufflevector <2 x i8> %in1, <2 x i8> undef, <6 x i32>
 //               <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
 // This function check if the 'shufflevector' just extends the LHS with undef.
-static Optional<VLSInsert> getVectorWidthExtend(const Value *V) {
+static std::optional<VLSInsert> getVectorWidthExtend(const Value *V) {
   auto ExtVec = dyn_cast<ShuffleVectorInst>(V);
   if (!ExtVec)
     return std::nullopt;
@@ -1344,9 +1344,9 @@ static Optional<VLSInsert> getVectorWidthExtend(const Value *V) {
 // For this example, it has two groups, eacho group's size is 3.
 // Offset in the parameter means where to insert the extend vector in the group.
 // The example's Offset should be 1.
-static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
-                                            const VLSInsert *FirstVLSInsert,
-                                            const unsigned Offset) {
+static std::optional<VLSInsert>
+getNextVLSInsert(const ShuffleVectorInst *Shuf, const VLSInsert *FirstVLSInsert,
+                 const unsigned Offset) {
   const ArrayRef<int>& Mask = Shuf->getShuffleMask();
   auto LHS = Shuf->getOperand(0);
   auto RHS = Shuf->getOperand(1);

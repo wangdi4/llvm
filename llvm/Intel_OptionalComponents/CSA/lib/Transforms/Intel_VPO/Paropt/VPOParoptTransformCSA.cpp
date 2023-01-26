@@ -1329,7 +1329,7 @@ private:
   unsigned SPMDMode = 0u;
 
   // Loop trip count estimate derived from the function's assumption cache.
-  Optional<APInt> MinTC;
+  std::optional<APInt> MinTC;
 
 private:
   void getTripCountEstimate(WRegionNode *W) {

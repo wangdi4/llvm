@@ -100,7 +100,7 @@ public:
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
-  Optional<bool> readVecRemainderEnabledHIR() {
+  std::optional<bool> readVecRemainderEnabledHIR() {
     if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vecremainder")) {
       DEBUG_WITH_TYPE("VPlan_pragma_metadata",
                        dbgs() << "Vector Remainder was set by the user's "

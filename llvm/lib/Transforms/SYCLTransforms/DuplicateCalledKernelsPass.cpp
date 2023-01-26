@@ -142,7 +142,7 @@ getFunctionsInCGNodeIf(const CallGraphNode *N,
 /// Find a kernel that needs fix, i.e. it and another kernel call the same
 /// function which directly or indirectly uses the same local variables. Returns
 /// a pair of a kernel to fix and a set of shared local variables.
-static Optional<std::tuple<Function *, FuncPtrSet>>
+static std::optional<std::tuple<Function *, FuncPtrSet>>
 findKernelToFix(const CallGraph &CG, const FuncSet &KernelSet,
                 const LocalBufferInfo::TUsedLocalsMap &LocalUseMap,
                 FuncPtrSet &SkipKernels) {
@@ -186,7 +186,7 @@ findKernelToFix(const CallGraph &CG, const FuncSet &KernelSet,
 ///   * candidate function to clone.
 ///   * a set of functions that keep using original candidate function instead
 ///     of cloned one.
-static Optional<std::pair<Function *, FuncPtrSet>>
+static std::optional<std::pair<Function *, FuncPtrSet>>
 findFunctionToClone(const CallGraph &CG, const FuncSet &KernelSet,
                     LocalBufferInfo::TUsedLocalsMap &LocalUseMap,
                     FuncPtrSet &SkipKernels) {
@@ -221,7 +221,7 @@ static Function *
 cloneFunctions(Module &M, CallGraph &CG,
                LocalBufferInfo::TUsedLocalsMap &DirectLocalUseMap,
                Function *Root, bool RootIsKernel,
-               const Optional<FuncPtrSet> &NotReplaceSet) {
+               const std::optional<FuncPtrSet> &NotReplaceSet) {
   FuncSet FuncsToClone;
   FuncPtrSet FuncsInRootCG;
   CallGraphNode *N = CG[Root];

@@ -230,7 +230,7 @@ public:
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
   selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:

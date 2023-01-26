@@ -621,8 +621,8 @@ Type *DDRefUtils::getOffsetType(Type *Ty, ArrayRef<unsigned> Offsets) {
 // 5) if (equiv(a,b)==true) equiv(b,a)==true
 // 6) if (equiv(a,b)==true && equiv(b,c)==true) equiv(a,c)==true
 //
-static Optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
-                                        const RegDDRef *Ref2) {
+static std::optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() &&
          "Both RegDDRefs are expected to be memory references.");
 

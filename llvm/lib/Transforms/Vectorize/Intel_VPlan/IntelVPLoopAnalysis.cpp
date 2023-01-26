@@ -395,11 +395,13 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(
-    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
-    RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
-    VPEntityAliasesTy &MemAliases, Optional<InscanReductionKind> InscanRedKind,
-    VPValue *AI, bool ValidMemOnly) {
+VPReduction *
+VPLoopEntityList::addReduction(VPInstruction *Instr, VPValue *Incoming,
+                               VPInstruction *Exit, RecurKind Kind,
+                               FastMathFlags FMF, Type *RedTy, bool Signed,
+                               VPEntityAliasesTy &MemAliases,
+                               std::optional<InscanReductionKind> InscanRedKind,
+                               VPValue *AI, bool ValidMemOnly) {
   VPReduction *Red =
       InscanRedKind.has_value()
           ? new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
@@ -440,7 +442,7 @@ VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
     Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
     VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
     VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
   // Create a new VPEntity to represent UDR.
   VPUserDefinedReduction *Red =
       !InscanRedKind.has_value()
@@ -2406,7 +2408,8 @@ static bool checkLastPrivPhiUsers(const VPPHINode *VPhi,
 // is <nullptr, PrivateKind::Last>, and for non-vectorizable cases the return
 // value is std::nullopt.
 
-using PrivKindPair = Optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
+using PrivKindPair =
+    std::optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
 
 static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
   const VPBasicBlock *HeaderBB = LE->getLoop().getHeader();

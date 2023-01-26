@@ -107,10 +107,10 @@ class CSAStreamingMemoryImpl {
 
   bool isPipelinedLoop(Loop *L);
 
-  Optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
-      Instruction *MemInst);
-  Optional<WideLoadDetails> getLegalWideLoad(Value *Pointer,
-      Instruction *MemInst);
+  std::optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
+                                                       Instruction *MemInst);
+  std::optional<WideLoadDetails> getLegalWideLoad(Value *Pointer,
+                                                  Instruction *MemInst);
   CallInst *getInordEdge(Instruction *MemInst);
   CallInst *getOutordEdge(Instruction *MemInst);
 
@@ -516,8 +516,8 @@ static bool anyUseInLoop(Value *V, Loop *L) {
   return false;
 }
 
-Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
-    Value *Pointer, Instruction *MemInst) {
+std::optional<StreamingMemoryDetails>
+CSAStreamingMemoryImpl::getLegalStream(Value *Pointer, Instruction *MemInst) {
 
   // Disable streaming if the instruction is in a local cache.
   if (MemInst->hasMetadata(LocalCacheKey)) return None;
@@ -570,8 +570,8 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
   return Details;
 }
 
-Optional<WideLoadDetails> CSAStreamingMemoryImpl::getLegalWideLoad(
-    Value *Pointer, Instruction *MemInst) {
+std::optional<WideLoadDetails>
+CSAStreamingMemoryImpl::getLegalWideLoad(Value *Pointer, Instruction *MemInst) {
 
   // Disable streaming if the instruction is in a local cache.
   if (MemInst->hasMetadata(LocalCacheKey)) return None;

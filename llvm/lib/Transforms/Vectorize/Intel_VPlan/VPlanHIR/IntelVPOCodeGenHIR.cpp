@@ -1799,7 +1799,7 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
   unsigned Alignment = WideRef->getAlignment();
   if (!Alignment) {
     auto DL = WideRef->getDDRefUtils().getDataLayout();
-    Alignment = DL.getABITypeAlign(ScalRefTy);
+    Alignment = DL.getABITypeAlign(ScalRefTy).value();
     WideRef->setAlignment(Alignment);
   }
 }

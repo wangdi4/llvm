@@ -65,18 +65,18 @@ VPlanSCEV *VPlanScalarEvolutionHIR::getMinusExpr(VPlanSCEV *OpaqueLHS,
   return toVPlanSCEV(Result);
 }
 
-Optional<VPConstStepLinear>
+std::optional<VPConstStepLinear>
 VPlanScalarEvolutionHIR::asConstStepLinear(VPlanSCEV *Expr) const {
   // FIXME: This implementation of asConstStepLinear simply delegates the
   //        request to asConstStepInduction. That is, no variables that are
   //        linear but non-inductive can be detected by this routine yet.
-  Optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
+  std::optional<VPConstStepInduction> Ind = asConstStepInduction(Expr);
   return llvm::transformOptional(Ind, [](const auto &I) {
     return VPConstStepLinear{I.InvariantBase, I.Step};
   });
 }
 
-Optional<VPConstStepInduction>
+std::optional<VPConstStepInduction>
 VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *OpaqueExpr) const {
   VPlanAddRecHIR *Expr = toVPlanAddRecHIR(OpaqueExpr);
 

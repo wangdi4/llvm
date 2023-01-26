@@ -81,7 +81,7 @@ VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
 
   // At this point we are not sure if this memref should be created. Perform
   // a check first and only create the memref if it would be constant strided.
-  Optional<int64_t> Stride;
+  std::optional<int64_t> Stride;
   if (VPVLSClientMemref::isConstStride(
           VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE),
           Stride)) {
@@ -226,7 +226,7 @@ void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
 /// memory reference in the \p Group.
 int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group) {
   const OVLSMemref *FirstMemref = Group->getFirstMemref();
-  Optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
+  std::optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
   assert(Offset && "Memref is from another group?");
 
   auto ElementSizeInBits = Memref->getType().getElementSize();
@@ -239,7 +239,7 @@ int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group) {
 
 /// InterleaveFactor is a stride of a \p Memref (in elements).
 int computeInterleaveFactor(const OVLSMemref *Memref) {
-  Optional<int64_t> Stride = Memref->getConstStride();
+  std::optional<int64_t> Stride = Memref->getConstStride();
   assert(Stride && "Interleave factor requested for non-strided accesses");
 
   auto ElementSizeInBits = Memref->getType().getElementSize();

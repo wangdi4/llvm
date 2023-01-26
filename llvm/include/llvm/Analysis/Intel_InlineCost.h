@@ -78,7 +78,7 @@ extern void collectDTransFuncs(Module &M, const InlineParams &Params);
 // Return an 'InlineResult' if 'CandidateCall' is a callsite that is not
 // worth inlining according to some special Intel inlining heuristic.
 // If there is no special reason to inhibit the inlining, return 'None'.
-extern Optional<InlineResult> intelWorthNotInlining(
+extern std::optional<InlineResult> intelWorthNotInlining(
     CallBase &CandidateCall, const InlineParams &Params, TargetLibraryInfo *TLI,
     const TargetTransformInfo &CalleeTTI, ProfileSummaryInfo *PSI,
     InliningLoopInfoCache *ILIC, SmallPtrSetImpl<Function *> *QueuedCallers,

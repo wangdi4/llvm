@@ -57,8 +57,7 @@ struct MappingTraits<vpo::Config> {
 class VPOParoptConfig {
   vpo::Config Config;
 
-  Optional<const vpo::KernelConfig> getKernelConfig(
-      StringRef Name) const;
+  std::optional<const vpo::KernelConfig> getKernelConfig(StringRef Name) const;
 
 public:
   VPOParoptConfig(LLVMContext &Context);

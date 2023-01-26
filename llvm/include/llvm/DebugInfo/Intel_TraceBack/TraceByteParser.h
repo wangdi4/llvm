@@ -59,7 +59,7 @@ private:
   /// Last seen routine.
   std::string LastRoutine;
   /// Last seen tags.
-  std::array<Optional<traceback::Tag>, 2> LastTwoTags;
+  std::array<std::optional<traceback::Tag>, 2> LastTwoTags;
 
 private:
   /// Mask used to help interpret the tag byte.

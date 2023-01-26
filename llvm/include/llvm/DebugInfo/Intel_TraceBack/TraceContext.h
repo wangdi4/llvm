@@ -37,7 +37,7 @@ private:
   /// The byte size of pointers.
   uint8_t PointerSize;
   /// The reference to the .trace section if it exists.
-  Optional<object::SectionRef> TraceSectionOrNone;
+  std::optional<object::SectionRef> TraceSectionOrNone;
   /// Map from the offset in .trace section to its value string of relocations.
   DenseMap<uint32_t, SmallString<32>> RelMap;
 
@@ -45,10 +45,11 @@ public:
   /// Constants for string ".trace".
   static const StringRef TraceName;
 
-  TraceContext(uint8_t PointerSize = 0,
-               Optional<object::SectionRef> TraceSectionOrNone = std::nullopt,
-               const DenseMap<uint32_t, SmallString<32>> &RelMap =
-                   DenseMap<uint32_t, SmallString<32>>())
+  TraceContext(
+      uint8_t PointerSize = 0,
+      std::optional<object::SectionRef> TraceSectionOrNone = std::nullopt,
+      const DenseMap<uint32_t, SmallString<32>> &RelMap =
+          DenseMap<uint32_t, SmallString<32>>())
       : PointerSize(PointerSize), TraceSectionOrNone(TraceSectionOrNone),
         RelMap(RelMap) {}
   static std::unique_ptr<TraceContext>

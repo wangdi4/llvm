@@ -67,7 +67,7 @@ bool DTransAnnotator::removeDTransTypeAnnotation(Instruction &I) {
   return removeDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
 }
 
-Optional<std::pair<llvm::Type *, unsigned>>
+std::optional<std::pair<llvm::Type *, unsigned>>
 DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
   return lookupDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
 }
@@ -85,7 +85,7 @@ bool DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(Function &F) {
   return removeDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
 }
 
-Optional<std::pair<llvm::Type *, unsigned>>
+std::optional<std::pair<llvm::Type *, unsigned>>
 DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
   return lookupDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
 }
@@ -107,7 +107,7 @@ bool DTransAnnotator::removeDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
       F, MetadataNames[DMD_DTransSOAToAOSPrepare]);
 }
 
-Optional<std::pair<llvm::Type *, unsigned>>
+std::optional<std::pair<llvm::Type *, unsigned>>
 DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
   return lookupDTransTypeAnnotationImpl(
       F, MetadataNames[DMD_DTransSOAToAOSPrepare]);

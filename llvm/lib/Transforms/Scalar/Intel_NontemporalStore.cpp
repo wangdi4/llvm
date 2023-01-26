@@ -154,7 +154,8 @@ public:
   /// Determines whether \p SI is independent and has a statically known stride
   /// within its containing loop. If so, a pair containing the loop and the
   /// static stride (in bytes) is returned.
-  Optional<std::pair<Loop *, int64_t>> getStaticStrideInLoop(StoreInst &SI);
+  std::optional<std::pair<Loop *, int64_t>>
+  getStaticStrideInLoop(StoreInst &SI);
 
   /// Determines whether any memory accesses in \p L may conflict with \p SI.
   /// \p StoreStride should be the stride of \p SI in bytes.
@@ -450,7 +451,7 @@ bool NontemporalStore::run() {
   return true;
 }
 
-Optional<std::pair<Loop *, int64_t>>
+std::optional<std::pair<Loop *, int64_t>>
 NontemporalStore::getStaticStrideInLoop(StoreInst &SI) {
   Loop *ContainingLoop = LI.getLoopFor(SI.getParent());
   assert(ContainingLoop && "Shouldn't be considering stores not in loops");

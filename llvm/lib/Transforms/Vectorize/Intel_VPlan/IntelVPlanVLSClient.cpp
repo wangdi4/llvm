@@ -23,14 +23,14 @@
 using namespace llvm::vpo;
 
 /// Implementation of OVLSMemref::getConstStride.
-static Optional<int64_t>
+static std::optional<int64_t>
 getConstStrideImpl(const SCEV *Expr, const VPlanScalarEvolutionLLVM &VPSE) {
   VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
-  Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
+  std::optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
   return llvm::transformOptional(Linear, [](auto &L) { return L.Step; });
 }
 
-static Optional<int64_t>
+static std::optional<int64_t>
 getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
                          VPlanScalarEvolutionLLVM &VPSE) {
   // Early exit to improve compile time. If the types don't match, there's no
@@ -50,7 +50,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
   return Const->getAPInt().getSExtValue();
 }
 
-Optional<int64_t>
+std::optional<int64_t>
 VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) const {
   const VPLoadStoreInst *FromInst = cast<VPVLSClientMemref>(From).Inst;
   const SCEV *FromScev = getAddressSCEV(FromInst);
@@ -85,7 +85,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (!FromSCEV)
     return false;
 
-  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, VPSE);
+  std::optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, VPSE);
   if (!FromStride)
     return false;
 
@@ -140,7 +140,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 
       // Constant distance between From and IterInst implies that the strides of
       // IterInst and From are the same.
-      Optional<int64_t> Distance =
+      std::optional<int64_t> Distance =
           getConstDistanceFromImpl(IterSCEV, FromSCEV, VPSE);
       if (!Distance)
         return false;
@@ -168,12 +168,12 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 
 bool VPVLSClientMemref::isConstStride(const VPLoadStoreInst *Inst,
                                       const VPlanScalarEvolutionLLVM *VPSE,
-                                      Optional<int64_t> &Stride) {
+                                      std::optional<int64_t> &Stride) {
   Stride = getConstStrideImpl(getAddressSCEV(Inst), *VPSE);
   return Stride.has_value();
 }
 
-Optional<int64_t> VPVLSClientMemref::getConstStride() const {
+std::optional<int64_t> VPVLSClientMemref::getConstStride() const {
   return getConstStrideImpl(getAddressSCEV(Inst), getVPSE());
 }
 

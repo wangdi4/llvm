@@ -554,8 +554,9 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, MemoryEffects ME) {
 
 #if INTEL_CUSTOMIZATION
 template <typename T>
-static MemoryLocation getMemoryLocationWithSize(const T *Inst,
-    const Optional<LocationSize> &Size) {
+static MemoryLocation
+getMemoryLocationWithSize(const T *Inst,
+                          const std::optional<LocationSize> &Size) {
   MemoryLocation Loc = MemoryLocation::get(Inst);
   if (Size)
     Loc = Loc.getWithNewSize(*Size);
@@ -563,10 +564,10 @@ static MemoryLocation getMemoryLocationWithSize(const T *Inst,
 }
 #endif // INTEL_CUSTOMIZATION
 
-ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI, // INTEL
-                                    const Optional<LocationSize> &Size) { // INTEL
+ModRefInfo
+AAResults::getModRefInfo(const LoadInst *L, const MemoryLocation &Loc,
+                         AAQueryInfo &AAQI,                         // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
   // Be conservative in the face of atomic.
   if (isStrongerThan(L->getOrdering(), AtomicOrdering::Unordered))
     return ModRefInfo::ModRef;
@@ -583,10 +584,10 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   return ModRefInfo::Ref;
 }
 
-ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI, // INTEL
-                                    const Optional<LocationSize> &Size) { // INTEL
+ModRefInfo
+AAResults::getModRefInfo(const StoreInst *S, const MemoryLocation &Loc,
+                         AAQueryInfo &AAQI,                         // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
   // Be conservative in the face of atomic.
   if (isStrongerThan(S->getOrdering(), AtomicOrdering::Unordered))
     return ModRefInfo::ModRef;
@@ -622,10 +623,10 @@ ModRefInfo AAResults::getModRefInfo(const FenceInst *S,
   return ModRefInfo::ModRef;
 }
 
-ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI, // INTEL
-                                    const Optional<LocationSize> &Size) { // INTEL
+ModRefInfo
+AAResults::getModRefInfo(const VAArgInst *V, const MemoryLocation &Loc,
+                         AAQueryInfo &AAQI,                         // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
   if (Loc.Ptr) {
     AliasResult AR =
         alias(getMemoryLocationWithSize(V, Size), Loc, AAQI, V); // INTEL
@@ -669,10 +670,10 @@ ModRefInfo AAResults::getModRefInfo(const CatchReturnInst *CatchRet,
   return ModRefInfo::ModRef;
 }
 
-ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI, // INTEL
-                                    const Optional<LocationSize> &Size) { // INTEL
+ModRefInfo
+AAResults::getModRefInfo(const AtomicCmpXchgInst *CX, const MemoryLocation &Loc,
+                         AAQueryInfo &AAQI,                         // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
   // Acquire/Release cmpxchg has properties that matter for arbitrary addresses.
   if (isStrongerThanMonotonic(CX->getSuccessOrdering()))
     return ModRefInfo::ModRef;
@@ -689,11 +690,12 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
   return ModRefInfo::ModRef;
 }
 
-ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
-                                    const MemoryLocation &Loc,
-                                    AAQueryInfo &AAQI, // INTEL
-                                    const Optional<LocationSize> &Size) { // INTEL
-  // Acquire/Release atomicrmw has properties that matter for arbitrary addresses.
+ModRefInfo
+AAResults::getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
+                         AAQueryInfo &AAQI,                         // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
+  // Acquire/Release atomicrmw has properties that matter for arbitrary
+  // addresses.
   if (isStrongerThanMonotonic(RMW->getOrdering()))
     return ModRefInfo::ModRef;
 
@@ -759,8 +761,8 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
 ModRefInfo
 AAResults::getModRefInfo(const Instruction *I,
                          const std::optional<MemoryLocation> &OptLoc,
-                         AAQueryInfo &AAQIP,                   // INTEL
-                         const Optional<LocationSize> &Size) { // INTEL
+                         AAQueryInfo &AAQIP,                        // INTEL
+                         const std::optional<LocationSize> &Size) { // INTEL
   if (OptLoc == std::nullopt) {
     if (const auto *Call = dyn_cast<CallBase>(I))
       return getMemoryEffects(Call, AAQIP).getModRef();

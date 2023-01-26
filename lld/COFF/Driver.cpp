@@ -1103,7 +1103,7 @@ static bool needsRebuilding(MemoryBufferRef mb) {
 // If a given archive doesn't contain bitcode files, the archive path
 // is returned as-is. Otherwise, a new temporary file is created and
 // its path is returned.
-static Optional<std::string>
+static std::optional<std::string>
 filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
   std::unique_ptr<MemoryBuffer> mb = CHECK(
       MemoryBuffer::getFile(path, -1, false, true), "could not open " + path);
@@ -1197,8 +1197,8 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
         rsp += toString(*arg) + " ";
       break;
     case OPT_INPUT: {
-      if (Optional<StringRef> path = doFindFile(arg->getValue())) {
-        if (Optional<std::string> s = filterBitcodeFiles(*path, temps))
+      if (std::optional<StringRef> path = doFindFile(arg->getValue())) {
+        if (std::optional<std::string> s = filterBitcodeFiles(*path, temps))
           rsp += quote(*s) + "\n";
         continue;
       }
