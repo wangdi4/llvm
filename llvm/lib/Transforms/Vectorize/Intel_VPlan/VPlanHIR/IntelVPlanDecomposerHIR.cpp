@@ -509,7 +509,7 @@ static Align getAlignForMemref(RegDDRef *Ref) {
   unsigned Alignment = Ref->getAlignment();
   if (!Alignment) {
     auto DL = Ref->getDDRefUtils().getDataLayout();
-    Alignment = DL.getABITypeAlignment(Ref->getDestType());
+    Alignment = DL.getABITypeAlign(Ref->getDestType());
   }
 
   return Align(Alignment);

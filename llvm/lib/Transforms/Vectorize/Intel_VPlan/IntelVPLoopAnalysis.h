@@ -705,7 +705,7 @@ public:
                             VPInstruction *Exit, RecurKind K, FastMathFlags FMF,
                             Type *RT, bool Signed,
                             VPEntityAliasesTy &MemAliases,
-                            Optional<InscanReductionKind> InscanRedKind,
+                            std::optional<InscanReductionKind> InscanRedKind,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
   /// Add index part of min/max+index reduction with parent (min/max) reduction
@@ -727,7 +727,7 @@ public:
       Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
       VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
       VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
-      Optional<InscanReductionKind> InscanRedKind);
+      std::optional<InscanReductionKind> InscanRedKind);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionOp, starting instruction \pStart, incoming value
@@ -1266,7 +1266,7 @@ public:
     DescrAlias NewAlias;
     NewAlias.Start = Start;
     NewAlias.UpdateVPInsts.assign(UpdateVPInsts.begin(), UpdateVPInsts.end());
-    Alias = Optional<DescrAlias>(NewAlias);
+    Alias = std::optional<DescrAlias>(NewAlias);
     HasAlias = true;
   }
 
@@ -1311,7 +1311,7 @@ protected:
   bool ValidMemOnly = false;
   bool Importing = true;
   // NOTE: We assume that a descriptor can have only one valid alias
-  Optional<DescrAlias> Alias;
+  std::optional<DescrAlias> Alias;
   bool HasAlias = false;
   /// Instruction(s) in VPlan that update the variable
   SmallVector<VPInstruction *, 4> UpdateVPInsts;
@@ -1338,7 +1338,7 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
-  Optional<InscanReductionKind> getInscanReductionKind() const {
+  std::optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
   }
   bool isUDR() const { return K == RecurKind::Udr; }
@@ -1355,7 +1355,7 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
-  void setInscanReductionKind(Optional<InscanReductionKind> V) {
+  void setInscanReductionKind(std::optional<InscanReductionKind> V) {
     InscanRedKind = V;
   }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
@@ -1425,7 +1425,7 @@ private:
   bool IsLinearIndex = false;
   // To avoid having 'None' inscan reduction kind in an enum, use Optional.
   // If set, this means this is an inscan reduction.
-  Optional<InscanReductionKind> InscanRedKind;
+  std::optional<InscanReductionKind> InscanRedKind;
 
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor

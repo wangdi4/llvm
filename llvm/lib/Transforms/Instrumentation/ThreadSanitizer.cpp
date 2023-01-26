@@ -204,7 +204,7 @@ struct ThreadSanitizerLegacyPass : FunctionPass {
   bool doInitialization(Module &M) override;
   static char ID; // Pass identification, replacement for typeid.
 private:
-  Optional<ThreadSanitizer> TSan;
+  std::optional<ThreadSanitizer> TSan;
 };
 #endif // INTEL_CUSTOMIZATION
 

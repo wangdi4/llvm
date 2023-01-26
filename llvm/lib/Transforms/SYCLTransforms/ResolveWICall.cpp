@@ -461,7 +461,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
 
   auto CreateGEPCastStore = [&](unsigned Offset, Type *DestTy, StringRef Name,
                                 Value *V,
-                                Optional<Align> Alignment = std::nullopt) {
+                                std::optional<Align> Alignment = std::nullopt) {
     IndexArgs[1] = ConstantInt::get(I32Ty, Offset);
     auto *GEP = Builder.CreateInBoundsGEP(BufArrType, BufAI, IndexArgs);
     auto *Cast = Builder.CreatePointerCast(GEP, DestTy, Name);

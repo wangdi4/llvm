@@ -707,7 +707,7 @@ struct MemorySanitizerLegacyPass : public FunctionPass {
   }
   bool doInitialization(Module &M) override;
 
-  Optional<MemorySanitizer> MSan;
+  std::optional<MemorySanitizer> MSan;
   MemorySanitizerOptions Options;
 };
 #endif // INTEL_CUSTOMIZATION

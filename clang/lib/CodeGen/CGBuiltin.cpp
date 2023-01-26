@@ -9103,7 +9103,7 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
     assert(VectorTy->getScalarType()->isIntegerTy());
     VectorTy = llvm::FixedVectorType::get(
         Builder.getIntNTy(IntBitWidth),
-        VectorTy->getPrimitiveSizeInBits().getFixedSize() / IntBitWidth);
+        VectorTy->getPrimitiveSizeInBits().getFixedValue() / IntBitWidth);
   }
 
   llvm::Type *RetTy = VectorTy;

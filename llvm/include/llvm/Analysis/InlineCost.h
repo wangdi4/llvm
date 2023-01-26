@@ -503,19 +503,19 @@ struct InlineParams {
 #if INTEL_CUSTOMIZATION
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
-  Optional<bool> PrepareForLTO;
+  std::optional<bool> PrepareForLTO;
 
   /// This flag indicates that it is LTO link phase. This flag is
   /// set by the LTO backend.  No more than one of PrepareForLTO and
   //  LinkForLTO should be true.
-  Optional<bool> LinkForLTO;
+  std::optional<bool> LinkForLTO;
 
   // Opt Level used for selection of inlining heuristics, not for setting
   // inlining thresholds.
-  Optional<unsigned> InlineOptLevel;
+  std::optional<unsigned> InlineOptLevel;
 
   // Indicates whether this is a SYCL device compilation
-  Optional<bool> SYCLOptimizationMode;
+  std::optional<bool> SYCLOptimizationMode;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function

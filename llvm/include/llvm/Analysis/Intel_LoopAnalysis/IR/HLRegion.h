@@ -266,7 +266,7 @@ template <> struct OptReportTraits<loopopt::HLRegion> {
     return R.getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
+  static std::optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
     return std::nullopt;
   }
 };
