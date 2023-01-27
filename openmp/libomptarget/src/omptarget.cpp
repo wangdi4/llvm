@@ -1172,7 +1172,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
         return OFFLOAD_FAIL;
       }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // In case of IsHostPtr, TPR.Entry refers to an entry that is not relevant
       // to HstPtrBegin, and it can be used in apployToShadowMapEntries below
@@ -1182,10 +1181,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       if (IsHostPtr)
         TPR.Entry = nullptr;
 #endif // INTEL_CUSTOMIZATION
-      // Add pointer to the buffer for post-synchronize processing.
-      PostProcessingPtrs.emplace_back(HstPtrBegin, DataSize, ArgTypes[I],
-                                      DelEntry && !IsHostPtr, TPR);
-=======
       // As we are expecting to delete the entry the d2h copy might race
       // with another one that also tries to delete the entry. This happens
       // as the entry can be reused and the reuse might happen after the
@@ -1196,7 +1191,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
             OFFLOAD_SUCCESS)
           return OFFLOAD_FAIL;
       }
->>>>>>> ef9d0a996d32c4bf878f87061ed0df8883131b81
     }
 
     // Add pointer to the buffer for post-synchronize processing.
