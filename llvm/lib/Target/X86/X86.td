@@ -1316,7 +1316,6 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICLTuning = [TuningFastGather,
                                       TuningMacroFusion,
-                                      TuningSlow3OpsLEA,
                                       TuningSlowDivide64,
                                       TuningFastScalarFSQRT,
                                       TuningFastVectorFSQRT,
