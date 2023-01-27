@@ -17030,12 +17030,10 @@ FriendDecl *Sema::CheckFriendTypeDecl(SourceLocation LocStart,
 
 /// Handle a friend tag declaration where the scope specifier was
 /// templated.
-Decl *Sema::ActOnTemplatedFriendTag(Scope *S, SourceLocation FriendLoc,
-                                    unsigned TagSpec, SourceLocation TagLoc,
-                                    CXXScopeSpec &SS, IdentifierInfo *Name,
-                                    SourceLocation NameLoc,
-                                    const ParsedAttributesView &Attr,
-                                    MultiTemplateParamsArg TempParamLists) {
+DeclResult Sema::ActOnTemplatedFriendTag(
+    Scope *S, SourceLocation FriendLoc, unsigned TagSpec, SourceLocation TagLoc,
+    CXXScopeSpec &SS, IdentifierInfo *Name, SourceLocation NameLoc,
+    const ParsedAttributesView &Attr, MultiTemplateParamsArg TempParamLists) {
   TagTypeKind Kind = TypeWithKeyword::getTagTypeKindForTypeSpec(TagSpec);
 
   bool IsMemberSpecialization = false;
@@ -17048,7 +17046,7 @@ Decl *Sema::ActOnTemplatedFriendTag(Scope *S, SourceLocation FriendLoc,
     if (TemplateParams->size() > 0) {
       // This is a declaration of a class template.
       if (Invalid)
-        return nullptr;
+        return true;
 
       return CheckClassTemplate(S, TagSpec, TUK_Friend, TagLoc, SS, Name,
                                 NameLoc, Attr, TemplateParams, AS_public,
@@ -17063,7 +17061,7 @@ Decl *Sema::ActOnTemplatedFriendTag(Scope *S, SourceLocation FriendLoc,
     }
   }
 
-  if (Invalid) return nullptr;
+  if (Invalid) return true;
 
   bool isAllExplicitSpecializations = true;
   for (unsigned I = TempParamLists.size(); I-- > 0; ) {
@@ -17099,7 +17097,7 @@ Decl *Sema::ActOnTemplatedFriendTag(Scope *S, SourceLocation FriendLoc,
     QualType T = CheckTypenameType(Keyword, TagLoc, QualifierLoc,
                                    *Name, NameLoc);
     if (T.isNull())
-      return nullptr;
+      return true;
 
     TypeSourceInfo *TSI = Context.CreateTypeSourceInfo(T);
     if (isa<DependentNameType>(T)) {
