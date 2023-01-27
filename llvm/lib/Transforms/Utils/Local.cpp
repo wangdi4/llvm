@@ -2894,6 +2894,7 @@ void llvm::copyMetadataForLoad(LoadInst &Dest, const LoadInst &Source) {
     case LLVMContext::MD_std_container_ptr:
     case LLVMContext::MD_std_container_ptr_iter:
 #endif // INTEL_CUSTOMIZATION
+    case LLVMContext::MD_noundef:
       // All of these directly apply.
       Dest.setMetadata(ID, N);
       break;
