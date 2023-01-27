@@ -2873,6 +2873,13 @@ using DecorationsInfoVec =
 struct AnnotationDecorations {
   DecorationsInfoVec MemoryAttributesVec;
   DecorationsInfoVec MemoryAccessesVec;
+  DecorationsInfoVec BufferLocationVec;
+
+  bool empty() {
+      return (MemoryAttributesVec.empty() &&
+          MemoryAccessesVec.empty() &&
+          BufferLocationVec.empty());
+  }
 };
 
 struct IntelLSUControlsInfo {
@@ -3063,6 +3070,8 @@ AnnotationDecorations tryParseAnnotationString(SPIRVModule *BM,
       BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_fpga_memory_accesses);
   const bool AllowFPGAMemAttr = BM->isAllowedToUseExtension(
       ExtensionID::SPV_INTEL_fpga_memory_attributes);
+  const bool AllowFPGABufLoc = BM->isAllowedToUseExtension(
+      ExtensionID::SPV_INTEL_fpga_buffer_location);
 
   bool ValidDecorationFound = false;
   DecorationsInfoVec DecorationsVec;
@@ -3081,8 +3090,15 @@ AnnotationDecorations tryParseAnnotationString(SPIRVModule *BM,
       std::vector<std::string> DecValues;
       if (tryParseAnnotationDecoValues(ValueStr, DecValues)) {
         ValidDecorationFound = true;
-        DecorationsVec.emplace_back(static_cast<Decoration>(DecorationKind),
-                                    std::move(DecValues));
+        if (AllowFPGABufLoc && DecorationKind == DecorationBufferLocationINTEL) {
+            Decorates.BufferLocationVec.emplace_back(
+                    static_cast<Decoration>(DecorationKind),
+                                        std::move(DecValues));
+        } else {
+            DecorationsVec.emplace_back(
+                    static_cast<Decoration>(DecorationKind),
+                                        std::move(DecValues));
+        }
       }
       continue;
     }
@@ -3269,6 +3285,19 @@ void addAnnotationDecorations(SPIRVEntry *E, DecorationsInfoVec &Decorations) {
         E->addDecorate(I.first, Result);
       }
     } break;
+
+    case DecorationBufferLocationINTEL: {
+      if (M->isAllowedToUseExtension(
+              ExtensionID::SPV_INTEL_fpga_buffer_location)) {
+        M->getErrorLog().checkError(I.second.size() == 1,
+                                    SPIRVEC_InvalidLlvmModule,
+                                    "Decoration requires a single argument.");
+        SPIRVWord Result = 0;
+        StringRef(I.second[0]).getAsInteger(10, Result);
+        E->addDecorate(I.first, Result);
+      }
+    } break;
+
     default:
       // Other decorations are either not supported by the translator or
       // handled in other places.
@@ -3923,8 +3952,8 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
 
     std::string AnnotationString;
     processAnnotationString(II, AnnotationString);
-    DecorationsInfoVec Decorations =
-        tryParseAnnotationString(BM, AnnotationString).MemoryAttributesVec;
+    AnnotationDecorations Decorations =
+        tryParseAnnotationString(BM, AnnotationString);
 
     // If we didn't find any IntelFPGA-specific decorations, let's add the whole
     // annotation string as UserSemantic Decoration
@@ -3932,7 +3961,8 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
       SV->addDecorate(
           new SPIRVDecorateUserSemanticAttr(SV, AnnotationString.c_str()));
     } else {
-      addAnnotationDecorations(SV, Decorations);
+      addAnnotationDecorations(SV, Decorations.MemoryAttributesVec);
+      addAnnotationDecorations(SV, Decorations.BufferLocationVec);
     }
     return SV;
   }
@@ -3993,8 +4023,7 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
 
       // If we didn't find any IntelFPGA-specific decorations, let's add the
       // whole annotation string as UserSemantic Decoration
-      if (Decorations.MemoryAttributesVec.empty() &&
-          Decorations.MemoryAccessesVec.empty()) {
+      if (Decorations.empty()) {
         // TODO: Is there a way to detect that the annotation belongs solely
         // to struct member memory atributes or struct member memory access
         // controls? This would allow emitting just the necessary decoration.
@@ -4011,20 +4040,24 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
         // because multiple accesses to the struct-held memory can require
         // different LSU parameters.
         addAnnotationDecorations(ResPtr, Decorations.MemoryAccessesVec);
+        addAnnotationDecorations(ResPtr, Decorations.BufferLocationVec);
       }
       II->replaceAllUsesWith(II->getOperand(0));
     } else {
       // Memory accesses to a standalone pointer variable
       auto *DecSubj = transValue(II->getArgOperand(0), BB);
-      if (Decorations.MemoryAccessesVec.empty())
+      if (Decorations.MemoryAccessesVec.empty() &&
+              Decorations.BufferLocationVec.empty())
         DecSubj->addDecorate(new SPIRVDecorateUserSemanticAttr(
             DecSubj, AnnotationString.c_str()));
-      else
+      else {
         // Apply the LSU parameter decoration to the pointer result of an
         // instruction. Note it's the address to the accessed memory that's
         // loaded from the original pointer variable, and not the value
         // accessed by the latter.
         addAnnotationDecorations(DecSubj, Decorations.MemoryAccessesVec);
+        addAnnotationDecorations(DecSubj, Decorations.BufferLocationVec);
+      }
       II->replaceAllUsesWith(II->getOperand(0));
     }
     return nullptr;
@@ -4396,8 +4429,8 @@ void LLVMToSPIRVBase::transGlobalAnnotation(GlobalVariable *V) {
 
     StringRef AnnotationString;
     getConstantStringInfo(GV, AnnotationString);
-    DecorationsInfoVec Decorations =
-        tryParseAnnotationString(BM, AnnotationString).MemoryAttributesVec;
+    AnnotationDecorations Decorations =
+        tryParseAnnotationString(BM, AnnotationString);
 
     // If we didn't find any annotation decorations, let's add the whole
     // annotation string as UserSemantic Decoration
@@ -4405,7 +4438,8 @@ void LLVMToSPIRVBase::transGlobalAnnotation(GlobalVariable *V) {
       SV->addDecorate(
           new SPIRVDecorateUserSemanticAttr(SV, AnnotationString.str()));
     } else {
-      addAnnotationDecorations(SV, Decorations);
+      addAnnotationDecorations(SV, Decorations.MemoryAttributesVec);
+      addAnnotationDecorations(SV, Decorations.BufferLocationVec);
     }
   }
 }

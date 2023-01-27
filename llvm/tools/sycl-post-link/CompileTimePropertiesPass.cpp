@@ -27,6 +27,7 @@ constexpr StringRef SYCL_HOST_ACCESS_ATTR = "sycl-host-access";
 constexpr StringRef SYCL_PIPELINED_ATTR = "sycl-pipelined";
 
 constexpr StringRef SPIRV_DECOR_MD_KIND = "spirv.Decorations";
+constexpr StringRef SPIRV_PARAM_DECOR_MD_KIND = "spirv.ParameterDecorations";
 // The corresponding SPIR-V OpCode for the host_access property is documented
 // in the SPV_INTEL_global_variable_decorations design document:
 // https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/DeviceGlobal/SPV_INTEL_global_variable_decorations.asciidoc#decoration
@@ -268,6 +269,7 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
                                                  ModuleAnalysisManager &MAM) {
   LLVMContext &Ctx = M.getContext();
   unsigned MDKindID = Ctx.getMDKindID(SPIRV_DECOR_MD_KIND);
+  unsigned MDParamKindID = Ctx.getMDKindID(SPIRV_PARAM_DECOR_MD_KIND);
   bool CompileTimePropertiesMet = false;
 
   // Let's process all the globals
