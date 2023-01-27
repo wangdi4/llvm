@@ -5563,7 +5563,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Triple.isSPIR())
       CmdArgs.push_back("-ffine-grained-bitfield-accesses");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT_fsycl_host_compiler_EQ)) {
       if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
@@ -5576,10 +5575,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     } else if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
                              options::OPT_fno_sycl_unnamed_lambda, true))
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (!Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
-                      options::OPT_fno_sycl_unnamed_lambda, true))
->>>>>>> 746b8b6d6b086d14cabd6c966e3d345167340e93
       CmdArgs.push_back("-fno-sycl-unnamed-lambda");
 
     // Add the Unique ID prefix
