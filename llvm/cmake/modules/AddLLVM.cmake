@@ -2526,6 +2526,7 @@ function(find_first_existing_vc_file path out_var)
   endif()
 endfunction()
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # is_intel_feature_enabled() macro returns TRUE in 'result',
 # if the given 'feature' is supported in the current compiler
@@ -2656,3 +2657,32 @@ macro(intel_clear_stdlib)
   string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 endmacro(intel_clear_stdlib)
 # end INTEL_CUSTOMIZATION
+=======
+function(setup_host_tool tool_name setting_name exe_var_name target_var_name)
+  set(${setting_name}_DEFAULT "${tool_name}")
+
+  if(LLVM_USE_HOST_TOOLS AND LLVM_NATIVE_TOOL_DIR)
+    if(EXISTS "${LLVM_NATIVE_TOOL_DIR}/${tool_name}${LLVM_HOST_EXECUTABLE_SUFFIX}")
+      set(${setting_name}_DEFAULT "${LLVM_NATIVE_TOOL_DIR}/${tool_name}${LLVM_HOST_EXECUTABLE_SUFFIX}")
+    endif()
+  endif()
+
+  set(${setting_name} "${${setting_name}_DEFAULT}" CACHE
+    STRING "Host ${tool_name} executable. Saves building if cross-compiling.")
+
+  if(LLVM_USE_HOST_TOOLS)
+    if(NOT ${setting_name} STREQUAL "${tool_name}")
+      set(exe_name ${${setting_name}})
+      set(target_name ${${setting_name}})
+    else()
+      build_native_tool(${tool_name} exe_name DEPENDS ${tool_name})
+      set(target_name ${exe_name})
+    endif()
+  else()
+    set(exe_name $<TARGET_FILE:${tool_name}>)
+    set(target_name ${tool_name})
+  endif()
+  set(${exe_var_name} "${exe_name}" CACHE STRING "")
+  set(${target_var_name} "${target_name}" CACHE STRING "")
+endfunction()
+>>>>>>> d3da9067d143f3d4ce59b6d9ab4606a8ef1dc937
