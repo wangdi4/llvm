@@ -2526,7 +2526,6 @@ function(find_first_existing_vc_file path out_var)
   endif()
 endfunction()
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # is_intel_feature_enabled() macro returns TRUE in 'result',
 # if the given 'feature' is supported in the current compiler
@@ -2657,7 +2656,7 @@ macro(intel_clear_stdlib)
   string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 endmacro(intel_clear_stdlib)
 # end INTEL_CUSTOMIZATION
-=======
+
 function(setup_host_tool tool_name setting_name exe_var_name target_var_name)
   set(${setting_name}_DEFAULT "${tool_name}")
 
@@ -2685,4 +2684,3 @@ function(setup_host_tool tool_name setting_name exe_var_name target_var_name)
   set(${exe_var_name} "${exe_name}" CACHE STRING "")
   set(${target_var_name} "${target_name}" CACHE STRING "")
 endfunction()
->>>>>>> d3da9067d143f3d4ce59b6d9ab4606a8ef1dc937
