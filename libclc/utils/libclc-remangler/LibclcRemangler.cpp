@@ -45,6 +45,7 @@
 #include "llvm/Demangle/ItaniumDemangle.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -372,7 +373,7 @@ private:
                                              SourceLocation(),
                                              DeclarationName(), TPL, FD);
     auto TAArr =
-        ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
+        makeArrayRef(TemplateArguments.begin(), TemplateArguments.size());
     auto *TAL = TemplateArgumentList::CreateCopy(*ContextAST, TAArr);
     FDSpecialization->setTemplateParameterListsInfo(*ContextAST, TPL);
     FDSpecialization->setFunctionTemplateSpecialization(
@@ -785,11 +786,12 @@ public:
 
   void Initialize(ASTContext &C) override {
     ContextAST = &C;
-
+    SMDiagnostic Err;
     std::unique_ptr<MemoryBuffer> const Buff = ExitOnErr(
         errorOrToExpected(MemoryBuffer::getFileOrSTDIN(InputIRFilename)));
     std::unique_ptr<llvm::Module> const M =
-        ExitOnErr(parseBitcodeFile(Buff.get()->getMemBufferRef(), ContextLLVM));
+        ExitOnErr(Expected<std::unique_ptr<llvm::Module>>(
+            parseIR(Buff.get()->getMemBufferRef(), Err, ContextLLVM)));
 
     handleModule(M.get());
   }
