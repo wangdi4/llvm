@@ -5202,29 +5202,26 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem>
 clang::createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
-#if INTEL_CUSTOMIZATION
   return createVFSFromOverlayFiles(CI.getHeaderSearchOpts().VFSOverlayFiles,
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
                                    CI.getHeaderSearchOpts().VFSOverlayLibs,
-=======
-                                   CI.getHeaderSearchOpts().VFSStatCacheFiles,
->>>>>>> a033dbbe5c43247b60869b008e67ed86ed230eaa
-                                   Diags, std::move(BaseFS));
 #endif // INTEL_CUSTOMIZATION
+                                   CI.getHeaderSearchOpts().VFSStatCacheFiles,
+                                   Diags, std::move(BaseFS));
 }
 
-#if INTEL_CUSTOMIZATION
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
-<<<<<<< HEAD
-    ArrayRef<std::string> VFSOverlayFiles, ArrayRef<std::string> VFSOverlayLibs,
-    DiagnosticsEngine &Diags,
-    IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
-  if (VFSOverlayFiles.empty() && VFSOverlayLibs.empty())
-#endif // INTEL_CUSTOMIZATION
-=======
     ArrayRef<std::string> VFSOverlayFiles,
+#if INTEL_CUSTOMIZATION
+    ArrayRef<std::string> VFSOverlayLibs,
+#endif // INTEL_CUSTOMIZATION
     ArrayRef<std::string> VFSStatCacheFiles, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
+#if INTEL_CUSTOMIZATION
+  if (VFSOverlayFiles.empty() && VFSOverlayLibs.empty())
+    return BaseFS;
+#endif // INTEL_CUSTOMIZATION
+
   for (const auto &File : VFSStatCacheFiles) {
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buffer =
         BaseFS->getBufferForFile(File);
@@ -5243,7 +5240,6 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
   }
 
   if (VFSOverlayFiles.empty())
->>>>>>> a033dbbe5c43247b60869b008e67ed86ed230eaa
     return BaseFS;
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> Result = BaseFS;
