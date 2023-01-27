@@ -1155,7 +1155,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
             types::getTypeTempSuffix(Output.getType()));
         const char *TempOutput = C.addTempFile(
             C.getArgs().MakeArgString(OutputTempFile));
-        InputInfo OclocOutput(types::TY_Tempfilelist, TempOutput, TempOutput);
+        InputInfo OclocOutput(Inputs[0].getType(), TempOutput, TempOutput);
         Outputs.push_back(OclocOutput);
         constructOclocCommand(C, JA, OclocOutput, Inputs,
                               combineArgs(OclocItem.second), OclocDir->second);
@@ -1174,7 +1174,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
             types::getTypeTempSuffix(Output.getType()));
         const char *TempOutput = C.addTempFile(
             C.getArgs().MakeArgString(OutputTempFile));
-        InputInfo OclocOutput(types::TY_Tempfilelist, TempOutput, TempOutput);
+        InputInfo OclocOutput(Outputs[1].getType(), TempOutput, TempOutput);
         InputInfoList OutputsP1;
         OutputsP1.push_back(Outputs[1]);
         OutputsP1.push_back(Outputs[2]);
