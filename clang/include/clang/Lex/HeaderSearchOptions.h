@@ -209,6 +209,9 @@ public:
   /// of computing the module hash.
   llvm::SmallSetVector<llvm::CachedHashString, 16> ModulesIgnoreMacros;
 
+  /// The set of user-provided stat cache files.
+  std::vector<std::string> VFSStatCacheFiles;
+
   /// The set of user-provided virtual filesystem overlay files.
   std::vector<std::string> VFSOverlayFiles;
 
@@ -276,6 +279,10 @@ public:
   /// header.
   void AddSystemHeaderPrefix(StringRef Prefix, bool IsSystemHeader) {
     SystemHeaderPrefixes.emplace_back(Prefix, IsSystemHeader);
+  }
+
+  void AddVFSStatCacheFile(StringRef Name) {
+    VFSStatCacheFiles.push_back(std::string(Name));
   }
 
   void AddVFSOverlayFile(StringRef Name) {
