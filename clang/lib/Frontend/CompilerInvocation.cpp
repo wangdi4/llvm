@@ -100,7 +100,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/StatCacheFileSystem.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -3176,9 +3175,6 @@ static void GenerateHeaderSearchArgs(HeaderSearchOptions &Opts,
     GenerateArg(Args, Opt, P.Prefix, SA);
   }
 
-  for (const std::string &F : Opts.VFSStatCacheFiles)
-    GenerateArg(Args, OPT_ivfsstatcache, F, SA);
-
   for (const std::string &F : Opts.VFSOverlayFiles)
     GenerateArg(Args, OPT_ivfsoverlay, F, SA);
 }
@@ -3311,9 +3307,6 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
        Args.filtered(OPT_system_header_prefix, OPT_no_system_header_prefix))
     Opts.AddSystemHeaderPrefix(
         A->getValue(), A->getOption().matches(OPT_system_header_prefix));
-
-  for (const auto *A : Args.filtered(OPT_ivfsstatcache))
-    Opts.AddVFSStatCacheFile(A->getValue());
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
@@ -5203,14 +5196,18 @@ clang::createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
   return createVFSFromOverlayFiles(CI.getHeaderSearchOpts().VFSOverlayFiles,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                    CI.getHeaderSearchOpts().VFSOverlayLibs,
 #endif // INTEL_CUSTOMIZATION
                                    CI.getHeaderSearchOpts().VFSStatCacheFiles,
+=======
+>>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
                                    Diags, std::move(BaseFS));
 }
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
+<<<<<<< HEAD
     ArrayRef<std::string> VFSOverlayFiles,
 #if INTEL_CUSTOMIZATION
     ArrayRef<std::string> VFSOverlayLibs,
@@ -5239,6 +5236,10 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
       BaseFS = std::move(*StatCache);
   }
 
+=======
+    ArrayRef<std::string> VFSOverlayFiles, DiagnosticsEngine &Diags,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
+>>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
   if (VFSOverlayFiles.empty())
     return BaseFS;
 
