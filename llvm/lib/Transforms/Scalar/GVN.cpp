@@ -145,18 +145,15 @@ static cl::opt<uint32_t> MaxBBSpeculations(
              "into) when deducing if a value is fully available or not in GVN "
              "(default = 600)"));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<uint64_t> MaxInstTimesBB(
     "gvn-max-inst-x-bb", cl::Hidden, cl::init((uint64_t)100000 * 50000),
     cl::desc("Skip this entire pass, if num insts * num BBs is too large."));
 #endif // INTEL_CUSTOMIZATION
-=======
 static cl::opt<uint32_t> MaxNumVisitedInsts(
     "gvn-max-num-visited-insts", cl::Hidden, cl::init(100),
     cl::desc("Max number of visited instructions when trying to find "
              "dominating value of select dependency (default = 100)"));
->>>>>>> e1a702db2fcd1dfbfe175efe334135d184234970
 
 struct llvm::GVNPass::Expression {
   uint32_t opcode;
