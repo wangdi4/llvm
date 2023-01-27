@@ -79,7 +79,6 @@ class Parser : public CodeCompletionHandler {
   friend class ColonProtectionRAIIObject;
   friend class ParsingOpenMPDirectiveRAII;
   friend class InMessageExpressionRAIIObject;
-  friend class OffsetOfStateRAIIObject;
   friend class PoisonSEHIdentifiersRAIIObject;
   friend class ObjCDeclContextSwitch;
   friend class ParenBraceBracketBalancer;
@@ -268,8 +267,6 @@ class Parser : public CodeCompletionHandler {
   /// workaround to make sure ProduceSignatureHelp is only called at the deepest
   /// function call.
   bool CalledSignatureHelp = false;
-
-  Sema::OffsetOfKind OffsetOfState = Sema::OffsetOfKind::OOK_Outside;
 
   /// The "depth" of the template parameters currently being parsed.
   unsigned TemplateParameterDepth;

@@ -17030,10 +17030,12 @@ FriendDecl *Sema::CheckFriendTypeDecl(SourceLocation LocStart,
 
 /// Handle a friend tag declaration where the scope specifier was
 /// templated.
-DeclResult Sema::ActOnTemplatedFriendTag(
-    Scope *S, SourceLocation FriendLoc, unsigned TagSpec, SourceLocation TagLoc,
-    CXXScopeSpec &SS, IdentifierInfo *Name, SourceLocation NameLoc,
-    const ParsedAttributesView &Attr, MultiTemplateParamsArg TempParamLists) {
+Decl *Sema::ActOnTemplatedFriendTag(Scope *S, SourceLocation FriendLoc,
+                                    unsigned TagSpec, SourceLocation TagLoc,
+                                    CXXScopeSpec &SS, IdentifierInfo *Name,
+                                    SourceLocation NameLoc,
+                                    const ParsedAttributesView &Attr,
+                                    MultiTemplateParamsArg TempParamLists) {
   TagTypeKind Kind = TypeWithKeyword::getTagTypeKindForTypeSpec(TagSpec);
 
   bool IsMemberSpecialization = false;
@@ -17046,7 +17048,7 @@ DeclResult Sema::ActOnTemplatedFriendTag(
     if (TemplateParams->size() > 0) {
       // This is a declaration of a class template.
       if (Invalid)
-        return true;
+        return nullptr;
 
       return CheckClassTemplate(S, TagSpec, TUK_Friend, TagLoc, SS, Name,
                                 NameLoc, Attr, TemplateParams, AS_public,
@@ -17061,7 +17063,7 @@ DeclResult Sema::ActOnTemplatedFriendTag(
     }
   }
 
-  if (Invalid) return true;
+  if (Invalid) return nullptr;
 
   bool isAllExplicitSpecializations = true;
   for (unsigned I = TempParamLists.size(); I-- > 0; ) {
@@ -17080,15 +17082,15 @@ DeclResult Sema::ActOnTemplatedFriendTag(
     if (SS.isEmpty()) {
       bool Owned = false;
       bool IsDependent = false;
-      return ActOnTag(S, TagSpec, TUK_Friend, TagLoc, SS, Name, NameLoc, Attr,
-                      AS_public,
+      return ActOnTag(S, TagSpec, TUK_Friend, TagLoc, SS, Name, NameLoc,
+                      Attr, AS_public,
                       /*ModulePrivateLoc=*/SourceLocation(),
                       MultiTemplateParamsArg(), Owned, IsDependent,
                       /*ScopedEnumKWLoc=*/SourceLocation(),
                       /*ScopedEnumUsesClassTag=*/false,
                       /*UnderlyingType=*/TypeResult(),
                       /*IsTypeSpecifier=*/false,
-                      /*IsTemplateParamOrArg=*/false, /*OOK=*/OOK_Outside);
+                      /*IsTemplateParamOrArg=*/false);
     }
 
     NestedNameSpecifierLoc QualifierLoc = SS.getWithLocInContext(Context);
@@ -17097,7 +17099,7 @@ DeclResult Sema::ActOnTemplatedFriendTag(
     QualType T = CheckTypenameType(Keyword, TagLoc, QualifierLoc,
                                    *Name, NameLoc);
     if (T.isNull())
-      return true;
+      return nullptr;
 
     TypeSourceInfo *TSI = Context.CreateTypeSourceInfo(T);
     if (isa<DependentNameType>(T)) {

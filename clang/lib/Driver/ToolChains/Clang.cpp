@@ -3982,6 +3982,7 @@ static bool RenderModulesOptions(Compilation &C, const Driver &D,
 
   HaveModules |= HaveClangModules;
   if (Args.hasArg(options::OPT_fmodules_ts)) {
+    D.Diag(diag::warn_deprecated_fmodules_ts_flag);
     CmdArgs.push_back("-fmodules-ts");
     HaveModules = true;
   }
@@ -7946,6 +7947,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fcoroutines_ts, options::OPT_fno_coroutines_ts,
                    false) &&
       types::isCXX(InputType)) {
+    D.Diag(diag::warn_deperecated_fcoroutines_ts_flag);
     CmdArgs.push_back("-fcoroutines-ts");
   }
 
