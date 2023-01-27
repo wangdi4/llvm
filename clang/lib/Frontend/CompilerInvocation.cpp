@@ -5196,53 +5196,20 @@ clang::createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
   return createVFSFromOverlayFiles(CI.getHeaderSearchOpts().VFSOverlayFiles,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                    CI.getHeaderSearchOpts().VFSOverlayLibs,
 #endif // INTEL_CUSTOMIZATION
-                                   CI.getHeaderSearchOpts().VFSStatCacheFiles,
-=======
->>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
                                    Diags, std::move(BaseFS));
 }
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
-<<<<<<< HEAD
-    ArrayRef<std::string> VFSOverlayFiles,
 #if INTEL_CUSTOMIZATION
-    ArrayRef<std::string> VFSOverlayLibs,
-#endif // INTEL_CUSTOMIZATION
-    ArrayRef<std::string> VFSStatCacheFiles, DiagnosticsEngine &Diags,
+    ArrayRef<std::string> VFSOverlayFiles, ArrayRef<std::string> VFSOverlayLibs,
+    DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
-#if INTEL_CUSTOMIZATION
   if (VFSOverlayFiles.empty() && VFSOverlayLibs.empty())
     return BaseFS;
 #endif // INTEL_CUSTOMIZATION
-
-  for (const auto &File : VFSStatCacheFiles) {
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buffer =
-        BaseFS->getBufferForFile(File);
-    if (!Buffer) {
-      Diags.Report(diag::err_missing_vfs_stat_cache_file) << File;
-      continue;
-    }
-
-    auto StatCache =
-        llvm::vfs::StatCacheFileSystem::create(std::move(*Buffer), BaseFS);
-
-    if (errorToBool(StatCache.takeError()))
-      Diags.Report(diag::err_invalid_vfs_stat_cache) << File;
-    else
-      BaseFS = std::move(*StatCache);
-  }
-
-=======
-    ArrayRef<std::string> VFSOverlayFiles, DiagnosticsEngine &Diags,
-    IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
->>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
-  if (VFSOverlayFiles.empty())
-    return BaseFS;
-
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> Result = BaseFS;
   // earlier vfs files are on the bottom
   for (const auto &File : VFSOverlayFiles) {

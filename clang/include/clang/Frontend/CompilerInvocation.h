@@ -296,13 +296,9 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> createVFSFromCompilerInvocation(
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem>
 createVFSFromOverlayFiles(ArrayRef<std::string> VFSOverlayFiles,
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
                           ArrayRef<std::string> VFSOverlayLibs,
 #endif // INTEL_CUSTOMIZATION
-                          ArrayRef<std::string> VFSStatCacheFiles,
-=======
->>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
                           DiagnosticsEngine &Diags,
                           IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS);
 

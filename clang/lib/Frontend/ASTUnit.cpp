@@ -592,11 +592,7 @@ public:
     // options are read).
 #ifdef INTEL_CUSTOMIZATION
     PP.getFileManager().setVirtualFileSystem(createVFSFromOverlayFiles(
-<<<<<<< HEAD
-        HSOpts.VFSOverlayFiles, HSOpts.VFSOverlayLibs, HSOpts.VFSStatCacheFiles, PP.getDiagnostics(),
-=======
-        HSOpts.VFSOverlayFiles, PP.getDiagnostics(),
->>>>>>> cf12709222a4699ff5a4bb257cb891b55b5f6fba
+        HSOpts.VFSOverlayFiles, HSOpts.VFSOverlayLibs, PP.getDiagnostics(),
         PP.getFileManager().getVirtualFileSystemPtr()));
 #endif // INTEL_CUSTOMIZATION
 
