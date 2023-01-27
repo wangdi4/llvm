@@ -698,10 +698,11 @@ static bool isUsingScopeBasedEH(Function &F) {
 }
 
 bool GCOVProfiler::AddFlushBeforeForkAndExec() {
+  const TargetLibraryInfo *TLI = nullptr;
   SmallVector<CallInst *, 2> Forks;
   SmallVector<CallInst *, 2> Execs;
   for (auto &F : M->functions()) {
-    auto *TLI = &GetTLI(F);
+    TLI = TLI == nullptr ? &GetTLI(F) : TLI;
     for (auto &I : instructions(F)) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         if (Function *Callee = CI->getCalledFunction()) {
@@ -730,7 +731,9 @@ bool GCOVProfiler::AddFlushBeforeForkAndExec() {
 
     // We've a fork so just reset the counters in the child process
     FunctionType *FTy = FunctionType::get(Builder.getInt32Ty(), {}, false);
-    FunctionCallee GCOVFork = M->getOrInsertFunction("__gcov_fork", FTy);
+    FunctionCallee GCOVFork = M->getOrInsertFunction(
+        "__gcov_fork", FTy,
+        TLI->getAttrList(Ctx, {}, /*Signed=*/true, /*Ret=*/true));
     F->setCalledFunction(GCOVFork);
 
     // We split just after the fork to have a counter for the lines after
@@ -1099,11 +1102,8 @@ FunctionCallee GCOVProfiler::getStartFileFunc(const TargetLibraryInfo *TLI) {
       Type::getInt32Ty(*Ctx),   // uint32_t checksum
   };
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(*Ctx), Args, false);
-  AttributeList AL;
-  if (auto AK = TLI->getExtAttrForI32Param(false))
-    AL = AL.addParamAttribute(*Ctx, 2, AK);
-  FunctionCallee Res = M->getOrInsertFunction("llvm_gcda_start_file", FTy, AL);
-  return Res;
+  return M->getOrInsertFunction("llvm_gcda_start_file", FTy,
+                                TLI->getAttrList(Ctx, {1, 2}, /*Signed=*/false));
 }
 
 FunctionCallee GCOVProfiler::getEmitFunctionFunc(const TargetLibraryInfo *TLI) {
@@ -1113,13 +1113,8 @@ FunctionCallee GCOVProfiler::getEmitFunctionFunc(const TargetLibraryInfo *TLI) {
     Type::getInt32Ty(*Ctx),    // uint32_t cfg_checksum
   };
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(*Ctx), Args, false);
-  AttributeList AL;
-  if (auto AK = TLI->getExtAttrForI32Param(false)) {
-    AL = AL.addParamAttribute(*Ctx, 0, AK);
-    AL = AL.addParamAttribute(*Ctx, 1, AK);
-    AL = AL.addParamAttribute(*Ctx, 2, AK);
-  }
-  return M->getOrInsertFunction("llvm_gcda_emit_function", FTy);
+  return M->getOrInsertFunction("llvm_gcda_emit_function", FTy,
+                             TLI->getAttrList(Ctx, {0, 1, 2}, /*Signed=*/false));
 }
 
 FunctionCallee GCOVProfiler::getEmitArcsFunc(const TargetLibraryInfo *TLI) {
@@ -1128,10 +1123,8 @@ FunctionCallee GCOVProfiler::getEmitArcsFunc(const TargetLibraryInfo *TLI) {
     Type::getInt64PtrTy(*Ctx),  // uint64_t *counters
   };
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(*Ctx), Args, false);
-  AttributeList AL;
-  if (auto AK = TLI->getExtAttrForI32Param(false))
-    AL = AL.addParamAttribute(*Ctx, 0, AK);
-  return M->getOrInsertFunction("llvm_gcda_emit_arcs", FTy, AL);
+  return M->getOrInsertFunction("llvm_gcda_emit_arcs", FTy,
+                                TLI->getAttrList(Ctx, {0}, /*Signed=*/false));
 }
 
 FunctionCallee GCOVProfiler::getSummaryInfoFunc() {
