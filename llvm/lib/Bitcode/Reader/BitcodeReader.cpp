@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -231,7 +231,10 @@ static Expected<std::string> readIdentificationBlock(BitstreamCursor &Stream) {
     default: // Default behavior: reject
       return error("Invalid value");
     case bitc::IDENTIFICATION_CODE_STRING: // IDENTIFICATION: [strchr x N]
-      convertToString(Record, 0, ProducerIdentification);
+#if INTEL_CUSTOMIZATION
+      if (convertToString(Record, 0, ProducerIdentification))
+        return error("Invalid identification");
+#endif // INTEL_CUSTOMIZATION
       break;
     case bitc::IDENTIFICATION_CODE_EPOCH: { // EPOCH: [epoch#]
       unsigned epoch = (unsigned)Record[0];
@@ -4833,8 +4836,9 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         if (!IA)
           return error("Invalid record");
       }
-      LastLoc = DILocation::get(Scope->getContext(), Line, Col, Scope, IA,
-                                isImplicitCode);
+#if INTEL_CUSTOMIZATION
+      LastLoc = DILocation::get(Context, Line, Col, Scope, IA, isImplicitCode);
+#endif // INTEL_CUSTOMIZATION
       I->setDebugLoc(LastLoc);
       I = nullptr;
       continue;
