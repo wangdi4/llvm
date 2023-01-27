@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -4045,14 +4045,16 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     CanonExpr *IndexCE = nullptr;
     unsigned ElementSize = 0;
 
-    auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
+    if (RI.isHeaderPhi(CurBasePhi)) {
+      auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
-    if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
+      if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+        const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
 
-      if (RecSCEV->isAffine()) {
-        IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
-        BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+        if (RecSCEV->isAffine()) {
+          IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
+          BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+        }
       }
     }
 
