@@ -4,6 +4,7 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   Core
   Demangle
+  IRReader
   Support
   TransformUtils
   )
