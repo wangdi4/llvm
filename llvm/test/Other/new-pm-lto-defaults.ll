@@ -224,7 +224,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: StdContainerAA
 ; END INTEL_CUSTOMIZATION
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
-; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; INTEL_CUSTOMIZATION
