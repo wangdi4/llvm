@@ -62,7 +62,7 @@ STATISTIC(NumLoweredMemsetMemcpy,
 class MemsetMemcpyCandidate {
 public:
   const RegDDRef *DstOp = nullptr;
-  const RegDDRef *SrcOrValOp = nullptr;
+  RegDDRef *SrcOrValOp = nullptr;
   bool IsMemset = false;
   int64_t TC = 0;
   Type *ElemTy = nullptr;
@@ -104,7 +104,7 @@ private:
   HIRFramework &HIRF;
 };
 
-// Return element size of the memref in memop.
+// Return element type of the AddressOf ref in memop.
 static Type *findElementType(const RegDDRef *AddressOfRef,
                              unsigned &InnermostDimSize,
                              const CanonExpr *&InnermostDimIndex) {
@@ -186,6 +186,59 @@ static bool isOutOfRangeAccess(int64_t TC, int64_t MemOpInnermostDimSize,
   return false;
 }
 
+// Function creates a constant DDRef of the type \pDstElemType from i8 constant
+// DDRef \pSrcOrValOp.
+RegDDRef *createConstRef(const RegDDRef *SrcOrValOp, Type *DstElemType) {
+  RegDDRef *ConstRef = nullptr;
+  DDRefUtils &DDRU = SrcOrValOp->getDDRefUtils();
+  int64_t SrcOrValOpConst;
+  (void)SrcOrValOp->isIntConstant(&SrcOrValOpConst);
+
+  // Process pointer type first. We allow only memset with 0 for pointers.
+  if (DstElemType->isPointerTy()) {
+    if (SrcOrValOpConst == 0) {
+      ConstRef = DDRU.createNullDDRef(DstElemType);
+      return ConstRef;
+    }
+    return nullptr;
+  }
+
+  APInt APVal(8, SrcOrValOpConst);
+  auto BitWidth = DstElemType->getPrimitiveSizeInBits();
+  if (!BitWidth) {
+    return nullptr;
+  }
+
+  auto WideVal = APInt::getSplat(BitWidth, APVal);
+  if (DstElemType->isIntegerTy()) {
+    ConstRef = DDRU.createConstDDRef(DstElemType, WideVal.getSExtValue());
+    return ConstRef;
+  }
+
+  if (DstElemType->isFloatingPointTy()) {
+    APFloat *APFloatVal = nullptr;
+    if (DstElemType->isFloatTy()) {
+      APFloatVal = new APFloat(0.0f);
+    } else if (DstElemType->isDoubleTy()) {
+      APFloatVal = new APFloat(0.0);
+    } else {
+      // TODO: support other floating point types.
+      return nullptr;
+    }
+
+    unsigned Res =
+        APFloatVal->convertFromAPInt(WideVal, true, APFloat::rmTowardZero);
+    if (Res != APFloat::opOK) {
+      return nullptr;
+    }
+    ConstRef = DDRU.createConstDDRef(ConstantFP::get(DstElemType, *APFloatVal));
+    return ConstRef;
+  }
+
+  return nullptr;
+}
+
+// The main analysis function of the pass.
 bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
                                      MemsetMemcpyCandidate &MMC) const {
   Intrinsic::ID IntrinID = 0;
@@ -200,7 +253,7 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: analyse ");
+  LLVM_DEBUG(dbgs() << "\nHIR Lower Small Memset/Memcpy: analyse ");
   LLVM_DEBUG(Inst->dump(););
 
   auto *DstOp = Inst->getOperandDDRef(0);
@@ -217,8 +270,8 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
 
   // Skip memop intrinsics with null or undef operands.
   // TODO: add support for null refs.
-  if (SrcOrValOp->isNull() || SrcOrValOp->containsUndef() || DstOp->isNull() ||
-      DstOp->containsUndef()) {
+  if ((!IsMemset && (SrcOrValOp->isNull() || SrcOrValOp->containsUndef())) ||
+      DstOp->isNull() || DstOp->containsUndef()) {
     return false;
   }
 
@@ -247,11 +300,6 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   Type *DstElemType =
       findElementType(DstOp, DstInnermostDimSize, DstInnermostDimIndex);
   if (!DstElemType) {
-    return false;
-  }
-
-  // We only handle integer memsets for now.
-  if (IsMemset && !DstElemType->isIntegerTy()) {
     return false;
   }
 
@@ -285,12 +333,21 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: "
-                    << (IsMemset ? "memset" : "memcpy") << "() is found: \n");
-  LLVM_DEBUG(Inst->dump(););
+  // Check that we can successfully create const dd ref for Memset.
+  if (IsMemset) {
+    RegDDRef *ConstRef = createConstRef(SrcOrValOp, DstElemType);
+    if (!ConstRef) {
+      return false;
+    }
+    MMC.SrcOrValOp = ConstRef;
+  } else {
+    MMC.SrcOrValOp = const_cast<RegDDRef *>(SrcOrValOp);
+  }
+
+  LLVM_DEBUG(dbgs() << "\nHIR Lower Small Memset/Memcpy: "
+                    << (IsMemset ? "memset" : "memcpy") << "() is eligible.\n");
 
   MMC.DstOp = DstOp;
-  MMC.SrcOrValOp = SrcOrValOp;
   MMC.IsMemset = IsMemset;
   MMC.TC = TC;
   MMC.ElemTy = ElemTy;
@@ -298,6 +355,8 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   return true;
 }
 
+// Given an original AddressOf ref from memop(), function creates a
+// corresponding array ref for the transformed loop.
 RegDDRef *
 MemsetMemcpyVisitor::createLoopMemref(const RegDDRef *MemIntrinAddressOfOp,
                                       unsigned Level) {
@@ -346,7 +405,7 @@ void MemsetMemcpyVisitor::doTransform(HLInst *Inst,
                                       MemsetMemcpyCandidate &MMC) {
   // The Operand represents an 'address of' ref. Create a new ref with the
   // same base.
-  LLVM_DEBUG(dbgs() << "\nLower memset/memcpy: transform "
+  LLVM_DEBUG(dbgs() << "\nHIR Lower Small Memset/Memcpy: transform "
                     << (MMC.IsMemset ? "memset" : "memcpy") << "()\n");
   DDRefUtils &DDRU = HIRF.getDDRefUtils();
   Type *IVTy = HIRF.getDataLayout().getIndexType(MMC.DstOp->getBaseType());
@@ -371,11 +430,7 @@ void MemsetMemcpyVisitor::doTransform(HLInst *Inst,
   // call.
   RegDDRef *SrcOrValOp = nullptr;
   if (MMC.IsMemset) {
-    int64_t SrcOrValOpConst;
-    MMC.SrcOrValOp->isIntConstant(&SrcOrValOpConst);
-    APInt APVal(8, SrcOrValOpConst);
-    auto WideVal = APInt::getSplat(MMC.ElemTy->getIntegerBitWidth(), APVal);
-    SrcOrValOp = DDRU.createConstDDRef(MMC.ElemTy, WideVal.getSExtValue());
+    SrcOrValOp = MMC.SrcOrValOp;
   } else {
     SrcOrValOp = createLoopMemref(MMC.SrcOrValOp, NewLoopLevel);
   }
