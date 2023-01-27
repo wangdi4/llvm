@@ -164,11 +164,19 @@ public:
                FatalErrorHandlerTy FatalErrorHandler);
 };
 
+
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
   VPlanDriverImpl Impl;
+  static bool RunForSycl;
+  static bool RunForO0;
 
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
+  static void setRunForO0(bool isO0Vec) { RunForO0 = isO0Vec; }
+  static bool isRequired() {
+    return (RunForSycl || RunForO0);
+    }
 };
 
 class VPlanDriver : public FunctionPass {
