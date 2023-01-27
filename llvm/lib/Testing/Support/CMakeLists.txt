@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -85,6 +85,6 @@ target_link_libraries(LLVMTestingSupport PRIVATE llvm_gtest)
 # is not marked 'override' [-Werror,-Wsuggest-override]
 # during self-compile on Windows.
 
-if (HOST_WINNT AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+if (HOST_WINNT AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" ) # INTEL
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-suggest-override")
 endif()

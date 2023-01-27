@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -379,7 +379,7 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   if(LLVM_INTEGRATED_CRT_ALLOC MATCHES "snmalloc$")
     set_property(TARGET LLVMSupport PROPERTY CXX_STANDARD 17)
     add_definitions(-D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
-    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" AND        # INTEL
         "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64")
       set_property(TARGET LLVMSupport PROPERTY COMPILE_FLAGS "-mcx16")
     endif()
