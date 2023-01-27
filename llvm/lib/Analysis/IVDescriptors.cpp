@@ -1538,7 +1538,9 @@ static bool getCastsForInductionPHI(PredicatedScalarEvolution &PSE,
 
 bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
                                          PredicatedScalarEvolution &PSE,
-                                         InductionDescriptor &D, bool Assume) {
+                                         InductionDescriptor &D,
+                                         bool Assume,             // INTEL
+                                         bool OnlyConstPtrStep) { // INTEL
   Type *PhiTy = Phi->getType();
 
   // Handle integer and pointer inductions variables.
@@ -1574,16 +1576,19 @@ bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
   if (PhiScev != AR && SymbolicPhi) {
     SmallVector<Instruction *, 2> Casts;
     if (getCastsForInductionPHI(PSE, SymbolicPhi, AR, Casts))
-      return isInductionPHI(Phi, TheLoop, PSE.getSE(), D, AR, &Casts);
+      return isInductionPHI(Phi, TheLoop, PSE.getSE(), D, AR, &Casts,
+                            OnlyConstPtrStep); // INTEL
   }
 
-  return isInductionPHI(Phi, TheLoop, PSE.getSE(), D, AR);
+  return isInductionPHI(Phi, TheLoop, PSE.getSE(), D, AR, nullptr,
+                        OnlyConstPtrStep); // INTEL
 }
 
 bool InductionDescriptor::isInductionPHI(
     PHINode *Phi, const Loop *TheLoop, ScalarEvolution *SE,
     InductionDescriptor &D, const SCEV *Expr,
-    SmallVectorImpl<Instruction *> *CastsToIgnore) {
+    SmallVectorImpl<Instruction *> *CastsToIgnore, // INTEL
+    bool OnlyConstPtrStep) {                       // INTEL
   Type *PhiTy = Phi->getType();
   // We only handle integer and pointer inductions variables.
   if (!PhiTy->isIntegerTy() && !PhiTy->isPointerTy())
@@ -1636,12 +1641,9 @@ bool InductionDescriptor::isInductionPHI(
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-#if !INTEL_CUSTOMIZATION
-  // Pointer induction should be a constant. Non-constant step is supported
-  // in intel customization.
-  if (!ConstStep)
+  // INTEL Non-constant step is supported in VPlan Vectorizer only.
+  if (OnlyConstPtrStep && !ConstStep) // INTEL
     return false;
-#endif // INTEL_CUSTOMIZATION
 
   // Always use i8 element type for opaque pointer inductions.
   PointerType *PtrTy = cast<PointerType>(PhiTy);
