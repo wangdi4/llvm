@@ -3327,6 +3327,34 @@ public:
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
 
+  // Returns constant extent information for dimension \p DimNum by either
+  // getting it irectly from the dimension if available for by dividing stride
+  // of next dimension by this one.
+  //
+  // Returns 0 if no information is available.
+  unsigned getExtent(unsigned DimNum) const {
+    assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
+
+    auto &CurDim = getDim(DimNum);
+
+    unsigned Extent = CurDim.getExtent();
+
+    if (Extent) {
+      return Extent;
+    }
+
+    if (DimNum < getMaxRank()) {
+      if (auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride())) {
+        if (auto *NextStride =
+                dyn_cast<ConstantInt>(getDim(DimNum + 1).getStride())) {
+          return NextStride->getZExtValue() / CurStride->getZExtValue();
+        }
+      }
+    }
+
+    return 0;
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
@@ -3674,6 +3702,7 @@ bool HIRParser::GEPChain::isCompatible(
   // %0 subscript will not share any ranks with existing information.
   unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
   unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
+
   for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
     auto *CurDimStride = CurArr.getDim(Rank).getStride();
     auto *NextDimStride = NextArr.getDim(Rank).getStride();
@@ -3693,6 +3722,17 @@ bool HIRParser::GEPChain::isCompatible(
     assert(NextDimStride && "Unexpected stride gaps in NextArr");
 
     if (CurDimStride != NextDimStride) {
+      return false;
+    }
+
+    auto CurArrDimExtent = CurArr.getExtent(Rank);
+    auto NextArrDimExtent = NextArr.getExtent(Rank);
+
+    // Give up if both dimensions have extent information and they mismatch.
+    // This is an attempt to detect changes in array shape at src level which
+    // can happen across subroutines.
+    if ((CurArrDimExtent != 0) && (NextArrDimExtent != 0) &&
+        (CurArrDimExtent != NextArrDimExtent)) {
       return false;
     }
   }
