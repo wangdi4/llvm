@@ -21,6 +21,11 @@ target_include_directories(llvm-omp-kernel-replay PRIVATE
 )
 target_link_libraries(llvm-omp-kernel-replay PRIVATE
   LLVMSupport
-  omp
+# INTEL_CUSTOMIZATION
+# Comment out "omp" below to work around a build fail:
+#   ld: error: unable to find library -lomp
+# Another alternative is to use "iomp5" instead.
+# omp
+# end INTEL_CUSTOMIZATION
   omptarget
 )
