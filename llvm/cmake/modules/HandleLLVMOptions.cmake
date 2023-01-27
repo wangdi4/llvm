@@ -428,7 +428,8 @@ if( LLVM_ENABLE_PIC )
     # -fno-semantic-interposition (https://reviews.llvm.org/D117183).
     if ((CMAKE_COMPILER_IS_GNUCXX AND
          NOT (LLVM_NATIVE_ARCH STREQUAL "SystemZ" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.3))
-       OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 14))
+       OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 14)
+       OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM" AND CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 2022.0.0)) # INTEL
       add_flag_if_supported("-fno-semantic-interposition" FNO_SEMANTIC_INTERPOSITION)
     endif()
   endif()
@@ -1080,7 +1081,7 @@ if (LLVM_USE_SPLIT_DWARF AND
     ((uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG") OR
      (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")))
   # Limit to clang and gcc so far. Add compilers supporting this option.
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM" OR        # INTEL
       CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-gsplit-dwarf)
   include(LLVMCheckLinkerFlag)
@@ -1113,7 +1114,7 @@ add_flag_if_supported("-Rno-debug-disables-optimization" RNO_DEBUG_DISABLES_OPTI
 # clang and gcc don't default-print colored diagnostics when invoked from Ninja.
 if (UNIX AND
     CMAKE_GENERATOR MATCHES "Ninja" AND
-    (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
+    (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM" OR        # INTEL
      (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
       NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9))))
   append("-fdiagnostics-color" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
@@ -1186,9 +1187,11 @@ if (LLVM_BUILD_INSTRUMENTED)
     endif()
     # Set this to avoid running out of the value profile node section
     # under clang in dynamic linking mode.
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND
-        CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 11 AND
-        LLVM_LINK_LLVM_DYLIB)
+    if (((CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND
+        CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 11)
+         OR (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM" AND           # INTEL
+        CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 2022.0.0))  # INTEL
+        AND LLVM_LINK_LLVM_DYLIB)
       append("-Xclang -mllvm -Xclang -vp-counters-per-site=${LLVM_VP_COUNTERS_PER_SITE}"
         CMAKE_CXX_FLAGS
         CMAKE_C_FLAGS)
@@ -1238,7 +1241,7 @@ if (CLANG_CL AND (LLVM_BUILD_INSTRUMENTED OR LLVM_USE_SANITIZER))
 endif()
 
 if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" )   # INTEL
     append("-fprofile-instr-use=\"${LLVM_PROFDATA_FILE}\""
       CMAKE_CXX_FLAGS
       CMAKE_C_FLAGS)
@@ -1497,7 +1500,8 @@ if(INTEL_CUSTOMIZATION)
         # These options require HW support.
         intel_add_sdl_flag("-fcf-protection=full" FCFPROTECTIONFULL FUTURE)
         intel_add_sdl_flag("-mcet" MCET FUTURE)
-      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR
+             CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
         # Spectre mitigation options may harm performance, so they are disabled
         # by default (marked as FUTURE).
 
