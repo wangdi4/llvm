@@ -167,6 +167,16 @@ entry:
   ret void
 }
 
+define i32 @test_load_cast_combine_noundef(ptr %ptr) {
+; CHECK-LABEL: @test_load_cast_combine_noundef(
+; CHECK-NEXT:    [[L1:%.*]] = load i32, ptr [[PTR:%.*]], align 4
+; CHECK-NEXT:    ret i32 [[L1]]
+;
+  %l = load float, ptr %ptr, !noundef !{}
+  %c = bitcast float %l to i32
+  ret i32 %c
+}
+
 !0 = !{!1, !1, i64 0}
 !1 = !{!"scalar type", !2}
 !2 = !{!"root"}
