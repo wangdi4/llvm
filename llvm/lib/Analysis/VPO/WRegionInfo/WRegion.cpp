@@ -382,9 +382,10 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
 // printer
 void WRNTargetNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                unsigned Verbosity) const {
-  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
-#if INTEL_CUSTOMIZATION
   unsigned Indent = 2 * Depth;
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+  vpo::printVal("THREAD_LIMIT", getThreadLimit(), OS, Indent, Verbosity);
+#if INTEL_CUSTOMIZATION
   vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
 #endif // INTEL_CUSTOMIZATION
 }

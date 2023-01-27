@@ -795,6 +795,8 @@ private:
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR ThreadLimit = nullptr;
+  Type *ThreadLimitTy = nullptr;
   SubdeviceClause Subdevice;
   LiveinClause Livein;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
@@ -821,6 +823,8 @@ protected:
   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
+  void setThreadLimit(EXPR E) override { ThreadLimit = E; }
+  void setThreadLimitType(Type *T) override { ThreadLimitTy = T; }
   void setNowait(bool Flag) override { Nowait = Flag; }
 #if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
@@ -862,6 +866,8 @@ protected:
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
+  EXPR getThreadLimit() const override { return ThreadLimit; }
+  Type *getThreadLimitType() const override { return ThreadLimitTy; }
   bool getNowait() const override { return Nowait; }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
