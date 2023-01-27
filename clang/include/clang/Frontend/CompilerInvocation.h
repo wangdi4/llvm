@@ -299,7 +299,6 @@ createVFSFromOverlayFiles(ArrayRef<std::string> VFSOverlayFiles,
 #ifdef INTEL_CUSTOMIZATION
                           ArrayRef<std::string> VFSOverlayLibs,
 #endif // INTEL_CUSTOMIZATION
-                          ArrayRef<std::string> VFSStatCacheFiles,
                           DiagnosticsEngine &Diags,
                           IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS);
 

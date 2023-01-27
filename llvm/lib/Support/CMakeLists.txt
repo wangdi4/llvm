@@ -237,7 +237,6 @@ set (SUPPORT_SOURCES
   SmallVector.cpp
   SourceMgr.cpp
   SpecialCaseList.cpp
-  StatCacheFileSystem.cpp
   Statistic.cpp
   StringExtras.cpp
   StringMap.cpp

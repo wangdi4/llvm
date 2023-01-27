@@ -100,7 +100,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/StatCacheFileSystem.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -3176,9 +3175,6 @@ static void GenerateHeaderSearchArgs(HeaderSearchOptions &Opts,
     GenerateArg(Args, Opt, P.Prefix, SA);
   }
 
-  for (const std::string &F : Opts.VFSStatCacheFiles)
-    GenerateArg(Args, OPT_ivfsstatcache, F, SA);
-
   for (const std::string &F : Opts.VFSOverlayFiles)
     GenerateArg(Args, OPT_ivfsoverlay, F, SA);
 }
@@ -3311,9 +3307,6 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
        Args.filtered(OPT_system_header_prefix, OPT_no_system_header_prefix))
     Opts.AddSystemHeaderPrefix(
         A->getValue(), A->getOption().matches(OPT_system_header_prefix));
-
-  for (const auto *A : Args.filtered(OPT_ivfsstatcache))
-    Opts.AddVFSStatCacheFile(A->getValue());
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
@@ -5206,42 +5199,17 @@ clang::createVFSFromCompilerInvocation(
 #if INTEL_CUSTOMIZATION
                                    CI.getHeaderSearchOpts().VFSOverlayLibs,
 #endif // INTEL_CUSTOMIZATION
-                                   CI.getHeaderSearchOpts().VFSStatCacheFiles,
                                    Diags, std::move(BaseFS));
 }
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> clang::createVFSFromOverlayFiles(
-    ArrayRef<std::string> VFSOverlayFiles,
 #if INTEL_CUSTOMIZATION
-    ArrayRef<std::string> VFSOverlayLibs,
-#endif // INTEL_CUSTOMIZATION
-    ArrayRef<std::string> VFSStatCacheFiles, DiagnosticsEngine &Diags,
+    ArrayRef<std::string> VFSOverlayFiles, ArrayRef<std::string> VFSOverlayLibs,
+    DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
-#if INTEL_CUSTOMIZATION
   if (VFSOverlayFiles.empty() && VFSOverlayLibs.empty())
     return BaseFS;
 #endif // INTEL_CUSTOMIZATION
-
-  for (const auto &File : VFSStatCacheFiles) {
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buffer =
-        BaseFS->getBufferForFile(File);
-    if (!Buffer) {
-      Diags.Report(diag::err_missing_vfs_stat_cache_file) << File;
-      continue;
-    }
-
-    auto StatCache =
-        llvm::vfs::StatCacheFileSystem::create(std::move(*Buffer), BaseFS);
-
-    if (errorToBool(StatCache.takeError()))
-      Diags.Report(diag::err_invalid_vfs_stat_cache) << File;
-    else
-      BaseFS = std::move(*StatCache);
-  }
-
-  if (VFSOverlayFiles.empty())
-    return BaseFS;
-
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> Result = BaseFS;
   // earlier vfs files are on the bottom
   for (const auto &File : VFSOverlayFiles) {
