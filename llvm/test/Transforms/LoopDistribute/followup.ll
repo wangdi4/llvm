@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt -aa-pipeline=basic-aa -passes=loop-distribute -S < %s | FileCheck %s
+=======
+; RUN: opt -opaque-pointers=0 -passes=loop-distribute -S < %s | FileCheck %s
+>>>>>>> a53126179990bafe2d3582132138b4c596a6cb83
 ;
 ; Check that followup loop-attributes are applied to the loops after
 ; loop distribution.
