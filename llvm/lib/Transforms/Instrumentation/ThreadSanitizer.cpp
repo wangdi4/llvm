@@ -231,7 +231,6 @@ PreservedAnalyses ModuleThreadSanitizerPass::run(Module &M,
   insertModuleCtor(M);
   return PreservedAnalyses::none();
 }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 char ThreadSanitizerLegacyPass::ID = 0;
@@ -266,10 +265,7 @@ FunctionPass *llvm::createThreadSanitizerLegacyPassPass() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void ThreadSanitizer::initialize(Module &M) {
-=======
 void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
->>>>>>> dc3875e468360b59300b02fdd0f940f4f6429629
   const DataLayout &DL = M.getDataLayout();
   LLVMContext &Ctx = M.getContext();
   IntptrTy = DL.getIntPtrType(Ctx);

@@ -715,18 +715,13 @@ __OMP_RTL_ATTRS(__kmpc_error, AttributeSet(), AttributeSet(),
                 ParamAttrs(AttributeSet(), SExt))
 __OMP_RTL_ATTRS(__kmpc_flush, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
+__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, SExt,
                 ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
                                                      EnumAttr(ReadOnly))}))
 #endif // INTEL_CUSTOMIZATION
-=======
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, SExt,
-                ParamAttrs(ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_get_hardware_thread_id_in_block, GetterAttrs, ZExt,
                 ParamAttrs())
->>>>>>> dc3875e468360b59300b02fdd0f940f4f6429629
 __OMP_RTL_ATTRS(__kmpc_fork_call, ForkAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, SExt, ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_fork_call_if, AttributeSet(), AttributeSet(),
@@ -823,36 +818,6 @@ __OMP_RTL_ATTRS(__kmpc_ordered, BarrierAttrs, AttributeSet(),
 __OMP_RTL_ATTRS(__kmpc_end_ordered, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, SExt))
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_4,
-    GetterArgWithNoFree, AttributeSet(),
-    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
-               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
-               AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_4u,
-    GetterArgWithNoFree, AttributeSet(),
-    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
-               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
-               AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_8,
-    GetterArgWithNoFree, AttributeSet(),
-    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
-               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
-               AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_8u,
-    GetterArgWithNoFree, AttributeSet(),
-    ParamAttrs(ReadOnlyPtrAlways, AttributeSet(), AttributeSet(),
-               ArgPtrAlways, ArgPtrAlways, ArgPtrAlways, ArgPtrAlways,
-               AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(__kmpc_for_static_fini, InaccessibleArgWithNoFree,
-                AttributeSet(), ParamAttrs(ReadOnlyPtrAlways))
-#endif // INTEL_COLLAB
-=======
 __OMP_RTL_ATTRS(__kmpc_for_static_init_4, GetterArgWriteAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, SExt, SExt, ArgPtrAttrs,
                            ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs, SExt, SExt))
@@ -869,7 +834,6 @@ __OMP_RTL_ATTRS(__kmpc_for_static_init_8u, GetterArgWriteAttrs, AttributeSet(),
                            AttributeSet(), AttributeSet()))
 __OMP_RTL_ATTRS(__kmpc_for_static_fini, InaccessibleArgOnlyAttrs,
                 AttributeSet(), ParamAttrs(ReadOnlyPtrAttrs, SExt))
->>>>>>> dc3875e468360b59300b02fdd0f940f4f6429629
 __OMP_RTL_ATTRS(__kmpc_distribute_static_init_4, GetterArgWriteAttrs,
                 AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, SExt, SExt, ArgPtrAttrs,
