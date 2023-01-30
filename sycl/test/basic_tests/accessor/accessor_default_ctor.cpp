@@ -1,6 +1,4 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// Timeout tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41515
-// UNSUPPORTED: windows
 
 #include <sycl/sycl.hpp>
 
