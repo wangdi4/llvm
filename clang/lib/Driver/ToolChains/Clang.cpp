@@ -6331,26 +6331,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_fveclib)) {
-    StringRef Name = A->getValue();
-    if (Name == "SVML") {
-      if (Triple.getArch() != llvm::Triple::x86 &&
-          Triple.getArch() != llvm::Triple::x86_64)
-        D.Diag(diag::err_drv_unsupported_opt_for_target)
-            << Name << Triple.getArchName();
-    } else if (Name == "LIBMVEC-X86") {
-      if (Triple.getArch() != llvm::Triple::x86 &&
-          Triple.getArch() != llvm::Triple::x86_64)
-        D.Diag(diag::err_drv_unsupported_opt_for_target)
-            << Name << Triple.getArchName();
-    } else if (Name == "SLEEF") {
-      if (Triple.getArch() != llvm::Triple::aarch64 &&
-          Triple.getArch() != llvm::Triple::aarch64_be)
-        D.Diag(diag::err_drv_unsupported_opt_for_target)
-            << Name << Triple.getArchName();
-    }
-    A->render(Args, CmdArgs);
-  }
+  Args.AddLastArg(CmdArgs, options::OPT_fveclib);
 
   if (Args.hasFlag(options::OPT_fmerge_all_constants,
                    options::OPT_fno_merge_all_constants, false))

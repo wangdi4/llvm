@@ -116,13 +116,9 @@ public:
     LIBMVEC_X86,      // GLIBC Vector Math library.
     MASSV,            // IBM MASS vector library.
     SVML,             // Intel short vector math library.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Libmvec,          // Glibc vector math library.
 #endif
-=======
-    SLEEFGNUABI       // SLEEF - SIMD Library for Evaluating Elementary Functions.
->>>>>>> c4fa504f797f68297c252dc91a24c7d37c1de4df
   };
 
 #if INTEL_CUSTOMIZATION
@@ -193,8 +189,7 @@ public:
 
   /// Calls addVectorizableFunctions with a known preset of functions for the
   /// given vector library.
-  void addVectorizableFunctionsFromVecLib(enum VectorLibrary VecLib,
-                                          const llvm::Triple &TargetTriple);
+  void addVectorizableFunctionsFromVecLib(enum VectorLibrary VecLib);
 
 #if INTEL_CUSTOMIZATION
   /// Return true if the function F has a vector equivalent with vectorization

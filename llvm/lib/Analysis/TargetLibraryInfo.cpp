@@ -54,7 +54,6 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "IBM MASS vector library"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
@@ -66,10 +65,6 @@ static cl::opt<bool> TLIVecNonReadonlyLibCalls(
         "Vectorize library calls even if they don't have readonly attribute."),
     cl::init(true));
 #endif
-=======
-               clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
-                          "SIMD Library for Evaluating Elementary Functions")));
->>>>>>> c4fa504f797f68297c252dc91a24c7d37c1de4df
 
 StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
     {
@@ -1504,16 +1499,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_vec_free);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (T.isSPIR())
     TLI.setUseSVMLDevice(true);
 #endif // INTEL_CUSTOMIZATION
 
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
-=======
-  TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary, T);
->>>>>>> c4fa504f797f68297c252dc91a24c7d37c1de4df
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl() {
@@ -1845,82 +1836,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
-<<<<<<< HEAD
   case LibFunc_msvc_std_basic_filebuf_xsputn:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
-=======
-void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
-    enum VectorLibrary VecLib, const llvm::Triple &TargetTriple) {
-  switch (VecLib) {
-  case Accelerate: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_ACCELERATE_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs);
-    break;
-  }
-  case DarwinLibSystemM: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_DARWIN_LIBSYSTEM_M_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs);
-    break;
-  }
-  case LIBMVEC_X86: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_LIBMVEC_X86_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs);
-    break;
-  }
-  case MASSV: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_MASSV_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs);
-    break;
-  }
-  case SVML: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_SVML_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs);
-    break;
-  }
-  case SLEEFGNUABI: {
-    const VecDesc VecFuncs_VF2[] = {
-#define TLI_DEFINE_SLEEFGNUABI_VF2_VECFUNCS
-#include "llvm/Analysis/VecFuncs.def"
-    };
-    const VecDesc VecFuncs_VF4[] = {
-#define TLI_DEFINE_SLEEFGNUABI_VF4_VECFUNCS
-#include "llvm/Analysis/VecFuncs.def"
-    };
-
-    switch (TargetTriple.getArch()) {
-    default:
-      break;
-    case llvm::Triple::aarch64:
-    case llvm::Triple::aarch64_be:
-      addVectorizableFunctions(VecFuncs_VF2);
-      addVectorizableFunctions(VecFuncs_VF4);
-      break;
-    }
-    break;
-  }
-  case NoLibrary:
-    break;
-  }
-}
->>>>>>> c4fa504f797f68297c252dc91a24c7d37c1de4df
 
   case LibFunc_msvc_std_basic_streambuf_dtor:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&

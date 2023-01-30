@@ -358,28 +358,27 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
 
   switch (CodeGenOpts.getVecLib()) {
   case CodeGenOptions::Accelerate:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Accelerate,
-                                             TargetTriple);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Accelerate);
     break;
   case CodeGenOptions::LIBMVEC:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::LIBMVEC_X86,
-                                             TargetTriple);
+    switch(TargetTriple.getArch()) {
+      default:
+        break;
+      case llvm::Triple::x86_64:
+        TLII->addVectorizableFunctionsFromVecLib
+                (TargetLibraryInfoImpl::LIBMVEC_X86);
+        break;
+    }
     break;
   case CodeGenOptions::MASSV:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::MASSV,
-                                             TargetTriple);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::MASSV);
     break;
   case CodeGenOptions::SVML:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML,
-                                             TargetTriple);
-    break;
-  case CodeGenOptions::SLEEF:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SLEEFGNUABI,
-                                             TargetTriple);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML);
     break;
   case CodeGenOptions::Darwin_libsystem_m:
     TLII->addVectorizableFunctionsFromVecLib(
-        TargetLibraryInfoImpl::DarwinLibSystemM, TargetTriple);
+        TargetLibraryInfoImpl::DarwinLibSystemM);
     break;
   default:
     break;
