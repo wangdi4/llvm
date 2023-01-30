@@ -1402,8 +1402,7 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
-<<<<<<< HEAD
-  "%select{|, 'present'}0%select{|, 'ompx_hold'}1">;
+  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
@@ -1431,9 +1430,6 @@ def err_omp_unknown_ompx_places_domain_modifier : Error<
 def err_omp_declare_target_to_device_type
     : Error<"unexpected device_type clause with extended-list">;
 // end INTEL_COLLAB
-=======
-  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
->>>>>>> 49d47c4d2f280d15d1de94c53b72b6ab3c127b35
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<
