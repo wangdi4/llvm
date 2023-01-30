@@ -4287,7 +4287,8 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
   // poison.  If the only source of new poison is flags, we can simply
   // strip them (since we know the only use is the freeze and nothing can
   // benefit from them.)
-  if (canCreateUndefOrPoison(cast<Operator>(OrigOp), /*ConsiderFlags*/ false))
+  if (canCreateUndefOrPoison(cast<Operator>(OrigOp),
+                             /*ConsiderFlagsAndMetadata*/ false))
     return nullptr;
 
   // If operand is guaranteed not to be poison, there is no need to add freeze
@@ -4330,7 +4331,7 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
     }
 #endif // INTEL_CUSTOMIZATION
 
-  OrigOpInst->dropPoisonGeneratingFlags();
+  OrigOpInst->dropPoisonGeneratingFlagsAndMetadata();
 
   // If all operands are guaranteed to be non-poison, we can drop freeze.
   if (!MaybePoisonOperand)
@@ -4393,7 +4394,7 @@ Instruction *InstCombinerImpl::foldFreezeIntoRecurrence(FreezeInst &FI,
 
     Instruction *I = dyn_cast<Instruction>(V);
     if (!I || canCreateUndefOrPoison(cast<Operator>(I),
-                                     /*ConsiderFlags*/ false))
+                                     /*ConsiderFlagsAndMetadata*/ false))
       return nullptr;
 
     DropFlags.push_back(I);
@@ -4401,7 +4402,7 @@ Instruction *InstCombinerImpl::foldFreezeIntoRecurrence(FreezeInst &FI,
   }
 
   for (Instruction *I : DropFlags)
-    I->dropPoisonGeneratingFlags();
+    I->dropPoisonGeneratingFlagsAndMetadata();
 
   if (StartNeedsFreeze) {
     Builder.SetInsertPoint(StartBB->getTerminator());
