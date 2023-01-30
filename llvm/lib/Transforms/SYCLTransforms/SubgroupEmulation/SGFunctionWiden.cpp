@@ -15,6 +15,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -133,26 +134,28 @@ Function *FunctionWidener::cloneFunction(Function &F, const VFInfo &V,
 
   // Expand return type to vector.
   if (!ReturnType->isVoidTy())
-    ReturnType = SGHelper::getVectorType(ReturnType, V.getVF());
+    ReturnType =
+        SGHelper::getVectorType(ReturnType, VectorizerUtils::getVFLength(V));
 
-  ArrayRef<VFParameter> ParamKinds = V.getParameters();
+  ArrayRef<VFParameter> ParamKinds = V.Shape.Parameters;
   SmallVector<Type *, 4> ParamTypes;
   const auto *VKIt = ParamKinds.begin();
   for (auto ParamIt = OrigFunctionType->param_begin(),
             ParamEnd = OrigFunctionType->param_end();
        ParamIt != ParamEnd; ++ParamIt, ++VKIt) {
-    if (VKIt->isVector()) {
-      Type *WidenedParamType = SGHelper::getVectorType(*ParamIt, V.getVF());
+    if (VectorizerUtils::VFParamIsVector(*VKIt)) {
+      Type *WidenedParamType =
+          SGHelper::getVectorType(*ParamIt, VectorizerUtils::getVFLength(V));
       ParamTypes.push_back(WidenedParamType);
     } else {
       ParamTypes.push_back(*ParamIt);
     }
   }
 
-  if (V.isMasked()) {
+  if (VectorizerUtils::VFIsMasked(V)) {
     // TODO: Use characteristic type once built-ins updated.
-    Type *MaskType =
-        FixedVectorType::get(Type::getInt32Ty(F.getContext()), V.getVF());
+    Type *MaskType = FixedVectorType::get(Type::getInt32Ty(F.getContext()),
+                                          VectorizerUtils::getVFLength(V));
     ParamTypes.push_back(MaskType);
   }
 
@@ -283,14 +286,14 @@ void FunctionWidener::expandVectorParameters(Function *Clone, const VFInfo &V,
                                              ValueToValueMapTy &VMap) {
 
   IRBuilder<> Builder(&*Clone->getEntryBlock().begin());
-  ArrayRef<VFParameter> ParamKinds = V.getParameters();
-
+  ArrayRef<VFParameter> ParamKinds = V.Shape.Parameters;
   InstSet SyncInsts = Helper.getSyncInstsForFunction(Clone);
 
   for (const auto &ArgIt : enumerate(Clone->args())) {
     // TODO: For alloca instructions for uniform parameters, we can move the
     // alloca to SGExcludeBB.
-    if (!ParamKinds[ArgIt.index()].isVector())
+    VFParameter vfParam = ParamKinds[ArgIt.index()];
+    if (!VectorizerUtils::VFParamIsVector(vfParam))
       continue;
 
     Argument *Arg = &ArgIt.value();
