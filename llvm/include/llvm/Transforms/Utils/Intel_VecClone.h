@@ -59,6 +59,12 @@ class VecCloneImpl {
     Function *CloneFunction(Function &F, const VFInfo &V,
                             ValueToValueMapTy &Vmap);
 
+    /// \brief Return true iff we should bail out due to the presence of
+    /// variable-length array allocas.  Correctly handling a VLA alloca
+    /// and all of its operand and memory dependences is a complex
+    /// undertaking.
+    bool vlaAllocasExist(Function &F);
+
     /// \brief Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
     BasicBlock *splitEntryIntoLoop(Function *Clone, const VFInfo &V,
