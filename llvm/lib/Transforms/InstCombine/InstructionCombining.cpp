@@ -4305,7 +4305,6 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
       return nullptr;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (MaybePoisonOperand)
     if (auto *Phi = dyn_cast<PHINode>(MaybePoisonOperand->get())) {
@@ -4332,10 +4331,7 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
     }
 #endif // INTEL_CUSTOMIZATION
 
-  OrigOpInst->dropPoisonGeneratingFlags();
-=======
   OrigOpInst->dropPoisonGeneratingFlagsAndMetadata();
->>>>>>> bf23b4031eeabfccd46a25ce68414d45ae761304
 
   // If all operands are guaranteed to be non-poison, we can drop freeze.
   if (!MaybePoisonOperand)
