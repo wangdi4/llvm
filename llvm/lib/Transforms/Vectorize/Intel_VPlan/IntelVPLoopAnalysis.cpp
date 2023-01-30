@@ -1305,8 +1305,36 @@ void VPLoopEntityList::insertUDRVPInstructions(
   VPValue *AI = nullptr;
   VPValue *PrivateMem = createPrivateMemory(*UDR, Builder, AI, Preheader);
   assert(PrivateMem && "Private memory is expected for UDR.");
-  // Replace all uses of original UDR variable with private memory.
-  AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Add memory aliases (if any) collected for this array reduction.
+  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  insertEntityMemoryAliases(UDR, Preheader, AddedAliasInstrs, Builder);
+
+  AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
+
+  // Replace uses of external defs associated with memory aliases.
+  // Do this before issuing the reduction-related instructions, so reduction
+  // external defs would remain where they are needed.
+  replaceUsesOfExtDefWithMemoryAliases(UDR, Preheader, Loop, AddedAliasInstrs);
+
+  auto HasUsersInLoop = [](VPValue *V, VPLoop &Loop) {
+    for (VPUser *U : V->users())
+      if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+        if (Loop.contains(I))
+          return true;
+    return false;
+  };
+  if (HasUsersInLoop(AI, Loop)) {
+    // Replace all uses of original UDR variable with private memory.
+    AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+  } else {
+    // If no direct uses are present, there must be a user which is an alias.
+    // Expect at most one alias for the reduction (bitcast).
+    assert(AddedAliasInstrs.size() == 1 && "Expect one alias!");
+    const auto &Alias = *UDR->getMemoryAliases().begin();
+    PrivateMem = Alias.second.first;
+    AI = Alias.first;
+  }
 
   // Initialize UDR by calling constructor (if present) and initializer.
   if (auto *CtorFn = UDR->getCtor())
@@ -1334,10 +1362,9 @@ void VPLoopEntityList::insertUDRVPInstructions(
 // be present outside the loop) in corresponding VPLoop's preheader. The
 // inserted aliases are tracked in AddedAliasInstrs set. This is part of Phase 1
 // of representing memory aliases in VPlan.
-static void
-insertEntityMemoryAliases(VPLoopEntity *Entity, VPBasicBlock *Preheader,
-                          SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs,
-                          VPBuilder &Builder) {
+void VPLoopEntityList::insertEntityMemoryAliases(
+    VPLoopEntity *Entity, VPBasicBlock *Preheader,
+    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs, VPBuilder &Builder) {
   // Insert the aliases into the preheader in the regular order first.
   for (auto const &ValInstPair : Entity->aliases()) {
     const Instruction *Inst = ValInstPair.second.second;
@@ -1361,10 +1388,10 @@ insertEntityMemoryAliases(VPLoopEntity *Entity, VPBasicBlock *Preheader,
 // Helper utility to replace uses of external defs that represent a memory alias
 // with corresponding VPInstruction that was generated/inserted for it. This is
 // part of Phase 2 of representing memory aliases in VPlan.
-static void replaceUsesOfExtDefWithMemoryAliases(
+void VPLoopEntityList::replaceUsesOfExtDefWithMemoryAliases(
     VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
     SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs) {
-  // Now do the replacement of sliases. We first replace all instances of
+  // Now do the replacement of aliases. We first replace all instances of
   // VPOperand with VPInst within the preheader, where all aliases have been
   // inserted. Then replace all instances of VPOperand with VPInst in the loop.
   for (auto const &ValInstPair : Entity->aliases()) {
@@ -2788,7 +2815,9 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 
 // Helper utility to check if given VPValue is used by any call or is stored-to
 // inside the provided VPLoop.
-static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
+static bool
+isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp,
+                          VPLoopEntity::VPEntityAliasesTy &MemAliases) {
   // Check if given instruction is a GEP/subscript with VPValue V as its pointer
   // operand, followed by a store to the GEP/subscript.
   auto IsUsedByGEPAndThenStore = [Lp](VPInstruction *UseI,
@@ -2816,12 +2845,25 @@ static bool isUsedByInLoopCallOrStore(VPValue *V, const VPLoop *Lp) {
     return false;
   };
 
+  auto GetAlias = [&](VPValue *I) -> VPValue * {
+    for (auto &MapKeyVal : MemAliases)
+      if (MapKeyVal.second.first == I)
+        return MapKeyVal.first;
+    return nullptr;
+  };
   SmallVector<VPValue *, 4> Worklist;
   Worklist.push_back(V);
   while (!Worklist.empty()) {
     const VPValue *VPVal = Worklist.pop_back_val();
     for (auto *U : VPVal->users()) {
       if (auto *UserI = dyn_cast<VPInstruction>(U)) {
+        VPValue *AliasInst = GetAlias(UserI);
+
+        if (AliasInst) {
+          Worklist.push_back(AliasInst);
+          continue;
+        }
+
         if (!Lp->contains(UserI))
           continue;
 
@@ -2890,7 +2932,7 @@ void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   // Special handling of UDRs. Additional analyses below are not needed for
   // them.
   if (isUDR()) {
-    if (Start && isUsedByInLoopCallOrStore(Start, Loop))
+    if (Start && isUsedByInLoopCallOrStore(Start, Loop, MemAliases))
       ValidMemOnly = true;
     return;
   }

@@ -193,6 +193,12 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
+    // TODO: This is a workaround that should be removed (JR43683)
+    if (!AlwaysStripmine && Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize) && Analysis.UserCall) {
+      continue;
+    }
+
     // Stripmine should be possible with extra setup, but not always needed.
     // In rare cases we should bail out for max depth loopnests before doing
     // the transformation below.

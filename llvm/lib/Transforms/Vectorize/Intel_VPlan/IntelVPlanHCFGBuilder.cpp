@@ -413,11 +413,13 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const UDRList::value_type &CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue->getRef());
-    VPValue *StartVal = Builder.getOrCreateVPOperand(CurValue->getRef());
+    assertIsSingleElementAlloca(CurValue->getRef()->stripPointerCasts());
+    VPValue *StartVal =
+        Builder.getOrCreateVPOperand(CurValue->getRef()->stripPointerCasts());
     Descriptor.setStart(StartVal);
     Descriptor.setKind(CurValue->getKind());
     auto *AI = cast<AllocaInst>(CurValue->getRef()->stripPointerCasts());
+    collectMemoryAliases(Descriptor, AI);
     Descriptor.setRecType(AI->getAllocatedType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(StartVal);

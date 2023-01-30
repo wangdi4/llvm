@@ -1236,6 +1236,15 @@ private:
   //    reduction to the newly created descriptor.
   VPIndexReduction *createLinearIndexReduction(VPIndexReduction *NonLinNdx,
                                                VPDominatorTree &DomTree);
+
+  static void insertEntityMemoryAliases(
+      VPLoopEntity *Entity, VPBasicBlock *Preheader,
+      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs,
+      VPBuilder &Builder);
+
+  static void replaceUsesOfExtDefWithMemoryAliases(
+      VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
+      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs);
 };
 
 class VPEntityImportDescr {

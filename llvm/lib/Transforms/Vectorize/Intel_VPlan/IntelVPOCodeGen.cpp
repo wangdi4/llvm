@@ -1577,7 +1577,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // Call combiner for each pointer in private memory and accumulate the
     // results in original variable corresponding to the UDR.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-    auto *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    auto *Priv = VPInst->getOperand(0);
     Function *CombinerFn = cast<VPReductionFinalUDR>(VPInst)->getCombiner();
 
     for (unsigned Lane = 0; Lane < getVF(); Lane++) {
