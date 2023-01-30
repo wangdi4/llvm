@@ -3614,6 +3614,23 @@ llvm::Constant *CodeGenModule::EmitAnnotationArgs(const AnnotateAttr *Attr) {
     return ConstEmiter.emitAbstract(CE->getBeginLoc(), CE->getAPValueResult(),
                                     CE->getType());
   });
+
+#if INTEL_COLLAB
+  // Create an anonymous struct global variable pointing to the annotation
+  // arguments in the order they were added above. This is the final constant
+  // used as the annotation value.
+  auto *Struct = llvm::ConstantStruct::getAnon(LLVMArgs);
+  auto *GV = new llvm::GlobalVariable(
+      getModule(), Struct->getType(), true, llvm::GlobalValue::PrivateLinkage,
+      Struct, ".args", nullptr, llvm::GlobalValue::NotThreadLocal,
+      ConstGlobalsPtrTy->getAddressSpace());
+  GV->setSection(AnnotationSection);
+  GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+  auto *Bitcasted = llvm::ConstantExpr::getBitCast(GV, ConstGlobalsPtrTy);
+
+  // Set the look-up reference to the final annotation value for future
+  // annotations to reuse.
+#else  // INTEL_COLLAB
   auto *Struct = llvm::ConstantStruct::getAnon(LLVMArgs);
   auto *GV = new llvm::GlobalVariable(getModule(), Struct->getType(), true,
                                       llvm::GlobalValue::PrivateLinkage, Struct,
@@ -3621,7 +3638,7 @@ llvm::Constant *CodeGenModule::EmitAnnotationArgs(const AnnotateAttr *Attr) {
   GV->setSection(AnnotationSection);
   GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
   auto *Bitcasted = llvm::ConstantExpr::getBitCast(GV, GlobalsInt8PtrTy);
-
+#endif // INTEL_COLLAB
   Lookup = Bitcasted;
   return Bitcasted;
 }
