@@ -101,92 +101,71 @@ static bool CheckIntelBuiltinSupported(bool IsOtherwiseSupported,
 /// Is this builtin supported according to the given language options?
 static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
                                const LangOptions &LangOpts) {
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   bool BuiltinsUnsupported =
       LangOpts.NoBuiltin && strchr(BuiltinInfo.Attributes, 'f') != nullptr;
+  if (BuiltinsUnsupported)
+    return false;
   bool CorBuiltinsUnsupported =
       !LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG);
+  if (CorBuiltinsUnsupported)
+    return false;
   bool MathBuiltinsUnsupported =
-    LangOpts.NoMathBuiltin && BuiltinInfo.HeaderName &&
-    llvm::StringRef(BuiltinInfo.HeaderName).equals("math.h");
+      LangOpts.NoMathBuiltin && BuiltinInfo.HeaderName &&
+      llvm::StringRef(BuiltinInfo.HeaderName).equals("math.h");
+  if (MathBuiltinsUnsupported)
+    return false;
   bool GnuModeUnsupported = !LangOpts.GNUMode && (BuiltinInfo.Langs & GNU_LANG);
+  if (GnuModeUnsupported)
+    return false;
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
+  if (MSModeUnsupported)
+    return false;
   bool ObjCUnsupported = !LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG;
+  if (ObjCUnsupported)
+    return false;
   bool OclCUnsupported =
       !LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES);
+  if (OclCUnsupported)
+    return false;
   bool OclGASUnsupported =
       !LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS);
-#if INTEL_CUSTOMIZATION
+  if (OclGASUnsupported)
+    return false;
   // Register target-specific pipe builtins
   bool OclPipeUnsupported =
       (!LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE)) ||
       ((LangOpts.OpenCLVersion / 100) != 1 &&
        (BuiltinInfo.Langs & ALL_OCL_PIPE) == INTEL_FPGA_PIPE1X);
-#endif // INTEL_CUSTOMIZATION
+  if (OclPipeUnsupported)
+    return false;
   // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
   // support is indicated with language option for blocks.
   bool OclDSEUnsupported =
       (LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
       (BuiltinInfo.Langs & OCL_DSE);
+  if (OclDSEUnsupported)
+    return false;
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
+  if (OpenMPUnsupported)
+    return false;
   bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG;
+  if (CUDAUnsupported)
+    return false;
   bool CPlusPlusUnsupported =
       !LangOpts.CPlusPlus && BuiltinInfo.Langs == CXX_LANG;
-#if INTEL_CUSTOMIZATION
+  if (CPlusPlusUnsupported)
+    return false;
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
-        (!BuiltinsUnsupported && !CorBuiltinsUnsupported &&
-         !MathBuiltinsUnsupported && !OclCUnsupported && !OclGASUnsupported &&
-         !OclPipeUnsupported && !OclDSEUnsupported && !OpenMPUnsupported &&
-         !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
-         !CPlusPlusUnsupported && !CUDAUnsupported), BuiltinInfo, LangOpts);
+      (!BuiltinsUnsupported && !CorBuiltinsUnsupported &&
+       !MathBuiltinsUnsupported && !OclCUnsupported && !OclGASUnsupported &&
+       !OclPipeUnsupported && !OclDSEUnsupported && !OpenMPUnsupported &&
+       !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
+       !CPlusPlusUnsupported && !CUDAUnsupported),
+      BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (bool BuiltinsUnsupported =
-          LangOpts.NoBuiltin && strchr(BuiltinInfo.Attributes, 'f') != nullptr)
-    return false;
-  if (bool CorBuiltinsUnsupported =
-          !LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG))
-    return false;
-  if (bool MathBuiltinsUnsupported =
-          LangOpts.NoMathBuiltin && BuiltinInfo.HeaderName &&
-          llvm::StringRef(BuiltinInfo.HeaderName).equals("math.h"))
-    return false;
-  if (bool GnuModeUnsupported =
-          !LangOpts.GNUMode && (BuiltinInfo.Langs & GNU_LANG))
-    return false;
-  if (bool MSModeUnsupported =
-          !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG))
-    return false;
-  if (bool ObjCUnsupported = !LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG)
-    return false;
-  if (bool OclCUnsupported =
-          !LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES))
-    return false;
-  if (bool OclGASUnsupported =
-          !LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS))
-    return false;
-  if (bool OclPipeUnsupported =
-          !LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE))
-    return false;
-
-  // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
-  // support is indicated with language option for blocks.
-  if (bool OclDSEUnsupported =
-          (LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
-          (BuiltinInfo.Langs & OCL_DSE))
-    return false;
-  if (bool OpenMPUnsupported =
-          !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG)
-    return false;
-  if (bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG)
-    return false;
-  if (bool CPlusPlusUnsupported =
-          !LangOpts.CPlusPlus && BuiltinInfo.Langs == CXX_LANG)
-    return false;
-  return true;
->>>>>>> cf1756146d386667a80501fb8161505d12950804
 }
 
 /// initializeBuiltins - Mark the identifiers for all the builtins with their
