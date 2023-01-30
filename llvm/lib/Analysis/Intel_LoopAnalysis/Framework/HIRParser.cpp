@@ -1409,7 +1409,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
     OS << ")";
 
   } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
-    const char *OpStr;
+    const char *OpStr = nullptr;
 
     if (isa<SCEVAddExpr>(NArySCEV)) {
       OS << "(";
@@ -1436,10 +1436,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       llvm_unreachable("Blob contains AddRec!");
     }
 
+    ListSeparator LS(OpStr);
     for (auto &I : NArySCEV->operands()) {
+      OS << LS;
       printBlob(OS, I);
-
-      OS << OpStr;
     }
     OS << ")";
 
