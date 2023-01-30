@@ -6739,9 +6739,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         CE1->getDenominator() == 1 && ConstOp && VPInst->getNumUsers()) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
-      // The constant value needs to fit in 64 bits which is what setDenominator
-      // takes. Try folding only if this is the case.
-      if (CI->getBitWidth() <= 64) {
+      // The constant value must fit in 64 bits because that is what
+      // setDenominator accepts. Only fold if this is the case.
+      // When the denominator is negative and has potential to go out of range,
+      // folding is skipped. This is because CE doesn't support negative
+      // denominators, and setDenominator changes the sign of the numerator to
+      // make denominator positive. [Ref: HIRParser::parseConstOrDenom]
+      if (CI->getBitWidth() < 64 ||
+          (CI->getBitWidth() == 64 && !CI->isMinValue(true) &&
+           (Opcode == Instruction::SDiv ||
+            CI->getLimitedValue() <= std::numeric_limits<int64_t>::max()))) {
         SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
 
         if (Opcode == Instruction::UDiv)
