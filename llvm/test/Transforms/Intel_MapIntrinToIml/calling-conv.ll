@@ -57,7 +57,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8_mask_256
-; CHECK: {{.*}} = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> {{.*}}, <8 x i32> {{.*}})
+; CHECK: {{.*}} = call svml_avx_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> {{.*}}, <8 x i32> {{.*}})
 
 define <8 x float> @test_sincosf8_mask_256(<8 x float>* nocapture %A, <8 x float> %B, <8 x i32> %C) #1 {
 entry:
@@ -69,7 +69,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8_mask_512
-; CHECK: {{.*}} = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> {{.*}}, <8 x i32> {{.*}})
+; CHECK: {{.*}} = call svml_avx_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> {{.*}}, <8 x i32> {{.*}})
 
 define <8 x float> @test_sincosf8_mask_512(<8 x float>* nocapture %A, <8 x float> %B, <8 x i32> %C) #2 {
 entry:
@@ -140,7 +140,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_cexpf4_mask_256
-; CHECK: {{.*}} = call fast svml_avx_avx_impl_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> {{.*}}, <4 x i64> {{.*}})
+; CHECK: {{.*}} = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> {{.*}}, <4 x i64> {{.*}})
 
 define <8 x float> @test_cexpf4_mask_256(<8 x float> %A, <4 x i64> %B) #1 {
 entry:
@@ -149,7 +149,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_cexpf4_mask_512
-; CHECK: {{.*}} = call fast svml_avx_avx_impl_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> {{.*}}, <4 x i64> {{.*}})
+; CHECK: {{.*}} = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> {{.*}}, <4 x i64> {{.*}})
 
 define <8 x float> @test_cexpf4_mask_512(<8 x float> %A, <4 x i64> %B) #2 {
 entry:

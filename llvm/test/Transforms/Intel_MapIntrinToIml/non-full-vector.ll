@@ -52,7 +52,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sinf8_mask
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> %A, <8 x i32> %B)
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_sinf8_mask_e9(<8 x float> %A, <8 x i32> %B)
 ; CHECK: ret <8 x float> [[RESULT]]
 
 define <8 x float> @test_sinf8_mask(<8 x float> %A, <8 x i32> %B) #1 {
@@ -65,7 +65,7 @@ entry:
 ; CHECK: [[DIVIDEND:%.*]] = bitcast <4 x i64> %a to <8 x i32>
 ; CHECK: [[DIVISOR:%.*]] = bitcast <4 x i64> %b to <8 x i32>
 ; CHECK: [[MASK:%.*]] = bitcast <4 x i64> %c to <8 x i32>
-; CHECK: [[QUOTIENT:%.*]] = call svml_avx_avx_impl_cc <8 x i32> @__svml_idiv8_mask_l9(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]], <8 x i32> [[MASK]])
+; CHECK: [[QUOTIENT:%.*]] = call svml_avx_cc <8 x i32> @__svml_idiv8_mask_l9(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]], <8 x i32> [[MASK]])
 ; CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <8 x i32> [[QUOTIENT]] to <4 x i64>
 ; CHECK: ret <4 x i64> [[QUOTIENT_CAST]]
 
@@ -96,7 +96,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8_mask
-; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> %B, <8 x i32> %C)
+; CHECK: [[RESULT:%.*]] = call svml_avx_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> %B, <8 x i32> %C)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
 ; CHECK: store <8 x float> [[COS]], <8 x float>* %A, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
@@ -146,7 +146,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_cexpf4_mask
-; CHECK: [[RESULT:%.*]] = call fast svml_avx_avx_impl_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> %A, <4 x i64> %B)
+; CHECK: [[RESULT:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> %A, <4 x i64> %B)
 ; CHECK: ret <8 x float> [[RESULT]]
 
 define <8 x float> @test_cexpf4_mask(<8 x float> %A, <4 x i64> %B) #1 {
