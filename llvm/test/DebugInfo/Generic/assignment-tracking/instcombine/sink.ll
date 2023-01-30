@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt %s -S -opaque-pointers -xmain-enable-gep0-removal -passes=instcombine -o - -experimental-assignment-tracking \
-=======
-; RUN: opt %s -S -passes=instcombine -o - \
->>>>>>> 4ece50737d5385fb80cfa23f5297d1111f8eed39
+; RUN: opt %s -S -opaque-pointers -xmain-enable-gep0-removal -passes=instcombine -o - \
 ; RUN: | FileCheck %s
 
 ;; Check that when instcombine sinks an instruction used by a dbg.assign, the
