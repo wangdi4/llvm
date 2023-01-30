@@ -5346,6 +5346,38 @@ class OffloadingActionBuilder final {
       }
     }
 
+    void addPerformanceDeviceLibs(const ToolChain *TC,
+                                  ActionList &DeviceLinkObjects,
+                                  bool IsMSVCEnv) {
+      auto AddToActionList = [&](StringRef LibName) {
+        Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
+                                     Args.MakeArgString(LibName));
+        auto *DeviceLibsInputAction =
+            C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
+        auto *DeviceLibsUnbundleAction =
+            C.MakeAction<OffloadUnbundlingJobAction>(DeviceLibsInputAction);
+        addDeviceDependences(DeviceLibsUnbundleAction);
+
+        auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
+            DeviceLibsUnbundleAction, types::TY_Tempfilelist);
+        DeviceLinkObjects.push_back(ConvertSPIRVAction);
+      };
+      // Only add the MKL static lib if used with -static or is Windows.
+      if (Args.hasArg(options::OPT_qmkl_EQ, options::OPT_qmkl_ilp64_EQ) &&
+          (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
+        SmallString<128> LibName(TC->GetMKLLibPath());
+        LibName = TC->GetMKLLibPath();
+        SmallString<128> MKLLib("libmkl_sycl.a");
+        if (IsMSVCEnv) {
+          MKLLib = "mkl_sycl";
+          if (Args.hasArg(options::OPT__SLASH_MDd))
+            MKLLib += "d";
+          MKLLib += ".lib";
+        }
+        llvm::sys::path::append(LibName, MKLLib);
+        AddToActionList(LibName);
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
 
     void appendLinkDeviceActions(ActionList &AL) override {
@@ -5378,6 +5410,9 @@ class OffloadingActionBuilder final {
         // Add the device libs after we add the spirv-to-ir-wrapper step
         // as the objects here we know contain IR.
         addIntelOMPDeviceLibs(*TC, ToLinkAction);
+        addPerformanceDeviceLibs(
+            *TC, ToLinkAction,
+            C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(ToLinkAction, types::TY_LLVM_BC);
         if (TT.isSPIR()) {
