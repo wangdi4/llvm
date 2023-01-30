@@ -327,11 +327,9 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
                                       NArySCEV2->getOperand(0)));
     }
 
-    for (auto I1 = NArySCEV1->getOperand(0), I2 = NArySCEV1->getOperand(0),
-              E1 = NArySCEV1->getOperand(NArySCEV1->getNumOperands() - 1) + 1,
-              E2 = NArySCEV2->getOperand(NArySCEV2->getNumOperands() - 1) + 1;
-         I1 != E1 && I2 != E2; ++I1, ++I2) {
-      if (!areEqualBlobTyForReroll(I1, I2)) {
+    for (auto const &Ops :
+         llvm::zip(NArySCEV1->operands(), NArySCEV2->operands())) {
+      if (!areEqualBlobTyForReroll(std::get<0>(Ops), std::get<1>(Ops))) {
         return false;
       }
     }
