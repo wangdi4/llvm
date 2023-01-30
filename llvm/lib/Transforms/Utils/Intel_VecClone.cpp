@@ -335,6 +335,17 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   return Clone;
 }
 
+bool VecCloneImpl::vlaAllocasExist(Function &F) {
+  for (auto &Inst : F.front().getInstList()) {
+    if (auto *Alloca = dyn_cast<AllocaInst>(&Inst)) {
+      if (Alloca->isArrayAllocation() &&
+          !isa<ConstantInt>(Alloca->getArraySize()))
+        return true;
+    }
+  }
+  return false;
+}
+
 BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
                                              BasicBlock *EntryBlock) {
 
@@ -1577,6 +1588,18 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
 
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))
       continue;
+
+    if (vlaAllocasExist(F)) {
+      LLVM_DEBUG(dbgs() << "Bail out due to presence of array alloca(s)\n");
+      F.removeFnAttr("vector-variants");
+      if (ORBuilder)
+        (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
+                                  "'omp declare' vector variants were "
+                                  "skipped due to presence of "
+                                  "unsupported variable-length array "
+                                  "allocations.");
+      continue;
+    }
 
     auto Variants = map_range(VarIt.second, [](StringRef Name) {
         return VFABI::demangleForVFABI(Name);
