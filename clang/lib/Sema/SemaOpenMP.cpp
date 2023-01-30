@@ -11770,13 +11770,8 @@ StmtResult Sema::ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
 #if INTEL_COLLAB
 static bool checkTaskwaitClauseUsage(Sema &S,
                                      const ArrayRef<OMPClause *> Clauses) {
-  bool HasDepend = false;
-  bool HasNowait = false;
-  SourceLocation NowaitLoc;
-
   for (const OMPClause *Clause : Clauses) {
     if (auto *Depend = dyn_cast<OMPDependClause>(Clause)) {
-      HasDepend = true;
       OpenMPDependClauseKind DepKind = Depend->getDependencyKind();
       // For now, only in, out, and inout are valid dependency types
       // with taskwait.
@@ -11788,16 +11783,7 @@ static bool checkTaskwaitClauseUsage(Sema &S,
         S.Diag(DepLoc, diag::err_omp_depend_type_unsupported_taskwait);
         return true;
       }
-    } else if (auto *Nowait = dyn_cast<OMPNowaitClause>(Clause)) {
-      assert(!HasNowait && "Expected only one nowait clause on taskwait");
-      HasNowait = true;
-      NowaitLoc = Nowait->getBeginLoc();
-    } else
-      llvm_unreachable("Unexpected clause on taskwait directive");
-  }
-  if (!HasDepend && HasNowait) {
-    S.Diag(NowaitLoc, diag::err_omp_nowait_requires_depend_clause);
-    return true;
+    }
   }
   return false;
 }
@@ -11837,10 +11823,6 @@ StmtResult Sema::ActOnOpenMPErrorDirective(ArrayRef<OMPClause *> Clauses,
 StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
                                               SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
-#if INTEL_COLLAB
-  if (checkTaskwaitClauseUsage(*this, Clauses))
-    return StmtError();
-#endif // INTEL_COLLAB
   const OMPNowaitClause *NowaitC =
       OMPExecutableDirective::getSingleClause<OMPNowaitClause>(Clauses);
   bool HasDependC =
@@ -11850,6 +11832,10 @@ StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
     Diag(StartLoc, diag::err_omp_nowait_clause_without_depend);
     return StmtError();
   }
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline && checkTaskwaitClauseUsage(*this, Clauses))
+    return StmtError();
+#endif // INTEL_COLLAB
 
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }

@@ -11324,9 +11324,6 @@ def note_omp_directive_here : Note<"'%0' directive found here">;
 #if INTEL_COLLAB
 def err_omp_allocate_offload_target : Error<
   "allocate directive not supported for selected target">;
-def err_omp_nowait_requires_depend_clause : Error<
-  "'nowait' clause requires a 'depend' clause when used with 'taskwait' "
-  "directive">;
 def err_omp_depend_type_unsupported_taskwait : Error<
   "unsupported dependency type in 'taskwait' directive; must be one of "
   "'in', 'out', or 'inout'">;
