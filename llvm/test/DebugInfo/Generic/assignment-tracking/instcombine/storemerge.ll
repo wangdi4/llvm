@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt %s -S -opaque-pointers -xmain-enable-gep0-removal -passes=instcombine -o - -experimental-assignment-tracking | FileCheck %s
+=======
+; RUN: opt %s -S -passes=instcombine -o - | FileCheck %s
+>>>>>>> 4ece50737d5385fb80cfa23f5297d1111f8eed39
 
 ;; $ cat test.cpp
 ;; class a {
@@ -178,7 +182,7 @@ declare dso_local void @_ZN1g1hER1a(ptr, ptr nonnull align 4 dereferenceable(4))
 declare void @llvm.dbg.assign(metadata, metadata, metadata, metadata, metadata, metadata) #3
 
 !llvm.dbg.cu = !{!0}
-!llvm.module.flags = !{!3, !4, !5}
+!llvm.module.flags = !{!3, !4, !5, !1000}
 !llvm.ident = !{!6}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 12.0.0", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, splitDebugInlining: false, nameTableKind: None)
@@ -250,3 +254,4 @@ declare void @llvm.dbg.assign(metadata, metadata, metadata, metadata, metadata, 
 !77 = !DILocation(line: 32, column: 3, scope: !7)
 !78 = !DILocation(line: 32, column: 5, scope: !7)
 !79 = !DILocation(line: 33, column: 1, scope: !7)
+!1000 = !{i32 7, !"debug-info-assignment-tracking", i1 true}
