@@ -32,6 +32,7 @@ add_llvm_unittest(VectorizeTests
 # end INTEL_FEATURE_SW_ADVANCED
 # end INTEL_CUSTOMIZATION
   VPlanTest.cpp
+  VPDomTreeTest.cpp
   VPlanHCFGTest.cpp
   VPlanSlpTest.cpp
   )
