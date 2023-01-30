@@ -125,6 +125,8 @@ static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
         "(-vplan-enable-peeling-hir) to be enabled. When false disables any "
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
+bool VPlanDriverPass::RunForSycl = false;
+bool VPlanDriverPass::RunForO0 = false;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -442,13 +444,13 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, &SE,
+  VPAnalysesFactory VPAF(SE, Lp, DT, DL);
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, VPAF, &SE,
                               CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
 
-  VPAnalysesFactory VPAF(SE, Lp, DT, DL);
   populateVPlanAnalyses(LVP, VPAF);
 
 #else
@@ -1076,14 +1078,8 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
                                             VPAnalysesFactoryBase &VPAF) {
-  for (auto &Pair : LVP.getAllVPlans()) {
-    auto &Plan = *Pair.second.MainPlan;
-    if (!Plan.getVPSE())
-      Plan.setVPSE(VPAF.createVPSE());
-    if (!Plan.getVPVT())
-      Plan.setVPVT(
-          VPAF.createVPVT(Plan.getVPSE(), Plan.getVPAC(), Plan.getDT()));
-  }
+  for (auto &Pair : LVP.getAllVPlans())
+    VPAF.populateVPlanAnalyses(*Pair.second.MainPlan);
 }
 
 void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
@@ -1552,7 +1548,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                          "loopopt vplan-vec\n");
     return false;
   }
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *getAC())) {
+  VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *getAC(), VPAF)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1561,7 +1558,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
-  VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
   populateVPlanAnalyses(LVP, VPAF);
 
   // VPlan construction stress test ends here.

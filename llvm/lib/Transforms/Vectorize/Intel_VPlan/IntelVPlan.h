@@ -161,6 +161,8 @@ public:
 
   DominatorTree *getDominatorTree() { return DT; }
   const DataLayout *getDataLayout() { return DL; }
+
+  void populateVPlanAnalyses(VPlanVector &Plan);
 };
 
 class VPAnalysesFactory final : public VPAnalysesFactoryBase {

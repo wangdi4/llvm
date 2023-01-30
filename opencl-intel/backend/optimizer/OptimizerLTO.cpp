@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 #include "SPIRVLowerConstExpr.h"
 
@@ -108,6 +109,8 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PrintPassOptions PrintPassOpts;
   PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
+  vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
+  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);
@@ -273,8 +276,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
         // still non-inlined functions, then we don't have to inline new
         // ones.
       }
-      if (Config.GetTransposeSize() != 1 &&
-          (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
+      if (Config.GetTransposeSize() != 1) {
         FPM.addPass(SinCosFoldPass());
         // Replace 'div' and 'rem' instructions with calls to optimized
         // library functions
@@ -625,24 +627,25 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  // Begin sub-group emulation
-  MPM.addPass(SGBuiltinPass(getVectInfos()));
-  MPM.addPass(SGBarrierPropagatePass());
-  MPM.addPass(SGBarrierSimplifyPass());
-  // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
-  // emulation loops
-  // TODO: Refine and re-enable ImplicitGID pass
-  // if (m_debugType == intel::Native)
-  //   MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
+  if (!EnableO0Vectorization) {
+    // Begin sub-group emulation
+    MPM.addPass(SGBuiltinPass(getVectInfos()));
+    MPM.addPass(SGBarrierPropagatePass());
+    MPM.addPass(SGBarrierSimplifyPass());
+    // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
+    // emulation loops
+    // TODO: Refine and re-enable ImplicitGID pass
+    // if (m_debugType == intel::Native)
+    //   MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
 
-  // Resume sub-group emulation
-  MPM.addPass(SGValueWidenPass());
-  MPM.addPass(SGLoopConstructPass());
+    // Resume sub-group emulation
+    MPM.addPass(SGValueWidenPass());
+    MPM.addPass(SGLoopConstructPass());
 #ifdef _DEBUG
-  MPM.addPass(VerifierPass());
+    MPM.addPass(VerifierPass());
 #endif
-  // End sub-group emulation
-
+    // End sub-group emulation
+  }
   // Resolve subgroup barriers after subgroup emulation passes
   MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
   MPM.addPass(SplitBBonBarrier());

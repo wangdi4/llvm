@@ -387,7 +387,8 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(
     LLVMContext *Context, const DataLayout *DL, std::string VPlanName,
-    AssumptionCache &AC, ScalarEvolution *SE, bool IsLegalToVec) {
+    AssumptionCache &AC, VPAnalysesFactoryBase &VPAF, ScalarEvolution *SE,
+    bool IsLegalToVec) {
   ++VPlanOrderNumber;
   // Concatenate VPlan order number into VPlanName which allows to align
   // VPlans in all different VPlan internal dumps.
@@ -486,6 +487,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   exchangeExclusiveScanLoopInputScanPhases(Plan.get());
 
   printAndVerifyAfterInitialTransforms(Plan.get());
+
+  // Populate initial VPlan analyses (e.g. VPlanValueTracking) to ensure
+  // they are available when computing DA.
+  VPAF.populateVPlanAnalyses(*Plan.get());
+  assert(Plan->getVPVT() && "No VPVT?");
 
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   Plan->setVPlanDA(std::move(VPDA));

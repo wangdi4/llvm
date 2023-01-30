@@ -26,6 +26,8 @@ public:
 
   bool runImpl(Module &M, CallGraph &CG);
 
+  static bool isRequired() { return true; }
+
 private:
   VFISAKind ISA;
 };

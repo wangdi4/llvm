@@ -1713,3 +1713,10 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
+
+void VPAnalysesFactoryBase::populateVPlanAnalyses(VPlanVector &Plan) {
+  if (!Plan.getVPSE())
+    Plan.setVPSE(createVPSE());
+  if (!Plan.getVPVT())
+    Plan.setVPVT(createVPVT(Plan.getVPSE(), Plan.getVPAC(), Plan.getDT()));
+}

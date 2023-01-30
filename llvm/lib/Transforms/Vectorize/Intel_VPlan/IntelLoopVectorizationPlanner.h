@@ -345,6 +345,7 @@ public:
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
                               std::string VPlanName, AssumptionCache &AC,
+                              VPAnalysesFactoryBase &VPAF,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
