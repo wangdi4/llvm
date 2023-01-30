@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -100,19 +100,6 @@ struct GCOVOptions {
 #if INTEL_CUSTOMIZATION
 ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
                                    GCOVOptions::getDefault());
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-// PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
-// instrumentation.
-ModulePass *createPGOInstrumentationGenLegacyPass(bool IsCS = false);
-ModulePass *
-createPGOInstrumentationUseLegacyPass(StringRef Filename = StringRef(""),
-                                      bool IsCS = false);
-ModulePass *createPGOInstrumentationGenCreateVarLegacyPass(
-    StringRef CSInstrName = StringRef(""));
-ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
-                                                     bool SamplePGO = false);
 #endif // INTEL_CUSTOMIZATION
 
 // The pgo-specific indirect call promotion function declared below is used by
