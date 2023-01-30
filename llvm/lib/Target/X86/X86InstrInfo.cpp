@@ -9465,9 +9465,15 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst,
   if (Invert)
     return false;
   switch (Inst.getOpcode()) {
+  case X86::ADD32rr:                                 // INTEL
+    return !Inst.getMF()->getFunction().isFortran(); // INTEL
   case X86::ADD8rr:
   case X86::ADD16rr:
-  case X86::ADD32rr:
+#if INTEL_CUSTOMIZATION
+    //  case X86::ADD32rr:
+    //  Revert part of D136396 when it is fortran
+    //  as it makes 548@opt_speed -4%.
+#endif // INTEL_CUSTOMIZATION
   case X86::ADD64rr:
   case X86::AND8rr:
   case X86::AND16rr:

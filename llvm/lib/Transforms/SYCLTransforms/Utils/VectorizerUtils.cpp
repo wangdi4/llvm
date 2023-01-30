@@ -364,6 +364,22 @@ static bool isShuffleVectorTruncate(ShuffleVectorInst *SVI) {
 
 namespace VectorizerUtils {
 
+unsigned getVFLength(const VFInfo &V) { return V.Shape.VF.getFixedValue(); }
+
+bool VFParamIsVector(const VFParameter &VFParam) {
+  return VFParam.ParamKind == VFParamKind::Vector ||
+         VFParam.ParamKind == VFParamKind::GlobalPredicate;
+}
+
+bool VFParamIsUniform(const VFParameter &VFParam) {
+  return VFParam.ParamKind == VFParamKind::OMP_Uniform;
+}
+
+bool VFIsMasked(const VFInfo &V) {
+  return V.Shape.Parameters.size() > 0 &&
+         V.Shape.Parameters.back().ParamKind == VFParamKind::GlobalPredicate;
+}
+
 bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
                                       bool EnableDirectCallVectorization,
                                       bool EnableSGDirectCallVectorization) {

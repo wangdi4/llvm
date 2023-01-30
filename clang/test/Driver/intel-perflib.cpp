@@ -295,3 +295,29 @@
 // CHECK-MKL-ILP64-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core"
 // CHECK-MKL-ILP64-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-ILP64-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_ilp64" "--dependent-lib=mkl_blacs_intelmpi_ilp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+
+/// -qmkl usage with OpenMP Offloading
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -fiopenmp \
+// RUN:          -fopenmp-targets=spir64 -static -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-MKL-LIN-OMP-OFFLOAD-DEFAULT,CHECK-MKL-LIN-OMP-OFFLOAD %s
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -fiopenmp \
+// RUN:          -fopenmp-targets=spir64 -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-MKL-LIN-OMP-OFFLOAD-DEFAULT %s
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clang_cl -Qmkl -Qopenmp -Qopenmp-targets=spir64 -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-MKL-WIN-OMP-OFFLOAD %s
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clang_cl -Qmkl -Qopenmp -Qopenmp-targets=spir64  /MDd -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-MKL-OMP-OFFLOAD-SYCLD %s
+// CHECK-MKL-LIN-OMP-OFFLOAD: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64" "-input={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-output=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-MKL-LIN-OMP-OFFLOAD: spirv-to-ir-wrapper{{.*}} "[[LISTA]]" "-o" "[[LISTTXT:.+\.txt]]"
+// CHECK-MKL-WIN-OMP-OFFLOAD: clang{{.*}} "--dependent-lib=mkl_sycl" "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-OMP-OFFLOAD-SYCLD: clang{{.*}} "--dependent-lib=mkl_sycld" "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-OMP-OFFLOAD-SYCLD: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycld.lib" "-output=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-MKL-WIN-OMP-OFFLOAD: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-output=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-MKL-WIN-OMP-OFFLOAD: spirv-to-ir-wrapper{{.*}} "[[LISTWIN]]" "-o" "[[LISTWINTXT:.+\.txt]]"
+// CHECK-MKL-WIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTWINTXT]]"
+// CHECK-MKL-LIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTTXT]]"
+// CHECK-MKL-LIN-OMP-OFFLOAD-DEFAULT: "--start-group" "-lmkl_sycl" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"

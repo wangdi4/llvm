@@ -5362,12 +5362,14 @@ CodeGenModule::CreateSVMLFunction(llvm::FunctionType *FTy, StringRef Name,
   return FC;
 }
 
-void
-CodeGenModule::ConstructSVMLCallAttributes(StringRef Name,
-                                           llvm::AttributeList &AttrList) {
+void CodeGenModule::ConstructIMFCallAttributes(StringRef Name,
+                                               llvm::AttributeList &AttrList,
+                                               bool AlwaysUseSVML) {
   llvm::AttrBuilder FuncAttrs(getLLVMContext());
   getDefaultFunctionAttributes(Name, /*HasOptNone*/ false,
                                /*AttrOnCallSite*/ true, FuncAttrs);
+  if (AlwaysUseSVML)
+    FuncAttrs.addAttribute("imf-use-svml", "true");
   AttrList = llvm::AttributeList::get(getLLVMContext(),
                                       llvm::AttributeList::FunctionIndex,
                                       FuncAttrs);

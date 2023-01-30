@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_VECTORIZER_UTILS_H
 #define LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_VECTORIZER_UTILS_H
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
@@ -46,6 +47,26 @@ public:
   // to support these cases.
   static CompilationUtils::FuncSet getNonInlineUnsupportedFunctions(Module &M);
 };
+
+/// Get the vector length of the vector variant.
+/// \param V VFInfo to access
+/// \return vector length of input vector variant.
+unsigned getVFLength(const VFInfo &V);
+
+/// Check whether it's vector.
+/// \Param VFParam VFParameter* to check
+/// \return bool whether it's vector
+bool VFParamIsVector(const VFParameter &VFParam);
+
+/// Check whether it's Uniform.
+/// \Param VFParam VFParameter* to check
+/// \return bool whether it's uniform
+bool VFParamIsUniform(const VFParameter &VFParam);
+
+/// Check whether it's masked
+/// \param V VFInfo to access
+/// \return bool whether it's masked
+bool VFIsMasked(const VFInfo &V);
 
 /// Create a broadcast sequence (insertelement + shufflevector).
 /// \param V value to broadcast.

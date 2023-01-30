@@ -1297,10 +1297,10 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   SmallString<128> P(Opt);
   P.append(getIPPBasePath(Args, getDriver().Dir));
 #if !INTEL_DEPLOY_UNIFIED_LAYOUT
-  if (getTriple().getArch() == llvm::Triple::x86_64)
-    llvm::sys::path::append(P, "lib/intel64");
-  else
+  if (getTriple().getArch() == llvm::Triple::x86)
     llvm::sys::path::append(P, "lib/ia32");
+  else
+    llvm::sys::path::append(P, "lib/intel64");
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
@@ -1352,10 +1352,10 @@ std::string ToolChain::GetMKLLibPath(void) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
 #if !INTEL_DEPLOY_UNIFIED_LAYOUT
-  if (HostTriple.getArch() == llvm::Triple::x86_64)
-    llvm::sys::path::append(P, "lib/intel64");
-  else
+  if (HostTriple.getArch() == llvm::Triple::x86)
     llvm::sys::path::append(P, "lib/ia32");
+  else
+    llvm::sys::path::append(P, "lib/intel64");
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
@@ -1403,10 +1403,10 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   SmallString<128> P(Opt);
   P.append(getTBBBasePath(getDriver().Dir));
 #if !INTEL_DEPLOY_UNIFIED_LAYOUT
-  if (getTriple().getArch() == llvm::Triple::x86_64)
-    llvm::sys::path::append(P, "lib/intel64");
-  else
+  if (getTriple().getArch() == llvm::Triple::x86)
     llvm::sys::path::append(P, "lib/ia32");
+  else
+    llvm::sys::path::append(P, "lib/intel64");
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
@@ -1451,10 +1451,10 @@ std::string ToolChain::GetDAALLibPath(void) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
   llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
 #if !INTEL_DEPLOY_UNIFIED_LAYOUT
-  if (HostTriple.getArch() == llvm::Triple::x86_64)
-    llvm::sys::path::append(P, "lib/intel64");
-  else
+  if (HostTriple.getArch() == llvm::Triple::x86)
     llvm::sys::path::append(P, "lib/ia32");
+  else
+    llvm::sys::path::append(P, "lib/intel64");
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
@@ -1551,7 +1551,9 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
       return;
     SmallVector<StringRef, 8> MKLLibs;
     bool IsMSVC = getTriple().isWindowsMSVCEnvironment();
-    if (Args.hasArg(options::OPT_fsycl)) {
+    if (Args.hasArg(options::OPT_fsycl) ||
+        (Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false) &&
+         Args.hasArg(options::OPT_fopenmp_targets_EQ))) {
       SmallString<32> LibName("mkl_sycl");
       if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
         LibName += "d";

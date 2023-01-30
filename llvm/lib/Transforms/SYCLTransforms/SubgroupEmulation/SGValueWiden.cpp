@@ -20,6 +20,7 @@
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
@@ -153,7 +154,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
       LLVM_DEBUG(dbgs() << "Widen function: " << WideFn->getName() << "\n");
       VFInfo Variant = VFABI::demangleForVFABI(WideFn->getName());
       DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*WideFn);
-      runOnFunction(*WideFn, Variant.getVF(), DT);
+      runOnFunction(*WideFn, VectorizerUtils::getVFLength(Variant), DT);
       auto It = find(KernelRange, Fn);
       if (It != Kernels.end()) {
         Kernels.erase(It);
@@ -425,6 +426,76 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   }
   return Res;
 }
+// Add these two functions for OpenSource.
+// It's to replicate the entire vector \p OrigVal by \p OriginalVL times.
+static Value *replicateVectorSG(Value *OrigVal, unsigned OriginalVL,
+                                IRBuilderBase &Builder, const Twine &Name) {
+  if (OriginalVL == 1)
+    return OrigVal;
+  unsigned NumElts =
+      cast<FixedVectorType>(OrigVal->getType())->getNumElements();
+  SmallVector<int, 8> ShuffleMask;
+  for (unsigned j = 0; j < OriginalVL; j++)
+    for (unsigned i = 0; i < NumElts; ++i)
+      ShuffleMask.push_back((signed)i);
+  return Builder.CreateShuffleVector(OrigVal,
+                                     UndefValue::get(OrigVal->getType()),
+                                     ShuffleMask, Name + OrigVal->getName());
+}
+
+// Generate code to extract a subvector of vector value \p V. The number of
+// parts that vector should be divided into is \p NumParts and \p Part defines
+// the position of the part to extract i.e. starts from Part*(subvector
+// size)-th element of the vector. Subvector size is determined by given vector
+// size and number of parts to be divided into.
+static Value *generateExtractSubVectorSG(Value *V, unsigned Part,
+                                         unsigned NumParts,
+                                         IRBuilderBase &Builder,
+                                         const Twine &Name) {
+  // Example:
+  // Consider the following vector code -
+  // %1 = sitofp <4 x i32> %0 to <4 x double>
+  //
+  // If NumParts is 2, then shuffle values for %1 for different parts are -
+  // If Part = 1, output value is -
+  // %shuffle = shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 0, i32 1>
+  //
+  // and if Part = 2, output is -
+  // %shuffle7 =shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 2, i32 3>
+
+  if (!V)
+    return nullptr; // No vector to extract from.
+
+  assert(NumParts > 0 && "Invalid number of subparts of vector.");
+
+  if (NumParts == 1) {
+    // Return the original vector as there is only one Part.
+    return V;
+  }
+
+  unsigned VecLen = cast<FixedVectorType>(V->getType())->getNumElements();
+  assert(VecLen % NumParts == 0 &&
+         "Vector cannot be divided into unequal parts for extraction");
+  assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
+
+  unsigned SubVecLen = VecLen / NumParts;
+  SmallVector<int, 4> ShuffleMask;
+  Value *Undef = UndefValue::get(V->getType());
+
+  unsigned ElemIdx = Part * SubVecLen;
+
+  for (unsigned K = 0; K < SubVecLen; K++)
+    ShuffleMask.push_back(ElemIdx + K);
+  auto *ShuffleInst = Builder.CreateShuffleVector(
+      V, Undef, ShuffleMask,
+      !Name.isTriviallyEmpty() ? Name
+                               : V->getName() + ".part." + Twine(Part) +
+                                     ".of." + Twine(NumParts) + ".");
+
+  return ShuffleInst;
+}
 
 void SGValueWidenPass::setVectorValue(Value *Data, Value *V, unsigned Size,
                                       Instruction *IP) {
@@ -434,7 +505,7 @@ void SGValueWidenPass::setVectorValue(Value *Data, Value *V, unsigned Size,
   if (UniValueMap.count(V)) {
     Value *ElemVal =
         isa<FixedVectorType>(OrigValType)
-            ? generateExtractSubVector(Data, 1, 16, Builder, "extract.sub.")
+            ? generateExtractSubVectorSG(Data, 1, 16, Builder, "extract.sub.")
             : Builder.CreateExtractElement(Data, ConstZero);
     Builder.CreateStore(ElemVal, UniValueMap[V]);
     return;
@@ -468,7 +539,7 @@ Value *SGValueWidenPass::getVectorValue(Value *V, unsigned Size,
   if (UniValueMap.count(V))
     V = Builder.CreateLoad(OrigValType, UniValueMap[V]);
   if (isa<FixedVectorType>(OrigValType))
-    return replicateVector(V, Size, Builder, "splat.");
+    return replicateVectorSG(V, Size, Builder, "splat.");
   return Builder.CreateVectorSplat(Size, V);
 }
 
@@ -589,6 +660,20 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V,
   return IP;
 }
 
+// This function is added for OpenSource.
+// Return the Attribute associated with this call or an empty Attribute if
+// none of this \p Kind is set.
+template <typename AttrKind>
+Attribute getCallSiteOrFuncAttrSG(CallInst *CI, AttrKind Kind) {
+  if (CI->getAttributes().hasFnAttr(Kind))
+    return CI->getAttributes().getFnAttr(Kind);
+
+  if (const Function *F = CI->getCalledFunction())
+    return F->getAttributes().getFnAttr(Kind);
+
+  return Attribute();
+}
+
 static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   // Get parent function's vector-variants
   Function *ParentF = CI->getFunction();
@@ -598,7 +683,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
          "Parent function doesn't have vector-variants attribute");
   unsigned EmuSize = 0;
   if (auto Variant = VFABI::tryDemangleForVFABI(ParentF->getName())) {
-    EmuSize = Variant->getVF();
+    EmuSize = VectorizerUtils::getVFLength(Variant.value());
   } else {
     StringRef ParentVariantStringValue =
         ParentF->getFnAttribute(KernelAttribute::VectorVariants)
@@ -607,12 +692,13 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
            "Unexpected multiple vector variant string here!");
     LLVM_DEBUG(dbgs() << "  Parent function variant string: "
                       << ParentVariantStringValue << "\n");
-    EmuSize = VFABI::demangleForVFABI(ParentVariantStringValue).getVF();
+    EmuSize = VectorizerUtils::getVFLength(
+        VFABI::demangleForVFABI(ParentVariantStringValue));
   }
 
   // Get vector-variants attribute
   StringRef VecVariantStringValue =
-      CI->getCallSiteOrFuncAttr(KernelAttribute::VectorVariants)
+      getCallSiteOrFuncAttrSG(CI, KernelAttribute::VectorVariants)
           .getValueAsString();
   LLVM_DEBUG(dbgs() << "  Call instruction vector variant string: "
                     << VecVariantStringValue << "\n");
@@ -621,7 +707,8 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   StringRef VariantStringValue;
   // Select Variant and emulation size
   for (const auto &VarStr : VariantStrs) {
-    unsigned Vlen = VFABI::demangleForVFABI(VarStr).getVF();
+    unsigned Vlen =
+        VectorizerUtils::getVFLength(VFABI::demangleForVFABI(VarStr));
     if (Vlen == EmuSize) {
       VariantStringValue = VarStr;
       break;
@@ -675,10 +762,11 @@ void SGValueWidenPass::widenCalls() {
     for (auto &Pair : enumerate(CI->args())) {
       VFParameter Param = Params[Pair.index()];
       Value *Arg = Pair.value(), *NewArg = nullptr;
-      if (Param.isUniform()) {
+      if (VectorizerUtils::VFParamIsUniform(Param)) {
         NewArg = getScalarValue(Arg, ParamIP);
       } else {
-        assert(Param.isVector() && "Unsupported VectorKind");
+        assert(VectorizerUtils::VFParamIsVector(Param) &&
+               "Unsupported VectorKind");
         NewArg = getVectorValue(Arg, Size, ParamIP);
       }
       assert(NewArg && "Vector value is null!");
@@ -690,7 +778,7 @@ void SGValueWidenPass::widenCalls() {
     }
 
     // Add mask argument
-    if (Variant.isMasked()) {
+    if (VectorizerUtils::VFIsMasked(Variant)) {
       // Currently all mask is <i32 x VF>.
       auto *SGSize = Helper.createGetSubGroupSize(ParamIP);
       Value *Mask = generateRemainderMask(Size, SGSize, ParamIP);
@@ -732,8 +820,9 @@ void SGValueWidenPass::widenValue(Instruction *V, Instruction *FirstI,
     // We may convert this addr to pointer of vector and then load the vector
     // from it. This behaviour will cause aligned vector move, so we need to
     // update the alignment here.
-    WideValueAddr->setAlignment(
-        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted) * Size);
+    WideValueAddr->setAlignment(Align(
+        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted).value() *
+        Size));
   } else {
     Type *WideType = SGHelper::getVectorType(VType, Size);
     WideValueAddr = Builder.CreateAlloca(WideType, nullptr, NewName);
@@ -788,8 +877,9 @@ void SGValueWidenPass::widenAlloca(Instruction *V, Instruction *FirstI,
     // We may convert this addr to pointer of vector and then load the vector
     // from it. This behaviour will cause aligned vector move, so we need to
     // update the alignment here.
-    WideValue->setAlignment(
-        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted) * Size);
+    WideValue->setAlignment(Align(
+        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted).value() *
+        Size));
   } else {
     Type *WideType = SGHelper::getVectorType(AllocatedType, NewSize);
     WideValue = Builder.CreateAlloca(WideType, AddrSpace, nullptr, NewName);

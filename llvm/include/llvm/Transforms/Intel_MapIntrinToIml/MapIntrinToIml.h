@@ -114,7 +114,7 @@ class MapIntrinToImlImpl {
   /// the call instructions.
   void splitMathLibCalls(unsigned NumRet, unsigned TargetVL,
                          FunctionCallee Func, ArrayRef<Value *> Args,
-                         SmallVectorImpl<Value *> &SplitCalls);
+                         SmallVectorImpl<Value *> &SplitCalls, bool Masked);
 
   /// \brief Duplicate low order elements of a smaller vector into a larger
   /// vector.
@@ -163,7 +163,7 @@ class MapIntrinToImlImpl {
   // specified in \p Args. Set an appropriate calling convention and return the
   // newly created instruction.
   CallInst *createSVMLCall(FunctionCallee Callee, ArrayRef<Value *> Args,
-                           const Twine &Name);
+                           const Twine &Name, bool Masked);
 
 public:
   // Use TTI to provide information on the legal vector register size for the
