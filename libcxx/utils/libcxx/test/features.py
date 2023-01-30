@@ -284,7 +284,8 @@ DEFAULT_FEATURES += [
                    AddLinkFlag('-lirc')]),
   # end INTEL_CUSTOMIZATION
   Feature(name='netbsd', when=lambda cfg: '__NetBSD__' in compilerMacros(cfg)),
-  Feature(name='freebsd', when=lambda cfg: '__FreeBSD__' in compilerMacros(cfg))
+  Feature(name='freebsd', when=lambda cfg: '__FreeBSD__' in compilerMacros(cfg)),
+  Feature(name='LIBCXX-FREEBSD-FIXME', when=lambda cfg: '__FreeBSD__' in compilerMacros(cfg)),
 ]
 
 # Add features representing the build host platform name.
