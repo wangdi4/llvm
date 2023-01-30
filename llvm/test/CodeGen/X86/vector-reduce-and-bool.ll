@@ -747,10 +747,10 @@ define i1 @trunc_v64i8_v64i1(<64 x i8>) {
 ; SSE-LABEL: trunc_v64i8_v64i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    pand %xmm3, %xmm1
-; SSE-NEXT:    pand %xmm2, %xmm1
-; SSE-NEXT:    pand %xmm0, %xmm1
-; SSE-NEXT:    psllw $7, %xmm1
-; SSE-NEXT:    pmovmskb %xmm1, %eax
+; SSE-NEXT:    pand %xmm2, %xmm0
+; SSE-NEXT:    pand %xmm1, %xmm0
+; SSE-NEXT:    psllw $7, %xmm0
+; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
@@ -783,8 +783,8 @@ define i1 @trunc_v64i8_v64i1(<64 x i8>) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm1, %xmm2
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm3
 ; AVX512F-NEXT:    vpand %xmm2, %xmm3, %xmm2
-; AVX512F-NEXT:    vpand %xmm2, %xmm1, %xmm1
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm2, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpmovsxbd %xmm0, %zmm0
 ; AVX512F-NEXT:    vpslld $31, %zmm0, %zmm0
 ; AVX512F-NEXT:    vptestmd %zmm0, %zmm0, %k0
@@ -1237,10 +1237,10 @@ define i1 @icmp0_v8i64_v8i1(<8 x i64>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pxor %xmm4, %xmm4
 ; SSE2-NEXT:    por %xmm3, %xmm1
-; SSE2-NEXT:    por %xmm2, %xmm1
-; SSE2-NEXT:    por %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    por %xmm2, %xmm0
+; SSE2-NEXT:    por %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -1248,9 +1248,9 @@ define i1 @icmp0_v8i64_v8i1(<8 x i64>) {
 ; SSE41-LABEL: icmp0_v8i64_v8i1:
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    por %xmm3, %xmm1
-; SSE41-NEXT:    por %xmm2, %xmm1
-; SSE41-NEXT:    por %xmm0, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    por %xmm2, %xmm0
+; SSE41-NEXT:    por %xmm1, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -1306,10 +1306,10 @@ define i1 @icmp0_v16i32_v16i1(<16 x i32>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pxor %xmm4, %xmm4
 ; SSE2-NEXT:    por %xmm3, %xmm1
-; SSE2-NEXT:    por %xmm2, %xmm1
-; SSE2-NEXT:    por %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    por %xmm2, %xmm0
+; SSE2-NEXT:    por %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -1317,9 +1317,9 @@ define i1 @icmp0_v16i32_v16i1(<16 x i32>) {
 ; SSE41-LABEL: icmp0_v16i32_v16i1:
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    por %xmm3, %xmm1
-; SSE41-NEXT:    por %xmm2, %xmm1
-; SSE41-NEXT:    por %xmm0, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    por %xmm2, %xmm0
+; SSE41-NEXT:    por %xmm1, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -1356,10 +1356,10 @@ define i1 @icmp0_v32i16_v32i1(<32 x i16>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pxor %xmm4, %xmm4
 ; SSE2-NEXT:    por %xmm3, %xmm1
-; SSE2-NEXT:    por %xmm2, %xmm1
-; SSE2-NEXT:    por %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    por %xmm2, %xmm0
+; SSE2-NEXT:    por %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -1367,9 +1367,9 @@ define i1 @icmp0_v32i16_v32i1(<32 x i16>) {
 ; SSE41-LABEL: icmp0_v32i16_v32i1:
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    por %xmm3, %xmm1
-; SSE41-NEXT:    por %xmm2, %xmm1
-; SSE41-NEXT:    por %xmm0, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    por %xmm2, %xmm0
+; SSE41-NEXT:    por %xmm1, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -1435,10 +1435,10 @@ define i1 @icmp0_v64i8_v64i1(<64 x i8>) {
 ; SSE2-LABEL: icmp0_v64i8_v64i1:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    por %xmm3, %xmm1
-; SSE2-NEXT:    pxor %xmm3, %xmm3
-; SSE2-NEXT:    por %xmm2, %xmm1
-; SSE2-NEXT:    por %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm3, %xmm1
+; SSE2-NEXT:    por %xmm2, %xmm0
+; SSE2-NEXT:    por %xmm1, %xmm0
+; SSE2-NEXT:    pxor %xmm1, %xmm1
+; SSE2-NEXT:    pcmpeqb %xmm0, %xmm1
 ; SSE2-NEXT:    pmovmskb %xmm1, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
@@ -1447,9 +1447,9 @@ define i1 @icmp0_v64i8_v64i1(<64 x i8>) {
 ; SSE41-LABEL: icmp0_v64i8_v64i1:
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    por %xmm3, %xmm1
-; SSE41-NEXT:    por %xmm2, %xmm1
-; SSE41-NEXT:    por %xmm0, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    por %xmm2, %xmm0
+; SSE41-NEXT:    por %xmm1, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -1478,8 +1478,8 @@ define i1 @icmp0_v64i8_v64i1(<64 x i8>) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm1, %xmm2
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm3
 ; AVX512F-NEXT:    vpand %xmm2, %xmm3, %xmm2
-; AVX512F-NEXT:    vpand %xmm2, %xmm1, %xmm1
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm2, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpmovsxbd %xmm0, %zmm0
 ; AVX512F-NEXT:    vpslld $31, %zmm0, %zmm0
 ; AVX512F-NEXT:    vptestmd %zmm0, %zmm0, %k0
@@ -2152,10 +2152,10 @@ define i1 @icmp1_v8i64_v8i1(<8 x i64>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE2-NEXT:    pand %xmm3, %xmm1
-; SSE2-NEXT:    pand %xmm2, %xmm1
-; SSE2-NEXT:    pand %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    pand %xmm2, %xmm0
+; SSE2-NEXT:    pand %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -2164,10 +2164,10 @@ define i1 @icmp1_v8i64_v8i1(<8 x i64>) {
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE41-NEXT:    pand %xmm3, %xmm1
-; SSE41-NEXT:    pand %xmm2, %xmm1
-; SSE41-NEXT:    pand %xmm0, %xmm1
-; SSE41-NEXT:    psubb %xmm4, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    pand %xmm2, %xmm0
+; SSE41-NEXT:    pand %xmm1, %xmm0
+; SSE41-NEXT:    psubb %xmm4, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -2233,10 +2233,10 @@ define i1 @icmp1_v16i32_v16i1(<16 x i32>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE2-NEXT:    pand %xmm3, %xmm1
-; SSE2-NEXT:    pand %xmm2, %xmm1
-; SSE2-NEXT:    pand %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    pand %xmm2, %xmm0
+; SSE2-NEXT:    pand %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -2245,10 +2245,10 @@ define i1 @icmp1_v16i32_v16i1(<16 x i32>) {
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE41-NEXT:    pand %xmm3, %xmm1
-; SSE41-NEXT:    pand %xmm2, %xmm1
-; SSE41-NEXT:    pand %xmm0, %xmm1
-; SSE41-NEXT:    psubb %xmm4, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    pand %xmm2, %xmm0
+; SSE41-NEXT:    pand %xmm1, %xmm0
+; SSE41-NEXT:    psubb %xmm4, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -2293,10 +2293,10 @@ define i1 @icmp1_v32i16_v32i1(<32 x i16>) {
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE2-NEXT:    pand %xmm3, %xmm1
-; SSE2-NEXT:    pand %xmm2, %xmm1
-; SSE2-NEXT:    pand %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm4, %xmm1
-; SSE2-NEXT:    pmovmskb %xmm1, %eax
+; SSE2-NEXT:    pand %xmm2, %xmm0
+; SSE2-NEXT:    pand %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE2-NEXT:    pmovmskb %xmm0, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
 ; SSE2-NEXT:    retq
@@ -2305,10 +2305,10 @@ define i1 @icmp1_v32i16_v32i1(<32 x i16>) {
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    pcmpeqd %xmm4, %xmm4
 ; SSE41-NEXT:    pand %xmm3, %xmm1
-; SSE41-NEXT:    pand %xmm2, %xmm1
-; SSE41-NEXT:    pand %xmm0, %xmm1
-; SSE41-NEXT:    psubb %xmm4, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    pand %xmm2, %xmm0
+; SSE41-NEXT:    pand %xmm1, %xmm0
+; SSE41-NEXT:    psubb %xmm4, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -2383,10 +2383,10 @@ define i1 @icmp1_v64i8_v64i1(<64 x i8>) {
 ; SSE2-LABEL: icmp1_v64i8_v64i1:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    pand %xmm3, %xmm1
-; SSE2-NEXT:    pcmpeqd %xmm3, %xmm3
-; SSE2-NEXT:    pand %xmm2, %xmm1
-; SSE2-NEXT:    pand %xmm0, %xmm1
-; SSE2-NEXT:    pcmpeqb %xmm3, %xmm1
+; SSE2-NEXT:    pand %xmm2, %xmm0
+; SSE2-NEXT:    pand %xmm1, %xmm0
+; SSE2-NEXT:    pcmpeqd %xmm1, %xmm1
+; SSE2-NEXT:    pcmpeqb %xmm0, %xmm1
 ; SSE2-NEXT:    pmovmskb %xmm1, %eax
 ; SSE2-NEXT:    cmpw $-1, %ax
 ; SSE2-NEXT:    sete %al
@@ -2395,11 +2395,11 @@ define i1 @icmp1_v64i8_v64i1(<64 x i8>) {
 ; SSE41-LABEL: icmp1_v64i8_v64i1:
 ; SSE41:       # %bb.0:
 ; SSE41-NEXT:    pand %xmm3, %xmm1
-; SSE41-NEXT:    pcmpeqd %xmm3, %xmm3
-; SSE41-NEXT:    pand %xmm2, %xmm1
-; SSE41-NEXT:    pand %xmm0, %xmm1
-; SSE41-NEXT:    psubb %xmm3, %xmm1
-; SSE41-NEXT:    ptest %xmm1, %xmm1
+; SSE41-NEXT:    pand %xmm2, %xmm0
+; SSE41-NEXT:    pand %xmm1, %xmm0
+; SSE41-NEXT:    pcmpeqd %xmm1, %xmm1
+; SSE41-NEXT:    psubb %xmm1, %xmm0
+; SSE41-NEXT:    ptest %xmm0, %xmm0
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
@@ -2435,8 +2435,8 @@ define i1 @icmp1_v64i8_v64i1(<64 x i8>) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm1, %xmm2
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm3
 ; AVX512F-NEXT:    vpand %xmm2, %xmm3, %xmm2
-; AVX512F-NEXT:    vpand %xmm2, %xmm1, %xmm1
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm2, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpmovsxbd %xmm0, %zmm0
 ; AVX512F-NEXT:    vpslld $31, %zmm0, %zmm0
 ; AVX512F-NEXT:    vptestmd %zmm0, %zmm0, %k0
@@ -3032,9 +3032,9 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>, <8 x i64>) {
 ; SSE-NEXT:    pcmpeqb %xmm5, %xmm1
 ; SSE-NEXT:    pand %xmm3, %xmm1
 ; SSE-NEXT:    pcmpeqb %xmm6, %xmm2
-; SSE-NEXT:    pand %xmm1, %xmm2
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm0
 ; SSE-NEXT:    pand %xmm2, %xmm0
+; SSE-NEXT:    pand %xmm1, %xmm0
 ; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
 ; SSE-NEXT:    sete %al
@@ -3050,9 +3050,9 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>, <8 x i64>) {
 ; AVX1-NEXT:    vpcmpeqb %xmm5, %xmm6, %xmm5
 ; AVX1-NEXT:    vpand %xmm4, %xmm5, %xmm4
 ; AVX1-NEXT:    vpcmpeqb %xmm3, %xmm1, %xmm1
-; AVX1-NEXT:    vpand %xmm4, %xmm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqb %xmm2, %xmm0, %xmm0
 ; AVX1-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vpand %xmm4, %xmm0, %xmm0
 ; AVX1-NEXT:    vpmovmskb %xmm0, %eax
 ; AVX1-NEXT:    cmpw $-1, %ax
 ; AVX1-NEXT:    sete %al
@@ -3107,9 +3107,9 @@ define i1 @icmp_v16i32_v16i1(<16 x i32>, <16 x i32>) {
 ; SSE-NEXT:    pcmpeqb %xmm5, %xmm1
 ; SSE-NEXT:    pand %xmm3, %xmm1
 ; SSE-NEXT:    pcmpeqb %xmm6, %xmm2
-; SSE-NEXT:    pand %xmm1, %xmm2
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm0
 ; SSE-NEXT:    pand %xmm2, %xmm0
+; SSE-NEXT:    pand %xmm1, %xmm0
 ; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
 ; SSE-NEXT:    sete %al
@@ -3125,9 +3125,9 @@ define i1 @icmp_v16i32_v16i1(<16 x i32>, <16 x i32>) {
 ; AVX1-NEXT:    vpcmpeqb %xmm5, %xmm6, %xmm5
 ; AVX1-NEXT:    vpand %xmm4, %xmm5, %xmm4
 ; AVX1-NEXT:    vpcmpeqb %xmm3, %xmm1, %xmm1
-; AVX1-NEXT:    vpand %xmm4, %xmm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqb %xmm2, %xmm0, %xmm0
 ; AVX1-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vpand %xmm4, %xmm0, %xmm0
 ; AVX1-NEXT:    vpmovmskb %xmm0, %eax
 ; AVX1-NEXT:    cmpw $-1, %ax
 ; AVX1-NEXT:    sete %al
@@ -3163,9 +3163,9 @@ define i1 @icmp_v32i16_v32i1(<32 x i16>, <32 x i16>) {
 ; SSE-NEXT:    pcmpeqb %xmm5, %xmm1
 ; SSE-NEXT:    pand %xmm3, %xmm1
 ; SSE-NEXT:    pcmpeqb %xmm6, %xmm2
-; SSE-NEXT:    pand %xmm1, %xmm2
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm0
 ; SSE-NEXT:    pand %xmm2, %xmm0
+; SSE-NEXT:    pand %xmm1, %xmm0
 ; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
 ; SSE-NEXT:    sete %al
@@ -3181,9 +3181,9 @@ define i1 @icmp_v32i16_v32i1(<32 x i16>, <32 x i16>) {
 ; AVX1-NEXT:    vpcmpeqb %xmm5, %xmm6, %xmm5
 ; AVX1-NEXT:    vpand %xmm4, %xmm5, %xmm4
 ; AVX1-NEXT:    vpcmpeqb %xmm3, %xmm1, %xmm1
-; AVX1-NEXT:    vpand %xmm4, %xmm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqb %xmm2, %xmm0, %xmm0
 ; AVX1-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX1-NEXT:    vpand %xmm4, %xmm0, %xmm0
 ; AVX1-NEXT:    vpmovmskb %xmm0, %eax
 ; AVX1-NEXT:    cmpw $-1, %ax
 ; AVX1-NEXT:    sete %al
@@ -3247,10 +3247,10 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>, <64 x i8>) {
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    pcmpeqb %xmm6, %xmm2
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE-NEXT:    pand %xmm2, %xmm0
 ; SSE-NEXT:    pcmpeqb %xmm7, %xmm3
 ; SSE-NEXT:    pcmpeqb %xmm5, %xmm1
 ; SSE-NEXT:    pand %xmm3, %xmm1
-; SSE-NEXT:    pand %xmm2, %xmm1
 ; SSE-NEXT:    pand %xmm0, %xmm1
 ; SSE-NEXT:    pmovmskb %xmm1, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
@@ -3261,6 +3261,7 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>, <64 x i8>) {
 ; AVX1:       # %bb.0:
 ; AVX1-NEXT:    vpcmpeqb %xmm3, %xmm1, %xmm4
 ; AVX1-NEXT:    vpcmpeqb %xmm2, %xmm0, %xmm5
+; AVX1-NEXT:    vpand %xmm4, %xmm5, %xmm4
 ; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm3
 ; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm1
 ; AVX1-NEXT:    vpcmpeqb %xmm3, %xmm1, %xmm1
@@ -3269,7 +3270,6 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>, <64 x i8>) {
 ; AVX1-NEXT:    vpcmpeqb %xmm2, %xmm0, %xmm0
 ; AVX1-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpand %xmm0, %xmm4, %xmm0
-; AVX1-NEXT:    vpand %xmm0, %xmm5, %xmm0
 ; AVX1-NEXT:    vpmovmskb %xmm0, %eax
 ; AVX1-NEXT:    cmpw $-1, %ax
 ; AVX1-NEXT:    sete %al
@@ -3295,7 +3295,7 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>, <64 x i8>) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm2, %xmm1
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm3
 ; AVX512F-NEXT:    vpand %xmm1, %xmm3, %xmm1
-; AVX512F-NEXT:    vpand %xmm1, %xmm2, %xmm1
+; AVX512F-NEXT:    vpand %xmm2, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpmovsxbd %xmm0, %zmm0
 ; AVX512F-NEXT:    vpslld $31, %zmm0, %zmm0
