@@ -252,8 +252,10 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
   InstructionCost OldCost =
       TTI.getMemoryOpCost(Instruction::Load, LoadTy, Alignment, AS);
   APInt DemandedElts = APInt::getOneBitSet(MinVecNumElts, 0);
-  OldCost += TTI.getScalarizationOverhead(MinVecTy, DemandedElts,
-                                          /* Insert */ true, HasExtract);
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  OldCost +=
+      TTI.getScalarizationOverhead(MinVecTy, DemandedElts,
+                                   /* Insert */ true, HasExtract, CostKind);
 
   // New pattern: load VecPtr
   InstructionCost NewCost =
@@ -368,9 +370,12 @@ ExtractElementInst *VectorCombine::getShuffleExtract(
     return nullptr;
 
   Type *VecTy = Ext0->getVectorOperand()->getType();
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
   assert(VecTy == Ext1->getVectorOperand()->getType() && "Need matching types");
-  InstructionCost Cost0 = TTI.getVectorInstrCost(*Ext0, VecTy, Index0);
-  InstructionCost Cost1 = TTI.getVectorInstrCost(*Ext1, VecTy, Index1);
+  InstructionCost Cost0 =
+      TTI.getVectorInstrCost(*Ext0, VecTy, CostKind, Index0);
+  InstructionCost Cost1 =
+      TTI.getVectorInstrCost(*Ext1, VecTy, CostKind, Index1);
 
   // If both costs are invalid no shuffle is needed
   if (!Cost0.isValid() && !Cost1.isValid())
@@ -433,11 +438,12 @@ bool VectorCombine::isExtractExtractCheap(ExtractElementInst *Ext0,
   // both sequences.
   unsigned Ext0Index = Ext0IndexC->getZExtValue();
   unsigned Ext1Index = Ext1IndexC->getZExtValue();
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
 
   InstructionCost Extract0Cost =
-      TTI.getVectorInstrCost(*Ext0, VecTy, Ext0Index);
+      TTI.getVectorInstrCost(*Ext0, VecTy, CostKind, Ext0Index);
   InstructionCost Extract1Cost =
-      TTI.getVectorInstrCost(*Ext1, VecTy, Ext1Index);
+      TTI.getVectorInstrCost(*Ext1, VecTy, CostKind, Ext1Index);
 
   // A more expensive extract will always be replaced by a splat shuffle.
   // For example, if Ext0 is more expensive:
@@ -667,15 +673,16 @@ bool VectorCombine::foldInsExtFNeg(Instruction &I) {
   Mask[Index] = Index + NumElts;
 
   Type *ScalarTy = VecTy->getScalarType();
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
   InstructionCost OldCost =
       TTI.getArithmeticInstrCost(Instruction::FNeg, ScalarTy) +
-      TTI.getVectorInstrCost(I, VecTy, Index);
+      TTI.getVectorInstrCost(I, VecTy, CostKind, Index);
 
   // If the extract has one use, it will be eliminated, so count it in the
   // original cost. If it has more than one use, ignore the cost because it will
   // be the same before/after.
   if (Extract->hasOneUse())
-    OldCost += TTI.getVectorInstrCost(*Extract, VecTy, Index);
+    OldCost += TTI.getVectorInstrCost(*Extract, VecTy, CostKind, Index);
 
   InstructionCost NewCost =
       TTI.getArithmeticInstrCost(Instruction::FNeg, VecTy) +
@@ -827,8 +834,9 @@ bool VectorCombine::scalarizeBinopOrCmp(Instruction &I) {
 
   // Get cost estimate for the insert element. This cost will factor into
   // both sequences.
-  InstructionCost InsertCost =
-      TTI.getVectorInstrCost(Instruction::InsertElement, VecTy, Index);
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  InstructionCost InsertCost = TTI.getVectorInstrCost(
+      Instruction::InsertElement, VecTy, CostKind, Index);
   InstructionCost OldCost =
       (IsConst0 ? 0 : InsertCost) + (IsConst1 ? 0 : InsertCost) + VectorOpCost;
   InstructionCost NewCost = ScalarOpCost + InsertCost +
@@ -917,8 +925,10 @@ bool VectorCombine::foldExtractedCmps(Instruction &I) {
   if (!VecTy)
     return false;
 
-  InstructionCost OldCost = TTI.getVectorInstrCost(*Ext0, VecTy, Index0);
-  OldCost += TTI.getVectorInstrCost(*Ext1, VecTy, Index1);
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  InstructionCost OldCost =
+      TTI.getVectorInstrCost(*Ext0, VecTy, CostKind, Index0);
+  OldCost += TTI.getVectorInstrCost(*Ext1, VecTy, CostKind, Index1);
   OldCost +=
       TTI.getCmpSelInstrCost(CmpOpcode, I0->getType(),
                              CmpInst::makeCmpResultType(I0->getType()), Pred) *
@@ -938,7 +948,7 @@ bool VectorCombine::foldExtractedCmps(Instruction &I) {
   NewCost += TTI.getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, CmpTy,
                                 ShufMask);
   NewCost += TTI.getArithmeticInstrCost(I.getOpcode(), CmpTy);
-  NewCost += TTI.getVectorInstrCost(*Ext0, CmpTy, CheapIndex);
+  NewCost += TTI.getVectorInstrCost(*Ext0, CmpTy, CostKind, CheapIndex);
 
   // Aggressively form vector ops if the cost is equal because the transform
   // may enable further optimization.
@@ -1195,8 +1205,9 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
     }
 
     auto *Index = dyn_cast<ConstantInt>(UI->getOperand(1));
+    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
     OriginalCost +=
-        TTI.getVectorInstrCost(Instruction::ExtractElement, FixedVT,
+        TTI.getVectorInstrCost(Instruction::ExtractElement, FixedVT, CostKind,
                                Index ? Index->getZExtValue() : -1);
     ScalarizedCost +=
         TTI.getMemoryOpCost(Instruction::Load, FixedVT->getElementType(),

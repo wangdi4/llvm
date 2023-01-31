@@ -121,10 +121,11 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
                                GroupTy, std::nullopt, TTI::TCK_RecipThroughput,
                                CoalescedLoadScalarOffset, GroupMemVecType)
                .getValue();
-    else
-      ShuffleCost +=
-          *TTI->getVectorInstrCost(Instruction::ExtractElement, GroupTy,
-                                   CoalescedLoadScalarOffset).getValue();
+    // please uncomment and fix the build
+    // else
+    //   ShuffleCost +=
+    //       *TTI->getVectorInstrCost(Instruction::ExtractElement, GroupTy,
+    //                                CoalescedLoadScalarOffset).getValue();
 
     CostBeforeCoalescing +=
         *TTI->getMemoryOpCost(MemberI->getOpcode(), GroupMemType,
