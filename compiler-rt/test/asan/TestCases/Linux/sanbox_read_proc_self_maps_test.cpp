@@ -1,4 +1,9 @@
 // REQUIRES: x86_64-target-arch
+// INTEL_CUSTOMIZATION
+// This test has been flaky in alloy testing. See CMPLRLLVM-44200
+// It is disabled until this is fixed.
+// UNSUPPORTED: true
+// end INTEL_CUSTOMIZATION
 // RUN: %clangxx_asan  %s -o %t
 // RUN: not %run %t 2>&1 | FileCheck %s
 #include <sanitizer/common_interface_defs.h>
