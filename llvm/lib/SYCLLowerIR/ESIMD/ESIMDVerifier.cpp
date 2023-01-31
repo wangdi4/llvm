@@ -68,11 +68,12 @@ namespace {
 
 class ESIMDVerifierImpl {
   const Module &M;
-  bool ForceStatelessMem;
+  bool MayNeedForceStatelessMemModeAPI;
 
 public:
-  ESIMDVerifierImpl(const Module &M, bool ForceStatelessMem)
-      : M(M), ForceStatelessMem(ForceStatelessMem) {}
+  ESIMDVerifierImpl(const Module &M, bool MayNeedForceStatelessMemModeAPI)
+      : M(M), MayNeedForceStatelessMemModeAPI(MayNeedForceStatelessMemModeAPI) {
+  }
 
   void verify() {
     SmallPtrSet<const Function *, 8u> Visited;
@@ -143,7 +144,13 @@ public:
             return LegalNameRE.match(Name);
           };
           if (any_of(LegalSYCLFunctions, checkLegalFunc) ||
-              (ForceStatelessMem &&
+              // TODO: Methods listed in LegalSYCLFunctionsInStatelessMode are
+              // indeed required to support ESIMD APIs accepting accessors in
+              // stateless-only mode. This unintentionally opens that API for
+              // unintended usage in user's programs. Can those APIs be
+              // allowed for ESIMD implementation only and not for general
+              // usage?
+              (MayNeedForceStatelessMemModeAPI &&
                any_of(LegalSYCLFunctionsInStatelessMode, checkLegalFunc)))
             continue;
 
@@ -161,7 +168,7 @@ public:
 } // end anonymous namespace
 
 PreservedAnalyses ESIMDVerifierPass::run(Module &M, ModuleAnalysisManager &AM) {
-  ESIMDVerifierImpl(M, ForceStatelessMem).verify();
+  ESIMDVerifierImpl(M, MayNeedForceStatelessMemModeAPI).verify();
   return PreservedAnalyses::all();
 }
 
@@ -169,9 +176,11 @@ namespace {
 
 struct ESIMDVerifier : public ModulePass {
   static char ID;
-  bool ForceStatelessMem;
+  bool MayNeedForceStatelessMemModeAPI;
 
-  ESIMDVerifier() : ModulePass(ID) {
+  ESIMDVerifier(bool MayNeedForceStatelessMemModeAPI = true)
+      : ModulePass(ID),
+        MayNeedForceStatelessMemModeAPI(MayNeedForceStatelessMemModeAPI) {
     initializeESIMDVerifierPass(*PassRegistry::getPassRegistry());
   }
 
@@ -180,7 +189,7 @@ struct ESIMDVerifier : public ModulePass {
   }
 
   bool runOnModule(Module &M) override {
-    ESIMDVerifierImpl(M, ForceStatelessMem).verify();
+    ESIMDVerifierImpl(M, MayNeedForceStatelessMemModeAPI).verify();
     return false;
   }
 };
@@ -194,4 +203,7 @@ INITIALIZE_PASS_BEGIN(ESIMDVerifier, DEBUG_TYPE, "ESIMD-specific IR verifier",
 INITIALIZE_PASS_END(ESIMDVerifier, DEBUG_TYPE, "ESIMD-specific IR verifier",
                     false, false)
 
-ModulePass *llvm::createESIMDVerifierPass() { return new ESIMDVerifier(); }
+ModulePass *
+llvm::createESIMDVerifierPass(bool MayNeedForceStatelessMemModeAPI) {
+  return new ESIMDVerifier(MayNeedForceStatelessMemModeAPI);
+}
