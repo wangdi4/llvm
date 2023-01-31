@@ -152,6 +152,20 @@ static void errorUnsupported(SelectionDAG &DAG, const SDLoc &dl,
       DiagnosticInfoUnsupported(MF.getFunction(), Msg, dl.getDebugLoc()));
 }
 
+/// Returns true if a CC can dynamically exclude a register from the list of
+/// callee-saved-registers (TargetRegistryInfo::getCalleeSavedRegs()) based on
+/// params/returns.
+static bool shouldDisableCalleeSavedRegisterCC(CallingConv::ID CC) {
+  switch (CC) {
+  default:
+    return false;
+  case CallingConv::X86_RegCall:
+  case CallingConv::PreserveMost:
+  case CallingConv::PreserveAll:
+    return true;
+  }
+}
+
 X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                                      const X86Subtarget &STI)
     : TargetLowering(TM), Subtarget(STI) {
@@ -3752,9 +3766,13 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // In some cases we need to disable registers from the default CSR list.
   // For example, when they are used for argument passing.
   bool ShouldDisableCalleeSavedRegister =
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
+=======
+      shouldDisableCalleeSavedRegisterCC(CallConv) ||
+>>>>>>> 0276fa89d7a4dbe73105c9148f947716b3d8f17f
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
@@ -4931,9 +4949,13 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (shouldDisableCalleeSavedRegisterCC(CallConv) ||
+>>>>>>> 0276fa89d7a4dbe73105c9148f947716b3d8f17f
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -5500,9 +5522,13 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // In some calling conventions we need to remove the used physical registers
   // from the reg mask.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR) {
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (shouldDisableCalleeSavedRegisterCC(CallConv) || HasNCSR) {
+>>>>>>> 0276fa89d7a4dbe73105c9148f947716b3d8f17f
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
     // Allocate a new Reg Mask and copy Mask.
