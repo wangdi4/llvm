@@ -32,7 +32,7 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_LOAD_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.load.if:
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i8, i8* [[A:%.*]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i8> poison, i8 [[TMP4]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i8> poison, i8 [[TMP4]], i64 0
 ; CHECK-NEXT:    br label [[TMP5:%.*]]
 ; CHECK:       6:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi <4 x i8> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
@@ -56,7 +56,7 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB7:%.*]], label [[VPLANNEDBB8:%.*]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP13:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[WIDE_LOAD6]])
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT9:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT9:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT10:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT9]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PRIV_IDX_CMP:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD6]], [[BROADCAST_SPLAT10]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4

@@ -35,7 +35,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:

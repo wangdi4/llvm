@@ -64,14 +64,14 @@ define dso_local void @test2(ptr %a) {
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i64 [ 0, [[VPLANNEDBB3]] ], [ [[TMP5:%.*]], [[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI5]], 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP5]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP5]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult <2 x i64> [[BROADCAST_SPLAT]], <i64 125, i64 125>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_8:%.*]] = extractelement <2 x i1> [[TMP6]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = and <2 x i1> [[TMP1]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <2 x i1> [[TMP7]] to i2
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i2 [[TMP8]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT6:%.*]] = insertelement <2 x i1> poison, i1 [[TMP9]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT6:%.*]] = insertelement <2 x i1> poison, i1 [[TMP9]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT7:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT6]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT7]], <i1 true, i1 true>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i1> [[TMP10]], i32 0

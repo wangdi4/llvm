@@ -15,7 +15,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br i1 false, label [[MERGE_BLK15:%.*]], label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
@@ -40,16 +40,16 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    br i1 true, label [[FINAL_MERGE:%.*]], label [[MERGE_BLK15]]
 ; CHECK:       merge.blk15:
 ; CHECK-NEXT:    [[UNI_PHI7:%.*]] = phi i64 [ 1024, [[VPLANNEDBB6]] ], [ 0, [[VPLANNEDBB]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT13:%.*]] = insertelement <2 x i64> poison, i64 [[UNI_PHI7]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT13:%.*]] = insertelement <2 x i64> poison, i64 [[UNI_PHI7]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT14:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT13]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
 ; CHECK:       VPlannedBB8:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT19:%.*]] = insertelement <2 x i32> poison, i32 [[C]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT19:%.*]] = insertelement <2 x i32> poison, i32 [[C]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT20:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT19]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB9:%.*]]
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 1024, [[UNI_PHI7]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT15:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT15:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT16:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT15]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK:       VPlannedBB10:

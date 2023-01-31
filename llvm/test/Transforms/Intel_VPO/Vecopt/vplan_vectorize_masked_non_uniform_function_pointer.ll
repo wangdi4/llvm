@@ -26,7 +26,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[N0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[N0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
@@ -61,7 +61,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.indirect.call:
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x i32 (i32)*> poison, i32 (i32)* [[CURRENT_FPTR0]], i32 0
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x i32 (i32)*> poison, i32 (i32)* [[CURRENT_FPTR0]], i64 0
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <4 x i32 (i32)*> [[CURRENT_FPTR_SPLATINSERT0]], <4 x i32 (i32)*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x i32 (i32)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[FINAL_MASK0:%.*]] = and <4 x i1> [[FUNC_PTR_MASK0]], [[TMP4]]
@@ -89,7 +89,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if:
 ; CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[A0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT90:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT90:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i64 0
 ; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  14:

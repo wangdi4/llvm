@@ -27,7 +27,7 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI]], i32 0
+; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI]], i64 0
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[UNI_PHIIND_START_BCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i64> [[UNI_PHIIND_START_BCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]

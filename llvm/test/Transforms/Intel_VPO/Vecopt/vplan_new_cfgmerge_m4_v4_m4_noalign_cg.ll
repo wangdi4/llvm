@@ -13,7 +13,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[PEEL_CHECKL27:%.*]]
 ; CHECK:       peel.checkl27:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY:%.*]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64*> [[BROADCAST_SPLATINSERT]], <4 x i64*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x i64*> [[BROADCAST_SPLAT]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
@@ -33,12 +33,12 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ugt i64 [[TMP8]], 1024
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[MERGE_BLK22]], label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT8:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT8:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT9:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT8]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[TMP10:%.*]] = sub i64 [[TMP6]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <4 x i64> poison, i64 [[TMP10]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <4 x i64> poison, i64 [[TMP10]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT4]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB3:%.*]]
 ; CHECK:       VPlannedBB3:
@@ -76,11 +76,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP24:%.*]] = icmp ugt i64 [[TMP23]], 1024
 ; CHECK-NEXT:    br i1 [[TMP24]], label [[MERGE_BLK22]], label [[VPLANNEDBB14:%.*]]
 ; CHECK:       VPlannedBB14:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <4 x i32> poison, i32 [[C]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <4 x i32> poison, i32 [[C]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT21:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT20]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB15:%.*]]
 ; CHECK:       VPlannedBB15:
-; CHECK-NEXT:    [[UNI_PHI12IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI12]], i32 0
+; CHECK-NEXT:    [[UNI_PHI12IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI12]], i64 0
 ; CHECK-NEXT:    [[UNI_PHI12IND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[UNI_PHI12IND_START_BCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP25:%.*]] = add <4 x i64> [[UNI_PHI12IND_START_BCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[N_ADJST:%.*]] = sub nuw nsw i64 1024, [[TMP6]]
@@ -110,16 +110,16 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    br i1 [[TMP34]], label [[FINAL_MERGE:%.*]], label [[MERGE_BLK22]]
 ; CHECK:       merge.blk22:
 ; CHECK-NEXT:    [[UNI_PHI25:%.*]] = phi i64 [ [[TMP33]], [[VPLANNEDBB24]] ], [ 0, [[PEEL_CHECKL27]] ], [ 0, [[PEEL_CHECKV28]] ], [ [[UNI_PHI12]], [[VPLANNEDBB13]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT31:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI25]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT31:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI25]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT32:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT31]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB26:%.*]]
 ; CHECK:       VPlannedBB26:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT38:%.*]] = insertelement <4 x i32> poison, i32 [[C]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT38:%.*]] = insertelement <4 x i32> poison, i32 [[C]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT39:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT38]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB27:%.*]]
 ; CHECK:       VPlannedBB27:
 ; CHECK-NEXT:    [[TMP35:%.*]] = sub i64 1024, [[UNI_PHI25]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT33:%.*]] = insertelement <4 x i64> poison, i64 [[TMP35]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT33:%.*]] = insertelement <4 x i64> poison, i64 [[TMP35]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT34:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT33]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB28:%.*]]
 ; CHECK:       VPlannedBB28:

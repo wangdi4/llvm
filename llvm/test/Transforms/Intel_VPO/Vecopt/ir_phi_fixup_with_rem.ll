@@ -127,7 +127,7 @@ define void @_ZN10Mandelbrot16execute_cpu_partEii_DIR_OMP_PARALLEL_LOOP_2_split1
 ; CHECK-NEXT:    [[UNI_PHI350:%.*]] = phi float [ [[TMP11:%.*]], [[VPLANNEDBB340:%.*]] ], [ undef, [[VPLANNEDBB310]] ]
 ; CHECK-NEXT:    [[UNI_PHI360:%.*]] = phi i32 [ 0, [[VPLANNEDBB340]] ], [ 1, [[VPLANNEDBB310]] ]
 ; CHECK-NEXT:    [[UNI_PHI370:%.*]] = phi i1 [ true, [[VPLANNEDBB340]] ], [ false, [[VPLANNEDBB310]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI350]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI350]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br i1 [[UNI_PHI370]], label [[VPLANNEDBB290:%.*]], label [[VPLANNEDBB380:%.*]]
 ;

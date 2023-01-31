@@ -63,7 +63,7 @@ bb14:                                             ; preds = %DIR.OMP.END.SIMD.15
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TEST_ARRAY:%.*]] to <4 x i32>*
 ; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], <4 x i32>* [[PRIV_MEM]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i32*> [[DOTSPLATINSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull [[TMP3]])

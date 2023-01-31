@@ -26,7 +26,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[N0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[N0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
@@ -61,7 +61,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if16:
 ; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[C0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <4 x i32> poison, i32 [[TMP12]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <4 x i32> poison, i32 [[TMP12]], i64 0
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  13:
@@ -81,7 +81,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if18:
 ; CHECK-NEXT:    [[TMP21:%.*]] = load i32, i32* [[A0]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT70:%.*]] = insertelement <4 x i32> poison, i32 [[TMP21]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT70:%.*]] = insertelement <4 x i32> poison, i32 [[TMP21]], i64 0
 ; CHECK-NEXT:    br label [[TMP22]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  22:
