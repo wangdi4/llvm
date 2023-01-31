@@ -143,6 +143,9 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   if (ProfileTraceFile)
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
+
+  PM->RTLs.loadRTLs();
+  PM->registerDelayedLibraries();
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
