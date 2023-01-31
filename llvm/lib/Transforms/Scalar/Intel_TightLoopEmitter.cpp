@@ -30,6 +30,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -38,6 +39,7 @@
 #define DEBUG_TYPE OPT_SWITCH
 
 using namespace llvm;
+using namespace PatternMatch;
 
 namespace {
 enum EmitterOption { SSCMark, Remark };
@@ -177,9 +179,15 @@ void TightLoopEmitter::printCycle(
 
   if (!RelaxTightness) {
     bool seenFMA = llvm::any_of(Workitems, [](auto const &Item) {
-      if (auto *II = dyn_cast<IntrinsicInst>(Item.first)) {
+      if (auto *II = dyn_cast<IntrinsicInst>(Item.first))
         return II->getIntrinsicID() == Intrinsic::fma;
-      }
+
+      if (auto *II = dyn_cast<Instruction>(Item.first))
+        return (match(II, m_c_BinOp(Instruction::FAdd,
+                                    m_FMul(m_Value(), m_Value()), m_Value())) ||
+                match(II, m_c_BinOp(Instruction::FSub,
+                                    m_FMul(m_Value(), m_Value()), m_Value())));
+
       return false;
     });
     if (!seenFMA)

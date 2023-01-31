@@ -26,7 +26,7 @@ from __future__ import absolute_import, division, print_function
 import argparse
 import difflib
 import re
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 import sys
 
 if sys.version_info.major >= 3:
