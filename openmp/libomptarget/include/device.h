@@ -662,6 +662,7 @@ struct PluginManager {
   /// map clauses or not. Can be modified with an environment variable.
   const bool UseEventsForAtomicTransfers;
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Root device ID and sub-device mask set by user
   /// These should be global to all threads.
@@ -671,6 +672,32 @@ struct PluginManager {
 #if INTEL_CUSTOMIZATION
   InteropTblTy InteropTbl;
 #endif
+=======
+  // Work around for plugins that call dlopen on shared libraries that call
+  // tgt_register_lib during their initialisation. Stash the pointers in a
+  // vector until the plugins are all initialised and then register them.
+  bool maybeDelayRegisterLib(__tgt_bin_desc *Desc) {
+    if (!RTLsLoaded) {
+      // Only reachable from libomptarget constructor
+      DelayedBinDesc.push_back(Desc);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  void registerDelayedLibraries() {
+    // Only called by libomptarget constructor
+    RTLsLoaded = true;
+    for (auto *Desc : DelayedBinDesc)
+      __tgt_register_lib(Desc);
+    DelayedBinDesc.clear();
+  }
+
+private:
+  bool RTLsLoaded = false;
+  llvm::SmallVector<__tgt_bin_desc *> DelayedBinDesc;
+>>>>>>> 2257e3d2e55a52d70db10e9f4ed1669ab79ace3f
 };
 
 extern PluginManager *PM;
