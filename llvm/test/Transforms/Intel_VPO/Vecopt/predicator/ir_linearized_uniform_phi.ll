@@ -86,7 +86,7 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; CG-EMPTY:
 ; CG-NEXT:  pred.load.if:
 ; CG-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR0]], align 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
+; CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i64 0
 ; CG-NEXT:    br label [[TMP4]]
 ; CG-EMPTY:
 ; CG-NEXT:  4:
@@ -115,7 +115,7 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP9]], i1 false)
 ; CG-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
 ; CG-NEXT:    [[TMP11:%.*]] = add i64 [[TMP10]], 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT100:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i32 0
+; CG-NEXT:    [[BROADCAST_SPLATINSERT100:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i64 0
 ; CG-NEXT:    [[BROADCAST_SPLAT110:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT100]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CG-EMPTY:

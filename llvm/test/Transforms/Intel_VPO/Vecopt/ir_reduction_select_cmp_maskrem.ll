@@ -5,7 +5,7 @@
 ; CHECK:  [[ICMP1:%.*]] = icmp eq <8 x i32>
 ; CHECK:  [[SEL1:%.*]] = select <8 x i1> [[ICMP1]]
 ; CHECK: VPlannedBB7
-; CHECK:  [[INSERT1:%.*]] = insertelement <8 x i32> poison, i32 %a, i32 0
+; CHECK:  [[INSERT1:%.*]] = insertelement <8 x i32> poison, i32 %a, i64 0
 ; CHECK:  [[SPLAT1:%.*]] = shufflevector <8 x i32> [[INSERT1]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK:  [[ICMP2:%.*]] = icmp ne <8 x i32> [[SEL1]], [[SPLAT1]]
 ; CHECK:  [[REDOR1:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[ICMP2]])
@@ -13,7 +13,7 @@
 ; CHECK:  [[MERGE_BLK0:merge.*]]:
 ; CHECK:  [[PHI1:%.*]] = phi i32 [ [[SEL2]], [[VPLANNEDBB90:%.*]] ], [ %a, [[VPLANNEDBB9:%.*]] ]
 ; CHECK: VPlannedBB12
-; CHECK:  [[INSERT2:%.*]] = insertelement <8 x i32> poison, i32 %a, i32 0
+; CHECK:  [[INSERT2:%.*]] = insertelement <8 x i32> poison, i32 %a, i64 0
 ; CHECK:  [[SPLAT2:%.*]] = shufflevector <8 x i32> [[INSERT2]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK: VPlannedBB13
 ; CHECK:  [[INSERT3:%.*]] = insertelement <8 x i32> [[SPLAT2]], i32 [[PHI1]], i32 0
@@ -27,7 +27,7 @@
 ; CHECK: new_latch
 ; CHECK:  [[BLEND]] = select <8 x i1> [[MASK]], <8 x i32> [[SEL3]], <8 x i32> [[PHI2]]
 ; CHECK: VPlannedBB29
-; CHECK:  [[INSERT4:%.*]] = insertelement <8 x i32> poison, i32 [[PHI1]], i32 0
+; CHECK:  [[INSERT4:%.*]] = insertelement <8 x i32> poison, i32 [[PHI1]], i64 0
 ; CHECK:  [[SPLAT3:%.*]] = shufflevector <8 x i32> [[INSERT4]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK:  [[ICMP3:%.*]] = icmp ne <8 x i32> [[BLEND]], [[SPLAT3]]
 ; CHECK:  [[REDOR2:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[ICMP3]])

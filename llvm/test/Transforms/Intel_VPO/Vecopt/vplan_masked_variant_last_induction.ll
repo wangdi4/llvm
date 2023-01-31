@@ -63,7 +63,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; MASKED-PEEL-EMPTY:
 ; MASKED-PEEL-NEXT:  VPlannedBB9:
-; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i32 0
+; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i64 0
 ; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLAT0]], <i32 0, i32 1, i32 2, i32 3>
 ; MASKED-PEEL-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i32 [[N0]], 1
@@ -164,7 +164,7 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  [[MERGE_BLK0]]:
 ; MASKED-REMAINDER-NEXT:    [[UNI_PHI70:%.*]] = phi i32 [ [[TMP7]], [[VPLANNEDBB60]] ], [ 0, [[VPLANNEDBB0]] ]
-; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI70]], i32 0
+; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI70]], i64 0
 ; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-REMAINDER-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; MASKED-REMAINDER-EMPTY:
@@ -173,7 +173,7 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  VPlannedBB9:
 ; MASKED-REMAINDER-NEXT:    [[TMP9:%.*]] = sub i32 [[N0]], [[UNI_PHI70]]
-; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT130:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i32 0
+; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT130:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i64 0
 ; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLAT140:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT130]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-REMAINDER-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; MASKED-REMAINDER-EMPTY:
@@ -281,7 +281,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB9:
-; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLAT0]], <i32 0, i32 1, i32 2, i32 3>
 ; MASKED-PEEL-REMAINDER-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i32 [[N0]], 1
@@ -311,7 +311,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  [[MERGE_BLK0]]:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI160:%.*]] = phi i32 [ [[TMP14]], [[VPLANNEDBB150]] ], [ 0, %[[PEEL_CHECKV0]] ], [ [[UNI_PHI60]], [[VPLANNEDBB70]] ]
-; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI160]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI160]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB170:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
@@ -320,7 +320,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB18:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP16:%.*]] = sub i32 [[N0]], [[UNI_PHI160]]
-; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT220:%.*]] = insertelement <4 x i32> poison, i32 [[TMP16]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT220:%.*]] = insertelement <4 x i32> poison, i32 [[TMP16]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLAT230:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT220]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB190:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:

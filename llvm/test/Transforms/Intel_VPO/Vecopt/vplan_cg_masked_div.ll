@@ -148,7 +148,7 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[VAL0]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP4]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP4]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT0]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP6:%.*]] = or <2 x i1> [[BROADCAST_SPLAT0]], [[TMP5]]
@@ -162,7 +162,7 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.if:
 ; CHECK-NEXT:    [[TMP10:%.*]] = sdiv i32 42, [[VAL0]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i64 0
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  11:
@@ -201,7 +201,7 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; BLENDED-EMPTY:
 ; BLENDED-NEXT:  pred.sdiv.if:
 ; BLENDED-NEXT:    [[TMP10:%.*]] = sdiv i32 42, [[VAL0:%.*]]
-; BLENDED-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i32 0
+; BLENDED-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i64 0
 ; BLENDED-NEXT:    br label [[TMP11]]
 ; BLENDED-EMPTY:
 ; BLENDED-NEXT:  11:

@@ -29,7 +29,7 @@
 ; CHECK-NEXT:      %2 = bitcast i32* %TEST_ARRAY to <4 x i32>*
 ; CHECK-NEXT:      %gepload = load <4 x i32>, <4 x i32>* %2, align 4
 ; CHECK-NEXT:      store <4 x i32> %gepload, <4 x i32>* %priv.mem, align 4
-; CHECK-NEXT:      %.splatinsert = insertelement <4 x i32*> poison, i32* %1, i32 0
+; CHECK-NEXT:      %.splatinsert = insertelement <4 x i32*> poison, i32* %1, i64 0
 ; CHECK-NEXT:      %.splat = shufflevector <4 x i32*> %.splatinsert, <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:      %3 = getelementptr inbounds i32, <4 x i32*> %.splat, <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:      %4 = call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull %3)

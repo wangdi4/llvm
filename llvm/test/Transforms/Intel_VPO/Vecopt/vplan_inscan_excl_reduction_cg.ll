@@ -35,7 +35,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[A0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[A0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT0]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
@@ -50,7 +50,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[I_LINEAR_IV0]], align 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[I_LINEAR_IV0]], align 1
 ; CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[I_LINEAR_IV0]], align 1
-; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
+; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i64 0
 ; CHECK-NEXT:    [[IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[IND_START_BCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i32> [[IND_START_BCAST_SPLAT0]], <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    store <4 x i32> [[TMP8]], ptr [[I_LINEAR_IV_VEC0]], align 1
@@ -62,7 +62,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi float [ [[TMP0]], [[VPLANNEDBB10]] ], [ [[TMP20:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    [[UNI_PHI40:%.*]] = phi i32 [ [[TMP4]], [[VPLANNEDBB10]] ], [ [[TMP13:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    [[VEC_PHI50:%.*]] = phi <4 x i32> [ [[TMP8]], [[VPLANNEDBB10]] ], [ [[TMP12:%.*]], [[NEW_LATCH0]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT150:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI30]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT150:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI30]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT160:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT150]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    store <4 x i32> [[VEC_PHI50]], ptr [[I_LINEAR_IV_VEC0]], align 1
 ; CHECK-NEXT:    store <4 x float> zeroinitializer, ptr [[X_RED_VEC0]], align 1
