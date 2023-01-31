@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-cost-model-throttling=0 -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that both single operand phis %0 and %1 are mapped to the same symbase and are liveout of the region.
@@ -23,7 +22,6 @@
 ; CHECK: + END LOOP
 
 ; Check that CG for this loop is successfull.
-; RUN: opt < %s -hir-cost-model-throttling=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-cg -force-hir-cg -S | FileCheck %s -check-prefix=CHECK-CG
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 ; CHECK-CG: region{{.*}}:

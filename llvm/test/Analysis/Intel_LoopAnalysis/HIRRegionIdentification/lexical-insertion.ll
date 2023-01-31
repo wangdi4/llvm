@@ -1,7 +1,5 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s --check-prefix=LEX
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s --check-prefix=LEX
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -hir-region-lexical-insertion-func-size-threshold=5 | FileCheck %s --check-prefix=NO-LEX
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output -hir-region-lexical-insertion-func-size-threshold=5 2>&1 | FileCheck %s --check-prefix=NO-LEX
 
 ; Verify that when function size is within the threshold, regions created for 

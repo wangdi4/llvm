@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser -enable-new-pm=0 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output 2>&1 | FileCheck %s
 
 ; Check parsing output of the loop verifying that the SCEVs with non-generable loop IVs are handled properly.

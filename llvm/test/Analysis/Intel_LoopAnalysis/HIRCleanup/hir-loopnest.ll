@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=cleanup | FileCheck %s
+; RUN: opt < %s -passes="loop-simplify,print<hir-framework>" -hir-framework-debug=cleanup -disable-output 2>&1 | FileCheck %s
 
 ; Check that only redundant gotos/labels were eliminated
 ; CHECK: for.cond1.preheader

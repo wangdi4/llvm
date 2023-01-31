@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -debug-only=hir-region-identification 2>&1 | FileCheck %s
 
 ; Verify that we suppress call instruction containing operand bundle ["funclet"(token %4)] as there is no support for them in the framework.

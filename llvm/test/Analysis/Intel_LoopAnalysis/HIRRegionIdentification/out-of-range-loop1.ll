@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -scalar-evolution -hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="print<scalar-evolution>,print<hir-region-identification>" 2>&1 | FileCheck %s
 
 ; Verify that we bail out on loops whose backedge taken count is -1. We cannot handle such loops in HIR as the trip count is out of the range of IV.

@@ -5,7 +5,6 @@
 ;  }
 ; (Note: test revised so it will not be skipped due to Distribution cost model)
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-dd-analysis -analyze -enable-new-pm=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir-dd-analysis>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that there are only two edges (one OUTPUT edge for (@a)[0][2 * %n * i1] and one FLOW edge for %add2).

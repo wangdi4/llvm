@@ -1,4 +1,3 @@
-; RUN: opt < %s -analyze -hir-scc-formation -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-scc-formation>" 2>&1 -disable-output | FileCheck %s
 
 ; Check formation of one SCC with %conv3 and %ans.012.

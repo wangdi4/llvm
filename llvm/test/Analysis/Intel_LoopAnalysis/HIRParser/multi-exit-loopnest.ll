@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -hir-cost-model-throttling=0 -disable-output  2>&1 | FileCheck %s
 
 ; Verify that we are able to parse multi-exit loopnest correctly.

@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the negative divisor of 32 bit udiv instruction (-2) in incoming
@@ -15,7 +14,6 @@
 ; CHECK: + END LOOP
 
 ; Verify that CG regenerates divisor of -2.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s --check-prefix=CG
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CG
 
 ; CG: loop{{.*}}:

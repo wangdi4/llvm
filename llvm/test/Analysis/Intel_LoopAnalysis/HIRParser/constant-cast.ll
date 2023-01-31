@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-details -hir-details-constants -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -hir-details -hir-details-constants -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that %tmp which is trunc.i64.i8(256) is simplified to 'i8 0' during parsing.

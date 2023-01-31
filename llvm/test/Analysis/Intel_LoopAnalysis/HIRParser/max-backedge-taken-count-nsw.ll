@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -hir-framework-debug=parser -hir-details -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details 2>&1 | FileCheck %s
 
 ; Verify that the range of %iv and %iv.dec is refined to start from 0 and 1 respectively.

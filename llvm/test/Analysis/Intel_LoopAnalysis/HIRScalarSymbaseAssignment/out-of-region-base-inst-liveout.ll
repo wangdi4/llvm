@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -enable-new-pm=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test was failing because the base inst (%t0) of the liveout single operand phi %t1 is (unexpectedly) coming from outside the region represented by the loop %loop.

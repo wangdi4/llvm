@@ -1,9 +1,5 @@
 ; The test checks the line numbers in HIR
 
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cost-model-throttling=0 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-OPAQUE
-; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-CG
-
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -opaque-pointers -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG

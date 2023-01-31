@@ -1,6 +1,4 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
 ; RUN: opt < %s -passes='print<hir-region-identification>' -xmain-opt-level=3 -disable-output 2>&1 | FileCheck %s --check-prefix=O3
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=ALL
 ; RUN: opt < %s -passes='print<hir-region-identification>' -hir-cost-model-throttling=0 -disable-output 2>&1 | FileCheck %s --check-prefix=ALL
 
 ; O3: EntryBB: %for.body3

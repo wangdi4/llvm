@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
 ; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -disable-output 2>&1 | FileCheck %s
 
 ; Check output of hir-creation

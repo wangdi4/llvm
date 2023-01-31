@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
 ; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Check that we are able to form SCC (%1 -> %2 -> %add.ptr1.i.520).

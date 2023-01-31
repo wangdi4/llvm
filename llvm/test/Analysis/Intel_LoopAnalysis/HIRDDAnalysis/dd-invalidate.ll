@@ -5,7 +5,6 @@
 
 ; The test is checking DD edges after invalidation.
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-loop-interchange -hir-dd-analysis -hir-runtime-dd -hir-loop-interchange -hir-dd-analysis -scoped-noalias-aa -analyze -print-after=hir-loop-interchange -hir-dd-analysis-verify=Innermost -enable-new-pm=0 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,print<hir>,print<hir-dd-analysis>,hir-runtime-dd,hir-loop-interchange,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function

@@ -1,4 +1,3 @@
-; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that %add which is the base inst of single operand phi %split43 is marked as region livein.

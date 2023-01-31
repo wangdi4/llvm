@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -enable-new-pm=0 -xmain-opt-level=3 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -xmain-opt-level=3 -disable-output  2>&1 | FileCheck %s
 
 ; Verify that parser converts the nested ifs into siblings ifs. If one of 'then' or 'else' case of HLIf jumps out of the loop, the other case can be moved after the if.
