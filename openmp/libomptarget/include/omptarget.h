@@ -326,7 +326,6 @@ struct __tgt_memory_info {
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
 
-
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
 struct __tgt_offload_entry {
