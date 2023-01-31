@@ -10621,6 +10621,29 @@ void CGOpenMPRuntime::emitTargetCall(
     llvm::Value *NumIterations =
         emitTargetNumIterationsCall(CGF, D, SizeEmitter);
 
+<<<<<<< HEAD
+=======
+    llvm::Value *DynCGroupMem = CGF.Builder.getInt32(0);
+    if (auto *DynMemClause = D.getSingleClause<OMPXDynCGroupMemClause>()) {
+      CodeGenFunction::RunCleanupsScope DynCGroupMemScope(CGF);
+      llvm::Value *DynCGroupMemVal = CGF.EmitScalarExpr(
+          DynMemClause->getSize(), /*IgnoreResultAssign=*/true);
+      DynCGroupMem = CGF.Builder.CreateIntCast(DynCGroupMemVal, CGF.Int32Ty,
+                                               /*isSigned=*/false);
+    }
+
+    llvm::Value *ZeroArray =
+        llvm::Constant::getNullValue(llvm::ArrayType::get(CGF.CGM.Int32Ty, 3));
+
+    bool HasNoWait = D.hasClausesOfKind<OMPNowaitClause>();
+    llvm::Value *Flags = CGF.Builder.getInt64(HasNoWait);
+
+    llvm::Value *NumTeams3D =
+        CGF.Builder.CreateInsertValue(ZeroArray, NumTeams, {0});
+    llvm::Value *NumThreads3D =
+        CGF.Builder.CreateInsertValue(ZeroArray, NumThreads, {0});
+
+>>>>>>> 40f9bf082ff0c837b8801e907f582990828b78b9
     // Arguments for the target kernel.
     SmallVector<llvm::Value *> KernelArgs{
         CGF.Builder.getInt32(/* Version */ 1),
