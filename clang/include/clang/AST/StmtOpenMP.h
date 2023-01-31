@@ -1232,7 +1232,7 @@ class OMPLoopDirective : public OMPLoopBasedDirective {
     Expr **Storage = reinterpret_cast<Expr **>(                                \
         &Data->getChildren()[getArraysOffset(getDirectiveKind()) +             \
                              Offset * getLoopsNumber()]);                      \
-    return llvm::makeMutableArrayRef(Storage, getLoopsNumber());               \
+    return llvm::MutableArrayRef(Storage, getLoopsNumber());                   \
   }
   // Offsets start one more than last community value.
   DEFINE_GET_UNCOLLAPSED(IVs, 8)

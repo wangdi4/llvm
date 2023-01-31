@@ -6221,8 +6221,7 @@ CodeGenModule::CreateSIMDFnTableVar(llvm::Constant *FnPtr) {
     llvm::ArrayRef<llvm::Constant *> V = FnPtr;
     llvm::Constant *Init = llvm::ConstantArray::get(AT, V);
     GV->setInitializer(Init);
-    GV->setAlignment(
-        llvm::Align(getDataLayout().getABITypeAlignment(Init->getType())));
+    GV->setAlignment(getDataLayout().getABITypeAlign(Init->getType()));
     Out << "()";
     if (auto *IFn = dyn_cast<llvm::GlobalIFunc>(FnPtr))
       FnPtr = IFn->getResolver();
