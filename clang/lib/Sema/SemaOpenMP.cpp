@@ -16773,17 +16773,14 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_align:
     Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_ompx_overlap:
     Res = ActOnOpenMPOmpxOverlapClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_ompx_dyn_cgroup_mem:
     Res = ActOnOpenMPXDynCGroupMemClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
->>>>>>> 40f9bf082ff0c837b8801e907f582990828b78b9
   case OMPC_grainsize:
   case OMPC_num_tasks:
   case OMPC_device:

@@ -1400,13 +1400,10 @@ def OMP_TargetParallelForSimd : Directive<"target parallel for simd"> {
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_OmpxAssert>
+    VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-=======
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
->>>>>>> 40f9bf082ff0c837b8801e907f582990828b78b9
   ];
 }
 def OMP_TargetParallelDoSimd : Directive<"target parallel do simd"> {
@@ -1825,13 +1822,10 @@ def OMP_TargetTeamsDistributeParallelForSimd :
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
   let allowedOnceClauses = [
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_OmpxAssert>
+    VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
-=======
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
->>>>>>> 40f9bf082ff0c837b8801e907f582990828b78b9
   ];
 }
 def OMP_TargetTeamsDistributeParallelDoSimd :
