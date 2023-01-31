@@ -490,6 +490,10 @@ def OMPC_Bind : Clause<"bind"> {
   let clangClass = "OMPBindClause";
 }
 
+def OMPC_OMPX_DynCGroupMem : Clause<"ompx_dyn_cgroup_mem"> {
+  let clangClass = "OMPXDynCGroupMemClause";
+}
+
 //===----------------------------------------------------------------------===//
 // Definition of OpenMP directives
 //===----------------------------------------------------------------------===//
@@ -712,7 +716,8 @@ def OMP_Target : Directive<"target"> {
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_ThreadLimit, 51>,
     VersionedClause<OMPC_DefaultMap>,
-    VersionedClause<OMPC_NoWait>
+    VersionedClause<OMPC_NoWait>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_Teams : Directive<"teams"> {
@@ -830,7 +835,8 @@ def OMP_TargetParallel : Directive<"target parallel"> {
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_If>,
     VersionedClause<OMPC_NumThreads>,
-    VersionedClause<OMPC_ProcBind>
+    VersionedClause<OMPC_ProcBind>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetParallelFor : Directive<"target parallel for"> {
@@ -866,6 +872,9 @@ def OMP_TargetParallelFor : Directive<"target parallel for"> {
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_UsesAllocators, 50>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetParallelDo : Directive<"target parallel do"> {
@@ -1392,8 +1401,9 @@ def OMP_TargetParallelForSimd : Directive<"target parallel for simd"> {
   ];
   let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_OmpxAssert>
+    VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetParallelDoSimd : Directive<"target parallel do simd"> {
@@ -1470,7 +1480,8 @@ def OMP_TargetSimd : Directive<"target simd"> {
     VersionedClause<OMPC_OmpxPlaces>,
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_DefaultMap>,
-    VersionedClause<OMPC_Schedule>
+    VersionedClause<OMPC_Schedule>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TeamsDistribute : Directive<"teams distribute"> {
@@ -1656,7 +1667,8 @@ def OMP_TargetTeams : Directive<"target teams"> {
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_NumTeams>,
-    VersionedClause<OMPC_ThreadLimit>
+    VersionedClause<OMPC_ThreadLimit>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetTeamsDistribute : Directive<"target teams distribute"> {
@@ -1689,7 +1701,8 @@ def OMP_TargetTeamsDistribute : Directive<"target teams distribute"> {
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_ThreadLimit>,
     VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_DistSchedule>
+    VersionedClause<OMPC_DistSchedule>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 
@@ -1728,6 +1741,9 @@ def OMP_TargetTeamsDistributeParallelFor :
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_UsesAllocators, 50>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetTeamsDistributeParallelDo :
@@ -1807,8 +1823,9 @@ def OMP_TargetTeamsDistributeParallelForSimd :
   ];
   let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
-    VersionedClause<OMPC_OmpxAssert>
+    VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_TargetTeamsDistributeParallelDoSimd :
@@ -1892,6 +1909,7 @@ def OMP_TargetTeamsDistributeSimd :
     VersionedClause<OMPC_DistSchedule>,
     VersionedClause<OMPC_SafeLen>,
     VersionedClause<OMPC_SimdLen>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_Allocate : Directive<"allocate"> {
@@ -2322,6 +2340,7 @@ def OMP_target_teams_loop : Directive<"target teams loop"> {
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_ThreadLimit>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_parallel_loop : Directive<"parallel loop"> {
@@ -2377,6 +2396,7 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_ProcBind>,
+    VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
 def OMP_Metadirective : Directive<"metadirective"> {

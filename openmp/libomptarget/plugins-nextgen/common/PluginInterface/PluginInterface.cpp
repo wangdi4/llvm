@@ -215,11 +215,6 @@ Error GenericKernelTy::init(GenericDeviceTy &GenericDevice,
 
   MaxNumThreads = GenericDevice.getThreadLimit();
 
-  DynamicMemorySize = GenericDevice.getDynamicMemorySize();
-
-  if (RecordReplay.isRecording())
-    RecordReplay.saveImage(Name, Image);
-
   return initImpl(GenericDevice, Image);
 }
 
@@ -244,8 +239,8 @@ Error GenericKernelTy::launch(GenericDeviceTy &GenericDevice, void **ArgPtrs,
        " blocks and %d threads in %s mode\n",
        getName(), NumBlocks, NumThreads, getExecutionModeName());
 
-  return launchImpl(GenericDevice, NumThreads, NumBlocks, DynamicMemorySize,
-                    NumArgs, KernelArgsPtr, AsyncInfoWrapper);
+  return launchImpl(GenericDevice, NumThreads, NumBlocks, KernelArgs,
+                    KernelArgsPtr, AsyncInfoWrapper);
 }
 
 void *GenericKernelTy::prepareArgs(GenericDeviceTy &GenericDevice,

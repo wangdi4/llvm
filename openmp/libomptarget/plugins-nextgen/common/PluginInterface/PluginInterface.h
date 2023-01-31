@@ -162,7 +162,7 @@ public:
 struct GenericKernelTy {
   /// Construct a kernel with a name and a execution mode.
   GenericKernelTy(const char *Name, OMPTgtExecModeFlags ExecutionMode)
-      : Name(Name), ExecutionMode(ExecutionMode), DynamicMemorySize(0),
+      : Name(Name), ExecutionMode(ExecutionMode),
         PreferredNumThreads(0), MaxNumThreads(0) {}
 
   virtual ~GenericKernelTy() {}
@@ -179,8 +179,8 @@ struct GenericKernelTy {
                uint32_t ThreadLimitClause, uint64_t LoopTripCount,
                AsyncInfoWrapperTy &AsyncInfoWrapper) const;
   virtual Error launchImpl(GenericDeviceTy &GenericDevice, uint32_t NumThreads,
-                           uint64_t NumBlocks, uint32_t DynamicMemorySize,
-                           int32_t NumKernelArgs, void *KernelArgs,
+                           uint64_t NumBlocks,
+                           KernelArgsTy &KernelArgs, void *Args,
                            AsyncInfoWrapperTy &AsyncInfoWrapper) const = 0;
 
   /// Get the kernel name.
@@ -246,9 +246,6 @@ private:
   OMPTgtExecModeFlags ExecutionMode;
 
 protected:
-  /// The dynamic memory size reserved for executing the kernel.
-  uint32_t DynamicMemorySize;
-
   /// The preferred number of threads to run the kernel.
   uint32_t PreferredNumThreads;
 
