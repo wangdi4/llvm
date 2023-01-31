@@ -1,6 +1,6 @@
-; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
+; RUN: llvm-as -opaque-pointers=0 %p/work-group-builtins-64.ll -o %t.lib.bc
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
 
 declare i32 @_Z21work_group_reduce_muli(i32)
 declare float @_Z21work_group_reduce_mulf(float)

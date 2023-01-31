@@ -1,6 +1,6 @@
-; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.work-group-builtins-64.ll.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
+; RUN: llvm-as -opaque-pointers=0 %p/work-group-builtins-64.ll -o %t.work-group-builtins-64.ll.bc
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.work-group-builtins-64.ll.bc -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
 
 ;;****************************************************************************
 ; This test checks the GroupBuiltin pass

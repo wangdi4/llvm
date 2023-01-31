@@ -1,5 +1,5 @@
-; RUN: opt -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -S < %s
+; RUN: opt -opaque-pointers=0 -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -S < %s
 ;; This file is used as Built-in module to test work group built-in pass for 64bit modules
 ;; The only requirment is to contain a valid LLVM IR.
 

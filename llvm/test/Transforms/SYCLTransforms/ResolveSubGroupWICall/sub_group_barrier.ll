@@ -1,6 +1,6 @@
-; RUN: llvm-as %S/builtin_lib.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes='sycl-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
+; RUN: llvm-as -opaque-pointers=0 %S/builtin_lib.rtl -o %t.rtl.bc
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes='debugify,sycl-kernel-resolve-sub-group-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes='sycl-kernel-resolve-sub-group-wi-call' -S %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
