@@ -1,6 +1,6 @@
-; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
-; RUN: opt -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s | FileCheck %s
-; RUN: opt -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: llvm-as -opaque-pointers=0 %p/work-group-builtins-64.ll -o %t.lib.bc
+; RUN: opt -opaque-pointers=0 -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 declare <4 x i32> @_Z20work_group_broadcastDv4_imDv4_j(<4 x i32> %src, i64 %local_id, <4 x i32> %mask)
 

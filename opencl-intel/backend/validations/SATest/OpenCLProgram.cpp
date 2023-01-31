@@ -57,6 +57,7 @@ static std::string buildLibName(const char *s) {
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
                              const std::string cpuArch)
     : C(new llvm::LLVMContext) {
+  C->setOpaquePointers(false);
   std::string programFile = oclProgramConfig->GetProgramFilePath();
   switch (oclProgramConfig->GetProgramFileType()) {
   case CL: {
@@ -118,6 +119,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
   case LL: {
     llvm::SMDiagnostic err;
     llvm::LLVMContext context;
+    context.setOpaquePointers(false);
     std::unique_ptr<llvm::Module> M(
         llvm::parseAssemblyFile(programFile, err, context));
     llvm::SmallVector<char, 8> buffer;
