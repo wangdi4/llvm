@@ -2617,8 +2617,6 @@ void OpenMPLateOutliner::emitOMPOmpxAssertClause(const OMPOmpxAssertClause *) {
   // This is handled with the LoopHint mechanism.
 }
 
-void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(const OMPXDynCGroupMemClause *) {}
-
 void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   ClauseEmissionHelper CEH(*this, OMPC_tile);
   addArg("QUAL.OMP.TILE");
@@ -2992,6 +2990,8 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
+void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
+    const OMPXDynCGroupMemClause *) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.
