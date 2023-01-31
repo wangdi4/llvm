@@ -7345,8 +7345,8 @@ const ConstantRange &ScalarEvolution::getRangeRef(
 
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
-<<<<<<< HEAD
-      const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
+      const SCEV *MaxBECount =
+          getConstantMaxBackedgeTakenCount(AddRec->getLoop());
 #if INTEL_CUSTOMIZATION
       // Try to reason about widened IVs, too. If we can prove that truncating
       // a wide MaxBECount preserves the count then we use it to compute a more
@@ -7362,10 +7362,6 @@ const ConstantRange &ScalarEvolution::getRangeRef(
               MaxBECount = getTruncateExpr(MaxBECount, AddRec->getType());
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-      const SCEV *MaxBECount =
-          getConstantMaxBackedgeTakenCount(AddRec->getLoop());
->>>>>>> d486fdffdaa6f7f820955ed615c44117e498168f
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
         auto RangeFromAffine = getRangeForAffineAR(
@@ -7422,9 +7418,6 @@ const ConstantRange &ScalarEvolution::getRangeRef(
       llvm_unreachable("Unknown SCEVMinMaxExpr/SCEVSequentialMinMaxExpr.");
     }
 
-<<<<<<< HEAD
-  if (const SCEVUnknown *U = dyn_cast<SCEVUnknown>(S)) {
-=======
     const auto *NAry = cast<SCEVNAryExpr>(S);
     ConstantRange X = getRangeRef(NAry->getOperand(0), SignHint, Depth + 1);
     for (unsigned i = 1, e = NAry->getNumOperands(); i != e; ++i)
@@ -7436,7 +7429,6 @@ const ConstantRange &ScalarEvolution::getRangeRef(
   case scUnknown: {
     const SCEVUnknown *U = cast<SCEVUnknown>(S);
 
->>>>>>> d486fdffdaa6f7f820955ed615c44117e498168f
     // Check if the IR explicitly contains !range metadata.
     std::optional<ConstantRange> MDRange = GetRangeFromMetadata(U->getValue());
     if (MDRange)
@@ -7445,6 +7437,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
 
 #if INTEL_CUSTOMIZATION
     if (auto *I = dyn_cast<Instruction>(U->getValue())) {
+      
       if (I->getType()->isIntOrIntVectorTy()) {
         // asserts for non-int types
         auto ComputedRange = computeConstantRange(I, false, true, &AC, I);
