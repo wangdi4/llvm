@@ -1788,11 +1788,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
     SmallVector<BlobTy, 4> Ops;
 
-    for (auto I = MulBlob->getOperand(1),
-              E = MulBlob->getOperand(MulBlob->getNumOperands() - 1) + 1;
-         I != E; ++I) {
-      Ops.push_back(I);
-    }
+    for (unsigned I = 1, E = MulBlob->getNumOperands(); I < E; I++)
+      Ops.push_back(MulBlob->getOperand(I));
 
     *Multiplier = getSCEVConstantValue(ConstOp);
     *NewBlob = ScopedSE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
