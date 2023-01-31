@@ -998,6 +998,13 @@ public:
       add(MI->getArgOperand(1)->getType()->getPointerAddressSpace(), *MI);
       return;
     }
+    if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+
+      // Ignore prefetches when building alias sets; they should not influence
+      // barrier insertion.
+      if (II->getIntrinsicID() == Intrinsic::prefetch)
+        return;
+    }
     if (auto *CI = dyn_cast<CallBase>(&I)) {
       static const StringSet<> IgnoreCalls{
           "_Z13get_global_idj", "_Z12get_local_idj", "_Z14get_local_sizej",
@@ -1005,6 +1012,12 @@ public:
 
       if (Function *Callee = CI->getCalledFunction()) {
         if (IgnoreCalls.contains(Callee->getName()))
+          return;
+
+        // Also ignore __builtin_spirv_OpenCL_prefetch_* and
+        // __builtin_IB_lsc_prefetch_global_* style prefetches.
+        if (Callee->getName().starts_with("__builtin_spirv_OpenCL_prefetch_") ||
+            Callee->getName().starts_with("__builtin_IB_lsc_prefetch_global_"))
           return;
       }
 
