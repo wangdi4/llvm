@@ -1866,7 +1866,7 @@ static void computeKnownBitsFromOperator(const Operator *I,
           break;
         }
 
-        unsigned FirstZeroHighBit = 32 - countLeadingZeros(*VScaleMax);
+        unsigned FirstZeroHighBit = llvm::bit_width(*VScaleMax);
         if (FirstZeroHighBit < BitWidth)
           Known.Zero.setBitsFrom(FirstZeroHighBit);
 
