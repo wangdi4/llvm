@@ -1995,16 +1995,11 @@ static int processDataAfter(ident_t *Loc, int64_t DeviceId, void *HostPtr,
 /// performs the same action as data_update and data_end above. This function
 /// returns 0 if it was able to transfer the execution to a target and an
 /// integer different from zero otherwise.
-<<<<<<< HEAD
 int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
            void **ArgBases, void **Args, int64_t *ArgSizes, int64_t *ArgTypes,
            map_var_info_t *ArgNames, void **ArgMappers, int32_t TeamNum,
            int32_t ThreadLimit, uint64_t Tripcount, int IsTeamConstruct,
            AsyncInfoTy &AsyncInfo) {
-=======
-int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
-           KernelArgsTy &KernelArgs, AsyncInfoTy &AsyncInfo) {
->>>>>>> 3820d0eaaf4ecb557cbb260e34bf5a9eeb51e0e7
   int32_t DeviceId = Device.DeviceID;
   TableMap *TM = getTableMap(HostPtr);
   // No map for this host pointer found!
@@ -2040,7 +2035,6 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
 
   PrivateArgumentManagerTy PrivateArgumentManager(Device, AsyncInfo);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   void *TgtNDLoopDesc = nullptr;
   void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
@@ -2064,28 +2058,12 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                             TgtOffsets, PrivateArgumentManager, AsyncInfo,
                             &TgtNDLoopDesc);
 #else  // INTEL_COLLAB
-=======
-  int NumClangLaunchArgs = KernelArgs.NumArgs;
-  int Ret = OFFLOAD_SUCCESS;
-  if (NumClangLaunchArgs) {
-    // Process data, such as data mapping, before launching the kernel
-    Ret = processDataBefore(Loc, DeviceId, HostPtr, NumClangLaunchArgs,
-                            KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
-                            KernelArgs.ArgSizes, KernelArgs.ArgTypes,
-                            KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
->>>>>>> 3820d0eaaf4ecb557cbb260e34bf5a9eeb51e0e7
                             TgtOffsets, PrivateArgumentManager, AsyncInfo);
 #endif // INTEL_COLLAB
     if (Ret != OFFLOAD_SUCCESS) {
       REPORT("Failed to process data before launching the kernel.\n");
       return OFFLOAD_FAIL;
     }
-
-    // Clang might pass more values via the ArgPtrs to the runtime that we pass
-    // on to the kernel.
-    // TOOD: Next time we adjust the KernelArgsTy we should introduce a new
-    // NumKernelArgs field.
-    KernelArgs.NumArgs = TgtArgs.size();
   }
 
   // Launch device execution.
@@ -2125,7 +2103,6 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                            AsyncInfo);
 #else // INTEL_COLLAB
   {
-<<<<<<< HEAD
     TIMESCOPE_WITH_NAME_AND_IDENT(
         IsTeamConstruct ? "runTargetTeamRegion" : "runTargetRegion", Loc);
     if (IsTeamConstruct)
@@ -2135,12 +2112,6 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
     else
       Ret = Device.runRegion(TgtEntryPtr, TgtArgs.data(), TgtOffsets.data(),
                              TgtArgs.size(), AsyncInfo);
-=======
-    assert(KernelArgs.NumArgs == TgtArgs.size() && "Argument count mismatch!");
-    TIMESCOPE_WITH_NAME_AND_IDENT("Initiate Kernel Launch", Loc);
-    Ret = Device.launchKernel(TgtEntryPtr, TgtArgs.data(), TgtOffsets.data(),
-                              KernelArgs, AsyncInfo);
->>>>>>> 3820d0eaaf4ecb557cbb260e34bf5a9eeb51e0e7
   }
 #endif // INTEL_COLLAB
 
@@ -2149,21 +2120,11 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
     return OFFLOAD_FAIL;
   }
 
-<<<<<<< HEAD
   if (ArgNum) {
     // Transfer data back and deallocate target memory for (first-)private
     // variables
     Ret = processDataAfter(Loc, DeviceId, HostPtr, ArgNum, ArgBases, Args,
                            ArgSizes, ArgTypes, ArgNames, ArgMappers,
-=======
-  if (NumClangLaunchArgs) {
-    // Transfer data back and deallocate target memory for (first-)private
-    // variables
-    Ret = processDataAfter(Loc, DeviceId, HostPtr, NumClangLaunchArgs,
-                           KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
-                           KernelArgs.ArgSizes, KernelArgs.ArgTypes,
-                           KernelArgs.ArgNames, KernelArgs.ArgMappers,
->>>>>>> 3820d0eaaf4ecb557cbb260e34bf5a9eeb51e0e7
                            PrivateArgumentManager, AsyncInfo);
     if (Ret != OFFLOAD_SUCCESS) {
       REPORT("Failed to process data after launching the kernel.\n");

@@ -172,7 +172,6 @@ struct __tgt_kernel_arguments {
 static_assert(sizeof(__tgt_kernel_arguments) == 64 ||
                   sizeof(__tgt_kernel_arguments) == 40,
               "Invalid struct size");
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 struct __tgt_interop_obj {
@@ -326,12 +325,6 @@ struct __tgt_memory_info {
 #define EXTRACT_BITS(I64, HIGH, LOW)                                           \
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
-
-=======
-inline KernelArgsTy CTorDTorKernelArgs = {1,       0,       nullptr,   nullptr,
-	     nullptr, nullptr, nullptr,   nullptr,
-	     0,      {0,0},       {1, 0, 0}, {1, 0, 0}, 0};
->>>>>>> 3820d0eaaf4ecb557cbb260e34bf5a9eeb51e0e7
 
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
