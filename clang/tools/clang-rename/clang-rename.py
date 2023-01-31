@@ -24,7 +24,7 @@ name if the cursor points to a valid symbol.
 
 from __future__ import absolute_import, division, print_function
 import vim
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 import sys
 
 def main():

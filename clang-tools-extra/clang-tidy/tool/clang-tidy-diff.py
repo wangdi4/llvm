@@ -30,7 +30,7 @@ import multiprocessing
 import os
 import re
 import shutil
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 import sys
 import tempfile
 import threading
