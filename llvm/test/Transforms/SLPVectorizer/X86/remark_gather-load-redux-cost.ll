@@ -22,7 +22,10 @@ define i32 @test(ptr noalias %p, ptr noalias %addr) {
   ; YAML-NEXT: Function:        test
   ; YAML-NEXT: Args:
   ; YAML-NEXT:   - String:          'Vectorized horizontal reduction with cost '
-  ; YAML-NEXT:   - Cost:            '-1'
+; INTEL_CUSTOMIZATION
+; Customization note: masked gather TTI costs customized in xmain.
+  ; YAML-NEXT:   - Cost:            '-13'
+;end  INTEL_CUSTOMIZATION
   ; YAML-NEXT:   - String:          ' and with tree size '
   ; YAML-NEXT:   - TreeSize:        '7'
 entry:
