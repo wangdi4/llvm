@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details 2>&1 | FileCheck %s
 
 ; Verify that ztt of inner loop is recognized for a function marked with fortran language attribute.

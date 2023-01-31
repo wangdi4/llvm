@@ -1,7 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s --check-prefix=SCEV
 ; RUN: opt %s -passes="print<scalar-evolution>" -disable-output 2>&1 | FileCheck %s --check-prefix=SCEV
 
 

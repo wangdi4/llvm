@@ -1,4 +1,3 @@
-; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
 
 ; Check that insertvalue and extractvalue instructions are parsed and printed correctly.
@@ -15,7 +14,6 @@
 ; CHECK-HIR:   |   (@pR)[0][i1 + 1] = %insertval10;
 ; CHECK-HIR:   + END LOOP
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CHECK-CG
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CHECK-CG
 
 ; CHECK-CG: region.0:

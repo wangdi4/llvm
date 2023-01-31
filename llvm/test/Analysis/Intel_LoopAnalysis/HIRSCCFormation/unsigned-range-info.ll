@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
 
 ; We use the --allow-empty flag with FileCheck for the new-format opt because:
 ;
@@ -11,7 +10,6 @@
 ;
 ; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck --allow-empty %s
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -scalar-evolution | FileCheck %s --check-prefix=SCEV
 ; RUN: opt %s -passes="print<scalar-evolution>" -disable-output 2>&1 | FileCheck %s --check-prefix=SCEV
 
 ; Verify that %conv20.i has unsigned range info

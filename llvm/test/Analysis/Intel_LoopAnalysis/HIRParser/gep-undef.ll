@@ -3,7 +3,6 @@
 ; |   <LVAL-REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {sb:0}
 ; |   <RVAL-REG> LINEAR i32 5 * i1 {sb:4}
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: HasSignedIV: Yes

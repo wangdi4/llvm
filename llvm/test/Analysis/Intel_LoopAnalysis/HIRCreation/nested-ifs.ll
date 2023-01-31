@@ -1,6 +1,5 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -debug-only=hir-framework -hir-cost-model-throttling=0 -disable-output 2>&1 | FileCheck %s
 
 ; Check that we create 3 nested ifs without throttling.
@@ -25,7 +24,6 @@
 ; CHECK: }
 ; CHECK: END REGION
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-loop-if-nest-threshold=2 -hir-framework-debug=creation -debug-only=hir-framework -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; RUN: opt %s -passes="print<hir-framework>" -hir-loop-if-nest-threshold=2 -hir-framework-debug=creation -debug-only=hir-framework -debug-only=hir-region-identification -disable-output 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 
 ; Check that we throttle nested ifs if threhsold is less than 3.

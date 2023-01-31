@@ -1,4 +1,3 @@
-; RUN:  opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze -enable-new-pm=0  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; This test has different src type for the second dimension of refs

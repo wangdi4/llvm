@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -enable-new-pm=0 -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s  -passes="print<hir-region-identification>" -debug-only=hir-region-identification 2>&1 | FileCheck %s
 
 ; Verify that we bail out on GEP %mm_vectorGEP which contains vector type operands.

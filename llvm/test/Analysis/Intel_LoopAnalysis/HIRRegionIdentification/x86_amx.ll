@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -debug-only=hir-region-identification 2>&1 | FileCheck %s
 
 ; CHECK: x86_amx type is not supported.

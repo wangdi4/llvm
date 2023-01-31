@@ -1,11 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L2,L1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L2 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L2,L1 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L1 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L2 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L2,L1 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L1 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L2 -disable-output 2>&1 | FileCheck %s
 ; We'll check that we don't completely break the dependence between the
 ; references in the inner loop. A and B are marked 'restrict,' but this only
 ; tells us that they are distinct within each outer loop iteration -- not

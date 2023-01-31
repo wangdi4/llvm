@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-create-function-level-region -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 ; RUN: opt < %s -hir-create-function-level-region -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -hir-details 2>&1 | FileCheck %s
 
 ; Verify that when both sibling loops get their own ZTTs by duplicating the

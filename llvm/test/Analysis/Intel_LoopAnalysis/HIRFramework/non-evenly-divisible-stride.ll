@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 -hir-details-dims < %s  2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output -hir-details-dims < %s 2>&1 | FileCheck %s
 
 ; Verify that the test passes and MAX_TC_EST of inner loop is 3.

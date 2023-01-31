@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 < %s | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" < %s 2>&1 -disable-output | FileCheck %s
 
 ; Verify that the load of %e is parsed in terms of %add.ptr rather than @h.

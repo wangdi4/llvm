@@ -1,4 +1,3 @@
-; RUN: opt < %s -analyze -xmain-opt-level=3 -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -xmain-opt-level=3 2>&1 | FileCheck %s
 
 ; Check that we successfull generate HIR for this loop. It was previously

@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s
 
 ; Check output of hir-regions
@@ -16,7 +15,6 @@
 
 ; Check that a single region is formed with -hir-create-function-level-region=true.
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -hir-create-function-level-region=true | FileCheck %s -check-prefix=FUNC-REG
 ; RUN: opt < %s -passes='print<hir-region-identification>' -hir-create-function-level-region=true -disable-output 2>&1 | FileCheck %s -check-prefix=FUNC-REG
 
 ; FUNC-REG: Region 1

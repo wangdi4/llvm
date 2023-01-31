@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-create-function-level-region | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-create-function-level-region 2>&1 | FileCheck %s
 
 ; Verify that we successfully parse the load which is a bitcast of a function

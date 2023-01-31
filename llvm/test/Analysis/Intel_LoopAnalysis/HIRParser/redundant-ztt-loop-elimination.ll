@@ -1,4 +1,3 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework | FileCheck %s
 ; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that the test case compiles successfully. The redundant condition

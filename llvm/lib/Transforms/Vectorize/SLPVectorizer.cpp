@@ -3288,6 +3288,33 @@ private:
         }
         return std::nullopt;
       }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      void dump(void) const {
+        if (empty()) {
+          dbgs() << "Empty\n";
+          return;
+        }
+        for (int OpI : seq<int>(0, getNumOperands())) {
+          dbgs() << "OpI: " << OpI << ".\n";
+          for (int Lane : seq<int>(0, getNumLanes())) {
+            dbgs() << "  Lane: " << Lane << ".\n";
+            getData(OpI, Lane).dump();
+          }
+          dbgs() << "\n";
+        }
+        if (DefUseOverride.empty())
+          return;
+        dbgs() << "Def-use override map:\n";
+        for (const auto &Pair : DefUseOverride) {
+          const Instruction *I = Pair.first;
+          const SmallVector<Instruction *> &Uses = Pair.second;
+          dbgs() << "I: " << *I << "\n";
+          dbgs() << "Users:\n";
+          for (const Instruction *U : Uses)
+            dbgs().indent(2) << *U << "\n";
+        }
+      }
+#endif
     };
 
   public:
@@ -12626,7 +12653,14 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
     // Make sure we don't leave the pieces of the bundle in the ready list when
     // whole bundle might not be ready.
     ReadyInsts.remove(BundleMember);
-
+#if INTEL_CUSTOMIZATION
+    // We need to force recalculation of dependencies as a bundle member could
+    // be scheduled as a single instruction before MultiNode reordering has been
+    // done. The reordering may invalidate dependencies.
+    if (!BundleMember->IsScheduled &&
+        !SLP->getDefUseOverride(BundleMember->Inst).empty())
+      BundleMember->clearDependencies();
+#endif // INTEL_CUSTOMIZATION
     if (!BundleMember->IsScheduled)
       continue;
     // A bundle member was scheduled as single instruction before and now
@@ -13400,18 +13434,9 @@ void BoUpSLP::computeMinimumValueSizes() {
 
 // Debug print of the Multi-node operands.
 LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
-  if (Operands.empty()) {
-    dbgs() << "Empty\n";
-    return;
-  }
-  for (int OpI : seq<int>(0, getNumOperands())) {
-    dbgs() << "OpI: " << OpI << ".\n";
-    for (int Lane : seq<int>(0, getNumLanes())) {
-      dbgs() << "  Lane: " << Lane << ".\n";
-      getData(OpI, Lane).dump();
-    }
-    dbgs() << "\n";
-  }
+  dbgs() << "MultiNode state: " << (isLocked() ? "Locked" : "Unlocked")
+         << ".\n";
+  Operands.dump();
 }
 
 // Debug print of the Multi-node operands.

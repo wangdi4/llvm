@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -analyze -enable-new-pm=0 -hir-locality-analysis -hir-spatial-locality | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir-locality-analysis>" -vplan-force-vf=4  -hir-spatial-locality -disable-output 2>&1 | FileCheck %s
 
 ; This test was compfailing during wrap analysis of (%A)[zext.i3.i64(i1)].
 
