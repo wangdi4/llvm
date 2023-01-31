@@ -2244,7 +2244,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(MaskIdx);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 64> Mask;
       DecodePSHUFBMask(C, Width, Mask);
       if (!Mask.empty())
@@ -2322,7 +2322,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(MaskIdx);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPERMILPMask(C, ElSize, Width, Mask);
       if (!Mask.empty())
@@ -2351,7 +2351,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(3 + X86::AddrDisp);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPERMIL2PMask(C, (unsigned)CtrlOp.getImm(), ElSize, Width, Mask);
       if (!Mask.empty())
@@ -2366,7 +2366,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(3 + X86::AddrDisp);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPPERMMask(C, Width, Mask);
       if (!Mask.empty())
