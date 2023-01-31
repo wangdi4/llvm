@@ -262,7 +262,10 @@ static int map_file(void) {
 
   /* A size of 0 means the file has been created just now (possibly by another
    * process in lock-after-open race condition). No need to mmap. */
-  if (file_size == 0)
+#if INTEL_CUSTOMIZATION
+  /* A size of -1 means an error has occured. */
+  if (file_size <= 0)
+#endif // INTEL_CUSTOMIZATION
     return -1;
 
 #if defined(_WIN32)
