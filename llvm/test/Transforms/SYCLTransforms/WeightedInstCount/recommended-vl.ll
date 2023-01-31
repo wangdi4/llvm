@@ -11,7 +11,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @foo(i32 addrspace(1)* noalias %dst, i32 %v, i64 %gid) unnamed_addr #0 {
+define internal fastcc void @foo(i32 addrspace(1)* %dst, i32 %v, i64 %gid) unnamed_addr #0 {
 entry:
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %gid
   store i32 %v, i32 addrspace(1)* %arrayidx, align 4, !tbaa !3
@@ -19,7 +19,7 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @test(i32 addrspace(1)* noalias %dst, i32 %v) local_unnamed_addr #1 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !17 !vectorized_width !18 !scalar_kernel !19 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !20 {
+define dso_local void @test(i32 addrspace(1)* %dst, i32 %v) local_unnamed_addr #1 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !17 !vectorized_width !18 !scalar_kernel !19 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !20 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #8
   tail call fastcc void @foo(i32 addrspace(1)* %dst, i32 %v, i64 %call) #9
@@ -52,7 +52,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @_ZGVeM16vvv_foo(<16 x i32 addrspace(1)*> noalias %dst, <16 x i32> %v, <16 x i64> %gid, <16 x i64> %mask) unnamed_addr #3 {
+define internal fastcc void @_ZGVeM16vvv_foo(<16 x i32 addrspace(1)*> %dst, <16 x i32> %v, <16 x i64> %gid, <16 x i64> %mask) unnamed_addr #3 {
 entry:
   %vec.dst = alloca <16 x i32 addrspace(1)*>, align 128
   %vec.v = alloca <16 x i32>, align 64
@@ -91,7 +91,7 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @_ZGVeN16vvv_foo(<16 x i32 addrspace(1)*> noalias %dst, <16 x i32> %v, <16 x i64> %gid) unnamed_addr #3 {
+define internal fastcc void @_ZGVeN16vvv_foo(<16 x i32 addrspace(1)*> %dst, <16 x i32> %v, <16 x i64> %gid) unnamed_addr #3 {
 entry:
   %vec.dst = alloca <16 x i32 addrspace(1)*>, align 128
   %vec.v = alloca <16 x i32>, align 64
@@ -117,7 +117,7 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @_ZGVeN16uu_test(i32 addrspace(1)* noalias %dst, i32 %v) local_unnamed_addr #5 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !19 !vectorized_width !21 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !20 !vectorization_dimension !20 !can_unite_workgroups !15 {
+define dso_local void @_ZGVeN16uu_test(i32 addrspace(1)* %dst, i32 %v) local_unnamed_addr #5 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !19 !vectorized_width !21 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !20 !vectorization_dimension !20 !can_unite_workgroups !15 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #8
   %0 = trunc i64 %call to i32

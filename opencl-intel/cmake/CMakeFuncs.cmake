@@ -484,8 +484,6 @@ function(add_ocl_unittest test_name)
     set(EXCLUDE_FROM_ALL ON)
   endif(NOT OPENCL_RT_BUILD_TESTS)
 
-  include_directories(SYSTEM
-                      ${OCL_SOURCE_DIR}/externals/gtest/googletest/include)
   include_directories(${CL_API_HEADERS})
 
   if(EXCLUDE_FROM_ALL)

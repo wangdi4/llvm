@@ -3,6 +3,7 @@
 """A script to search and replace regex patterns for given files."""
 
 import argparse
+import glob
 import os
 import re
 
@@ -12,7 +13,8 @@ DEBUG = False
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('inputfile', type=str, nargs='+')
+    parser.add_argument('inputfile', type=str, nargs='+',
+                        help='Input file may be specified using Unix shell wildcards like "*"')
     parser.add_argument('--batch-file', default=None,
                         help='Specify search-replace patterns from file')
     parser.add_argument('--search', default='',
@@ -42,9 +44,12 @@ def main():
 
 
 def parse_inputfiles(inputfiles):
-    if not isinstance(inputfiles, list):
-        inputfiles = [inputfiles]
-    return inputfiles
+    files = set()
+    for inputfile in inputfiles:
+        files.update(glob.glob(inputfile))
+    if DEBUG:
+        print("Input files to process: ", files)
+    return files
 
 
 def parse_batch_file(batch_file):

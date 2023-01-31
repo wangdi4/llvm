@@ -377,6 +377,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/test/Transforms/PGOProfile/ @robertcox-github @pvbattin
 /llvm/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
+/llvm/test/tools/llvm-profdata/ @robertcox-github @pvbattin
 
 # COMPONENT: OpenCL CPU RT
 # JIRA: ???
