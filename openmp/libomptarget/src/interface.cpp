@@ -299,40 +299,10 @@ EXTERN void __tgt_target_data_update_nowait_mapper(
       ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
 }
 
-static KernelArgsTy *upgradeKernelArgs(KernelArgsTy *KernelArgs,
-                                       KernelArgsTy &LocalKernelArgs,
-                                       int32_t NumTeams, int32_t ThreadLimit) {
-  if (KernelArgs->Version > 2)
-    DP("Unexpected ABI version: %u\n", KernelArgs->Version);
-
-  if (KernelArgs->Version == 1) {
-    LocalKernelArgs.Version = 2;
-    LocalKernelArgs.NumArgs = KernelArgs->NumArgs;
-    LocalKernelArgs.ArgBasePtrs = KernelArgs->ArgBasePtrs;
-    LocalKernelArgs.ArgPtrs = KernelArgs->ArgPtrs;
-    LocalKernelArgs.ArgSizes = KernelArgs->ArgSizes;
-    LocalKernelArgs.ArgTypes = KernelArgs->ArgTypes;
-    LocalKernelArgs.ArgNames = KernelArgs->ArgNames;
-    LocalKernelArgs.ArgMappers = KernelArgs->ArgMappers;
-    LocalKernelArgs.Tripcount = KernelArgs->Tripcount;
-    LocalKernelArgs.Flags = KernelArgs->Flags;
-    LocalKernelArgs.DynCGroupMem = 0;
-    LocalKernelArgs.NumTeams[0] = NumTeams;
-    LocalKernelArgs.NumTeams[1] = 0;
-    LocalKernelArgs.NumTeams[2] = 0;
-    LocalKernelArgs.ThreadLimit[0] = ThreadLimit;
-    LocalKernelArgs.ThreadLimit[1] = 0;
-    LocalKernelArgs.ThreadLimit[2] = 0;
-    return &LocalKernelArgs;
-  }
-
-  return KernelArgs;
-}
-
 template <typename TargetAsyncInfoTy>
 static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
-                               KernelArgsTy *KernelArgs) {
+                               __tgt_kernel_arguments *Args) {
   static_assert(std::is_convertible_v<TargetAsyncInfoTy, AsyncInfoTy>,
                 "Target AsyncInfoTy must be convertible to AsyncInfoTy.");
 
@@ -355,39 +325,25 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
     return OMP_TGT_FAIL;
   }
 
-  bool IsTeams = NumTeams != -1;
-  if (!IsTeams)
-    KernelArgs->NumTeams[0] = NumTeams = 1;
-
-  // Auto-upgrade kernel args version 1 to 2.
-  KernelArgsTy LocalKernelArgs;
-  KernelArgs =
-      upgradeKernelArgs(KernelArgs, LocalKernelArgs, NumTeams, ThreadLimit);
-
-  assert(KernelArgs->NumTeams[0] == NumTeams && !KernelArgs->NumTeams[1] &&
-         !KernelArgs->NumTeams[2] &&
-         "OpenMP interface should not use multiple dimensions");
-  assert(KernelArgs->ThreadLimit[0] == ThreadLimit &&
-         !KernelArgs->ThreadLimit[1] && !KernelArgs->ThreadLimit[2] &&
-         "OpenMP interface should not use multiple dimensions");
+  if (Args->Version != 1) {
+    DP("Unexpected ABI version: %d\n", Args->Version);
+  }
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
-    printKernelArguments(Loc, DeviceId, KernelArgs->NumArgs,
-                         KernelArgs->ArgSizes, KernelArgs->ArgTypes,
-                         KernelArgs->ArgNames, "Entering OpenMP kernel");
+    printKernelArguments(Loc, DeviceId, Args->NumArgs, Args->ArgSizes,
+                         Args->ArgTypes, Args->ArgNames,
+                         "Entering OpenMP kernel");
 #ifdef OMPTARGET_DEBUG
-  for (int I = 0; I < KernelArgs->NumArgs; ++I) {
+  for (int I = 0; I < Args->NumArgs; ++I) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
-       I, DPxPTR(KernelArgs->ArgBasePtrs[I]), DPxPTR(KernelArgs->ArgPtrs[I]),
-       KernelArgs->ArgSizes[I], KernelArgs->ArgTypes[I],
-       (KernelArgs->ArgNames)
-           ? getNameFromMapping(KernelArgs->ArgNames[I]).c_str()
-           : "unknown");
+       I, DPxPTR(Args->ArgBasePtrs[I]), DPxPTR(Args->ArgPtrs[I]),
+       Args->ArgSizes[I], Args->ArgTypes[I],
+       (Args->ArgNames) ? getNameFromMapping(Args->ArgNames[I]).c_str()
+                        : "unknown");
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Push device encoding
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
@@ -401,14 +357,15 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   if (!IsTeams)
     NumTeams = 0;
 
-=======
->>>>>>> 16a385ba21a921a42009ff971199bce56eb2a86e
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
 
   int Rc = OFFLOAD_SUCCESS;
-  Rc = target(Loc, Device, HostPtr, *KernelArgs, AsyncInfo);
+  Rc = target(Loc, Device, HostPtr, Args->NumArgs, Args->ArgBasePtrs,
+              Args->ArgPtrs, Args->ArgSizes, Args->ArgTypes, Args->ArgNames,
+              Args->ArgMappers, NumTeams, ThreadLimit, Args->Tripcount, IsTeams,
+              AsyncInfo);
 
   if (Rc == OFFLOAD_SUCCESS)
     Rc = AsyncInfo.synchronize();
@@ -442,10 +399,10 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 /// \param Args     All arguments to this kernel launch (see struct definition).
 EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
-                               KernelArgsTy *KernelArgs) {
+                               __tgt_kernel_arguments *Args) {
   TIMESCOPE_WITH_IDENT(Loc);
   return targetKernel<AsyncInfoTy>(Loc, DeviceId, NumTeams, ThreadLimit,
-                                   HostPtr, KernelArgs);
+                                   HostPtr, Args);
 }
 
 /// Implements a target kernel entry that replays a pre-recorded kernel.
@@ -488,6 +445,15 @@ EXTERN int __tgt_target_kernel_replay(ident_t *Loc, int64_t DeviceId,
   assert(Rc == OFFLOAD_SUCCESS &&
          "__tgt_target_kernel_replay unexpected failure!");
   return OMP_TGT_SUCCESS;
+}
+
+EXTERN int __tgt_target_kernel_nowait(
+    ident_t *Loc, int64_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
+    void *HostPtr, __tgt_kernel_arguments *Args, int32_t DepNum, void *DepList,
+    int32_t NoAliasDepNum, void *NoAliasDepList) {
+  TIMESCOPE_WITH_IDENT(Loc);
+  return targetKernel<TaskAsyncInfoWrapperTy>(Loc, DeviceId, NumTeams,
+                                              ThreadLimit, HostPtr, Args);
 }
 
 // Get the current number of components for a user-defined mapper.

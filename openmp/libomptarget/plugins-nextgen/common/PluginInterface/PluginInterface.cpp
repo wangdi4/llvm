@@ -224,18 +224,20 @@ Error GenericKernelTy::init(GenericDeviceTy &GenericDevice,
 }
 
 Error GenericKernelTy::launch(GenericDeviceTy &GenericDevice, void **ArgPtrs,
-                              ptrdiff_t *ArgOffsets, KernelArgsTy &KernelArgs,
+                              ptrdiff_t *ArgOffsets, int32_t NumArgs,
+                              uint64_t NumTeamsClause,
+                              uint32_t ThreadLimitClause,
+                              uint64_t LoopTripCount,
                               AsyncInfoWrapperTy &AsyncInfoWrapper) const {
   llvm::SmallVector<void *, 16> Args;
   llvm::SmallVector<void *, 16> Ptrs;
 
-  void *KernelArgsPtr =
-      prepareArgs(GenericDevice, ArgPtrs, ArgOffsets, KernelArgs.NumArgs, Args,
-                  Ptrs, AsyncInfoWrapper);
+  void *KernelArgsPtr = prepareArgs(GenericDevice, ArgPtrs, ArgOffsets, NumArgs,
+                                    Args, Ptrs, AsyncInfoWrapper);
 
-  uint32_t NumThreads = getNumThreads(GenericDevice, KernelArgs.ThreadLimit);
-  uint64_t NumBlocks = getNumBlocks(GenericDevice, KernelArgs.NumTeams,
-                                    KernelArgs.Tripcount, NumThreads);
+  uint32_t NumThreads = getNumThreads(GenericDevice, ThreadLimitClause);
+  uint64_t NumBlocks =
+      getNumBlocks(GenericDevice, NumTeamsClause, LoopTripCount, NumThreads);
 
   INFO(OMP_INFOTYPE_PLUGIN_KERNEL, GenericDevice.getDeviceId(),
        "Launching kernel %s with %" PRIu64
@@ -243,7 +245,7 @@ Error GenericKernelTy::launch(GenericDeviceTy &GenericDevice, void **ArgPtrs,
        getName(), NumBlocks, NumThreads, getExecutionModeName());
 
   return launchImpl(GenericDevice, NumThreads, NumBlocks, DynamicMemorySize,
-                    KernelArgs.NumArgs, KernelArgsPtr, AsyncInfoWrapper);
+                    NumArgs, KernelArgsPtr, AsyncInfoWrapper);
 }
 
 void *GenericKernelTy::prepareArgs(GenericDeviceTy &GenericDevice,
@@ -266,29 +268,23 @@ void *GenericKernelTy::prepareArgs(GenericDeviceTy &GenericDevice,
 }
 
 uint32_t GenericKernelTy::getNumThreads(GenericDeviceTy &GenericDevice,
-                                        uint32_t ThreadLimitClause[3]) const {
-  assert(ThreadLimitClause[1] == 0 && ThreadLimitClause[2] == 0 &&
-         "Multi dimensional launch not supported yet.");
-  if (ThreadLimitClause[0] > 0 && isGenericMode())
-    ThreadLimitClause[0] += GenericDevice.getWarpSize();
+                                        uint32_t ThreadLimitClause) const {
+  if (ThreadLimitClause > 0 && isGenericMode())
+    ThreadLimitClause += GenericDevice.getWarpSize();
 
-  return std::min(MaxNumThreads, (ThreadLimitClause[0] > 0)
-                                     ? ThreadLimitClause[0]
-                                     : PreferredNumThreads);
+  return std::min(MaxNumThreads, (ThreadLimitClause > 0) ? ThreadLimitClause
+                                                         : PreferredNumThreads);
 }
 
 uint64_t GenericKernelTy::getNumBlocks(GenericDeviceTy &GenericDevice,
-                                       uint32_t NumTeamsClause[3],
+                                       uint64_t NumTeamsClause,
                                        uint64_t LoopTripCount,
                                        uint32_t NumThreads) const {
-  assert(NumTeamsClause[1] == 0 && NumTeamsClause[2] == 0 &&
-         "Multi dimensional launch not supported yet.");
-
-  if (NumTeamsClause[0] > 0) {
+  if (NumTeamsClause > 0) {
     // TODO: We need to honor any value and consequently allow more than the
     // block limit. For this we might need to start multiple kernels or let the
     // blocks start again until the requested number has been started.
-    return std::min(NumTeamsClause[0], GenericDevice.getBlockLimit());
+    return std::min(NumTeamsClause, GenericDevice.getBlockLimit());
   }
 
   uint64_t TripCountNumBlocks = std::numeric_limits<uint64_t>::max();
@@ -318,8 +314,8 @@ uint64_t GenericKernelTy::getNumBlocks(GenericDeviceTy &GenericDevice,
     }
   }
   // If the loops are long running we rather reuse blocks than spawn too many.
-  uint32_t PreferredNumBlocks = std::min(uint32_t(TripCountNumBlocks),
-                                         getDefaultNumBlocks(GenericDevice));
+  uint64_t PreferredNumBlocks =
+      std::min(TripCountNumBlocks, getDefaultNumBlocks(GenericDevice));
   return std::min(PreferredNumBlocks, GenericDevice.getBlockLimit());
 }
 
@@ -706,10 +702,10 @@ Error GenericDeviceTy::dataExchange(const void *SrcPtr, GenericDeviceTy &DstDev,
   return Err;
 }
 
-Error GenericDeviceTy::launchKernel(void *EntryPtr, void **ArgPtrs,
-                                    ptrdiff_t *ArgOffsets,
-                                    KernelArgsTy &KernelArgs,
-                                    __tgt_async_info *AsyncInfo) {
+Error GenericDeviceTy::runTargetTeamRegion(
+    void *EntryPtr, void **ArgPtrs, ptrdiff_t *ArgOffsets, int32_t NumArgs,
+    uint64_t NumTeamsClause, uint32_t ThreadLimitClause, uint64_t LoopTripCount,
+    __tgt_async_info *AsyncInfo) {
   auto Err = Plugin::success();
   AsyncInfoWrapperTy AsyncInfoWrapper(Err, *this, AsyncInfo);
 
@@ -718,12 +714,12 @@ Error GenericDeviceTy::launchKernel(void *EntryPtr, void **ArgPtrs,
 
   if (RecordReplay.isRecording())
     RecordReplay.saveKernelInputInfo(
-        GenericKernel.getName(), ArgPtrs, ArgOffsets, KernelArgs.NumArgs,
-        KernelArgs.NumTeams[0], KernelArgs.ThreadLimit[0], KernelArgs.Tripcount,
-        AsyncInfoWrapper);
+        GenericKernel.getName(), ArgPtrs, ArgOffsets, NumArgs, NumTeamsClause,
+        ThreadLimitClause, LoopTripCount, AsyncInfoWrapper);
 
-  Err = GenericKernel.launch(*this, ArgPtrs, ArgOffsets, KernelArgs,
-                             AsyncInfoWrapper);
+  Err =
+      GenericKernel.launch(*this, ArgPtrs, ArgOffsets, NumArgs, NumTeamsClause,
+                           ThreadLimitClause, LoopTripCount, AsyncInfoWrapper);
 
   if (RecordReplay.isRecordingOrReplaying() &&
       RecordReplay.isSaveOutputEnabled())
@@ -1072,12 +1068,24 @@ int32_t __tgt_rtl_data_exchange_async(int32_t SrcDeviceId, void *SrcPtr,
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
-                                void **TgtArgs, ptrdiff_t *TgtOffsets,
-                                KernelArgsTy *KernelArgs,
-                                __tgt_async_info *AsyncInfoPtr) {
-  auto Err = Plugin::get().getDevice(DeviceId).launchKernel(
-      TgtEntryPtr, TgtArgs, TgtOffsets, *KernelArgs, AsyncInfoPtr);
+int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
+                                         void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                         int32_t NumArgs, int32_t NumTeams,
+                                         int32_t ThreadLimit,
+                                         uint64_t LoopTripCount) {
+  return __tgt_rtl_run_target_team_region_async(DeviceId, TgtEntryPtr, TgtArgs,
+                                                TgtOffsets, NumArgs, NumTeams,
+                                                ThreadLimit, LoopTripCount,
+                                                /* AsyncInfoPtr */ nullptr);
+}
+
+int32_t __tgt_rtl_run_target_team_region_async(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
+    uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr) {
+  auto Err = Plugin::get().getDevice(DeviceId).runTargetTeamRegion(
+      TgtEntryPtr, TgtArgs, TgtOffsets, NumArgs, NumTeams, ThreadLimit,
+      LoopTripCount, AsyncInfoPtr);
   if (Err) {
     REPORT("Failure to run target region " DPxMOD " in device %d: %s\n",
            DPxPTR(TgtEntryPtr), DeviceId, toString(std::move(Err)).data());
@@ -1109,6 +1117,24 @@ int32_t __tgt_rtl_query_async(int32_t DeviceId,
   }
 
   return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
+                                    void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                    int32_t NumArgs) {
+  return __tgt_rtl_run_target_region_async(DeviceId, TgtEntryPtr, TgtArgs,
+                                           TgtOffsets, NumArgs,
+                                           /* AsyncInfoPtr */ nullptr);
+}
+
+int32_t __tgt_rtl_run_target_region_async(int32_t DeviceId, void *TgtEntryPtr,
+                                          void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                          int32_t NumArgs,
+                                          __tgt_async_info *AsyncInfoPtr) {
+  return __tgt_rtl_run_target_team_region_async(
+      DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets, NumArgs,
+      /* team num*/ 1, /* thread limit */ 1, /* loop tripcount */ 0,
+      AsyncInfoPtr);
 }
 
 void __tgt_rtl_print_device_info(int32_t DeviceId) {

@@ -436,7 +436,6 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t) {
   return OFFLOAD_SUCCESS;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -445,26 +444,16 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
                                          int32_t ArgNum, int32_t TeamNum,
                                          int32_t ThreadLimit,
                                          uint64_t LoopTripcount /*not used*/) {
-=======
-int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
-                                void **TgtArgs, ptrdiff_t *TgtOffsets,
-                                KernelArgsTy *KernelArgs,
-                                __tgt_async_info *AsyncInfoPtr) {
-  assert(!KernelArgs->NumTeams[1] && !KernelArgs->NumTeams[2] &&
-         !KernelArgs->ThreadLimit[1] && !KernelArgs->ThreadLimit[2] &&
-         "Only one dimensional kernels supported.");
->>>>>>> 16a385ba21a921a42009ff971199bce56eb2a86e
   // ignore team num and thread limit.
 
   // Use libffi to launch execution.
   ffi_cif Cif;
 
   // All args are references.
-  std::vector<ffi_type *> ArgsTypes(KernelArgs->NumArgs, &ffi_type_pointer);
-  std::vector<void *> Args(KernelArgs->NumArgs);
-  std::vector<void *> Ptrs(KernelArgs->NumArgs);
+  std::vector<ffi_type *> ArgsTypes(ArgNum, &ffi_type_pointer);
+  std::vector<void *> Args(ArgNum);
+  std::vector<void *> Ptrs(ArgNum);
 
-<<<<<<< HEAD
   for (int32_t I = 0; I < ArgNum; ++I) {
 
 #if INTEL_COLLAB
@@ -476,24 +465,17 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
     else
       Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
 #else // INTEL_COLLAB
-=======
-  for (int32_t I = 0; I < KernelArgs->NumArgs; ++I) {
->>>>>>> 16a385ba21a921a42009ff971199bce56eb2a86e
     Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + TgtOffsets[I]);
 #endif // INTEL_COLLAB
 
     Args[I] = &Ptrs[I];
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, ArgNum,
                                    &ffi_type_void, ArgsTypes.data());
 #else // INTEL_COLLAB
   ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, ArgNum,
-=======
-  ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, KernelArgs->NumArgs,
->>>>>>> 16a385ba21a921a42009ff971199bce56eb2a86e
                                    &ffi_type_void, &ArgsTypes[0]);
 #endif // INTEL_COLLAB
 
@@ -516,7 +498,6 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   return OFFLOAD_SUCCESS;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -555,8 +536,6 @@ void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HstPtr,
   return TgtPtr;
 }
 #endif // INTEL_COLLAB
-=======
->>>>>>> 16a385ba21a921a42009ff971199bce56eb2a86e
 #ifdef __cplusplus
 }
 #endif
