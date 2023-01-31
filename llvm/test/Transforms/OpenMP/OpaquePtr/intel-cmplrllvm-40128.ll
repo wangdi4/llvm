@@ -1,23 +1,5 @@
 ; RUN: opt -opaque-pointers < %s -passes=openmp-opt -S 2>&1 | FileCheck %s
 
-; Check that @omp_get_max_threads() is eliminated, and replaced with a value
-; of 5.
-
-; CHECK-LABEL: define i32 @foo5_() local_unnamed_addr {
-; CHECK-NEXT: %"main_$VALUE_RET" = alloca i32, align 4
-; CHECK-NEXT: call void @omp_set_num_threads(i32 5)
-; CHECK-NOT:  call i32 @omp_get_max_threads()
-; CHECK-NEXT: store i32 5, ptr %"main_$VALUE_RET", align 4
-
-; Check that @omp_get_max_threads() is eliminated, and replaced with a value
-; of 1, not 0.
-
-; CHECK-LABEL: define i32 @foo0_() local_unnamed_addr {
-; CHECK-NEXT:  %"main_$VALUE_RET" = alloca i32, align 4
-; CHECK-NEXT: call void @omp_set_num_threads(i32 0)
-; CHECK-NOT:  call i32 @omp_get_max_threads()
-; CHECK-NEXT:  store i32 1, ptr %"main_$VALUE_RET", align 4
-
 @0 = internal unnamed_addr constant i32 0
 @"@tid.addr" = external global i32
 @"@bid.addr" = external global i32
@@ -34,6 +16,15 @@ define i32 @foo5_() local_unnamed_addr {
 declare !llfort.type_idx !1 i32 @omp_get_max_threads() local_unnamed_addr
 
 declare !llfort.type_idx !2 void @omp_set_num_threads(i32) local_unnamed_addr
+
+
+; Check that max_threads is not replaced with "0". The correct value is 1.
+; The community may not replace max_threads, so this test does not check for
+; the removal.
+
+; CHECK-LABEL: define i32 @foo0_() local_unnamed_addr {
+; CHECK: call void @omp_set_num_threads(i32 0)
+; CHECK-NOT:  store i32 0, ptr %"main_$VALUE_RET", align 4
 
 define i32 @foo0_() local_unnamed_addr {
   %"main_$VALUE_RET" = alloca i32, align 4

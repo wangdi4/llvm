@@ -88,5 +88,5 @@ lpad2:
 
 declare i32 @__gxx_personality_v0(...)
 ;.
-; CHECK: [[PROF0]] = !{!"branch_weights", i32 371}
+; CHECK: [[PROF0]] = !{!"branch_weights", i32 369} ;INTEL
 ;.

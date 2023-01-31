@@ -2,9 +2,6 @@
 ; RUN: opt < %s -S -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=1 | FileCheck %s --check-prefixes=ALL,CHEAP
 ; RUN: opt < %s -S -passes=simplifycfg -simplifycfg-require-and-preserve-domtree=1 -bonus-inst-threshold=10 | FileCheck %s --check-prefixes=ALL,COSTLY
 
-; INTEL_CUSTOMIZATION
-; phi-to-select heuristic is significantly different in xmain.
-
 declare void @sideeffect0(i8)
 declare void @sideeffect1(i8)
 declare void @sideeffect1.vec(<2 x i8>)
@@ -12,7 +9,7 @@ declare void @sideeffect2(i8)
 declare void @use1(i1)
 
 define void @incompatible_ivs_of_single_phi.falsedest.falsedest(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.falsedest.falsedest(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.falsedest.falsedest(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[DISPATCH:%.*]], label [[FINAL_RIGHT:%.*]]
@@ -47,7 +44,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.falsedest.falsedest.extrause(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.falsedest.falsedest.extrause(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.falsedest.falsedest.extrause(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    call void @use1(i1 [[C0]])
@@ -84,7 +81,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.falsedest.truedest(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.falsedest.truedest(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.falsedest.truedest(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[DISPATCH:%.*]], label [[FINAL_RIGHT:%.*]]
@@ -102,8 +99,6 @@ define void @incompatible_ivs_of_single_phi.falsedest.truedest(i8 %v0, i8 %v1, i
 ; ALL-NEXT:    call void @sideeffect1(i8 [[FINAL_RIGHT_PHI]])
 ; ALL-NEXT:    br label [[COMMON_RET]]
 ;
-; llorg is adding a inst simplification here inside simplifycfg.
-; we can take care of it in instcombine.
 pred:
   %c0 = icmp eq i8 %v0, 0
   br i1 %c0, label %dispatch, label %final_right
@@ -121,7 +116,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.falsedest.truedest.extrause(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.falsedest.truedest.extrause(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.falsedest.truedest.extrause(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    call void @use1(i1 [[C0]])
@@ -158,7 +153,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.truedest.falsedest(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.truedest.falsedest(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.truedest.falsedest(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[FINAL_RIGHT:%.*]], label [[DISPATCH:%.*]]
@@ -193,7 +188,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.truedest.falsedest.extrause(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.truedest.falsedest.extrause(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.truedest.falsedest.extrause(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    call void @use1(i1 [[C0]])
@@ -230,7 +225,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.truedest.truedest(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.truedest.truedest(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.truedest.truedest(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[FINAL_RIGHT:%.*]], label [[DISPATCH:%.*]]
@@ -265,7 +260,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_single_phi.truedest.truedest.extrause(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_single_phi.truedest.truedest.extrause(
+; ALL-LABEL: @incompatible_ivs_of_single_phi.truedest.truedest.extrause(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    call void @use1(i1 [[C0]])
@@ -343,7 +338,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_one_of_two_phis(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, i8 %iv.of.final_right.from.pred, i8 %iv.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_one_of_two_phis(
+; ALL-LABEL: @incompatible_ivs_of_one_of_two_phis(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[DISPATCH:%.*]], label [[FINAL_RIGHT:%.*]]
@@ -421,7 +416,7 @@ final_right:
 }
 
 define void @incompatible_ivs_of_two_phis.vec(i8 %v0, i8 %v1, i8 %iv.of.final_left.from.dispatch, <2 x i8> %iv0.of.final_right.from.pred, <2 x i8> %iv0.of.final_right.from.dispatch, <2 x i8> %iv1.of.final_right.from.pred, <2 x i8> %iv1.of.final_right.from.dispatch) {
-; ALL-LABEL: define {{[^@]+}}@incompatible_ivs_of_two_phis.vec(
+; ALL-LABEL: @incompatible_ivs_of_two_phis.vec(
 ; ALL-NEXT:  pred:
 ; ALL-NEXT:    [[C0:%.*]] = icmp eq i8 [[V0:%.*]], 0
 ; ALL-NEXT:    br i1 [[C0]], label [[DISPATCH:%.*]], label [[FINAL_RIGHT:%.*]]
@@ -457,51 +452,6 @@ final_right:
   call void @sideeffect1.vec(<2 x i8> %final_right.phi.0)
   call void @sideeffect1.vec(<2 x i8> %final_right.phi.1)
   ret void
-}
-; end INTEL_CUSTOMIZATION
-
-;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
-; CHEAP: {{.*}}
-; COSTLY: {{.*}}
-
-; From https://reviews.llvm.org/D139275#4001580
-define float @D139275_c4001580(float %val) {
-; ALL-LABEL: @D139275_c4001580(
-; ALL-NEXT:  entry:
-; ALL-NEXT:    [[CMP:%.*]] = fcmp ugt float [[VAL:%.*]], 0.000000e+00
-; ALL-NEXT:    br i1 [[CMP]], label [[IF_END:%.*]], label [[RETURN:%.*]]
-; ALL:       if.end:
-; ALL-NEXT:    [[CMP1:%.*]] = fcmp ult float [[VAL]], 1.000000e+00
-; ALL-NEXT:    br i1 [[CMP1]], label [[IF_END3:%.*]], label [[RETURN]]
-; ALL:       if.end3:
-; ALL-NEXT:    [[CMP4:%.*]] = fcmp olt float [[VAL]], 0x3FC99999A0000000
-; ALL-NEXT:    br i1 [[CMP4]], label [[RETURN]], label [[IF_END6:%.*]]
-; ALL:       if.end6:
-; ALL-NEXT:    [[SUB:%.*]] = fadd float [[VAL]], 0xBFB99999A0000000
-; ALL-NEXT:    br label [[RETURN]]
-; ALL:       return:
-; ALL-NEXT:    [[RETVAL_0:%.*]] = phi float [ [[SUB]], [[IF_END6]] ], [ 0.000000e+00, [[ENTRY:%.*]] ], [ 0x3FB99999A0000000, [[IF_END]] ], [ 0.000000e+00, [[IF_END3]] ]
-; ALL-NEXT:    ret float [[RETVAL_0]]
-;
-entry:
-  %cmp = fcmp ugt float %val, 0.000000e+00
-  br i1 %cmp, label %if.end, label %return
-
-if.end:
-  %cmp1 = fcmp ult float %val, 1.000000e+00
-  br i1 %cmp1, label %if.end3, label %return
-
-if.end3:
-  %cmp4 = fcmp olt float %val, 0x3FC99999A0000000
-  br i1 %cmp4, label %return, label %if.end6
-
-if.end6:
-  %sub = fadd float %val, 0xBFB99999A0000000
-  br label %return
-
-return:
-  %retval.0 = phi float [ %sub, %if.end6 ], [ 0.000000e+00, %entry ], [ 0x3FB99999A0000000, %if.end ], [ 0.000000e+00, %if.end3 ]
-  ret float %retval.0
 }
 
 ;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:

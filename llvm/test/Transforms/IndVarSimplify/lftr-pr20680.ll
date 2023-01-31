@@ -4,7 +4,7 @@
 ; Provide legal integer types.
 target datalayout = "n8:16:32:64"
 
-; INTEL - lots of changes in file. Checks were updated using script.
+; Changes are caused by renaming of temps. ;INTEL
 @a = common global i32 0, align 4
 @c = common global i32 0, align 4
 @b = common global i32 0, align 4
@@ -35,8 +35,8 @@ define void @f() {
 ; CHECK:       cond.false.us.us:
 ; CHECK-NEXT:    br label [[COND_END_US_US]]
 ; CHECK:       cond.end.us.us:
-; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr @b, align 4
-; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP4]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr @b, align 4 ;INTEL
+; CHECK-NEXT:    [[CMP91_US_US:%.*]] = icmp slt i32 [[TMP2]], 1 ;INTEL
 ; CHECK-NEXT:    br i1 [[CMP91_US_US]], label [[FOR_INC_LR_PH_US_US:%.*]], label [[FOR_COND2_LOOPEXIT_US_US:%.*]]
 ; CHECK:       for.cond2.loopexit.us.us:
 ; CHECK-NEXT:    br i1 true, label [[FOR_COND2_FOR_INC13_CRIT_EDGE_US_LCSSA_US_US_LCSSA_US:%.*]], label [[FOR_BODY3_US_US]]
@@ -46,8 +46,8 @@ define void @f() {
 ; CHECK-NEXT:    store i32 1, ptr @b, align 4
 ; CHECK-NEXT:    br label [[FOR_COND2_LOOPEXIT_US_US]]
 ; CHECK:       for.inc.us.us:
-; CHECK-NEXT:    [[TMP3:%.*]] = phi i32 [ [[TMP2]], [[FOR_INC_LR_PH_US_US]] ], [ [[INC_US_US:%.*]], [[FOR_INC_US_US]] ]
-; CHECK-NEXT:    [[INC_US_US]] = add nsw i32 [[TMP3]], 1
+; CHECK-NEXT:    [[TMP3:%.*]] = phi i32 [ [[TMP2]], [[FOR_INC_LR_PH_US_US]] ], [ [[INC_US_US:%.*]], [[FOR_INC_US_US]] ] ;INTEL
+; CHECK-NEXT:    [[INC_US_US]] = add nsw i32 [[TMP3]], 1 ;INTEL
 ; CHECK-NEXT:    [[EXITCOND3:%.*]] = icmp ne i32 [[INC_US_US]], 1
 ; CHECK-NEXT:    br i1 [[EXITCOND3]], label [[FOR_INC_US_US]], label [[FOR_COND8_FOR_COND2_LOOPEXIT_CRIT_EDGE_US_US:%.*]]
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa.us.us-lcssa.us:
@@ -59,12 +59,12 @@ define void @f() {
 ; CHECK:       cond.false.us:
 ; CHECK-NEXT:    br label [[COND_END_US]]
 ; CHECK:       cond.end.us:
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr @b, align 4
-; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP6]], 1
+; CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr @b, align 4 ;INTEL
+; CHECK-NEXT:    [[CMP91_US:%.*]] = icmp slt i32 [[TMP4]], 1 ;INTEL
 ; CHECK-NEXT:    br i1 [[CMP91_US]], label [[FOR_INC_LR_PH_US:%.*]], label [[FOR_COND2_LOOPEXIT_US:%.*]]
 ; CHECK:       for.inc.us:
-; CHECK-NEXT:    [[TMP5:%.*]] = phi i32 [ [[TMP4]], [[FOR_INC_LR_PH_US]] ], [ [[INC_US:%.*]], [[FOR_INC_US:%.*]] ]
-; CHECK-NEXT:    [[INC_US]] = add nsw i32 [[TMP5]], 1
+; CHECK-NEXT:    [[TMP5:%.*]] = phi i32 [ [[TMP4]], [[FOR_INC_LR_PH_US]] ], [ [[INC_US:%.*]], [[FOR_INC_US:%.*]] ] ;INTEL
+; CHECK-NEXT:    [[INC_US]] = add nsw i32 [[TMP5]], 1 ;INTEL
 ; CHECK-NEXT:    [[EXITCOND2:%.*]] = icmp ne i32 [[INC_US]], 1
 ; CHECK-NEXT:    br i1 [[EXITCOND2]], label [[FOR_INC_US]], label [[FOR_COND8_FOR_COND2_LOOPEXIT_CRIT_EDGE_US:%.*]]
 ; CHECK:       for.cond2.loopexit.us:
@@ -89,12 +89,12 @@ define void @f() {
 ; CHECK:       cond.false.us4:
 ; CHECK-NEXT:    br label [[COND_END_US5]]
 ; CHECK:       cond.end.us5:
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr @b, align 4
-; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP8]], 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr @b, align 4 ;INTEL
+; CHECK-NEXT:    [[CMP91_US7:%.*]] = icmp slt i32 [[TMP6]], 1 ;INTEL
 ; CHECK-NEXT:    br i1 [[CMP91_US7]], label [[FOR_INC_LR_PH_US12:%.*]], label [[FOR_COND2_LOOPEXIT_US11:%.*]]
 ; CHECK:       for.inc.us8:
-; CHECK-NEXT:    [[TMP7:%.*]] = phi i32 [ [[TMP6]], [[FOR_INC_LR_PH_US12]] ], [ [[INC_US9:%.*]], [[FOR_INC_US8:%.*]] ]
-; CHECK-NEXT:    [[INC_US9]] = add nsw i32 [[TMP7]], 1
+; CHECK-NEXT:    [[TMP7:%.*]] = phi i32 [ [[TMP6]], [[FOR_INC_LR_PH_US12]] ], [ [[INC_US9:%.*]], [[FOR_INC_US8:%.*]] ] ;INTEL
+; CHECK-NEXT:    [[INC_US9]] = add nsw i32 [[TMP7]], 1 ;INTEL
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp ne i32 [[INC_US9]], 1
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[FOR_INC_US8]], label [[FOR_COND8_FOR_COND2_LOOPEXIT_CRIT_EDGE_US13:%.*]]
 ; CHECK:       for.cond2.loopexit.us11:
@@ -118,14 +118,14 @@ define void @f() {
 ; CHECK:       cond.false:
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr @b, align 4
-; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP10]], 1
+; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr @b, align 4 ;INTEL
+; CHECK-NEXT:    [[CMP91:%.*]] = icmp slt i32 [[TMP8]], 1 ;INTEL
 ; CHECK-NEXT:    br i1 [[CMP91]], label [[FOR_INC_LR_PH:%.*]], label [[FOR_COND2_LOOPEXIT]]
 ; CHECK:       for.inc.lr.ph:
 ; CHECK-NEXT:    br label [[FOR_INC:%.*]]
 ; CHECK:       for.inc:
-; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ [[TMP8]], [[FOR_INC_LR_PH]] ], [ [[INC:%.*]], [[FOR_INC]] ]
-; CHECK-NEXT:    [[INC]] = add nsw i32 [[TMP9]], 1
+; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ [[TMP8]], [[FOR_INC_LR_PH]] ], [ [[INC:%.*]], [[FOR_INC]] ] ;INTEL
+; CHECK-NEXT:    [[INC]] = add nsw i32 [[TMP9]], 1 ;INTEL
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[INC]], 1
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_INC]], label [[FOR_COND8_FOR_COND2_LOOPEXIT_CRIT_EDGE:%.*]]
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa.us-lcssa:
@@ -133,7 +133,7 @@ define void @f() {
 ; CHECK:       for.cond2.for.inc13_crit_edge.us-lcssa:
 ; CHECK-NEXT:    br label [[FOR_COND2_FOR_INC13_CRIT_EDGE]]
 ; CHECK:       for.cond2.for.inc13_crit_edge:
-; CHECK-NEXT:    store i32 [[INDVARS_IV]], ptr @c, align 4
+; CHECK-NEXT:    store i32 [[INDVARS_IV]], ptr @c, align 4 ;INTEL
 ; CHECK-NEXT:    br label [[FOR_INC13]]
 ; CHECK:       for.inc13:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nsw i32 [[INDVARS_IV]], 1

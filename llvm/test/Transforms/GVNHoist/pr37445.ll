@@ -52,7 +52,7 @@ bb36:
 
 ;CHECK: bb41:
 ; INTEL_CUSTOMIZATION
-;CHECK:   %tmp47 = load i32, i32* %arg1, align 4
+;CHECK:   %tmp47 = load i32, ptr %arg1, align 4
 ;CHECK:   %tmp48 = icmp eq i32 %tmp47, 0
 ; end INTEL_CUSTOMIZATION
 

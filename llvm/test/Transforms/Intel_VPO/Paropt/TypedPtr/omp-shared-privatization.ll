@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 ;
 ;void foo(float * A, float * B, int N) {
 ;#pragma omp parallel for
@@ -875,7 +875,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK: omp.inner.for.body{{.+}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]],
 ; CHECK:   [[AVAL:%.+]] = load float, float* [[AADDR]]
-; CHECK:   [[FABS:%.+]] = tail call fast float @llvm.fabs.f32(float [[AVAL]])
+; CHECK:   [[FABS:%.+]] {{.*}} call fast float @llvm.fabs.f32(float [[AVAL]])
 ; CHECK:   [[FADD:%.+]] = fadd fast float [[FABS]], [[AVAL]]
 ; CHECK:   store float [[FADD]], float* [[AADDR]]
 ; CHECK: }

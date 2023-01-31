@@ -3,7 +3,7 @@
 @choum.addr = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@choum, %bb10), ptr blockaddress(@choum, %bb14), ptr blockaddress(@choum, %bb18)]
 
 ; INTEL_COLLAB
-; CHECK: @choum.addr = internal unnamed_addr constant [3 x i8*] [i8* blockaddress(@choum.bb8, %bb10), i8* blockaddress(@choum.bb8, %bb14), i8* blockaddress(@choum.bb8, %bb18)]
+; CHECK: @choum.addr = internal unnamed_addr constant [3 x ptr] [ptr blockaddress(@choum.bb8, %bb10), ptr blockaddress(@choum.bb8, %bb14), ptr blockaddress(@choum.bb8, %bb18)]
 ; else
 ;UNCOMMENT;;COM:CHECK: define
 ;UNCOMMENT;;no outlined function
