@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -40,6 +40,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
+#include "llvm/Transforms/Utils/Intel_RegionSplitter.h"
 #include <sstream>
 #include <string>
 using namespace llvm;
@@ -4759,11 +4760,40 @@ void Splitter::splitFunction() {
 // 'SimpleLoopDepth'.
 //
 
+// Make the control flow structure for an if-test of the form:
+// if (MyCond)
+//   CBClone
+// else
+//   CB
+// where 'MyCond' is in 'BBPred'.
+static void makeBlocks(CallBase *CB, CallBase *CBClone, Value *MyCond,
+                       BasicBlock *BBPred) {
+  BasicBlock *BBofCB = CB->getParent();
+  Instruction *IAfterCB = CB->getNextNonDebugInstruction();
+  BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
+  BasicBlock *BBTrue =
+      BasicBlock::Create(CB->getContext(), ".clone.recmanycalls.truepath",
+                         CB->getFunction(), BBTail);
+  if (!CB->getType()->isVoidTy()) {
+    PHINode *PHI = PHINode::Create(CB->getType(), 2, ".clone.recmapcalls.phi",
+                                   &BBTail->front());
+    CB->replaceAllUsesWith(PHI);
+    PHI->addIncoming(CB, BBofCB);
+    PHI->addIncoming(CBClone, BBTrue);
+  }
+  BranchInst::Create(BBTail, BBTrue);
+  BranchInst::Create(BBTrue, BBofCB, MyCond, BBPred);
+  CBClone->insertBefore(BBTrue->getTerminator());
+}
+
 class PredicateOpt {
 public:
-  PredicateOpt(Function *BaseF)
-      : BaseF(BaseF), WrapperCB(nullptr), BigLoopCB(nullptr),
-        SimpleLoopDepth(0) {}
+  PredicateOpt(Function *BaseF,
+               std::function<DominatorTree &(Function &)> *GetDT,
+               std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+               std::function<BranchProbabilityInfo &(Function &)> *GetBPI)
+      : BaseF(BaseF), GetDT(GetDT), GetBFI(GetBFI), GetBPI(GetBPI),
+        WrapperCB(nullptr), BigLoopCB(nullptr), SimpleLoopDepth(0) {}
   // Return 'true' if the desired predicate opt can be performed.
   bool canDoPredicateOpt();
   // Perform the desired predicate opt.
@@ -4772,6 +4802,12 @@ public:
 private:
   // The base function.
   Function *BaseF;
+  // DominatorTree getter
+  std::function<DominatorTree &(Function &)> *GetDT{};
+  // BlockFrequencyInfo getter
+  std::function<BlockFrequencyInfo &(Function &)> *GetBFI{};
+  // BranchProbabilityInfo getter
+  std::function<BranchProbabilityInfo &(Function &)> *GetBPI{};
   // The call site which calls 'BaseF' in the wrapper function.
   CallBase *WrapperCB;
   // The call site that calls the wrapper function and is enclosed
@@ -4781,10 +4817,18 @@ private:
   unsigned SimpleLoopDepth;
   // A loop info cache to store loop infos for functions being evaluated.
   InliningLoopInfoCache ILIC;
+  // The loop that will be multiversioned, with the first version being the
+  // optimized version, and the second being the general version.
+  Loop *MultiLoop = nullptr;
+  // Optimized version of the key predicate opt code
+  Function *OptFxn = nullptr;
   // Return 'true' if 'F' is a wrapper function.
   bool isWrapper(Function &F);
   // Return the number of simple loops enclosing 'CB'.
   unsigned simpleLoopDepth(CallBase &CB);
+  // Find the doubly nested inner loop surrounding 'CB' if there is one,
+  // otherwise return 'nullptr'.
+  Loop *findMultiLoop(CallBase &CB);
 };
 
 //
@@ -4836,6 +4880,15 @@ unsigned PredicateOpt::simpleLoopDepth(CallBase &CB) {
 }
 
 //
+// Return the doubly nested loop enclosing 'CB', otherwise return 'nullptr'.
+//
+Loop *PredicateOpt::findMultiLoop(CallBase &CB) {
+  LoopInfo *LI = ILIC.getLI(CB.getCaller());
+  Loop *L = LI->getLoopFor(CB.getParent());
+  return L ? L->getParentLoop() : nullptr;
+}
+
+//
 // Return 'true' if the desired predicate opt can be performed.
 // NOTE: At this point, we are just checking if the hot path can be identified.
 // More code will be added to check additional conditions.
@@ -4862,13 +4915,15 @@ bool PredicateOpt::canDoPredicateOpt() {
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
   BigLoopCB = LocalBigLoopCB;
-  return true;
+  MultiLoop = findMultiLoop(*BigLoopCB);
+  return MultiLoop;
 }
 
 //
 // Perform the predicate opt.
 // NOTE: Right now we simply emit a trace indicating the key elements
-// on the hot path. More code will be added to do the optimization.
+// on the hot path, and the extracted and enclosing function.
+// More code will be added to do the optimization.
 //
 void PredicateOpt::doPredicateOpt() {
   LLVM_DEBUG({
@@ -4876,6 +4931,26 @@ void PredicateOpt::doPredicateOpt() {
     dbgs() << "  BaseF: " << BaseF->getName() << "\n";
     dbgs() << "  WrapperF: " << WrapperCB->getCaller()->getName() << "\n";
     dbgs() << "  BigLoopF: " << BigLoopCB->getCaller()->getName() << "\n";
+  });
+  Function *FxnOuter = BigLoopCB->getCaller();
+  DominatorTree &DT = (*GetDT)(*FxnOuter);
+  BlockFrequencyInfo &BFI = (*GetBFI)(*FxnOuter);
+  BranchProbabilityInfo &BPI = (*GetBPI)(*FxnOuter);
+  RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
+  OptFxn = MultiLoopSplitter.splitRegion(*MultiLoop);
+  CallBase *OptCB = cast<CallBase>(OptFxn->user_back());
+  CallBase *GenCB = cast<CallBase>(OptCB->clone());
+  BasicBlock *BBPred = OptCB->getParent();
+  BBPred->splitBasicBlock(OptCB);
+  BBPred->getTerminator()->eraseFromParent();
+  Module *M = OptCB->getFunction()->getParent();
+  ConstantInt *TInt = ConstantInt::getTrue(M->getContext());
+  makeBlocks(OptCB, GenCB, TInt, BBPred);
+  LLVM_DEBUG({
+    dbgs() << "MRC Predicate Opt: Extracted Function:\n";
+    OptFxn->dump();
+    dbgs() << "MRC Predicate Opt: Enclosing Function:\n";
+    FxnOuter->dump();
   });
 }
 
@@ -4904,32 +4979,6 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
         return;
       }
     }
-  };
-
-  // Make the control flow structure for an if-test of the form:
-  // if (TAnd)
-  //   CBClone
-  // else
-  //   CB
-  // where 'TAnd' is in 'BBPred'.
-  auto MakeBlocks = [](CallBase *CB, CallBase *CBClone, Value *TAnd,
-                       BasicBlock *BBPred) {
-    BasicBlock *BBofCB = CB->getParent();
-    Instruction *IAfterCB = CB->getNextNonDebugInstruction();
-    BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
-    BasicBlock *BBTrue =
-        BasicBlock::Create(CB->getContext(), ".clone.recmanycalls.truepath",
-                           CB->getFunction(), BBTail);
-    if (!CB->getType()->isVoidTy()) {
-      PHINode *PHI = PHINode::Create(CB->getType(), 2, ".clone.recmapcalls.phi",
-                                     &BBTail->front());
-      CB->replaceAllUsesWith(PHI);
-      PHI->addIncoming(CB, BBofCB);
-      PHI->addIncoming(CBClone, BBTrue);
-    }
-    BranchInst::Create(BBTail, BBTrue);
-    BranchInst::Create(BBTrue, BBofCB, TAnd, BBPred);
-    CBClone->insertBefore(BBTrue->getTerminator());
   };
 
   // Add conditionals to 'TAnd', placing each in 'BBPred'. Each conditional
@@ -4968,8 +5017,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
   // values mapped by 'ArgConstMap' from 'IfArgs' and 'SwitchArgs'. Return
   // the new call that was created.
   auto ConditionalizeCallBase2WayEarly =
-      [&MakeBlocks,
-       &MakeTAndFromMap](CallBase *CB, Function *NewF, SmallArgumentSet &IfArgs,
+      [&MakeTAndFromMap](CallBase *CB, Function *NewF, SmallArgumentSet &IfArgs,
                          SmallArgumentSet &SwitchArgs,
                          SmallArgConstMap &ArgConstMap) -> CallBase * {
     CallBase *CBClone = cast<CallBase>(CB->clone());
@@ -4993,7 +5041,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
     Value *TAnd = nullptr;
     TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, SwitchArgs,
                            ArgConstMap);
-    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    makeBlocks(CB, CBClone, TAnd, BBPred);
     return CBClone;
   };
 
@@ -5050,8 +5098,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
   //   CB
   // where the 'ArgConstMap' maps the 'ReplaceArgs' into ConstantInt values.
   auto ConditionalizeCallBase2WayLate =
-      [&MakeBlocks,
-       &MakeTAndFromMap](CallBase *CB, SmallArgConstMap ArgConstMap,
+      [&MakeTAndFromMap](CallBase *CB, SmallArgConstMap ArgConstMap,
                          SmallArgumentSet &ReplaceArgs) -> CallBase * {
     BasicBlock *BBPred = CB->getParent();
     BBPred->splitBasicBlock(CB);
@@ -5061,7 +5108,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
     CallBase *CBClone = cast<CallBase>(CB->clone());
     TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, ReplaceArgs,
                            ArgConstMap);
-    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    makeBlocks(CB, CBClone, TAnd, BBPred);
     return CBClone;
   };
 
@@ -5591,10 +5638,12 @@ static void createManyLoopSpecializationClones(Function *F,
 
 // Main routine to analyze all calls and clone functions if profitable.
 //
-static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
-                                        bool EnableDTrans,
-                                        bool IFSwitchHeuristic,
-                                        WholeProgramInfo *WPInfo) {
+static bool analysisCallsCloneFunctions(
+    Module &M, bool AfterInl, bool EnableDTrans, bool IFSwitchHeuristic,
+    WholeProgramInfo *WPInfo, std::function<DominatorTree &(Function &)> *GetDT,
+    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
+
   bool FunctionAddressTaken;
 
   // Force RecProCloneSplitting for LIT testing.
@@ -5675,7 +5724,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
           if (EnableManyRecCallsPredicateOpt) {
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
                               << "predicate opt\n");
-            PredicateOpt MRCPO(&F);
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
             if (MRCPO.canDoPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
@@ -5802,13 +5851,18 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   return false;
 }
 
-static bool runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
-                         WholeProgramInfo *WPInfo) {
+static bool
+runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
+             WholeProgramInfo *WPInfo,
+             std::function<DominatorTree &(Function &)> *GetDT,
+             std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+             std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
   bool Change = false;
   bool IFSwitchHeuristicOn = EnableDTrans || ForceIFSwitchHeuristic;
   bool EnableDTransOn = EnableDTrans || ForceEnableDTrans;
   Change = analysisCallsCloneFunctions(M, AfterInl, EnableDTransOn,
-                                       IFSwitchHeuristicOn, WPInfo);
+                                       IFSwitchHeuristicOn, WPInfo, GetDT,
+                                       GetBFI, GetBPI);
   clearAllMaps();
   return Change;
 }
@@ -5834,9 +5888,23 @@ public:
       return false;
     WholeProgramInfo *WPInfo =
         &getAnalysis<WholeProgramWrapperPass>().getResult();
+    std::function<DominatorTree &(Function &)> GetDT =
+        [this](Function &F) -> DominatorTree & {
+      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+    };
+    std::function<BlockFrequencyInfo &(Function &)> GetBFI =
+        [this](Function &F) -> BlockFrequencyInfo & {
+      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
+    };
+    std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+        [this](Function &F) -> BranchProbabilityInfo & {
+      return this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
+    };
+
     if (IPCloningAfterInl)
       AfterInl = true;
-    return runIPCloning(M, AfterInl, EnableDTrans, WPInfo);
+    return runIPCloning(M, AfterInl, EnableDTrans, WPInfo, &GetDT, &GetBFI,
+                        &GetBPI);
   }
 
 private:
@@ -5864,10 +5932,32 @@ IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
     : AfterInl(AfterInl), EnableDTrans(EnableDTrans) {}
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
+
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  std::function<DominatorTree &(Function &)> GetDT =
+      [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
+  std::function<BlockFrequencyInfo &(Function &)> GetBFI =
+      [&FAM](Function &F) -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [&FAM](Function &F) -> BranchProbabilityInfo & {
+    return FAM.getResult<BranchProbabilityAnalysis>(F);
+  };
+
   if (IPCloningAfterInl)
     AfterInl = true;
-  if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo))
+
+  if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo, &GetDT, &GetBFI,
+                    &GetBPI))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
