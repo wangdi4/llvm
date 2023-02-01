@@ -1,6 +1,6 @@
-//===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
+//===-- VPlanDecomposerHIR.cpp --------------------------------------------===//
 //
-//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -2192,44 +2192,73 @@ void VPDecomposerHIR::computeValidHIRAssumes() {
   // candidates, by checking if any LLVM assumes are inside the HIR region. In
   // most cases, there won't be any, and walking the HIR region is expensive, so
   // avoid doing so unless we absolutely have to.
-  const HLRegion *ParentRegion = OutermostHLp->getParentRegion();
   const bool AnyAssumesInParentRegion = llvm::any_of(
       Plan->getVPAC()->getLLVMCache()->assumptions(),
-      [ParentRegion](const AssumptionCache::ResultElem &Assumption) {
-        if (const AssumeInst *AI = cast_or_null<AssumeInst>(Assumption.Assume))
-          return ParentRegion->containsBBlock(AI->getParent());
-        return false;
+      [this](const AssumptionCache::ResultElem &Assumption) {
+        const auto *AI = cast<AssumeInst>(Assumption.Assume);
+        return OutermostHLp->getParentRegion()->containsBBlock(AI->getParent());
       });
 
   if (AnyAssumesInParentRegion) {
-    // We know there are LLVM assumes in the HIR region. Walk HLInsts in the
-    // region prior to the outermost loop, collecting calls to '@llvm.assume'
-    // which dominate the outermost loop. Later, when importing external
-    // assumptions, we will explicitly allow these, whereas all other external
-    // assumptions must be outside of and dominate the parent region.
-    struct Visitor final : HLNodeVisitorBase {
-      friend HLNodeVisitor<Visitor, /*Recursive:*/ true>;
+    // We know there are LLVM assumes in the HIR region. We need to check for
+    // valid external assumes, i.e. those which are outside of the outermost
+    // loop, but still inside this HIR region, and dominate the outermost loop.
+    //
+    // Starting at the outermost loop, walk the range of HLNodes between
+    // it and its first lexical sibling, collecting HLInsts which correspond to
+    // dominating assumes. Repeat this process with the parent node, until all
+    // candidates in the region have been visited, e.g:
+    //
+    //  BEGIN REGION { }                                  <END>
+    //     @llvm.assume(-1) ["align"(...)]                4. (collect)
+    //
+    //     if (...)
+    //     {
+    //         @llvm.assume(-1) ["align"(...)] }          5.
+    //     }
+    //
+    //     + DO i1 = 0, 4, 1
+    //     |   @llvm.assume(-1) ["align"(...)]            6. (collect)
+    //     + END LOOP
+    //
+    //     + DO i1 = 0, 1024, 1
+    //     |   @llvm.assume(-1) ["align"(...)]            1. <START> (collect)
+    //     |   @llvm.assume(-1) ["align"(...)]            2. (collect)
+    //     |
+    //     |   if (...)
+    //     |   {
+    //     |      @llvm.assume(-1) ["align"(...)]         3.
+    //     |   }
+    //     |
+    //     |   + DO i2 = 0, 1024, 1                       <outermost-loop>
+    //     |   |   ...
+    //     |   + END LOOP
+    //     + END LOOP
+    //  END REGION
 
-      Visitor(VPDecomposerHIR &D) : D(D) {}
+    struct HLAssumeCollector final : HLNodeVisitorBase {
+      HLAssumeCollector(VPDecomposerHIR &D) : D(D) {}
       VPDecomposerHIR &D;
-      bool ReachedOutermostLoop = false;
 
       void visit(const HLNode *) {}
       void postVisit(const HLNode *) {}
 
       void visit(const HLInst *I) {
-        const auto *Assume = dyn_cast<AssumeInst>(I->getLLVMInstruction());
-        if (Assume && HLNodeUtils::strictlyDominates(I, D.OutermostHLp))
-          D.ValidHIRAssumes.insert(Assume);
+        if (const auto *Assume = dyn_cast<AssumeInst>(I->getLLVMInstruction()))
+          if (HLNodeUtils::strictlyDominates(I, D.OutermostHLp))
+            D.ValidHIRAssumes.insert(Assume);
       };
-      void visit(const HLLoop *L) {
-        if (L == D.OutermostHLp)
-          ReachedOutermostLoop = true;
-      }
-      bool isDone() const { return ReachedOutermostLoop; }
     };
-    Visitor V(*this);
-    HLNodeUtils::visit(V, ParentRegion);
+
+    HLAssumeCollector V(*this);
+    const HLNode *Node = OutermostHLp;
+    while (const HLNode *Parent = Node->getParent()) {
+      const HLNode *FirstSibling =
+          HLNodeUtils::getFirstLexicalChild(Parent, Node);
+      HLNodeUtils::visitRange(V, FirstSibling->getIterator(),
+                              Node->getIterator());
+      Node = Parent;
+    }
   }
 }
 
