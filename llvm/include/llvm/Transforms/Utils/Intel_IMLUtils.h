@@ -20,6 +20,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/IR/Instructions.h"
 
 namespace llvm {
 
@@ -48,6 +49,10 @@ CallingConv::ID getLegacyCSVMLCallingConvFromUnified(CallingConv::ID);
 
 /// Returns true if the function should use intel_features_init_cc.
 bool shouldUseIntelFeaturesInitCallConv(StringRef FuncName);
+
+/// Extract all IMF attributes of a call site. Returns an AttrBuilder because
+/// it's meant to be temporary.
+AttrBuilder getIMFAttributes(CallInst *CI);
 }
 
 #endif // LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
