@@ -281,25 +281,30 @@ namespace {
 // instruction.
 class PointerReplacer {
 public:
-  PointerReplacer(InstCombinerImpl &IC) : IC(IC) {}
+  PointerReplacer(InstCombinerImpl &IC, Instruction &Root)
+    : IC(IC), Root(Root) {}
 
-  bool collectUsers(Instruction &I);
-  void replacePointer(Instruction &I, Value *V);
+  bool collectUsers();
+  void replacePointer(Value *V);
 
 private:
   bool collectUsersRecursive(Instruction &I);
   void replace(Instruction *I);
   Value *getReplacement(Value *I);
+  bool isAvailable(Instruction *I) const {
+    return I == &Root || Worklist.contains(I);
+  }
 
   SmallPtrSet<Instruction *, 32> ValuesToRevisit;
   SmallSetVector<Instruction *, 4> Worklist;
   MapVector<Value *, Value *> WorkMap;
   InstCombinerImpl &IC;
+  Instruction &Root;
 };
 } // end anonymous namespace
 
-bool PointerReplacer::collectUsers(Instruction &I) {
-  if (!collectUsersRecursive(I))
+bool PointerReplacer::collectUsers() {
+  if (!collectUsersRecursive(Root))
     return false;
 
   // Ensure that all outstanding (indirect) users of I
@@ -328,7 +333,7 @@ bool PointerReplacer::collectUsersRecursive(Instruction &I) {
       // store the PHI for revisiting and skip this iteration of the
       // loop.
       if (any_of(PHI->incoming_values(), [this](Value *V) {
-            return !Worklist.contains(cast<Instruction>(V));
+            return !isAvailable(cast<Instruction>(V));
           })) {
         ValuesToRevisit.insert(Inst);
         continue;
@@ -428,13 +433,13 @@ void PointerReplacer::replace(Instruction *I) {
   }
 }
 
-void PointerReplacer::replacePointer(Instruction &I, Value *V) {
+void PointerReplacer::replacePointer(Value *V) {
 #ifndef NDEBUG
-  auto *PT = cast<PointerType>(I.getType());
+  auto *PT = cast<PointerType>(Root.getType());
   auto *NT = cast<PointerType>(V->getType());
   assert(PT != NT && PT->hasSameElementTypeAs(NT) && "Invalid usage");
 #endif
-  WorkMap[&I] = V;
+  WorkMap[&Root] = V;
 
   for (Instruction *Workitem : Worklist)
     replace(Workitem);
@@ -515,13 +520,13 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         return NewI;
       }
 
-      PointerReplacer PtrReplacer(*this);
-      if (PtrReplacer.collectUsers(AI)) {
+      PointerReplacer PtrReplacer(*this, AI);
+      if (PtrReplacer.collectUsers()) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
 
         Value *Cast = Builder.CreateBitCast(TheSrc, DestTy);
-        PtrReplacer.replacePointer(AI, Cast);
+        PtrReplacer.replacePointer(Cast);
         ++NumGlobalCopies;
       }
     }
