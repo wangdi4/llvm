@@ -223,6 +223,13 @@ int32_t __tgt_rtl_run_target_team_region_async(
     int32_t NumTeams, int32_t ThreadLimit, uint64_t LoopTripcount,
     __tgt_async_info *AsyncInfo);
 
+#if INTEL_COLLAB
+EXTERN
+int32_t __tgt_rtl_launch_kernel(int32_t ID, void *Entry, void **Args,
+                                ptrdiff_t *Offsets, KernelArgsTy *KernelArgs,
+                                __tgt_async_info *AsyncInfo);
+#endif // INTEL_COLLAB
+
 // Device synchronization. In case of success, return zero. Otherwise, return an
 // error code.
 #if INTEL_COLLAB

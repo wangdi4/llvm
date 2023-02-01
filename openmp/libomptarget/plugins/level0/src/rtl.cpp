@@ -6635,34 +6635,16 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
-int32_t __tgt_rtl_run_target_team_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount) {
+int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
+                                void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                KernelArgsTy *KernelArgs,
+                                __tgt_async_info *AsyncInfo) {
+  assert(!KernelArgs->NumTeams[1] && !KernelArgs->NumTeams[2] &&
+         !KernelArgs->ThreadLimit[1] && !KernelArgs->ThreadLimit[2] &&
+         "Only one dimensional kernels supported.");
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, nullptr);
-}
-
-int32_t __tgt_rtl_run_target_team_region_async(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount, __tgt_async_info *AsyncInfo /*not used*/) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, nullptr);
-}
-
-int32_t __tgt_rtl_run_target_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, 1, 0, nullptr);
-}
-
-int32_t __tgt_rtl_run_target_region_async(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, __tgt_async_info *AsyncInfo /*not used*/) {
-  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, 1, 0, nullptr);
+                             KernelArgs->NumArgs, KernelArgs->NumTeams[0],
+                             KernelArgs->ThreadLimit[0], nullptr);
 }
 
 int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
