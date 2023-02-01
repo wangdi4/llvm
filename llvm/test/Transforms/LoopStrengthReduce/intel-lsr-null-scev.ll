@@ -4,7 +4,7 @@
 ; debug information.
 
 ; CHECK-NOT: %spec.select.1
-; CHECK: call void @llvm.dbg.value(metadata %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* undef
+; CHECK: call void @llvm.dbg.value(metadata %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373*
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

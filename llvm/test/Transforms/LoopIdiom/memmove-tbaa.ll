@@ -43,7 +43,7 @@ define void @looperBadMerge(ptr nocapture %out) {
 ; CHECK-NEXT:    [[M:%.*]] = getelementptr double, ptr [[OUT:%.*]], i32 16
 ; INTEL_CUSTOMIZATION
 ; could be lowered to either memmove or memcpy
-; CHECK-NEXT:    call void @llvm.mem{{.*}}.p0i8.p0i8.i64(ptr align 8 [[OUT]], ptr align 8 [[M]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]]
+; CHECK-NEXT:    call void @llvm.mem{{.*}}.p0.p0.i64(ptr align 8 [[OUT]], ptr align 8 [[M]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_BODY4:%.*]]
 ; CHECK:       for.body4:
