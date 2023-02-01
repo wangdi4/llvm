@@ -121,6 +121,7 @@
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/Support/FileSystem.h"
 #endif
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -7747,6 +7748,17 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
                             << *CI << "!=" << *V << '\n');
           return;
         }
+#if INTEL_CUSTOMIZATION
+        // Different attributes may imply different semantics, e.g. IMF
+        // attributes.
+        if (getIMFAttributes(CI2) != getIMFAttributes(CI)) {
+          newTreeEntry(VL, std::nullopt /*not vectorized*/, S, UserTreeIdx,
+                       ReuseShuffleIndicies);
+          LLVM_DEBUG(dbgs() << "SLP: mismatched IMF attributes in call:" << *CI
+                            << "!=" << *V << '\n');
+          return;
+        }
+#endif // INTEL_CUSTOMIZATION
       }
 
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
@@ -11828,7 +11840,12 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      Value *V = Builder.CreateCall(CF, OpVecs, OpBundles);
+#if INTEL_CUSTOMIZATION
+      CallInst *VecCI = Builder.CreateCall(CF, OpVecs, OpBundles);
+      VecCI->setAttributes(VecCI->getAttributes().addFnAttributes(
+          F->getContext(), getIMFAttributes(CI)));
+      Value *V = VecCI;
+#endif // INTEL_CUSTOMIZATION
 
       // The scalar argument uses an in-tree scalar so we add the new vectorized
       // call to ExternalUses list to make sure that an extract will be

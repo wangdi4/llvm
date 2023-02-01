@@ -25,6 +25,7 @@
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
@@ -34,6 +35,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-apply-config"
 #define PASS_NAME "VPO Paropt Apply Config"
+
+static cl::opt<int64_t> InnermostLoopUnrollCount(
+    "vpo-paropt-innermost-loop-unroll-count", cl::Hidden, cl::init(-1),
+    cl::desc("Set the unroll value for all innermost loops."));
 
 namespace {
 class VPOParoptApplyConfig : public FunctionPass {
@@ -75,6 +80,81 @@ public:
   bool quitVisit(WRegionNode *W) { return false; }
 };
 
+static int64_t
+getKernelUnrollCount(WRegionNode *WLoop, const llvm::VPOParoptConfig *VPC,
+                     const SmallVector<OffloadEntry *, 8> &OffloadEntries) {
+  WRNTargetNode *WRegionParent = dyn_cast<WRNTargetNode>(
+      WRegionUtils::getParentRegion(WLoop, WRegionNode::WRNTarget));
+  if (!WRegionParent)
+    return -1;
+  OffloadEntry *OE = VPOParoptUtils::getTargetRegionOffloadEntry(
+      WRegionParent, OffloadEntries);
+  StringRef RegionName = OE->getName();
+  int64_t UnrollCount = VPC->getKernelInnermostLoopUnrollCount(RegionName);
+  LLVM_DEBUG(dbgs() << PASS_NAME
+             ": config specifies InnermostLoopUnrollCount: '"
+                    << UnrollCount << "'\n");
+  return UnrollCount;
+}
+
+static bool applyInnerLoopUnrollCount(
+    WRegionNode *WLoop, const llvm::VPOParoptConfig *VPC,
+    const SmallVector<OffloadEntry *, 8> &OffloadEntries) {
+  bool Changed = false;
+  if (!WLoop->getChildren().empty())
+    return Changed;
+  auto &LoopInfo = WLoop->getWRNLoopInfo();
+  auto *Loop = LoopInfo.getLoop();
+  const char *UnrollMetadataName = "llvm.loop.unroll.count";
+  SmallVector<llvm::Loop *, 4> Loops;
+  SmallVector<llvm::Loop *, 4> InnermostLoops;
+  int64_t KernelUnrollCount = getKernelUnrollCount(WLoop, VPC, OffloadEntries);
+  assert(KernelUnrollCount >= -1 && "Invalid per-kernel unroll count");
+  if (InnermostLoopUnrollCount < 0 && KernelUnrollCount < 0)
+    return Changed;
+  Loops.push_back(Loop);
+  while (!Loops.empty()) {
+    auto *Cur = Loops.pop_back_val();
+    if (Cur->getSubLoops().empty()) {
+      InnermostLoops.push_back(Cur);
+      continue;
+    }
+    for (auto *Sub : Cur->getSubLoops())
+      Loops.push_back(Sub);
+  }
+  for (auto *InnermostLoop : InnermostLoops) {
+    std::optional<int> Factor =
+        getOptionalIntLoopAttribute(InnermostLoop, UnrollMetadataName);
+    bool UnrollDisabled =
+        getBooleanLoopAttribute(InnermostLoop, "llvm.loop.unroll.disable");
+    if (!Factor && !UnrollDisabled) {
+      // If both the per-kernel and global unroll counts are set, prefer the
+      // per-kernel count.
+      int64_t UnrollCount =
+          KernelUnrollCount >= 0 ? KernelUnrollCount : InnermostLoopUnrollCount;
+      if (UnrollCount == 0)
+        InnermostLoop->setLoopAlreadyUnrolled();
+      else
+        addStringMetadataToLoop(InnermostLoop, UnrollMetadataName, UnrollCount);
+      LLVM_DEBUG(dbgs() << PASS_NAME ": Added unroll(" << UnrollCount
+                        << ") metadata to loop: '" << InnermostLoop->getName()
+                        << "'.\n");
+      Changed = true;
+    } else {
+      LLVM_DEBUG(dbgs() << PASS_NAME
+                 ": Innermost loop unroll specification was ignored for loop '"
+                        << InnermostLoop->getName()
+                        << "'. It has existing unroll metadata.\n");
+      if (KernelUnrollCount >= 0) {
+        llvm::report_fatal_error("Loop already has an unroll count but has a "
+                                 "per-kernel unroll specification.",
+                                 false /* no crash dialog */);
+      }
+    }
+  }
+  return Changed;
+}
+
 static bool applyConfig(Function &F, WRegionInfo &WI,
                         const llvm::VPOParoptConfig *VPC) {
   bool Changed = false;
@@ -97,8 +177,11 @@ static bool applyConfig(Function &F, WRegionInfo &WI,
   WRegionUtils::forwardVisit(Visitor, WI.getWRGraph());
 
   for (auto *WT : WRegionList) {
-    if (!isa<WRNTargetNode>(WT))
+    if (!isa<WRNTargetNode>(WT)) {
+      if (WT->getIsOmpLoop())
+        Changed = applyInnerLoopUnrollCount(WT, VPC, OffloadEntries);
       continue;
+    }
 
     OffloadEntry *OE =
         VPOParoptUtils::getTargetRegionOffloadEntry(WT, OffloadEntries);

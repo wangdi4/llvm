@@ -318,9 +318,14 @@ static void loadInput(const WeightedFile &Input, SymbolRemapper *Remapper,
   auto ReaderOrErr = InstrProfReader::create(Input.Filename, Correlator);
   if (Error E = ReaderOrErr.takeError()) {
     // Skip the empty profiles by returning sliently.
-    instrprof_error IPE = InstrProfError::take(std::move(E));
+#if INTEL_CUSTOMIZATION
+    instrprof_error IPE;
+    std::string Message;
+    std::tie(IPE, Message) = InstrProfError::takeWithMessage(std::move(E));
     if (IPE != instrprof_error::empty_raw_profile)
-      WC->Errors.emplace_back(make_error<InstrProfError>(IPE), Filename);
+      WC->Errors.emplace_back(make_error<InstrProfError>(IPE, Message),
+                              Filename);
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
