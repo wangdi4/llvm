@@ -4,9 +4,9 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   Core
   Demangle
-  IRReader
   Support
   TransformUtils
+  IRReader
   )
 
 add_clang_tool(libclc-remangler LibclcRemangler.cpp)
