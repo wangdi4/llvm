@@ -153,15 +153,6 @@ uint64_t VPOParoptConfig::getKernelNumTeams(StringRef Name) const {
   return KC->NumTeams;
 }
 
-int64_t
-VPOParoptConfig::getKernelInnermostLoopUnrollCount(StringRef Name) const {
-  auto KC = getKernelConfig(Name);
-  if (!KC)
-    return -1;
-
-  return KC->InnermostLoopUnrollCount;
-}
-
 vpo::RegisterAllocationMode
 VPOParoptConfig::getRegisterAllocMode(StringRef Name) const {
   auto KC = getKernelConfig(Name);
@@ -192,8 +183,6 @@ void MappingTraits<vpo::KernelConfig>::mapping(
   IO.mapOptional("SPMDSIMDWidth", KernelConfig.SPMDSIMDWidth, 0);
   IO.mapOptional("ThreadLimit", KernelConfig.ThreadLimit, 0);
   IO.mapOptional("NumTeams", KernelConfig.NumTeams, 0);
-  IO.mapOptional("InnermostLoopUnrollCount",
-                 KernelConfig.InnermostLoopUnrollCount, -1);
   IO.mapOptional("RegisterAllocMode", KernelConfig.RegisterAllocMode,
                  vpo::RegisterAllocationMode::DEFAULT);
 }

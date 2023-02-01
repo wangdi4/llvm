@@ -1,4 +1,0 @@
---- !ParoptConfig
-Kernels:
-  - Name: __omp_offloading_10308_34e0ced__Z4main_l6
-    InnermostLoopUnrollCount: 2
