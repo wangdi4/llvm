@@ -96,6 +96,7 @@ VERS1.0 {
     ompx_get_device_info;
     ompx_target_aligned_alloc_shared_with_hint;
     ompx_target_prefetch_shared_mem;
+    ompx_get_device_from_ptr;
 # end INTEL_COLLAB
     llvm_omp_target_alloc_host;
     llvm_omp_target_alloc_shared;

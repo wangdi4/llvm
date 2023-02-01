@@ -7475,4 +7475,17 @@ int32_t __tgt_rtl_async_barrier (__tgt_interop *Interop)
    return OFFLOAD_FAIL;
 }
 
+int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
+  auto MemType = DeviceInfo->getMemAllocType(Ptr);
+  if (MemType != ZE_MEMORY_TYPE_DEVICE && MemType != ZE_MEMORY_TYPE_SHARED)
+    return -1;
+
+  for (uint32_t ID = 0; ID < DeviceInfo->NumRootDevices; ID++) {
+    auto Device = DeviceInfo->Devices[ID];
+    if (DeviceInfo->MemAllocator.at(Device).contains(Ptr, 1))
+      return ID;
+  }
+
+  return -1;
+}
 #endif // INTEL_COLLAB
