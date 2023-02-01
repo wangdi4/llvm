@@ -89,37 +89,37 @@ enum ELogConfigField {
   }
 
 #ifndef INTEL_PRODUCT_RELEASE
-#define LogDebugA(DBG_PRINT, ...)                                              \
+#define LogDebugA(...)                                                         \
   if (m_pLoggerClient)                                                         \
     (m_pLoggerClient)                                                          \
         ->Log(Intel::OpenCL::Utils::LL_DEBUG, __FILE__, __FUNCTION__,          \
-              __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LogInfoA(DBG_PRINT, ...)                                               \
+              __LINE__, __VA_ARGS__);
+#define LogInfoA(...)                                                          \
   if (m_pLoggerClient)                                                         \
     (m_pLoggerClient)                                                          \
         ->Log(Intel::OpenCL::Utils::LL_INFO, __FILE__, __FUNCTION__, __LINE__, \
-              DBG_PRINT, __VA_ARGS__);
-#define LogErrorA(DBG_PRINT, ...)                                              \
+              __VA_ARGS__);
+#define LogErrorA(...)                                                         \
   if (m_pLoggerClient)                                                         \
     (m_pLoggerClient)                                                          \
         ->Log(Intel::OpenCL::Utils::LL_ERROR, __FILE__, __FUNCTION__,          \
-              __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LogCriticalA(DBG_PRINT, ...)                                           \
+              __LINE__, __VA_ARGS__);
+#define LogCriticalA(...)                                                      \
   if (m_pLoggerClient)                                                         \
     (m_pLoggerClient)                                                          \
         ->Log(Intel::OpenCL::Utils::LL_CRITICAL, __FILE__, __FUNCTION__,       \
-              __LINE__, DBG_PRINT, __VA_ARGS__);
-#define LogStatisticA(DBG_PRINT, ...)                                          \
+              __LINE__, __VA_ARGS__);
+#define LogStatisticA(...)                                                     \
   if (m_pLoggerClient)                                                         \
     (m_pLoggerClient)                                                          \
         ->Log(Intel::OpenCL::Utils::LL_STATISTIC, __FILE__, __FUNCTION__,      \
-              __LINE__, DBG_PRINT, __VA_ARGS__);
+              __LINE__, __VA_ARGS__);
 #else
-#define LogDebugA(DBG_PRINT, ...)
-#define LogInfoA(DBG_PRINT, ...)
-#define LogErrorA(DBG_PRINT, ...)
-#define LogCriticalA(DBG_PRINT, ...)
-#define LogStatisticA(DBG_PRINT, ...)
+#define LogDebugA(...)
+#define LogInfoA(...)
+#define LogErrorA(...)
+#define LogCriticalA(...)
+#define LogStatisticA(...)
 #endif
 
 #ifdef _DEBUG

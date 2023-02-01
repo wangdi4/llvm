@@ -679,7 +679,7 @@ bool FissionableDevice::IsImageFormatSupported(
   cl_image_format *const pFormats = new cl_image_format[uiNumEntries];
 
   if (nullptr == pFormats) {
-    LOG_ERROR(TEXT("out of memory"), "");
+    LOG_ERROR(TEXT("out of memory"));
     return false;
   }
   clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(

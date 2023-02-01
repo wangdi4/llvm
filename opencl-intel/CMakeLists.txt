@@ -591,57 +591,68 @@ if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
   set_target_properties(check-ocl-all PROPERTIES FOLDER "Tests")
 endif()
 
+# Entry target for ocl cpu compilation.
+add_custom_target(opencl-cpu-rt
+  COMMENT "Compile all OpenCL CPU RT libraries."
+  DEPENDS process-intrin-headers common_clang${BUILD_PLATFORM} intelocl${BUILD_PLATFORM} cllibrary OpenCL-ICD
+)
+
+# Entry target for fpga emulator compilation
+add_custom_target(opencl-fpga-emu
+  COMMENT "Compile all OpenCL FPGA emulator libraries."
+  DEPENDS process-intrin-headers common_clang${BUILD_PLATFORM} intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF} cllibrary OpenCL-ICD
+)
+
+set(INTEL_DEPLOY_COMPONENTS_SHARED
+    OpenCL-ICD
+    ocl-library-kernel
+    ocl-builtins
+    ocl-builtins-shared
+    ocl-common_clang
+    ocl-config
+    ocl-gdb-plugin
+    ocl-svml
+    ocl-tbb)
+
+if(WIN32)
+  set(INTEL_DEPLOY_COMPONENTS_SHARED
+      ${INTEL_DEPLOY_COMPONENTS_SHARED}
+      ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
+endif(WIN32)
+
+set(INTEL_DEPLOY_COMPONENTS_CPU_RT
+    ocl-intelocl${BUILD_PLATFORM}
+    ${INTEL_DEPLOY_COMPONENTS_SHARED})
+
+set(INTEL_DEPLOY_COMPONENTS_FPGA_EMU
+    ocl-intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+    ${INTEL_DEPLOY_COMPONENTS_SHARED})
+
+# This command is used for creating a fake dependency in order to force
+# another command(s) to execute. Its output is never produced as a result thus
+# each other command that depends on it will always be executed. We use this
+# to force running deploy installation regardless of manifest files state.
+add_custom_command(OUTPUT __force_it COMMAND "${CMAKE_COMMAND}" -E echo)
+
+# Deploy OpenCL CPU RT
+deploy_ocl_components(deploy-ocl-cpu "${INTEL_DEPLOY_COMPONENTS_CPU_RT}" opencl-cpu-rt)
+# Deploy FPGA Emu
+deploy_ocl_components(deploy-fpga-emu "${INTEL_DEPLOY_COMPONENTS_FPGA_EMU}" opencl-fpga-emu )
+# This target is added for not intree build. For example, win32 compilation.
+# INTEL_CUSTOMIZATION
 if(NOT OPENCL_INTREE_BUILD)
-  set(INTEL_DEPLOY_COMPONENTS
-      OpenCL-ICD
-      ocl-builtins
-      ocl-builtins-shared
-      ocl-common_clang
-      ocl-config
-      ocl-gdb-plugin
-      ocl-intelocl${BUILD_PLATFORM}
-      ocl-svml
-      ocl-tbb)
+  deploy_ocl_components(deploy "${INTEL_DEPLOY_COMPONENTS_CPU_RT}" opencl-cpu-rt)
+endif(NOT OPENCL_INTREE_BUILD)
+# end INTEL_CUSTOMIZATION
 
-  if(WIN32)
-    set(INTEL_DEPLOY_COMPONENTS
-        ${INTEL_DEPLOY_COMPONENTS}
-        ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
-  endif(WIN32)
-
-  # This command is used for creating a fake dependency in order to force
-  # another command(s) to execute. Its output is never produced as a result thus
-  # each other command that depends on it will always be executed. We use this
-  # to force running deploy installation regardless of manifest files state.
-  add_custom_command(OUTPUT __force_it COMMAND "${CMAKE_COMMAND}" -E echo)
-
-  if(DEFINED INTEL_DEPLOY_COMPONENTS)
-    set(manifest_list)
-
-    foreach(comp ${INTEL_DEPLOY_COMPONENTS})
-      message(STATUS "Adding component ${comp} to deploy")
-
-      set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
-      add_custom_command(
-        OUTPUT ${manifest}
-        COMMAND "${CMAKE_COMMAND}" "-DCMAKE_INSTALL_COMPONENT=${comp}" -P
-                "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-        DEPENDS __force_it
-        COMMENT "Deploying component ${comp}"
-        USES_TERMINAL)
-      list(APPEND manifest_list ${manifest})
-    endforeach(comp)
-
-    add_custom_target(deploy DEPENDS ${manifest_list})
-  else()
-    # no specific components was given so do full installation
-    set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
-    add_custom_command(
-      OUTPUT ${manifest}
-      COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-      DEPENDS __force_it
-      COMMENT "Performing deploy operation..."
-      USES_TERMINAL)
-    add_custom_target(deploy DEPENDS ${manifest})
-  endif()
+if(NOT DEFINED INTEL_DEPLOY_COMPONENTS_CPU_RT AND NOT DEFINED INTEL_DEPLOY_COMPONENTS_FPGA_EMU)
+  # no specific components was given so do full installation
+  set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
+  add_custom_command(
+    OUTPUT ${manifest}
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+    DEPENDS __force_it
+    COMMENT "Performing deploy operation..."
+    USES_TERMINAL)
+  add_custom_target(deploy DEPENDS ${manifest})
 endif()

@@ -35,10 +35,42 @@ std::vector<VFParameter> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
-VFInfo getVectorVariant(unsigned int V, const std::string &BaseName,
-                        const std::string &Alias) {
-  return VFInfo::get(VectEntry::isaClass, VectEntry::isMasked, V,
-                     VectEntry::vectorKindEncode, BaseName, Alias);
+static void encodeVFParam(raw_ostream &OS, const VFParameter &P) {
+  switch (P.ParamKind) {
+  case VFParamKind::Vector:
+    OS << 'v';
+    break;
+  case VFParamKind::OMP_Uniform:
+    OS << 'u';
+    break;
+  case VFParamKind::OMP_Linear:
+    OS << 'l';
+    assert(P.LinearStepOrPos > 0 &&
+           "Unsupported negative stride for linear param!");
+    if (P.LinearStepOrPos != 1)
+      OS << P.LinearStepOrPos;
+    break;
+  default:
+    llvm_unreachable("Unexpected VF parameter type!");
+  }
+}
+
+static std::string encodeVectorVariantFullName(unsigned int V,
+                                               const std::string &BaseName,
+                                               const std::string &Alias) {
+  std::string FullName;
+  raw_string_ostream SS(FullName);
+  SS << "_ZGV" // Common prefix
+     << 'b'    // SSE ISA
+     << (VectEntry::isMasked ? 'M' : 'N') << V;
+  for (auto &P : VectEntry::vectorKindEncode)
+    encodeVFParam(SS, P);
+
+  SS << '_' << BaseName;
+  if (!Alias.empty())
+    SS << '(' << Alias << ')';
+
+  return FullName;
 }
 
 template <class T>
@@ -132,8 +164,8 @@ static void generateVectInfos(const VectEntry &Ent,
       S << "\",\"";
     }
 
-    S << getVectorVariant((unsigned)2 << I, Ent.funcNames[0], Ent.funcNames[I])
-             .FullName
+    S << encodeVectorVariantFullName((unsigned)2 << I, Ent.funcNames[0],
+                                     Ent.funcNames[I])
       << '"';
     AllVectInfos.insert(S.str());
   }
@@ -163,21 +195,25 @@ void VectInfoGenerator::decodeParam(StringRef scalarName,
         const auto *v1VectorType =
             static_cast<const reflection::VectorType *>(v1ParamType);
         if (v1VectorType->equals(v4ParamType)) {
-          VectEntry::vectorKindEncode.push_back(VFParameter::uniform(i));
+          VectEntry::vectorKindEncode.push_back(VFParameter{
+              static_cast<unsigned int>(i), VFParamKind::OMP_Uniform});
         } else {
           // Should be vector kind, do some check here.
           assert(v1VectorType->getLength() * 4 ==
                      static_cast<const reflection::VectorType *>(v4ParamType)
                          ->getLength() &&
                  "Unresolved vector kind");
-          VectEntry::vectorKindEncode.push_back(VFParameter::vector(i));
+          VectEntry::vectorKindEncode.push_back(
+              VFParameter{static_cast<unsigned int>(i), VFParamKind::Vector});
         }
       } else {
         if (v1TypeId == reflection::TYPE_ID_POINTER && VectEntry::stride != 0)
           VectEntry::vectorKindEncode.push_back(
-              VFParameter::linear(i, VectEntry::stride));
+              VFParameter{static_cast<unsigned int>(i), VFParamKind::OMP_Linear,
+                          static_cast<int>(VectEntry::stride)});
         else
-          VectEntry::vectorKindEncode.push_back(VFParameter::uniform(i));
+          VectEntry::vectorKindEncode.push_back(VFParameter{
+              static_cast<unsigned int>(i), VFParamKind::OMP_Uniform});
       }
 
     } else {
@@ -187,7 +223,8 @@ void VectInfoGenerator::decodeParam(StringRef scalarName,
                      ->getScalarType()
                      ->getTypeId() == v1TypeId &&
              "Unresolved vector kind");
-      VectEntry::vectorKindEncode.push_back(VFParameter::vector(i));
+      VectEntry::vectorKindEncode.push_back(
+          VFParameter{static_cast<unsigned int>(i), VFParamKind::Vector});
     }
   }
 }
@@ -375,7 +412,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
         // for vector variant
         if (m > 0) {
-          auto variant = getVectorVariant((unsigned)2 << m, BaseName, fname);
+          auto variant = VFInfo::get(
+              VectEntry::isaClass, VectEntry::isMasked, (unsigned)2 << m,
+              VectEntry::vectorKindEncode, BaseName, fname);
           auto *characteristicType = calcCharacteristicType(**origIt, variant);
 
           if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,

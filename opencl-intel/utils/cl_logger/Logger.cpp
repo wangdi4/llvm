@@ -113,12 +113,13 @@ inline LoggerClient::~LoggerClient() {}
 // LoggerClient::Log
 /////////////////////////////////////////////////////////////////////////////////////////
 void LoggerClient::Log(ELogLevel level, const char *sourceFile,
-                       const char *functionName, __int32 sourceLine,
-                       const char *message, ...) {
+                       const char *functionName, __int32 sourceLine, ...) {
   if (!Logger::GetInstance() || m_logLevel > level)
     return;
   va_list va;
-  va_start(va, message);
+  va_start(va, sourceLine);
+  const char *message = va_arg(va, char *);
+  assert(message && "Printf-style format string in LOG_XXX is NULL");
 
   Logger::GetInstance()->Log(level, m_eLogConfig, "", sourceFile, functionName,
                              sourceLine, message, va);
