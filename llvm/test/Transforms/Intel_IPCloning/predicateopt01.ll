@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
 ; Check that predicate opt will be tested 
 
@@ -8,6 +8,24 @@
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
 ; CHECK: BigLoopF: MeanShiftImage
+
+; Check that multiversioning around extracted function with 2 loops will occur
+
+; CHECK: MRC Predicate Opt: Extracted Function:
+; CHECK: define internal void @MeanShiftImage.bb123(
+; CHECK: call i32 @GetOneCacheViewVirtualPixel(
+; CHECK: br {{.*}}!llvm.loop
+; CHECK: br {{.*}}!llvm.loop
+; CHECK: MRC Predicate Opt: Enclosing Function:
+; CHECK: define internal {{.*}} @MeanShiftImage(
+; CHECK: br i1 true, label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
+; CHECK: [[L1]]:
+; CHECK: call void @MeanShiftImage.bb123
+; CHECK: br label %[[L2:[A-Za-z0-9.]+]]
+; CHECK: [[L0]]:
+; CHECK: call void @MeanShiftImage.bb123
+; CHECK: br label %[[L2]]
+; CHECK: [[L2]]:
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
