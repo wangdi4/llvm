@@ -325,16 +325,38 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
     return OMP_TGT_FAIL;
   }
 
+<<<<<<< HEAD
   if (Args->Version != 1) {
     DP("Unexpected ABI version: %d\n", Args->Version);
   }
+=======
+  bool IsTeams = NumTeams != -1;
+  if (!IsTeams)
+    KernelArgs->NumTeams[0] = NumTeams = 1;
+
+  // Auto-upgrade kernel args version 1 to 2.
+  KernelArgsTy LocalKernelArgs;
+  KernelArgs =
+      upgradeKernelArgs(KernelArgs, LocalKernelArgs, NumTeams, ThreadLimit);
+
+  assert(KernelArgs->NumTeams[0] == static_cast<uint32_t>(NumTeams) &&
+         !KernelArgs->NumTeams[1] && !KernelArgs->NumTeams[2] &&
+         "OpenMP interface should not use multiple dimensions");
+  assert(KernelArgs->ThreadLimit[0] == static_cast<uint32_t>(ThreadLimit) &&
+         !KernelArgs->ThreadLimit[1] && !KernelArgs->ThreadLimit[2] &&
+         "OpenMP interface should not use multiple dimensions");
+>>>>>>> b280e12a3d9ffe76fdfdaae828fc43b2455e6808
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
     printKernelArguments(Loc, DeviceId, Args->NumArgs, Args->ArgSizes,
                          Args->ArgTypes, Args->ArgNames,
                          "Entering OpenMP kernel");
 #ifdef OMPTARGET_DEBUG
+<<<<<<< HEAD
   for (int I = 0; I < Args->NumArgs; ++I) {
+=======
+  for (uint32_t I = 0; I < KernelArgs->NumArgs; ++I) {
+>>>>>>> b280e12a3d9ffe76fdfdaae828fc43b2455e6808
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
        I, DPxPTR(Args->ArgBasePtrs[I]), DPxPTR(Args->ArgPtrs[I]),

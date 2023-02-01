@@ -450,6 +450,7 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
   ffi_cif Cif;
 
   // All args are references.
+<<<<<<< HEAD
   std::vector<ffi_type *> ArgsTypes(ArgNum, &ffi_type_pointer);
   std::vector<void *> Args(ArgNum);
   std::vector<void *> Ptrs(ArgNum);
@@ -465,6 +466,13 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
     else
       Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
 #else // INTEL_COLLAB
+=======
+  std::vector<ffi_type *> ArgsTypes(KernelArgs->NumArgs, &ffi_type_pointer);
+  std::vector<void *> Args(KernelArgs->NumArgs);
+  std::vector<void *> Ptrs(KernelArgs->NumArgs);
+
+  for (uint32_t I = 0; I < KernelArgs->NumArgs; ++I) {
+>>>>>>> b280e12a3d9ffe76fdfdaae828fc43b2455e6808
     Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + TgtOffsets[I]);
 #endif // INTEL_COLLAB
 
