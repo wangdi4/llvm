@@ -162,10 +162,10 @@ define hidden ptr @trunc_ptr_to_i32(ptr %arg, ptr %arg10) {
 ; PTR16_IDX32-NEXT:    --> {0,+,2}<%bb11> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %bb11: Computable }
 ; PTR16_IDX32-NEXT:    %tmp12 = getelementptr i8, ptr %arg, i32 ptrtoint (ptr @global to i32)
 ; INTEL - added no wrap flags.
-; PTR16_IDX32-NEXT:    --> (ptrtoint ([0 x i8]* @global to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: (ptrtoint ([0 x i8]* @global to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
+; PTR16_IDX32-NEXT:    --> (ptrtoint (ptr @global to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: (ptrtoint (ptr @global to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
 ; PTR16_IDX32-NEXT:    %tmp13 = bitcast ptr %tmp12 to ptr
 ; INTEL - added no wrap flags.
-; PTR16_IDX32-NEXT:    --> (ptrtoint ([0 x i8]* @global to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: (ptrtoint ([0 x i8]* @global to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
+; PTR16_IDX32-NEXT:    --> (ptrtoint (ptr @global to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: (ptrtoint (ptr @global to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
 ; PTR16_IDX32-NEXT:    %tmp14 = load i32, ptr %tmp13, align 4
 ; PTR16_IDX32-NEXT:    --> %tmp14 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb11: Variant }
 ; PTR16_IDX32-NEXT:    %tmp18 = add i32 %tmp, 2
@@ -255,10 +255,10 @@ define hidden ptr @trunc_ptr_to_i128(ptr %arg, ptr %arg10) {
 ; PTR16_IDX32-NEXT:    --> {0,+,2}<%bb11> U: [0,-1) S: [-2147483648,2147483647) Exits: <<Unknown>> LoopDispositions: { %bb11: Computable }
 ; PTR16_IDX32-NEXT:    %tmp12 = getelementptr i8, ptr %arg, i128 ptrtoint (ptr @global to i128)
 ; INTEL - added no wrap flags.
-; PTR16_IDX32-NEXT:    --> ((trunc i128 ptrtoint ([0 x i8]* @global to i128) to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: ((trunc i128 ptrtoint ([0 x i8]* @global to i128) to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
+; PTR16_IDX32-NEXT:    --> ((trunc i128 ptrtoint (ptr @global to i128) to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: ((trunc i128 ptrtoint (ptr @global to i128) to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
 ; PTR16_IDX32-NEXT:    %tmp13 = bitcast ptr %tmp12 to ptr
 ; INTEL - added no wrap flags.
-; PTR16_IDX32-NEXT:    --> ((trunc i128 ptrtoint ([0 x i8]* @global to i128) to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: ((trunc i128 ptrtoint ([0 x i8]* @global to i128) to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
+; PTR16_IDX32-NEXT:    --> ((trunc i128 ptrtoint (ptr @global to i128) to i32) + %arg)<nuw><nsw> U: [0,131071) S: [0,131071) Exits: ((trunc i128 ptrtoint (ptr @global to i128) to i32) + %arg)<nuw><nsw> LoopDispositions: { %bb11: Invariant }
 ; PTR16_IDX32-NEXT:    %tmp14 = load i32, ptr %tmp13, align 4
 ; PTR16_IDX32-NEXT:    --> %tmp14 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb11: Variant }
 ; PTR16_IDX32-NEXT:    %tmp18 = add i32 %tmp, 2
