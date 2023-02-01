@@ -299,3 +299,32 @@ function(install_to)
     endforeach(name)
   endif()
 endfunction(install_to)
+
+# Function is to create target to do deployment
+#
+# deploy_ocl_components(TARGET_NAME COMP_LIST DEPEND_LIST)
+#
+# TARGET_NAME                 - Target name
+# COMP_LIST                   - The components list to deploy
+# DEPEND_LIST                 - Targets which are depended by this target
+#
+
+function(deploy_ocl_components TARGET_NAME COMP_LIST DEPENDS )
+  set(manifest_list)
+
+  foreach(comp ${COMP_LIST})
+    message(STATUS "Adding component ${comp} to deploy")
+
+    set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
+    add_custom_command(
+      OUTPUT ${manifest}
+      COMMAND "${CMAKE_COMMAND}" "-DCMAKE_INSTALL_COMPONENT=${comp}" -P
+              "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+      DEPENDS __force_it
+      COMMENT "Deploying component ${comp}"
+      USES_TERMINAL)
+    list(APPEND manifest_list ${manifest})
+  endforeach(comp)
+
+  add_custom_target(${TARGET_NAME} DEPENDS ${DEPENDS} ${manifest_list})
+endfunction(deploy_ocl_components)
