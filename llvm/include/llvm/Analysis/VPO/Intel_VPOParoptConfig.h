@@ -34,6 +34,7 @@ struct KernelConfig {
   uint8_t SPMDSIMDWidth{0};
   uint64_t ThreadLimit{0};
   uint64_t NumTeams{0};
+  int64_t InnermostLoopUnrollCount{-1};
   RegisterAllocationMode RegisterAllocMode;
 };
 
@@ -72,6 +73,7 @@ public:
   uint8_t getKernelSPMDSIMDWidth(StringRef Name) const;
   uint64_t getKernelThreadLimit(StringRef Name) const;
   uint64_t getKernelNumTeams(StringRef Name) const;
+  int64_t getKernelInnermostLoopUnrollCount(StringRef Name) const;
   vpo::RegisterAllocationMode getRegisterAllocMode(StringRef Name) const;
 };
 
