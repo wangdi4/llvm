@@ -386,6 +386,7 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
   return TLII;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void addSymbolRewriterPass(const CodeGenOptions &Opts,
                                   legacy::PassManager *MPM) {
@@ -414,6 +415,8 @@ static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
   }
 }
 
+=======
+>>>>>>> 25c0ea2a5370813f46686918a84e0de27e107d08
 static std::optional<llvm::CodeModel::Model>
 getCodeModel(const CodeGenOptions &CodeGenOpts) {
   unsigned CodeModel = llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
@@ -766,7 +769,10 @@ void EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
   std::string FeaturesStr =
       llvm::join(TargetOpts.Features.begin(), TargetOpts.Features.end(), ",");
   llvm::Reloc::Model RM = CodeGenOpts.RelocationModel;
-  CodeGenOpt::Level OptLevel = getCGOptLevel(CodeGenOpts);
+  std::optional<CodeGenOpt::Level> OptLevelOrNone =
+      CodeGenOpt::getLevel(CodeGenOpts.OptimizationLevel);
+  assert(OptLevelOrNone && "Invalid optimization level!");
+  CodeGenOpt::Level OptLevel = *OptLevelOrNone;
 
   llvm::TargetOptions Options;
   if (!initTargetOptions(Diags, Options, CodeGenOpts, TargetOpts, LangOpts,
@@ -1559,7 +1565,10 @@ static void runThinLTOBackend(
   Conf.CodeModel = getCodeModel(CGOpts);
   Conf.MAttrs = TOpts.Features;
   Conf.RelocModel = CGOpts.RelocationModel;
-  Conf.CGOptLevel = getCGOptLevel(CGOpts);
+  std::optional<CodeGenOpt::Level> OptLevelOrNone =
+      CodeGenOpt::getLevel(CGOpts.OptimizationLevel);
+  assert(OptLevelOrNone && "Invalid optimization level!");
+  Conf.CGOptLevel = *OptLevelOrNone;
   Conf.OptLevel = CGOpts.OptimizationLevel;
   initTargetOptions(Diags, Conf.Options, CGOpts, TOpts, LOpts, HeaderOpts);
   Conf.SampleProfile = std::move(SampleProfile);
