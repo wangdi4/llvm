@@ -4877,13 +4877,6 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
     NewCond =
         Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
 #endif
-    if (NewCond->hasOneUse() && isa<CmpInst>(NewCond)) {
-      CmpInst *CI = cast<CmpInst>(NewCond);
-      CI->setPredicate(CI->getInversePredicate());
-    } else {
-      NewCond =
-          Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
-    }
 
     PBI->setCondition(NewCond);
     PBI->swapSuccessors();
