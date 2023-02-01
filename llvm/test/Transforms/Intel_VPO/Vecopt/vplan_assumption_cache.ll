@@ -33,6 +33,10 @@
 ;CHECK-NOT: Inserting assumption cache elem for 'i8* %lp2'
 
 ;CHECK: Inserting assumption cache elem for 'i8* %lp3':
+;CHECK-NEXT: Assume: call void @llvm.assume(i1 true) [ "align"(i8* %lp3, i64 64) ]
+;CHECK-NEXT: Index: 0
+
+;CHECK: Inserting assumption cache elem for 'i8* %lp3':
 ;CHECK-NEXT: Assume: call void @llvm.assume(i1 true) [ "align"(i8* %lp3, i64 128) ]
 ;CHECK-NEXT: Index: 0
 
@@ -45,6 +49,12 @@
 ;
 ;      // invalid external assumption (non-dominating)
 ;      if (cond()) __builtin_assume_aligned(lp2, 64)
+;
+;      for (long I = 0; I < 4; ++I) {
+;         // valid external assumption (dominating, loop is aways executed)
+;         __builtin_assume_aligned(lp3, 64);
+;         (void)*lp3;
+;      }
 ;
 ;      for (long I = 0; I < 1024; ++I) {
 ;        // valid external assumption
@@ -69,10 +79,27 @@ define void @foo(i8* noalias %lp1, i8* noalias %lp2, i8* noalias %lp3) {
 entry:
   call void @llvm.assume(i1 true) [ "align"(i8* %lp1, i64 16) ]
   %cond = call i1 @cond()
-  br i1 %cond, label %invalid.external.assume, label %outer.for.ph
+  br i1 %cond, label %invalid.external.assume, label %invalid.external.assume.after
 
 invalid.external.assume:
   call void @llvm.assume(i1 true) [ "align"(i8* %lp2, i64 64) ]
+  br label %invalid.external.assume.after
+
+invalid.external.assume.after:
+  br label %sibling.for.ph
+
+sibling.for.ph:
+  br label %sibling.for.body
+
+sibling.for.body:
+  %sibling.iv = phi i64 [ 0, %sibling.for.ph ], [ %sibling.iv.next, %sibling.for.body ]
+  call void @llvm.assume(i1 true) [ "align"(i8* %lp3, i64 64) ]
+  %0 = load i8, i8* %lp3, align 1
+  %sibling.iv.next = add nuw nsw i64 %sibling.iv, 1
+  %sibling.exitcond = icmp eq i64 %sibling.iv.next, 4
+  br i1 %sibling.exitcond, label %sibling.for.exit, label %sibling.for.body
+
+sibling.for.exit:
   br label %outer.for.ph
 
 outer.for.ph:
@@ -92,7 +119,7 @@ invalid.loop.after:
   br label %inner.for.ph
 
 inner.for.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %inner.for.body
 
 inner.for.body:
@@ -108,7 +135,7 @@ inner.for.body:
   br i1 %inner.exitcond.not, label %omp.simd.end, label %inner.for.body
 
 omp.simd.end:
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
   br label %outer.for.latch
 
 outer.for.latch:
