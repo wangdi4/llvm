@@ -1,4 +1,21 @@
 //===- InstrProf.h - Instrumented profiling format support ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -363,6 +380,21 @@ public:
     });
     return Err;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Consume an Error and return the raw enum value and any additional message
+  /// information contained within it.
+  static std::pair<instrprof_error, std::string> takeWithMessage(Error E) {
+    auto Err = instrprof_error::success;
+    std::string Message;
+    handleAllErrors(std::move(E), [&Err, &Message](const InstrProfError &IPE) {
+      assert(Err == instrprof_error::success && "Multiple errors encountered");
+      Err = IPE.get();
+      Message = IPE.getMessage();
+    });
+    return {Err, Message};
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static char ID;
 
