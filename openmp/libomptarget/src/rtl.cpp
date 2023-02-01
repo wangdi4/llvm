@@ -494,6 +494,7 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
     SET_OPTIONAL_INTERFACE_FN(get_device_info);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
     SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
+    SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
 #if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(flush_queue);
     SET_OPTIONAL_INTERFACE_FN(sync_barrier);

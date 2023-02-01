@@ -912,7 +912,29 @@ EXTERN int ompx_target_prefetch_shared_mem(
 
   return Ret;
 }
-#endif  // INTEL_COLLAB
+
+EXTERN int ompx_get_device_from_ptr(const void *Ptr) {
+  int Ret = omp_get_initial_device();
+
+  // Use the first device to access the RTL
+  if (!Ptr || !deviceIsReady(0)) {
+    DP("%s returns initial device for the pointer " DPxMOD "\n", __func__,
+       DPxPTR(Ptr));
+    return Ret;
+  }
+
+  DeviceTy &Device = *PM->Devices[0];
+  if (!Device.RTL->get_device_from_ptr)
+    return Ret;
+
+  int DeviceNum = Device.RTL->get_device_from_ptr(Ptr);
+  // Expect RTL returning negative value if Ptr does not belong to any device
+  if (DeviceNum >= 0)
+    Ret = DeviceNum;
+
+  return Ret;
+}
+#endif // INTEL_COLLAB
 
 EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
   TIMESCOPE();

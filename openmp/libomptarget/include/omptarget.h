@@ -631,6 +631,9 @@ EXTERN void *ompx_target_aligned_alloc_shared_with_hint(
     size_t Align, size_t Size, int AccessHint, int DeviceNum);
 EXTERN int ompx_target_prefetch_shared_mem(
     size_t NumPtrs, void **Ptrs, size_t *Sizes, int DeviceNum);
+
+/// Return device ID that owns the specified memory location
+EXTERN int ompx_get_device_from_ptr(const void *Ptr);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
