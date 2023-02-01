@@ -453,7 +453,7 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   std::vector<void *> Args(KernelArgs->NumArgs);
   std::vector<void *> Ptrs(KernelArgs->NumArgs);
 
-  for (int32_t I = 0; I < KernelArgs->NumArgs; ++I) {
+  for (uint32_t I = 0; I < KernelArgs->NumArgs; ++I) {
 #if INTEL_COLLAB
     ptrdiff_t offset = TgtOffsets[I];
     // Offset equal to MAX(ptrdiff_t) means that the argument
