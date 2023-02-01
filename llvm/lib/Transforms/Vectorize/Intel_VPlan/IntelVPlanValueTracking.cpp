@@ -349,45 +349,138 @@ public:
       return;
     }
 
-    const auto ComputeKnownBitsFromInduction =
-        [&KB, Depth, Q](const VPInductionInit *InductionInit) {
-          // Only support add inductions for now.
-          if (InductionInit->getBinOpcode() != Instruction::Add)
-            return;
+    // See if this is a simple recurrence that we can match on.
+    const VPInstruction *BinOp = nullptr;
+    const VPValue *Start = nullptr, *Step = nullptr, *End = nullptr;
+    if (!matchSimpleRecurrence(PHI, BinOp, Start, Step))
+      return;
 
-          // First, compute our starting value. If this is unknown, bail out, as
-          // adding an offset will only result in more unknown bits.
-          KB = computeKnownBits(InductionInit->getStartVal(), Depth, Q);
-          if (KB.isUnknown())
-            return;
+    // From here, we must have a simple recurrence to compute KB from.
+    // Assert that valid values for start/step/bin-op were returned.
+    assert(Start && Step && BinOp &&
+           "invalid return from matchSimpleRecurrence?");
 
-          // Now try to compute known bits for our step value. The final value
-          // will be our start value plus an unknown multiple of this step.
-          auto StepKB = computeKnownBits(InductionInit->getStep(), Depth, Q);
+    const auto *ContainingLoop = getLoopFor(PHI);
+    assert(ContainingLoop && "PHI with no loop?");
 
-          // Assume our step was widened by the given VF.
-          computeMulConst(StepKB, Q.VF);
+    // If step is loop-invariant, this is an induction. Otherwise this is a
+    // reduction. Only support inductions for now.
+    if (!isLoopInvariant(Step, ContainingLoop))
+      return;
 
-          // Lastly, compute KB(%IV) = KB(%start) + {{unknown}} * KB(%step)
-          KB = KnownBits::computeForAddSub(
-              /*Add:*/ true, /*NSW:*/ InductionInit->hasNoSignedWrap(), KB,
-              KnownBits::mul(KnownBits{KB.getBitWidth()}, StepKB));
+    // If this is an explicit induction, unpack it now. NOTE: this is currently
+    // the only case where End is set (i.e. IV can be upper bounded.)
+    if (const auto *InductionInit = dyn_cast<VPInductionInit>(Start)) {
+      Start = InductionInit->getStartVal();
+      Step = InductionInit->getStep();
+      End = InductionInit->getEndVal();
+    }
+    const bool NSW = BinOp->hasNoSignedWrap();
 
-          // TODO: Use the end value to further refine the known bits.
-          //
-          // At the moment, this can't be done because we don't know whether or
-          // not the induction is signed or unsigned.
-        };
+    // Can't compute known bits with no start/step.
+    if (!Start || !Step)
+      return;
 
-    // Otherwise, we have a 2-value PHI. If this is an induction, we can
-    // use that to compute the known bits.
-    for (unsigned Idx : {0, 1}) {
-      if (const auto *InductionInit =
-              dyn_cast<VPInductionInit>(PHI->getIncomingValue(Idx))) {
-        ComputeKnownBitsFromInduction(InductionInit);
-        return;
+    // Only support add inductions for now.
+    if (BinOp->getOpcode() != Instruction::Add)
+      return;
+
+    // Next, compute 'KB(%start)'. If this is unknown, bail out, as adding
+    // an offset will only result in more unknown bits.
+    const auto StartKB = computeKnownBits(Start, Depth, Q);
+    if (StartKB.isUnknown())
+      return;
+
+    // Now try to compute 'KB(%step)', widening by VF only if the induction is
+    // in an outermost loop.
+    auto StepKB = computeKnownBits(Step, Depth, Q);
+    if (ContainingLoop->getParentLoop() == nullptr)
+      computeMulConst(StepKB, Q.VF);
+
+    // Compute KB(%IV) = KB(%start) + {{unknown}} * KB(<possibly-widened-step>)
+    KB = KnownBits::computeForAddSub(
+        /*Add:*/ true, NSW, StartKB,
+        KnownBits::mul(KnownBits{KB.getBitWidth()}, StepKB));
+
+    // Attempt to compute 'KB(%end)' if we have a known end value, otherwise
+    // assume unknown.
+    const auto EndKB =
+        End ? computeKnownBits(End, Depth, Q) : KnownBits{KB.getBitWidth()};
+
+    // Using start/step/end, try to preserve signedness of the IV. For now, only
+    // concern ourselves with non-negativity, as this is a precondition for
+    // upper-bounding the IV.
+    if (NSW && StartKB.isNonNegative() && StepKB.isNonNegative()) {
+      // If the BinOp is NSW, and Start/Step are non-negative, then IV must be
+      // also be non-negative (or poison.)
+      KB.makeNonNegative();
+    } else if (StartKB.isNonNegative() && EndKB.isNonNegative()) {
+      // Since Start <= IV < End (or End < IV <= Start), if Start/End are
+      // non-negative, then IV must also be non-negative.
+      KB.makeNonNegative();
+    }
+
+    // Attempt to upper bound the IV.
+    const auto UpperKB = StartKB.isNonNegative() && EndKB.isNonNegative()
+                             ? KnownBits::umax(StartKB, EndKB)
+                             : KnownBits{KB.getBitWidth()};
+    if (KB.isNonNegative() && UpperKB.isNonNegative()) {
+      // Since 0 <= IV < UB, KB must have at least the same number of
+      // leading zeros, plus an additional zero if UB is a power of 2.
+      const auto LeadingZeros =
+          UpperKB.countMinLeadingZeros() +
+          (UpperKB.isConstant() && UpperKB.getConstant().isPowerOf2());
+      KB.Zero.setHighBits(LeadingZeros);
+    }
+  }
+
+  /// Try to match a simple recurrence of the form (Start, Step, BinOp), e.g:
+  ///   (i64 0, i64 1, Instruction::Add)
+  ///
+  /// We do so by matching on IR patterns of the form:
+  ///   %iv = phi <ty> [ <start>, ... ], [ %iv.next, ... ]
+  ///   %iv.next = <bin-op> <ty> %iv, <step>
+  ///
+  /// If a recurrence is found, return true and set all out parameters,
+  /// otherwise, return false.
+  static bool matchSimpleRecurrence(const VPPHINode *Phi,
+                                    const VPInstruction *&BinOp,
+                                    const VPValue *&Start,
+                                    const VPValue *&Step) {
+    if (Phi->getNumIncomingValues() != 2)
+      return false;
+
+    for (unsigned Idx = 0; Idx != 2; ++Idx) {
+      const VPValue *L = Phi->getIncomingValue(Idx);
+      const VPValue *R = Phi->getIncomingValue(1 - Idx);
+
+      const auto *I = dyn_cast<VPInstruction>(R);
+      if (!I || !Instruction::isBinaryOp(I->getOpcode()))
+        continue;
+
+      if (I->getOperand(0) == Phi) {
+        Start = L;
+        Step = I->getOperand(1);
+        BinOp = I;
+        return true;
+      }
+      if (I->getOperand(1) == Phi) {
+        Start = L;
+        Step = I->getOperand(0);
+        BinOp = I;
+        return true;
       }
     }
+    return false;
+  }
+
+  static VPLoop *getLoopFor(const VPInstruction *I) {
+    const auto *Plan = cast<VPlanVector>(I->getParent()->getParent());
+    return Plan->getVPLoopInfo()->getLoopFor(I->getParent());
+  }
+
+  static bool isLoopInvariant(const VPValue *V, const VPLoop *Loop) {
+    return isa<VPConstant>(V) || Loop->isDefOutside(V);
   }
 
   /// Multiply the given KnownBits by a constant (possibly-signed) integer
