@@ -35,20 +35,6 @@
 #include "llvm/ADT/StringRef.h"
 using namespace clang;
 
-<<<<<<< HEAD
-=======
-const char *HeaderDesc::getName() const {
-  switch (ID) {
-#define HEADER(ID, NAME)                                                       \
-  case ID:                                                                     \
-    return NAME;
-#include "clang/Basic/BuiltinHeaders.def"
-#undef HEADER
-  };
-  llvm_unreachable("Unknown HeaderDesc::HeaderID enum");
-}
-
->>>>>>> 7ac776310a1e3016f6aafc7c9aac6c0c9274a513
 static constexpr Builtin::Info BuiltinInfo[] = {
     {"not a builtin function", nullptr, nullptr, nullptr, ALL_LANGUAGES,
      nullptr},
