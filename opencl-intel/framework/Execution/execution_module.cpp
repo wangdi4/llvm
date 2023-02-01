@@ -3781,9 +3781,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
        !srcBuffer->IsContainedInBuffer(src_ptr, size)) ||
       (nullptr != dstBuffer.GetPtr() &&
        !dstBuffer->IsContainedInBuffer(dst_ptr, size))) {
-    LOG_ERROR(TEXT("either source or destination pointers define a region"
-                   " that spans beyond an USM buffer"),
-              "");
+    LOG_ERROR(TEXT("either source or destination pointers define a "
+                   "region that spans beyond an USM buffer"));
     return CL_INVALID_VALUE;
   }
   if ((nullptr != srcBuffer.GetPtr() && srcBuffer->GetContext() != context) ||
@@ -4087,11 +4086,11 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
   SharedPtr<Kernel> kernel =
       m_pContextModule->GetLibraryKernel(context, kernelName);
   if (!kernel) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy GetLibraryKernel failed"), "");
+    LOG_ERROR(TEXT("EnqueueLibraryCopy GetLibraryKernel failed"));
     return CL_OUT_OF_RESOURCES;
   }
   if (kernel->GetContext()->GetId() != queue->GetContextId()) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy kernel context is invalid"), "");
+    LOG_ERROR(TEXT("EnqueueLibraryCopy kernel context is invalid"));
     return CL_INVALID_CONTEXT;
   }
   assert(kernel->GetKernelArgsCount() == 2 && "Invalid args count");
@@ -4173,11 +4172,11 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
   SharedPtr<Kernel> kernel =
       m_pContextModule->GetLibraryKernel(context, kernelName);
   if (!kernel) {
-    LOG_ERROR(TEXT("EnqueueLibrarySet GetLibraryKernel failed"), "");
+    LOG_ERROR(TEXT("EnqueueLibrarySet GetLibraryKernel failed"));
     return CL_OUT_OF_RESOURCES;
   }
   if (kernel->GetContext()->GetId() != queue->GetContextId()) {
-    LOG_ERROR(TEXT("EnqueueLibrarySet kernel context is invalid"), "");
+    LOG_ERROR(TEXT("EnqueueLibrarySet kernel context is invalid"));
     return CL_INVALID_CONTEXT;
   }
   size_t argsCount = kernel->GetKernelArgsCount();

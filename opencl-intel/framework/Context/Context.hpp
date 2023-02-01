@@ -35,23 +35,22 @@ Context::CreateImage(cl_mem_flags clFlags,
   // this is a mistake (Yariv should verify it)
   if (bIsImageBuffer) {
     if (0 == szImageDims[0]) {
-      LOG_ERROR(TEXT("image width is 0"), "");
+      LOG_ERROR(TEXT("image width is 0"));
       return CL_INVALID_IMAGE_DESCRIPTOR;
     }
     if (szImageDims[0] > m_sz1dImgBufSize) {
       LOG_ERROR(TEXT("For a 1D image buffer, the image width must be <= "
-                     "CL_DEVICE_IMAGE_MAX_BUFFER_SIZE"),
-                "");
+                     "CL_DEVICE_IMAGE_MAX_BUFFER_SIZE"));
       return CL_INVALID_IMAGE_SIZE;
     }
   } else {
     for (size_t i = 0; i < DIM; i++) {
       if (0 == szImageDims[i]) {
-        LOG_ERROR(TEXT("0 == szImageDims[i]"), "");
+        LOG_ERROR(TEXT("0 == szImageDims[%zu]"), i);
         return CL_INVALID_IMAGE_DESCRIPTOR;
       }
       if (szImageDims[i] > szImageDimsPerDim[DIM - 1][i]) {
-        LOG_ERROR(TEXT("image dimension is not allowed"), "");
+        LOG_ERROR(TEXT("image dimension is not allowed"));
         return CL_INVALID_IMAGE_SIZE;
       }
     }

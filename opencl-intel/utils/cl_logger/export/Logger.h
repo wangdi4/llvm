@@ -65,7 +65,7 @@ public:
    * Return value:
    ****************************************************************************/
   void Log(ELogLevel level, const char *sourceFile, const char *functionName,
-           __int32 sourceLine, const char *message, ...);
+           __int32 sourceLine, ...);
 
   /*****************************************************************************
    * Function: Log

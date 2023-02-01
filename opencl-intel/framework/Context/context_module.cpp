@@ -222,7 +222,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
            clProperties, uiNumDevices, pDevices);
 
   if (nullptr == pDevices) {
-    LOG_ERROR(TEXT("%s"), TEXT("(!pDevices); return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("(!pDevices); return CL_INVALID_VALUE"));
     if (nullptr != pRrrcodeRet) {
       *pRrrcodeRet = CL_INVALID_VALUE;
     }
@@ -230,8 +230,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
   }
 
   if (!pfnNotify && pUserData) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
     if (nullptr != pRrrcodeRet) {
       *pRrrcodeRet = CL_INVALID_VALUE;
     }
@@ -245,8 +244,8 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
-    LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for devices: new "
-                               "Device[uiNumDevices] = NULL"));
+    LOG_ERROR(TEXT("Failed to allocate memory for devices: new "
+                   "Device[uiNumDevices] = NULL"));
     if (nullptr != pRrrcodeRet) {
       *pRrrcodeRet = CL_OUT_OF_HOST_MEMORY;
     }
@@ -279,8 +278,8 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
       if (CL_CONTEXT_PLATFORM == clProperties[i] &&
           !m_pPlatformModule->CheckPlatformId(
               (cl_platform_id)clProperties[i + 1])) {
-        LOG_ERROR(TEXT("%s"), TEXT("platform value specified in properties is "
-                                   "not a valid platform"));
+        LOG_ERROR(TEXT("platform value specified in properties is "
+                       "not a valid platform"));
         delete[] ppDevices;
         if (nullptr != pRrrcodeRet) {
           *pRrrcodeRet = CL_INVALID_PLATFORM;
@@ -288,8 +287,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
         return CL_INVALID_HANDLE;
       }
       if (propertyMap.find(clProperties[i]) != propertyMap.end()) {
-        LOG_ERROR(TEXT("%s"),
-                  TEXT("the same property name is specified more than once"));
+        LOG_ERROR(TEXT("the same property name is specified more than once"));
         delete[] ppDevices;
         if (nullptr != pRrrcodeRet) {
           *pRrrcodeRet = CL_INVALID_PROPERTY;
@@ -305,8 +303,8 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
                        [currentProperty](const cl_context_properties &prop) {
                          return prop == currentProperty;
                        })) {
-        LOG_ERROR(TEXT("%s"), TEXT("context property name in properties is not "
-                                   "a supported property name"));
+        LOG_ERROR(TEXT("context property name in properties is not "
+                       "a supported property name"));
         delete[] ppDevices;
         if (nullptr != pRrrcodeRet) {
           *pRrrcodeRet = CL_INVALID_PROPERTY;
@@ -326,7 +324,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
                                  m_pOclEntryPoints, m_pGPAData, *this);
   }
   if (CL_FAILED(clErrRet)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Create context failed"));
+    LOG_ERROR(TEXT("Create context failed"));
     if (nullptr != pRrrcodeRet) {
       *pRrrcodeRet = clErrRet;
     }
@@ -581,7 +579,7 @@ cl_program ContextModule::CreateProgramWithIL(cl_context clContext,
 
   if (0 == length || nullptr == pIL) {
     // invalid value
-    LOG_ERROR(TEXT("%s"), TEXT("0 == length || NULL == pIL"));
+    LOG_ERROR(TEXT("0 == length || NULL == pIL"));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_VALUE;
     }
@@ -702,8 +700,8 @@ cl_program ContextModule::CreateProgramWithBinary(
   if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths ||
       nullptr == ppBinaries) {
     // invalid value
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
-                               "NULL == pszLengths || NULL == ppBinaries"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
+                   "NULL == pszLengths || NULL == ppBinaries"));
     if (NULL != pErrRet) {
       *pErrRet = CL_INVALID_VALUE;
     }
@@ -846,7 +844,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram) {
   }
   SharedPtr<Context> pContext = pProgram->GetContext();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("pProgram->GetContext returned NULL"), "");
+    LOG_ERROR(TEXT("pProgram->GetContext returned NULL"));
     return CL_INVALID_PROGRAM;
   }
 
@@ -1169,7 +1167,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("clProgram is invalid program"));
+    LOG_ERROR(TEXT("clProgram is invalid program"));
     if (nullptr != piErr) {
       *piErr = CL_INVALID_PROGRAM;
     }
@@ -1277,7 +1275,7 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("clProgram is invalid program"));
+    LOG_ERROR(TEXT("clProgram is invalid program"));
     return CL_INVALID_PROGRAM;
   }
 
@@ -1354,7 +1352,7 @@ cl_int ContextModule::ReleaseKernel(cl_kernel clKernel) {
 
   SharedPtr<Program> pProgram = pKernel->GetProgram();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("pKernel->GetProgram returned nullptr"), "");
+    LOG_ERROR(TEXT("pKernel->GetProgram returned nullptr"));
     return CL_INVALID_KERNEL;
   }
 
@@ -2189,7 +2187,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
       pClImageDesc->image_row_pitch, pClImageDesc->image_slice_pitch,
       pClImageDesc->image_array_size, pHostPtr, pContext);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
+    LOG_ERROR(TEXT("Parameter check failed"));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -2209,7 +2207,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     assert(0 && "Inside CreateImageArray with non array type.");
   }
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -2229,7 +2227,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     assert(0 && "Inside CreateImageArray with non array type.");
   }
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -3163,29 +3161,27 @@ void *ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags,
                               size_t size, unsigned int uiAlignment) {
   SharedPtr<Context> pContext = GetContext(context);
   if (pContext.GetPtr() == NULL) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     return nullptr;
   }
   if (flags & CL_MEM_SVM_ATOMICS && !(flags & CL_MEM_SVM_FINE_GRAIN_BUFFER)) {
-    LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER but "
-                   "does contain CL_MEM_SVM_ATOMICS"),
-              "");
+    LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER "
+                   "but does contain CL_MEM_SVM_ATOMICS"));
     return nullptr;
   }
   if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY |
                  CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0) {
-    LOG_ERROR(TEXT("The values specified in flags are not valid i.e. dont "
-                   "match those defined in table 5.13"),
-              "");
+    LOG_ERROR(TEXT("The values specified in flags are not valid i.e. do "
+                   "not match those defined in table 5.13"));
     return nullptr;
   }
   if (0 == size) {
-    LOG_ERROR(TEXT("size is 0"), "");
+    LOG_ERROR(TEXT("size is 0"));
     return nullptr;
   }
   if (uiAlignment > 0 &&
       (!IsPowerOf2(uiAlignment) || uiAlignment > sizeof(cl_long16))) {
-    LOG_ERROR(TEXT("invalid alignment"), "");
+    LOG_ERROR(TEXT("invalid alignment"));
     return nullptr;
   }
   void *pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
@@ -3199,11 +3195,11 @@ void *ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags,
 void ContextModule::SVMFree(cl_context context, void *pSvmPtr) {
   SharedPtr<Context> pContext = GetContext(context);
   if (pContext.GetPtr() == NULL) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     return;
   }
   if (NULL == pSvmPtr) {
-    LOG_INFO(TEXT("pSvmPtr is NULL"), "")
+    LOG_INFO(TEXT("pSvmPtr is NULL"));
     return;
   }
   pContext->SVMFree(pSvmPtr);
@@ -3345,7 +3341,7 @@ void *ContextModule::USMHostAlloc(cl_context context,
                                   cl_int *errcode_ret) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     if (errcode_ret)
       *errcode_ret = CL_INVALID_CONTEXT;
     return nullptr;
@@ -3366,7 +3362,7 @@ void *ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
                                     cl_int *errcode_ret) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     if (errcode_ret)
       *errcode_ret = CL_INVALID_CONTEXT;
     return nullptr;
@@ -3387,7 +3383,7 @@ void *ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
                                     cl_int *errcode_ret) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     if (errcode_ret)
       *errcode_ret = CL_INVALID_CONTEXT;
     return nullptr;
@@ -3405,11 +3401,11 @@ void *ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
 cl_int ContextModule::USMFree(cl_context context, void *ptr) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     return CL_INVALID_CONTEXT;
   }
   if (nullptr == ptr) {
-    LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
+    LOG_INFO(TEXT("ptr is nullptr. No action occurs."));
     return CL_SUCCESS;
   }
   cl_err_code err = pContext->USMFree(ptr);
@@ -3423,18 +3419,18 @@ cl_int ContextModule::USMFree(cl_context context, void *ptr) {
 cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     return CL_INVALID_CONTEXT;
   }
 
   if (nullptr == ptr) {
-    LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
+    LOG_INFO(TEXT("ptr is nullptr. No action occurs."));
     return CL_SUCCESS;
   }
 
   auto usmBufferIter = m_mapUSMBuffers.find(ptr);
   if (usmBufferIter == m_mapUSMBuffers.end()) {
-    LOG_ERROR(TEXT("ptr isn't a USM buffer"), "");
+    LOG_ERROR(TEXT("ptr isn't a USM buffer"));
     return CL_INVALID_VALUE;
   }
 
@@ -3461,7 +3457,7 @@ cl_int ContextModule::USMBlockingFree(cl_context context, void *ptr) {
     if (CL_FAILED(err)) {
       // TODO: The document doesn't say which error code we should return
       // if some internal errors occurs.
-      LOG_ERROR(TEXT("Failed to wait for related events done."), "");
+      LOG_ERROR(TEXT("Failed to wait for related events done."));
       return err;
     }
   }
@@ -3486,7 +3482,7 @@ cl_int ContextModule::GetMemAllocInfoINTEL(cl_context context, const void *ptr,
                                            size_t *param_value_size_ret) {
   SharedPtr<Context> pContext = GetContext(context);
   if (nullptr == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context is not a valid context"), "");
+    LOG_ERROR(TEXT("context is not a valid context"));
     return CL_INVALID_CONTEXT;
   }
   cl_err_code err = pContext->GetMemAllocInfoINTEL(

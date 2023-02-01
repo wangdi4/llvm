@@ -596,7 +596,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
       clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight,
       szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr, pContext);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
+    LOG_ERROR(TEXT("Parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -606,7 +606,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
   clErr = CheckContextSpecificParameters(pContext, OBJ_TYPE, szImageWidth,
                                          szImageHeight, szImageDepth, 0);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -703,7 +703,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       desc.image_height, desc.image_depth, desc.image_array_size,
       pBuffer->GetHostPtr(), bufFlags);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"), "");
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -715,8 +715,8 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
   if (GenericMemObjectBackingStore::calculate_size(
           clGetPixelBytesCount(clImageFormat), DIM, szDims, szPitches) >
       pBuffer->GetSize()) {
-    LOG_ERROR(TEXT("Size of image must be <= size of buffer object data store"),
-              "");
+    LOG_ERROR(
+        TEXT("Size of image must be <= size of buffer object data store"));
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
     }
@@ -727,8 +727,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       !Check2DImageFromBufferPitch(pBuffer, desc, *clImageFormat)) {
     LOG_ERROR(TEXT("pitch isn't a multiple of the maximum of the "
                    "CL_DEVICE_IMAGE_PITCH_ALIGNMENT value for all devices in "
-                   "the context associated with image_desc->buffer"),
-              "");
+                   "the context associated with image_desc->buffer"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
     }

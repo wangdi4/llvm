@@ -759,8 +759,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName,
                                            size_t szParamValueSize,
                                            void *pParamValue,
                                            size_t *pszParamValueSizeRet) const {
-  LOG_DEBUG(TEXT("%s"),
-            TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, "
+  LOG_DEBUG(TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, "
                  "pszParamValueSizeRet=%d)"),
             clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 

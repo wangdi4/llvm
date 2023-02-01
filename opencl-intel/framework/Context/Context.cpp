@@ -443,7 +443,7 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char *pIL,
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
   cl_err_code clErrRet = CL_SUCCESS;
@@ -488,7 +488,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount,
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
   cl_err_code clErrRet = CL_SUCCESS;
@@ -523,13 +523,13 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
 
   if (nullptr == pclDeviceList || 0 == uiNumDevices) {
     // invalid input args
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
     return CL_INVALID_VALUE;
   }
 
@@ -538,15 +538,14 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -557,7 +556,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -698,7 +697,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices,
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
-    LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+    LOG_ERROR(TEXT("0 == uiNumDevices || NULL == pclDevices"));
     return false;
   }
   for (cl_uint ui = 0; ui < uiNumDevices; ++ui) {
@@ -723,7 +722,7 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices,
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
-    LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+    LOG_ERROR(TEXT("0 == uiNumDevices || NULL == pclDevices"));
     return false;
   }
 
@@ -764,8 +763,8 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
   if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths ||
       nullptr == ppBinaries) {
     // invalid input args
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
-                               "NULL == pszLengths || NULL == ppBinaries"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
+                   "NULL == pszLengths || NULL == ppBinaries"));
     return CL_INVALID_VALUE;
   }
   // check items in pszLengths and in ppBinaries
@@ -784,15 +783,14 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -804,7 +802,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -828,7 +826,7 @@ cl_err_code Context::CreateProgramWithLibraryKernels(
   SharedPtr<Program> Prog = ProgramWithLibraryKernels::Allocate(
       this, NumDevices, Devices, KernelNames, &Err);
   if (CL_SUCCESS != Err) {
-    LOG_ERROR(TEXT("%S"), TEXT("Failed to create library program"));
+    LOG_ERROR(TEXT("Failed to create library program"));
     return Err;
   }
 
@@ -854,8 +852,8 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   if (nullptr == pclDeviceList || 0 == uiNumDevices ||
       nullptr == szKernelNames || nullptr == ppProgram) {
     // invalid input args
-    LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
-                               "NULL == szKernelNames || NULL == ppProgram"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
+                   "NULL == szKernelNames || NULL == ppProgram"));
     return CL_INVALID_VALUE;
   }
 
@@ -864,7 +862,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
@@ -883,7 +881,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -1133,13 +1131,13 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
             clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
 
   if ((uiNumEntries == 0 && pclImageFormats != nullptr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
+    LOG_ERROR(TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
     return CL_INVALID_VALUE;
   }
 
   if (CL_MEM_OBJECT_BUFFER == clType || CL_MEM_OBJECT_PIPE == clType) {
-    LOG_ERROR(TEXT("%s"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != "
-                               "CL_MEM_OBJECT_IMAGE3D"));
+    LOG_ERROR(TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != "
+                   "CL_MEM_OBJECT_IMAGE3D"));
     return CL_INVALID_VALUE;
   }
 
@@ -1723,8 +1721,7 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
   if (oldMemFlags != 0 && oldMemFlags != CL_MEM_READ_WRITE &&
       oldMemFlags != CL_MEM_WRITE_ONLY && oldMemFlags != CL_MEM_READ_ONLY) {
     LOG_ERROR(TEXT("CL_MEM_READ_WRITE or CL_MEM_WRITE_ONLY and "
-                   "CL_MEM_READ_ONLY are mutually exclusive"),
-              "");
+                   "CL_MEM_READ_ONLY are mutually exclusive"));
     return nullptr;
   }
 
@@ -1747,11 +1744,9 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
          !(devSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER)) ||
         ((flags & CL_MEM_SVM_ATOMICS) &&
          !(devSvmCapabilities & CL_DEVICE_SVM_ATOMICS))) {
-      LOG_ERROR(
-          TEXT(
-              "CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified "
-              "in flags and these are not supported by all devices in context"),
-          "");
+      LOG_ERROR(TEXT(
+          "CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified in "
+          "flags and these are not supported by all devices in context"));
       return nullptr;
     }
   }
@@ -1784,7 +1779,7 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
 void Context::SVMFree(void *pSvmPtr) {
   OclAutoWriter mu(&m_svmBuffersRwlock);
   if (m_svmBuffers.find(pSvmPtr) == m_svmBuffers.end()) {
-    LOG_ERROR(TEXT("pSvmPtr isn't an SVM buffer"), "");
+    LOG_ERROR(TEXT("pSvmPtr isn't an SVM buffer"));
     return;
   }
   m_svmBuffers.erase(pSvmPtr);
@@ -1831,8 +1826,7 @@ Context::ParseUSMAllocProperties(const cl_mem_properties_intel *properties,
 
     while (0 != properties[i]) {
       if (propertyMap.find(properties[i]) != propertyMap.end()) {
-        LOG_ERROR(TEXT("%s"),
-                  TEXT("the same property name is specified more than once"));
+        LOG_ERROR(TEXT("the same property name is specified more than once"));
         *errcode_ret = CL_INVALID_PROPERTY;
         return flags;
       }
@@ -1845,8 +1839,7 @@ Context::ParseUSMAllocProperties(const cl_mem_properties_intel *properties,
                        [currentProperty](const cl_context_properties &prop) {
                          return prop == currentProperty;
                        })) {
-        LOG_ERROR(TEXT("%s"),
-                  TEXT("property name is not a supported property name"));
+        LOG_ERROR(TEXT("property name is not a supported property name"));
         *errcode_ret = CL_INVALID_PROPERTY;
         return flags;
       }
@@ -1913,12 +1906,12 @@ void *Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     numDevices = 1;
     bool res = GetDevicesFromList(numDevices, &device, &pDevice);
     if (false == res) {
-      LOG_ERROR(TEXT("%s"), TEXT("GetDevicesFromList returns false"));
+      LOG_ERROR(TEXT("GetDevicesFromList returns false"));
       USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
     }
     pDevices = &pDevice;
   } else if (CL_MEM_TYPE_DEVICE_INTEL == type) {
-    LOG_ERROR(TEXT("%s"), TEXT("device is nullptr"));
+    LOG_ERROR(TEXT("device is nullptr"));
     USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
   } else {
     numDevices = m_mapDevices.Count();
@@ -1971,7 +1964,7 @@ void *Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     }
   }
   if (!capSupported) {
-    LOG_ERROR(TEXT("no devices support this type of USM allocation"), "");
+    LOG_ERROR(TEXT("no devices support this type of USM allocation"));
     USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
   }
 
@@ -2047,7 +2040,7 @@ void *Context::USMSharedAlloc(cl_device_id device,
 cl_int Context::USMFree(void *usmPtr) {
   OclAutoWriter mu(&m_usmBuffersRwlock);
   if (m_usmBuffers.find(usmPtr) == m_usmBuffers.end()) {
-    LOG_ERROR(TEXT("usmPtr isn't an USM buffer"), "");
+    LOG_ERROR(TEXT("usmPtr isn't an USM buffer"));
     return CL_INVALID_VALUE;
   }
   m_usmBuffers.erase(usmPtr);

@@ -554,7 +554,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion(cl_dev_cmd_param_map *IN pMapInfo,
 }
 
 void MemoryObject::ReleaseAllMappedRegions() {
-  LOG_DEBUG(TEXT("Enter ReleaseAllMappedRegions"), "");
+  LOG_DEBUG(TEXT("Enter ReleaseAllMappedRegions"));
 
   OclAutoMutex CS(&m_muMappedRegions); // release on return
 
