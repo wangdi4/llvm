@@ -147,7 +147,7 @@ double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-#if defined(MSVC)
+#if defined(_MSC_VER)
 #include <math.h>
 // FLOAT PROPERTIES
 #define _D0 3 // little-endian, small long doubles
