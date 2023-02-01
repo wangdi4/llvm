@@ -898,7 +898,7 @@ public:
   }
 
   /// Return allocation information if Ptr belongs to any allocation range.
-  const MemAllocInfoTy *search(void *Ptr) {
+  const MemAllocInfoTy *search(const void *Ptr) {
     std::lock_guard<std::mutex> Lock(Mtx);
     if (Map.size() == 0)
       return nullptr;
@@ -5130,4 +5130,13 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   return OFFLOAD_SUCCESS;
 }
 
+int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
+  for (uint32_t ID = 0; ID < DeviceInfo->NumDevices; ID++) {
+    auto *AllocInfo = DeviceInfo->MemAllocInfo[ID]->search(Ptr);
+    if (AllocInfo)
+      return AllocInfo->Kind == TARGET_ALLOC_HOST ? -1 : ID;
+  }
+
+  return -1;
+}
 #endif // INTEL_COLLAB

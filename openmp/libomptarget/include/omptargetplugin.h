@@ -385,6 +385,9 @@ EXTERN void *__tgt_rtl_data_aligned_alloc_shared(
 // Prefetch shared memory
 EXTERN int __tgt_rtl_prefetch_shared_mem(
     int32_t ID, size_t NumPtrs, void **Ptrs, size_t *Sizes);
+
+// Return the device ID that owns the specified memory location
+EXTERN int __tgt_rtl_get_device_from_ptr(const void *Ptr);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
