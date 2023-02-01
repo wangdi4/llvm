@@ -118,6 +118,7 @@ target_link_libraries(
   LLVMMCDisassembler
   LLVMMCParser
   LLVMObject
+  LLVMOrcTargetProcess
   LLVMVPOTransforms
   LLVMVectorize
   LoopUtils

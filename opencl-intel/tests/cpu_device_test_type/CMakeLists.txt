@@ -20,6 +20,7 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   LLVMMCDisassembler
   LLVMMCParser
   LLVMObject
+  LLVMOrcTargetProcess
   LLVMSPIRVLib
   LLVMSymbolize
   LLVMVPOTransforms

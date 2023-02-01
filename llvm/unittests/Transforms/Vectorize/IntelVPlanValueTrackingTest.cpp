@@ -186,15 +186,17 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
     });
   }
 
-  void expectKnownBits(std::string Name, const VPValue *V,
+  void expectKnownBits(const std::string &Name, const VPValue *V,
                        const VPInstruction *CtxI, uint64_t Zero, uint64_t One,
                        unsigned VF = 1) {
     KnownBits KB = Plan->getVPVT()->getKnownBits(V, CtxI, VF);
-    EXPECT_EQ(KB.Zero.getZExtValue(), Zero) << "KB('%" << Name << "')";
-    EXPECT_EQ(KB.One.getZExtValue(), One) << "KB('%" << Name << "')";
+    EXPECT_EQ(KB.Zero.getSExtValue(), int64_t(Zero))
+        << "KB('%" << Name << "') (VF = " << VF << ")";
+    EXPECT_EQ(KB.One.getSExtValue(), int64_t(One))
+        << "KB('%" << Name << "') (VF = " << VF << ")";
   }
 
-  void expectKnownBits(std::string Name, uint64_t Zero, uint64_t One,
+  void expectKnownBits(const std::string &Name, uint64_t Zero, uint64_t One,
                        unsigned VF = 1) {
     const VPInstruction *I = findInstructionByName(Name);
     ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
@@ -205,8 +207,8 @@ struct VPlanComputeKnownBitsTest : public VPlanValueTrackingTest {
                                  uint64_t One) {
     const VPInstruction *I = findInstructionByName(Name);
     ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
-    expectKnownBits(Name + "." + std::to_string(Idx), I->getOperand(Idx), I,
-                    Zero, One);
+    expectKnownBits(std::move(Name) + "." + std::to_string(Idx),
+                    I->getOperand(Idx), I, Zero, One);
   }
 };
 
@@ -518,7 +520,7 @@ TEST_F(VPlanComputeKnownBitsTest, UnaffectedByInvalidExternalAssumption) {
   });
 }
 
-TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PowerOf2Step) {
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PositiveStride) {
   buildVPlanFromString(R"(
     define void @foo() {
     entry:
@@ -526,11 +528,19 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PowerOf2Step) {
     for.body:
       %iv.1 = phi i64 [ 0, %entry ], [ %iv.1.next, %for.body ]
       %iv.2 = phi i64 [ 0, %entry ], [ %iv.2.next, %for.body ]
+      %iv.3 = phi i64 [ 0, %entry ], [ %iv.3.next, %for.body ]
       %iv.4 = phi i64 [ 0, %entry ], [ %iv.4.next, %for.body ]
+      %iv.5 = phi i64 [ 0, %entry ], [ %iv.5.next, %for.body ]
+      %iv.6 = phi i64 [ 0, %entry ], [ %iv.6.next, %for.body ]
+      %iv.7 = phi i64 [ 0, %entry ], [ %iv.7.next, %for.body ]
       %iv.8 = phi i64 [ 0, %entry ], [ %iv.8.next, %for.body ]
       %iv.1.next = add nuw nsw i64 %iv.1, 1
       %iv.2.next = add nuw nsw i64 %iv.2, 2
+      %iv.3.next = add nuw nsw i64 %iv.3, 3
       %iv.4.next = add nuw nsw i64 %iv.4, 4
+      %iv.5.next = add nuw nsw i64 %iv.5, 5
+      %iv.6.next = add nuw nsw i64 %iv.6, 6
+      %iv.7.next = add nuw nsw i64 %iv.7, 7
       %iv.8.next = add nuw nsw i64 %iv.8, 8
       %exitcond = icmp eq i64 %iv.1.next, 256
       br i1 %exitcond, label %exit, label %for.body
@@ -539,11 +549,141 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PowerOf2Step) {
     }
   )");
 
-  using StepAndName = std::pair<unsigned, const char*>;
-  for (auto [Step, Name] : std::initializer_list<StepAndName>{
-           {1, "iv.1"}, {2, "iv.2"}, {4, "iv.4"}, {8, "iv.8"}})
-    for (const auto &VF : {1, 2, 4, 8, 16, 32})
-      expectKnownBits(Name, /*Zero: */ Step * VF - 1, /*One: */ 0, VF);
+  for (const uint64_t Step : {1, 2, 3, 4, 5, 6, 7, 8}) {
+    const auto Name = std::string("iv.") + std::to_string(Step);
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
+
+    for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+      EXPECT_TRUE(KB.isNonNegative());
+      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Step * VF));
+    }
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NegativeStride) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv.1 = phi i64 [ %iv.1.next, %for.body ], [ 256, %entry ]
+      %iv.2 = phi i64 [ %iv.2.next, %for.body ], [ 512, %entry ]
+      %iv.3 = phi i64 [ %iv.3.next, %for.body ], [ 768, %entry ]
+      %iv.4 = phi i64 [ %iv.4.next, %for.body ], [ 1024, %entry ]
+      %iv.5 = phi i64 [ %iv.5.next, %for.body ], [ 1280, %entry ]
+      %iv.6 = phi i64 [ %iv.6.next, %for.body ], [ 1536, %entry ]
+      %iv.7 = phi i64 [ %iv.7.next, %for.body ], [ 1792, %entry ]
+      %iv.8 = phi i64 [ %iv.8.next, %for.body ], [ 2048, %entry ]
+      %iv.1.next = add nuw nsw i64 %iv.1, -1
+      %iv.2.next = add nuw nsw i64 %iv.2, -2
+      %iv.3.next = add nuw nsw i64 %iv.3, -3
+      %iv.4.next = add nuw nsw i64 %iv.4, -4
+      %iv.5.next = add nuw nsw i64 %iv.5, -5
+      %iv.6.next = add nuw nsw i64 %iv.6, -6
+      %iv.7.next = add nuw nsw i64 %iv.7, -7
+      %iv.8.next = add nuw nsw i64 %iv.8, -8
+      %exitcond = icmp eq i64 %iv.1.next, 0
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  for (const uint64_t Step : {1, 2, 3, 4, 5, 6, 7}) {
+    const auto Name = std::string("iv.") + std::to_string(Step);
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
+
+    for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+      EXPECT_TRUE(KB.isNonNegative());
+      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Step * VF));
+    }
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_KnownUpperLowerBound) {
+  buildVPlanFromString(R"(
+    define void @foo() {
+    entry:
+      br label %for.body
+    for.body:
+      %iv.1 = phi i64 [ 0, %entry ], [ %iv.1.next, %for.body ]
+      %iv.2 = phi i64 [ 0, %entry ], [ %iv.2.next, %for.body ]
+      %iv.7 = phi i64 [ 0, %entry ], [ %iv.7.next, %for.body ]
+      %iv.1.next = add nuw nsw i64 %iv.1, 1
+      %iv.2.next = add nuw nsw i64 %iv.2, 2
+      %iv.7.next = add nuw nsw i64 %iv.7, 7
+      %exitcond = icmp eq i64 %iv.1.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  for (const uint64_t Step : {1, 2, 7}) {
+    const auto Name = std::string("iv.") + std::to_string(Step);
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '" << Name << "'";
+
+    for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+      EXPECT_TRUE(KB.isNonNegative());
+      EXPECT_EQ(KB.countMinLeadingZeros(),
+                countLeadingZeros(Step * 256) + isPowerOf2_64(Step * 256));
+    }
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_UnknownUpperBound) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %UB) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, %UB
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  const VPInstruction *I = findInstructionByName("iv");
+  ASSERT_TRUE(I) << "No such instruction: '%iv'";
+
+  for (const unsigned VF : {1, 2, 4, 8, 16, 32}) {
+    const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+    EXPECT_TRUE(KB.isNonNegative());
+    EXPECT_EQ(KB.countMinLeadingZeros(), 1u);
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_UnknownLowerBound) {
+  buildVPlanFromString(R"(
+    define void @foo(i64 %LB) {
+    entry:
+      br label %for.body
+    for.body:
+      %iv = phi i64 [ %LB, %entry ], [ %iv.next, %for.body ]
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+    exit:
+      ret void
+    }
+  )");
+
+  const VPInstruction *I = findInstructionByName("iv");
+  ASSERT_TRUE(I) << "No such instruction: '%iv'";
+
+  for (const unsigned VF : {1, 2, 4, 8, 16, 32}) {
+    const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+    EXPECT_TRUE(KB.isUnknown());
+  }
 }
 
 TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonConstLoopInvariantStep) {
@@ -572,37 +712,17 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonConstLoopInvariantStep) {
     }
   )");
 
-  using StepAndName = std::pair<unsigned, const char*>;
-  for (auto [Step, Name] : std::initializer_list<StepAndName>{
-           {1, "n.ind.1"}, {2, "n.ind.2"}, {4, "n.ind.4"}, {8, "n.ind.8"}})
-    for (const auto &VF : {1, 2, 4, 8, 16, 32})
-      expectKnownBits(Name, /*Zero: */ Step * VF - 1, /*One: */ 0, VF);
-}
+  using StrideAndName = std::pair<uint64_t, const char *>;
+  for (const auto &[Stride, Name] : std::initializer_list<StrideAndName>{
+           {1, "n.ind.1"}, {2, "n.ind.2"}, {4, "n.ind.4"}, {8, "n.ind.8"}}) {
+    const VPInstruction *I = findInstructionByName(Name);
+    ASSERT_TRUE(I) << "No such instruction: '%" << Name << "'";
 
-TEST_F(VPlanComputeKnownBitsTest, InductionPHI_OddStep) {
-  buildVPlanFromString(R"(
-    define void @foo() {
-    entry:
-      br label %for.body
-    for.body:
-      %iv.1 = phi i64 [ 0, %entry ], [ %iv.1.next, %for.body ]
-      %iv.3 = phi i64 [ 0, %entry ], [ %iv.3.next, %for.body ]
-      %iv.5 = phi i64 [ 0, %entry ], [ %iv.5.next, %for.body ]
-      %iv.1.next = add nuw nsw i64 %iv.1, 1
-      %iv.3.next = add nuw nsw i64 %iv.3, 3
-      %iv.5.next = add nuw nsw i64 %iv.5, 5
-      %exitcond = icmp eq i64 %iv.1.next, 256
-      br i1 %exitcond, label %exit, label %for.body
-    exit:
-      ret void
+    for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Stride * VF));
     }
-  )");
-
-  using StepAndName = std::pair<unsigned, const char*>;
-  for (auto [Step, Name] : std::initializer_list<StepAndName>{
-           {1, "iv.1"}, {3, "iv.3"}, {5, "iv.5"}})
-    for (const auto &VF : {1, 2, 4, 8, 16, 32})
-      expectKnownBits(Name, /*Zero: */ VF - 1, /*One: */ 0, VF);
+  }
 }
 
 TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonZeroStart) {
@@ -632,34 +752,47 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonZeroStart) {
     }
   )");
 
-  for (const auto &Name :
-       {"iv.1.1", "iv.2.1", "iv.3.1", "iv.4.1", "iv.5.1", "iv.6.1", "iv.7.1"}) {
-    expectKnownBits(Name, /*Zero:*/ 0, /*One:*/ 0);
-  }
+  const auto Expect = [this](const std::string &Name, unsigned Start,
+                             uint64_t LowZero, uint64_t One, unsigned VF = 1) {
+    // Mask the given zero value to add an appropriate number of leading zeros
+    // for the upper bound.
+    const uint64_t UpperZeroMask = -PowerOf2Ceil(255 + Start);
+    expectKnownBits(Name, UpperZeroMask | LowZero, One, VF);
+  };
+
+  using StartAndName = std::pair<unsigned, const char *>;
+  for (auto [Start, Name] : std::initializer_list<StartAndName>{{1, "iv.1.1"},
+                                                                {2, "iv.2.1"},
+                                                                {3, "iv.3.1"},
+                                                                {4, "iv.4.1"},
+                                                                {5, "iv.5.1"},
+                                                                {6, "iv.6.1"},
+                                                                {7, "iv.7.1"}})
+    Expect(Name, Start, /*LowZero:*/ 0, /*One:*/ 0);
 
   // clang-format off
-  expectKnownBits("iv.1.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+  Expect("iv.1.1", 1, /*LowZero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
 
-  expectKnownBits("iv.2.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
-  expectKnownBits("iv.2.1", /*Zero:*/ 0b0101, /*One:*/ 0b0010, /*VF:*/  8);
+  Expect("iv.2.1", 2, /*LowZero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  Expect("iv.2.1", 2, /*LowZero:*/ 0b0101, /*One:*/ 0b0010, /*VF:*/  8);
 
-  expectKnownBits("iv.3.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
-  expectKnownBits("iv.3.1", /*Zero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
+  Expect("iv.3.1", 3, /*LowZero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+  Expect("iv.3.1", 3, /*LowZero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
 
-  expectKnownBits("iv.4.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
-  expectKnownBits("iv.4.1", /*Zero:*/ 0b0011, /*One:*/ 0b0000, /*VF:*/  4);
-  expectKnownBits("iv.4.1", /*Zero:*/ 0b0011, /*One:*/ 0b0100, /*VF:*/  8);
+  Expect("iv.4.1", 4, /*LowZero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  Expect("iv.4.1", 4, /*LowZero:*/ 0b0011, /*One:*/ 0b0000, /*VF:*/  4);
+  Expect("iv.4.1", 4, /*LowZero:*/ 0b0011, /*One:*/ 0b0100, /*VF:*/  8);
 
-  expectKnownBits("iv.5.1", /*Zero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
-  expectKnownBits("iv.5.1", /*Zero:*/ 0b0010, /*One:*/ 0b0001, /*VF:*/  4);
-  expectKnownBits("iv.5.1", /*Zero:*/ 0b1010, /*One:*/ 0b0101, /*VF:*/ 16);
+  Expect("iv.5.1", 5, /*LowZero:*/ 0b0000, /*One:*/ 0b0001, /*VF:*/  2);
+  Expect("iv.5.1", 5, /*LowZero:*/ 0b0010, /*One:*/ 0b0001, /*VF:*/  4);
+  Expect("iv.5.1", 5, /*LowZero:*/ 0b1010, /*One:*/ 0b0101, /*VF:*/ 16);
 
-  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
-  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0010, /*VF:*/  4);
-  expectKnownBits("iv.6.1", /*Zero:*/ 0b0001, /*One:*/ 0b0110, /*VF:*/  8);
+  Expect("iv.6.1", 6, /*LowZero:*/ 0b0001, /*One:*/ 0b0000, /*VF:*/  2);
+  Expect("iv.6.1", 6, /*LowZero:*/ 0b0001, /*One:*/ 0b0010, /*VF:*/  4);
+  Expect("iv.6.1", 6, /*LowZero:*/ 0b0001, /*One:*/ 0b0110, /*VF:*/  8);
 
-  expectKnownBits("iv.7.1", /*Zero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
-  expectKnownBits("iv.7.1", /*Zero:*/ 0b1000, /*One:*/ 0b0111, /*VF:*/ 16);
+  Expect("iv.7.1", 7, /*LowZero:*/ 0b0000, /*One:*/ 0b0011, /*VF:*/  4);
+  Expect("iv.7.1", 7, /*LowZero:*/ 0b1000, /*One:*/ 0b0111, /*VF:*/ 16);
   // clang-format on
 }
 
@@ -678,9 +811,180 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NotFirstOp) {
     }
   )");
 
-  expectKnownBits("iv", /*Zero: */ 0, /*One: */ 0, /*VF: */ 1);
-  expectKnownBits("iv", /*Zero: */ 1, /*One: */ 0, /*VF: */ 2);
-  expectKnownBits("iv", /*Zero: */ 3, /*One: */ 0, /*VF: */ 4);
+  const VPInstruction *I = findInstructionByName("iv");
+  ASSERT_TRUE(I) << "No such instruction: '%iv'";
+
+  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+    const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+    EXPECT_TRUE(KB.isNonNegative());
+    EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(VF));
+    EXPECT_EQ(KB.countMinLeadingZeros(), countLeadingZeros(256uLL) + 1);
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NestedLoops) {
+  buildVPlanFromString(R"(
+    define void @foo(i64* %elems) {
+    entry:
+      br label %for.body
+
+    for.body:
+      %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %for.latch ]
+      %outer.gep = getelementptr i64, i64* %elems, i64 %outer.iv
+      %outer.elem = load i64, i64* %outer.gep, align 8
+      br label %inner.for.body
+
+    inner.for.body:
+      %inner.iv = phi i64 [ 0, %for.body ], [ %inner.iv.next, %inner.for.body ]
+      %inner.iv2 = phi i64 [ 0, %for.body ], [ %inner.iv2.next, %inner.for.body ]
+      %inner.iv.next = add nuw nsw i64 %inner.iv, 2
+      %inner.iv2.next = add nuw nsw i64 %inner.iv2, %outer.elem
+      %inner.exitcond = icmp eq i64 %inner.iv.next, 256
+      br i1 %inner.exitcond, label %for.latch, label %inner.for.body
+
+    for.latch:
+      %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+      %exitcond = icmp eq i64 %outer.iv.next, 128
+      br i1 %exitcond, label %exit, label %for.body
+
+    exit:
+      ret void
+    }
+  )");
+
+  // Check all values in the context of the outer terminator, as well as their
+  // own context.
+  const VPInstruction *OuterTerminator =
+      Plan->getMainLoop(true)->getLoopLatch()->getTerminator();
+
+  // Test inner IV with constant step.
+  const auto *InnerIV = findInstructionByName("inner.iv");
+  ASSERT_TRUE(InnerIV) << "No such instruction: '%inner.iv'";
+  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+    for (const auto *CtxI : {InnerIV, OuterTerminator}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(InnerIV, CtxI, VF);
+      EXPECT_TRUE(KB.isNonNegative());
+      EXPECT_EQ(KB.countMinTrailingZeros(), (unsigned)1);
+    }
+  }
+
+  // Test inner IV with loop-invariant step.
+  const auto *InnerIV2 = findInstructionByName("inner.iv2");
+  ASSERT_TRUE(InnerIV2) << "No such instruction: '%inner.iv2'";
+  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+    for (const auto *CtxI : {InnerIV2, OuterTerminator}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(InnerIV2, CtxI, VF);
+      EXPECT_EQ(KB.countMinTrailingZeros(), (unsigned)0);
+    }
+  }
+
+  // Test outer IV.
+  const auto *OuterIV = findInstructionByName("outer.iv");
+  ASSERT_TRUE(OuterIV) << "No such instruction: '%outer.iv'";
+  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+    for (const VPInstruction *CtxI : {OuterIV, InnerIV, OuterTerminator}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(OuterIV, CtxI, VF);
+      EXPECT_TRUE(KB.isNonNegative());
+      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(VF));
+      EXPECT_EQ(KB.countMinLeadingZeros(),
+                countLeadingZeros<uint64_t>(128) + 1);
+    }
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, ReductionPHI) {
+  buildVPlanFromString(R"(
+    define void @foo(i64* %elems) {
+    entry:
+      br label %for.body
+
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+      %red = phi i64 [ 0, %entry ], [ %red.next, %for.body ]
+
+      %gep = getelementptr i64, i64* %elems, i64 %iv
+      %elem = load i64, i64* %gep, align 8
+      %red.next = add nuw nsw i64 %red, %elem
+
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 256
+      br i1 %exitcond, label %exit, label %for.body
+
+    exit:
+      ret void
+    }
+  )");
+
+  const VPInstruction *I = findInstructionByName("red");
+  ASSERT_TRUE(I) << "No such instruction: '%red";
+
+  for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+    const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
+    EXPECT_TRUE(KB.isUnknown());
+  }
+}
+
+TEST_F(VPlanComputeKnownBitsTest, ReductionPHI_NestedLoops) {
+  buildVPlanFromString(R"(
+    define void @foo(i64* %elems) {
+    entry:
+      br label %for.body
+
+    for.body:
+      %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.latch ]
+      %outer.red = phi i64 [ 0, %entry ], [ %outer.red.next, %for.latch ]
+      br label %inner.for.body
+
+    inner.for.body:
+      %inner.iv = phi i64 [ 0, %for.body ], [ %inner.iv.next, %inner.for.body ]
+      %inner.red = phi i64 [ 0, %entry ], [ %inner.red.next, %for.body ]
+
+      %inner.gep = getelementptr i64, i64* %elems, i64 %inner.iv
+      %inner.elem = load i64, i64* %inner.gep, align 8
+      %inner.red.next = add nuw nsw i64 %inner.red, %inner.elem
+
+      %inner.iv.next = add nuw nsw i64 %inner.iv, 1
+      %inner.exitcond = icmp eq i64 %inner.iv.next, 256
+      br i1 %inner.exitcond, label %for.latch, label %inner.for.body
+
+    for.latch:
+      %outer.gep = getelementptr i64, i64* %elems, i64 %iv
+      %outer.elem = load i64, i64* %outer.gep, align 8
+      %outer.red.next = add nuw nsw i64 %outer.red, %outer.elem
+
+      %iv.next = add nuw nsw i64 %iv, 1
+      %exitcond = icmp eq i64 %iv.next, 128
+      br i1 %exitcond, label %exit, label %for.body
+
+    exit:
+      ret void
+    }
+  )");
+
+  // Check all values in the context of the outer terminator, as well as their
+  // own context.
+  const VPInstruction *OuterTerminator =
+      Plan->getMainLoop(true)->getLoopLatch()->getTerminator();
+
+  // Inner reduction.
+  const VPInstruction *InnerRed = findInstructionByName("inner.red");
+  ASSERT_TRUE(InnerRed) << "No such instruction: '%inner.red";
+  for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+    for (const VPInstruction *CtxI : {InnerRed, OuterTerminator}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(InnerRed, CtxI, VF);
+      EXPECT_TRUE(KB.isUnknown());
+    }
+  }
+
+  // Outer reduction.
+  const VPInstruction *OuterRed = findInstructionByName("outer.red");
+  ASSERT_TRUE(OuterRed) << "No such instruction: '%outer.red";
+  for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
+    for (const VPInstruction *CtxI : {InnerRed, OuterRed, OuterTerminator}) {
+      const auto KB = Plan->getVPVT()->getKnownBits(OuterRed, CtxI, VF);
+      EXPECT_TRUE(KB.isUnknown());
+    }
+  }
 }
 
 } // namespace
