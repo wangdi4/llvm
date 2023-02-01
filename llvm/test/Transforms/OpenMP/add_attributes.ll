@@ -5,6 +5,11 @@
 ; RUN: opt < %s -S -passes=openmp-opt-cgscc -mtriple=riscv64 | FileCheck %s --check-prefix=RISCV_EXT
 ; REQUIRES: x86-registered-target, systemz-registered-target, mips-registered-target, riscv-registered-target
 
+; INTEL_CUSTOMIZATION
+; This test is only run on offload targets, not available currently.
+; If it is run again, the attributes on the for_static_init args must be
+; updated.
+; end INTEL_CUSTOMIZATION
 %struct.omp_lock_t = type { ptr }
 %struct.omp_nest_lock_t = type { ptr }
 %struct.ident_t = type { i32, i32, i32, i32, ptr }
