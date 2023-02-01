@@ -11,7 +11,9 @@
 ; Test thin link stats with both new and old LTO
 ; RUN: llvm-lto -opaque-pointers -thinlto-action=run -stats %t.bc %t2.bc \
 ; RUN:		2>&1 | FileCheck %s --check-prefix=THINLINKSTATS
-; RUN: llvm-lto2 run -opaque-pointers -stats -o %t3 %t.bc %t2.bc \
+; INTEL_CUSTOMIZATION
+; Need to pass -lto-opaque-pointers until xmain changes the default.
+; RUN: llvm-lto2 run -lto-opaque-pointers -opaque-pointers -stats -o %t3 %t.bc %t2.bc \
 ; RUN:          -r %t.bc,hot_function,plx \
 ; RUN:          -r %t.bc,hot, \
 ; RUN:          -r %t.bc,critical, \
@@ -21,6 +23,7 @@
 ; RUN:          -r %t2.bc,none,plx \
 ; RUN:          -r %t2.bc,globalvar,plx \
 ; RUN:          2>&1 | FileCheck %s --check-prefix=THINLINKSTATS
+; end INTEL_CUSTOMIZATION
 
 ; THINLINKSTATS-DAG: 1 function-import   - Number of global variables thin link decided to import
 ; THINLINKSTATS-DAG: 1 function-import  - Number of critical functions thin link decided to import

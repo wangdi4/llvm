@@ -5,10 +5,13 @@
 
 ; RUN: opt -opaque-pointers -thinlto-bc -o %t1.bc %s
 ; RUN: opt -opaque-pointers -thinlto-bc -o %t2.bc %S/Inputs/comdat.ll
-; RUN: llvm-lto2 run -opaque-pointers -save-temps -o %t3 %t1.bc %t2.bc \
+; INTEL_CUSTOMIZATION
+; Need to pass -lto-opaque-pointers until xmain changes the default.
+; RUN: llvm-lto2 run -lto-opaque-pointers -opaque-pointers -save-temps -o %t3 %t1.bc %t2.bc \
 ; RUN:          -r %t1.bc,lwt_fun,plx \
 ; RUN:          -r %t2.bc,main,plx \
 ; RUN:          -r %t2.bc,lwt_fun,
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-dis -o - %t3.1.3.import.bc | FileCheck %s
 
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
