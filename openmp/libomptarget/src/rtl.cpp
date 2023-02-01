@@ -224,7 +224,6 @@ void RTLsTy::loadRTLs() {
 
   DP("Loading RTLs...\n");
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Only check a single plugin if specified by user
   std::vector<const char *> RTLChecked;
@@ -294,10 +293,7 @@ void RTLsTy::loadRTLs() {
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB
 
-  BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", false);
-=======
   BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", true);
->>>>>>> 2a8c9d7c8abfa31487dd60eb7334aa94b64954b1
 
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
