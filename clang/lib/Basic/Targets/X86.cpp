@@ -53,11 +53,10 @@ static constexpr Builtin::Info BuiltinInfoX86[] = {
 #endif // INTEL_CUSTOMIZATION
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-<<<<<<< HEAD
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
 
 #if INTEL_CUSTOMIZATION
@@ -65,17 +64,13 @@ static constexpr Builtin::Info BuiltinInfoX86[] = {
   {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
->>>>>>> 5a7f47cc021bd7a19cb70c9a30755d6b3cb67431
 #include "clang/Basic/BuiltinsX86.def"
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-<<<<<<< HEAD
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
 
 #if INTEL_CUSTOMIZATION
@@ -83,9 +78,6 @@ static constexpr Builtin::Info BuiltinInfoX86[] = {
   {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
->>>>>>> 5a7f47cc021bd7a19cb70c9a30755d6b3cb67431
 #include "clang/Basic/BuiltinsX86_64.def"
 };
 

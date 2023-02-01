@@ -46,7 +46,7 @@ class TargetInfo;
 class IdentifierTable;
 class LangOptions;
 
-enum LanguageID : uint16_t {
+enum LanguageID {
   GNU_LANG = 0x1,            // builtin requires GNU mode.
   C_LANG = 0x2,              // builtin for c only.
   CXX_LANG = 0x4,            // builtin for cplusplus only.
@@ -70,18 +70,6 @@ enum LanguageID : uint16_t {
   ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
 };
 
-struct HeaderDesc {
-  enum HeaderID : uint16_t {
-#define HEADER(ID, NAME) ID,
-#include "clang/Basic/BuiltinHeaders.def"
-#undef HEADER
-  } ID;
-
-  constexpr HeaderDesc(HeaderID ID) : ID(ID) {}
-
-  const char *getName() const;
-};
-
 namespace Builtin {
 enum ID {
   NotBuiltin  = 0,      // This is not a builtin function.
@@ -91,11 +79,10 @@ enum ID {
 };
 
 struct Info {
-  llvm::StringLiteral Name;
-  const char *Type, *Attributes;
-  const char *Features;
-  HeaderDesc Header;
+  llvm::StringRef Name;
+  const char *Type, *Attributes, *HeaderName;
   LanguageID Langs;
+  const char *Features;
 };
 
 /// Holds information about both target-independent and
@@ -242,7 +229,7 @@ public:
   /// If this is a library function that comes from a specific
   /// header, retrieve that header name.
   const char *getHeaderName(unsigned ID) const {
-    return getRecord(ID).Header.getName();
+    return getRecord(ID).HeaderName;
   }
 
   /// Determine whether this builtin is like printf in its
