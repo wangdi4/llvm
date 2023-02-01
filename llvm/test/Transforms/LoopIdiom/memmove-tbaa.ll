@@ -37,14 +37,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 }
 
 
+; could be lowered to either memmove or memcpy ;INTEL
 define void @looperBadMerge(ptr nocapture %out) {
 ; CHECK-LABEL: @looperBadMerge(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[M:%.*]] = getelementptr double, ptr [[OUT:%.*]], i32 16
-; INTEL_CUSTOMIZATION
-; could be lowered to either memmove or memcpy
-; CHECK-NEXT:    call void @llvm.mem{{.*}}.p0.p0.i64(ptr align 8 [[OUT]], ptr align 8 [[M]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    call void @llvm.mem{{.*}}.p0.p0.i64(ptr align 8 [[OUT]], ptr align 8 [[M]], i64 256, i1 false), !tbaa [[TBAAF:![0-9]+]] ;INTEL
 ; CHECK-NEXT:    br label [[FOR_BODY4:%.*]]
 ; CHECK:       for.body4:
 ; CHECK-NEXT:    [[J_020:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY4]] ]
