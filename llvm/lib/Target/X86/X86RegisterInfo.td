@@ -124,6 +124,28 @@ def R13B : X86Reg<"r13b", 13>;
 def R14B : X86Reg<"r14b", 14>;
 def R15B : X86Reg<"r15b", 15>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+def R16B : X86Reg<"r16b", 16>;
+def R17B : X86Reg<"r17b", 17>;
+def R18B : X86Reg<"r18b", 18>;
+def R19B : X86Reg<"r19b", 19>;
+def R20B : X86Reg<"r20b", 20>;
+def R21B : X86Reg<"r21b", 21>;
+def R22B : X86Reg<"r22b", 22>;
+def R23B : X86Reg<"r23b", 23>;
+def R24B : X86Reg<"r24b", 24>;
+def R25B : X86Reg<"r25b", 25>;
+def R26B : X86Reg<"r26b", 26>;
+def R27B : X86Reg<"r27b", 27>;
+def R28B : X86Reg<"r28b", 28>;
+def R29B : X86Reg<"r29b", 29>;
+def R30B : X86Reg<"r30b", 30>;
+def R31B : X86Reg<"r31b", 31>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 let isArtificial = 1 in {
 // High byte of the low 16 bits of the super-register:
 def SIH   : X86Reg<"", -1>;
@@ -138,6 +160,26 @@ def R12BH : X86Reg<"", -1>;
 def R13BH : X86Reg<"", -1>;
 def R14BH : X86Reg<"", -1>;
 def R15BH : X86Reg<"", -1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def R16BH : X86Reg<"", -1>;
+def R17BH : X86Reg<"", -1>;
+def R18BH : X86Reg<"", -1>;
+def R19BH : X86Reg<"", -1>;
+def R20BH : X86Reg<"", -1>;
+def R21BH : X86Reg<"", -1>;
+def R22BH : X86Reg<"", -1>;
+def R23BH : X86Reg<"", -1>;
+def R24BH : X86Reg<"", -1>;
+def R25BH : X86Reg<"", -1>;
+def R26BH : X86Reg<"", -1>;
+def R27BH : X86Reg<"", -1>;
+def R28BH : X86Reg<"", -1>;
+def R29BH : X86Reg<"", -1>;
+def R30BH : X86Reg<"", -1>;
+def R31BH : X86Reg<"", -1>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // High word of the low 32 bits of the super-register:
 def HAX   : X86Reg<"", -1>;
 def HDX   : X86Reg<"", -1>;
@@ -156,6 +198,26 @@ def R12WH : X86Reg<"", -1>;
 def R13WH : X86Reg<"", -1>;
 def R14WH : X86Reg<"", -1>;
 def R15WH : X86Reg<"", -1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def R16WH : X86Reg<"", -1>;
+def R17WH : X86Reg<"", -1>;
+def R18WH : X86Reg<"", -1>;
+def R19WH : X86Reg<"", -1>;
+def R20WH : X86Reg<"", -1>;
+def R21WH : X86Reg<"", -1>;
+def R22WH : X86Reg<"", -1>;
+def R23WH : X86Reg<"", -1>;
+def R24WH : X86Reg<"", -1>;
+def R25WH : X86Reg<"", -1>;
+def R26WH : X86Reg<"", -1>;
+def R27WH : X86Reg<"", -1>;
+def R28WH : X86Reg<"", -1>;
+def R29WH : X86Reg<"", -1>;
+def R30WH : X86Reg<"", -1>;
+def R31WH : X86Reg<"", -1>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 // 16-bit registers
@@ -185,6 +247,30 @@ def R14W : X86Reg<"r14w", 14, [R14B,R14BH]>;
 def R15W : X86Reg<"r15w", 15, [R15B,R15BH]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+let SubRegIndices = [sub_8bit, sub_8bit_hi_phony], CoveredBySubRegs = 1 in {
+def R16W : X86Reg<"r16w", 16, [R16B,R16BH]>;
+def R17W : X86Reg<"r17w", 17, [R17B,R17BH]>;
+def R18W : X86Reg<"r18w", 18, [R18B,R18BH]>;
+def R19W : X86Reg<"r19w", 19, [R19B,R19BH]>;
+def R20W : X86Reg<"r20w", 20, [R20B,R20BH]>;
+def R21W : X86Reg<"r21w", 21, [R21B,R21BH]>;
+def R22W : X86Reg<"r22w", 22, [R22B,R22BH]>;
+def R23W : X86Reg<"r23w", 23, [R23B,R23BH]>;
+def R24W : X86Reg<"r24w", 24, [R24B,R24BH]>;
+def R25W : X86Reg<"r25w", 25, [R25B,R25BH]>;
+def R26W : X86Reg<"r26w", 26, [R26B,R26BH]>;
+def R27W : X86Reg<"r27w", 27, [R27B,R27BH]>;
+def R28W : X86Reg<"r28w", 28, [R28B,R28BH]>;
+def R29W : X86Reg<"r29w", 29, [R29B,R29BH]>;
+def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
+def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // 32-bit registers
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
 def EAX : X86Reg<"eax", 0, [AX, HAX]>, DwarfRegNum<[-2, 0, 0]>;
@@ -210,6 +296,30 @@ def R14D : X86Reg<"r14d", 14, [R14W,R14WH]>;
 def R15D : X86Reg<"r15d", 15, [R15W,R15WH]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
+def R16D : X86Reg<"r16d", 16, [R16W,R16WH]>;
+def R17D : X86Reg<"r17d", 17, [R17W,R17WH]>;
+def R18D : X86Reg<"r18d", 18, [R18W,R18WH]>;
+def R19D : X86Reg<"r19d", 19, [R19W,R19WH]>;
+def R20D : X86Reg<"r20d", 20, [R20W,R20WH]>;
+def R21D : X86Reg<"r21d", 21, [R21W,R21WH]>;
+def R22D : X86Reg<"r22d", 22, [R22W,R22WH]>;
+def R23D : X86Reg<"r23d", 23, [R23W,R23WH]>;
+def R24D : X86Reg<"r24d", 24, [R24W,R24WH]>;
+def R25D : X86Reg<"r25d", 25, [R25W,R25WH]>;
+def R26D : X86Reg<"r26d", 26, [R26W,R26WH]>;
+def R27D : X86Reg<"r27d", 27, [R27W,R27WH]>;
+def R28D : X86Reg<"r28d", 28, [R28W,R28WH]>;
+def R29D : X86Reg<"r29d", 29, [R29W,R29WH]>;
+def R30D : X86Reg<"r30d", 30, [R30W,R30WH]>;
+def R31D : X86Reg<"r31d", 31, [R31W,R31WH]>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // 64-bit registers, X86-64 only
 let SubRegIndices = [sub_32bit] in {
 def RAX : X86Reg<"rax", 0, [EAX]>, DwarfRegNum<[0, -2, -2]>;
@@ -231,6 +341,28 @@ def R13 : X86Reg<"r13", 13, [R13D]>, DwarfRegNum<[13, -2, -2]>;
 def R14 : X86Reg<"r14", 14, [R14D]>, DwarfRegNum<[14, -2, -2]>;
 def R15 : X86Reg<"r15", 15, [R15D]>, DwarfRegNum<[15, -2, -2]>;
 def RIP : X86Reg<"rip",  0, [EIP]>,  DwarfRegNum<[16, -2, -2]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[126, -2, -2]>;
+def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[127, -2, -2]>;
+def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[128, -2, -2]>;
+def R19 : X86Reg<"r19", 19, [R19D]>, DwarfRegNum<[129, -2, -2]>;
+def R20 : X86Reg<"r20", 20, [R20D]>, DwarfRegNum<[130, -2, -2]>;
+def R21 : X86Reg<"r21", 21, [R21D]>, DwarfRegNum<[131, -2, -2]>;
+def R22 : X86Reg<"r22", 22, [R22D]>, DwarfRegNum<[132, -2, -2]>;
+def R23 : X86Reg<"r23", 23, [R23D]>, DwarfRegNum<[133, -2, -2]>;
+def R24 : X86Reg<"r24", 24, [R24D]>, DwarfRegNum<[134, -2, -2]>;
+def R25 : X86Reg<"r25", 25, [R25D]>, DwarfRegNum<[135, -2, -2]>;
+def R26 : X86Reg<"r26", 26, [R26D]>, DwarfRegNum<[136, -2, -2]>;
+def R27 : X86Reg<"r27", 27, [R27D]>, DwarfRegNum<[137, -2, -2]>;
+def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[138, -2, -2]>;
+def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[139, -2, -2]>;
+def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[140, -2, -2]>;
+def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[141, -2, -2]>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 // MMX Registers. These are actually aliased to ST0 .. ST7
