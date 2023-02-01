@@ -213,7 +213,7 @@ static void dllExportGlobalCtors(Module *M) {
   if (!GV)
     return;
 
-  auto *Ctors = dyn_cast<ConstantArray>(GV->getInitializer());
+  auto *Ctors = cast<ConstantArray>(GV->getInitializer());
 
   for (Value *CtorVal : Ctors->operand_values()) {
     Constant *Ctor = cast<Constant>(CtorVal);
