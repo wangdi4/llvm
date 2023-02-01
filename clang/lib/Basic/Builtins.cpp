@@ -35,15 +35,26 @@
 #include "llvm/ADT/StringRef.h"
 using namespace clang;
 
+const char *HeaderDesc::getName() const {
+  switch (ID) {
+#define HEADER(ID, NAME)                                                       \
+  case ID:                                                                     \
+    return NAME;
+#include "clang/Basic/BuiltinHeaders.def"
+#undef HEADER
+  };
+  llvm_unreachable("Unknown HeaderDesc::HeaderID enum");
+}
+
 static constexpr Builtin::Info BuiltinInfo[] = {
-    {"not a builtin function", nullptr, nullptr, nullptr, ALL_LANGUAGES,
-     nullptr},
+    {"not a builtin function", nullptr, nullptr, nullptr, HeaderDesc::NO_HEADER,
+     ALL_LANGUAGES},
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
-  { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANGS},
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER, LANGS)                             \
-  { #ID, TYPE, ATTRS, HEADER, LANGS, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::HEADER, LANGS},
 #include "clang/Basic/Builtins.def"
 };
 
@@ -99,7 +110,6 @@ static bool CheckIntelBuiltinSupported(const Builtin::Info &BuiltinInfo,
 /// Is this builtin supported according to the given language options?
 static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
                                const LangOptions &LangOpts) {
-// <<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Allow Intel builtins to be enabled separately, returns 'true' if we
   // override the builtin to be enabled with Intel compat.
@@ -117,8 +127,7 @@ static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
   if (!LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG))
     return false;
   /* MathBuiltins Unsupported */
-  if (LangOpts.NoMathBuiltin &&
-      llvm::StringRef(BuiltinInfo.HeaderName).equals("math.h"))
+  if (LangOpts.NoMathBuiltin && BuiltinInfo.Header.ID == HeaderDesc::MATH_H)
     return false;
   /* GnuMode Unsupported */
   if (!LangOpts.GNUMode && (BuiltinInfo.Langs & GNU_LANG))
@@ -142,39 +151,6 @@ static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
        (BuiltinInfo.Langs & ALL_OCL_PIPE) == INTEL_FPGA_PIPE1X))
     return false;
 #endif // INTEL_CUSTOMIZATION
-// =======
-//   /* Builtins Unsupported */
-//   if (LangOpts.NoBuiltin && strchr(BuiltinInfo.Attributes, 'f') != nullptr)
-//     return false;
-//   /* CorBuiltins Unsupported */
-//   if (!LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG))
-//     return false;
-//   /* MathBuiltins Unsupported */
-//   if (LangOpts.NoMathBuiltin && BuiltinInfo.Header.ID == HeaderDesc::MATH_H)
-//     return false;
-//   /* GnuMode Unsupported */
-//   if (!LangOpts.GNUMode && (BuiltinInfo.Langs & GNU_LANG))
-//     return false;
-//   /* MSMode Unsupported */
-//   if (!LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG))
-//     return false;
-//   /* ObjC Unsupported */
-//   if (!LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG)
-//     return false;
-//   /* OpenCLC Unsupported */
-//   if (!LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES))
-//     return false;
-//   /* OopenCL GAS Unsupported */
-//   if (!LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS))
-//     return false;
-//   /* OpenCL Pipe Unsupported */
-//   if (!LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE))
-//     return false;
-
-//   // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
-//   // support is indicated with language option for blocks.
-
-// >>>>>>> 35912ad39d8a0f244f36d24526ec70b8b028a6e0
   /* OpenCL DSE Unsupported */
   if ((LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
       (BuiltinInfo.Langs & OCL_DSE))

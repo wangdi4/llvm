@@ -46,7 +46,7 @@ class TargetInfo;
 class IdentifierTable;
 class LangOptions;
 
-enum LanguageID {
+enum LanguageID : uint16_t {
   GNU_LANG = 0x1,            // builtin requires GNU mode.
   C_LANG = 0x2,              // builtin for c only.
   CXX_LANG = 0x4,            // builtin for cplusplus only.
@@ -61,13 +61,25 @@ enum LanguageID {
   ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
   HLSL_LANG = 0x1000,        // builtin requires HLSL.
 #if INTEL_CUSTOMIZATION
-  ICC_LANG = 0x2000,             // INTEL: builtin requires ICC mode.
-  INTEL_FPGA_PIPE1X = 0x4000,    // INTEL: pipe builtin for OpenCL C 1.x only.
+  ICC_LANG = 0x2000,          // INTEL: builtin requires ICC mode.
+  INTEL_FPGA_PIPE1X = 0x4000, // INTEL: pipe builtin for OpenCL C 1.x only.
   ALL_OCL_PIPE = INTEL_FPGA_PIPE1X | OCL_PIPE,
 #endif // INTEL_CUSTOMIZATION
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
   ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
   ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
+};
+
+struct HeaderDesc {
+  enum HeaderID : uint16_t {
+#define HEADER(ID, NAME) ID,
+#include "clang/Basic/BuiltinHeaders.def"
+#undef HEADER
+  } ID;
+
+  constexpr HeaderDesc(HeaderID ID) : ID(ID) {}
+
+  const char *getName() const;
 };
 
 namespace Builtin {
@@ -79,10 +91,11 @@ enum ID {
 };
 
 struct Info {
-  llvm::StringRef Name;
-  const char *Type, *Attributes, *HeaderName;
-  LanguageID Langs;
+  llvm::StringLiteral Name;
+  const char *Type, *Attributes;
   const char *Features;
+  HeaderDesc Header;
+  LanguageID Langs;
 };
 
 /// Holds information about both target-independent and
@@ -229,7 +242,7 @@ public:
   /// If this is a library function that comes from a specific
   /// header, retrieve that header name.
   const char *getHeaderName(unsigned ID) const {
-    return getRecord(ID).HeaderName;
+    return getRecord(ID).Header.getName();
   }
 
   /// Determine whether this builtin is like printf in its
