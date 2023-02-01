@@ -720,26 +720,19 @@ int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
 }
 
 // Run region on device
-int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
-                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                            AsyncInfoTy &AsyncInfo) {
+int32_t DeviceTy::launchKernel(void *TgtEntryPtr, void **TgtVarsPtr,
+                               ptrdiff_t *TgtOffsets,
+                               const KernelArgsTy &KernelArgs,
+                               AsyncInfoTy &AsyncInfo) {
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
-  int32_t Ret;
-  if (!RTL->run_region_async || !RTL->synchronize)
-    Ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                          TgtVarsSize);
-  else
-    Ret = RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, AsyncInfo);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, KernelArgs.NumTeams[0]));
+  int32_t Ret = RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                   TgtOffsets, &KernelArgs, AsyncInfo);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, KernelArgs.NumTeams[0]));
   return Ret;
 #else // INTEL_CUSTOMIZATION
-  if (!RTL->run_region_async || !RTL->synchronize)
-    return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                           TgtVarsSize);
-  return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                               TgtVarsSize, AsyncInfo);
+  return RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+                            &KernelArgs, AsyncInfo);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -749,36 +742,6 @@ bool DeviceTy::printDeviceInfo(int32_t RTLDevId) {
     return false;
   RTL->print_device_info(RTLDevId);
   return true;
-}
-
-// Run team region on device.
-int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
-                                ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                int32_t NumTeams, int32_t ThreadLimit,
-                                uint64_t LoopTripCount,
-                                AsyncInfoTy &AsyncInfo) {
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t Ret;
-  if (!RTL->run_team_region_async || !RTL->synchronize)
-    Ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                               TgtVarsSize, NumTeams, ThreadLimit,
-                               LoopTripCount);
-  else
-    Ret = RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                     TgtOffsets, TgtVarsSize, NumTeams,
-                                     ThreadLimit, LoopTripCount, AsyncInfo);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return Ret;
-#else // INTEL_CUSTOMIZATION
-  if (!RTL->run_team_region_async || !RTL->synchronize)
-    return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
-                                LoopTripCount);
-  return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                    TgtOffsets, TgtVarsSize, NumTeams,
-                                    ThreadLimit, LoopTripCount, AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_COLLAB
