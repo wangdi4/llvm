@@ -386,7 +386,6 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
   return TLII;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void addSymbolRewriterPass(const CodeGenOptions &Opts,
                                   legacy::PassManager *MPM) {
@@ -400,23 +399,6 @@ static void addSymbolRewriterPass(const CodeGenOptions &Opts,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
-  switch (CodeGenOpts.OptimizationLevel) {
-  default:
-    llvm_unreachable("Invalid optimization level!");
-  case 0:
-    return CodeGenOpt::None;
-  case 1:
-    return CodeGenOpt::Less;
-  case 2:
-    return CodeGenOpt::Default; // O2/Os/Oz
-  case 3:
-    return CodeGenOpt::Aggressive;
-  }
-}
-
-=======
->>>>>>> 25c0ea2a5370813f46686918a84e0de27e107d08
 static std::optional<llvm::CodeModel::Model>
 getCodeModel(const CodeGenOptions &CodeGenOpts) {
   unsigned CodeModel = llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
