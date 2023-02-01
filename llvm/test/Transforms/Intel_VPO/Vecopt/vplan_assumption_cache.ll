@@ -21,6 +21,11 @@
 ;CHECK-NEXT: Assume: call i1 true i8* [[NONNULL]] i8* [[ALIGN]] i64 32 void (i1)* @llvm.assume
 ;CHECK-NEXT: Index:  1
 
+;CHECK: Registering assumption: call i1 [[COND:%.*]] void (i1)* @llvm.assume
+;CHECK: Inserting assumption cache elem for 'i1 [[COND]]'
+;CHECK-NEXT: Assume: call i1 [[COND]] void (i1)* @llvm.assume
+;CHECK-NEXT: Index:  <expr>
+
 ;CHECK: Inserting assumption cache elem for 'i8* %lp1'
 ;CHECK-NEXT: Assume: call void @llvm.assume(i1 true) [ "align"(i8* %lp1, i64 16) ]
 ;CHECK-NEXT: Index:  0
@@ -93,6 +98,8 @@ inner.for.ph:
 inner.for.body:
   %inner.iv = phi i64 [ 0, %inner.for.ph ], [ %inner.add, %inner.for.body ]
   call void @llvm.assume(i1 true) [ "nonnull"(i8* %lp2), "align"(i8* %lp2, i64 32) ]
+  %assume.cond = icmp eq i64 0, 0
+  call void @llvm.assume(i1 %assume.cond)
   %inner.add = add nuw nsw i64 %inner.iv, 1
   %elem = load i8, i8* %lp1, align 8
   %elem2 = load i8, i8* %lp2, align 8

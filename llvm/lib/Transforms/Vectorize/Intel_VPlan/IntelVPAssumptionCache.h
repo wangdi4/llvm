@@ -1,6 +1,6 @@
 //===- IntelVPAssumptionCache.h ---------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -62,6 +62,9 @@ public:
   ///  - AssumeInst (external to the plan), or
   ///  - VPCallInstruction (internal to the plan).
   using AssumeT = PointerUnion<const AssumeInst *, const VPCallInstruction *>;
+
+  /// Index representing the argument to the call to llvm.assume.
+  enum : unsigned { ExprResultIdx = llvm::AssumptionCache::ExprResultIdx };
 
   /// A result elem is the cache's element type: a pair consisting of a user
   /// (the Assume) and an index into that user to the operand bundle that
