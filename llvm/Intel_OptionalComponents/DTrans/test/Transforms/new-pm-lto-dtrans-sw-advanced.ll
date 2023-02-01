@@ -33,8 +33,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on main
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on main
+; CHECK-NEXT: Running analysis: LoopAnalysis on main
 ; CHECK-NEXT: Running pass: IPCloningPass
 ; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
