@@ -18,7 +18,6 @@
 #include "OclBuiltinEmitter.h"
 
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 #include <algorithm>
 #include <sstream>
