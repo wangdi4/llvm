@@ -1339,7 +1339,6 @@ static ze_context_handle_t createContext(ze_driver_handle_t Driver) {
 struct RTLFlagsTy {
   uint64_t DumpTargetImage : 1;
   uint64_t EnableProfile : 1;
-  uint64_t EnableTargetGlobals : 1;
   uint64_t LinkLibDevice : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
@@ -1349,21 +1348,13 @@ struct RTLFlagsTy {
   uint64_t ShowBuildLog : 1;
   uint64_t UseInteropImmCmdList : 1;
   uint64_t NoSYCLFlush : 1;
-  uint64_t Reserved : 52;
-  RTLFlagsTy() :
-      DumpTargetImage(0),
-      EnableProfile(0),
-      EnableTargetGlobals(0),
-      LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
-      UseHostMemForUSM(0),
-      UseMemoryPool(1),
-      UseDriverGroupSizes(0),
-      UseImageOptions(1),
-      UseMultipleComputeQueues(0),
-      ShowBuildLog(0),
-      UseInteropImmCmdList(0),
-      NoSYCLFlush(0),
-      Reserved(0) {}
+  uint64_t Reserved : 53;
+  RTLFlagsTy()
+      : DumpTargetImage(0), EnableProfile(0),
+        LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
+        UseHostMemForUSM(0), UseMemoryPool(1), UseDriverGroupSizes(0),
+        UseImageOptions(1), UseMultipleComputeQueues(0), ShowBuildLog(0),
+        UseInteropImmCmdList(0), NoSYCLFlush(0), Reserved(0) {}
 };
 
 /// Loop descriptor
@@ -1562,9 +1553,6 @@ struct RTLOptionTy {
   /// Binary flags
   RTLFlagsTy Flags;
 
-  /// Emulated data transfer latency in microsecond
-  uint32_t DataTransferLatency = 0;
-
   /// Device type
   int32_t DeviceType = ZE_DEVICE_TYPE_GPU;
 
@@ -1621,9 +1609,6 @@ struct RTLOptionTy {
   uint32_t ReductionSubscriptionRate = 16;
   bool ReductionSubscriptionRateIsDefault = true;
 
-  /// Forced kernel width only for internal experiments
-  uint32_t ForcedKernelWidth = 0;
-
   /// Loop kernels with known ND-range may be known to have
   /// few iterations and they may not exploit the offload device
   /// to the fullest extent.
@@ -1645,12 +1630,6 @@ struct RTLOptionTy {
   /// Decides how subdevices are exposed as OpenMP devices
   int32_t DeviceMode = DEVICE_MODE_TOP;
 
-#if INTEL_INTERNAL_BUILD
-  /// Forced GWS/LWS only for internal experiments
-  uint32_t ForcedLocalSizes[3] = {0, 0, 0};
-  uint32_t ForcedGlobalSizes[3] = {0, 0, 0};
-#endif // INTEL_INTERNAL_BUILD
-
   /// Enable/disable using immediate command lists
   /// 0: Disable, 1: Compute, 2: Copy, 3: All
   uint32_t UseImmCmdList = 0;
@@ -1662,7 +1641,7 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string InternalCompilationOptions = "";
+  std::string InternalCompilationOptions = "-cl-take-global-address";
   std::string UserCompilationOptions = "";
 
   // Spec constants used for all modules.
@@ -1671,15 +1650,6 @@ struct RTLOptionTy {
   /// Read environment variables
   RTLOptionTy() {
     const char *Env = nullptr;
-
-    // Data transfer latency
-    if ((Env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
-      std::string Value(Env);
-      if (Value.substr(0, 2) == "T,") {
-        int32_t Usec = std::stoi(Value.substr(2).c_str());
-        DataTransferLatency = (Usec > 0) ? Usec : 0;
-      }
-    }
 
     // Target device type
     if ((Env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
@@ -1719,13 +1689,6 @@ struct RTLOptionTy {
       UserCompilationOptions += std::string(" ") + Env;
 
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
-      // Intel Graphics compilers that do not support that option
-      // silently ignore it. Other OpenCL compilers may fail.
-      Env = readEnvVar("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
-      if (!Env || parseBool(Env) != 0) {
-        InternalCompilationOptions += " -cl-take-global-address ";
-        Flags.EnableTargetGlobals = 1;
-      }
       Env = readEnvVar("LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI");
       if (!Env || parseBool(Env) != 0) {
         InternalCompilationOptions += " -cl-match-sincospi ";
@@ -1925,12 +1888,6 @@ struct RTLOptionTy {
         DP("Warning: Ignoring unknown target memory kind %s.\n", Env);
     }
 
-    // Target allocation kind
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DEVICE_MEM"))) {
-      if (parseBool(Env) == 1)
-        TargetAllocKind = TARGET_ALLOC_DEVICE;
-    }
-
     // Subscription rate
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE"))) {
       int32_t Value = std::stoi(Env);
@@ -1948,13 +1905,6 @@ struct RTLOptionTy {
         ReductionSubscriptionRate = Value;
         ReductionSubscriptionRateIsDefault = false;
       }
-    }
-
-    // Forced kernel width
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_KERNEL_WIDTH"))) {
-      int32_t Value = std::stoi(Env);
-      if (Value == 8 || Value == 16 || Value == 32)
-        ForcedKernelWidth = Value;
     }
 
 #if INTEL_CUSTOMIZATION
@@ -3669,14 +3619,6 @@ static int32_t getAllocKinds(uint32_t L0DeviceId) {
   return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
 }
 
-static void addDataTransferLatency() {
-  if (DeviceInfo->Option.DataTransferLatency == 0)
-    return;
-  double goal = omp_get_wtime() + 1e-6 * DeviceInfo->Option.DataTransferLatency;
-  while (omp_get_wtime() < goal)
-    ;
-}
-
 /// Clean-up routine to be invoked by the destructor or __tgt_rtl_deinit.
 static void closeRTL() {
   // Nothing to clean up
@@ -3922,9 +3864,6 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   ScopedTimerTy Timer(DeviceId, "DataWrite (Host to Device)");
 
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
-
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_SHARED ||
       TgtPtrType == ZE_MEMORY_TYPE_HOST) {
@@ -3967,9 +3906,6 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 #endif // INTEL_CUSTOMIZATION
 
   ScopedTimerTy Timer(DeviceId, "DataRead (Device to Host)");
-
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
 
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_HOST ||
@@ -4414,28 +4350,6 @@ static void decideKernelGroupArguments(
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
-#if INTEL_INTERNAL_BUILD
-static void forceGroupSizes(
-    uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
-  // Use forced group sizes. This is only for internal experiments, and we
-  // don't want to plug these numbers into the decision logic.
-  auto userLWS = DeviceInfo->Option.ForcedLocalSizes;
-  auto userGWS = DeviceInfo->Option.ForcedGlobalSizes;
-  if (userLWS[0] > 0) {
-    std::copy(userLWS, userLWS + 3, GroupSizes);
-    DP("Forced LWS = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", userLWS[0],
-       userLWS[1], userLWS[2]);
-  }
-  if (userGWS[0] > 0) {
-    GroupCounts.groupCountX = (userGWS[0] + GroupSizes[0] - 1) / GroupSizes[0];
-    GroupCounts.groupCountY = (userGWS[1] + GroupSizes[1] - 1) / GroupSizes[1];
-    GroupCounts.groupCountZ = (userGWS[2] + GroupSizes[2] - 1) / GroupSizes[2];
-    DP("Forced GWS = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", userGWS[0],
-       userGWS[1], userGWS[2]);
-  }
-}
-#endif // INTEL_INTERNAL_BUILD
-
 static int32_t runTargetTeamRegion(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
@@ -4520,10 +4434,6 @@ static int32_t runTargetTeamRegion(
     KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
                               ThreadLimit, GroupSizes, GroupCounts);
   }
-
-#if INTEL_INTERNAL_BUILD
-  forceGroupSizes(GroupSizes, GroupCounts);
-#endif // INTEL_INTERNAL_BUILD
 
   DP("Team sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupSizes[0], GroupSizes[1], GroupSizes[2]);
@@ -6118,8 +6028,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     return OFFLOAD_SUCCESS;
   }
 
-  auto EnableTargetGlobals = DeviceInfo->Option.Flags.EnableTargetGlobals;
-  if (NumEntries > 0 && EnableTargetGlobals && !loadOffloadTable(NumEntries))
+  if (NumEntries > 0 && !loadOffloadTable(NumEntries))
     DP("Warning: could not load offload table.\n");
 
   // We need to build kernels here before filling the offload entries since we
@@ -6152,8 +6061,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
       auto HstAddr = Image->EntriesBegin[I].addr;
       void *TgtAddr = nullptr;
 
-      if (EnableTargetGlobals)
-        TgtAddr = getOffloadVarDeviceAddr(Name, Size);
+      TgtAddr = getOffloadVarDeviceAddr(Name, Size);
 
       if (!TgtAddr) {
         TgtAddr = DeviceInfo->dataAlloc(DeviceId, Size, 0, TARGET_ALLOC_DEFAULT,
@@ -6234,23 +6142,19 @@ int32_t LevelZeroProgramTy::buildKernels() {
       KP.pNext = &KPrefGRPSize;
 #endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
-    if (DeviceInfo->Option.ForcedKernelWidth > 0) {
-      KernelPR.Width = DeviceInfo->Option.ForcedKernelWidth;
-    } else {
-      KernelPR.SIMDWidth = KP.maxSubgroupSize;
-      KernelPR.Width = KP.maxSubgroupSize;
-      // Here we try to match OpenCL kernel property
-      // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
+    KernelPR.SIMDWidth = KP.maxSubgroupSize;
+    KernelPR.Width = KP.maxSubgroupSize;
+    // Here we try to match OpenCL kernel property
+    // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE for "Width".
 #ifndef _WIN32
-      if (KP.pNext)
-        KernelPR.Width = KPrefGRPSize.preferredMultiple;
+    if (KP.pNext)
+      KernelPR.Width = KPrefGRPSize.preferredMultiple;
 #endif
-      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
+    if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9) {
 #if INTEL_CUSTOMIZATION
-        // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
+      // Adjust kernel width to address performance issue (CMPLRLIBS-33997).
 #endif // INTEL_CUSTOMIZATION
-        KernelPR.Width = (std::max)(KernelPR.Width, 2 * KernelPR.SIMDWidth);
-      }
+      KernelPR.Width = (std::max)(KernelPR.Width, 2 * KernelPR.SIMDWidth);
     }
     DP("Kernel %zu: Entry = " DPxMOD ", Name = %s, "
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,

@@ -742,10 +742,7 @@ public:
 
 /// RTL flags
 struct RTLFlagsTy {
-  uint64_t CollectDataTransferLatency : 1;
   uint64_t EnableProfile : 1;
-  uint64_t UseInteropQueueInorderAsync : 1;
-  uint64_t UseInteropQueueInorderSharedSync : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
@@ -756,22 +753,11 @@ struct RTLFlagsTy {
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
   // Add new flags here
-  uint64_t Reserved : 51;
-  RTLFlagsTy() :
-      CollectDataTransferLatency(0),
-      EnableProfile(0),
-      UseInteropQueueInorderAsync(0),
-      UseInteropQueueInorderSharedSync(0),
-      UseHostMemForUSM(0),
-      UseDriverGroupSizes(0),
-      EnableSimd(0),
-      UseSVM(0),
-      UseBuffer(0),
-      UseSingleContext(0),
-      UseImageOptions(1),
-      ShowBuildLog(0),
-      LinkLibDevice(0),
-      Reserved(0) {}
+  uint64_t Reserved : 54;
+  RTLFlagsTy()
+      : EnableProfile(0), UseHostMemForUSM(0), UseDriverGroupSizes(0),
+        EnableSimd(0), UseSVM(0), UseBuffer(0), UseSingleContext(0),
+        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0), Reserved(0) {}
 };
 
 /// Kernel properties.
@@ -965,9 +951,6 @@ struct RTLOptionTy {
   /// Binary flags
   RTLFlagsTy Flags;
 
-  /// Emulated data transfer latency in microsecond
-  int32_t DataTransferLatency = 0;
-
   /// Data transfer method when SVM is used
   int32_t DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
 
@@ -1067,16 +1050,6 @@ struct RTLOptionTy {
     NumTeams = (NTeams > 0 &&
         NTeams != (std::numeric_limits<int32_t>::max)()) ? NTeams : 0;
 
-    // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
-    if ((Env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
-      std::string Value(Env);
-      if (Value.substr(0, 2) == "T,") {
-        Flags.CollectDataTransferLatency = 1;
-        int32_t Usec = std::stoi(Value.substr(2).c_str());
-        DataTransferLatency = (Usec > 0) ? Usec : 0;
-      }
-    }
-
     // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD"))) {
       std::string Value(Env);
@@ -1155,29 +1128,6 @@ struct RTLOptionTy {
         WARNING("Invalid or unsupported LIBOMPTARGET_ENABLE_SIMD=%s\n", Env);
     }
 
-    // TODO: deprecate this variable since the default behavior is equivalent
-    //       to "inorder_async" and "inorder_shared_sync".
-    // Read LIBOMPTARGET_OPENCL_INTEROP_QUEUE
-    // Two independent options can be specified as follows.
-    // -- inorder_async: use a new in-order queue for asynchronous case
-    //    (default: shared out-of-order queue)
-    // -- inorder_shared_sync: use the existing shared in-order queue for
-    //    synchronous case (default: new in-order queue).
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_INTEROP_QUEUE",
-                          "LIBOMPTARGET_INTEROP_PIPE"))) {
-      std::istringstream Value(Env);
-      std::string Token;
-      while (std::getline(Value, Token, ',')) {
-        if (Token == "inorder_async") {
-          Flags.UseInteropQueueInorderAsync = 1;
-          DP("    enabled in-order asynchronous separate queue\n");
-        } else if (Token == "inorder_shared_sync") {
-          Flags.UseInteropQueueInorderSharedSync = 1;
-          DP("    enabled in-order synchronous shared queue\n");
-        }
-      }
-    }
-
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS"))) {
       UserCompilationOptions += Env;
     }
@@ -1191,9 +1141,8 @@ struct RTLOptionTy {
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
     if (DeviceType == CL_DEVICE_TYPE_GPU) {
-      Env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS");
-      if (!Env || parseBool(Env) != 0)
-        InternalLinkingOptions += " -cl-take-global-address ";
+      // Always turn this option on for GPU devices
+      InternalLinkingOptions += " -cl-take-global-address ";
       Env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI");
       if (!Env || parseBool(Env) != 0)
         InternalLinkingOptions += " -cl-match-sincospi ";
@@ -1790,15 +1739,6 @@ static std::string getDeviceRTLPath(const char *BaseName) {
   return RTLPath;
 }
 
-static inline void addDataTransferLatency() {
-  if (!DeviceInfo->Option.Flags.CollectDataTransferLatency)
-    return;
-  double goal = omp_get_wtime() + 1e-6 * DeviceInfo->Option.DataTransferLatency;
-  // Naive spinning should be enough
-  while (omp_get_wtime() < goal)
-    ;
-}
-
 // FIXME: move this to llvm/BinaryFormat/ELF.h and elf.h:
 #define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
 #define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT 2
@@ -2064,9 +2004,6 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   auto &Queue = DeviceInfo->Queues[DeviceId];
 
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
-
   const char *ProfileKey = "DataWrite (Host to Device)";
   cl_event Event = nullptr;
 
@@ -2138,9 +2075,6 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     return OFFLOAD_SUCCESS;
 
   auto &Queue = DeviceInfo->Queues[DeviceId];
-
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
 
   const char *ProfileKey = "DataRead (Device to Host)";
   cl_event Event = nullptr;
