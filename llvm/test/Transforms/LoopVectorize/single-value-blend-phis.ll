@@ -203,11 +203,11 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, ptr noalias %dst) {
 ; and thus end up with serializing the instruction rather then widening.
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc i64 [[INDEX]] to i16
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i16 [[TMP0]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i16> poison, i16 [[TMP1]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i16> poison, i16 [[TMP1]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i16> [[BROADCAST_SPLATINSERT3]], <2 x i16> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[INDEX]] to i16
 ; CHECK-NEXT:    [[TMP3:%.*]] = add i16 [[TMP2]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i16> poison, i16 [[TMP3]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i16> poison, i16 [[TMP3]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i16> [[BROADCAST_SPLATINSERT1]], <2 x i16> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[INDEX]], 0
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ugt <2 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]]
@@ -216,12 +216,10 @@ define void @multiple_incoming_phi_with_blend_mask(i64 %a, ptr noalias %dst) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <2 x i16> [[PREDPHI]], i32 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [32 x i16], ptr @src, i16 0, i16 [[TMP7]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i16, ptr [[TMP8]], i32 0
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast ptr [[TMP9]] to ptr
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i16>, ptr [[TMP10]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i16>, ptr [[TMP9]], align 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i16, ptr [[DST:%.*]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i16, ptr [[TMP11]], i32 0
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast ptr [[TMP12]] to ptr
-; CHECK-NEXT:    store <2 x i16> [[WIDE_LOAD]], ptr [[TMP13]], align 2
+; CHECK-NEXT:    store <2 x i16> [[WIDE_LOAD]], ptr [[TMP12]], align 2
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <2 x i64> [[VEC_IND]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT]], 32

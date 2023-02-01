@@ -864,24 +864,18 @@ define void @test_gather_not_profitable_pr48429(i32 %d, ptr readonly %ptr, ptr n
 ; AVX512-NEXT:    [[TMP4:%.*]] = shl nsw i64 [[IDX_EXT]], 2
 ; AVX512-NEXT:    [[TMP5:%.*]] = add nsw i64 [[TMP4]], -4
 ; AVX512-NEXT:    [[TMP6:%.*]] = lshr i64 [[TMP5]], 2
-; AVX512-NEXT:    [[TMP7:%.*]] = shl i64 [[TMP6]], 4
-; AVX512-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[TMP7]], 2
-; AVX512-NEXT:    [[SCEVGEP:%.*]] = getelementptr float, ptr [[DEST]], i64 [[TMP8]]
-; AVX512-NEXT:    [[SCEVGEP2:%.*]] = bitcast ptr [[SCEVGEP]] to ptr
-; AVX512-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[TMP6]], 1
-; AVX512-NEXT:    [[SCEVGEP4:%.*]] = getelementptr float, ptr [[PTR]], i64 [[TMP9]]
-; AVX512-NEXT:    [[SCEVGEP45:%.*]] = bitcast ptr [[SCEVGEP4]] to ptr
-; AVX512-NEXT:    [[SCEVGEP6:%.*]] = getelementptr float, ptr [[PTR]], i64 [[IDXPROM]]
-; AVX512-NEXT:    [[SCEVGEP67:%.*]] = bitcast ptr [[SCEVGEP6]] to ptr
-; INTEL_CUSTOMIZATION
-; We preserve nsw flag here.
-; AVX512-NEXT:    [[TMP10:%.*]] = add nsw i64 [[TMP6]], 1
-; END INTEL_CUSTOMIZATION
-; AVX512-NEXT:    [[TMP11:%.*]] = sub i64 [[TMP10]], [[IDX_EXT]]
-; AVX512-NEXT:    [[SCEVGEP8:%.*]] = getelementptr float, ptr [[PTR]], i64 [[TMP11]]
-; AVX512-NEXT:    [[SCEVGEP89:%.*]] = bitcast ptr [[SCEVGEP8]] to ptr
-; AVX512-NEXT:    [[BOUND0:%.*]] = icmp ult ptr [[DEST1]], [[SCEVGEP45]]
-; AVX512-NEXT:    [[BOUND1:%.*]] = icmp ult ptr [[PTR3]], [[SCEVGEP2]]
+; AVX512-NEXT:    [[TMP7:%.*]] = shl i64 [[TMP6]], 6
+; AVX512-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[TMP7]], 8
+; AVX512-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, ptr [[DEST:%.*]], i64 [[TMP8]]
+; AVX512-NEXT:    [[TMP9:%.*]] = shl nuw i64 [[TMP6]], 2
+; AVX512-NEXT:    [[TMP10:%.*]] = add i64 [[TMP9]], 4
+; AVX512-NEXT:    [[UGLYGEP1:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP10]]
+; AVX512-NEXT:    [[TMP11:%.*]] = mul nsw i64 [[IDX_EXT]], -4
+; AVX512-NEXT:    [[UGLYGEP2:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP11]]
+; AVX512-NEXT:    [[TMP12:%.*]] = sub i64 [[TMP10]], [[TMP4]]
+; AVX512-NEXT:    [[UGLYGEP3:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP12]]
+; AVX512-NEXT:    [[BOUND0:%.*]] = icmp ult ptr [[DEST]], [[UGLYGEP1]]
+; AVX512-NEXT:    [[BOUND1:%.*]] = icmp ult ptr [[PTR]], [[UGLYGEP]]
 ; AVX512-NEXT:    [[FOUND_CONFLICT:%.*]] = and i1 [[BOUND0]], [[BOUND1]]
 ; AVX512-NEXT:    [[BOUND04:%.*]] = icmp ult ptr [[DEST]], [[UGLYGEP3]]
 ; AVX512-NEXT:    [[BOUND15:%.*]] = icmp ult ptr [[UGLYGEP2]], [[UGLYGEP]]
@@ -1001,24 +995,18 @@ define void @test_gather_not_profitable_pr48429(i32 %d, ptr readonly %ptr, ptr n
 ; FVW2-NEXT:    [[TMP4:%.*]] = shl nsw i64 [[IDX_EXT]], 2
 ; FVW2-NEXT:    [[TMP5:%.*]] = add nsw i64 [[TMP4]], -4
 ; FVW2-NEXT:    [[TMP6:%.*]] = lshr i64 [[TMP5]], 2
-; FVW2-NEXT:    [[TMP7:%.*]] = shl i64 [[TMP6]], 4
-; FVW2-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[TMP7]], 2
-; FVW2-NEXT:    [[SCEVGEP:%.*]] = getelementptr float, ptr [[DEST]], i64 [[TMP8]]
-; FVW2-NEXT:    [[SCEVGEP2:%.*]] = bitcast ptr [[SCEVGEP]] to ptr
-; FVW2-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[TMP6]], 1
-; FVW2-NEXT:    [[SCEVGEP4:%.*]] = getelementptr float, ptr [[PTR]], i64 [[TMP9]]
-; FVW2-NEXT:    [[SCEVGEP45:%.*]] = bitcast ptr [[SCEVGEP4]] to ptr
-; FVW2-NEXT:    [[SCEVGEP6:%.*]] = getelementptr float, ptr [[PTR]], i64 [[IDXPROM]]
-; FVW2-NEXT:    [[SCEVGEP67:%.*]] = bitcast ptr [[SCEVGEP6]] to ptr
-; INTEL_CUSTOMIZATION
-; We preserve nsw flag here.
-; FVW2-NEXT:    [[TMP10:%.*]] = add nsw i64 [[TMP6]], 1
-; END INTEL_CUSTOMIZATION
-; FVW2-NEXT:    [[TMP11:%.*]] = sub i64 [[TMP10]], [[IDX_EXT]]
-; FVW2-NEXT:    [[SCEVGEP8:%.*]] = getelementptr float, ptr [[PTR]], i64 [[TMP11]]
-; FVW2-NEXT:    [[SCEVGEP89:%.*]] = bitcast ptr [[SCEVGEP8]] to ptr
-; FVW2-NEXT:    [[BOUND0:%.*]] = icmp ult ptr [[DEST1]], [[SCEVGEP45]]
-; FVW2-NEXT:    [[BOUND1:%.*]] = icmp ult ptr [[PTR3]], [[SCEVGEP2]]
+; FVW2-NEXT:    [[TMP7:%.*]] = shl i64 [[TMP6]], 6
+; FVW2-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[TMP7]], 8
+; FVW2-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, ptr [[DEST:%.*]], i64 [[TMP8]]
+; FVW2-NEXT:    [[TMP9:%.*]] = shl nuw i64 [[TMP6]], 2
+; FVW2-NEXT:    [[TMP10:%.*]] = add i64 [[TMP9]], 4
+; FVW2-NEXT:    [[UGLYGEP1:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP10]]
+; FVW2-NEXT:    [[TMP11:%.*]] = mul nsw i64 [[IDX_EXT]], -4
+; FVW2-NEXT:    [[UGLYGEP2:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP11]]
+; FVW2-NEXT:    [[TMP12:%.*]] = sub i64 [[TMP10]], [[TMP4]]
+; FVW2-NEXT:    [[UGLYGEP3:%.*]] = getelementptr i8, ptr [[PTR]], i64 [[TMP12]]
+; FVW2-NEXT:    [[BOUND0:%.*]] = icmp ult ptr [[DEST]], [[UGLYGEP1]]
+; FVW2-NEXT:    [[BOUND1:%.*]] = icmp ult ptr [[PTR]], [[UGLYGEP]]
 ; FVW2-NEXT:    [[FOUND_CONFLICT:%.*]] = and i1 [[BOUND0]], [[BOUND1]]
 ; FVW2-NEXT:    [[BOUND04:%.*]] = icmp ult ptr [[DEST]], [[UGLYGEP3]]
 ; FVW2-NEXT:    [[BOUND15:%.*]] = icmp ult ptr [[UGLYGEP2]], [[UGLYGEP]]
