@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -290,23 +290,25 @@ private:
   CVDebugRecordChunk *buildId = nullptr;
   ArrayRef<uint8_t> sectionTable;
 
-  uint64_t fileSize;
+  uint64_t fileSize = 0; // INTEL
   uint32_t pointerToSymbolTable = 0;
-  uint64_t sizeOfImage;
-  uint64_t sizeOfHeaders;
+#if INTEL_CUSTOMIZATION
+  uint64_t sizeOfImage = 0;
+  uint64_t sizeOfHeaders = 0;
 
-  OutputSection *textSec;
-  OutputSection *rdataSec;
-  OutputSection *buildidSec;
-  OutputSection *dataSec;
-  OutputSection *pdataSec;
-  OutputSection *idataSec;
-  OutputSection *edataSec;
-  OutputSection *didatSec;
-  OutputSection *rsrcSec;
-  OutputSection *relocSec;
-  OutputSection *ctorsSec;
-  OutputSection *dtorsSec;
+  OutputSection *textSec = nullptr;
+  OutputSection *rdataSec = nullptr;
+  OutputSection *buildidSec = nullptr;
+  OutputSection *dataSec = nullptr;
+  OutputSection *pdataSec = nullptr;
+  OutputSection *idataSec = nullptr;
+  OutputSection *edataSec = nullptr;
+  OutputSection *didatSec = nullptr;
+  OutputSection *rsrcSec = nullptr;
+  OutputSection *relocSec = nullptr;
+  OutputSection *ctorsSec = nullptr;
+  OutputSection *dtorsSec = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   // The first and last .pdata sections in the output file.
   //
@@ -318,7 +320,7 @@ private:
   // the chunks that the linker creates. All .pdata chunks come from input
   // files, so we need to keep track of them separately.
   Chunk *firstPdata = nullptr;
-  Chunk *lastPdata;
+  Chunk *lastPdata = nullptr; // INTEL
 
   COFFLinkerContext &ctx;
 };
