@@ -1315,7 +1315,7 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &Zext) {
     Value *A = CSrc->getOperand(0);
     unsigned SrcSize = A->getType()->getScalarSizeInBits();
     unsigned MidSize = CSrc->getType()->getScalarSizeInBits();
-    unsigned DstSize = Zext.getType()->getScalarSizeInBits();
+    unsigned DstSize = DestTy->getScalarSizeInBits();
     // If we're actually extending zero bits, then if
     // SrcSize <  DstSize: zext(a & mask)
     // SrcSize == DstSize: a & mask
@@ -1324,7 +1324,7 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &Zext) {
       APInt AndValue(APInt::getLowBitsSet(SrcSize, MidSize));
       Constant *AndConst = ConstantInt::get(A->getType(), AndValue);
       Value *And = Builder.CreateAnd(A, AndConst, CSrc->getName() + ".mask");
-      return new ZExtInst(And, Zext.getType());
+      return new ZExtInst(And, DestTy);
     }
 
     if (SrcSize == DstSize) {
@@ -1333,7 +1333,7 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &Zext) {
                                                            AndValue));
     }
     if (SrcSize > DstSize) {
-      Value *Trunc = Builder.CreateTrunc(A, Zext.getType());
+      Value *Trunc = Builder.CreateTrunc(A, DestTy);
       APInt AndValue(APInt::getLowBitsSet(DstSize, MidSize));
       return BinaryOperator::CreateAnd(Trunc,
                                        ConstantInt::get(Trunc->getType(),
@@ -1348,16 +1348,15 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &Zext) {
   Constant *C;
   Value *X;
   if (match(Src, m_OneUse(m_And(m_Trunc(m_Value(X)), m_Constant(C)))) &&
-      X->getType() == Zext.getType())
-    return BinaryOperator::CreateAnd(X,
-                                     ConstantExpr::getZExt(C, Zext.getType()));
+      X->getType() == DestTy)
+    return BinaryOperator::CreateAnd(X, ConstantExpr::getZExt(C, DestTy));
 
   // zext((trunc(X) & C) ^ C) -> ((X & zext(C)) ^ zext(C)).
   Value *And;
   if (match(Src, m_OneUse(m_Xor(m_Value(And), m_Constant(C)))) &&
       match(And, m_OneUse(m_And(m_Trunc(m_Value(X)), m_Specific(C)))) &&
-      X->getType() == Zext.getType()) {
-    Constant *ZC = ConstantExpr::getZExt(C, Zext.getType());
+      X->getType() == DestTy) {
+    Constant *ZC = ConstantExpr::getZExt(C, DestTy);
     return BinaryOperator::CreateXor(Builder.CreateAnd(X, ZC), ZC);
   }
 
@@ -1400,18 +1399,14 @@ Instruction *InstCombinerImpl::transformSExtICmp(ICmpInst *Cmp,
   if (!Op1->getType()->isIntOrIntVectorTy())
     return nullptr;
 
-  if ((Pred == ICmpInst::ICMP_SLT && match(Op1, m_ZeroInt())) ||
-      (Pred == ICmpInst::ICMP_SGT && match(Op1, m_AllOnes()))) {
-    // (x <s  0) ? -1 : 0 -> ashr x, 31        -> all ones if negative
-    // (x >s -1) ? -1 : 0 -> not (ashr x, 31)  -> all ones if positive
+  if (Pred == ICmpInst::ICMP_SLT && match(Op1, m_ZeroInt())) {
+    // sext (x <s 0) --> ashr x, 31 (all ones if negative)
     Value *Sh = ConstantInt::get(Op0->getType(),
                                  Op0->getType()->getScalarSizeInBits() - 1);
     Value *In = Builder.CreateAShr(Op0, Sh, Op0->getName() + ".lobit");
     if (In->getType() != Sext.getType())
       In = Builder.CreateIntCast(In, Sext.getType(), true /*SExt*/);
 
-    if (Pred == ICmpInst::ICMP_SGT)
-      In = Builder.CreateNot(In, In->getName() + ".not");
     return replaceInstUsesWith(Sext, In);
   }
 

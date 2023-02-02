@@ -23,6 +23,17 @@ Non-comprehensive list of changes in this release
 * OpenMP target offloading will no longer support on 32-bit Linux systems.
   ``libomptarget`` and plugins will not be built on 32-bit systems.
 
+* OpenMP target offloading plugins are re-implemented and named as the NextGen
+  plugins. These have an internal unified interface that implement the common
+  behavior of all the plugins. This way, generic optimizations or features can
+  be implemented once, in the plugin interface, so all the plugins include them
+  with no additional effort. Also, all new plugins now behave more similarly and
+  debugging is simplified. The NextGen module includes the NVIDIA CUDA, the
+  AMDGPU and the GenericELF64bit plugins. These NextGen plugins are enabled by
+  default and replace the original ones. The new plugins can be disabled by
+  setting the environment variable ``LIBOMPTARGET_NEXTGEN_PLUGINS`` to ``false``
+  (default: ``true``).
+
 * Support for building the OpenMP runtime for Windows on AArch64 and ARM
   with MinGW based toolchains.
 
@@ -56,4 +67,23 @@ Non-comprehensive list of changes in this release
 * Python 3 is required to run OpenMP LIT tests now.
 
 * Fixed a number of bugs and regressions.
+
+* Improved host thread utilization on target nowait regions. Target tasks are
+  now continuously re-enqueued by the OpenMP runtime until their device-side
+  operations are completed, unblocking the host thread to execute other tasks.
+
+* Target tasks re-enqueue can be controlled on a per-thread basis based on
+  exponential backoff counting. ``OMPTARGET_QUERY_COUNT_THRESHOLD`` defines how
+  many target tasks must be re-enqueued before the thread starts blocking on the
+  device operations (defaults to 10). ``OMPTARGET_QUERY_COUNT_MAX`` defines the
+  maximum value for the per-thread re-enqueue counter (defaults to 5).
+  ``OMPTARGET_QUERY_COUNT_BACKOFF_FACTOR`` defines the decrement factor applied
+  to the counter when a target task is completed (defaults to 0.5).
+
+* GPU dynamic shared memory (aka. local data share (lds)) can now be allocated
+  per kernel via the ``ompx_dyn_cgroup_mem(<Bytes>)`` clause. For an example,
+  see https://openmp.llvm.org/design/Runtimes.html#dynamic-shared-memory.
+
+* OpenMP-Opt (run as part of O1/O2/O3) will more effectively lower GPU resource
+  usage and improve performance.
 
