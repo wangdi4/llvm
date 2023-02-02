@@ -3076,22 +3076,11 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     break;
   }
   case BuiltinType::BFloat16: {
-<<<<<<< HEAD
-    #if INTEL_COLLAB
-    const TargetInfo *TI = getASTContext().getLangOpts().OpenMP &&
-                                   getASTContext().getLangOpts().OpenMPIsDevice
-                               ? getASTContext().getAuxTargetInfo()
-                               : &getASTContext().getTargetInfo();
-#else
-    const TargetInfo *TI = &getASTContext().getTargetInfo();
-#endif // INTEL_COLLAB
-=======
     const TargetInfo *TI = ((getASTContext().getLangOpts().OpenMP &&
                              getASTContext().getLangOpts().OpenMPIsDevice) ||
                             getASTContext().getLangOpts().SYCLIsDevice)
                                ? getASTContext().getAuxTargetInfo()
                                : &getASTContext().getTargetInfo();
->>>>>>> 942e4315f725e002fa7d825266a4b6704535f5cc
     Out << TI->getBFloat16Mangling();
     break;
   }
