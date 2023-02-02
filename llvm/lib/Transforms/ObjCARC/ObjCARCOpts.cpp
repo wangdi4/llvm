@@ -523,6 +523,8 @@ class ObjCARCOpt {
   /// is in fact used in the current function.
   unsigned UsedInThisFunction;
 
+  DenseMap<BasicBlock *, ColorVector> BlockEHColors;
+
   bool OptimizeRetainRVCall(Function &F, Instruction *RetainRV);
   void OptimizeAutoreleaseRVCall(Function &F, Instruction *AutoreleaseRV,
                                  ARCInstKind &Class);
@@ -530,17 +532,16 @@ class ObjCARCOpt {
 
   /// Optimize an individual call, optionally passing the
   /// GetArgRCIdentityRoot if it has already been computed.
-  void OptimizeIndividualCallImpl(
-      Function &F, DenseMap<BasicBlock *, ColorVector> &BlockColors,
-      Instruction *Inst, ARCInstKind Class, const Value *Arg);
+  void OptimizeIndividualCallImpl(Function &F, Instruction *Inst,
+                                  ARCInstKind Class, const Value *Arg);
 
   /// Try to optimize an AutoreleaseRV with a RetainRV or UnsafeClaimRV.  If the
   /// optimization occurs, returns true to indicate that the caller should
   /// assume the instructions are dead.
-  bool OptimizeInlinedAutoreleaseRVCall(
-      Function &F, DenseMap<BasicBlock *, ColorVector> &BlockColors,
-      Instruction *Inst, const Value *&Arg, ARCInstKind Class,
-      Instruction *AutoreleaseRV, const Value *&AutoreleaseRVArg);
+  bool OptimizeInlinedAutoreleaseRVCall(Function &F, Instruction *Inst,
+                                        const Value *&Arg, ARCInstKind Class,
+                                        Instruction *AutoreleaseRV,
+                                        const Value *&AutoreleaseRVArg);
 
   void CheckForCFGHazards(const BasicBlock *BB,
                           DenseMap<const BasicBlock *, BBState> &BBStates,
@@ -588,12 +589,46 @@ class ObjCARCOpt {
 
   void OptimizeReturns(Function &F);
 
+  Instruction *cloneCallInstForBB(CallInst &CI, BasicBlock &BB) {
+    SmallVector<OperandBundleDef, 1> OpBundles;
+    for (unsigned I = 0, E = CI.getNumOperandBundles(); I != E; ++I) {
+      auto Bundle = CI.getOperandBundleAt(I);
+      // Funclets will be reassociated in the future.
+      if (Bundle.getTagID() == LLVMContext::OB_funclet)
+        continue;
+      OpBundles.emplace_back(Bundle);
+    }
+
+    if (!BlockEHColors.empty()) {
+      const ColorVector &CV = BlockEHColors.find(&BB)->second;
+      assert(CV.size() > 0 && "non-unique color for block!");
+      Instruction *EHPad = CV.front()->getFirstNonPHI();
+      if (EHPad->isEHPad())
+        OpBundles.emplace_back("funclet", EHPad);
+    }
+
+    return CallInst::Create(&CI, OpBundles);
+  }
+
+  void addOpBundleForFunclet(BasicBlock *BB,
+                             SmallVectorImpl<OperandBundleDef> &OpBundles) {
+    if (!BlockEHColors.empty()) {
+      const ColorVector &CV = BlockEHColors.find(BB)->second;
+      assert(CV.size() > 0 && "Uncolored block");
+      for (BasicBlock *EHPadBB : CV)
+        if (auto *EHPad = dyn_cast<FuncletPadInst>(EHPadBB->getFirstNonPHI())) {
+          OpBundles.emplace_back("funclet", EHPad);
+          return;
+        }
+    }
+  }
+
 #ifndef NDEBUG
   void GatherStatistics(Function &F, bool AfterOptimization = false);
 #endif
 
   public:
-    void init(Module &M);
+    void init(Function &F);
     bool run(Function &F, AAResults &AA);
     bool hasCFGChanged() const { return CFGChanged; }
 };
@@ -607,7 +642,8 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool doInitialization(Module &M) override {
-    OCAO.init(M);
+    // FIXME: uncomment and fix the build please
+    // OCAO.init(M);
     return false;
   }
   bool runOnFunction(Function &F) override {
@@ -685,8 +721,7 @@ ObjCARCOpt::OptimizeRetainRVCall(Function &F, Instruction *RetainRV) {
 }
 
 bool ObjCARCOpt::OptimizeInlinedAutoreleaseRVCall(
-    Function &F, DenseMap<BasicBlock *, ColorVector> &BlockColors,
-    Instruction *Inst, const Value *&Arg, ARCInstKind Class,
+    Function &F, Instruction *Inst, const Value *&Arg, ARCInstKind Class,
     Instruction *AutoreleaseRV, const Value *&AutoreleaseRVArg) {
   if (BundledInsts->contains(Inst))
     return false;
@@ -739,8 +774,7 @@ bool ObjCARCOpt::OptimizeInlinedAutoreleaseRVCall(
   EraseInstruction(Inst);
 
   // Run the normal optimizations on Release.
-  OptimizeIndividualCallImpl(F, BlockColors, Release, ARCInstKind::Release,
-                             Arg);
+  OptimizeIndividualCallImpl(F, Release, ARCInstKind::Release, Arg);
   return true;
 }
 
@@ -793,42 +827,12 @@ void ObjCARCOpt::OptimizeAutoreleaseRVCall(Function &F,
   LLVM_DEBUG(dbgs() << "New: " << *AutoreleaseRV << "\n");
 }
 
-namespace {
-Instruction *
-CloneCallInstForBB(CallInst &CI, BasicBlock &BB,
-                   const DenseMap<BasicBlock *, ColorVector> &BlockColors) {
-  SmallVector<OperandBundleDef, 1> OpBundles;
-  for (unsigned I = 0, E = CI.getNumOperandBundles(); I != E; ++I) {
-    auto Bundle = CI.getOperandBundleAt(I);
-    // Funclets will be reassociated in the future.
-    if (Bundle.getTagID() == LLVMContext::OB_funclet)
-      continue;
-    OpBundles.emplace_back(Bundle);
-  }
-
-  if (!BlockColors.empty()) {
-    const ColorVector &CV = BlockColors.find(&BB)->second;
-    assert(CV.size() == 1 && "non-unique color for block!");
-    Instruction *EHPad = CV.front()->getFirstNonPHI();
-    if (EHPad->isEHPad())
-      OpBundles.emplace_back("funclet", EHPad);
-  }
-
-  return CallInst::Create(&CI, OpBundles);
-}
-}
-
 /// Visit each call, one at a time, and make simplifications without doing any
 /// additional analysis.
 void ObjCARCOpt::OptimizeIndividualCalls(Function &F) {
   LLVM_DEBUG(dbgs() << "\n== ObjCARCOpt::OptimizeIndividualCalls ==\n");
   // Reset all the flags in preparation for recomputing them.
   UsedInThisFunction = 0;
-
-  DenseMap<BasicBlock *, ColorVector> BlockColors;
-  if (F.hasPersonalityFn() &&
-      isScopedEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
-    BlockColors = colorEHFunclets(F);
 
   // Store any delayed AutoreleaseRV intrinsics, so they can be easily paired
   // with RetainRV and UnsafeClaimRV.
@@ -842,7 +846,7 @@ void ObjCARCOpt::OptimizeIndividualCalls(Function &F) {
   auto optimizeDelayedAutoreleaseRV = [&]() {
     if (!DelayedAutoreleaseRV)
       return;
-    OptimizeIndividualCallImpl(F, BlockColors, DelayedAutoreleaseRV,
+    OptimizeIndividualCallImpl(F, DelayedAutoreleaseRV,
                                ARCInstKind::AutoreleaseRV,
                                DelayedAutoreleaseRVArg);
     setDelayedAutoreleaseRV(nullptr);
@@ -905,7 +909,7 @@ void ObjCARCOpt::OptimizeIndividualCalls(Function &F) {
     case ARCInstKind::UnsafeClaimRV:
       if (DelayedAutoreleaseRV) {
         // We have a potential RV pair.  Check if they cancel out.
-        if (OptimizeInlinedAutoreleaseRVCall(F, BlockColors, Inst, Arg, Class,
+        if (OptimizeInlinedAutoreleaseRVCall(F, Inst, Arg, Class,
                                              DelayedAutoreleaseRV,
                                              DelayedAutoreleaseRVArg)) {
           setDelayedAutoreleaseRV(nullptr);
@@ -916,7 +920,7 @@ void ObjCARCOpt::OptimizeIndividualCalls(Function &F) {
       break;
     }
 
-    OptimizeIndividualCallImpl(F, BlockColors, Inst, Class, Arg);
+    OptimizeIndividualCallImpl(F, Inst, Class, Arg);
   }
 
   // Catch the final delayed AutoreleaseRV.
@@ -950,9 +954,9 @@ static bool isInertARCValue(Value *V, SmallPtrSet<Value *, 1> &VisitedPhis) {
   return false;
 }
 
-void ObjCARCOpt::OptimizeIndividualCallImpl(
-    Function &F, DenseMap<BasicBlock *, ColorVector> &BlockColors,
-    Instruction *Inst, ARCInstKind Class, const Value *Arg) {
+void ObjCARCOpt::OptimizeIndividualCallImpl(Function &F, Instruction *Inst,
+                                            ARCInstKind Class,
+                                            const Value *Arg) {
   LLVM_DEBUG(dbgs() << "Visiting: Class: " << Class << "; " << *Inst << "\n");
 
   // We can delete this call if it takes an inert value.
@@ -1210,8 +1214,8 @@ void ObjCARCOpt::OptimizeIndividualCallImpl(
         continue;
       Value *Op = PN->getIncomingValue(i);
       Instruction *InsertPos = &PN->getIncomingBlock(i)->back();
-      CallInst *Clone = cast<CallInst>(
-          CloneCallInstForBB(*CInst, *InsertPos->getParent(), BlockColors));
+      CallInst *Clone =
+          cast<CallInst>(cloneCallInstForBB(*CInst, *InsertPos->getParent()));
       if (Op->getType() != ParamTy)
         Op = new BitCastInst(Op, ParamTy, "", InsertPos);
       Clone->setArgOperand(0, Op);
@@ -1833,7 +1837,9 @@ void ObjCARCOpt::MoveCalls(Value *Arg, RRInfo &RetainsToMove,
     Value *MyArg = ArgTy == ParamTy ? Arg :
                    new BitCastInst(Arg, ParamTy, "", InsertPt);
     Function *Decl = EP.get(ARCRuntimeEntryPointKind::Retain);
-    CallInst *Call = CallInst::Create(Decl, MyArg, "", InsertPt);
+    SmallVector<OperandBundleDef, 1> BundleList;
+    addOpBundleForFunclet(InsertPt->getParent(), BundleList);
+    CallInst *Call = CallInst::Create(Decl, MyArg, BundleList, "", InsertPt);
     Call->setDoesNotThrow();
     Call->setTailCall();
 
@@ -1846,7 +1852,9 @@ void ObjCARCOpt::MoveCalls(Value *Arg, RRInfo &RetainsToMove,
     Value *MyArg = ArgTy == ParamTy ? Arg :
                    new BitCastInst(Arg, ParamTy, "", InsertPt);
     Function *Decl = EP.get(ARCRuntimeEntryPointKind::Release);
-    CallInst *Call = CallInst::Create(Decl, MyArg, "", InsertPt);
+    SmallVector<OperandBundleDef, 1> BundleList;
+    addOpBundleForFunclet(InsertPt->getParent(), BundleList);
+    CallInst *Call = CallInst::Create(Decl, MyArg, BundleList, "", InsertPt);
     // Attach a clang.imprecise_release metadata tag, if appropriate.
     if (MDNode *M = ReleasesToMove.ReleaseMetadata)
       Call->setMetadata(MDKindCache.get(ARCMDKindID::ImpreciseRelease), M);
@@ -2462,17 +2470,22 @@ ObjCARCOpt::GatherStatistics(Function &F, bool AfterOptimization) {
 }
 #endif
 
-void ObjCARCOpt::init(Module &M) {
+void ObjCARCOpt::init(Function &F) {
   if (!EnableARCOpts)
     return;
 
   // Intuitively, objc_retain and others are nocapture, however in practice
   // they are not, because they return their argument value. And objc_release
   // calls finalizers which can have arbitrary side effects.
-  MDKindCache.init(&M);
+  MDKindCache.init(F.getParent());
 
   // Initialize our runtime entry point cache.
-  EP.init(&M);
+  EP.init(F.getParent());
+
+  // Compute which blocks are in which funclet.
+  if (F.hasPersonalityFn() &&
+      isScopedEHPersonality(classifyEHPersonality(F.getPersonalityFn())))
+    BlockEHColors = colorEHFunclets(F);
 }
 
 bool ObjCARCOpt::run(Function &F, AAResults &AA) {
@@ -2548,7 +2561,7 @@ bool ObjCARCOpt::run(Function &F, AAResults &AA) {
 PreservedAnalyses ObjCARCOptPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   ObjCARCOpt OCAO;
-  OCAO.init(*F.getParent());
+  OCAO.init(F);
 
   bool Changed = OCAO.run(F, AM.getResult<AAManager>(F));
   bool CFGChanged = OCAO.hasCFGChanged();
