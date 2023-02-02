@@ -314,6 +314,10 @@ public:
 #endif // INTEL_CUSTOMIZATION
   }
 
+  bool useLight256BitInstructions() const {
+    return getPreferVectorWidth() >= 256 || AllowLight256Bit;
+  }
+
   bool useBWIRegs() const {
     return hasBWI() && useAVX512Regs();
   }
