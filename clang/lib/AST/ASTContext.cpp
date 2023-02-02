@@ -2177,6 +2177,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       if (Target->hasBFloat16Type()) {
         Width = Target->getBFloat16Width();
         Align = Target->getBFloat16Align();
+      } else if ((getLangOpts().SYCLIsDevice ||
+                  (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
+                 AuxTarget->hasBFloat16Type()) {
+        Width = AuxTarget->getBFloat16Width();
+        Align = AuxTarget->getBFloat16Align();
       }
 #if INTEL_COLLAB
       else if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
