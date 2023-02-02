@@ -544,16 +544,11 @@ void ProcessSwitchInst(SwitchInst *SI,
 #if INTEL_CUSTOMIZATION
       // As all the cases have been replaced with a single branch, only keep
       // one entry in the PHI nodes.
-<<<<<<< HEAD
-      for (APInt I(SignedZero); I.slt(MaxPop - 1); ++I)
-        PopSucc->removePredecessor(OrigBlock);
-      EraseSwitchInstAndDeleteOrigDefaultIfUnreachable();
-#endif // INTEL_CUSTOMIZATION
-=======
       if (!MaxPop.isZero())
         for (APInt I(UnsignedZero); I.ult(MaxPop - 1); ++I)
           PopSucc->removePredecessor(OrigBlock);
->>>>>>> 9b70a28e0d767f99bdc778356e81b4d072f59819
+      EraseSwitchInstAndDeleteOrigDefaultIfUnreachable();
+#endif // INTEL_CUSTOMIZATION
       return;
     }
 
