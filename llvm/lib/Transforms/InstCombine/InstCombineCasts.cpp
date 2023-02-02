@@ -1528,7 +1528,6 @@ static bool canEvaluateSExtd(Value *V, Type *Ty) {
   return false;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Check if the Value is Phi or Trunc.
 static bool isPhiOrTrunc(const Value *V) {
@@ -1574,10 +1573,7 @@ static bool isSPIRFunction(const Function *F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
-=======
 Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
->>>>>>> c09c90b90b46030fb4d52603c312b31a57ed2384
   // If this sign extend is only used by a truncate, let the truncate be
   // eliminated before we try to optimize this sext.
   if (Sext.hasOneUse() && isa<TruncInst>(Sext.user_back()))
@@ -1625,12 +1621,8 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
 #endif // INTEL_CUSTOMIZATION
 
   // If the value being extended is zero or positive, use a zext instead.
-<<<<<<< HEAD
-  if (isKnownNonNegative(Src, DL, 0, &AC, &CI, &DT) &&
-      !AvoidSExtTransform(CI, Src)) // INTEL
-=======
-  if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT))
->>>>>>> c09c90b90b46030fb4d52603c312b31a57ed2384
+  if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT) &&
+      !AvoidSExtTransform(Sext, Src)) // INTEL
     return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
 #if INTEL_CUSTOMIZATION
@@ -1670,9 +1662,9 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
   // Try to extend the entire expression tree to the wide destination type.
 #if INTEL_CUSTOMIZATION
   if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy) &&
-      !AvoidSExtTransform(CI, Src) &&
-      !AvoidShiftForIntelSubscript(CI) &&
-      !(preserveAddrCompute() && IsUsedInAddressCompute(&CI))) {
+      !AvoidSExtTransform(Sext, Src) &&
+      !AvoidShiftForIntelSubscript(Sext) &&
+      !(preserveAddrCompute() && IsUsedInAddressCompute(&Sext))) {
 #endif // INTEL_CUSTOMIZATION
     // Okay, we can transform this!  Insert the new expression now.
     LLVM_DEBUG(
