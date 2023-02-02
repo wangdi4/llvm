@@ -632,11 +632,10 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool doInitialization(Module &M) override {
-    // FIXME: uncomment and fix the build please
-    // OCAO.init(M);
     return false;
   }
   bool runOnFunction(Function &F) override {
+    OCAO.init(F);
     return OCAO.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
   }
   static char ID;
