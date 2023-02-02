@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm -opaque-pointers -D USE_ARRAYS %s -o - | FileCheck %s -check-prefixes=CHECK,CL20
 // RUN: %clang_cc1 -x cl -triple spir -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,CL12
 // RUN: %clang_cc1 -x cl -triple spir -emit-llvm -opaque-pointers -D USE_ARRAYS %s -o - | FileCheck %s -check-prefixes=CHECK,CL12
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-pc-windows-intelfpga -emit-llvm -opaque-pointers -fopencl-force-vector-abi %s -o - | FileCheck %s --check-prefix CHECKWIN
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-windows-pc -emit-llvm -opaque-pointers -fopencl-force-vector-abi %s -o - | FileCheck %s --check-prefix CHECKWIN
 
 typedef float float4 __attribute__((ext_vector_type(4)));
 
