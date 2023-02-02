@@ -4,5 +4,5 @@
 # RUN: cp -f %S/Inputs/x86-condbr-exp.mir %t.mir && %intel_update_markup %t.mir --ref %S/Inputs/x86-condbr-ref.mir
 # RUN: diff -u %S/Inputs/x86-condbr-exp.mir.expected %t.mir
 #
-# RUN: cp -f %S/Inputs/blank-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll
-# RUN: diff -u %S/Inputs/blank-line.ll.expected %t.ll
+# RUN: cp -f %S/Inputs/2-blank-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll
+# RUN: diff -u %S/Inputs/2-blank-line-vs-empty.ll.expected %t.ll

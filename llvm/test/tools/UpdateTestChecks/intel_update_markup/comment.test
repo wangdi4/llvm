@@ -1,0 +1,5 @@
+# RUN: cp -f %S/Inputs/3-blank-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/2-blank-line.ll --comment
+# RUN: diff -u %S/Inputs/3-blank-line-vs-2-blank-line.ll.expected %t.ll
+#
+# RUN: cp -f %S/Inputs/2-blank-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/2-blank-line.ll --comment
+# RUN: diff -u %S/Inputs/2-blank-line.ll %t.ll
