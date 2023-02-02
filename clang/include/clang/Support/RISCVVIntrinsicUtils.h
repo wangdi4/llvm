@@ -99,8 +99,8 @@ struct Policy {
     Agnostic,
     Omit, // No policy required.
   };
-  PolicyType TailPolicy = Omit;
-  PolicyType MaskPolicy = Omit;
+  PolicyType TailPolicy = Agnostic;
+  PolicyType MaskPolicy = Undisturbed;
   bool HasTailPolicy, HasMaskPolicy;
   Policy(bool HasTailPolicy, bool HasMaskPolicy)
       : IsUnspecified(true), HasTailPolicy(HasTailPolicy),
@@ -134,13 +134,9 @@ struct Policy {
     return TailPolicy == Undisturbed && MaskPolicy == Omit;
   }
 
-  bool isMAPolicy() const {
-    return MaskPolicy == Agnostic && TailPolicy == Omit;
-  }
+  bool isMAPolicy() const { return MaskPolicy == Agnostic; }
 
-  bool isMUPolicy() const {
-    return MaskPolicy == Undisturbed && TailPolicy == Omit;
-  }
+  bool isMUPolicy() const { return MaskPolicy == Undisturbed; }
 
   bool hasTailPolicy() const { return HasTailPolicy; }
 
