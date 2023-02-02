@@ -2723,7 +2723,7 @@ struct AAICVTrackerCallSite : AAICVTracker {
   // FIXME: come up with some stats.
   void trackStatistics() const override {}
 
-  InternalControlVar AssociatedICV;
+  InternalControlVar AssociatedICV{}; // INTEL
   std::optional<Value *> ReplVal;
 
   ChangeStatus updateImpl(Attributor &A) override {
