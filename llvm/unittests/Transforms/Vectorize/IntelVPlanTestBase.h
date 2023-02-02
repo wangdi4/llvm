@@ -27,6 +27,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
 
@@ -61,6 +62,9 @@ protected:
     if (!M)
       Err.print("", errs());
     EXPECT_TRUE(M);
+    // Sanity check the input IR: `verifyModule()` returns true if there are any
+    // errors.
+    EXPECT_FALSE(llvm::verifyModule(*M.get(), &errs()));
     return *M;
   }
 

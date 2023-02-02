@@ -937,7 +937,7 @@ TEST_F(VPlanComputeKnownBitsTest, ReductionPHI_NestedLoops) {
 
     inner.for.body:
       %inner.iv = phi i64 [ 0, %for.body ], [ %inner.iv.next, %inner.for.body ]
-      %inner.red = phi i64 [ 0, %entry ], [ %inner.red.next, %for.body ]
+      %inner.red = phi i64 [ 0, %for.body ], [ %inner.red.next, %inner.for.body ]
 
       %inner.gep = getelementptr i64, i64* %elems, i64 %inner.iv
       %inner.elem = load i64, i64* %inner.gep, align 8
