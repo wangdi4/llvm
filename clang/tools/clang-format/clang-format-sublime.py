@@ -15,7 +15,7 @@
 from __future__ import absolute_import, division, print_function
 import sublime
 import sublime_plugin
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 
 # Change this to the full path if clang-format is not on the path.
 binary = 'clang-format'

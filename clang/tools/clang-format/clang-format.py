@@ -43,7 +43,7 @@ import difflib
 import json
 import os.path
 import platform
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 import sys
 import vim
 

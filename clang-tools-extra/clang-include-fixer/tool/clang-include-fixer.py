@@ -22,7 +22,7 @@ import argparse
 import difflib
 import json
 import re
-import subprocess
+import subprocess  #nosec The usage of subprocess was reviewed, and system shell will not be invoked.
 import vim
 
 # set g:clang_include_fixer_path to the path to clang-include-fixer if it is not
