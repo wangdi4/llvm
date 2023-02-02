@@ -1828,6 +1828,36 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                         InsertPt);
 }
 
+// Generate for Detach(e) clause the call __kmpc_task_allow_completion_event and
+// initialize the original "e" (i.e. %e.priv of the parent parallel region)
+// %.event = call i8* @__kmpc_task_allow_completion_event(%struct.ident_t* ...,
+// i32 %0, i8* %.task.alloc)
+// %.event.cast = ptrtoint i8* %.event to i64
+// store i64 %event.cast, i64* %e.priv ;
+void VPOParoptTransform::genDetachCode(WRegionNode *W, CallInst *TaskAllocCI,
+                                       CallInst *NewCall) {
+  CallInst *CompletionEventCI = VPOParoptUtils::genKmpcAllowCompletionEvent(
+      W, IdentTy, TidPtrHolder, TaskAllocCI, NewCall);
+  CompletionEventCI->setName(".event");
+
+  IRBuilder<> Builder(NewCall);
+  DetachItem *DetachI = W->getDetach().front();
+  Value *Dst = DetachI->getOrig();
+
+  if (DetachI->getIsByRef()) {
+    Type *ElementType = nullptr;
+    std::tie(ElementType, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(DetachI);
+    Dst = Builder.CreateLoad(ElementType->getPointerTo(0), Dst,
+                             Dst->getName() + Twine(".orig.deref"));
+  }
+
+  Value *DstC = Builder.CreateBitCast(
+      Dst, PointerType::get(CompletionEventCI->getType(), 0),
+      Dst->getName() + Twine(".cast"));
+  Builder.CreateStore(CompletionEventCI, DstC);
+}
+
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 or
 // __kmpc_omp_task and the corresponding outlined function
 //
@@ -1959,6 +1989,9 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
   TaskAllocCI->setName(".task.alloc");
+
+  if (!W->getDetach().empty())
+    genDetachCode(W, TaskAllocCI, NewCall);
 
   copySharedStructToTaskThunk(W, SharedAggrStruct, TaskAllocCI, KmpSharedTy,
                               KmpTaskTTWithPrivatesTy, DestrThunk, NewCall);

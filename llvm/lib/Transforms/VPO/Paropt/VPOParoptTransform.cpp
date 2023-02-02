@@ -2174,6 +2174,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // as it should.
           Changed |= setInsertionPtForVlaAllocas(
               W, /* OnlyCountReductionF90DVsAsVLAs */ false);
+          Changed |= addFirstprivateForDetach(W);
           Changed |= genTaskInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                      LastIterGep);
           Changed |= genPrivatizationCode(W);
@@ -8389,6 +8390,38 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCodeForVecLoop\n");
   W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
+}
+
+// For a task, the Detach event is added to Firstprivate Clause to reuse the
+// Codegen of Firstprivate. As per OpenMP 5.2, if a detach clause is present on
+// a task construct, like:
+//   omp_event_handle_t event;
+//   #pragma omp task detach(event)
+// the event-handle, "event" is considered as if it was speciﬁed on a
+// firstprivate clause on the construct.
+bool VPOParoptTransform::addFirstprivateForDetach(WRegionNode *W) {
+  if (!isa<WRNTaskNode>(W))
+    return false;
+
+  DetachClause &Detach = W->getDetach();
+  if (Detach.empty())
+    return false;
+  assert(Detach.size() == 1 && "There should be only 1 Detach clause");
+
+  DetachItem *DetachI = Detach.front();
+  Value *V = DetachI->getOrig();
+  FirstprivateClause &FP = W->getFpriv();
+  FP.add(V);
+  FirstprivateItem *FPI = FP.back();
+  FPI->setIsTyped(true);
+  FPI->setNumElements(DetachI->getNumElements());
+  FPI->setOrigItemElementTypeFromIR(DetachI->getOrigItemElementTypeFromIR());
+  FPI->setIsByRef(DetachI->getIsByRef());
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Created Firstprivate Clause for Detach clause '";
+             V->printAsOperand(dbgs(), false); dbgs() << "'.\n");
   return true;
 }
 
