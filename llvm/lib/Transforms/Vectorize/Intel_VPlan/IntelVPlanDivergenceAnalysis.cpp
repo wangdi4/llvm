@@ -1054,21 +1054,41 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
       PointedToTy = Gep->getResultElementType();
     else {
       auto SubscriptType = cast<VPSubscriptInst>(I)->getType();
-      // If we have an opaque subscript pointer, look for a memory user
-      // to determine the type.  If none is found, return random shape
-      // rather than crash.  We don't need to look through address-space
-      // casts, because a VPSubscriptInst gets inserted directly before
-      // the load or store affected by the cast.
-      //
-      // TODO: Revisit opaque pointer handling for divergence analysis
-      // (see CMPLRLLVM-43361).
+
       if (SubscriptType->isOpaquePointerTy()) {
-          for (auto *U = I->user_begin(); U != I->user_end(); U++) {
-            if (auto *LSI = dyn_cast<VPLoadStoreInst>(*U)) {
-              PointedToTy = LSI->getValueType();
-              break;
+          // If we have an opaque subscript pointer, look for a memory user
+          // to determine the type.  If none is found, return random shape
+          // rather than crash.  Look through address-space casts if needed.
+          //
+          // TODO: Revisit opaque pointer handling for divergence analysis
+          // (see CMPLRLLVM-43361).
+          std::queue<const VPInstruction *> WorkList;
+          WorkList.push(I);
+
+          while (!WorkList.empty()) {
+            const VPInstruction *II = WorkList.front();
+            WorkList.pop();
+
+            for (auto *U = II->user_begin(); U != II->user_end(); U++) {
+              if (auto *LSI = dyn_cast<VPLoadStoreInst>(*U)) {
+                Type *UseTy = LSI->getValueType();
+                // Multiple reached accesses of different sizes? Punt.
+                if (PointedToTy && getTypeSizeInBytes(PointedToTy) !=
+                                       getTypeSizeInBytes(UseTy))
+                  return getSOARandomVectorShape();
+                PointedToTy = UseTy;
+              } else {
+                // Look through address-space casts, each of which is
+                // typically followed by a self-addressof subscript.
+                const VPInstruction *UI = dyn_cast<VPInstruction>(*U);
+                if (UI && (isa<VPSubscriptInst>(UI) ||
+                           UI->getOpcode() == Instruction::AddrSpaceCast)) {
+                  WorkList.push(UI);
+                }
+              }
             }
           }
+
           if (!PointedToTy)
             return getSOARandomVectorShape();
 
@@ -1110,13 +1130,18 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
 
   const auto &VPBB = *I->getParent();
   VPValue *PtrOp = I->getOperand(0);
+  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
+
+  // Return pointer operand shape for SelfAddressOf instruction
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(I))
+    if (isSelfAddressOfInst(Subscript))
+      return PtrShape;
 
   // If this is a GEP on SOA variable, invoke the SOA-specific GEP-Shape
   // computation function.
   if (isSOAShape(PtrOp))
     return computeVectorShapeForSOAGepInst(I);
 
-  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
   unsigned NumOperands = I->getNumOperands();
 
   // If any of the gep indices, except the last, are not uniform, then return
@@ -1134,9 +1159,6 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
-    // Return pointer operand shape for SelfAddressOf instruction
-    if (isSelfAddressOfInst(Subscript))
-      return PtrShape;
     ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not
