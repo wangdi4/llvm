@@ -190,17 +190,6 @@ static cl::opt<bool>
              cl::desc("Run LTO passes using the new pass manager"),
              cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
-
-#if ENABLE_OPAQUE_POINTERS
-static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
-                                       cl::desc("Enable opaque pointer types"),
-                                       cl::init(true), cl::Hidden);
-#else
-static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
-                                       cl::desc("Enable opaque pointer types"),
-                                       cl::init(false), cl::Hidden);
-#endif
-
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::Hidden,
                      cl::desc("Print pass management debugging information"));
@@ -352,7 +341,6 @@ static int run(int argc, char **argv) {
   Conf.StatsFile = StatsFile;
   Conf.PTO.LoopVectorization = Conf.OptLevel > 1;
   Conf.PTO.SLPVectorization = Conf.OptLevel > 1;
-  Conf.OpaquePointers = LtoOpaquePointers;
 
   ThinBackend Backend;
   if (ThinLTODistributedIndexes)
