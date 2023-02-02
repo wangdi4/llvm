@@ -184,17 +184,9 @@ return:         ; preds = %bb
 define void @promote_latch_condition_decrementing_loop_01(ptr %p, ptr %a) {
 ; CHECK-LABEL: @promote_latch_condition_decrementing_loop_01(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, ptr [[P:%.*]], align 4, !range [[RNG0:![0-9]+]]
-; INTEL_CUSTOMIZATION
-; Keeping nsw here was proved to be safe
-; CHECK-NEXT:    [[LEN_MINUS_1:%.*]] = add nsw i32 [[LEN]], -1
-; END INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    [[LEN:%.*]] = load i32, i32* [[P:%.*]], align 4, !range [[RNG0:![0-9]+]]
 ; Keeping nsw here was proved to be safe ;INTEL
 ; CHECK-NEXT:    [[LEN_MINUS_1:%.*]] = add nsw i32 [[LEN]], -1 ;INTEL
->>>>>>> 63a3963740d97a9c9ec6aa1ce9c12cfe6e884450
 ; CHECK-NEXT:    [[ZERO_CHECK:%.*]] = icmp eq i32 [[LEN]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_CHECK]], label [[LOOPEXIT:%.*]], label [[PREHEADER:%.*]]
 ; CHECK:       preheader:
