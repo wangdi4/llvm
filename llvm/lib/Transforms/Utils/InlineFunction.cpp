@@ -3003,7 +3003,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       for (BasicBlock &NewBlock :
            make_range(FirstNewBlock->getIterator(), Caller->end()))
         for (Instruction &I : NewBlock)
-          if (auto *II = dyn_cast<AssumeInst>(&I))
+          if (auto *II = dyn_cast<CondGuardInst>(&I))
             IFI.GetAssumptionCache(*Caller).registerAssumption(II);
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL

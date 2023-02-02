@@ -23,8 +23,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains a pass that keeps track of @llvm.assume intrinsics in
-// the functions of a module.
+// This file contains a pass that keeps track of @llvm.assume and
+// @llvm.experimental.guard intrinsics in the functions of a module.
 //
 //===----------------------------------------------------------------------===//
 
@@ -157,7 +157,7 @@ findAffectedValues(CallBase *CI, TargetTransformInfo *TTI,
   }
 }
 
-void AssumptionCache::updateAffectedValues(AssumeInst *CI) {
+void AssumptionCache::updateAffectedValues(CondGuardInst *CI) {
   SmallVector<AssumptionCache::ResultElem, 16> Affected;
   findAffectedValues(CI, TTI, Affected);
 
@@ -170,7 +170,7 @@ void AssumptionCache::updateAffectedValues(AssumeInst *CI) {
   }
 }
 
-void AssumptionCache::unregisterAssumption(AssumeInst *CI) {
+void AssumptionCache::unregisterAssumption(CondGuardInst *CI) {
   SmallVector<AssumptionCache::ResultElem, 16> Affected;
   findAffectedValues(CI, TTI, Affected);
 
@@ -234,7 +234,7 @@ void AssumptionCache::scanFunction() {
   // to this cache.
   for (BasicBlock &B : F)
     for (Instruction &I : B)
-      if (isa<AssumeInst>(&I))
+      if (isa<CondGuardInst>(&I))
         AssumeHandles.push_back({&I, ExprResultIdx});
 
   // Mark the scan as complete.
@@ -242,10 +242,10 @@ void AssumptionCache::scanFunction() {
 
   // Update affected values.
   for (auto &A : AssumeHandles)
-    updateAffectedValues(cast<AssumeInst>(A));
+    updateAffectedValues(cast<CondGuardInst>(A));
 }
 
-void AssumptionCache::registerAssumption(AssumeInst *CI) {
+void AssumptionCache::registerAssumption(CondGuardInst *CI) {
   // If we haven't scanned the function yet, just drop this assumption. It will
   // be found when we scan later.
   if (!Scanned)
@@ -255,9 +255,9 @@ void AssumptionCache::registerAssumption(AssumeInst *CI) {
 
 #ifndef NDEBUG
   assert(CI->getParent() &&
-         "Cannot register @llvm.assume call not in a basic block");
+         "Cannot a register CondGuardInst not in a basic block");
   assert(&F == CI->getParent()->getParent() &&
-         "Cannot register @llvm.assume call not in this function");
+         "Cannot a register CondGuardInst not in this function");
 
   // We expect the number of assumptions to be small, so in an asserts build
   // check that we don't accumulate duplicates and that all assumptions point
@@ -269,8 +269,8 @@ void AssumptionCache::registerAssumption(AssumeInst *CI) {
 
     assert(&F == cast<Instruction>(VH)->getParent()->getParent() &&
            "Cached assumption not inside this function!");
-    assert(match(cast<CallInst>(VH), m_Intrinsic<Intrinsic::assume>()) &&
-           "Cached something other than a call to @llvm.assume!");
+    assert(isa<CondGuardInst>(VH) &&
+           "Cached something other than CondGuardInst!");
     assert(AssumptionSet.insert(VH).second &&
            "Cache contains multiple copies of a call!");
   }
