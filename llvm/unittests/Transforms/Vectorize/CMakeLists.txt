@@ -35,6 +35,7 @@ add_llvm_unittest(VectorizeTests
   VPDomTreeTest.cpp
   VPlanHCFGTest.cpp
   VPlanSlpTest.cpp
+  VPlanVerifierTest.cpp
   )
 
 set_property(TARGET VectorizeTests PROPERTY FOLDER "Tests/UnitTests/TransformsTests")
