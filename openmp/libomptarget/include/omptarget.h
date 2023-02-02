@@ -384,22 +384,19 @@ typedef struct __omp_offloading_fptr_map_t {
 } __omp_offloading_fptr_map_t;
 
 #ifdef __cplusplus
+#define EXTERN_C extern "C"
+#else
+#define EXTERN_C extern
+#endif
 
 #if _WIN32
-#define EXTERN extern "C" __declspec(dllexport)
-#else   // !_WIN32
-#define EXTERN extern "C"
-#endif  // !_WIN32
+#define EXTERN_ATTR(Attr) EXTERN_C Attr __declspec(dllexport)
+#define EXTERN EXTERN_C __declspec(dllexport)
+#else
+#define EXTERN_ATTR(Attr) EXTERN_C Attr
+#define EXTERN EXTERN_C
+#endif
 
-#else   // !__cplusplus
-
-#if _WIN32
-#define EXTERN extern __declspec(dllexport)
-#else   // !_WIN32
-#define EXTERN extern
-#endif  // !_WIN32
-
-#endif  // !__cplusplus
 #endif  // INTEL_COLLAB
 // clang-format on
 
