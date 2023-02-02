@@ -88,7 +88,7 @@ elseif( CMAKE_HOST_UNIX )
     set(system_libs ${system_libs} zircon)
   endif()
   if ( HAIKU )
-    add_definitions(-D_BSD_SOURCE)
+    add_compile_definitions(_BSD_SOURCE)
     set(system_libs ${system_libs} bsd)
   endif()
 endif( MSVC OR MINGW )
@@ -117,7 +117,7 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   endif()
 
   if(LLVM_INTEGRATED_CRT_ALLOC MATCHES "rpmalloc$")
-    add_definitions(-DENABLE_OVERRIDE -DENABLE_PRELOAD)
+    add_compile_definitions(ENABLE_OVERRIDE ENABLE_PRELOAD)
     set(ALLOCATOR_FILES "${LLVM_INTEGRATED_CRT_ALLOC}/rpmalloc/rpmalloc.c")
   elseif(LLVM_INTEGRATED_CRT_ALLOC MATCHES "snmalloc$")
     set(ALLOCATOR_FILES "${LLVM_INTEGRATED_CRT_ALLOC}/src/snmalloc/override/new.cc")
@@ -368,8 +368,13 @@ set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
 if(LLVM_INTEGRATED_CRT_ALLOC)
   if(LLVM_INTEGRATED_CRT_ALLOC MATCHES "snmalloc$")
     set_property(TARGET LLVMSupport PROPERTY CXX_STANDARD 17)
+<<<<<<< HEAD
     add_definitions(-D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
     if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|IntelLLVM" AND        # INTEL
+=======
+    add_compile_definitions(_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND
+>>>>>>> 2630093496d05a0d255b21fa6632455bd45c8720
         "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64")
       set_property(TARGET LLVMSupport PROPERTY COMPILE_FLAGS "-mcx16")
     endif()
