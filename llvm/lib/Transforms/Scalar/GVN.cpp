@@ -1818,6 +1818,7 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
       CriticalEdgePredAndLoad.size();
   assert(NumUnavailablePreds != 0 &&
          "Fully available value should already be eliminated!");
+  (void)NumUnavailablePreds;
 
 #if INTEL_CUSTOMIZATION
   // Check for xz load pattern (described above).

@@ -3125,6 +3125,7 @@ cc_binary(
     stamp = 0,
     deps = [
         ":Coverage",
+        ":Debuginfod",
         ":Instrumentation",
         ":Object",
         ":ProfileData",
