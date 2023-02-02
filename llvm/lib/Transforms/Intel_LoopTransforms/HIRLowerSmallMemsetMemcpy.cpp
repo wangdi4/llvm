@@ -216,22 +216,14 @@ RegDDRef *createConstRef(const RegDDRef *SrcOrValOp, Type *DstElemType) {
   }
 
   if (DstElemType->isFloatingPointTy()) {
-    APFloat *APFloatVal = nullptr;
-    if (DstElemType->isFloatTy()) {
-      APFloatVal = new APFloat(0.0f);
-    } else if (DstElemType->isDoubleTy()) {
-      APFloatVal = new APFloat(0.0);
-    } else {
-      // TODO: support other floating point types.
-      return nullptr;
-    }
-
+    const fltSemantics &Semantics = DstElemType->getFltSemantics();
+    APFloat APFloatVal(Semantics, 0);
     unsigned Res =
-        APFloatVal->convertFromAPInt(WideVal, true, APFloat::rmTowardZero);
+        APFloatVal.convertFromAPInt(WideVal, true, APFloat::rmTowardZero);
     if (Res != APFloat::opOK) {
       return nullptr;
     }
-    ConstRef = DDRU.createConstDDRef(ConstantFP::get(DstElemType, *APFloatVal));
+    ConstRef = DDRU.createConstDDRef(ConstantFP::get(DstElemType, APFloatVal));
     return ConstRef;
   }
 
