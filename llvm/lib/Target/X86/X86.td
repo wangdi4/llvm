@@ -1332,15 +1332,11 @@ def ProcessorFeatures {
                                       TuningFastVariableCrossLaneShuffle,
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPrefer256Bit,
-<<<<<<< HEAD
-                                      TuningInsertVZEROUPPER];
+                                      TuningInsertVZEROUPPER,
+                                      TuningAllowLight256Bit];
   list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB, TuningDSB];
   list<SubtargetFeature> ICLTuning2 = !listconcat(ICLTuning, ICLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
-=======
-                                      TuningInsertVZEROUPPER,
-                                      TuningAllowLight256Bit];
->>>>>>> d7043e8c41bb74a31c9790616c1536596814567b
   list<SubtargetFeature> ICLFeatures =
     !listconcat(CNLFeatures, ICLAdditionalFeatures);
 
