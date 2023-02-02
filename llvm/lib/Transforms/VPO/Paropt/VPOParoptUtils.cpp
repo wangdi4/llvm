@@ -2357,6 +2357,48 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   return TaskRedInitCall;
 }
 
+// Routine that generates @__kmpc_task_allow_completion_event
+CallInst *VPOParoptUtils::genKmpcAllowCompletionEvent(WRegionNode *W,
+                                                      StructType *IdentTy,
+                                                      Value *TidPtr,
+                                                      CallInst *TaskAllocCI,
+                                                      Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  Value *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
+
+  Value *Args[] = {Loc, Tid, TaskAllocCI};
+
+  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int8PtrTy};
+
+  FunctionType *FnTy = FunctionType::get(Int8PtrTy, TypeParams, false);
+
+  StringRef FnName = "__kmpc_task_allow_completion_event";
+  Function *FnAllowCompletionEvent = M->getFunction(FnName);
+
+  if (!FnAllowCompletionEvent)
+    FnAllowCompletionEvent =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *AllowCompletionEventCall =
+      genCall(FnName, Int8PtrTy, Args, TypeParams, InsertPt);
+
+  VPOParoptUtils::setFuncCallingConv(AllowCompletionEventCall, M);
+  AllowCompletionEventCall->setTailCall(false);
+  VPOParoptUtils::addFuncletOperandBundle(AllowCompletionEventCall, W->getDT(),
+                                          InsertPt);
+
+  return AllowCompletionEventCall;
+}
+
 // Auxiliary routine to generate call to @__kmpc_omp_task_alloc
 CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
                                Value *TaskFlags,
@@ -2517,6 +2559,12 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetTask()) {
     W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
+    TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+  }
+
+  if (!W->getDetach().empty()) {
+    const int DetachFlagBit = 0x40;
+    W->setTaskFlag(W->getTaskFlag() | DetachFlagBit);
     TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }
 

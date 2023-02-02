@@ -1314,6 +1314,17 @@ public:
                                   Instruction *&ElseTerm, Instruction *InsertPt,
                                   DominatorTree *DT);
 
+  /// Generate a call to `__kmpc_task_allow_completion_event`. Example:
+  /// \code
+  ///   i8* @__kmpc_task_allow_completion_event({ i32, i32, i32, i32, i8* }*,
+  ///   i32, i8*)
+  /// \endcode
+  static CallInst *genKmpcAllowCompletionEvent(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               Value *TidPtr,
+                                               CallInst *TaskAllocCI,
+                                               Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
   ///   i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,

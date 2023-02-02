@@ -540,6 +540,9 @@ private:
   /// WRNTaskLoopNode WRegion
   bool addFirstprivateForNormalizedUB(WRegionNode *W);
 
+  /// Add a Firstprivate clause for the Detach clause on a WRNTask WRegion
+  bool addFirstprivateForDetach(WRegionNode *W);
+
   /// Generate code for firstprivate variables.
   /// If \p OnlyParoptGeneratedFPForNonPtrCaptures is true, then Only those
   /// Firtstprivate items are handled that were added to capture non-pointers to
@@ -937,6 +940,9 @@ private:
   void linkPrivateItemToBufferAtEndOfThunkIfApplicable(
       Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
       Value *TaskTWithPrivates, IRBuilder<> &Builder);
+
+  /// Generate the code of the Detach(e) clause on task.
+  void genDetachCode(WRegionNode *W, CallInst *TaskAllocCI, CallInst *NewCall);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences

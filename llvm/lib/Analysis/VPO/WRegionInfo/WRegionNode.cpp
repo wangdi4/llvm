@@ -1823,7 +1823,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_DETACH: {
     assert(ClauseInfo.getIsTyped() &&
            "Expected TYPED arguments with the Detach clause.");
-    extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo, getShared());
+    extractQualOpndList<DetachClause>(Args, NumArgs, ClauseInfo, getDetach());
     break;
   }
   case QUAL_OMP_DEPARRAY:
