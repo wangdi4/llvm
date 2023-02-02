@@ -1,4 +1,21 @@
 //===- CGSCCPassManager.h - Call graph pass management ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -350,6 +367,11 @@ public:
     return *this;
   }
 
+#if INTEL_CUSTOMIZATION
+  ModuleToPostOrderCGSCCPassAdaptor &
+  operator=(ModuleToPostOrderCGSCCPassAdaptor &&) = delete;
+#endif // INTEL_CUSTOMIZATION
+
   /// Runs the CGSCC pass across every SCC in the module.
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
@@ -479,6 +501,9 @@ public:
     swap(*this, RHS);
     return *this;
   }
+#if INTEL_CUSTOMIZATION
+  CGSCCToFunctionPassAdaptor &operator=(CGSCCToFunctionPassAdaptor &&) = delete;
+#endif // INTEL_CUSTOMIZATION
 
   /// Runs the function pass across every function in the module.
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
