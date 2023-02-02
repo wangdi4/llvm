@@ -346,6 +346,11 @@ private:
                                AvailValInBlkVect &ValuesPerBlock,
                                UnavailBlkVect &UnavailableBlocks);
 
+  /// Given a critical edge from Pred to LoadBB, find a load instruction
+  /// which is identical to Load from another successor of Pred.
+  LoadInst *findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
+                                    LoadInst *Load);
+
   bool PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
                       UnavailBlkVect &UnavailableBlocks);
 
@@ -359,7 +364,8 @@ private:
   /// AvailableLoads (connected by Phis if needed).
   void eliminatePartiallyRedundantLoad(
       LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-      MapVector<BasicBlock *, Value *> &AvailableLoads);
+      MapVector<BasicBlock *, Value *> &AvailableLoads,
+      MapVector<BasicBlock *, LoadInst *> *CriticalEdgePredAndLoad);
 
   // Other helper routines
   bool processInstruction(Instruction *I);
