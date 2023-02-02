@@ -184,26 +184,12 @@ static cl::opt<bool>
                  cl::desc("Run PGO context sensitive IR instrumentation"),
                  cl::Hidden);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
     UseNewPM("use-new-pm",
              cl::desc("Run LTO passes using the new pass manager"),
              cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
-
-#if ENABLE_OPAQUE_POINTERS
-static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
-                                       cl::desc("Enable opaque pointer types"),
-                                       cl::init(true), cl::Hidden);
-#else
-static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
-                                       cl::desc("Enable opaque pointer types"),
-                                       cl::init(false), cl::Hidden);
-#endif
-
-=======
->>>>>>> 8b51407dd04fe9dbcbf2552d850bdce3ab5826dc
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::Hidden,
                      cl::desc("Print pass management debugging information"));
