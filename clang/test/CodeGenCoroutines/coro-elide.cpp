@@ -1,6 +1,10 @@
 // This tests that the coroutine elide optimization could happen succesfully.
+<<<<<<< HEAD
 // RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
 // INTEL
+=======
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
+>>>>>>> eaea793d5eb68d121dc773f6c31ebc2214bf1371
 
 #include "Inputs/coroutine.h"
 
@@ -59,6 +63,5 @@ Task task1() {
   co_return co_await task0();
 }
 
-// CHECK: %_Z5task1v.Frame = type {{.*}}%_Z5task0v.Frame
 // CHECK-LABEL: define{{.*}} void @_Z5task1v.resume
 // CHECK-NOT: call{{.*}}_Znwm
