@@ -1570,13 +1570,10 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_half:    Result = Context.HalfTy; break;
   case DeclSpec::TST_BFloat16:
-#ifdef INTEL_COLLAB
     if (!S.Context.getTargetInfo().hasBFloat16Type() &&
-        !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice))
-#else
-    if (!S.Context.getTargetInfo().hasBFloat16Type())
-#endif // INTEL_COLLAB
-        S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
+        !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice) &&
+        !S.getLangOpts().SYCLIsDevice)
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
     Result = Context.BFloat16Ty;
     break;
   case DeclSpec::TST_float:   Result = Context.FloatTy; break;
