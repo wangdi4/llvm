@@ -126,9 +126,6 @@ X86_CPU_SUBTYPE(INTEL_COREI7_GRANITERAPIDS,  "graniterapids")
 #if INTEL_FEATURE_CPU_DMR
 X86_CPU_SUBTYPE(INTEL_COREI7_DIAMONDRAPIDS,  "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-X86_CPU_SUBTYPE(INTEL_COREI7_EMERALDRAPIDS,  "emeraldrapids")
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
 X86_CPU_SUBTYPE(INTEL_RYL_ROYAL,             "royal")
 #endif // INTEL_FEATURE_CPU_RYL
@@ -544,9 +541,7 @@ CPU_SPECIFIC_ALIAS("meteorlake", "meteorlake", "alderlake")
 CPU_SPECIFIC_ALIAS("sierraforest", "sierraforest", "alderlake")
 CPU_SPECIFIC_ALIAS("grandridge", "grandridge", "alderlake")
 CPU_SPECIFIC_ALIAS("graniterapids", "graniterapids", "sapphirerapids")
-#if INTEL_FEATURE_CPU_EMR
 CPU_SPECIFIC_ALIAS("emeraldrapids", "emeraldrapids", "sapphirerapids")
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_DMR
 CPU_SPECIFIC_ALIAS("diamondrapids", "diamondrapids", "sapphirerapids")
 #endif // INTEL_FEATURE_CPU_DMR

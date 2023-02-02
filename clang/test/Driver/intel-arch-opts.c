@@ -146,4 +146,8 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-GRANDRIDGE,ARCH-WARN %s
 // ARCH-GRANDRIDGE: "-target-cpu" "grandridge"
 
+// RUN: %clang_cl -### -c /arch:EMERALDRAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-EMERALDRAPIDS,ARCH-WARN %s
+// ARCH-EMERALDRAPIDS: "-target-cpu" "emeraldrapids"
+
 // ARCH-WARN-NOT: ignoring invalid /arch: argument

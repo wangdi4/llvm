@@ -550,10 +550,6 @@ constexpr ProcInfo Processors[] = {
   // Diamondrapids microarchitecture based processors.
   { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-  // Emeraldrapids microarchitecture based processors.
-  { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
   // Royal microarchitecture based processors.
   { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal },
