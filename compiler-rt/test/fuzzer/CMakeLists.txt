@@ -24,25 +24,17 @@ endif()
 
 add_custom_target(check-fuzzer)
 
-# INTEL_CUSTOMIZATION
-
-# CMPLRLLVM-44303
-# Temporarily disable unittest of libfuzzer to unblock pulldown
-# FIXME: enable unittest for libfuzzer once this problem resolved
-
-# if(COMPILER_RT_INCLUDE_TESTS)
-#   # libFuzzer unit tests.
-#   configure_lit_site_cfg(
-#     ${CMAKE_CURRENT_SOURCE_DIR}/unit/lit.site.cfg.py.in
-#     ${CMAKE_CURRENT_BINARY_DIR}/unit/lit.site.cfg.py)
-#   add_lit_testsuite(check-fuzzer-unit "Running Fuzzer unit tests"
-#     ${CMAKE_CURRENT_BINARY_DIR}/unit
-#     DEPENDS ${LIBFUZZER_TEST_DEPS})
-#   set_target_properties(check-fuzzer-unit PROPERTIES FOLDER "Compiler-RT Tests")
-#   add_dependencies(check-fuzzer check-fuzzer-unit)
-# endif()
-
-# end INTEL_CUSTOMIZATION
+if(COMPILER_RT_INCLUDE_TESTS)
+  # libFuzzer unit tests.
+  configure_lit_site_cfg(
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/lit.site.cfg.py.in
+    ${CMAKE_CURRENT_BINARY_DIR}/unit/lit.site.cfg.py)
+  add_lit_testsuite(check-fuzzer-unit "Running Fuzzer unit tests"
+    ${CMAKE_CURRENT_BINARY_DIR}/unit
+    DEPENDS ${LIBFUZZER_TEST_DEPS})
+  set_target_properties(check-fuzzer-unit PROPERTIES FOLDER "Compiler-RT Tests")
+  add_dependencies(check-fuzzer check-fuzzer-unit)
+endif()
 
 macro(test_fuzzer stdlib)
   cmake_parse_arguments(TEST "" "" "DEPS" ${ARGN})
