@@ -79,7 +79,8 @@ class DDRefUtils {
   /// This routine compares the symbase, type and each of the canon exprs inside
   /// the references.
   static bool areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                           bool RelaxedMode, bool IgnoreAddressOf = false);
+                           bool RelaxedMode, bool IgnoreAddressOf = false,
+                           bool IgnoreBitCastDestType = false);
 
   /// Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
@@ -217,7 +218,20 @@ public:
                                        bool RelaxedMode = false) {
     assert(GEPRef1->hasGEPInfo() && "GEPRef1 is not a GEP ref!");
     assert(GEPRef2->hasGEPInfo() && "GEPRef2 is not a GEP ref!");
-    return areEqualImpl(GEPRef1, GEPRef2, RelaxedMode, true);
+    return areEqualImpl(GEPRef1, GEPRef2, RelaxedMode,
+                        true /*IgnoreAddressOf*/);
+  }
+
+  /// Returns true if \p GEPRef1 and \p GEPRef2 are equal if we ignore bitcast
+  /// destination type on the refs.
+  static bool areEqualWithoutBitCastDestType(const RegDDRef *GEPRef1,
+                                             const RegDDRef *GEPRef2,
+                                             bool RelaxedMode = false) {
+    assert(GEPRef1->hasGEPInfo() && "GEPRef1 is not a GEP ref!");
+    assert(GEPRef2->hasGEPInfo() && "GEPRef2 is not a GEP ref!");
+    return areEqualImpl(GEPRef1, GEPRef2, RelaxedMode,
+                        false /*IgnoreAddressOf*/,
+                        true /*IgnoreBitCastDestType*/);
   }
 
   /// Prints metadata nodes attached to RegDDRef.

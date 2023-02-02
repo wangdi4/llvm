@@ -221,7 +221,8 @@ void HoistSinkSet::reverse() {
 /// Their access types can differ, but it must be possible to bitcast between
 /// them.
 static bool areEquivalentAccesses(const RegDDRef *A, const RegDDRef *B) {
-  return A->isLval() == B->isLval() && DDRefUtils::areEqual(A, B, true) &&
+  return A->isLval() == B->isLval() &&
+         DDRefUtils::areEqualWithoutBitCastDestType(A, B) &&
          CastInst::isBitCastable(A->getDestType(), B->getDestType());
 }
 

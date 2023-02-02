@@ -14,8 +14,10 @@
 ;; Check that we accept .seh_proc below the function label.
 ; RUN: llc -mtriple=x86_64-windows -relocation-model=pic < %s | FileCheck %s --check-prefix=WIN
 
-; RUN: llc -mtriple=x86_64 < %s | FileCheck %s ;INTEL
+; INTEL_CUSTOMIZATION
+; RUN: llc -mtriple=x86_64 < %s | FileCheck %s
 
+; end INTEL_CUSTOMIZATION
 @gv0 = dso_local global i32 0, align 4
 @gv1 = dso_preemptable global i32 0, align 4
 
