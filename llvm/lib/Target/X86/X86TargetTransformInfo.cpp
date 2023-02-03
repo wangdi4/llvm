@@ -6685,7 +6685,7 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
   if (CI->getMetadata("hetero.arch.opt.disable.gather"))
     return true;
 
-  if (ST->gatherDisabled())
+  if (ST->preferNoGather())
     return true;
 #endif //INTEL_CUSTOMIZATION
 
@@ -6846,10 +6846,6 @@ bool X86TTIImpl::supportsGather() const {
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.
-#if INTEL_CUSTOMIZATION
-  if (ST->gatherDisabled())
-    return false;
-#endif // INTEL_CUSTOMIZATION
   return ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2());
 }
 

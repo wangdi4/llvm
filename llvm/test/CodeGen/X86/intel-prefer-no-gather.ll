@@ -1,6 +1,8 @@
 ; Check that if no-gather option can disable gather instructions.
 ; RUN: llc -opaque-pointers -mattr=+avx2,+fast-gather %s -o - | FileCheck %s --check-prefixes=GATHER
-; RUN: llc -opaque-pointers -mattr=+avx2,+fast-gather,+no-gather %s -o - | FileCheck %s --check-prefixes=NO-GATHER
+; RUN: llc -opaque-pointers -mattr=+avx2,+fast-gather,+prefer-no-gather %s -o - | FileCheck %s --check-prefixes=NO-GATHER
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq < %s | FileCheck %s --check-prefix=SCATTER
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq,+prefer-no-gather < %s | FileCheck %s --check-prefix=SCATTER-NO-GATHER
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -137,3 +139,35 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 }
 
 declare <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr>, i32, <8 x i1>, <8 x i32>)
+
+; scatter test cases 
+define void @scatter_test1(ptr %base, <16 x i32> %ind, i16 %mask, <16 x i32>%val) {
+; SCATTER-LABEL: scatter_test1:
+; SCATTER: vpscatterdd
+;
+; SCATTER-NO-GATHER-LABEL: scatter_test1:
+; SCATTER-NO-GATHER: vpscatterdd
+  %broadcast.splatinsert = insertelement <16 x ptr> undef, ptr %base, i32 0
+  %broadcast.splat = shufflevector <16 x ptr> %broadcast.splatinsert, <16 x ptr> undef, <16 x i32> zeroinitializer
+
+  %gep.random = getelementptr i32, <16 x ptr> %broadcast.splat, <16 x i32> %ind
+  %imask = bitcast i16 %mask to <16 x i1>
+  call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32>%val, <16 x ptr> %gep.random, i32 4, <16 x i1> %imask)
+  call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32>%val, <16 x ptr> %gep.random, i32 4, <16 x i1> %imask)
+  ret void
+}
+
+declare void @llvm.masked.scatter.v8i32.v8p0(<8 x i32> , <8 x ptr> , i32 , <8 x i1> )
+declare void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> , <16 x ptr> , i32 , <16 x i1> )
+
+define <8 x i32> @scatter_test2(<8 x i32>%a1, <8 x ptr> %ptr) {
+; SCATTER-LABEL: scatter_test2:
+; SCATTER: vpscatterqd
+;
+; SCATTER-NO-GATHER-LABEL: scatter_test2:
+; SCATTER-NO-GATHER: vpscatterqd
+  %a = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef)
+
+  call void @llvm.masked.scatter.v8i32.v8p0(<8 x i32> %a1, <8 x ptr> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+  ret <8 x i32>%a
+}
