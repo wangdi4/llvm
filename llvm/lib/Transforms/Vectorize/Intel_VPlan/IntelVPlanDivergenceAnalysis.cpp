@@ -1053,48 +1053,13 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
     if (Gep)
       PointedToTy = Gep->getResultElementType();
     else {
-      auto SubscriptType = cast<VPSubscriptInst>(I)->getType();
-
-      if (SubscriptType->isOpaquePointerTy()) {
-          // If we have an opaque subscript pointer, look for a memory user
-          // to determine the type.  If none is found, return random shape
-          // rather than crash.  Look through address-space casts if needed.
-          //
-          // TODO: Revisit opaque pointer handling for divergence analysis
-          // (see CMPLRLLVM-43361).
-          std::queue<const VPInstruction *> WorkList;
-          WorkList.push(I);
-
-          while (!WorkList.empty()) {
-            const VPInstruction *II = WorkList.front();
-            WorkList.pop();
-
-            for (auto *U = II->user_begin(); U != II->user_end(); U++) {
-              if (auto *LSI = dyn_cast<VPLoadStoreInst>(*U)) {
-                Type *UseTy = LSI->getValueType();
-                // Multiple reached accesses of different sizes? Punt.
-                if (PointedToTy && getTypeSizeInBytes(PointedToTy) !=
-                                       getTypeSizeInBytes(UseTy))
-                  return getSOARandomVectorShape();
-                PointedToTy = UseTy;
-              } else {
-                // Look through address-space casts, each of which is
-                // typically followed by a self-addressof subscript.
-                const VPInstruction *UI = dyn_cast<VPInstruction>(*U);
-                if (UI && (isa<VPSubscriptInst>(UI) ||
-                           UI->getOpcode() == Instruction::AddrSpaceCast)) {
-                  WorkList.push(UI);
-                }
-              }
-            }
-          }
-
-          if (!PointedToTy)
-            return getSOARandomVectorShape();
-
-      } else {
-        PointedToTy = SubscriptType->getPointerElementType();
-      }
+      auto *SI = cast<VPSubscriptInst>(I);
+      // We should not see self-addressof subscripts due to early exit
+      // in our caller.  We also punt SOA analysis when the size of
+      // a memory access doesn't match the size of the array element
+      // type, so it's safe to just consult the latter.
+      assert(SI->getNumDimensions() > 0);
+      PointedToTy = SI->dim(0).DimElementType;
     }
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
