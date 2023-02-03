@@ -332,7 +332,6 @@ bool NontemporalStore::run() {
     uint64_t BufferCount = StoreSize * NumBufferElements;
     Type *StoreArrayTy = PointerType::getUnqual(Block.BlockType);
     Builder.SetInstDebugLocation(FirstStore);
-    Align DesiredAlign(DL.getABITypeAlign(Block.BlockType));
 
     // Create the alloca for the data. We're allocating as a char array, so
     // that the buffer is allocated in the padding of the store struct.

@@ -6616,7 +6616,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
       dyn_cast<FixedVectorType>(CI->getArgOperand(0)->getType());
   assert(firstOpType && "Unexpected type for SVML argument");
   if (!firstOpType->getElementCount().isScalable() &&
-      firstOpType->getPrimitiveSizeInBits().getFixedSize() == 512)
+      firstOpType->getPrimitiveSizeInBits().getFixedValue() == 512)
     return false;
   Function *origFunc = CI->getCalledFunction();
   // Bail out in case of indirect call.

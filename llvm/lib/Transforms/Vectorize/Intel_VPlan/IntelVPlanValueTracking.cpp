@@ -71,7 +71,7 @@ public:
            "can't calculate known bits for non-integral types!");
 
     const unsigned BitWidth = static_cast<unsigned>(
-        Q.DL.getTypeSizeInBits(V->getType()).getKnownMinSize());
+        Q.DL.getTypeSizeInBits(V->getType()).getKnownMinValue());
 
     // Constants are a special base case for which all known bits are known.
     if (const auto *C = dyn_cast<VPConstant>(V)) {
@@ -225,7 +225,7 @@ public:
       // size, sign extend the resulting value, and then add it to our total.
       auto OffsetKB = computeKnownBits(Index, Depth, Q);
       const unsigned TypeSizeInBytes =
-          Q.DL.getTypeAllocSize(GTI.getIndexedType()).getKnownMinSize();
+          Q.DL.getTypeAllocSize(GTI.getIndexedType()).getKnownMinValue();
 
       // As an optimization, if the index is constant, compute the final offset
       // and add it to our accumulated constant offsets instead.

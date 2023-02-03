@@ -55,11 +55,10 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
-#if INTEL_CUSTOMIZATION
                           "SIMD Library for Evaluating Elementary Functions"),
+#if INTEL_CUSTOMIZATION	       
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
                           "Glibc vector math library")));
-
 // Flag to track if TLI should mark non-readonly functions as vectorizable.
 static cl::opt<bool> TLIVecNonReadonlyLibCalls(
     "tli-vectorize-non-readonly-libcalls", cl::Hidden,

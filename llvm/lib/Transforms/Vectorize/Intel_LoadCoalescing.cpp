@@ -636,12 +636,12 @@ bool LoadCoalescing::run() {
   MaxVecRegSize =
       (MaxVecRegSizeOpt == 0)
           ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-                .getFixedSize()
+                .getFixedValue()
           : MaxVecRegSizeOpt;
   MinVecRegSize =
       (MinVecRegSizeOpt == 0)
           ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-                .getFixedSize()
+                .getFixedValue()
           : MinVecRegSizeOpt;
 
   bool Changed = false;
