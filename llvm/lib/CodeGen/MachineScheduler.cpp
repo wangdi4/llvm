@@ -168,7 +168,6 @@ static cl::opt<unsigned>
                          cl::desc("The threshold for fast cluster"),
                          cl::init(1000));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<unsigned>
     MaxCriticalRPBlock("shrink-reg-pressure-limit", cl::Hidden,
@@ -180,7 +179,6 @@ static cl::opt<unsigned>
                          cl::desc("The max instructions in scheduling region"),
                          cl::init(1000));
 #endif // INTEL_CUSTOMIZATION
-=======
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> MISchedDumpScheduleTrace(
     "misched-dump-schedule-trace", cl::Hidden, cl::init(false),
@@ -196,7 +194,6 @@ static cl::opt<unsigned>
              cl::init(5));
 #endif
 
->>>>>>> 557ea9867f289469b40debb0f2c0a3baf9709c6d
 // DAG subtrees must have at least this many nodes.
 static const unsigned MinSubtreeSize = 8;
 
