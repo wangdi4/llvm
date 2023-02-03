@@ -3377,6 +3377,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
@@ -3401,6 +3402,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(IPSCCPPass());
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Run the OpenMPOpt pass again after global optimizations.
+  MPM.addPass(OpenMPOptPass(ThinOrFullLTOPhase::FullLTOPostLink));
+>>>>>>> 6185246f4f62345d0cfdaef62da7e15b01d52557
 
   // Garbage collect dead functions.
   MPM.addPass(GlobalDCEPass());
