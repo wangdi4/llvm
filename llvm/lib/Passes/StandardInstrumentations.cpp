@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -60,6 +60,10 @@
 #include <vector>
 
 using namespace llvm;
+
+#if INTEL_PRODUCT_RELEASE
+extern cl::opt<bool> EnableDTrans;
+#endif // INTEL_PRODUCT_RELEASE
 
 cl::opt<bool> PreservedCFGCheckerInstrumentation::VerifyPreservedCFG(
     "verify-cfg-preserved", cl::Hidden,
@@ -965,13 +969,19 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
+#if INTEL_PRODUCT_RELEASE
+  // opt-bisect is disabled when DTrans is enabled.
+  if (EnableDTrans)
+    return true;
+#endif // INTEL_PRODUCT_RELEASE
+
   if (isIgnored(PassName))
     return true;
 
   bool ShouldRun =
       Context.getOptPassGate().shouldRunPass(PassName, getIRName(IR));
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!ShouldRun && !this->HasWrittenIR && !OptBisectPrintIRPath.empty()) {
     // FIXME: print IR if limit is higher than number of opt-bisect
     // invocations
@@ -984,6 +994,9 @@ bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
       report_fatal_error(errorCodeToError(EC));
     M->print(OS, nullptr);
   }
+#else  // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  (void)this->HasWrittenIR;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return ShouldRun;
 }
 
@@ -998,6 +1011,7 @@ void OptPassGateInstrumentation::registerCallbacks(
   });
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 raw_ostream &PrintPassInstrumentation::print() {
   if (Opts.Indent) {
     assert(Indent >= 0);
@@ -1077,11 +1091,7 @@ void PrintPassInstrumentation::registerCallbacks(
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
-void OptPassGateInstrumentation::registerCallbacks(
-    PassInstrumentationCallbacks &) {
-  (void)this->HasWrittenIR;
-}
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
                                              bool TrackBBLifetime) {
