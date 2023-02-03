@@ -70,12 +70,12 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; SSE-LABEL: trunc_v6i32_v6i1:
 ; SSE:       # %bb.0:
-; SSE-NEXT:    movl %esi, %eax
-; SSE-NEXT:    orl %edx, %eax
-; SSE-NEXT:    orl %ecx, %eax
-; SSE-NEXT:    orl %r8d, %eax
+; SSE-NEXT:    movl %r8d, %eax
+; SSE-NEXT:    orl %esi, %edi
+; SSE-NEXT:    orl %ecx, %edx
+; SSE-NEXT:    orl %edi, %edx
 ; SSE-NEXT:    orl %r9d, %eax
-; SSE-NEXT:    orl %edi, %eax
+; SSE-NEXT:    orl %edx, %eax
 ; SSE-NEXT:    # kill: def $al killed $al killed $eax
 ; SSE-NEXT:    retq
 ;
@@ -442,10 +442,10 @@ define i1 @trunc_v64i8_v64i1(<64 x i8>) {
 ; SSE-LABEL: trunc_v64i8_v64i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
-; SSE-NEXT:    por %xmm0, %xmm1
-; SSE-NEXT:    psllw $7, %xmm1
-; SSE-NEXT:    pmovmskb %xmm1, %eax
+; SSE-NEXT:    por %xmm2, %xmm0
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    psllw $7, %xmm0
+; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    testl %eax, %eax
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
@@ -866,10 +866,10 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>) {
 ; SSE-NEXT:    pxor %xmm4, %xmm4
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm2
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm0
+; SSE-NEXT:    por %xmm2, %xmm0
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm3
 ; SSE-NEXT:    pcmpeqb %xmm4, %xmm1
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
 ; SSE-NEXT:    por %xmm0, %xmm1
 ; SSE-NEXT:    pmovmskb %xmm1, %eax
 ; SSE-NEXT:    testl %eax, %eax

@@ -162,24 +162,24 @@ define void @load_i64_stride2_vf8(ptr %in.vec, ptr %out.vec0, ptr %out.vec1) nou
 ; SSE-NEXT:    movlhps {{.*#+}} xmm8 = xmm8[0],xmm6[0]
 ; SSE-NEXT:    movaps %xmm5, %xmm9
 ; SSE-NEXT:    movlhps {{.*#+}} xmm9 = xmm9[0],xmm4[0]
-; SSE-NEXT:    movaps %xmm2, %xmm10
-; INTEL_CUSTOMIZATION
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm10 = xmm10[1],xmm3[1]
-; SSE-NEXT:    movaps %xmm0, %xmm11
-; SSE-NEXT:    unpckhpd {{.*#+}} xmm11 = xmm11[1],xmm1[1]
+; SSE-NEXT:    movaps %xmm0, %xmm10
+; SSE-NEXT:    unpckhpd {{.*#+}} xmm10 = xmm10[1],xmm1[1] ;INTEL
+; SSE-NEXT:    movaps %xmm2, %xmm11
+; SSE-NEXT:    unpckhpd {{.*#+}} xmm11 = xmm11[1],xmm3[1] ;INTEL
 ; SSE-NEXT:    unpckhpd {{.*#+}} xmm7 = xmm7[1],xmm6[1]
 ; SSE-NEXT:    unpckhpd {{.*#+}} xmm5 = xmm5[1],xmm4[1]
-; SSE-NEXT:    movlhps {{.*#+}} xmm2 = xmm2[0],xmm3[0]
+; INTEL_CUSTOMIZATION
 ; SSE-NEXT:    movlhps {{.*#+}} xmm0 = xmm0[0],xmm1[0]
-; SSE-NEXT:    movaps %xmm9, 32(%rsi)
-; SSE-NEXT:    movaps %xmm0, (%rsi)
-; SSE-NEXT:    movaps %xmm8, 48(%rsi)
+; SSE-NEXT:    movlhps {{.*#+}} xmm2 = xmm2[0],xmm3[0]
 ; SSE-NEXT:    movaps %xmm2, 16(%rsi)
-; SSE-NEXT:    movaps %xmm5, 32(%rdx)
-; SSE-NEXT:    movaps %xmm11, (%rdx)
-; SSE-NEXT:    movaps %xmm7, 48(%rdx)
-; SSE-NEXT:    movaps %xmm10, 16(%rdx)
+; SSE-NEXT:    movaps %xmm0, (%rsi)
 ; end INTEL_CUSTOMIZATION
+; SSE-NEXT:    movaps %xmm9, 48(%rsi)
+; SSE-NEXT:    movaps %xmm8, 32(%rsi)
+; SSE-NEXT:    movaps %xmm11, 16(%rdx) ;INTEL
+; SSE-NEXT:    movaps %xmm10, (%rdx) ;INTEL
+; SSE-NEXT:    movaps %xmm5, 48(%rdx)
+; SSE-NEXT:    movaps %xmm7, 32(%rdx)
 ; SSE-NEXT:    retq
 ;
 ; AVX1-ONLY-LABEL: load_i64_stride2_vf8:

@@ -47,12 +47,12 @@
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
-; CHECK-NEXT:       Assignment Tracking Analysis
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Scalar Evolution Analysis
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:       Assignment Tracking Analysis
 ; CHECK-NEXT:       X86 DAG->DAG Instruction Selection
 ; CHECK-NEXT:       X86 PIC Global Base Reg Initialization
 ; CHECK-NEXT:       Finalize ISel and expand pseudo-instructions

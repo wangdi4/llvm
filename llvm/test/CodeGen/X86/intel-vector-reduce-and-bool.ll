@@ -71,12 +71,12 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; SSE-LABEL: trunc_v6i32_v6i1:
 ; SSE:       # %bb.0:
-; SSE-NEXT:    movl %esi, %eax
-; SSE-NEXT:    andl %edx, %eax
-; SSE-NEXT:    andl %ecx, %eax
-; SSE-NEXT:    andl %r8d, %eax
+; SSE-NEXT:    movl %r8d, %eax
+; SSE-NEXT:    andl %esi, %edi
+; SSE-NEXT:    andl %ecx, %edx
+; SSE-NEXT:    andl %edi, %edx
 ; SSE-NEXT:    andl %r9d, %eax
-; SSE-NEXT:    andl %edi, %eax
+; SSE-NEXT:    andl %edx, %eax
 ; SSE-NEXT:    andl $1, %eax
 ; SSE-NEXT:    # kill: def $al killed $al killed $eax
 ; SSE-NEXT:    retq
@@ -449,10 +449,10 @@ define i1 @trunc_v64i8_v64i1(<64 x i8>) {
 ; SSE-LABEL: trunc_v64i8_v64i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    pand %xmm3, %xmm1
-; SSE-NEXT:    pand %xmm2, %xmm1
-; SSE-NEXT:    pand %xmm0, %xmm1
-; SSE-NEXT:    psllw $7, %xmm1
-; SSE-NEXT:    pmovmskb %xmm1, %eax
+; SSE-NEXT:    pand %xmm2, %xmm0
+; SSE-NEXT:    pand %xmm1, %xmm0
+; SSE-NEXT:    psllw $7, %xmm0
+; SSE-NEXT:    pmovmskb %xmm0, %eax
 ; SSE-NEXT:    cmpw $-1, %ax
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
@@ -698,9 +698,9 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>) {
 ; SSE-LABEL: icmp_v8i64_v8i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
-; SSE-NEXT:    por %xmm0, %xmm1
-; SSE-NEXT:    ptest %xmm1, %xmm1
+; SSE-NEXT:    por %xmm2, %xmm0
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    ptest %xmm0, %xmm0
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;
@@ -733,9 +733,9 @@ define i1 @icmp_v16i32_v16i1(<16 x i32>) {
 ; SSE-LABEL: icmp_v16i32_v16i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
-; SSE-NEXT:    por %xmm0, %xmm1
-; SSE-NEXT:    ptest %xmm1, %xmm1
+; SSE-NEXT:    por %xmm2, %xmm0
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    ptest %xmm0, %xmm0
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;
@@ -767,9 +767,9 @@ define i1 @icmp_v32i16_v32i1(<32 x i16>) {
 ; SSE-LABEL: icmp_v32i16_v32i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
-; SSE-NEXT:    por %xmm0, %xmm1
-; SSE-NEXT:    ptest %xmm1, %xmm1
+; SSE-NEXT:    por %xmm2, %xmm0
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    ptest %xmm0, %xmm0
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;
@@ -801,9 +801,9 @@ define i1 @icmp_v64i8_v64i1(<64 x i8>) {
 ; SSE-LABEL: icmp_v64i8_v64i1:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    por %xmm3, %xmm1
-; SSE-NEXT:    por %xmm2, %xmm1
-; SSE-NEXT:    por %xmm0, %xmm1
-; SSE-NEXT:    ptest %xmm1, %xmm1
+; SSE-NEXT:    por %xmm2, %xmm0
+; SSE-NEXT:    por %xmm1, %xmm0
+; SSE-NEXT:    ptest %xmm0, %xmm0
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;

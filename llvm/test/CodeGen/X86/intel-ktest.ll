@@ -12,8 +12,8 @@ define i8@test_int_x86_avx512_mask_cmp_sd_all(<2 x double> %x0, <2 x double> %x1
 ; X64-NEXT:    vcmpunordsd {sae}, %xmm1, %xmm0, %k2
 ; X64-NEXT:    vcmpneqsd %xmm1, %xmm0, %k3 {%k1}
 ; X64-NEXT:    vcmpnltsd {sae}, %xmm1, %xmm0, %k1 {%k1}
+; X64-NEXT:    korb %k2, %k0, %k0
 ; X64-NEXT:    korb %k1, %k3, %k1
-; X64-NEXT:    korb %k1, %k2, %k1
 ; X64-NEXT:    korb %k1, %k0, %k0
 ; X64-NEXT:    kmovd %k0, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
@@ -26,8 +26,8 @@ define i8@test_int_x86_avx512_mask_cmp_sd_all(<2 x double> %x0, <2 x double> %x1
 ; X86-NEXT:    vcmpunordsd {sae}, %xmm1, %xmm0, %k2
 ; X86-NEXT:    vcmpneqsd %xmm1, %xmm0, %k3 {%k1}
 ; X86-NEXT:    vcmpnltsd {sae}, %xmm1, %xmm0, %k1 {%k1}
+; X86-NEXT:    korb %k2, %k0, %k0
 ; X86-NEXT:    korb %k1, %k3, %k1
-; X86-NEXT:    korb %k1, %k2, %k1
 ; X86-NEXT:    korb %k1, %k0, %k0
 ; X86-NEXT:    kmovd %k0, %eax
 ; X86-NEXT:    # kill: def $al killed $al killed $eax
@@ -54,8 +54,8 @@ define i8@test_int_x86_avx512_mask_cmp_ss_all(<4 x float> %x0, <4 x float> %x1, 
 ; X64-NEXT:    vcmpneqss %xmm1, %xmm0, %k0 {%k1}
 ; X64-NEXT:    vcmpnltss {sae}, %xmm1, %xmm0, %k1 {%k1}
 ; X64-NEXT:    vcmpunordss {sae}, %xmm1, %xmm0, %k2 {%k2}
-; X64-NEXT:    kandb %k1, %k2, %k1
-; X64-NEXT:    kandb %k0, %k1, %k0
+; X64-NEXT:    kandb %k1, %k0, %k0
+; X64-NEXT:    kandb %k0, %k2, %k0
 ; X64-NEXT:    kmovd %k0, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    retq
@@ -67,8 +67,8 @@ define i8@test_int_x86_avx512_mask_cmp_ss_all(<4 x float> %x0, <4 x float> %x1, 
 ; X86-NEXT:    vcmpneqss %xmm1, %xmm0, %k0 {%k1}
 ; X86-NEXT:    vcmpnltss {sae}, %xmm1, %xmm0, %k1 {%k1}
 ; X86-NEXT:    vcmpunordss {sae}, %xmm1, %xmm0, %k2 {%k2}
-; X86-NEXT:    kandb %k1, %k2, %k1
-; X86-NEXT:    kandb %k0, %k1, %k0
+; X86-NEXT:    kandb %k1, %k0, %k0
+; X86-NEXT:    kandb %k0, %k2, %k0
 ; X86-NEXT:    kmovd %k0, %eax
 ; X86-NEXT:    # kill: def $al killed $al killed $eax
 ; X86-NEXT:    retl

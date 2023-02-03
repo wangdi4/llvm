@@ -6,7 +6,7 @@ define <2 x i64> @mul_v2i64_3(<2 x i64> %a0) nounwind {
 ; X64-AVX-LABEL: mul_v2i64_3:
 ; X64-AVX:       # %bb.0:
 ; X64-AVX-NEXT:    vpaddq %xmm0, %xmm0, %xmm1
-; X64-AVX-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
+; X64-AVX-NEXT:    vpaddq %xmm0, %xmm1, %xmm0
 ; X64-AVX-NEXT:    retq
   %1 = mul <2 x i64> %a0, <i64 3, i64 3>
   ret <2 x i64> %1
@@ -56,7 +56,7 @@ define <4 x i32> @mul_v4i32_3(<4 x i32> %a0) nounwind {
 ; X64-AVX-LABEL: mul_v4i32_3:
 ; X64-AVX:       # %bb.0:
 ; X64-AVX-NEXT:    vpaddd %xmm0, %xmm0, %xmm1
-; X64-AVX-NEXT:    vpaddd %xmm1, %xmm0, %xmm0
+; X64-AVX-NEXT:    vpaddd %xmm0, %xmm1, %xmm0
 ; X64-AVX-NEXT:    retq
   %1 = mul <4 x i32> %a0, <i32 3, i32 3, i32 3, i32 3>
   ret <4 x i32> %1
