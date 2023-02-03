@@ -1,6 +1,6 @@
 //===----  Intel_AutoCPUClone.cpp - Intel Automatic CPU Dispatch ---------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -106,11 +106,18 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
                          Function*& Resolver, GlobalValue*& Dispatcher) {
 
-  Resolver = Function::Create(Fn.getFunctionType(), Fn.getLinkage(),
-                              OrigName, Fn.getParent());
-  Resolver->setCallingConv(Fn.getCallingConv());
-  Resolver->setVisibility(Fn.getVisibility());
-  Resolver->setDSOLocal(Fn.isDSOLocal());
+  ValueToValueMapTy VMap;
+  // Create the resolver function through cloning Fn.
+  // This will make sure all attributes and properties of Fn are cloned/copied
+  // over to the resolver function.
+  Resolver = CloneFunction(&Fn, VMap);
+  // Delete the body of Resolver function. The implementation of the resolver
+  // will be generated later by emitMultiVersionResolver() function.
+  Resolver->deleteBody();
+  Resolver->setName(OrigName);
+  // Call to deleteBody() set Resolver's linkage to ExternalLinkage.
+  // Reset the linkage of Resolver back to that of Fn's.
+  Resolver->setLinkage(Fn.getLinkage());
 
   Dispatcher = Resolver;
 

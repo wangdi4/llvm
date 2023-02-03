@@ -12,14 +12,14 @@
 ; CHECK:   call void @_ZN3fooC1Ev.A(ptr noundef nonnull align 4 dereferenceable(4) %f)
 
 ; Use wrapper-based resolver to multiversion aliasee @_ZN3fooC2Ev
-; CHECK: define dso_local void @_ZN3fooC2Ev(ptr %0) #3 {
+; CHECK: define dso_local void @_ZN3fooC2Ev(ptr noundef nonnull align 4 dereferenceable(4) %this) unnamed_addr #0 align 2
 
 ; Make sure each clone of main() calls the right clone of GlobalAlias @_ZN3fooC1Ev
-; CHECK: define dso_local noundef i32 @main.a() #4 !llvm.acd.clone !0 {
+; CHECK: define dso_local noundef i32 @main.a() #3 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.a(ptr noundef nonnull align 4 dereferenceable(4) %f)
 
 ; Use ifunc-based resolver to multiversion functions that are not aliasees
-; CHECK: define dso_local ptr @main.resolver() #3 {
+; CHECK: define dso_local ptr @main.resolver() #4 {
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
