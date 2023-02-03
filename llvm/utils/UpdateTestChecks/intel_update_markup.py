@@ -125,6 +125,13 @@ def drop(exp):
     subprocess.run(['sed', '-i', '-b', script, exp], check=True)
 
 
+def find_interested_lines(exp, script):
+    lines = subprocess.run(['sed', '-n', script, exp], stdout=PIPE, check=True)
+    lines = lines.stdout.decode('utf-8').strip().split()
+    lines = list(map(int, lines))
+    return lines
+
+
 def add(exp, max_line, ref, comment):
     """Add intel markup and note for a clean file"""
     # No error and no ouput by intention b/c the API may be called by a test
@@ -159,10 +166,13 @@ def add(exp, max_line, ref, comment):
 
     # We prefer to use muti-line markup for a range with blank lines b/c one-line markup
     # looks weird on a blank line
-    blank_lines = subprocess.run(['sed', '-n', '/^\s*$/=', exp], stdout=PIPE, check=True)
-    blank_lines = blank_lines.stdout.decode('utf-8').strip().split()
-    blank_lines = list(map(int, blank_lines))
+    blank_lines = find_interested_lines(exp, '/^\s*$/=')
     has_blank_line = lambda start, end : any(line >= start and line <= end for line in blank_lines)
+
+    # One-line markup is not supported on FEATURE line
+    feature_str = 'INTEL_' + 'FEATURE_' # Work around the ipscan issue by splitting the string
+    feature_lines = find_interested_lines(exp, f'/{feature_str}/=')
+    has_feature_line = lambda start, end : any(line >= start and line <= end for line in feature_lines)
 
     has_s_markup = False
     has_m_markup = False
@@ -173,7 +183,7 @@ def add(exp, max_line, ref, comment):
         if not exp_lines:
             continue
         exp_end = exp_start + exp_lines - 1
-        if exp_lines <= max_line and not has_blank_line(exp_start, exp_end):
+        if exp_lines <= max_line and not has_blank_line(exp_start, exp_end) and not has_feature_line(exp_start, exp_end):
             s_script = f'{exp_start},{exp_end}s/$/ {s_markup}/'
             logging.debug(f'SED script: {s_script}')
             subprocess.run(['sed', '-i', '-b', s_script, exp])
