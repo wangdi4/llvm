@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python2
 
 """A script to generate FileCheck statements for VPlan regression tests using
 'opt' tool. The dumps of VPlan are slightly different than standard LLVM IR,
