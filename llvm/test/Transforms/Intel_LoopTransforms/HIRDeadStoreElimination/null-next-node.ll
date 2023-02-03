@@ -20,14 +20,13 @@
 
 
 ; Verify that dead store elimination is able to eliminate the redundant store
-; by replacing it with a temp.
+; by replacing it with a temp and then propagating that temp into its use.
 
 ; Print After DSE-
 ; CHECK: Function:
 
-; CHECK: %temp = %limm;
-
-; CHECK: %1 = %temp
+; CHECK-NOT: %temp =
+; CHECK: (%A)[0] = %limm + 1;
 
 
 define i32 @foo(i32* %A) {

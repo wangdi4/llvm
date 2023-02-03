@@ -139,9 +139,9 @@
 ; CHECK: %mul441.lcssa445451.out1 = %mul441.lcssa445451;
 ; CHECK: (%la)[0][1] = %mul441.lcssa445451;
 ; CHECK: %t52 = (%mx)[0][2];
-; CHECK: %t53 = %temp4;
-; CHECK: %t54 = %temp;
-; CHECK: (%la)[0][2] = -1 * %t53 + %t54;
+; CHECK-NOT: %t53 =
+; CHECK-NOT: %t54 =
+; CHECK: (%la)[0][2] = %temp + -1 * %temp4;
 ; CHECK: %t55 = (%ra)[0][9][9];
 ; CHECK: (%rc9)[0][9] = %t55;
 ; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;
