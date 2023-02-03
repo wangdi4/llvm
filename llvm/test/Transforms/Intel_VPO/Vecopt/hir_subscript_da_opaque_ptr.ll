@@ -39,8 +39,8 @@ simd.end.region:
   ret void
 }
 
-; This variant tests looking through address-space casts, which also tests
-; a VPSubscriptInst having no dimensions.
+; This variant tests presence of address-space casts and subscripts
+; having no dimensions.
 
 ; CHECK: Printing Divergence info for bar:HIR.#2
 ; CHECK: Printing Divergence info for bar:HIR.#2
@@ -120,8 +120,8 @@ simd.end.region:
   ret void
 }
 
-; Variant with multiple stores having mismatched types.  Each of these also
-; gets its own VPSubscriptInst.
+; Variant with multiple stores having mismatched types of proper size.
+; Each of these also gets its own VPSubscriptInst.
 
 ; CHECK: Printing Divergence info for rebaz:HIR.#4
 ; CHECK: Printing Divergence info for rebaz:HIR.#4
@@ -165,6 +165,7 @@ simd.end.region:
 }
 
 ; Variant with multiple stores of different sizes and address-space casts.
+; We punt SOA shape analysis in this case due to the size mismatch.
 
 ; CHECK: Printing Divergence info for threebaz:HIR.#5
 ; CHECK: Basic Block: BB35
