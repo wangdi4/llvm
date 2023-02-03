@@ -392,8 +392,8 @@ Context::~Context() {
 cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
                              void *param_value,
                              size_t *param_value_size_ret) const {
-  LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%d, "
-                 "param_value=%d, param_value_size_ret=%d"),
+  LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%zu, "
+                 "param_value=%p, param_value_size_ret=%p"),
             param_name, param_value_size, param_value, param_value_size_ret);
 
   size_t szParamValueSize = 0;
@@ -427,7 +427,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != param_value && param_value_size < szParamValueSize) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }
@@ -494,8 +494,8 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount,
                                              const char **ppcStrings,
                                              const size_t *szLengths,
                                              SharedPtr<Program> *ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%d, ppcStrings=%d, "
-                 "szLengths=%d, ppProgram=%d"),
+  LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%u, ppcStrings=%p, "
+                 "szLengths=%p, ppProgram=%p"),
             uiCount, ppcStrings, szLengths, ppProgram);
 
   // check input parameters
@@ -527,8 +527,8 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount,
 cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
                                           const cl_device_id *IN pclDeviceList,
                                           SharedPtr<Program> *OUT ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramFromLink enter. uiNumDevices=%d, "
-                 "pclDeviceList=%d, ppProgram=%d"),
+  LOG_DEBUG(TEXT("CreateProgramFromLink enter. uiNumDevices=%u, "
+                 "pclDeviceList=%p, ppProgram=%p"),
             uiNumDevices, pclDeviceList, ppProgram);
 
   cl_err_code clErrRet = CL_SUCCESS;
@@ -591,7 +591,7 @@ cl_err_code Context::CompileProgram(
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -610,7 +610,7 @@ cl_err_code Context::CompileProgram(
               .DynamicCast<Program>();
       if (NULL == ppHeaders[i].GetPtr()) {
         delete[] ppHeaders;
-        LOG_ERROR(TEXT("One of the header programs %d isn't valid program"),
+        LOG_ERROR(TEXT("One of the header programs %p isn't valid program"),
                   clProgram);
         return CL_INVALID_PROGRAM;
       }
@@ -637,7 +637,7 @@ Context::LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -656,7 +656,7 @@ Context::LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
               .DynamicCast<Program>();
       if (NULL == ppBinaries[i].GetPtr()) {
         delete[] ppBinaries;
-        LOG_ERROR(TEXT("One of the binaries programs %d isn't valid program"),
+        LOG_ERROR(TEXT("One of the binaries programs %p isn't valid program"),
                   clProgram);
         return CL_INVALID_PROGRAM;
       }
@@ -683,7 +683,7 @@ cl_err_code Context::BuildProgram(cl_program IN clProgram,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -705,7 +705,7 @@ SharedPtr<FissionableDevice> Context::GetDeviceByIndex(cl_uint uiDeviceIndex) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool Context::CheckDevices(cl_uint uiNumDevices,
                            const cl_device_id *pclDevices) {
-  LOG_DEBUG(TEXT("CheckDevices enter. uiNumDevices=%d, pclDevices=%d"),
+  LOG_DEBUG(TEXT("CheckDevices enter. uiNumDevices=%u, pclDevices=%p"),
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
@@ -717,7 +717,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices,
         m_mapDevices.GetOCLObject((_cl_device_id_int *)pclDevices[ui])
             .DynamicCast<FissionableDevice>();
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
+      LOG_ERROR(TEXT("device %p wasn't found in this context"), pclDevices[ui]);
       return false;
     }
   }
@@ -730,7 +730,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices,
 bool Context::GetDevicesFromList(cl_uint uiNumDevices,
                                  const cl_device_id *pclDevices,
                                  SharedPtr<FissionableDevice> *ppDevices) {
-  LOG_DEBUG(TEXT("GetDeviceFromList enter. uiNumDevices=%d, pclDevices=%d"),
+  LOG_DEBUG(TEXT("GetDeviceFromList enter. uiNumDevices=%u, pclDevices=%p"),
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
@@ -743,7 +743,7 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices,
         m_mapDevices.GetOCLObject((_cl_device_id_int *)pclDevices[ui])
             .DynamicCast<FissionableDevice>();
     if (NULL == ppDevices[ui].GetPtr()) {
-      LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
+      LOG_ERROR(TEXT("device %p wasn't found in this context"), pclDevices[ui]);
       return false;
     }
   }
@@ -765,8 +765,8 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
                                              cl_int *piBinaryStatus,
                                              SharedPtr<Program> *ppProgram) {
   LOG_DEBUG(
-      TEXT("CreateProgramWithBinary enter. uiNumDevices=%d, pclDeviceList=%d, "
-           "pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d, ppProgram=%d"),
+      TEXT("CreateProgramWithBinary enter. uiNumDevices=%u, pclDeviceList=%p, "
+           "pszLengths=%p, ppBinaries=%p, piBinaryStatus=%p, ppProgram=%p"),
       uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus,
       ppProgram);
 
@@ -855,7 +855,7 @@ cl_err_code Context::CreateProgramWithLibraryKernels(
 cl_err_code Context::CreateProgramWithBuiltInKernels(
     cl_uint IN uiNumDevices, const cl_device_id *IN pclDeviceList,
     const char IN *szKernelNames, SharedPtr<Program> *OUT ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%d, "
+  LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%u, "
                  "pclDeviceList=%p, ppProgram=%p"),
             uiNumDevices, pclDeviceList, ppProgram);
 
@@ -881,8 +881,9 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%S"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices (%u), pclDeviceList (%p)) "
+                   "= false"),
+              uiNumDevices, pclDeviceList);
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -907,7 +908,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
 // Context::RemoveProgram
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveProgram(cl_program clProgramId) {
-  LOG_DEBUG(TEXT("Enter RemoveProgram (clProgramId=%d)"), clProgramId);
+  LOG_DEBUG(TEXT("Enter RemoveProgram (clProgramId = %p)"), clProgramId);
 
   return m_mapPrograms.RemoveObject((_cl_program_int *)clProgramId);
 }
@@ -915,7 +916,7 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId) {
 // Context::RemoveMemObject
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveMemObject(cl_mem clMem) {
-  LOG_DEBUG(TEXT("Enter RemoveMemObject (clMem=%d)"), clMem);
+  LOG_DEBUG(TEXT("Enter RemoveMemObject (clMem=%p)"), clMem);
 
   return m_mapMemObjects.RemoveObject((_cl_mem_int *)clMem);
 }
@@ -923,7 +924,7 @@ cl_err_code Context::RemoveMemObject(cl_mem clMem) {
 // Context::RemoveSampler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveSampler(cl_sampler clSampler) {
-  LOG_DEBUG(TEXT("Enter RemoveSampler (clSampler=%d)"), clSampler);
+  LOG_DEBUG(TEXT("Enter RemoveSampler (clSampler=%p)"), clSampler);
 
   return m_mapSamplers.RemoveObject((_cl_sampler_int *)clSampler);
 }
@@ -933,8 +934,8 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler) {
 cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize,
                                   void *pHostPtr,
                                   SharedPtr<MemoryObject> *ppBuffer) {
-  LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%u, "
-                 "pHostPtr=%d, ppBuffer=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%zu, "
+                 "pHostPtr=%p, ppBuffer=%p)"),
             (unsigned long long)clFlags, szSize, pHostPtr, ppBuffer);
 
   assert(nullptr != ppBuffer);
@@ -974,8 +975,8 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer,
                                      const void *buffer_create_info,
                                      SharedPtr<MemoryObject> *ppBuffer,
                                      bool RequireAlign) {
-  LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, "
-                 "buffer_create_type=%d, ppBuffer=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%llu, "
+                 "buffer_create_type=%u, ppBuffer=%p)"),
             (unsigned long long)clFlags, buffer_create_type, ppBuffer);
 
   assert(nullptr != ppBuffer);
@@ -1138,9 +1139,10 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
                                               cl_uint uiNumEntries,
                                               cl_image_format *pclImageFormats,
                                               cl_uint *puiNumImageFormats) {
-  LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%d, clType=%d, "
-                 "uiNumEntries=%d, pclImageFormats=%d, puiNumImageFormats=%d"),
-            clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
+  LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%llu, clType=%u, "
+                 "uiNumEntries=%u, pclImageFormats=%p, puiNumImageFormats=%p"),
+            (unsigned long long)clFlags, clType, uiNumEntries, pclImageFormats,
+            puiNumImageFormats);
 
   if ((uiNumEntries == 0 && pclImageFormats != nullptr)) {
     LOG_ERROR(TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
@@ -1338,7 +1340,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords,
                                    SharedPtr<Sampler> *ppSampler) {
   assert(nullptr != ppSampler);
   LOG_DEBUG(TEXT("Enter CreateSampler (bNormalizedCoords=%d, "
-                 "clAddressingMode=%d, clFilterMode=%d, ppSampler=%d)"),
+                 "clAddressingMode=%u, clFilterMode=%u, ppSampler=%p)"),
             bNormalizedCoords, clAddressingMode, clFilterMode, ppSampler);
 
 #ifdef _DEBUG

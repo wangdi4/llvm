@@ -21,6 +21,7 @@
 
 #include "MemoryObjectFactory.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_utils.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -619,7 +620,7 @@ const IOCLDeviceAgent *const *GenericMemObject::GetDeviceAgentList() const {
 cl_err_code GenericMemObject::ReadData(void *pData, const size_t *pszOrigin,
                                        const size_t *pszRegion,
                                        size_t szRowPitch, size_t szSlicePitch) {
-  LOG_DEBUG("Enter ReadData (szRowPitch=%d, pData=%d, szSlicePitch=%d)",
+  LOG_DEBUG("Enter ReadData (szRowPitch=%zu, pData=%p, szSlicePitch=%zu)",
             szRowPitch, pData, szSlicePitch);
 
   SMemCpyParams sCpyParam;
@@ -663,7 +664,7 @@ cl_err_code GenericMemObject::WriteData(const void *pData,
                                         const size_t *pszRegion,
                                         size_t szRowPitch,
                                         size_t szSlicePitch) {
-  LOG_DEBUG("Enter WriteData (szRowPitch=%d, pData=%d, szSlicePitch=%d)",
+  LOG_DEBUG("Enter WriteData (szRowPitch=%zu, pData=%p, szSlicePitch=%zu)",
             szRowPitch, pData, szSlicePitch);
 
   SMemCpyParams sCpyParam;
@@ -759,8 +760,8 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName,
                                            size_t szParamValueSize,
                                            void *pParamValue,
                                            size_t *pszParamValueSizeRet) const {
-  LOG_DEBUG(TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, "
-                 "pszParamValueSizeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter:(clParamName=%u, szParamValueSize=%zu, pParamValue=%p, "
+                 "pszParamValueSizeRet=%p)"),
             clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   if (nullptr == pParamValue && nullptr == pszParamValueSizeRet) {
@@ -919,7 +920,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(
                                                     pSzSize, RequireAlign);
   if (CL_FAILED(err)) {
     pSubBuffer->Release();
-    LOG_ERROR(TEXT("SubBuffer creation error: %x"), err);
+    LOG_ERROR(TEXT("SubBuffer creation error: %s"), ClErrTxt(err));
     return err;
   }
 
@@ -1397,8 +1398,8 @@ GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szParamValueSize,
     pHostPtr = (const char *)pUserHostPtr + pBackingStore->GetDimentions()[0];
 
     if (nullptr != pParamValue && szParamValueSize < szSize) {
-      LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
-                szSize);
+      LOG_ERROR(TEXT("szParamValueSize (=%zu) < szSize (=%zu)"),
+                szParamValueSize, szSize);
       return CL_INVALID_VALUE;
     }
     // return param value size

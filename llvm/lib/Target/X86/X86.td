@@ -296,6 +296,10 @@ def FeatureAVX512MOVGET : SubtargetFeature<"avx512movget", "HasAVX512MOVGET", "t
                           [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
 
+#if INTEL_FEATURE_ISA_APX_F
+def FeatureEGPR : SubtargetFeature<"egpr", "HasEGPR", "true",
+                                   "Support extended general purpose register">;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

@@ -2003,7 +2003,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
 
     for (cl_uint ui = 0; ui < uiWorkDim; ui++) {
-      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %u"), ui,
+      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %zu"), ui,
                 cpszGlobalWorkSize[ui]);
       if (cpszGlobalWorkSize[ui] == 0) {
         return CL_INVALID_GLOBAL_WORK_SIZE;
@@ -2076,7 +2076,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       cpszLocalWorkSize = forcedWGSizes.data();
     if (cpszLocalWorkSize) {
       for (unsigned int ui = 0; ui < uiWorkDim; ui++) {
-        LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"), ui,
+        LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %zu"), ui,
                   cpszLocalWorkSize[ui]);
         if ((cpszLocalWorkSize[ui] == 0) ||
             ((OPENCL_VERSION_1_2 == m_opencl_ver) &&

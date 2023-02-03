@@ -526,7 +526,7 @@ void FrameworkProxy::Initialize() {
   m_pContextModule->Initialize(&OclEntryPoints, &m_GPAData);
 
   LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new "
-                "ExecutionModule(%d,%d)"),
+                "ExecutionModule(%p,%p)"),
            m_pPlatformModule, m_pContextModule);
   m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
   m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);

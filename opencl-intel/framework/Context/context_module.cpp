@@ -217,8 +217,8 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
                              cl_err_code *pRrrcodeRet) {
   // cl_start;
 
-  LOG_INFO(TEXT("Enter ContextModule::CreateContext (clProperties=%d, "
-                "uiNumDevices=%d, pDevices=%d)"),
+  LOG_INFO(TEXT("Enter ContextModule::CreateContext (clProperties=%p, "
+                "uiNumDevices=%u, pDevices=%p)"),
            clProperties, uiNumDevices, pDevices);
 
   if (nullptr == pDevices) {
@@ -344,7 +344,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
     return CL_INVALID_HANDLE;
 
   cl_context clContextId = (cl_context)m_mapContexts.AddObject(pContext);
-  LOG_INFO(TEXT("CONTEXT_TEST: New context created. (id = %d)"), clContextId);
+  LOG_INFO(TEXT("CONTEXT_TEST: New context created. (id = %p)"), clContextId);
 
   return clContextId;
 }
@@ -352,9 +352,11 @@ cl_context ContextModule::CreateContextFromType(
     const cl_context_properties *clProperties, cl_device_type clDeviceType,
     logging_fn pfnNotify, void *pUserData, cl_int *pErrcodeRet) {
   // cl_start;
-  LOG_INFO(TEXT("Enter ContextModule::CreateContextFromType (clProperties=%d, "
-                "clDeviceType=%d, pfnNotify=%d, pUserData=%d, pErrcodeRet=%d)"),
-           clProperties, clDeviceType, pfnNotify, pUserData, pErrcodeRet);
+  LOG_INFO(
+      TEXT("Enter ContextModule::CreateContextFromType (clProperties=%p, "
+           "clDeviceType=%llu, pfnNotify=%p, pUserData=%p, pErrcodeRet=%p)"),
+      clProperties, (unsigned long long)clDeviceType, pfnNotify, pUserData,
+      pErrcodeRet);
 
 #ifdef _DEBUG
   assert(nullptr != m_pPlatformModule);
@@ -365,8 +367,9 @@ cl_context ContextModule::CreateContextFromType(
   cl_err_code clErrRet = m_pPlatformModule->GetDeviceIDs(
       nullptr, clDeviceType, 0, nullptr, &uiNumDevices);
   if (CL_FAILED(clErrRet)) {
-    LOG_ERROR(TEXT("GetDeviceIDs(%d, 0, NULL, %d) = %s"), clDeviceType,
-              &uiNumDevices, ClErrTxt(clErrRet));
+    LOG_ERROR(TEXT("GetDeviceIDs(%llu, 0, NULL, %p) = %s"),
+              (unsigned long long)clDeviceType, &uiNumDevices,
+              ClErrTxt(clErrRet));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = clErrRet;
     }
@@ -375,7 +378,7 @@ cl_context ContextModule::CreateContextFromType(
 
   cl_device_id *pDevices = new cl_device_id[uiNumDevices];
   if (nullptr == pDevices) {
-    LOG_ERROR(TEXT("new cl_device_id[%d] = NULL"), uiNumDevices);
+    LOG_ERROR(TEXT("new cl_device_id[%u] = NULL"), uiNumDevices);
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
     }
@@ -386,8 +389,9 @@ cl_context ContextModule::CreateContextFromType(
   clErrRet = m_pPlatformModule->GetDeviceIDs(nullptr, clDeviceType,
                                              uiNumDevices, pDevices, nullptr);
   if (CL_FAILED(clErrRet)) {
-    LOG_ERROR(TEXT("GetDeviceIDs(%d, %d, %d, NULL) = %s"), clDeviceType,
-              uiNumDevices, pDevices, ClErrTxt(clErrRet));
+    LOG_ERROR(TEXT("GetDeviceIDs(%llu, %u, %p, NULL) = %s"),
+              (unsigned long long)clDeviceType, uiNumDevices, pDevices,
+              ClErrTxt(clErrRet));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = clErrRet;
     }
@@ -409,7 +413,7 @@ cl_err_code ContextModule::SetContextDestructorCallback(
     void(CL_CALLBACK *pfnNotify)(cl_context context, void *userData),
     void *pUserData) {
   LOG_DEBUG(
-      TEXT("Enter SetContextDestructorCallback(clContext=%d, pUserData=%d)"),
+      TEXT("Enter SetContextDestructorCallback(clContext=%p, pUserData=%p)"),
       clContext, pUserData);
 
   cl_err_code clErrRet = CL_SUCCESS;
@@ -418,7 +422,7 @@ cl_err_code ContextModule::SetContextDestructorCallback(
           .DynamicCast<Context>();
   // Return CL_INVALID_CONTEXT if context is not a valid context.
   if (!pContext.GetPtr()) {
-    LOG_DEBUG(TEXT("m_mapContexts.GetOCLObject(%d, %d) = nullptr"), clContext,
+    LOG_DEBUG(TEXT("m_mapContexts.GetOCLObject(%p, %p) = nullptr"), clContext,
               &pContext);
     return CL_INVALID_CONTEXT;
   }
@@ -443,8 +447,8 @@ cl_err_code ContextModule::SetContextDestructorCallback(
 cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices,
                                           const cl_device_id *pclDeviceIds,
                                           SharedPtr<Device> *ppDevices) {
-  LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, "
-                 "pclDeviceIds=%d, ppDevices=%d"),
+  LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%u, "
+                 "pclDeviceIds=%p, ppDevices=%p"),
             uiNumDevices, pclDeviceIds, ppDevices);
 #ifdef _DEBUG
   assert(nullptr != m_pPlatformModule);
@@ -458,7 +462,7 @@ cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices,
     SharedPtr<FissionableDevice> pDevice =
         m_pPlatformModule->GetDevice(pclDeviceIds[ui]);
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%d) = NULL"),
+      LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%p) = NULL"),
                 pclDeviceIds[ui]);
       return CL_ERR_KEY_NOT_FOUND;
     }
@@ -472,8 +476,8 @@ cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices,
 cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices,
                                       const cl_device_id *pclDeviceIds,
                                       SharedPtr<FissionableDevice> *ppDevices) {
-  LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, "
-                 "pclDeviceIds=%d, ppDevices=%d"),
+  LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%u, "
+                 "pclDeviceIds=%p, ppDevices=%p"),
             uiNumDevices, pclDeviceIds, ppDevices);
 #ifdef _DEBUG
   assert(nullptr != m_pPlatformModule);
@@ -486,7 +490,7 @@ cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices,
     SharedPtr<FissionableDevice> pDevice =
         m_pPlatformModule->GetDevice(pclDeviceIds[ui]);
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%d) = NULL"),
+      LOG_ERROR(TEXT("m_pPlatformModule->GetDevice(%p) = NULL"),
                 pclDeviceIds[ui]);
       return CL_ERR_KEY_NOT_FOUND;
     }
@@ -498,15 +502,15 @@ cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices,
 // ContextModule::RetainContext
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::RetainContext(cl_context context) {
-  LOG_INFO(TEXT("ContextModule::RetainContext enter. context=%d"), context);
+  LOG_INFO(TEXT("ContextModule::RetainContext enter. context=%p"), context);
   cl_err_code clErrRet = CL_SUCCESS;
   (void)clErrRet;
   SharedPtr<Context> pContext =
       m_mapContexts.GetOCLObject((_cl_context_int *)context)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), context,
-              &pContext, clErrRet);
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p, %p) = %s"), context,
+              &pContext, ClErrTxt(clErrRet));
     return CL_INVALID_CONTEXT;
   }
   return pContext->Retain();
@@ -516,7 +520,7 @@ cl_err_code ContextModule::RetainContext(cl_context context) {
 // ContextModule::ReleaseContext
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::ReleaseContext(cl_context context) {
-  LOG_INFO(TEXT("ContextModule::ReleaseContext enter. context=%d"), context);
+  LOG_INFO(TEXT("ContextModule::ReleaseContext enter. context=%p"), context);
 
   // Release library program on the first attempt of ReleaseContext. Library
   // program should be released at the last attempt, however, it is tricky to
@@ -531,7 +535,7 @@ cl_err_code ContextModule::ReleaseContext(cl_context context) {
       m_mapContexts.GetOCLObject((_cl_context_int *)context);
   if (pContext.GetRefCnt() > 2) {
     LOG_INFO(
-        TEXT("Warning: context %d will not have been deleted after this call - "
+        TEXT("Warning: context %p will not have been deleted after this call - "
              "the user might have forgotten to release some objects"),
         context);
   }
@@ -549,8 +553,8 @@ cl_err_code ContextModule::GetContextInfo(cl_context context,
                                           void *param_value,
                                           size_t *param_value_size_ret) {
   LOG_DEBUG(
-      TEXT("ContextModule::GetContextInfo enter. context=%d, param_name=%d, "
-           "param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
+      TEXT("ContextModule::GetContextInfo enter. context=%p, param_name=%u, "
+           "param_value_size=%zu, param_value=%p, param_value_size_ret=%p"),
       context, param_name, param_value_size, param_value, param_value_size_ret);
 
   cl_err_code clErrRet = CL_SUCCESS;
@@ -558,8 +562,8 @@ cl_err_code ContextModule::GetContextInfo(cl_context context,
       m_mapContexts.GetOCLObject((_cl_context_int *)context)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), context,
-              &pContext, clErrRet);
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p, %p) = %s"), context,
+              &pContext, ClErrTxt(clErrRet));
     return CL_INVALID_CONTEXT;
   }
   clErrRet = pContext->GetInfo((cl_int)param_name, param_value_size,
@@ -573,13 +577,14 @@ cl_program ContextModule::CreateProgramWithIL(cl_context clContext,
                                               const unsigned char *pIL,
                                               size_t length,
                                               cl_int *pErrcodeRet) {
-  LOG_INFO(TEXT("CreateProgramWithIL enter. clContext=%d, pIL=%d, szLength=%d, "
-                "pErrcodeRet=%d"),
-           clContext, pIL, length, pErrcodeRet);
+  LOG_INFO(
+      TEXT("CreateProgramWithIL enter. clContext=%p, pIL=%p, szLength=%zu, "
+           "pErrcodeRet=%p"),
+      clContext, pIL, length, pErrcodeRet);
 
   if (0 == length || nullptr == pIL) {
     // invalid value
-    LOG_ERROR(TEXT("0 == length || NULL == pIL"));
+    LOG_ERROR(TEXT("%zu == length || %p == pIL"), length, pIL);
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_VALUE;
     }
@@ -591,8 +596,8 @@ cl_program ContextModule::CreateProgramWithIL(cl_context clContext,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext,
-              &pContext, clErrRet);
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p, %p) = %s"), clContext,
+              &pContext, ClErrTxt(clErrRet));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -636,8 +641,8 @@ cl_program ContextModule::CreateProgramWithSource(cl_context clContext,
                                                   const char **ppcStrings,
                                                   const size_t *szLengths,
                                                   cl_int *pErrcodeRet) {
-  LOG_INFO(TEXT("CreateProgramWithSource enter. clContext=%d, uiCount=%d, "
-                "ppcStrings=%d, szLengths=%d, pErrcodeRet=%d"),
+  LOG_INFO(TEXT("CreateProgramWithSource enter. clContext=%p, uiCount=%u, "
+                "ppcStrings=%p, szLengths=%p, pErrcodeRet=%p"),
            clContext, uiCount, ppcStrings, szLengths, pErrcodeRet);
 
   cl_err_code clErrRet = CL_SUCCESS;
@@ -646,8 +651,8 @@ cl_program ContextModule::CreateProgramWithSource(cl_context clContext,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext,
-              &pContext, clErrRet);
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p, %p) = %s"), clContext,
+              &pContext, ClErrTxt(clErrRet));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -693,8 +698,8 @@ cl_program ContextModule::CreateProgramWithBinary(
     const cl_device_id *pclDeviceList, const size_t *pszLengths,
     const unsigned char **ppBinaries, cl_int *piBinaryStatus, cl_int *pErrRet) {
   LOG_INFO(
-      TEXT("CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d, "
-           "pclDeviceList=%d, pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d"),
+      TEXT("CreateProgramWithBinary enter. clContext=%p, uiNumDevices=%u, "
+           "pclDeviceList=%p, pszLengths=%p, ppBinaries=%p, piBinaryStatus=%p"),
       clContext, uiNumDevices, pclDeviceList, pszLengths, ppBinaries,
       piBinaryStatus);
   if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths ||
@@ -759,7 +764,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(
     cl_context clContext, cl_uint uiNumDevices,
     const cl_device_id *pclDeviceList, const char *szKernelNames,
     cl_int *pErrcodeRet) {
-  LOG_INFO(TEXT("CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d"),
+  LOG_INFO(TEXT("CreateProgramWithBinary enter. clContext=%p, uiNumDevices=%u"),
            clContext, uiNumDevices);
   if (nullptr == pclDeviceList || 0 == uiNumDevices ||
       nullptr == szKernelNames) {
@@ -776,7 +781,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%p) = NULL"), clContext);
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -818,13 +823,13 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(
 // ContextModule::RetainProgram
 //////////////////////////////////////////////////////////////////////////
 cl_err_code ContextModule::RetainProgram(cl_program clProgram) {
-  LOG_INFO(TEXT("Enter RetainProgram (clProgram=%d)"), clProgram);
+  LOG_INFO(TEXT("Enter RetainProgram (clProgram=%p)"), clProgram);
 
   SharedPtr<Program> pProgram =
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("program %d is invalid program"), clProgram);
+    LOG_ERROR(TEXT("program %p is invalid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
   return pProgram->Retain();
@@ -839,7 +844,7 @@ cl_err_code ContextModule::ReleaseProgram(cl_program clProgram) {
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("program %d is invalid program"), clProgram);
+    LOG_ERROR(TEXT("program %p is invalid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
   SharedPtr<Context> pContext = pProgram->GetContext();
@@ -904,9 +909,9 @@ cl_int ContextModule::CompileProgram(
     const char **header_include_names,
     void(CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
     void *pUserData) {
-  LOG_INFO(TEXT("CompileProgram enter. clProgram=%d, uiNumDevices=%d, "
-                "pclDeviceList=%d, pcOptions=%d, num_input_headers=%d, "
-                "pclInputHeaders=%d, header_include_names=%d, pUserData=%d"),
+  LOG_INFO(TEXT("CompileProgram enter. clProgram=%p, uiNumDevices=%u, "
+                "pclDeviceList=%p, pcOptions=%p, num_input_headers=%u, "
+                "pclInputHeaders=%p, header_include_names=%p, pUserData=%p"),
            clProgram, uiNumDevices, pclDeviceList, pcOptions, num_input_headers,
            pclInputHeaders, header_include_names, pUserData);
 
@@ -929,7 +934,7 @@ cl_int ContextModule::CompileProgram(
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -949,9 +954,9 @@ cl_program ContextModule::LinkProgram(
     cl_uint uiNumInputPrograms, const cl_program *pclInputPrograms,
     void(CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
     void *pUserData, cl_int *pErrcodeRet) {
-  LOG_INFO(TEXT("LinkProgram enter. clContext=%d, uiNumDevices=%d, "
-                "pclDeviceList=%d, pcOptions=%d, uiNumInputPrograms=%d, "
-                "pclInputPrograms=%d, pUserData=%d"),
+  LOG_INFO(TEXT("LinkProgram enter. clContext=%p, uiNumDevices=%u, "
+                "pclDeviceList=%p, pcOptions=%p, uiNumInputPrograms=%u, "
+                "pclInputPrograms=%p, pUserData=%p"),
            clContext, uiNumDevices, pclDeviceList, pcOptions,
            uiNumInputPrograms, pclInputPrograms, pUserData);
 
@@ -988,7 +993,7 @@ cl_program ContextModule::LinkProgram(
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("context %d isn't valid context"), clContext);
+    LOG_ERROR(TEXT("context %p isn't valid context"), clContext);
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -1057,8 +1062,8 @@ cl_int ContextModule::BuildProgram(
     const cl_device_id *pclDeviceList, const char *pcOptions,
     void(CL_CALLBACK *pfn_notify)(cl_program program, void *user_data),
     void *pUserData) {
-  LOG_INFO(TEXT("BuildProgram enter. clProgram=%d, uiNumDevices=%d, "
-                "pclDeviceList=%d, pcOptions=%d, pUserData=%d"),
+  LOG_INFO(TEXT("BuildProgram enter. clProgram=%p, uiNumDevices=%u, "
+                "pclDeviceList=%p, pcOptions=%p, pUserData=%p"),
            clProgram, uiNumDevices, pclDeviceList, pcOptions, pUserData);
 
   if ((nullptr == pfn_notify) && (NULL != pUserData)) {
@@ -1070,7 +1075,7 @@ cl_int ContextModule::BuildProgram(
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -1087,10 +1092,11 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
                                      cl_program_info clParamName,
                                      size_t szParamValueSize, void *pParamValue,
                                      size_t *pszParamValueSizeRet) {
-  LOG_INFO(TEXT("GetProgramInfo enter. clProgram=%d, clParamName=%d, "
-                "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d"),
-           clProgram, clParamName, szParamValueSize, pParamValue,
-           pszParamValueSizeRet);
+  LOG_INFO(
+      TEXT("GetProgramInfo enter. clProgram=%p, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p"),
+      clProgram, clParamName, szParamValueSize, pParamValue,
+      pszParamValueSizeRet);
 
   cl_err_code clErrRet = CL_SUCCESS;
   (void)clErrRet;
@@ -1098,8 +1104,8 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapPrograms.GetOCLObject(%d, %d) = %d"), clProgram,
-              &pProgram, clErrRet);
+    LOG_ERROR(TEXT("m_mapPrograms.GetOCLObject(%p, %p) = %s"), clProgram,
+              &pProgram, ClErrTxt(clErrRet));
     return CL_INVALID_PROGRAM;
   }
   return pProgram->GetInfo((cl_int)clParamName, szParamValueSize, pParamValue,
@@ -1112,14 +1118,14 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
 cl_int ContextModule::clSetProgramSpecializationConstant(
     cl_program clProgram, cl_uint uiSpecId, size_t szSpecSize,
     const void *pSpecValue) {
-  LOG_INFO(TEXT("clSetProgramSpecializationConstant enter. program=%d, "
-                "spec_id=%d, spec_size=%d, spec_value=%d"),
+  LOG_INFO(TEXT("clSetProgramSpecializationConstant enter. program=%p, "
+                "spec_id=%u, spec_size=%zu, spec_value=%p"),
            clProgram, uiSpecId, szSpecSize, pSpecValue);
   SharedPtr<Program> pProgram =
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -1134,9 +1140,9 @@ cl_int ContextModule::clSetProgramSpecializationConstant(
 cl_int ContextModule::GetProgramBuildInfo(
     cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName,
     size_t szParamValueSize, void *pParamValue, size_t *pszParamValueSizeRet) {
-  LOG_INFO(TEXT("GetProgramBuildInfo enter. clProgram=%d, clDevice=%d, "
-                "clParamName=%d, szParamValueSize=%d, pParamValue=%d, "
-                "pszParamValueSizeRet=%d"),
+  LOG_INFO(TEXT("GetProgramBuildInfo enter. clProgram=%p, clDevice=%p, "
+                "clParamName=%u, szParamValueSize=%zu, pParamValue=%p, "
+                "pszParamValueSizeRet=%p"),
            clProgram, clDevice, clParamName, szParamValueSize, pParamValue,
            pszParamValueSizeRet);
 
@@ -1146,8 +1152,8 @@ cl_int ContextModule::GetProgramBuildInfo(
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("m_mapPrograms.GetOCLObject(%d, %d) = %d"), clProgram,
-              &pProgram, clErrRet);
+    LOG_ERROR(TEXT("m_mapPrograms.GetOCLObject(%p, %p) = %s"), clProgram,
+              &pProgram, ClErrTxt(clErrRet));
     return CL_INVALID_PROGRAM;
   }
   return pProgram->GetBuildInfo(clDevice, clParamName, szParamValueSize,
@@ -1159,7 +1165,7 @@ cl_int ContextModule::GetProgramBuildInfo(
 cl_kernel ContextModule::CreateKernel(cl_program clProgram,
                                       const char *pscKernelName,
                                       cl_int *piErr) {
-  LOG_INFO(TEXT("CreateKernel enter. clProgram=%d, pscKernelName=%d, piErr=%d"),
+  LOG_INFO(TEXT("CreateKernel enter. clProgram=%p, pscKernelName=%p, piErr=%p"),
            clProgram, pscKernelName, piErr);
 
   // get program object
@@ -1197,7 +1203,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 // ContextModule::CloneKernel
 //////////////////////////////////////////////////////////////////////////
 cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel, cl_int *pErr) {
-  LOG_INFO(TEXT("ContextModule::CloneKernel enter. source_kernel=%d"),
+  LOG_INFO(TEXT("ContextModule::CloneKernel enter. source_kernel=%p"),
            source_kernel);
   SharedPtr<Kernel> pSrcKernel =
       m_mapKernels.GetOCLObject((_cl_kernel_int *)source_kernel)
@@ -1266,8 +1272,8 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
                                              cl_uint uiNumKernels,
                                              cl_kernel *pclKernels,
                                              cl_uint *puiNumKernelsRet) {
-  LOG_INFO(TEXT("CreateKernelsInProgram enter. clProgram=%d, uiNumKernels=%d, "
-                "pclKernels=%d, puiNumKernelsRet=%d"),
+  LOG_INFO(TEXT("CreateKernelsInProgram enter. clProgram=%p, uiNumKernels=%u, "
+                "pclKernels=%p, puiNumKernelsRet=%p"),
            clProgram, uiNumKernels, pclKernels, puiNumKernelsRet);
 
   // get the program object
@@ -1318,14 +1324,14 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
 // ContextModule::RetainKernel
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::RetainKernel(cl_kernel clKernel) {
-  LOG_INFO(TEXT("Enter RetainKernel (clKernel=%d)"), clKernel);
+  LOG_INFO(TEXT("Enter RetainKernel (clKernel=%p)"), clKernel);
 
   cl_err_code clErr = CL_SUCCESS;
   SharedPtr<Kernel> pKernel =
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clKernel, &pKernel,
               ClErrTxt(clErr));
     return CL_INVALID_KERNEL;
   }
@@ -1338,14 +1344,14 @@ cl_int ContextModule::RetainKernel(cl_kernel clKernel) {
 // ContextModule::ReleaseKernel
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseKernel(cl_kernel clKernel) {
-  LOG_INFO(TEXT("Enter ReleaseKernel (clKernel=%d)"), clKernel);
+  LOG_INFO(TEXT("Enter ReleaseKernel (clKernel=%p)"), clKernel);
 
   cl_err_code clErr = CL_SUCCESS;
   SharedPtr<Kernel> pKernel =
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clKernel, &pKernel,
               ClErrTxt(clErr));
     return CL_INVALID_KERNEL;
   }
@@ -1408,8 +1414,8 @@ void ContextModule::RemoveAllKernels(bool preserve_user_handles) {
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::SetKernelArg(cl_kernel clKernel, cl_uint uiArgIndex,
                                    size_t szArgSize, const void *pArgValue) {
-  LOG_DEBUG(TEXT("Enter SetKernelArg (clKernel=%d, uiArgIndex=%d, "
-                 "szArgSize=%d, pszArgValue=%d)"),
+  LOG_DEBUG(TEXT("Enter SetKernelArg (clKernel=%p, uiArgIndex=%u, "
+                 "szArgSize=%zu, pszArgValue=%p)"),
             clKernel, uiArgIndex, szArgSize, pArgValue);
 
   cl_err_code clErr = CL_SUCCESS;
@@ -1417,7 +1423,7 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel, cl_uint uiArgIndex,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .StaticCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL Object"), clKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned NULL Object"), clKernel,
               &pKernel);
     return CL_INVALID_KERNEL;
   }
@@ -1436,7 +1442,7 @@ cl_int ContextModule::SetKernelArgSVMPointer(cl_kernel clKernel,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .StaticCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned NULL"), clKernel, &pKernel);
     return CL_INVALID_KERNEL;
   }
 
@@ -1453,7 +1459,7 @@ cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .StaticCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned NULL"), clKernel, &pKernel);
     return CL_INVALID_KERNEL;
   }
   if (NULL == pParamValue) {
@@ -1577,23 +1583,23 @@ cl_int ContextModule::GetKernelSubGroupInfo(
     void *param_value, size_t *param_value_size_ret) {
   LOG_INFO(
       TEXT(
-          "Enter GetKernelSubGroupInfo (kernel=%d, device=%d, param_name=%d, input_value_size=%d,\
-                                                input_value=%d, param_value_size=%d, param_value=%d,\
-                                                param_value_size_ret=%d)"),
+          "Enter GetKernelSubGroupInfo (kernel=%p, device=%p, param_name=%u, input_value_size=%zu,\
+                                                input_value=%p, param_value_size=%zu, param_value=%p,\
+                                                param_value_size_ret=%p)"),
       kernel, device, param_name, input_value_size, input_value,
       param_value_size, param_value, param_value_size_ret);
 
   SharedPtr<Kernel> pKernel =
       m_mapKernels.GetOCLObject((_cl_kernel_int *)kernel).DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d) returned NULL"), kernel);
+    LOG_ERROR(TEXT("GetOCLObject(%p) returned NULL"), kernel);
     return CL_INVALID_KERNEL;
   }
   SharedPtr<FissionableDevice> pDevice;
   if (nullptr != device) {
     pDevice = m_pPlatformModule->GetDevice(device);
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("GetDevice(%d) returned NULL"), device);
+      LOG_ERROR(TEXT("GetDevice(%p) returned NULL"), device);
       return CL_INVALID_DEVICE;
     }
   }
@@ -1610,8 +1616,8 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
                                     size_t szParamValueSize, void *pParamValue,
                                     size_t *pszParamValueSizeRet) {
   LOG_INFO(
-      TEXT("Enter GetKernelInfo (clKernel=%d, clParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+      TEXT("Enter GetKernelInfo (clKernel=%p, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       clKernel, clParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 
@@ -1621,7 +1627,7 @@ cl_int ContextModule::GetKernelInfo(cl_kernel clKernel,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clKernel, &pKernel,
               ClErrTxt(clErr));
     return CL_INVALID_KERNEL;
   }
@@ -1637,16 +1643,16 @@ cl_int ContextModule::GetKernelWorkGroupInfo(
     cl_kernel clKernel, cl_device_id deviceId,
     cl_kernel_work_group_info clParamName, size_t szParamValueSize,
     void *pParamValue, size_t *pszParamValueSizeRet) {
-  LOG_INFO(TEXT("Enter GetKernelWorkGroupInfo (clKernel=%d, clDevice=%d, "
-                "clParamName=%d, szParamValueSize=%d, pParamValue=%d, "
-                "pszParamValueSizeRet=%d)"),
+  LOG_INFO(TEXT("Enter GetKernelWorkGroupInfo (clKernel=%p, clDevice=%p, "
+                "clParamName=%u, szParamValueSize=%zu, pParamValue=%p, "
+                "pszParamValueSizeRet=%p)"),
            clKernel, deviceId, clParamName, szParamValueSize, pParamValue,
            pszParamValueSizeRet);
   SharedPtr<Kernel> pKernel =
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d) returned NULL"), clKernel);
+    LOG_ERROR(TEXT("GetOCLObject(%p) returned NULL"), clKernel);
     return CL_INVALID_KERNEL;
   }
   SharedPtr<FissionableDevice> pDevice;
@@ -1656,7 +1662,7 @@ cl_int ContextModule::GetKernelWorkGroupInfo(
   {
     pDevice = m_pPlatformModule->GetDevice(deviceId);
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("GetDevice(%d) returned NULL"), deviceId);
+      LOG_ERROR(TEXT("GetDevice(%p) returned NULL"), deviceId);
       return CL_INVALID_DEVICE;
     }
   }
@@ -1670,8 +1676,8 @@ cl_int ContextModule::GetKernelWorkGroupInfo(
 cl_mem ContextModule::CreateBuffer(cl_context clContext, cl_mem_flags clFlags,
                                    size_t szSize, void *pHostPtr,
                                    cl_int *pErrcodeRet) {
-  LOG_DEBUG(TEXT("Enter CreateBuffer (clContext=%d, clFlags=%llu, szSize=%u, "
-                 "pHostPtr=%d, pErrcodeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateBuffer (clContext=%p, clFlags=%llu, szSize=%zu, "
+                 "pHostPtr=%p, pErrcodeRet=%p)"),
             clContext, (unsigned long long)clFlags, szSize, pHostPtr,
             pErrcodeRet);
 
@@ -1679,7 +1685,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext, cl_mem_flags clFlags,
       CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
 
   if (bufHandle != CL_INVALID_HANDLE) {
-    LOG_DEBUG(TEXT("CreateBuffer return handle %d"), bufHandle);
+    LOG_DEBUG(TEXT("CreateBuffer return handle %p"), bufHandle);
   }
   return bufHandle;
 }
@@ -1690,9 +1696,9 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext, cl_mem_flags clFlags,
 cl_mem ContextModule::CreateBufferWithPropertiesINTEL(
     cl_context clContext, const cl_mem_properties_intel *properties,
     cl_mem_flags clFlags, size_t szSize, void *pHostPtr, cl_int *pErrcodeRet) {
-  LOG_DEBUG(TEXT("Enter CreateBufferWithPropertiesINTEL(clContext=%d, "
-                 "properties=%d, clFlags=%llu,"
-                 " szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateBufferWithPropertiesINTEL(clContext=%p, "
+                 "properties=%p, clFlags=%llu,"
+                 " szSize=%zu, pHostPtr=%p, pErrcodeRet=%p)"),
             clContext, properties, (unsigned long long)clFlags, szSize,
             pHostPtr, pErrcodeRet);
 
@@ -1716,7 +1722,7 @@ cl_mem ContextModule::CreateBufferWithPropertiesINTEL(
       CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
 
   if (bufHandle != CL_INVALID_HANDLE) {
-    LOG_DEBUG(TEXT("CreateBufferWithPropertiesINTEL return handle %d"),
+    LOG_DEBUG(TEXT("CreateBufferWithPropertiesINTEL return handle %p"),
               bufHandle);
   }
   return bufHandle;
@@ -1729,7 +1735,7 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL , pContext = %d"),
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL , pContext = %p"),
               clContext, pContext.GetPtr())
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
@@ -1778,8 +1784,9 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
   }
 
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags,
-              szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
+    LOG_ERROR(TEXT("pContext->CreateBuffer(%llu, %zu, %p, %p) = %s"),
+              (unsigned long long)clFlags, szSize, pHostPtr, &pBuffer,
+              ClErrTxt(clErr))
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
     }
@@ -1787,7 +1794,7 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
   }
   clErr = m_mapMemObjects.AddObject(pBuffer, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -1807,9 +1814,9 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
 cl_mem ContextModule::CreateBufferWithProperties(
     cl_context clContext, const cl_mem_properties *properties,
     cl_mem_flags clFlags, size_t szSize, void *pHostPtr, cl_int *pErrcodeRet) {
-  LOG_DEBUG(TEXT("Enter CreateBufferWithProperties(clContext=%d, "
-                 "properties=%d, clFlags=%llu,"
-                 " szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateBufferWithProperties(clContext=%p, "
+                 "properties=%p, clFlags=%llu,"
+                 " szSize=%zu, pHostPtr=%p, pErrcodeRet=%p)"),
             clContext, properties, (unsigned long long)clFlags, szSize,
             pHostPtr, pErrcodeRet);
   cl_int iErrCode = CL_SUCCESS;
@@ -1838,7 +1845,7 @@ cl_mem ContextModule::CreateBufferWithProperties(
         CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
 
     if (bufHandle != CL_INVALID_HANDLE) {
-      LOG_DEBUG(TEXT("CreateBufferWithProperties return handle %d"), bufHandle);
+      LOG_DEBUG(TEXT("CreateBufferWithProperties return handle %p"), bufHandle);
       SharedPtr<MemoryObject> pBuffer =
           m_mapMemObjects.GetOCLObject((_cl_mem_int *)bufHandle)
               .DynamicCast<MemoryObject>();
@@ -1860,8 +1867,8 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem clBuffer, cl_mem_flags clFlags,
                                       cl_buffer_create_type buffer_create_type,
                                       const void *buffer_create_info,
                                       cl_int *pErrcodeRet) {
-  LOG_INFO(TEXT("Enter CreateSubBuffer (clBuffer=%d, clFlags=%llu, "
-                "cl_buffer_create_type=%d, pErrcodeRet=%d)"),
+  LOG_INFO(TEXT("Enter CreateSubBuffer (clBuffer=%p, clFlags=%llu, "
+                "cl_buffer_create_type=%u, pErrcodeRet=%p)"),
            clBuffer, (unsigned long long)clFlags, buffer_create_type,
            pErrcodeRet);
 
@@ -1877,7 +1884,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem clBuffer, cl_mem_flags clFlags,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)clBuffer)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clBuffer, &pMemObj);
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned NULL"), clBuffer, &pMemObj);
     iErr = CL_INVALID_MEM_OBJECT;
     return CL_INVALID_HANDLE;
   }
@@ -1920,7 +1927,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem clBuffer, cl_mem_flags clFlags,
 
   clErr = m_mapMemObjects.AddObject(pBuffer, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
     if (nullptr != pErrcodeRet) {
       iErr = CL_ERR_OUT(clErr);
@@ -1931,7 +1938,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem clBuffer, cl_mem_flags clFlags,
     iErr = CL_SUCCESS;
   }
 
-  LOG_DEBUG(TEXT("CreateSubBuffer returned handle = %d"), pBuffer->GetHandle());
+  LOG_DEBUG(TEXT("CreateSubBuffer returned handle = %p"), pBuffer->GetHandle());
 
   return pBuffer->GetHandle();
 }
@@ -1948,7 +1955,7 @@ cl_mem ContextModule::CreateImage2D(cl_context clContext, cl_mem_flags clFlags,
       clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, 0,
       szImageRowPitch, 0, pHostPtr, pErrcodeRet);
 
-  LOG_DEBUG(TEXT("CreateImage2D returned handle = %d"), image);
+  LOG_DEBUG(TEXT("CreateImage2D returned handle = %p"), image);
 
   return image;
 }
@@ -1966,7 +1973,7 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext, cl_mem_flags clFlags,
       clContext, clFlags, clImageFormat, szImageWidth, szImageHeight,
       szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
-  LOG_DEBUG(TEXT("CreateImage3D returned handle = %d"), image);
+  LOG_DEBUG(TEXT("CreateImage3D returned handle = %p"), image);
 
   return image;
 }
@@ -2057,7 +2064,7 @@ cl_mem ContextModule::CreateImageImpl(cl_context context, cl_mem_flags flags,
                                 host_ptr, errcode_ret);
     break;
   default:
-    LOG_ERROR(TEXT("unsupported image type (%d)"), image_desc->image_type);
+    LOG_ERROR(TEXT("unsupported image type (%u)"), image_desc->image_type);
     if (errcode_ret) {
       *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
     }
@@ -2080,7 +2087,7 @@ cl_mem ContextModule::CreateImage(cl_context context, cl_mem_flags flags,
   cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
                                     host_ptr, errcode_ret);
 
-  LOG_DEBUG(TEXT("CreateImage returned handle = %d"), clMemObj);
+  LOG_DEBUG(TEXT("CreateImage returned handle = %p"), clMemObj);
 
   return clMemObj;
 }
@@ -2121,7 +2128,7 @@ cl_mem ContextModule::CreateImageWithProperties(
     cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
                                       host_ptr, errcode_ret);
     if (clMemObj != CL_INVALID_HANDLE) {
-      LOG_DEBUG(TEXT("CreateImageWithProperties returned handle = %d"),
+      LOG_DEBUG(TEXT("CreateImageWithProperties returned handle = %p"),
                 clMemObj);
       SharedPtr<MemoryObject> pImage =
           m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObj)
@@ -2172,7 +2179,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), clContext);
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -2237,9 +2244,9 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
   clErr = pContext->CreateImageArray(clFlags, clImageFormat, pHostPtr,
                                      pClImageDesc, &pImageArr);
   if (CL_FAILED(clErr) || NULL == pImageArr.GetPtr()) {
-    LOG_ERROR(TEXT("pContext->CreateImage2DArray(%d, %p, %p, %p, %p) = %s"),
-              clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr,
-              ClErrTxt(clErr));
+    LOG_ERROR(TEXT("pContext->CreateImage2DArray(%llu, %p, %p, %p, %p) = %s"),
+              (unsigned long long)clFlags, clImageFormat, pHostPtr,
+              pClImageDesc, &pImageArr, ClErrTxt(clErr));
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
     }
@@ -2247,7 +2254,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
   }
   clErr = m_mapMemObjects.AddObject(pImageArr, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pImageArr.GetPtr(), pImageArr->GetHandle(), ClErrTxt(clErr))
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -2340,7 +2347,7 @@ cl_mem ContextModule::Create2DImageFromImage(
 // ContextModule::RetainMemObject
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::RetainMemObject(cl_mem clMemObj) {
-  LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%d)"), clMemObj);
+  LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%p)"), clMemObj);
 
   cl_err_code clErr = CL_SUCCESS;
   (void)clErr;
@@ -2348,7 +2355,7 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj) {
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObj)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clMemObj, &pMemObj,
               ClErrTxt(clErr));
     return CL_INVALID_MEM_OBJECT;
   }
@@ -2358,14 +2365,14 @@ cl_int ContextModule::RetainMemObject(cl_mem clMemObj) {
 // ContextModule::ReleaseMemObject
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseMemObject(cl_mem clMemObj) {
-  LOG_DEBUG(TEXT("Enter ReleaseMemObject (clMemObj=%d)"), clMemObj);
+  LOG_DEBUG(TEXT("Enter ReleaseMemObject (clMemObj=%p)"), clMemObj);
 
   cl_err_code clErr = CL_SUCCESS;
   SharedPtr<MemoryObject> pMemObj =
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObj)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clMemObj, &pMemObj,
               ClErrTxt(clErr));
     return CL_INVALID_MEM_OBJECT;
   }
@@ -2453,17 +2460,17 @@ cl_int ContextModule::GetSupportedImageFormats(cl_context clContext,
                                                cl_uint uiNumEntries,
                                                cl_image_format *pclImageFormats,
                                                cl_uint *puiNumImageFormats) {
-  LOG_INFO(TEXT("Enter GetSupportedImageFormats (clContext=%d, clFlags=%d, "
-                "clImageType=%d, uiNumEntries=%d, pclImageFormats=%d, "
-                "puiNumImageFormats=%d)"),
-           clContext, clFlags, clImageType, uiNumEntries, pclImageFormats,
-           puiNumImageFormats);
+  LOG_INFO(TEXT("Enter GetSupportedImageFormats (clContext=%p, clFlags=%llu, "
+                "clImageType=%u, uiNumEntries=%u, pclImageFormats=%p, "
+                "puiNumImageFormats=%p)"),
+           clContext, (unsigned long long)clFlags, clImageType, uiNumEntries,
+           pclImageFormats, puiNumImageFormats);
 
   SharedPtr<Context> pContext =
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), clContext);
     return CL_INVALID_CONTEXT;
   }
   return pContext->GetSupportedImageFormats(
@@ -2477,8 +2484,8 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj, cl_mem_info clParamName,
                                        void *pParamValue,
                                        size_t *pszParamValueSizeRet) {
   LOG_INFO(
-      TEXT("Enter GetMemObjectInfo (clMemObj=%d, clParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+      TEXT("Enter GetMemObjectInfo (clMemObj=%p, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       clMemObj, clParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 
@@ -2488,7 +2495,7 @@ cl_int ContextModule::GetMemObjectInfo(cl_mem clMemObj, cl_mem_info clParamName,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObj)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clMemObj, &pMemObj,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clMemObj, &pMemObj,
               ClErrTxt(clErr));
     return CL_INVALID_MEM_OBJECT;
   }
@@ -2503,8 +2510,8 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage, cl_image_info clParamName,
                                    size_t szParamValueSize, void *pParamValue,
                                    size_t *pszParamValueSizeRet) {
   LOG_INFO(
-      TEXT("Enter GetImageInfo (clImage=%d, clParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+      TEXT("Enter GetImageInfo (clImage=%p, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       clImage, clParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 
@@ -2514,7 +2521,7 @@ cl_int ContextModule::GetImageInfo(cl_mem clImage, cl_image_info clParamName,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)clImage)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clImage, &pMemObj,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clImage, &pMemObj,
               ClErrTxt(clErr));
     return CL_INVALID_MEM_OBJECT;
   }
@@ -2537,7 +2544,7 @@ cl_int ContextModule::SetMemObjectDestructorCallback(cl_mem memObj,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)memObj)
           .DynamicCast<MemoryObject>();
   if (NULL == pMemObj.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), memObj, &pMemObj,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), memObj, &pMemObj,
               ClErrTxt(clErr));
     return CL_INVALID_MEM_OBJECT;
   }
@@ -2639,8 +2646,8 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
                                         cl_addressing_mode clAddressingMode,
                                         cl_filter_mode clFilterMode,
                                         cl_int *pErrcodeRet) {
-  LOG_DEBUG(TEXT("Enter CreateSampler (clContext=%d, bNormalizedCoords=%d, "
-                 "clAddressingMode=%d, clFilterMode=%d, pErrcodeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateSampler (clContext=%p, bNormalizedCoords=%d, "
+                 "clAddressingMode=%u, clFilterMode=%u, pErrcodeRet=%p)"),
             clContext, bNormalizedCoords, clAddressingMode, clFilterMode,
             pErrcodeRet);
 
@@ -2648,7 +2655,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (NULL == pContext.GetPtr()) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), clContext);
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -2666,7 +2673,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
   cl_err_code clErr = pContext->CreateSampler(
       bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("pContext->CreateSampler(%d, %d, %d, %d) = %s"),
+    LOG_ERROR(TEXT("pContext->CreateSampler(%d, %u, %u, %p) = %s"),
               bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler,
               ClErrTxt(clErr))
     if (nullptr != pErrcodeRet) {
@@ -2676,7 +2683,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
   }
   clErr = m_mapSamplers.AddObject(pSampler, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pSampler.GetPtr(), pSampler->GetHandle(), ClErrTxt(clErr))
     if (nullptr != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -2693,14 +2700,14 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
 // ContextModule::RetainSampler
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::RetainSampler(cl_sampler clSampler) {
-  LOG_DEBUG(TEXT("Enter RetainSampler (clSampler=%d)"), clSampler);
+  LOG_DEBUG(TEXT("Enter RetainSampler (clSampler=%p)"), clSampler);
 
   cl_err_code clErr = CL_SUCCESS;
   SharedPtr<Sampler> pSampler =
       m_mapSamplers.GetOCLObject((_cl_sampler_int *)clSampler)
           .DynamicCast<Sampler>();
   if (CL_FAILED(clErr) || NULL == pSampler.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clSampler, &pSampler,
               ClErrTxt(clErr));
     return CL_INVALID_SAMPLER;
   }
@@ -2710,14 +2717,14 @@ cl_int ContextModule::RetainSampler(cl_sampler clSampler) {
 // ContextModule::ReleaseSampler
 //////////////////////////////////////////////////////////////////////////
 cl_int ContextModule::ReleaseSampler(cl_sampler clSampler) {
-  LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%d)"), clSampler);
+  LOG_DEBUG(TEXT("Enter RetainMemObject (clMemObj=%p)"), clSampler);
 
   cl_err_code clErr = CL_SUCCESS;
   SharedPtr<Sampler> pSampler =
       m_mapSamplers.GetOCLObject((_cl_sampler_int *)clSampler)
           .DynamicCast<Sampler>();
   if (NULL == pSampler.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clSampler, &pSampler,
               ClErrTxt(clErr));
     return CL_INVALID_SAMPLER;
   }
@@ -2778,8 +2785,8 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
                                      size_t szParamValueSize, void *pParamValue,
                                      size_t *pszParamValueSizeRet) {
   LOG_INFO(
-      TEXT("Enter GetSamplerInfo (clSampler=%d, clParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+      TEXT("Enter GetSamplerInfo (clSampler=%p, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       clSampler, clParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 
@@ -2788,7 +2795,7 @@ cl_int ContextModule::GetSamplerInfo(cl_sampler clSampler,
       m_mapSamplers.GetOCLObject((_cl_sampler_int *)clSampler)
           .DynamicCast<Sampler>();
   if (CL_FAILED(clErr) || NULL == pSampler.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clSampler, &pSampler,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clSampler, &pSampler,
               ClErrTxt(clErr));
     return CL_INVALID_SAMPLER;
   }
@@ -3137,10 +3144,11 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel, cl_uint argIndx,
                                        size_t szParamValueSize,
                                        void *pParamValue,
                                        size_t *pszParamValueSizeRet) {
-  LOG_INFO(TEXT("Enter clKernel=%X, argIndx=%d, clParamName=%d, "
-                "szParamValueSize=%d, pParamValue=%X, pszParamValueSizeRet=%X"),
-           clKernel, argIndx, paramName, szParamValueSize, pParamValue,
-           pszParamValueSizeRet);
+  LOG_INFO(
+      TEXT("Enter clKernel=%p, argIndx=%u, clParamName=%u, "
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p"),
+      clKernel, argIndx, paramName, szParamValueSize, pParamValue,
+      pszParamValueSizeRet);
 
   cl_err_code clErr = CL_SUCCESS;
   (void)clErr;
@@ -3148,7 +3156,7 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel, cl_uint argIndx,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .DynamicCast<Kernel>();
   if (NULL == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), clKernel, &pKernel,
               ClErrTxt(clErr));
     return CL_INVALID_KERNEL;
   }
@@ -3497,7 +3505,7 @@ cl_int ContextModule::SetKernelArgUSMPointer(cl_kernel clKernel,
       m_mapKernels.GetOCLObject((_cl_kernel_int *)clKernel)
           .StaticCast<Kernel>();
   if (nullptr == pKernel.GetPtr()) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned nullptr"), clKernel,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned nullptr"), clKernel,
               &pKernel);
     return CL_INVALID_KERNEL;
   }

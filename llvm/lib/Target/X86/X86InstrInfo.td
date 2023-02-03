@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -954,6 +954,14 @@ def relocImm : ComplexPattern<iAny, 1, "selectRelocImm",
 //===----------------------------------------------------------------------===//
 // X86 Instruction Predicate Definitions.
 def TruePredicate : Predicate<"true">;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// Placeholder for APX, Predicate need to be different
+def FalsePredicateNDD : Predicate<"!(true || Subtarget->hasNOPL())">;
+def FalsePredicateNF : Predicate<"!(true || Subtarget->canUseCMOV())">;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 def HasCMOV      : Predicate<"Subtarget->canUseCMOV()">;
 def NoCMOV       : Predicate<"!Subtarget->canUseCMOV()">;

@@ -245,8 +245,8 @@ cl_err_code PlatformModule::Release(bool bTerminate) {
 cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
                                            cl_platform_id *pclPlatforms,
                                            cl_uint *puiNumPlatforms) {
-  LOG_INFO(TEXT("Enter GetPlatformIDs. (uiNumEntries=%d, pclPlatforms=%d, "
-                "puiNumPlatforms=%d)"),
+  LOG_INFO(TEXT("Enter GetPlatformIDs. (uiNumEntries=%u, pclPlatforms=%p, "
+                "puiNumPlatforms=%p)"),
            uiNumEntries, pclPlatforms, puiNumPlatforms);
 
   if (((0 == uiNumEntries) && (nullptr != pclPlatforms)) ||
@@ -279,7 +279,7 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
 // PlatformModule::UnloadPlatformCompiler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::UnloadPlatformCompiler(cl_platform_id platform) {
-  LOG_INFO(TEXT("Enter UnloadPlatformCompiler. platform=%d"), platform);
+  LOG_INFO(TEXT("Enter UnloadPlatformCompiler. platform=%p"), platform);
 
   if (false == CheckPlatformId(platform)) {
     LOG_ERROR(TEXT("%s"), TEXT("false == CheckPlatformId(platform)"));
@@ -296,12 +296,12 @@ cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
                                        size_t szParamValueSize,
                                        void *pParamValue,
                                        size_t *pszParamValueSizeRet) {
-  LOG_INFO(TEXT("Enter GetPlatformInfo (clParamName=%d, szParamValueSize=%d, "
-                "pParamValue=%d, pszParamValueSizeRet=%d)"),
+  LOG_INFO(TEXT("Enter GetPlatformInfo (clParamName=%u, szParamValueSize=%zu, "
+                "pParamValue=%p, pszParamValueSizeRet=%p)"),
            clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   if (false == CheckPlatformId(clPlatform)) {
-    LOG_ERROR(TEXT("Current platform id (%d) is not supported"), clPlatform);
+    LOG_ERROR(TEXT("Current platform id (%p) is not supported"), clPlatform);
     return CL_INVALID_PLATFORM;
   }
 
@@ -450,7 +450,7 @@ cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 
   if (nullptr != pParamValue) {
     if (szParamValueSize < szParamSize) {
-      LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"),
+      LOG_ERROR(TEXT("szParamValueSize (%zu) < pszParamValueSizeRet (%zu)"),
                 szParamValueSize, szParamSize);
       return CL_INVALID_VALUE;
     }
@@ -474,9 +474,10 @@ cl_int PlatformModule::GetDeviceIDs(cl_platform_id /*clPlatform*/,
                                     cl_uint uiNumEntries,
                                     cl_device_id *pclDevices,
                                     cl_uint *puiNumDevices) {
-  LOG_INFO(TEXT("Enter GetDeviceIDs (device_type=%d, num_entried=%d, "
-                "pclDevices=%d, puiNumDevices=%d)"),
-           clDeviceType, uiNumEntries, pclDevices, puiNumDevices);
+  LOG_INFO(TEXT("Enter GetDeviceIDs (device_type=%llu, num_entried=%u, "
+                "pclDevices=%p, puiNumDevices=%p)"),
+           (unsigned long long)clDeviceType, uiNumEntries, pclDevices,
+           puiNumDevices);
 
   if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
       !(clDeviceType & CL_DEVICE_TYPE_CPU) &&
@@ -615,7 +616,7 @@ cl_int PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 
   if (nullptr != pParamValue) {
     if (szParamValueSize < szParamSize) {
-      LOG_ERROR(TEXT("szParamValueSize (%d) < pszParamValueSizeRet (%d)"),
+      LOG_ERROR(TEXT("szParamValueSize (%zu) < pszParamValueSizeRet (%zu)"),
                 szParamValueSize, szParamSize);
       return CL_INVALID_VALUE;
     }
@@ -634,7 +635,7 @@ cl_int PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code PlatformModule::GetRootDevice(cl_device_id clDeviceId,
                                           SharedPtr<Device> *ppDevice) {
-  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),
+  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%p, ppDevices=%p"),
            clDeviceId, ppDevice);
   assert((nullptr != ppDevice));
   // get the device from the devices list
@@ -650,7 +651,7 @@ cl_err_code PlatformModule::GetRootDevice(cl_device_id clDeviceId,
 
 SharedPtr<FissionableDevice>
 PlatformModule::GetDevice(cl_device_id clDeviceId) {
-  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d"), clDeviceId);
+  LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%p"), clDeviceId);
   // get the device from the devices list
   return m_mapDevices.GetOCLObject((_cl_device_id_int *)clDeviceId)
       .DynamicCast<FissionableDevice>();

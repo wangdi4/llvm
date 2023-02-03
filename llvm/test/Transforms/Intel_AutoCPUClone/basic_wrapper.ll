@@ -27,15 +27,15 @@
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @baz(i32 %0) #0 {
+; CHECK-NEXT: define i32 @baz(i32 %a) #0 {
 ; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   %1 = load ptr, ptr @baz.ptr, align 8
-; CHECK-NEXT:   %ptr_compare = icmp ne ptr %1, null
+; CHECK-NEXT:   %0 = load ptr, ptr @baz.ptr, align 8
+; CHECK-NEXT:   %ptr_compare = icmp ne ptr %0, null
 ; CHECK-NEXT:   br i1 %ptr_compare, label %resolver_then, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_then:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   %2 = tail call i32 %1(i32 %0)
-; CHECK-NEXT:   ret i32 %2
+; CHECK-NEXT:   %1 = tail call i32 %0(i32 %a)
+; CHECK-NEXT:   ret i32 %1
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
@@ -45,13 +45,13 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_else
 ; CHECK-NEXT:   store ptr @baz.V, ptr @baz.ptr, align 8
-; CHECK-NEXT:   %3 = tail call i32 @baz.V(i32 %0)
-; CHECK-NEXT:   ret i32 %3
+; CHECK-NEXT:   %2 = tail call i32 @baz.V(i32 %a)
+; CHECK-NEXT:   ret i32 %2
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else1:                                   ; preds = %resolver_else
 ; CHECK-NEXT:   store ptr @baz.A, ptr @baz.ptr, align 8
-; CHECK-NEXT:   %4 = tail call i32 @baz.A(i32 %0)
-; CHECK-NEXT:   ret i32 %4
+; CHECK-NEXT:   %3 = tail call i32 @baz.A(i32 %a)
+; CHECK-NEXT:   ret i32 %3
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
 ; CHECK-NEXT: declare intel_features_init_cc void @__intel_cpu_features_init()
@@ -62,15 +62,15 @@
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define i32 @foo(i32 %0) #0 {
+; CHECK-NEXT: define i32 @foo(i32 %a) #0 {
 ; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   %1 = load ptr, ptr @foo.ptr, align 8
-; CHECK-NEXT:   %ptr_compare = icmp ne ptr %1, null
+; CHECK-NEXT:   %0 = load ptr, ptr @foo.ptr, align 8
+; CHECK-NEXT:   %ptr_compare = icmp ne ptr %0, null
 ; CHECK-NEXT:   br i1 %ptr_compare, label %resolver_then, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_then:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   %2 = tail call i32 %1(i32 %0)
-; CHECK-NEXT:   ret i32 %2
+; CHECK-NEXT:   %1 = tail call i32 %0(i32 %a)
+; CHECK-NEXT:   ret i32 %1
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
@@ -80,13 +80,13 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_else
 ; CHECK-NEXT:   store ptr @foo.V, ptr @foo.ptr, align 8
-; CHECK-NEXT:   %3 = tail call i32 @foo.V(i32 %0)
-; CHECK-NEXT:   ret i32 %3
+; CHECK-NEXT:   %2 = tail call i32 @foo.V(i32 %a)
+; CHECK-NEXT:   ret i32 %2
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else1:                                   ; preds = %resolver_else
 ; CHECK-NEXT:   store ptr @foo.A, ptr @foo.ptr, align 8
-; CHECK-NEXT:   %4 = tail call i32 @foo.A(i32 %0)
-; CHECK-NEXT:   ret i32 %4
+; CHECK-NEXT:   %3 = tail call i32 @foo.A(i32 %a)
+; CHECK-NEXT:   ret i32 %3
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
 ; CHECK-NEXT: attributes #0 = { "advanced-optim"="false" }

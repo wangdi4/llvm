@@ -86,16 +86,17 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /clang/lib/Headers/ @phoebewang @FreddyLeaf
 /clang/test/CodeGen/X86/ @phoebewang @FreddyLeaf
 /llvm/include/llvm/Support/X86TargetParser.def @phoebewang @FreddyLeaf
+/llvm/include/llvm/Support/X86DisassemblerDecoderCommon.h @phoebewang @KanRobert
 /llvm/lib/Support/X86TargetParser.cpp @phoebewang @FreddyLeaf
-/llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/Transforms/Utils/Intel_IMLUtils.cpp @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang
-/llvm/test/tools/UpdateTestChecks/intel_update_markup/ @KanRobert @phoebewang
-/llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
+/llvm/test/tools/UpdateTestChecks/intel_update_markup/ @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
+/llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/include/llvm/TableGen/ @LuoYuanke @phoebewang @williamweixiao
@@ -104,10 +105,10 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/include/llvm/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/include/llvm/Transforms/Utils/Intel_IMLUtils.h @tianqingw @KanRobert @FreddyLeaf
 /llvm/test/Analysis/CostModel/X86/ @HaohaiWen
-/llvm/test/MC/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/MC/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/test/CodeGen/Generic/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/test/CodeGen/MIR/X86/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/test/CodeGen/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/CodeGen/MIR/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/test/CodeGen/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/test/MC/COFF/ @phoebewang
 /llvm/test/MC/Disassembler/X86/ @KanRobert
 /llvm/test/MC/ELF/ @KanRobert
@@ -124,7 +125,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/include/llvm/MC/Intel_MCTrace.h @KanRobert
 /llvm/test/DebugInfo/X86/Intel_TraceBack/ @KanRobert
 /llvm/test/DebugInfo/Inputs/Intel_TraceBack/ @KanRobert
-/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert @KanRobert
+/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
 /llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
 /llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
 /llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.h @KanRobert

@@ -451,8 +451,8 @@ Kernel::~Kernel() {
 cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize,
                             void *pParamValue,
                             size_t *pszParamValueSizeRet) const {
-  LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%d, "
-                 "pParamValue=%d, pszParamValueSizeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%zu, "
+                 "pParamValue=%p, pszParamValueSizeRet=%p)"),
             iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   size_t szParamSize = 0;
@@ -532,7 +532,7 @@ cl_err_code Kernel::GetSubGroupInfo(const SharedPtr<FissionableDevice> &device,
                                     const void *input_value, void *pParamValue,
                                     size_t *pszParamValueSizeRet) {
   LOG_DEBUG(TEXT("Enter Kernel::GetSubGroupInfo (pDevice=%p, iParamName=%d,\
-                    szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+                    szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
             device.GetPtr(), iParamName, szParamValueSize, pParamValue,
             pszParamValueSizeRet);
   assert("No context assigned to the kernel" && (NULL != m_pProgram.GetPtr()) &&
@@ -616,7 +616,7 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
                                      size_t *pszParamValueSizeRet) {
   LOG_DEBUG(
       TEXT("Enter Kernel::GetWorkGroupInfo (pDevice=%p, iParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       device.GetPtr(), iParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 

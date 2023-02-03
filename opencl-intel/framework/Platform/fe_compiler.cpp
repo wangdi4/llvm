@@ -138,7 +138,7 @@ void FrontEndCompiler::GetSpecConstInfo(
       m_pFECompiler->GetSpecConstInfo(&spirvDesc);
 
   LOG_DEBUG(TEXT("Enter FrontEndCompiler::GetSpecConstInfo("
-                 "szProgramBinary=%d, uiProgramSize=%d)"),
+                 "szProgramBinary=%p, uiProgramSize=%zu)"),
             szProgramBinary, uiProgramSize);
   // Free resourses
   if (pSpecConstInfo) {
@@ -156,8 +156,8 @@ cl_err_code FrontEndCompiler::ParseSpirv(
     OUT char **ppBinary, OUT size_t *puiBinarySize,
     OUT char **pszCompileLog) const {
   LOG_DEBUG(
-      TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, "
-           "szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      TEXT("Enter ParseSpirv(szProgramBinary=%p, uiProgramBinarySize=%u, "
+           "szOptions=%p, ppBinary=%p, puiBinarySize=%p, pszCompileLog=%p)"),
       szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize,
       pszCompileLog);
 
@@ -189,8 +189,8 @@ cl_err_code FrontEndCompiler::MaterializeSPIR(const char *szProgramBinary,
                                               OUT size_t *puiBinarySize,
                                               OUT char **pszCompileLog) const {
   LOG_DEBUG(
-      TEXT("Enter MaterializeSPIR(szProgramBinary=%d, uiProgramBinarySize=%d, "
-           "ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      TEXT("Enter MaterializeSPIR(szProgramBinary=%p, uiProgramBinarySize=%u, "
+           "ppBinary=%p, puiBinarySize=%p, pszCompileLog=%p)"),
       szProgramBinary, uiProgramBinarySize, ppBinary, puiBinarySize,
       pszCompileLog);
 
@@ -213,9 +213,9 @@ cl_err_code FrontEndCompiler::CompileProgram(
     const char *szOptions, bool bFpgaEmulator, OUT char **ppBinary,
     OUT size_t *puiBinarySize, OUT char **pszCompileLog) const {
   LOG_DEBUG(
-      TEXT("Enter CompileProgram(szProgramSource=%d, uiNumInputHeaders=%d, "
-           "pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, "
-           "ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      TEXT("Enter CompileProgram(szProgramSource=%p, uiNumInputHeaders=%u, "
+           "pszInputHeaders=%p, pszInputHeadersNames=%p, szOptions=%p, "
+           "ppBinary=%p, puiBinarySize=%p, pszCompileLog=%p)"),
       szProgramSource, uiNumInputHeaders, pszInputHeaders, pszInputHeadersNames,
       szOptions, ppBinary, puiBinarySize, pszCompileLog);
 
@@ -240,8 +240,8 @@ cl_err_code FrontEndCompiler::LinkProgram(
     OUT size_t *puiBinarySize, OUT std::vector<char> &linkLog,
     OUT bool *pbIsLibrary, OUT char **ppKernelNames) const {
   LOG_DEBUG(
-      TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, "
-           "puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
+      TEXT("Enter CompileProgram(ppBinaries=%p, uiNumInputBinaries=%u, "
+           "puiBinariesSizes=%p, szOptions=%p, ppBinary=%p, puiBinarySize=%p)"),
       ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary,
       puiBinarySize);
 

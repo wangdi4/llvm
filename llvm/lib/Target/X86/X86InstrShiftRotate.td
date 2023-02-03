@@ -1,4 +1,21 @@
 //===-- X86InstrShiftRotate.td - Shift and Rotate Instrs ---*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,6 +27,937 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass shift_rCL<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, CL))]>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, CL))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, CL))]>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, CL))]>;
+}
+
+multiclass shiftl_ri<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate], isConvertibleToThreeAddress = 1 in
+  def NAME  : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $dst|$dst, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $dst|$dst, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+}
+
+multiclass shift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $dst|$dst, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $dst|$dst, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$src2),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>;
+}
+
+multiclass shiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "shl{"#typeinfo.InstrSuffix#"}\t$dst", []>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "shl{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\tshl{"#typeinfo.InstrSuffix#"}\t$dst", []>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\tshl{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SHL8rCL  : shift_rCL<0xD2, MRM4r, "shl", shl, Xi8>;
+defm SHL16rCL : shift_rCL<0xD3, MRM4r, "shl", shl, Xi16>, OpSize16;
+defm SHL32rCL : shift_rCL<0xD3, MRM4r, "shl", shl, Xi32>, OpSize32;
+defm SHL64rCL : shift_rCL<0xD3, MRM4r, "shl", shl, Xi64>, REX_W;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift]in {
+defm SHL8ri   : shiftl_ri<0xC0, MRM4r, "shl", shl, Xi8>;
+defm SHL16ri  : shiftl_ri<0xC1, MRM4r, "shl", shl, Xi16>, OpSize16;
+defm SHL32ri  : shiftl_ri<0xC1, MRM4r, "shl", shl, Xi32>, OpSize32;
+defm SHL64ri  : shiftl_ri<0xC1, MRM4r, "shl", shl, Xi64>, REX_W;
+} // SchedRW
+
+// NOTE: We don't include patterns for shifts of a register by one, because
+// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
+let hasSideEffects = 0, SchedRW = [WriteShift] in {
+defm SHL8r1   : shiftl_r1<0xD0, MRM4r, Xi8>;
+defm SHL16r1  : shiftl_r1<0xD1, MRM4r, Xi16>, OpSize16;
+defm SHL32r1  : shiftl_r1<0xD1, MRM4r, Xi32>, OpSize32;
+defm SHL64r1  : shiftl_r1<0xD1, MRM4r, Xi64>, REX_W;
+} // hasSideEffects = 0
+
+// FIXME: Why do we need an explicit "Uses = [CL]" when the instr has a pattern
+// using CL?
+
+multiclass shift_mCL<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+  def NAME  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 [(store (node (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand :$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), CL))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 [(store (node (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), CL))]>;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SHL8mCL  : shift_mCL<0xD2, MRM4m, "shl", shl, Xi8>;
+defm SHL16mCL : shift_mCL<0xD3, MRM4m, "shl", shl, Xi16>, OpSize16;
+defm SHL32mCL : shift_mCL<0xD3, MRM4m, "shl", shl, Xi32>, OpSize32;
+defm SHL64mCL : shift_mCL<0xD3, MRM4m, "shl", shl, Xi64>, REX_W;
+}
+
+multiclass shift_mi<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME  : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand :$dst, u8imm:$src),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src, $dst|$dst, $src}", 
+                 [(store (node (typeinfo.LoadNode addr:$dst), (i8 imm:$src)), addr:$dst)]>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand :$src1, u8imm:$src2),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), (i8 imm:$src2)))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF  : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand :$dst, u8imm:$src),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src, $dst|$dst, $src}", 
+                 [(store (node (typeinfo.LoadNode addr:$dst), (i8 imm:$src)), addr:$dst)]>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1, u8imm:$src2),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src2, $src1, $dst|$dst, $src1, $src2}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), (i8 imm:$src2)))]>;
+}
+
+multiclass shift_m1<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", 
+                 [(store (node (typeinfo.LoadNode addr:$dst), (i8 1)), addr:$dst)]>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand :$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), (i8 1)))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), (i8 1)))]>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", 
+                 [(set typeinfo.RegClass:$dst, 
+                 (node (typeinfo.LoadNode addr:$src1), (i8 1)))]>;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SHL8mi   : shift_mi<0xC0, MRM4m, "shl", shl, Xi8>;
+defm SHL16mi  : shift_mi<0xC1, MRM4m, "shl", shl, Xi16>, OpSize16;
+defm SHL32mi  : shift_mi<0xC1, MRM4m, "shl", shl, Xi32>, OpSize32;
+defm SHL64mi  : shift_mi<0xC1, MRM4m, "shl", shl, Xi64>, REX_W;
+
+// Shift by 1
+defm SHL8m1   : shift_m1<0xD0, MRM4m, "shl", shl, Xi8>;
+defm SHL16m1  : shift_m1<0xD1, MRM4m, "shl", shl, Xi16>, OpSize16;
+defm SHL32m1  : shift_m1<0xD1, MRM4m, "shl", shl, Xi32>, OpSize32;
+defm SHL64m1  : shift_m1<0xD1, MRM4m, "shl", shl, Xi64>, REX_W;
+} // SchedRW
+
+//=======================SHR==========================
+multiclass shift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 1)))]>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 1)))]>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 1)))]>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", 
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, (i8 1)))]>;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SHR8rCL  : shift_rCL<0xD2, MRM5r, "shr", srl, Xi8>;
+defm SHR16rCL : shift_rCL<0xD3, MRM5r, "shr", srl, Xi16>, OpSize16;
+defm SHR32rCL : shift_rCL<0xD3, MRM5r, "shr", srl, Xi32>, OpSize32;
+defm SHR64rCL : shift_rCL<0xD3, MRM5r, "shr", srl, Xi64>, REX_W;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift]in {
+defm SHR8ri   : shift_ri<0xC0, MRM5r, "shr", srl, Xi8>;
+defm SHR16ri  : shift_ri<0xC1, MRM5r, "shr", srl, Xi16>, OpSize16;
+defm SHR32ri  : shift_ri<0xC1, MRM5r, "shr", srl, Xi32>, OpSize32;
+defm SHR64ri  : shift_ri<0xC1, MRM5r, "shr", srl, Xi64>, REX_W;
+
+defm SHR8r1   : shift_r1<0xD0, MRM5r, "shr", srl, Xi8>;
+defm SHR16r1  : shift_r1<0xD1, MRM5r, "shr", srl, Xi16>, OpSize16;
+defm SHR32r1  : shift_r1<0xD1, MRM5r, "shr", srl, Xi32>, OpSize32;
+defm SHR64r1  : shift_r1<0xD1, MRM5r, "shr", srl, Xi64>, REX_W;
+} // SchedRW
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SHR8mCL  : shift_mCL<0xD2, MRM5m, "shr", srl, Xi8>;
+defm SHR16mCL : shift_mCL<0xD3, MRM5m, "shr", srl, Xi16>, OpSize16;
+defm SHR32mCL : shift_mCL<0xD3, MRM5m, "shr", srl, Xi32>, OpSize32;
+defm SHR64mCL : shift_mCL<0xD3, MRM5m, "shr", srl, Xi64>, REX_W;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SHR8mi   : shift_mi<0xC0, MRM5m, "shr", srl, Xi8>;
+defm SHR16mi  : shift_mi<0xC1, MRM5m, "shr", srl, Xi16>, OpSize16;
+defm SHR32mi  : shift_mi<0xC1, MRM5m, "shr", srl, Xi32>, OpSize32;
+defm SHR64mi  : shift_mi<0xC1, MRM5m, "shr", srl, Xi64>, REX_W;
+
+// Shift by 1
+defm SHR8m1   : shift_m1<0xD0, MRM5m, "shr", srl, Xi8>;
+defm SHR16m1  : shift_m1<0xD1, MRM5m, "shr", srl, Xi16>, OpSize16;
+defm SHR32m1  : shift_m1<0xD1, MRM5m, "shr", srl, Xi32>, OpSize32;
+defm SHR64m1  : shift_m1<0xD1, MRM5m, "shr", srl, Xi64>, REX_W;
+} // SchedRW
+
+//====================SAR=======================
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SAR8rCL  : shift_rCL<0xD2, MRM7r, "sar", sra, Xi8>;
+defm SAR16rCL : shift_rCL<0xD3, MRM7r, "sar", sra, Xi16>, OpSize16;
+defm SAR32rCL : shift_rCL<0xD3, MRM7r, "sar", sra, Xi32>, OpSize32;
+defm SAR64rCL : shift_rCL<0xD3, MRM7r, "sar", sra, Xi64>, REX_W;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift]in {
+defm SAR8ri   : shift_ri<0xC0, MRM7r, "sar", sra, Xi8>;
+defm SAR16ri  : shift_ri<0xC1, MRM7r, "sar", sra, Xi16>, OpSize16;
+defm SAR32ri  : shift_ri<0xC1, MRM7r, "sar", sra, Xi32>, OpSize32;
+defm SAR64ri  : shift_ri<0xC1, MRM7r, "sar", sra, Xi64>, REX_W;
+} // SchedRW
+
+// NOTE: We don't include patterns for shifts of a register by one, because
+// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
+let SchedRW = [WriteShift] in {
+defm SAR8r1   : shift_r1<0xD0, MRM7r, "sar", sra, Xi8>;
+defm SAR16r1  : shift_r1<0xD1, MRM7r, "sar", sra, Xi16>, OpSize16;
+defm SAR32r1  : shift_r1<0xD1, MRM7r, "sar", sra, Xi32>, OpSize32;
+defm SAR64r1  : shift_r1<0xD1, MRM7r, "sar", sra, Xi64>, REX_W;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SAR8mCL  : shift_mCL<0xD2, MRM7m, "sar", sra, Xi8>;
+defm SAR16mCL : shift_mCL<0xD3, MRM7m, "sar", sra, Xi16>, OpSize16;
+defm SAR32mCL : shift_mCL<0xD3, MRM7m, "sar", sra, Xi32>, OpSize32;
+defm SAR64mCL : shift_mCL<0xD3, MRM7m, "sar", sra, Xi64>, REX_W;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SAR8mi   : shift_mi<0xC0, MRM7m, "sar", sra, Xi8>;
+defm SAR16mi  : shift_mi<0xC1, MRM7m, "sar", sra, Xi16>, OpSize16;
+defm SAR32mi  : shift_mi<0xC1, MRM7m, "sar", sra, Xi32>, OpSize32;
+defm SAR64mi  : shift_mi<0xC1, MRM7m, "sar", sra, Xi64>, REX_W;
+
+// Shift by 1
+defm SAR8m1   : shift_m1<0xD0, MRM7m, "sar", sra, Xi8>;
+defm SAR16m1  : shift_m1<0xD1, MRM7m, "sar", sra, Xi16>, OpSize16;
+defm SAR32m1  : shift_m1<0xD1, MRM7m, "sar", sra, Xi32>, OpSize32;
+defm SAR64m1  : shift_m1<0xD1, MRM7m, "sar", sra, Xi64>, REX_W;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
+// Rotate instructions
+//===----------------------------------------------------------------------===//
+
+multiclass shift_rCL_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", []>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", []>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+}
+
+multiclass shift_ri_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),  
+                  (ins typeinfo.RegClass:$src1, u8imm:$cnt),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $dst|$dst, $cnt}", []>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$cnt),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $src1, $dst|$dst, $src1, $cnt}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$cnt),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $dst|$dst, $cnt}", []>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1, u8imm:$cnt),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $src1, $dst|$dst, $src1, $cnt}", []>;
+}
+
+multiclass shift_r1_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", []>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", []>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.RegClass:$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+
+multiclass shift_mCL_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 []>, Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand :$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $dst|$dst, cl}", 
+                 []>, Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+}
+
+multiclass shift_mi_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME  : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand :$dst, u8imm:$cnt),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $dst|$dst, $cnt}", 
+                 []>, Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand :$src1, u8imm:$cnt),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $src1, $dst|$dst, $src1, $cnt}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF  : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand :$dst, u8imm:$cnt),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $dst|$dst, $cnt}", 
+                 []>, Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1, u8imm:$cnt),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$cnt, $src1, $dst|$dst, $src1, $cnt}", []>;
+}
+
+multiclass shift_m1_NoPat<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", []>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF  : I<opcode, f, (outs), (ins typeinfo.MemOperand :$dst),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t$dst", []>, 
+                 Requires<!if(typeinfo.HasREX_W,[In64BitMode],[])>;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                  (ins typeinfo.MemOperand :$src1),
+                 "{nf}\t"#mnemonic#"{"#typeinfo.InstrSuffix#"}\t{$src1, $dst|$dst, $src1}", []>;
+}
+
+let hasSideEffects = 0 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCL] in {
+defm RCL8rCL  : shift_rCL_NoPat<0xD2, MRM2r, "rcl", Xi8>;
+defm RCL16rCL : shift_rCL_NoPat<0xD3, MRM2r, "rcl", Xi16>, OpSize16;
+defm RCL32rCL : shift_rCL_NoPat<0xD3, MRM2r, "rcl", Xi32>, OpSize32;
+defm RCL64rCL : shift_rCL_NoPat<0xD3, MRM2r, "rcl", Xi64>, REX_W;
+} // Uses = [CL, EFLAGS], SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+defm RCL8ri   : shift_ri_NoPat<0xC0, MRM2r, "rcl", Xi8>;
+defm RCL16ri  : shift_ri_NoPat<0xC1, MRM2r, "rcl", Xi16>, OpSize16;
+defm RCL32ri  : shift_ri_NoPat<0xC1, MRM2r, "rcl", Xi32>, OpSize32;
+defm RCL64ri  : shift_ri_NoPat<0xC1, MRM2r, "rcl", Xi64>, REX_W;
+} // SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
+defm RCL8r1   : shift_r1_NoPat<0xD0, MRM2r, "rcl", Xi8>;
+defm RCL16r1  : shift_r1_NoPat<0xD1, MRM2r, "rcl", Xi16>, OpSize16;
+defm RCL32r1  : shift_r1_NoPat<0xD1, MRM2r, "rcl", Xi32>, OpSize32;
+defm RCL64r1  : shift_r1_NoPat<0xD1, MRM2r, "rcl", Xi64>, REX_W;
+} // hasSideEffects = 0
+
+let mayStore = 1 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm RCL8mCL  : shift_mCL_NoPat<0xD2, MRM2m, "rcl", Xi8>;
+defm RCL16mCL : shift_mCL_NoPat<0xD3, MRM2m, "rcl", Xi16>, OpSize16;
+defm RCL32mCL : shift_mCL_NoPat<0xD3, MRM2m, "rcl", Xi32>, OpSize32;
+defm RCL64mCL : shift_mCL_NoPat<0xD3, MRM2m, "rcl", Xi64>, REX_W;
+}
+
+let Uses = [EFLAGS], SchedRW = [WriteRotateLd, WriteRMW] in {
+defm RCL8mi   : shift_mi_NoPat<0xC0, MRM2m, "rcl", Xi8>;
+defm RCL16mi  : shift_mi_NoPat<0xC1, MRM2m, "rcl", Xi16>, OpSize16;
+defm RCL32mi  : shift_mi_NoPat<0xC1, MRM2m, "rcl", Xi32>, OpSize32;
+defm RCL64mi  : shift_mi_NoPat<0xC1, MRM2m, "rcl", Xi64>, REX_W;
+
+// Shift by 1
+defm RCL8m1   : shift_m1_NoPat<0xD0, MRM2m, "rcl", Xi8>;
+defm RCL16m1  : shift_m1_NoPat<0xD1, MRM2m, "rcl", Xi16>, OpSize16;
+defm RCL32m1  : shift_m1_NoPat<0xD1, MRM2m, "rcl", Xi32>, OpSize32;
+defm RCL64m1  : shift_m1_NoPat<0xD1, MRM2m, "rcl", Xi64>, REX_W;
+} // SchedRW
+} // mayStore
+
+// =====================RCR=========================
+
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCL] in {
+defm RCR8rCL  : shift_rCL_NoPat<0xD2, MRM3r, "rcr", Xi8>;
+defm RCR16rCL : shift_rCL_NoPat<0xD3, MRM3r, "rcr", Xi16>, OpSize16;
+defm RCR32rCL : shift_rCL_NoPat<0xD3, MRM3r, "rcr", Xi32>, OpSize32;
+defm RCR64rCL : shift_rCL_NoPat<0xD3, MRM3r, "rcr", Xi64>, REX_W;
+} // Uses = [CL, EFLAGS], SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+defm RCR8ri   : shift_ri_NoPat<0xC0, MRM3r, "rcr", Xi8>;
+defm RCR16ri  : shift_ri_NoPat<0xC1, MRM3r, "rcr", Xi16>, OpSize16;
+defm RCR32ri  : shift_ri_NoPat<0xC1, MRM3r, "rcr", Xi32>, OpSize32;
+defm RCR64ri  : shift_ri_NoPat<0xC1, MRM3r, "rcr", Xi64>, REX_W;
+} // SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
+defm RCR8r1   : shift_r1_NoPat<0xD0, MRM3r, "rcr", Xi8>;
+defm RCR16r1  : shift_r1_NoPat<0xD1, MRM3r, "rcr", Xi16>, OpSize16;
+defm RCR32r1  : shift_r1_NoPat<0xD1, MRM3r, "rcr", Xi32>, OpSize32;
+defm RCR64r1  : shift_r1_NoPat<0xD1, MRM3r, "rcr", Xi64>, REX_W;
+} // hasSideEffects = 0
+
+let mayStore = 1 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm RCR8mCL  : shift_mCL_NoPat<0xD2, MRM3m, "rcr", Xi8>;
+defm RCR16mCL : shift_mCL_NoPat<0xD3, MRM3m, "rcr", Xi16>, OpSize16;
+defm RCR32mCL : shift_mCL_NoPat<0xD3, MRM3m, "rcr", Xi32>, OpSize32;
+defm RCR64mCL : shift_mCL_NoPat<0xD3, MRM3m, "rcr", Xi64>, REX_W;
+}
+
+let Uses = [EFLAGS], SchedRW = [WriteRotateLd, WriteRMW] in {
+defm RCR8mi   : shift_mi_NoPat<0xC0, MRM3m, "rcr", Xi8>;
+defm RCR16mi  : shift_mi_NoPat<0xC1, MRM3m, "rcr", Xi16>, OpSize16;
+defm RCR32mi  : shift_mi_NoPat<0xC1, MRM3m, "rcr", Xi32>, OpSize32;
+defm RCR64mi  : shift_mi_NoPat<0xC1, MRM3m, "rcr", Xi64>, REX_W;
+
+// Shift by 1
+defm RCR8m1   : shift_m1_NoPat<0xD0, MRM3m, "rcr", Xi8>;
+defm RCR16m1  : shift_m1_NoPat<0xD1, MRM3m, "rcr", Xi16>, OpSize16;
+defm RCR32m1  : shift_m1_NoPat<0xD1, MRM3m, "rcr", Xi32>, OpSize32;
+defm RCR64m1  : shift_m1_NoPat<0xD1, MRM3m, "rcr", Xi64>, REX_W;
+} // SchedRW
+} // mayStore
+} // hasSideEffects = 0
+
+// ================== ROL =======================
+let Uses = [CL], SchedRW = [WriteRotateCL] in {
+defm ROL8rCL  : shift_rCL<0xD2, MRM0r, "rol", rotl, Xi8>;
+defm ROL16rCL : shift_rCL<0xD3, MRM0r, "rol", rotl, Xi16>, OpSize16;
+defm ROL32rCL : shift_rCL<0xD3, MRM0r, "rol", rotl, Xi32>, OpSize32;
+defm ROL64rCL : shift_rCL<0xD3, MRM0r, "rol", rotl, Xi64>, REX_W;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteRotate]in {
+defm ROL8ri   : shift_ri<0xC0, MRM0r, "rol", rotl, Xi8>;
+defm ROL16ri  : shift_ri<0xC1, MRM0r, "rol", rotl, Xi16>, OpSize16;
+defm ROL32ri  : shift_ri<0xC1, MRM0r, "rol", rotl, Xi32>, OpSize32;
+defm ROL64ri  : shift_ri<0xC1, MRM0r, "rol", rotl, Xi64>, REX_W;
+} // SchedRW
+
+let SchedRW = [WriteRotate] in {
+defm ROL8r1   : shift_r1<0xD0, MRM0r, "rol", rotl, Xi8>;
+defm ROL16r1  : shift_r1<0xD1, MRM0r, "rol", rotl, Xi16>, OpSize16;
+defm ROL32r1  : shift_r1<0xD1, MRM0r, "rol", rotl, Xi32>, OpSize32;
+defm ROL64r1  : shift_r1<0xD1, MRM0r, "rol", rotl, Xi64>, REX_W;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm ROL8mCL  : shift_mCL<0xD2, MRM0m, "rol", rotl, Xi8>;
+defm ROL16mCL : shift_mCL<0xD3, MRM0m, "rol", rotl, Xi16>, OpSize16;
+defm ROL32mCL : shift_mCL<0xD3, MRM0m, "rol", rotl, Xi32>, OpSize32;
+defm ROL64mCL : shift_mCL<0xD3, MRM0m, "rol", rotl, Xi64>, REX_W;
+}
+
+let SchedRW = [WriteRotateLd, WriteRMW] in {
+defm ROL8mi   : shift_mi<0xC0, MRM0m, "rol", rotl, Xi8>;
+defm ROL16mi  : shift_mi<0xC1, MRM0m, "rol", rotl, Xi16>, OpSize16;
+defm ROL32mi  : shift_mi<0xC1, MRM0m, "rol", rotl, Xi32>, OpSize32;
+defm ROL64mi  : shift_mi<0xC1, MRM0m, "rol", rotl, Xi64>, REX_W;
+
+// Shift by 1
+defm ROL8m1   : shift_m1<0xD0, MRM0m, "rol", rotl, Xi8>;
+defm ROL16m1  : shift_m1<0xD1, MRM0m, "rol", rotl, Xi16>, OpSize16;
+defm ROL32m1  : shift_m1<0xD1, MRM0m, "rol", rotl, Xi32>, OpSize32;
+defm ROL64m1  : shift_m1<0xD1, MRM0m, "rol", rotl, Xi64>, REX_W;
+} // SchedRW
+
+// ================== ROL =======================
+let Uses = [CL], SchedRW = [WriteRotateCL] in {
+defm ROR8rCL  : shift_rCL<0xD2, MRM1r, "ror", rotr, Xi8>;
+defm ROR16rCL : shift_rCL<0xD3, MRM1r, "ror", rotr, Xi16>, OpSize16;
+defm ROR32rCL : shift_rCL<0xD3, MRM1r, "ror", rotr, Xi32>, OpSize32;
+defm ROR64rCL : shift_rCL<0xD3, MRM1r, "ror", rotr, Xi64>, REX_W;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteRotate]in {
+defm ROR8ri   : shift_ri<0xC0, MRM1r, "ror", rotr, Xi8>;
+defm ROR16ri  : shift_ri<0xC1, MRM1r, "ror", rotr, Xi16>, OpSize16;
+defm ROR32ri  : shift_ri<0xC1, MRM1r, "ror", rotr, Xi32>, OpSize32;
+defm ROR64ri  : shift_ri<0xC1, MRM1r, "ror", rotr, Xi64>, REX_W;
+} // SchedRW
+
+let SchedRW = [WriteRotate] in {
+defm ROR8r1   : shift_r1<0xD0, MRM1r, "ror", rotr, Xi8>;
+defm ROR16r1  : shift_r1<0xD1, MRM1r, "ror", rotr, Xi16>, OpSize16;
+defm ROR32r1  : shift_r1<0xD1, MRM1r, "ror", rotr, Xi32>, OpSize32;
+defm ROR64r1  : shift_r1<0xD1, MRM1r, "ror", rotr, Xi64>, REX_W;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm ROR8mCL  : shift_mCL<0xD2, MRM1m, "ror", rotr, Xi8>;
+defm ROR16mCL : shift_mCL<0xD3, MRM1m, "ror", rotr, Xi16>, OpSize16;
+defm ROR32mCL : shift_mCL<0xD3, MRM1m, "ror", rotr, Xi32>, OpSize32;
+defm ROR64mCL : shift_mCL<0xD3, MRM1m, "ror", rotr, Xi64>, REX_W;
+}
+
+let SchedRW = [WriteRotateLd, WriteRMW] in {
+defm ROR8mi   : shift_mi<0xC0, MRM1m, "ror", rotr, Xi8>;
+defm ROR16mi  : shift_mi<0xC1, MRM1m, "ror", rotr, Xi16>, OpSize16;
+defm ROR32mi  : shift_mi<0xC1, MRM1m, "ror", rotr, Xi32>, OpSize32;
+defm ROR64mi  : shift_mi<0xC1, MRM1m, "ror", rotr, Xi64>, REX_W;
+
+// Shift by 1
+defm ROR8m1   : shift_m1<0xD0, MRM1m, "ror", rotr, Xi8>;
+defm ROR16m1  : shift_m1<0xD1, MRM1m, "ror", rotr, Xi16>, OpSize16;
+defm ROR32m1  : shift_m1<0xD1, MRM1m, "ror", rotr, Xi32>, OpSize32;
+defm ROR64m1  : shift_m1<0xD1, MRM1m, "ror", rotr, Xi64>, REX_W;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
+// Double shift instructions (generalizations of rotate)
+//===----------------------------------------------------------------------===//
+
+multiclass shiftLD_rrCL<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME : I<opcode, f, (outs typeinfo.RegClass:$dst),
+              (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+              "shld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+              [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                              typeinfo.RegClass:$src2, CL))]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "shld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, CL))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, CL))]>, TB;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, CL))]>, TB;
+}
+
+multiclass shiftRD_rrCL<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME : I<opcode, f, (outs typeinfo.RegClass:$dst),
+              (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+              "shrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+              [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                              typeinfo.RegClass:$src1, CL))]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "shrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, CL))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, CL))]>, TB;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+                  "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, CL))]>, TB;
+}
+
+let Uses = [CL], SchedRW = [WriteSHDrrcl] in {
+defm SHLD16rrCL : shiftLD_rrCL<0xA5, MRMDestReg, X86fshl, Xi16>, OpSize16;
+defm SHLD32rrCL : shiftLD_rrCL<0xA5, MRMDestReg, fshl, Xi32>, OpSize32;
+defm SHLD64rrCL : shiftLD_rrCL<0xA5, MRMDestReg, fshl, Xi64>, REX_W;
+
+defm SHRD16rrCL : shiftRD_rrCL<0xAD, MRMDestReg, X86fshr, Xi16>, OpSize16;
+defm SHRD32rrCL : shiftRD_rrCL<0xAD, MRMDestReg, fshr, Xi32>, OpSize32;
+defm SHRD64rrCL : shiftRD_rrCL<0xAD, MRMDestReg, fshr, Xi64>, REX_W;
+}
+
+multiclass shiftLD_rri8<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+              (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+              "shld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+              [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                              typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "shld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, 
+                                                  typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+}
+
+multiclass shiftRD_rri8<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  def NAME : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+              (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+              "shrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+              [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                              typeinfo.RegClass:$src1, (i8 imm:$src3)))]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "shrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, (i8 imm:$src3)))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, (i8 imm:$src3)))]>, TB;
+let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst),
+                  (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+                  "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                  [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2, 
+                                                  typeinfo.RegClass:$src1, (i8 imm:$src3)))]>, TB;
+}
+
+let isCommutable = 1, SchedRW = [WriteSHDrri] in {
+defm SHLD16rri8 : shiftLD_rri8<0xA4, MRMDestReg, X86fshl, Xi16>, OpSize16;
+defm SHLD32rri8 : shiftLD_rri8<0xA4, MRMDestReg, fshl, Xi32>, OpSize32;
+defm SHLD64rri8 : shiftLD_rri8<0xA4, MRMDestReg, fshl, Xi64>, REX_W;
+
+defm SHRD16rri8 : shiftRD_rri8<0xAC, MRMDestReg, X86fshr, Xi16>, OpSize16;
+defm SHRD32rri8 : shiftRD_rri8<0xAC, MRMDestReg, fshr, Xi32>, OpSize32;
+defm SHRD64rri8 : shiftRD_rri8<0xAC, MRMDestReg, fshr, Xi64>, REX_W;
+}
+
+multiclass shiftLD_mrCL<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME : I<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                            typeinfo.RegClass:$src2),
+                "shld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                [(store (node (typeinfo.LoadNode addr:$dst), 
+                typeinfo.RegClass:$src2, CL), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand:$src1, 
+                            typeinfo.RegClass:$src2),
+                "shld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst, 
+                (node (typeinfo.LoadNode addr:$src1), 
+                typeinfo.RegClass:$src2, CL))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                        typeinfo.RegClass:$src2),
+                "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                [(store (node (typeinfo.LoadNode addr:$dst), 
+                typeinfo.RegClass:$src2, CL), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                    (ins typeinfo.MemOperand:$src1, 
+                                typeinfo.RegClass:$src2),
+                "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst, 
+                (node (typeinfo.LoadNode addr:$src1), 
+                typeinfo.RegClass:$src2, CL))]>, TB;
+}
+
+multiclass shiftRD_mrCL<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME : I<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                            typeinfo.RegClass:$src2),
+                "shrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                [(store (node typeinfo.RegClass:$src2, 
+                (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand:$src1, 
+                            typeinfo.RegClass:$src2),
+                "shrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst, 
+                (node typeinfo.RegClass:$src2, 
+                (typeinfo.LoadNode addr:$src1), CL))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : I<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                                typeinfo.RegClass:$src2),
+                "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $dst|$dst, $src2, cl}",
+                [(store (node typeinfo.RegClass:$src2, 
+                (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : I<opcode, f, (outs typeinfo.RegClass:$dst), 
+                    (ins typeinfo.MemOperand:$src1, 
+                                typeinfo.RegClass:$src2),
+                    "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                    [(set typeinfo.RegClass:$dst, 
+                    (node typeinfo.RegClass:$src2, 
+                    (typeinfo.LoadNode addr:$src1), CL))]>, TB;
+}
+
+let Uses = [CL], SchedRW = [WriteSHDmrcl] in {
+defm SHLD16mrCL : shiftLD_mrCL<0xA5, MRMDestMem, X86fshl, Xi16>, OpSize16;
+defm SHLD32mrCL : shiftLD_mrCL<0xA5, MRMDestMem, fshl, Xi32>, OpSize32;
+defm SHLD64mrCL : shiftLD_mrCL<0xA5, MRMDestMem, fshl, Xi64>, REX_W;
+
+defm SHRD16mrCL : shiftRD_mrCL<0xAD, MRMDestMem, X86fshr, Xi16>, OpSize16;
+defm SHRD32mrCL : shiftRD_mrCL<0xAD, MRMDestMem, fshr, Xi32>, OpSize32;
+defm SHRD64mrCL : shiftRD_mrCL<0xAD, MRMDestMem, fshr, Xi64>, REX_W;
+}
+
+multiclass shiftLD_mri8<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                  typeinfo.RegClass:$src2, u8imm:$src3),
+                "shld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(store (node (typeinfo.LoadNode addr:$dst), 
+                typeinfo.RegClass:$src2, (i8 imm:$src3)), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand:$src1, 
+                    typeinfo.RegClass:$src2, u8imm:$src3),
+                "shld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                [(set typeinfo.RegClass:$dst, 
+                (node (typeinfo.LoadNode addr:$src1), 
+                typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                      typeinfo.RegClass:$src2, u8imm:$src3),
+                "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(store (node (typeinfo.LoadNode addr:$dst), 
+                  typeinfo.RegClass:$src2, (i8 imm:$src3)), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                    (ins typeinfo.MemOperand:$src1, 
+                      typeinfo.RegClass:$src2, u8imm:$src3),
+                    "{nf}\tshld{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                    [(set typeinfo.RegClass:$dst, 
+                    (node (typeinfo.LoadNode addr:$src1), 
+                    typeinfo.RegClass:$src2, (i8 imm:$src3)))]>, TB;
+}
+
+multiclass shiftRD_mri8<bits<8> opcode, Format f, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [TruePredicate] in
+  def NAME : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                typeinfo.RegClass:$src2, u8imm:$src3),
+                "shrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(store (node typeinfo.RegClass:$src2, 
+                (typeinfo.LoadNode addr:$dst), (i8 imm:$src3)), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  def NAME#_ND : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                (ins typeinfo.MemOperand:$src1, 
+                    typeinfo.RegClass:$src2, u8imm:$src3),
+                "shrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                [(set typeinfo.RegClass:$dst, 
+                  (node typeinfo.RegClass:$src2, 
+                  (typeinfo.LoadNode addr:$src1), (i8 imm:$src3)))]>, TB;
+}
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_NF : Ii8<opcode, f, (outs), (ins typeinfo.MemOperand:$dst, 
+                                    typeinfo.RegClass:$src2, u8imm:$src3),
+                "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(store (node typeinfo.RegClass:$src2, 
+                (typeinfo.LoadNode addr:$dst), (i8 imm:$src3)), addr:$dst)]>, TB;
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+  def NAME#_ND_NF : Ii8<opcode, f, (outs typeinfo.RegClass:$dst), 
+                    (ins typeinfo.MemOperand:$src1, 
+                      typeinfo.RegClass:$src2, u8imm:$src3),
+                    "{nf}\tshrd{"#typeinfo.InstrSuffix#"}\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                    [(set typeinfo.RegClass:$dst, 
+                    (node typeinfo.RegClass:$src2, 
+                    (typeinfo.LoadNode addr:$src1), (i8 imm:$src3)))]>, TB;
+}
+
+let SchedRW = [WriteSHDmri] in {
+defm SHLD16mri8 : shiftLD_mri8<0xA4, MRMDestMem, X86fshl, Xi16>, OpSize16;
+defm SHLD32mri8 : shiftLD_mri8<0xA4, MRMDestMem, fshl, Xi32>, OpSize32;
+defm SHLD64mri8 : shiftLD_mri8<0xA4, MRMDestMem, fshl, Xi64>, REX_W;
+
+defm SHRD16mri8 : shiftRD_mri8<0xAC, MRMDestMem, X86fshr, Xi16>, OpSize16;
+defm SHRD32mri8 : shiftRD_mri8<0xAC, MRMDestMem, fshr, Xi32>, OpSize32;
+defm SHRD64mri8 : shiftRD_mri8<0xAC, MRMDestMem, fshr, Xi64>, REX_W;
+}
+
+#else // INTEL_FEATURE_ISA_APX_F
 // FIXME: Someone needs to smear multipattern goodness all over this file.
 
 let Defs = [EFLAGS] in {
@@ -817,6 +1765,8 @@ def SHRD64mri8 : RIi8<0xAC, MRMDestMem,
 } // SchedRW
 
 } // Defs = [EFLAGS]
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // Use the opposite rotate if allows us to use the rotate by 1 instruction.
 def : Pat<(rotl GR8:$src1,  (i8 7)),  (ROR8r1  GR8:$src1)>;
@@ -910,6 +1860,22 @@ let hasSideEffects = 0 in {
                          WriteShift.ReadAfterFold]>;
 }
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// shiftX do not have NDD version
+let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in {
+  defm RORX32_NF : bmi_rotate<"rorx{l}", GR32, i32mem>;
+  defm RORX64_NF : bmi_rotate<"rorx{q}", GR64, i64mem>, VEX_W1X;
+  defm SARX32_NF : bmi_shift<"sarx{l}", GR32, i32mem>, T8XS;
+  defm SARX64_NF : bmi_shift<"sarx{q}", GR64, i64mem>, T8XS, VEX_W1X;
+  defm SHRX32_NF : bmi_shift<"shrx{l}", GR32, i32mem>, T8XD;
+  defm SHRX64_NF : bmi_shift<"shrx{q}", GR64, i64mem>, T8XD, VEX_W1X;
+  defm SHLX32_NF : bmi_shift<"shlx{l}", GR32, i32mem>, T8PD;
+  defm SHLX64_NF : bmi_shift<"shlx{q}", GR64, i64mem>, T8PD, VEX_W1X;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 let Predicates = [HasBMI2] in {
   defm RORX32 : bmi_rotate<"rorx{l}", GR32, i32mem>;

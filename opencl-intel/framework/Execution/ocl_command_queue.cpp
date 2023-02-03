@@ -52,7 +52,7 @@ OclCommandQueue::OclCommandQueue(const SharedPtr<Context> &pContext,
   // Set logger
   INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"), LL_DEBUG);
 
-  LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
+  LOG_INFO(TEXT("OclCommandQueue created: %p"), this);
 
   // Set GPA data
   m_pGPAData = m_pContext->GetGPAData();
@@ -62,7 +62,7 @@ OclCommandQueue::OclCommandQueue(const SharedPtr<Context> &pContext,
  *
  ******************************************************************/
 OclCommandQueue::~OclCommandQueue() {
-  LOG_INFO(TEXT("OclCommandQueue delete: 0x%X"), this);
+  LOG_INFO(TEXT("OclCommandQueue delete: %p"), this);
 
   if (0 != m_clDevCmdListId) {
     m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(
