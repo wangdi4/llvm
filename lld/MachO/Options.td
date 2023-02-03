@@ -75,9 +75,6 @@ def lto_legacy_pass_manager: Flag<["--"], "lto-legacy-pass-manager">,
     HelpText<"Use the legacy pass manager in LLVM">,
     Group<grp_lld>;
 #endif // INTEL_CUSTOMIZATION
-def no_lto_legacy_pass_manager : Flag<["--"], "no-lto-legacy-pass-manager">,
-    HelpText<"Use the new pass manager in LLVM">,
-    Group<grp_lld>;
 def time_trace_eq: Joined<["--"], "time-trace=">,
     HelpText<"Record time trace to <file>">,
     MetaVarName<"<file>">,
