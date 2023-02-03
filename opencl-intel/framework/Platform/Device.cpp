@@ -80,8 +80,8 @@ cl_ulong Device::GetDeviceTimer() const { return clDevGetDeviceTimer(); }
 cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
                             void *param_value,
                             size_t *param_value_size_ret) const {
-  LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%d, "
-                 "param_value=%d, param_value_size_ret=%d"),
+  LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%zu, "
+                 "param_value=%p, param_value_size_ret=%p"),
             param_name, param_value_size, param_value, param_value_size_ret);
 
   int clDevErr = CL_DEV_SUCCESS;
@@ -138,7 +138,7 @@ cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (param_value && (param_value_size < szParamValueSize)) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }
@@ -812,7 +812,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != param_value && param_value_size < szParamValueSize) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }

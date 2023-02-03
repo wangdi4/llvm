@@ -165,7 +165,7 @@ int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
   } catch (std::bad_alloc &) {
     DECLARE_LOGGER_CLIENT;
     INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
-    LogErrorA("%S", "Can't allocate compiler instance");
+    LogErrorA(TEXT("Can't allocate compiler instance"));
     RELEASE_LOGGER_CLIENT
     return CL_OUT_OF_HOST_MEMORY;
   }

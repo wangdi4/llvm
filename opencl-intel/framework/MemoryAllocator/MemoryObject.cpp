@@ -74,8 +74,8 @@ cl_err_code MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
                                   void *pParamValue,
                                   size_t *pszParamValueSizeRet) const {
   LOG_DEBUG(
-      TEXT("Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%d, "
-           "pParamValue=%d, pszParamValueSizeRet=%d)"),
+      TEXT("Enter MemoryObject::GetInfo (iParamName=%d, szParamValueSize=%zu, "
+           "pParamValue=%p, pszParamValueSizeRet=%p)"),
       iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   size_t szSize = 0;
@@ -250,7 +250,7 @@ cl_err_code MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (NULL != pParamValue && szParamValueSize < szSize) {
-    LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
+    LOG_ERROR(TEXT("szParamValueSize (=%zu) < szSize (=%zu)"), szParamValueSize,
               szSize);
     return CL_INVALID_VALUE;
   }
@@ -422,7 +422,7 @@ cl_err_code MemoryObject::GetMappedRegionInfo(
     cl_dev_cmd_param_map *OUT *pMapInfo,
     ConstSharedPtr<FissionableDevice> OUT *pMappedOnDevice,
     bool OUT *pbWasFullyOverwritten, bool invalidateRegion) {
-  LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%x, mappedPtr=%d)"),
+  LOG_DEBUG(TEXT("Enter GetMappedRegionInfo (pDevice=%p, mappedPtr=%p)"),
             pDevice.GetPtr(), mappedPtr);
   assert(NULL != pMapInfo);
   assert(NULL != pMappedOnDevice);

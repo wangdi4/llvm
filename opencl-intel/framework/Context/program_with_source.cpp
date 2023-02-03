@@ -76,7 +76,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name,
                                        size_t *param_value_size_ret) const {
   LOG_DEBUG(
       TEXT("ProgramWithSource::GetInfo enter. param_name=%d, "
-           "param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
+           "param_value_size=%zu, param_value=%p, param_value_size_ret=%p"),
       param_name, param_value_size, param_value, param_value_size_ret);
 
   size_t szParamValueSize = 0;

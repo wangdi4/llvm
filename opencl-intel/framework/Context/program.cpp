@@ -185,8 +185,8 @@ void Program::FreeUSMForGVPointers() {
 cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
                              void *param_value,
                              size_t *param_value_size_ret) const {
-  LOG_DEBUG(TEXT("Program::GetInfo enter. param_name=%d, param_value_size=%d, "
-                 "param_value=%d, param_value_size_ret=%d"),
+  LOG_DEBUG(TEXT("Program::GetInfo enter. param_name=%d, param_value_size=%zu, "
+                 "param_value=%p, param_value_size_ret=%p"),
             param_name, param_value_size, param_value, param_value_size_ret);
 
   size_t szParamValueSize = 0;
@@ -441,7 +441,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != param_value && param_value_size < szParamValueSize) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     if (clDevIds) {
       delete[] clDevIds;
@@ -623,7 +623,7 @@ cl_err_code Program::CreateKernel(const char *psKernelName,
                                   SharedPtr<Kernel> *ppKernel) {
   // cl_start;
 
-  LOG_DEBUG(TEXT("CreateKernel enter. pscKernelName=%s, ppKernel=%d"),
+  LOG_DEBUG(TEXT("CreateKernel enter. pscKernelName=%s, ppKernel=%p"),
             psKernelName, ppKernel);
 
   // check invalid input
@@ -682,8 +682,8 @@ cl_err_code Program::CreateKernel(const char *psKernelName,
 cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
                                       cl_kernel *pclKernels,
                                       cl_uint *puiNumKernelsRet) {
-  LOG_DEBUG(TEXT("Enter CreateAllKernels (uiNumKernels=%d, pclKernels=%d, "
-                 "puiNumKernelsRet=%d"),
+  LOG_DEBUG(TEXT("Enter CreateAllKernels (uiNumKernels=%u, pclKernels=%p, "
+                 "puiNumKernelsRet=%p"),
             uiNumKernels, pclKernels, puiNumKernelsRet);
 
   for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
@@ -798,8 +798,8 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
 cl_err_code Program::CreateAutorunKernels(cl_uint uiNumKernels,
                                           cl_kernel *pclKernels,
                                           cl_uint *puiNumKernelsRet) {
-  LOG_DEBUG(TEXT("Enter CreateAutorunKernels (uiNumKernels=%d, "
-                 "pclKernels=%d, puiNumKernelsRet=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateAutorunKernels (uiNumKernels=%u, "
+                 "pclKernels=%p, puiNumKernelsRet=%p)"),
             uiNumKernels, pclKernels, puiNumKernelsRet);
   assert(m_szNumAssociatedDevices > 0);
   for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
@@ -820,7 +820,7 @@ cl_err_code Program::CreateAutorunKernels(cl_uint uiNumKernels,
     if (CL_FAILED(clErrRet)) {
       return clErrRet;
     }
-    LOG_DEBUG(TEXT("Found %u autorun kernels"), vsKernelNames.size());
+    LOG_DEBUG(TEXT("Found %zu autorun kernels"), vsKernelNames.size());
 
     if (nullptr != puiNumKernelsRet) {
       assert(vsKernelNames.size() <= CL_MAX_UINT32);
@@ -863,8 +863,8 @@ cl_err_code Program::RemoveKernel(cl_kernel clKernel) {
 cl_err_code Program::GetKernels(cl_uint uiNumKernels,
                                 SharedPtr<Kernel> *ppKernels,
                                 cl_uint *puiNumKernelsRet) {
-  LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%d, ppKernels=%d, "
-                 "puiNumKernelsRet=%d"),
+  LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%u, ppKernels=%p, "
+                 "puiNumKernelsRet=%p"),
             uiNumKernels, ppKernels, puiNumKernelsRet);
 
   if (nullptr == ppKernels) {

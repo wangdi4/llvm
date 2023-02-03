@@ -1669,8 +1669,8 @@ cl_err_code NDRangeKernelCommand::Init() {
     if (ThrowOOR && szWorkGroupSize > szCompiledWorkGroupMaxSize) {
       // according to spec this is not an invalid WG size error, but it will be
       // manifested as out of resources. No enough private memory.
-      LOG_DEBUG("Total number of work items computed (%d) exceeds maximum "
-                "workgroup size (%d). Returns CL_OUT_OF_RESOURCES error.\n",
+      LOG_DEBUG("Total number of work items computed (%zu) exceeds maximum "
+                "workgroup size (%zu). Returns CL_OUT_OF_RESOURCES error.\n",
                 szWorkGroupSize, szCompiledWorkGroupMaxSize);
       return CL_OUT_OF_RESOURCES;
     }
@@ -1704,7 +1704,7 @@ cl_err_code NDRangeKernelCommand::Init() {
   cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
   stImplicitSize += stTotalLocalSize;
   if (stImplicitSize > m_pDevice->GetMaxLocalMemorySize()) {
-    LOG_DEBUG("Local memory size (%d) exceeds the maximum size (%d)\n",
+    LOG_DEBUG("Local memory size (%lu) exceeds the maximum size (%lu)\n",
               stImplicitSize, m_pDevice->GetMaxLocalMemorySize());
     res = CL_OUT_OF_RESOURCES;
   }

@@ -91,7 +91,7 @@ cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize,
   }
 
   if (nullptr != pParamValue && szParamValueSize < szSize) {
-    LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
+    LOG_ERROR(TEXT("szParamValueSize (=%zu) < szSize (=%zu)"), szParamValueSize,
               szSize);
     return CL_INVALID_VALUE;
   }

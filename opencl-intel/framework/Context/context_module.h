@@ -564,11 +564,12 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
                                  size_t szImageSlicePitch, void *pHostPtr,
                                  cl_int *pErrcodeRet, bool bIsImageBuffer) {
   assert(DIM >= 1 && DIM <= 3);
-  LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=0x%X, "
-                "cl_data_type=0x%x, cl_channel_order=0x%x, szImageWidth=%d, "
-                "szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, "
-                "szImageSlicePitch=%d, pHostPtr=%p, pErrcodeRet=%x)"),
-           (void *)clContext, clFlags, clImageFormat->image_channel_data_type,
+  LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=%llu, "
+                "cl_data_type=%u, cl_channel_order=%u, szImageWidth=%zu, "
+                "szImageHeight=%zu, szImageDepth=%zu, szImageRowPitch=%zu, "
+                "szImageSlicePitch=%zu, pHostPtr=%p, pErrcodeRet=%p)"),
+           clContext, (unsigned long long)clFlags,
+           clImageFormat->image_channel_data_type,
            clImageFormat->image_channel_order, szImageWidth, szImageHeight,
            szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr,
            pErrcodeRet);
@@ -577,7 +578,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (0 == pContext) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), clContext);
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -621,11 +622,11 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
                                                szDims, szPitches, &pImage,
                                                bIsImageBuffer);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(
-        TEXT("pContext->CreateImage(%d, %d, %d, %d, %d, %d, %d, %d, %d) = %s"),
-        clFlags, clImageFormat, pHostPtr, szImageWidth, szImageHeight,
-        szImageDepth, szImageRowPitch, szImageSlicePitch, &pImage,
-        ClErrTxt(clErr));
+    LOG_ERROR(TEXT("pContext->CreateImage(%llu, %p, %p, %zu, %zu, %zu, %zu, "
+                   "%zu, %p) = %s"),
+              (unsigned long long)clFlags, clImageFormat, pHostPtr,
+              szImageWidth, szImageHeight, szImageDepth, szImageRowPitch,
+              szImageSlicePitch, &pImage, ClErrTxt(clErr));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
     }
@@ -633,7 +634,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
   }
   clErr = m_mapMemObjects.AddObject(pImage, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pImage.GetPtr(), pImage->GetHandle(), ClErrTxt(clErr))
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -659,7 +660,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
           .DynamicCast<Context>();
 
   if (0 == pContext) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), context);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), context);
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -670,7 +671,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)buffer)
           .DynamicCast<GenericMemObject>();
   if (CL_FAILED(clErr) || 0 == pBuffer) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), buffer, &pBuffer,
               ClErrTxt(clErr));
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
@@ -691,7 +692,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
        (clFlags & CL_MEM_HOST_WRITE_ONLY)) ||
       ((bufFlags & CL_MEM_HOST_NO_ACCESS) &&
        (clFlags & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY)))) {
-    LOG_ERROR(TEXT("invalid flags (%d)"), clFlags);
+    LOG_ERROR(TEXT("invalid flags (%llu)"), (unsigned long long)clFlags);
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_VALUE;
     }
