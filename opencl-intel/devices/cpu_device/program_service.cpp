@@ -245,7 +245,7 @@ cl_dev_err_code ProgramService::CreateProgram(size_t IN binSize,
 cl_dev_err_code
 ProgramService::CreateBuiltInKernelProgram(const char *IN szBuiltInNames,
                                            cl_dev_program *OUT prog) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
              TEXT("CreateBuiltInKernelProgram enter"));
 
   ICLDevBackendProgram_ *pProg;
@@ -276,7 +276,7 @@ ProgramService::CreateBuiltInKernelProgram(const char *IN szBuiltInNames,
 cl_dev_err_code
 ProgramService::CreateLibraryKernelProgram(cl_dev_program *OUT Prog,
                                            const char **OUT KernelNames) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
              TEXT("CreateLibraryKernelProgram enter"));
 
   // Create new program
@@ -969,7 +969,7 @@ ProgramService::GetGlobalVariableTotalSize(cl_dev_program IN prog,
   TProgramEntry *pEntry = reinterpret_cast<TProgramEntry *>(prog);
   if (nullptr == pEntry) {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
-               "Requested program not found (%0X)", (size_t)prog);
+               "Requested program not found (%p)", prog);
     return CL_DEV_INVALID_PROGRAM;
   }
 

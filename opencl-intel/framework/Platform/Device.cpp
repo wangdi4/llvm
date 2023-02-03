@@ -370,7 +370,7 @@ cl_int Device::clLogReleaseClient(cl_int client_id) {
 cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
                             const char *IN source_file,
                             const char *IN function_name, cl_int line_num,
-                            const char *IN message, ...) {
+                            ...) {
   map<cl_int, LoggerClient *>::iterator it =
       m_mapDeviceLoggerClinets.find(client_id);
   if (it == m_mapDeviceLoggerClinets.end()) {
@@ -379,8 +379,9 @@ cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
   LoggerClient *pLoggerClient = it->second;
   if (nullptr != pLoggerClient) {
     va_list va;
-    va_start(va, message);
-
+    va_start(va, line_num);
+    const char *message = va_arg(va, char *);
+    assert(message && "Printf-style format string in CPUINFOLOG is NULL");
     pLoggerClient->LogArgList((ELogLevel)log_level, source_file, function_name,
                               line_num, message, va);
 

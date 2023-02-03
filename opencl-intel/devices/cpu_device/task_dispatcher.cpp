@@ -414,12 +414,11 @@ TaskDispatcher::createCommandList(cl_dev_cmd_list_props IN props,
         InPlaceTaskList::Allocate(GetTaskExecutor()->CreateTaskGroup(pDevice));
   }
   if (0 == *list) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"),
-              list->GetPtr());
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"));
     return CL_DEV_OUT_OF_MEMORY;
   }
 
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%p"),
             list->GetPtr());
   return CL_DEV_SUCCESS;
 }
@@ -462,7 +461,7 @@ cl_dev_err_code
 TaskDispatcher::commandListExecute(const SharedPtr<ITaskList> &IN list,
                                    cl_dev_cmd_desc *IN *cmds,
                                    cl_uint IN count) {
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%p"),
             list.GetPtr());
 
   ITaskList *pList = list.GetPtr();
@@ -480,7 +479,7 @@ TaskDispatcher::commandListExecute(const SharedPtr<ITaskList> &IN list,
     pLocalList->Flush();
   }
 
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%p"),
             list.GetPtr());
   return ret;
 }
@@ -493,7 +492,7 @@ cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList *pList,
                                               cl_int iRetCode) {
   CpuErrLog(
       m_pLogDescriptor, m_iLogHandle,
-      TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
+      TEXT("Failed to submit command[id:%p,type:%d] to execution, Err:<%d>"),
       pCmd->id, pCmd->type, iRetCode);
 
   SharedPtr<ITaskBase> pTask =

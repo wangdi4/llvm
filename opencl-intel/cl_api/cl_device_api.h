@@ -1863,7 +1863,7 @@ public:
   virtual cl_int clLogAddLine(cl_int IN client_id, cl_int IN log_level,
                               const char *IN source_file,
                               const char *IN function_name, cl_int IN line_num,
-                              const char *IN message, ...) = 0;
+                              ...) = 0;
 };
 
 /**
