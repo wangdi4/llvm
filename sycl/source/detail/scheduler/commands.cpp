@@ -2122,7 +2122,12 @@ pi_int32 enqueueImpKernel(
   auto ContextImpl = Queue->getContextImplPtr();
   auto DeviceImpl = Queue->getDeviceImplPtr();
   RT::PiKernel Kernel = nullptr;
-  std::mutex *KernelMutex = nullptr;
+  // Cacheable kernels use per-kernel mutexes that will be fetched from the
+  // cache, others (e.g. interoperability kernels) share a single mutex.
+  // TODO consider adding a PiKernel -> mutex map for allowing to enqueue
+  // different PiKernel's in parallel.
+  static std::mutex NoncacheableEnqueueMutex;
+  std::mutex *KernelMutex = &NoncacheableEnqueueMutex;
   RT::PiProgram Program = nullptr;
 
   std::shared_ptr<kernel_impl> SyclKernelImpl;
