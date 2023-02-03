@@ -22,6 +22,11 @@
 // attempting to make a call through it.
 
 // REQUIRES: cxxabi
+// INTEL_CUSTOMIZATION
+// This test has been flaky in alloy testing. See CMPLRLLVM-44408
+// It is disabled until this is fixed.
+// UNSUPPORTED: windows-msvc
+// end INTEL_CUSTOMIZATION
 
 #include <stdio.h>
 #include "utils.h"
