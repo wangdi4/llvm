@@ -2,6 +2,7 @@
 ; RUN: opt -module-summary %s -o %t.o
 
 ; Test SLP and Loop Vectorization are enabled by default at O2 and O3.
+<<<<<<< HEAD
 ; RUN: ld.lld -mllvm -opaque-pointers --plugin-opt=new-pass-manager --plugin-opt=debug-pass-manager --plugin-opt=O0 --plugin-opt=save-temps -shared -o %t1.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
@@ -25,6 +26,19 @@
 ;; INTEL - Loop Vectorization is disabled by default.
 ;; INTEL - TODO: Expect vectorization to happen after VPO pases are ported
 ;; INTEL - to the new PM.
+=======
+; RUN: ld.lld --plugin-opt=debug-pass-manager --plugin-opt=O0 --plugin-opt=save-temps -shared -o %t1.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
+
+; RUN: ld.lld --plugin-opt=debug-pass-manager --plugin-opt=O1 --plugin-opt=save-temps -shared -o %t2.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O1-SLP
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O1-LPV
+
+; RUN: ld.lld --plugin-opt=debug-pass-manager --plugin-opt=O2 --plugin-opt=save-temps -shared -o %t3.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O2-SLP
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O2-LPV
+
+; RUN: ld.lld --plugin-opt=debug-pass-manager --plugin-opt=O3 --plugin-opt=save-temps -shared -o %t4.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O3-LPV
+>>>>>>> ae5efe97618355e7552b0cb3c6790f3d8e8f8554
 
 ; CHECK-O0-SLP-NOT: Running pass: SLPVectorizerPass
 ; CHECK-O1-SLP-NOT: Running pass: SLPVectorizerPass

@@ -70,6 +70,7 @@ def reproduce_eq: Joined<["--"], "reproduce=">,
 def version: Flag<["--"], "version">,
     HelpText<"Display the version number and exit">,
     Group<grp_lld>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def lto_legacy_pass_manager: Flag<["--"], "lto-legacy-pass-manager">,
     HelpText<"Use the legacy pass manager in LLVM">,
@@ -78,6 +79,8 @@ def lto_legacy_pass_manager: Flag<["--"], "lto-legacy-pass-manager">,
 def no_lto_legacy_pass_manager : Flag<["--"], "no-lto-legacy-pass-manager">,
     HelpText<"Use the new pass manager in LLVM">,
     Group<grp_lld>;
+=======
+>>>>>>> ae5efe97618355e7552b0cb3c6790f3d8e8f8554
 def time_trace_eq: Joined<["--"], "time-trace=">,
     HelpText<"Record time trace to <file>">,
     MetaVarName<"<file>">,
