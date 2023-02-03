@@ -47,13 +47,13 @@ define i1 @test(i32 %a, i32 %b, i32 %k, i32 %m)  {
 ; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32> poison, i32 [[A:%.*]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x i32> [[TMP6]], i32 [[B:%.*]], i32 1
 ; CHECK-NEXT:    [[TMP8:%.*]] = add <2 x i32> [[TMP7]], <i32 -2, i32 -2>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <2 x i32> <i32 -2, i32 -4>, [[TMP8]]
-; CHECK-NEXT:    [[TMP10:%.*]] = add <2 x i32> [[TMP9]], [[SHUFFLE]]
-; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[TMP10]], [[TMP5]]
-; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x i32> [[TMP11]], i32 0
-; CHECK-NEXT:    [[TMP13:%.*]] = extractelement <2 x i32> [[TMP11]], i32 1
-; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[TMP12]], [[TMP13]]
+; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[TMP9]], [[TMP10]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i32> [[TMP11]], [[TMP5]]
+; CHECK-NEXT:    [[TMP13:%.*]] = extractelement <2 x i32> [[TMP12]], i32 0
+; CHECK-NEXT:    [[TMP14:%.*]] = extractelement <2 x i32> [[TMP12]], i32 1
+; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[TMP13]], [[TMP14]]
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
   %x = add i32 %k, 1
@@ -85,13 +85,13 @@ define i1 @test2(i32 %a, i32 %b, i32 %k, i32 %m)  {
 ; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32> poison, i32 [[A:%.*]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x i32> [[TMP6]], i32 [[B:%.*]], i32 1
 ; CHECK-NEXT:    [[TMP8:%.*]] = add <2 x i32> [[TMP7]], <i32 -2, i32 -2>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <2 x i32> <i32 -1, i32 -2>, [[TMP8]]
-; CHECK-NEXT:    [[TMP10:%.*]] = add <2 x i32> [[TMP9]], [[SHUFFLE]]
-; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[TMP10]], [[TMP5]]
-; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x i32> [[TMP11]], i32 0
-; CHECK-NEXT:    [[TMP13:%.*]] = extractelement <2 x i32> [[TMP11]], i32 1
-; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[TMP12]], [[TMP13]]
+; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    [[TMP11:%.*]] = add <2 x i32> [[TMP9]], [[TMP10]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add <2 x i32> [[TMP11]], [[TMP5]]
+; CHECK-NEXT:    [[TMP13:%.*]] = extractelement <2 x i32> [[TMP12]], i32 0
+; CHECK-NEXT:    [[TMP14:%.*]] = extractelement <2 x i32> [[TMP12]], i32 1
+; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[TMP13]], [[TMP14]]
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
   %x = add i32 %k, 1
