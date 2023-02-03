@@ -1,6 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-as -o %t.obj %s
-; RUN: lld-link -mllvm:-opaque-pointers -dll -debug -opt:ref -noentry -out:%t.dll %t.obj
+; INTEL_CUSTOMIZATION
+; RUN: lld-link /opt:opaque-pointers -dll -debug -opt:ref -noentry -out:%t.dll %t.obj
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-pdbutil dump -publics %t.pdb | FileCheck %s
 
 ; CHECK: S_PUB32 {{.*}} `foo`

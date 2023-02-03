@@ -8,30 +8,44 @@
 // RUN: rm -f %t.dir/exc.a
 // INTEL_CUSTOMIZATION
 // RUN: llvm-ar rcs -opaque-pointers %t.dir/exc.a %t2.o %t3.o
+
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe
 // end INTEL_CUSTOMIZATION
-
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=DEFAULT %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs=foo,bar
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs=foo,bar
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=DEFAULT %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo,bar,exc.a
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo,bar,exc.a
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=EXCLUDE %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo:bar:exc.a
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo:bar:exc.a
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=EXCLUDE %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=EXCLUDE %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared %t.o %t2.o %t3.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared %t.o %t2.o %t3.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=DEFAULT %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared --whole-archive %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo,bar,exc.a
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared --whole-archive %t.o %t.dir/exc.a -o %t.exe --exclude-libs foo,bar,exc.a
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=EXCLUDE %s
 
-// RUN: ld.lld -mllvm -opaque-pointers -shared --whole-archive %t.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// INTEL_CUSTOMIZATION
+// RUN: ld.lld -plugin-opt=opaque-pointers -shared --whole-archive %t.o %t.dir/exc.a -o %t.exe --exclude-libs=ALL
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-readobj --dyn-syms %t.exe | FileCheck --check-prefix=EXCLUDE %s
 
 // DEFAULT: Name: fn

@@ -1,8 +1,12 @@
 ; REQUIRES: x86
 ; RUN: llvm-mc %p/Inputs/shared.s -o %t1.o -filetype=obj -triple=x86_64-unknown-linux
-; RUN: ld.lld -mllvm -opaque-pointers %t1.o -o %t1.so -shared
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t1.o -o %t1.so -shared
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-as %s -o %t2.o
-; RUN: ld.lld -mllvm -opaque-pointers %t1.so %t2.o -o %t
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t1.so %t2.o -o %t
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-readobj --dyn-syms --dyn-relocations %t | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

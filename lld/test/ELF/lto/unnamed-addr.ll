@@ -1,7 +1,7 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t.so -save-temps -shared
 ; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t.so -save-temps -shared
 ; RUN: llvm-dis -opaque-pointers %t.so.0.4.opt.bc -o - | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

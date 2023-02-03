@@ -1,6 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; RUN: ld.lld -mllvm -opaque-pointers -save-temps -shared %t.o -o %t.so
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers -save-temps -shared %t.o -o %t.so
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-readobj -r %t.so.lto.o | FileCheck %s
 
 ; Test that we produce R_X86_64_REX_GOTPCRELX instead of R_X86_64_GOTPCREL

@@ -6,7 +6,9 @@
 ;; a.bc defines D0 in comdat D0 and D2 in comdat D2. b.bc defines D0/D1/D2 in comdat D5.
 ; RUN: opt -opaque-pointers -module-summary a.ll -o a.bc
 ; RUN: opt -opaque-pointers -module-summary b.ll -o b.bc
-; RUN: ld.lld -mllvm="-opaque-pointers" -shared a.bc b.bc -o out.so
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers -shared a.bc b.bc -o out.so
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-nm -D out.so
 
 ;; Although D0/D2 in b.bc is non-prevailing, keep D1/D2 as definitions, otherwise

@@ -4,9 +4,13 @@
 ; RUN: llvm-as -o %t2.o %S/Inputs/libcall-archive.ll
 ; RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux -o %t3.o %S/Inputs/libcall-archive.s
 ; RUN: llvm-ar rcs %t.a %t2.o %t3.o
-; RUN: ld.lld -mllvm -opaque-pointers -o %t %t.o %t.a
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers -o %t %t.o %t.a
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-nm %t | FileCheck %s
-; RUN: ld.lld -mllvm -opaque-pointers -o %t2 %t.o --start-lib %t2.o %t3.o --end-lib
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers -o %t2 %t.o --start-lib %t2.o %t3.o --end-lib
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-nm %t2 | FileCheck %s
 
 ; CHECK-NOT: T __sync_val_compare_and_swap_8

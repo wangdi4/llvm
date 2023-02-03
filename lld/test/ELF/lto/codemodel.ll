@@ -1,7 +1,9 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %ts -mllvm -code-model=small
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %tl -mllvm -code-model=large
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %ts -mllvm -code-model=small
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %tl -mllvm -code-model=large
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-objdump --no-print-imm-hex -d %ts | FileCheck %s --check-prefix=CHECK-SMALL
 ; RUN: llvm-objdump --no-print-imm-hex -d %tl | FileCheck %s --check-prefix=CHECK-LARGE
 

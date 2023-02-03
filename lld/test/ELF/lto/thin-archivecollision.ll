@@ -7,20 +7,22 @@
 ; RUN: rm -f %t.a
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-ar rcs -opaque-pointers %t.a %t1/t.coll.o %t2/t.coll.o
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o %t.a -o %t
 ; end INTEL_CUSTOMIZATION
-; RUN: ld.lld -mllvm -opaque-pointers %t.o %t.a -o %t
 ; RUN: llvm-nm %t | FileCheck %s
 
 ; Check without a archive symbol table
 ; RUN: rm -f %t.a
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-ar rcS -opaque-pointers %t.a %t1/t.coll.o %t2/t.coll.o
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o %t.a -o %t
 ; end INTEL_CUSTOMIZATION
-; RUN: ld.lld -mllvm -opaque-pointers %t.o %t.a -o %t
 ; RUN: llvm-nm %t | FileCheck %s
 
 ; Check we handle this case correctly even in presence of --whole-archive.
-; RUN: ld.lld -mllvm -opaque-pointers %t.o --whole-archive %t.a -o %t
+; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t.o --whole-archive %t.a -o %t
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-nm %t | FileCheck %s
 
 ; CHECK: T _start

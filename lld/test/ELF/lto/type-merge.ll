@@ -1,8 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 ; RUN: llvm-as %p/Inputs/type-merge.ll -o %t2.o
-; INTEL RUN: ld.lld -mllvm -opaque-pointers %t.o %t2.o -o %t -shared -save-temps
 ; INTEL_CUSTOMIZATION
+; INTEL RUN: ld.lld -plugin-opt=opaque-pointers %t.o %t2.o -o %t -shared -save-temps
 ; RUN: llvm-dis -opaque-pointers < %t.0.0.preopt.bc | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

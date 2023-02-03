@@ -6,14 +6,14 @@
 ; RUN: opt --thinlto-bc -o %t2.o %S/Inputs/devirt_vcall_vis_shared_def.ll
 ; RUN: echo '{ global: _start; local: *; };' > %t.ver
 
-; RUN: ld.lld -mllvm -opaque-pointers %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
 ; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | count 0
 
-; RUN: ld.lld -mllvm -opaque-pointers %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
 ; INTEL_CUSTOMIZATION
+; RUN: ld.lld -plugin-opt=opaque-pointers %t1.o %t2.o -o %t.out --save-temps --lto-whole-program-visibility -shared \
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   --version-script=%t.ver -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
