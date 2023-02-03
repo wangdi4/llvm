@@ -2209,13 +2209,6 @@ pi_int32 enqueueImpKernel(
     Error = SetKernelParamsAndLaunch(Queue, Args, DeviceImageImpl, Kernel,
                                      NDRDesc, EventsWaitList, OutEvent,
                                      EliminatedArgMask, getMemAllocationFunc);
-<<<<<<< HEAD
-  } else {
-    Error = SetKernelParamsAndLaunch(Queue, Args, DeviceImageImpl, Kernel,
-                                     NDRDesc, EventsWaitList, OutEvent,
-                                     EliminatedArgMask, getMemAllocationFunc);
-=======
->>>>>>> 61aeaa0b65add5d26a99b5d1ca395a161e772196
   }
   if (PI_SUCCESS != Error) {
     // If we have got non-success error code, let's analyze it to emit nice
