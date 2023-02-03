@@ -285,6 +285,18 @@ Context::Context(const cl_context_properties *clProperties,
 
   memcpy(&m_handle, pOclEntryPoints, sizeof(ocl_entry_points));
 
+  // parse env CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE.
+  std::string forcedWGSize = pOclConfig->GetForcedWGSize();
+  if (!forcedWGSize.empty()) {
+    // If there is error in parsing forcedWGSize, fill m_forcedWGSizes with an
+    // invalid value, e.g. unsigned max.
+    unsigned val = SplitStringInteger(forcedWGSize, ',', m_forcedWGSizes)
+                       ? 1u
+                       : std::numeric_limits<unsigned>::max();
+    while (m_forcedWGSizes.size() < MAX_WORK_DIM)
+      m_forcedWGSizes.push_back(val);
+  }
+
   *pclErr = CL_SUCCESS;
 }
 

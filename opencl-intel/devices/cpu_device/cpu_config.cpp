@@ -78,14 +78,6 @@ cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const {
   return ParseStringToSize(strForcedSize);
 }
 
-std::vector<size_t> CPUDeviceConfig::GetForcedWGSizeVec() const {
-  std::vector<size_t> forcedWGSizeVec;
-  std::string forcedWGSizeStr = GetForcedWGSize();
-  if (!forcedWGSizeStr.empty())
-    (void)SplitStringInteger(forcedWGSizeStr, ',', forcedWGSizeVec);
-  return forcedWGSizeVec;
-}
-
 cl_int CPUDeviceConfig::GetVectorizerMode() const {
   return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
                              static_cast<int32_t>(TRANSPOSE_SIZE_NOT_SET));

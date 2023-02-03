@@ -562,6 +562,8 @@ public:
     m_backendLibraryKernels.clear();
   }
 
+  const std::vector<size_t> &getForcedWGSizes() { return m_forcedWGSizes; }
+
 protected:
   /*****************************************************************************
    * Function:     ~Device
@@ -718,6 +720,9 @@ protected:
 
   t_OsEventPool m_OsEventPool;
 #endif
+
+  // Forced WG sizes from CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE.
+  std::vector<size_t> m_forcedWGSizes;
 
 private:
   Context(const Context &);
