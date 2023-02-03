@@ -16,7 +16,9 @@
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
@@ -147,4 +149,12 @@ bool llvm::shouldUseIntelFeaturesInitCallConv(StringRef FuncName) {
       "__libirc_set_cpu_feature",       "__libirc_isa_init_once",
       "__libirc_get_feature_bitpos"};
   return FeatureInitFuncs.contains(FuncName);
+}
+
+AttrBuilder llvm::getIMFAttributes(CallInst *CI) {
+  AttrBuilder Builder(CI->getContext());
+  for (auto Attr : CI->getAttributes().getFnAttrs())
+    if (Attr.isStringAttribute() && Attr.getKindAsString().starts_with("imf-"))
+      Builder.addAttribute(Attr);
+  return Builder;
 }
