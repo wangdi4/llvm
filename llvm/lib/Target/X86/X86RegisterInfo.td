@@ -126,6 +126,30 @@ def R15B : X86Reg<"r15b", 15>;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+// RAGreedy prefers to select a cheaper register
+// For x86,
+//   Cost(caller-save reg) < Cost(callee-save reg)
+// b/c callee-save register needs push/pop in prolog/epilog.
+// If both registers are callee-saved or caller-saved,
+//   Cost(short-encoding reg) < Cost(long-encoding reg)
+//
+// To achieve this, we do the following things:
+//   1. Set CostPerUse=1 for registers that need prefix
+//   2. Consider callee-save register is never cheaper than a register w/ cost 1
+//   3. List caller-save register before callee-save regsiter in RegisterClass
+//      or AllocationOrder
+//
+// NOTE:
+//   D133902 stopped assigning register costs for R8-R15, which brought gain
+//   and regression. We don't know if we should assign cost to R16-R31 w/o
+//   performance data.
+// TODO:
+//   Update the comment/cost after tuning.
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
 def R16B : X86Reg<"r16b", 16>;
 def R17B : X86Reg<"r17b", 17>;
@@ -595,6 +619,19 @@ def SSP : X86Reg<"ssp", 0>;
 // instruction requiring a REX prefix, while SIL, DIL, BPL, R8D, etc.
 // require a REX prefix. For example, "addb %ah, %dil" and "movzbl %ah, %r8d"
 // cannot be encoded.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR8 : RegisterClass<"X86", [i8], 8,
+                        (add AL, CL, DL, AH, CH, DH, BL, BH, SIL, DIL, BPL, SPL,
+                         R8B, R9B, R10B, R11B, R16B, R17B, R18B, R19B, R20B,
+                         R21B, R22B, R23B, R24B, R25B, R26B, R27B, R28B, R29B,
+                         R30B, R31B, R14B, R15B, R12B, R13B)> {
+  let AltOrders = [(sub GR8, AH, BH, CH, DH)];
+  let AltOrderSelect = [{
+    return MF.getSubtarget<X86Subtarget>().is64Bit();
+  }];
+}
+#else // INTEL_FEATURE_ISA_APX_F
 def GR8 : RegisterClass<"X86", [i8],  8,
                         (add AL, CL, DL, AH, CH, DH, BL, BH, SIL, DIL, BPL, SPL,
                              R8B, R9B, R10B, R11B, R14B, R15B, R12B, R13B)> {
@@ -603,34 +640,85 @@ def GR8 : RegisterClass<"X86", [i8],  8,
     return MF.getSubtarget<X86Subtarget>().is64Bit();
   }];
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 let isAllocatable = 0 in
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GRH8 : RegisterClass<"X86", [i8], 8,
+                         (add SIH, DIH, BPH, SPH, R8BH, R9BH, R10BH, R11BH,
+                          R12BH, R13BH, R14BH, R15BH, R16BH, R17BH, R18BH,
+                          R19BH, R20BH, R21BH, R22BH, R23BH, R24BH, R25BH,
+                          R26BH, R27BH, R28BH, R29BH, R30BH, R31BH)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GRH8 : RegisterClass<"X86", [i8],  8,
                          (add SIH, DIH, BPH, SPH, R8BH, R9BH, R10BH, R11BH,
                               R12BH, R13BH, R14BH, R15BH)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR16 : RegisterClass<"X86", [i16], 16,
+                         (add AX, CX, DX, SI, DI, BX, BP, SP, R8W, R9W, R10W,
+                          R11W, R16W, R17W, R18W, R19W, R20W, R21W, R22W, R23W,
+                          R24W, R25W, R26W, R27W, R28W, R29W, R30W, R31W, R14W,
+                          R15W, R12W, R13W)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR16 : RegisterClass<"X86", [i16], 16,
                          (add AX, CX, DX, SI, DI, BX, BP, SP,
                               R8W, R9W, R10W, R11W, R14W, R15W, R12W, R13W)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 let isAllocatable = 0 in
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GRH16 : RegisterClass<"X86", [i16], 16,
+                    (add HAX, HCX, HDX, HSI, HDI, HBX, HBP, HSP, HIP, R8WH,
+                     R9WH, R10WH, R11WH, R12WH, R13WH, R14WH, R15WH, R16WH,
+                     R17WH, R18WH, R19WH, R20WH, R21WH, R22WH, R23WH, R24WH,
+                     R25WH, R26WH, R27WH, R28WH, R29WH, R30WH, R31WH)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GRH16 : RegisterClass<"X86", [i16], 16,
                           (add HAX, HCX, HDX, HSI, HDI, HBX, HBP, HSP, HIP,
                                R8WH, R9WH, R10WH, R11WH, R12WH, R13WH, R14WH,
                                R15WH)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR32 : RegisterClass<"X86", [i32], 32,
+                         (add EAX, ECX, EDX, ESI, EDI, EBX, EBP, ESP, R8D, R9D,
+                          R10D, R11D, R16D, R17D, R18D, R19D, R20D, R21D, R22D,
+                          R23D, R24D, R25D, R26D, R27D, R28D, R29D, R30D, R31D,
+                          R14D, R15D, R12D, R13D)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR32 : RegisterClass<"X86", [i32], 32,
                          (add EAX, ECX, EDX, ESI, EDI, EBX, EBP, ESP,
                               R8D, R9D, R10D, R11D, R14D, R15D, R12D, R13D)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR64 - 64-bit GPRs. This oddly includes RIP, which isn't accurate, since
 // RIP isn't really a register and it can't be used anywhere except in an
 // address, but it doesn't cause trouble.
 // FIXME: it *does* cause trouble - CheckBaseRegAndIndexReg() has extra
 // tests because of the inclusion of RIP in this register class.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR64 : RegisterClass<"X86", [i64], 64,
+                    (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11, R16, R17,
+                     R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29,
+                     R30, R31, RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR64 : RegisterClass<"X86", [i64], 64,
                          (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11,
                               RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR64PLTSafe - 64-bit GPRs without R10, R11, RSP and RIP. Could be used when
 // emitting code for intrinsics, which use implict input registers.
