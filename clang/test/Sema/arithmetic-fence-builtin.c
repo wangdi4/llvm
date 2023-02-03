@@ -2,6 +2,7 @@
 // RUN: %clang_cc1 -triple ppc64le -DPPC     -emit-llvm -o - -verify -x c++ %s
 // RUN: not %clang_cc1 -triple ppc64le -DPPC     -emit-llvm -o - -x c++ %s \
 // RUN:            -fprotect-parens 2>&1 | FileCheck -check-prefix=PPC %s
+<<<<<<< HEAD
 //
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -D__arithmetic_fence=__fence -triple i386-pc-linux-gnu -emit-llvm -o - -verify -x c++ %s
@@ -9,6 +10,9 @@
 // RUN: not %clang_cc1 -D__arithmetic_fence=__fence -triple ppc64le -DPPC     -emit-llvm -o - -x c++ %s \
 // RUN:            -fprotect-parens 2>&1 | FileCheck -check-prefix=PPC %s
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %clang_cc1 -triple spir64 -emit-llvm -o - -verify -x c++ %s
+>>>>>>> b4b06d8ff82647824a658356e1e8f7dc9d1ac7d2
 #ifndef PPC
 int v;
 template <typename T> T addT(T a, T b) {
