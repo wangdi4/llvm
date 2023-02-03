@@ -193,7 +193,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
-<<<<<<< HEAD
+; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
 ; CHECK-O23SZ: Running pass: CallTreeCloningPass
@@ -203,7 +203,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis on foo
 ; END INTEL_CUSTOMIZATION
-; CHECK-O23SZ: Running pass: GlobalDCEPass
+; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O23SZ-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -211,10 +211,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; END INTEL_CUSTOMIZATION
-=======
-; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
-; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
->>>>>>> 6185246f4f62345d0cfdaef62da7e15b01d52557
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O23SZ-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
