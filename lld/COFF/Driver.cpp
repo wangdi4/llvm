@@ -1992,9 +1992,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
         tailMerge = 2;
       } else if (s == "nolldtailmerge") {
         tailMerge = 0;
-<<<<<<< HEAD
-      } else if (s == "ltonewpassmanager") {
 #if INTEL_CUSTOMIZATION
+      } else if (s == "ltonewpassmanager") {
         ltoNewPM = true;
       } else if (s == "noltonewpassmanager") {
         ltoNewPM = false;
@@ -2003,8 +2002,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       } else if (s == "fintel-preserve-value-names") {
         intelShouldDiscardValueNames = false;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> ae5efe97618355e7552b0cb3c6790f3d8e8f8554
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
       } else if (s == "noltodebugpassmanager") {
