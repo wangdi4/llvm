@@ -1,10 +1,6 @@
 // This tests that the coroutine elide optimization could happen succesfully.
-<<<<<<< HEAD
-// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
-// INTEL
-=======
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++20 -O2 -emit-llvm %s -o - | FileCheck %s
->>>>>>> eaea793d5eb68d121dc773f6c31ebc2214bf1371
+// INTEL
 
 #include "Inputs/coroutine.h"
 

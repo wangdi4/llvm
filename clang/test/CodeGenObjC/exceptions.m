@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION 
 // Early jump threading has a major effect on the -O2 output.
-// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fobjc-exceptions -mllvm -simplifycfg-sink-common=false -mllvm -early-jump-threading=false -O2 -o - %s | FileCheck %s
-=======
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fobjc-exceptions -mllvm -simplifycfg-sink-common=false -O2 -o - %s | FileCheck %s
->>>>>>> eaea793d5eb68d121dc773f6c31ebc2214bf1371
+// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fobjc-exceptions -mllvm -simplifycfg-sink-common=false -mllvm -early-jump-threading=false -O2 -o - %s | FileCheck %s
 //
 // <rdar://problem/7471679> [irgen] [eh] Exception code built with clang (x86_64) crashes
 
