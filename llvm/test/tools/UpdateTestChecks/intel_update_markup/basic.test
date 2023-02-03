@@ -6,3 +6,11 @@
 #
 # RUN: cp -f %S/Inputs/2-blank-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll
 # RUN: diff -u %S/Inputs/2-blank-line-vs-empty.ll.expected %t.ll
+#
+# Work around the ipscan issue by splitting the string
+# RUN: echo -e '; INTEL_''FEATURE_\n; UNSUPPORTED: intel_''feature_\n; end INTEL_''FEATURE_' > %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll
+# RUN: FileCheck < %t.ll %s --check-prefix=FEATURE
+
+# FEATURE-NOT: INTEL
+# FEATURE: INTEL_CUSTOMIZATION
+# FEATURE: end INTEL_CUSTOMIZATION

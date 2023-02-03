@@ -29,25 +29,25 @@ enum CpuELogLevel {
 };
 
 #ifndef INTEL_PRODUCT_RELEASE
-#define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                          \
+#define CpuInfoLog(CLIENT, CLIENT_ID, ...)                                     \
   if (CLIENT && CLIENT_ID)                                                     \
     CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_INFO), __FILE__,             \
-                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
-#define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                           \
+                         __FUNCTION__, __LINE__, __VA_ARGS__);
+#define CpuDbgLog(CLIENT, CLIENT_ID, ...)                                      \
   if (CLIENT && CLIENT_ID)                                                     \
     CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_DEBUG), __FILE__,            \
-                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
-#define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                           \
+                         __FUNCTION__, __LINE__, __VA_ARGS__);
+#define CpuErrLog(CLIENT, CLIENT_ID, ...)                                      \
   if (CLIENT && CLIENT_ID)                                                     \
     CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_ERROR), __FILE__,            \
-                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
-#define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)                        \
+                         __FUNCTION__, __LINE__, __VA_ARGS__);
+#define CpuCriticLog(CLIENT, CLIENT_ID, ...)                                   \
   if (CLIENT && CLIENT_ID)                                                     \
     CLIENT->clLogAddLine(CLIENT_ID, cl_int(CPU_LL_CRITICAL), __FILE__,         \
-                         __FUNCTION__, __LINE__, DBG_PRINT, __VA_ARGS__);
+                         __FUNCTION__, __LINE__, __VA_ARGS__);
 #else
-#define CpuInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
-#define CpuDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
-#define CpuErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
-#define CpuCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
+#define CpuInfoLog(CLIENT, CLIENT_ID, ...)
+#define CpuDbgLog(CLIENT, CLIENT_ID, ...)
+#define CpuErrLog(CLIENT, CLIENT_ID, ...)
+#define CpuCriticLog(CLIENT, CLIENT_ID, ...)
 #endif

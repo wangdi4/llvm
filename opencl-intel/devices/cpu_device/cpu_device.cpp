@@ -2977,7 +2977,7 @@ cl_dev_err_code CPUDevice::clDevCreateProgram(size_t IN binSize,
 cl_dev_err_code
 CPUDevice::clDevCreateBuiltInKernelProgram(const char *IN szBuiltInNames,
                                            cl_dev_program *OUT prog) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
              TEXT("clDevCreateBuiltInKernelProgram Function enter"));
   return (cl_dev_err_code)m_pProgramService->CreateBuiltInKernelProgram(
       szBuiltInNames, prog);
@@ -2986,7 +2986,7 @@ CPUDevice::clDevCreateBuiltInKernelProgram(const char *IN szBuiltInNames,
 cl_dev_err_code
 CPUDevice::clDevCreateLibraryKernelProgram(cl_dev_program *OUT Prog,
                                            const char **OUT KernelNames) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"),
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
              TEXT("clDevCreateLibraryKernelProgram Function enter"));
   return (cl_dev_err_code)m_pProgramService->CreateLibraryKernelProgram(
       Prog, KernelNames);

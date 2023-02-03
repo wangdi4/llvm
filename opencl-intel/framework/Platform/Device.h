@@ -363,7 +363,7 @@ private:
   cl_int clLogReleaseClient(cl_int client_id) override;
   cl_int clLogAddLine(cl_int client_id, cl_int log_level,
                       const char *IN source_file, const char *IN function_name,
-                      cl_int IN line_num, const char *IN message, ...) override;
+                      cl_int IN line_num, ...) override;
 
   void InitFECompiler() const;
 

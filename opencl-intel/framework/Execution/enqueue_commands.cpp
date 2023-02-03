@@ -1822,11 +1822,11 @@ cl_err_code NDRangeKernelCommand::Init() {
     pKernelParam->glb_wrk_offs[i] =
         (nullptr != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
     pKernelParam->glb_wrk_size[i] = m_cpszGlobalWorkSize[i];
-    // If m_cpszLocalWorkSize == NULL, set to 0. Agent is expected to handle
-    // lcl_wrk_size 0 as NULL
+    // If m_cpszLocalWorkSize == NULL, set to 0. Device agent is expected to
+    // handle lcl_wrk_size 0 as NULL
     if (nullptr == m_cpszLocalWorkSize) {
-      pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] =
-          pKernelParam->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = 0;
+      pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] = 0;
+      pKernelParam->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = 0;
     } else {
       size_t tailSize = m_cpszGlobalWorkSize[i] % m_cpszLocalWorkSize[i];
       pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] =

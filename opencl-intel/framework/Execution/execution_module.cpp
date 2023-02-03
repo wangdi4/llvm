@@ -2026,11 +2026,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     return CL_INVALID_KERNEL;
   }
 
-  if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId()) {
+  const auto &ctx = pKernel->GetContext();
+  if (ctx->GetId() != pCommandQueue->GetContextId()) {
     return CL_INVALID_CONTEXT;
   }
 
-  bool isFPGAEmulator = pKernel->GetContext()->IsFPGAEmulator();
+  bool isFPGAEmulator = ctx->IsFPGAEmulator();
   if (isFPGAEmulator &&
       !pKernel->GetProgram()->TestAndSetAutorunKernelsLaunched()) {
     errVal = RunAutorunKernels(pKernel->GetProgram(), apiLogger);
@@ -2048,23 +2049,22 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     return CL_INVALID_KERNEL_ARGS;
   }
 
+  const std::vector<size_t> forcedWGSizes = ctx->getForcedWGSizes();
   if (cpszGlobalWorkSize) {
-    auto *config = FrameworkProxy::Instance()->GetOCLConfig();
-    std::string forcedWGSize = config->GetForcedWGSize();
     bool useForcedWGSize = false;
-    if (!forcedWGSize.empty()) {
+    if (!forcedWGSizes.empty()) {
       const DeviceKernel *deviceKernel =
           pKernel->GetDeviceKernel(pDevice.GetPtr());
       if (!deviceKernel)
         return CL_INVALID_PROGRAM_EXECUTABLE;
-      std::vector<int> WGSizes;
-      SplitStringInteger(forcedWGSize, ',', WGSizes);
-      unsigned dim = std::min((unsigned)WGSizes.size(), uiWorkDim);
+      unsigned dim = std::min((unsigned)forcedWGSizes.size(), uiWorkDim);
+      size_t cpuMaxWGSize =
+          FrameworkProxy::Instance()->GetOCLConfig()->GetCpuMaxWGSize();
       for (unsigned i = 0; i < dim; ++i) {
-        int size = WGSizes[i];
+        int size = forcedWGSizes[i];
         if (size <= 0 || (size_t)size > cpszGlobalWorkSize[i] ||
             (isFPGAEmulator && size > FPGA_MAX_WORK_GROUP_SIZE) ||
-            (!isFPGAEmulator && (size_t)size > config->GetCpuMaxWGSize()))
+            (!isFPGAEmulator && (size_t)size > cpuMaxWGSize))
           return CL_INVALID_WORK_GROUP_SIZE;
         if (!deviceKernel->GetKernelNonUniformWGSizeSupport() &&
             (0 != cpszGlobalWorkSize[i] % size))
@@ -2072,7 +2072,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       }
       useForcedWGSize = dim > 0;
     }
-    if (!useForcedWGSize && cpszLocalWorkSize) {
+    if (useForcedWGSize)
+      cpszLocalWorkSize = forcedWGSizes.data();
+    if (cpszLocalWorkSize) {
       for (unsigned int ui = 0; ui < uiWorkDim; ui++) {
         LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"), ui,
                   cpszLocalWorkSize[ui]);

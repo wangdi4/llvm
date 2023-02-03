@@ -36,5 +36,5 @@ public:
   // Add Line logger callback
   cl_int clLogAddLine(cl_int client_id, cl_int log_level,
                       const char *IN source_file, const char *IN function_name,
-                      cl_int line_num, const char *IN message, ...);
+                      cl_int line_num, ...);
 };
