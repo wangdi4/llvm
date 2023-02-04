@@ -319,15 +319,10 @@ private:
   uint32_t ValueKindLast = 0;              // INTEL
   uint32_t CurValueDataSize = 0;           // INTEL
 
-<<<<<<< HEAD
   /// Total size of binary ids.
-  uint64_t BinaryIdsSize{0};
-  /// Start address of binary id length and data pairs.
-  const uint8_t *BinaryIdsStart;
-=======
   uint64_t BinaryIdsSize = 0;              // INTEL
+  /// Start address of binary id length and data pairs.
   const uint8_t *BinaryIdsStart = nullptr; // INTEL
->>>>>>> 2a9c909d97febf7977714c01855e2617e3d92558
 
 public:
   RawInstrProfReader(std::unique_ptr<MemoryBuffer> DataBuffer,
