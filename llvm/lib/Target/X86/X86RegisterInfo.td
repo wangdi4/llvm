@@ -369,22 +369,22 @@ def RIP : X86Reg<"rip",  0, [EIP]>,  DwarfRegNum<[16, -2, -2]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
-def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[126, -2, -2]>;
-def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[127, -2, -2]>;
-def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[128, -2, -2]>;
-def R19 : X86Reg<"r19", 19, [R19D]>, DwarfRegNum<[129, -2, -2]>;
-def R20 : X86Reg<"r20", 20, [R20D]>, DwarfRegNum<[130, -2, -2]>;
-def R21 : X86Reg<"r21", 21, [R21D]>, DwarfRegNum<[131, -2, -2]>;
-def R22 : X86Reg<"r22", 22, [R22D]>, DwarfRegNum<[132, -2, -2]>;
-def R23 : X86Reg<"r23", 23, [R23D]>, DwarfRegNum<[133, -2, -2]>;
-def R24 : X86Reg<"r24", 24, [R24D]>, DwarfRegNum<[134, -2, -2]>;
-def R25 : X86Reg<"r25", 25, [R25D]>, DwarfRegNum<[135, -2, -2]>;
-def R26 : X86Reg<"r26", 26, [R26D]>, DwarfRegNum<[136, -2, -2]>;
-def R27 : X86Reg<"r27", 27, [R27D]>, DwarfRegNum<[137, -2, -2]>;
-def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[138, -2, -2]>;
-def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[139, -2, -2]>;
-def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[140, -2, -2]>;
-def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[141, -2, -2]>;
+def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[130, -2, -2]>;
+def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[131, -2, -2]>;
+def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[132, -2, -2]>;
+def R19 : X86Reg<"r19", 19, [R19D]>, DwarfRegNum<[133, -2, -2]>;
+def R20 : X86Reg<"r20", 20, [R20D]>, DwarfRegNum<[134, -2, -2]>;
+def R21 : X86Reg<"r21", 21, [R21D]>, DwarfRegNum<[135, -2, -2]>;
+def R22 : X86Reg<"r22", 22, [R22D]>, DwarfRegNum<[136, -2, -2]>;
+def R23 : X86Reg<"r23", 23, [R23D]>, DwarfRegNum<[137, -2, -2]>;
+def R24 : X86Reg<"r24", 24, [R24D]>, DwarfRegNum<[138, -2, -2]>;
+def R25 : X86Reg<"r25", 25, [R25D]>, DwarfRegNum<[139, -2, -2]>;
+def R26 : X86Reg<"r26", 26, [R26D]>, DwarfRegNum<[140, -2, -2]>;
+def R27 : X86Reg<"r27", 27, [R27D]>, DwarfRegNum<[141, -2, -2]>;
+def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[142, -2, -2]>;
+def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[143, -2, -2]>;
+def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[144, -2, -2]>;
+def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[145, -2, -2]>;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }

@@ -102,7 +102,8 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
-  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization && Level == OptimizationLevel::O0);
+  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization &&
+                                    Level == OptimizationLevel::O0);
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);

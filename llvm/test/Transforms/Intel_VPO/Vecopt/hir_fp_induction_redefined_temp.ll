@@ -7,8 +7,7 @@
 ; 
 ;        + DO i1 = 0, 1023, 1   <DO_LOOP>
 ;        |   %0 = (%A)[i1];
-;        |   %t1.115 = %0;
-;        |   %t1.115 = %t1.115  +  1.000000e+00;
+;        |   %t1.115 = %0  +  1.000000e+00;
 ;        |   %t1.115 = %t1.115  +  1.000000e+00;
 ;        + END LOOP
 ; 
@@ -26,8 +25,7 @@ define dso_local float @foo(float* nocapture noundef readonly %A) {
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   %.vec = (<4 x float>*)(%A)[i1];
-; CHECK-NEXT:        |   %.copy = %.vec;
-; CHECK-NEXT:        |   %.vec2 = %.copy  +  1.000000e+00;
+; CHECK-NEXT:        |   %.vec2 = %.vec  +  1.000000e+00;
 ; CHECK-NEXT:        |   %.vec3 = %.vec2  +  1.000000e+00;
 ; CHECK-NEXT:        + END LOOP
 

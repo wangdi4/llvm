@@ -23,7 +23,8 @@
 
 ; CHECK: Dump After
 
-; CHECK: %char_ld = null;
+; This inst was eliminated by copy propagation
+; CHECK-NOT: %char_ld = null;
 ; CHECK: %func_ld = &((@bar)[0]);
 ; CHECK: <RVAL-REG> &((LINEAR void ()* @bar)[i64 0]) inbounds  {sb:2}
 ; CHECK:    <BLOB> LINEAR void ()* @bar {sb:[[BARSB:[0-9]+]]}

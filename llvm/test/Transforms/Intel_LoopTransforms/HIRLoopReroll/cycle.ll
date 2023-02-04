@@ -19,9 +19,9 @@
 ; CHECK:             |   %14 = (%y)[0];
 ; CHECK:             |   %15 = (%o1)[0][i1];
 ; CHECK:             |   (%e)[0][i1] = %11 + -1 * %14 + %15;
-; CHECK:             |   %y.promoted = %14;
+; CHECK-NOT:         |   %y.promoted = %14;
 ; CHECK:             |   %limm255 = %limm;
-; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
+; CHECK:             |   %y.promoted = ((%11 + %13) * %14)  +  %14;
 ; CHECK:             |   %21 = %limm256;
 ; CHECK:             |   %limm256 = %21 + 30;
 ; CHECK:             |   %limm321 = %limm319;
@@ -81,9 +81,9 @@
 ; CHECK:             |   %14 = (%y)[0];
 ; CHECK:             |   %15 = (%o1)[0][i1];
 ; CHECK:             |   (%e)[0][i1] = %11 + -1 * %14 + %15;
-; CHECK:             |   %y.promoted = %14;
+; CHECK-NOT:         |   %y.promoted = %14;
 ; CHECK:             |   %limm255 = %limm;
-; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
+; CHECK:             |   %y.promoted = ((%11 + %13) * %14)  +  %14;
 ; CHECK:             |   %21 = %limm256;
 ; CHECK:             |   %limm256 = %21 + 30;
 ; CHECK:             |   %limm321 = %limm319;

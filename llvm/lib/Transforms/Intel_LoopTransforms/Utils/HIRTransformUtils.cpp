@@ -1329,21 +1329,26 @@ private:
   // Set of Nodes that have already been invalidated
   SmallPtrSet<HLNode *, 32> InvalidatedNodes;
 
-  // Maps blobindex to RvalRef. The Ref is used to check domination
+  // Maps lval blobindex to its RvalRef. The Ref is used to check domination
   // when we find a propagation candidate
-  DenseMap<unsigned, RegDDRef *> IndexToRefMap;
+  DenseMap<unsigned, RegDDRef *> CopyCandidates;
+
+  // Maps rval blob indices of copy candidates to their lval blob indices.
+  // All lval blob indices need to be invalidated if rval blob is defined.
+  DenseMap<unsigned, SmallSet<unsigned, 4>> RvalBlobToLvalBlobMap;
 
   // Maps a loop to the set of seen symbases. Used to remove temp SBs
   // that may get folded away from constant or copy propagation.
   DenseMap<HLLoop *, SmallSet<unsigned, 16>> LoopTempDefs;
 
-  // Add a constant/copy definition to IndexToRefMap
-  void addConstOrCopyPropDef(RegDDRef *LRef, RegDDRef *RRef);
+  // Add a constant/copy definition to CopyCandidates
+  void addConstOrCopyPropDef(HLInst *CopyInst);
 
-  // Erase an index from the Map
-  void removeConstOrCopyPropIndex(unsigned Index, HLInst *Curr = nullptr);
+  // Erase \p CurInst's lval temp from the map.
+  void removeConstOrCopyPropIndex(HLInst *CurInst);
 
-  std::pair<bool, HLInst *> constantFold(HLInst *Inst);
+  // This can add \p Inst as candidate to CopyCandidates.
+  std::pair<bool, HLInst *> constantFoldAndAddAsCandidate(HLInst *Inst);
 
   // Propagate constant values to any blobs in the Ref
   void propagateConstOrCopyUse(RegDDRef *Ref);
@@ -1384,11 +1389,12 @@ private:
       return;
     }
 
-    for (auto &Pair : IndexToRefMap) {
-      auto DefRef = Pair.second;
+    for (auto &Pair : CopyCandidates) {
+      auto *DefRef = Pair.second;
       if (!DefRef) { // Invalidated when a use does not postdominate
         continue;
       }
+
       doInvalidate();
       NumInstsRemoved++;
       HLNodeUtils::remove(DefRef->getHLDDNode());
@@ -1439,7 +1445,7 @@ public:
   void visit(HLLoop *Loop) {
     CurrLoopOrRegion = Loop;
 
-    if (IndexToRefMap.empty()) {
+    if (CopyCandidates.empty()) {
       return;
     }
 
@@ -1450,22 +1456,22 @@ public:
     for (unsigned SB : make_range(Loop->live_in_begin(), Loop->live_in_end())) {
       unsigned Index = Loop->getBlobUtils().findTempBlobIndex(SB);
       if (Index != InvalidBlobIndex) {
-        IndexToRefMap.erase(Index);
+        CopyCandidates.erase(Index);
       }
     }
   }
 
   void postVisit(HLRegion *Region) {
-    if (IndexToRefMap.empty()) {
+    if (CopyCandidates.empty()) {
       return;
     }
 
     // Remove liveout entries for this region from being cleaned up
-    for (auto It = IndexToRefMap.begin(); It != IndexToRefMap.end(); It++) {
+    for (auto It = CopyCandidates.begin(); It != CopyCandidates.end(); It++) {
       unsigned TempIndex = It->first;
       unsigned SB = Region->getBlobUtils().getTempBlobSymbase(TempIndex);
       if (Region->isLiveOut(SB)) {
-        IndexToRefMap.erase(It);
+        CopyCandidates.erase(It);
       }
     }
 
@@ -1492,7 +1498,7 @@ public:
       Loop->removeLiveOutTemp(SB);
     }
 
-    if (IndexToRefMap.empty()) {
+    if (CopyCandidates.empty()) {
       return;
     }
 
@@ -1501,7 +1507,7 @@ public:
          make_range(Loop->live_out_begin(), Loop->live_out_end())) {
       unsigned Index = Loop->getBlobUtils().findTempBlobIndex(SB);
       if (Index != InvalidBlobIndex) {
-        IndexToRefMap.erase(Index);
+        CopyCandidates.erase(Index);
       }
     }
 
@@ -1514,11 +1520,21 @@ public:
     // ENDDO
     for (unsigned SB : make_range(Loop->live_in_begin(), Loop->live_in_end())) {
       unsigned Index = Loop->getBlobUtils().findTempBlobIndex(SB);
-      if (Index != InvalidBlobIndex) {
-        RegDDRef *Ref = IndexToRefMap[Index];
-        if (Ref && (Ref->getLexicalParentLoop() == Loop)) {
-          IndexToRefMap.erase(Index);
-        }
+
+      if (Index == InvalidBlobIndex) {
+        continue;
+      }
+
+      auto It = CopyCandidates.find(Index);
+
+      if (It == CopyCandidates.end()) {
+        continue;
+      }
+
+      auto *Ref = It->second;
+
+      if (Ref && (Ref->getLexicalParentLoop() == Loop)) {
+        CopyCandidates.erase(It);
       }
     }
 
@@ -1561,20 +1577,12 @@ public:
     bool IsLvalTerminalRef = LvalRef->isTerminalRef();
 
     if (IsLvalTerminalRef) {
-      if (LvalRef->isSelfBlob()) {
-        removeConstOrCopyPropIndex(LvalRef->getSelfBlobIndex(), Inst);
-      } else {
-        unsigned Index =
-            LvalRef->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
-        if (Index != InvalidBlobIndex) {
-          removeConstOrCopyPropIndex(Index, Inst);
-        }
-      }
+      removeConstOrCopyPropIndex(Inst);
     }
 
     bool Folded;
     HLInst *FoldedInst;
-    std::tie(Folded, FoldedInst) = constantFold(Inst);
+    std::tie(Folded, FoldedInst) = constantFoldAndAddAsCandidate(Inst);
 
     // Unless FoldedInst was removed after folding, track LvalSB if terminal
     if (Folded && !FoldedInst) {
@@ -1594,67 +1602,110 @@ public:
   }
 }; // end ConstantAndCopyPropagater
 
-void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(unsigned Index,
-                                                           HLInst *Curr) {
-  assert(Curr && "Constant Def Inst must be valid!\n");
+void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(HLInst *CurInst) {
+  assert(CurInst && "CurInst must be non-null!\n");
 
-  auto *Ref = IndexToRefMap[Index];
-  if (!Ref) {
+  unsigned LvalBlobIndex = CurInst->getLvalBlobIndex();
+
+  if (LvalBlobIndex == InvalidBlobIndex) {
     return;
   }
 
-  auto RefParentNode = Ref->getHLDDNode();
-  if (HLNodeUtils::strictlyPostDominates(Curr, RefParentNode)) {
-    doInvalidate();
-    NumInstsRemoved++;
-    HLNodeUtils::remove(RefParentNode);
+  auto It = CopyCandidates.find(LvalBlobIndex);
+
+  if (It != CopyCandidates.end()) {
+    if (auto *Ref = It->second) {
+
+      auto RefParentNode = Ref->getHLDDNode();
+      if (HLNodeUtils::strictlyPostDominates(CurInst, RefParentNode)) {
+        doInvalidate();
+        NumInstsRemoved++;
+        HLNodeUtils::remove(RefParentNode);
+      }
+    }
+
+    CopyCandidates.erase(It);
   }
 
-  IndexToRefMap.erase(Index);
+  // If the rval blob of copy candidate(s) is redefined, invalidate the
+  // candidates. For example, we will invalidate %a and %b as candidates when we
+  // encounter %c's definition here-
+  //
+  // %a = %c    // candidate 1
+  // %b = %c + 1 // candidate 2
+  //    = %a
+  //    = %b
+  // %c = A[i1]  // invalidate candidate 1 and 2
+  //    = %b
+  //
+  // This invalidation is somewhat conservative because we should be able to
+  // eliminate %a as it has no use after %c's definition.
+  // TODO: Improve logic to eliminate %a.
+  auto RvalToLvalIter = RvalBlobToLvalBlobMap.find(LvalBlobIndex);
+
+  if (RvalToLvalIter == RvalBlobToLvalBlobMap.end()) {
+    return;
+  }
+
+  for (unsigned DependantLvalIndex : RvalToLvalIter->second) {
+    CopyCandidates.erase(DependantLvalIndex);
+  }
+
+  RvalBlobToLvalBlobMap.erase(RvalToLvalIter);
 }
 
-void ConstantAndCopyPropagater::addConstOrCopyPropDef(RegDDRef *LRef,
-                                                      RegDDRef *RRef) {
-  unsigned Index;
-  if (LRef->isSelfBlob()) {
-    Index = LRef->getSelfBlobIndex();
-  } else {
-    Index = LRef->getBlobUtils().findTempBlobIndex(LRef->getSymbase());
-    if (Index == InvalidBlobIndex) {
+void ConstantAndCopyPropagater::addConstOrCopyPropDef(HLInst *CopyInst) {
+  assert(CopyInst->isCopyInst() && "Copy inst expected!");
+
+  auto *RvalRef = CopyInst->getRvalDDRef();
+
+  // TODO: Extend to propagate self AddressOf refs.
+  if (!RvalRef->isFoldableConstant() && !RvalRef->isTerminalRef()) {
+    return;
+  }
+
+  unsigned LvalBlobIndex = CopyInst->getLvalBlobIndex();
+
+  if (LvalBlobIndex == InvalidBlobIndex) {
+    return;
+  }
+
+  SmallVector<unsigned, 4> RvalBlobIndices;
+  RvalRef->populateTempBlobIndices(RvalBlobIndices);
+
+  // Give up on candidate if lval and rval use the same temp. For example-
+  //
+  // %t = %t + 1;
+  //
+  // Unless the definition is eliminated, it is not correct to propagate the
+  // rval for such cases due to live range violation.
+  for (unsigned RvalBlobIndex : RvalBlobIndices) {
+    if (RvalBlobIndex == LvalBlobIndex) {
       return;
     }
   }
 
-  IndexToRefMap[Index] = RRef;
+  CopyCandidates[LvalBlobIndex] = RvalRef;
+
+  for (unsigned RvalBlobIndex : RvalBlobIndices) {
+    RvalBlobToLvalBlobMap[RvalBlobIndex].insert(LvalBlobIndex);
+  }
 }
 
 // Attempts to fold the instruction, and checks candidate for future
 // propagation.
 std::pair<bool, HLInst *>
-ConstantAndCopyPropagater::constantFold(HLInst *Inst) {
+ConstantAndCopyPropagater::constantFoldAndAddAsCandidate(HLInst *Inst) {
 
   // Copy insts aren't folded but can be propagation candidates
   if (Inst->isCopyInst()) {
-    RegDDRef *RvalRef = Inst->getRvalDDRef();
-    if (RvalRef->isFoldableConstant()) {
-      addConstOrCopyPropDef(Inst->getLvalDDRef(), RvalRef);
-
-    } else if (auto *CurLoop = dyn_cast<HLLoop>(CurrLoopOrRegion)) {
-
-      // Start with linear at level rvals so we don't have to worry about
-      // invalidating candidates if rval is redefined.
-      // TODO: Extend to propagate self AddressOf refs.
-      if (RvalRef->isTerminalRef() &&
-          RvalRef->isLinearAtLevel(CurLoop->getNestingLevel())) {
-        addConstOrCopyPropDef(Inst->getLvalDDRef(), RvalRef);
-      }
-    }
+    addConstOrCopyPropDef(Inst);
     return std::make_pair(false, nullptr);
   }
 
-  auto isRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
+  auto IsRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
   bool HasConstTerm = std::any_of(Inst->rval_op_ddref_begin(),
-                                  Inst->rval_op_ddref_end(), isRefConst);
+                                  Inst->rval_op_ddref_end(), IsRefConst);
 
   if (!HasConstTerm) {
     return std::make_pair(false, nullptr);
@@ -1672,14 +1723,9 @@ ConstantAndCopyPropagater::constantFold(HLInst *Inst) {
   }
 
   // See if folded instruction is candidate for future propagation
-  if (Folded && FoldedInst) {
-    RegDDRef *LvalRef = FoldedInst->getLvalDDRef();
-    RegDDRef *NewRvalRef = FoldedInst->getRvalDDRef();
-
+  if (FoldedInst && FoldedInst->isCopyInst()) {
     // Add candidate for future propagation
-    if (LvalRef->isTerminalRef() && (NewRvalRef->isFoldableConstant())) {
-      addConstOrCopyPropDef(LvalRef, NewRvalRef);
-    }
+    addConstOrCopyPropDef(FoldedInst);
   }
 
   return Result;
@@ -1701,7 +1747,7 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
   }
 
   unsigned SB = Ref->getSymbase();
-  for (auto &Pair : IndexToRefMap) {
+  for (auto &Pair : CopyCandidates) {
     if (!Pair.second || !Ref->usesTempBlob(Pair.first)) {
       continue;
     }
@@ -1715,8 +1761,9 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
       continue;
     }
 
-    if (!HLNodeUtils::strictlyDominates(ConstOrCopyRef->getHLDDNode(),
-                                        Ref->getHLDDNode())) {
+    auto *CopyNode = ConstOrCopyRef->getHLDDNode();
+    auto *CurNode = Ref->getHLDDNode();
+    if (!HLNodeUtils::strictlyDominates(CopyNode, CurNode)) {
       // Invalidate entry so substitution cannot be performed and original
       // definition will not be eliminated
       Pair.second = nullptr;
@@ -1733,22 +1780,48 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
           ConstOrCopyRef->getSingleCanonExpr()->getSingleBlobIndex());
     } else {
 
-      unsigned NumDims = Ref->getNumDimensions();
-      for (unsigned I = 1; I <= NumDims; ++I) {
-        auto *IndexCE = Ref->getDimensionIndex(I);
+      bool Replaced = false;
 
-        if (IndexCE->containsStandAloneBlob(DefIndex)) {
+      if (ConstOrCopyRef->isSelfBlob()) {
+        Ref->replaceTempBlob(DefIndex, ConstOrCopyRef->getSelfBlobIndex());
+        Replaced = true;
+
+      } else {
+        unsigned NumDims = Ref->getNumDimensions();
+
+        for (unsigned I = 1; I <= NumDims; ++I) {
+          auto *IndexCE = Ref->getDimensionIndex(I);
+
+          if (!IndexCE->containsStandAloneBlob(DefIndex)) {
+            continue;
+          }
+
           auto *ReplaceByCE = ConstOrCopyRef->getSingleCanonExpr();
 
           if (CanonExprUtils::canReplaceStandAloneBlobByCanonExpr(
                   IndexCE, DefIndex, ReplaceByCE)) {
             CanonExprUtils::replaceStandAloneBlobByCanonExpr(IndexCE, DefIndex,
                                                              ReplaceByCE);
+            Replaced = true;
           }
         }
       }
 
-      Ref->makeConsistent(ConstOrCopyRef);
+      if (Replaced) {
+        auto *DefLoop = CopyNode->getLexicalParentLoop();
+        auto *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
+                                             : CurNode->getLexicalParentLoop();
+
+        auto *LCALoop =
+            HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
+
+        while (UseLoop != LCALoop) {
+          UseLoop->addLiveInTemp(ConstOrCopyRef);
+          UseLoop = UseLoop->getParentLoop();
+        }
+
+        Ref->makeConsistent(ConstOrCopyRef);
+      }
 
       // If we could not replace copy in the use, invalidate the entry so we
       // don't eliminate the definition.
