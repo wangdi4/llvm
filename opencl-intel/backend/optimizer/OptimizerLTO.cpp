@@ -183,8 +183,12 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(SYCLEqualizerPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
-        if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
-          MPM.addPass(CoerceWin64TypesPass());
+        if (TargetTriple.isArch64Bit()) {
+          if (TargetTriple.isOSLinux())
+            MPM.addPass(CoerceTypesPass());
+          else if (TargetTriple.isOSWindows())
+            MPM.addPass(CoerceWin64TypesPass());
+        }
 
         if (m_IsFpgaEmulator)
           MPM.addPass(RemoveAtExitPass());
