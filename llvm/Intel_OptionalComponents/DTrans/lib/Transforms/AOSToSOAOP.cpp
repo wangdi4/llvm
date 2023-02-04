@@ -2573,8 +2573,8 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
       // Update the offset value to account for any padding that may be
       // needed, if this element has a stricter alignment requirement than the
       // previous element.
-      uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
-      uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
+      uint64_t PrevFieldAlign = DL.getABITypeAlign(PrevArrayElemType).value();
+      uint64_t FieldAlign = DL.getABITypeAlign(ArrayElemType).value();
       if (FieldAlign > PrevFieldAlign) {
         Value *Numerator = IRB.CreateAdd(
             AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));

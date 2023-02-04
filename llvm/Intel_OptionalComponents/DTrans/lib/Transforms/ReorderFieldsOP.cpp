@@ -1737,7 +1737,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
     SkipField0 = true;
     Type *Ty0 = LLVMStructT->getElementType(0);
     dtrans::FieldInfo &FI = StInfo->getField(0);
-    FD0.set(DL.getABITypeAlignment(Ty0), DL.getTypeStoreSize(Ty0), 0,
+    FD0.set(DL.getABITypeAlign(Ty0).value(), DL.getTypeStoreSize(Ty0), 0,
             FI.getFrequency());
   }
 
@@ -1746,7 +1746,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
   for (; I < E; ++I) {
     Type *FieldTy = LLVMStructT->getElementType(I);
     dtrans::FieldInfo &FI = StInfo->getField(I);
-    FieldData FD(DL.getABITypeAlignment(FieldTy), DL.getTypeStoreSize(FieldTy),
+    FieldData FD(DL.getABITypeAlign(FieldTy).value(), DL.getTypeStoreSize(FieldTy),
                  I, FI.getFrequency());
     Fields.push_back(FD);
   }
@@ -1867,7 +1867,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });
   }
 
-  uint64_t StructAlign = DL.getABITypeAlignment(LLVMStructT);
+  uint64_t StructAlign = DL.getABITypeAlign(LLVMStructT).value();
   if ((Offset & (StructAlign - 1)) != 0) {
     Offset = alignTo(Offset, StructAlign);
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });

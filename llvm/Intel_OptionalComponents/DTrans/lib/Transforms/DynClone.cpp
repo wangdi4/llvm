@@ -2681,7 +2681,7 @@ void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
       if (isPackedBitFieldField(BField))
         continue;
       Type *ShrunkenTy = GetTypeInShrunkenStruct(StructT, I);
-      FieldData FD(DL.getABITypeAlignment(ShrunkenTy),
+      FieldData FD(DL.getABITypeAlign(ShrunkenTy).value(),
                    DL.getTypeStoreSize(ShrunkenTy), I);
       Fields.push_back(FD);
     }
