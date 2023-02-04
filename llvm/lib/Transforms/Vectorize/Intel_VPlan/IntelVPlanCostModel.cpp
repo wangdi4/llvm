@@ -1450,9 +1450,9 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         {TargetTransformInfo::OK_UniformConstantValue,
          TargetTransformInfo::OP_PowerOf2_PlusMinus1},
         {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
-    // FIXME: please uncomment and fix the build
-    // Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
-    //                                -1U /* Non-immediate Index */);
+    Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   TTI::TCK_RecipThroughput,
+                                   -1U /* Non-immediate Index */);
     return Cost;
   }
 
