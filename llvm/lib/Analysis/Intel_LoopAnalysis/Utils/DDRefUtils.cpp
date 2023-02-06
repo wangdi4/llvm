@@ -360,7 +360,8 @@ bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
 }
 
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                              bool RelaxedMode, bool IgnoreAddressOf) {
+                              bool RelaxedMode, bool IgnoreAddressOf,
+                              bool IgnoreBitCastDestType) {
 
   // Match the symbase. Type checking is done inside the CEUtils.
   if ((Ref1->getSymbase() != Ref2->getSymbase())) {
@@ -381,8 +382,9 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
       return false;
     }
 
-    if (!RelaxedMode && Ref1->getBitCastDestVecOrElemType() !=
-                            Ref2->getBitCastDestVecOrElemType()) {
+    if (!RelaxedMode && !IgnoreBitCastDestType &&
+        (Ref1->getBitCastDestVecOrElemType() !=
+         Ref2->getBitCastDestVecOrElemType())) {
       return false;
     }
 
