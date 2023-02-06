@@ -1,5 +1,4 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test for CPTR operands on is_device_ptr on target constructs.
@@ -46,7 +45,7 @@
 ; new cptr is initialized using it.
 ; CHECK: call void @__omp_offloading{{[^ (]+}}(%"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3", i8* [[VAL]])
 ; CHECK-LABEL: define internal void @__omp_offloading{{[^ (]+}}
-; CHECK-SAME: (%"ISO_C_BINDING$.btC_PTR"* %{{[^ ,]+}}, i8* [[VAL_PASSED:%[^ ,]+]])
+; CHECK-SAME: (%"ISO_C_BINDING$.btC_PTR"* noalias %{{[^ ,]+}}, i8* [[VAL_PASSED:%[^ ,]+]])
 ; CHECK: [[NEWV:%A_CPTR1[^ ]+]] = alloca %"ISO_C_BINDING$.btC_PTR", align 8
 ; CHECK: [[NEWV_CAST:%[^ ]+]] = bitcast %"ISO_C_BINDING$.btC_PTR"* [[NEWV]] to i8**
 ; CHECK: store i8* [[VAL_PASSED]], i8** [[NEWV_CAST]], align 8
