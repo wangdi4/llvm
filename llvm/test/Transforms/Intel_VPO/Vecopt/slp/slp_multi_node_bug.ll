@@ -4,8 +4,8 @@
 ; Vectorization is forced with lowering threshold in order to expose
 ; changes made to LLVM IR as MN operands reordering.
 
-define void @test(i64* %ptr, i64 %add216567, i64 %add242566, i32 %i31) {
-; CHECK-LABEL: @test(
+define void @test(ptr %p, i64 %add216567, i64 %add242566, i32 %i31) {
+; CHECK-LABEL: define {{[^@]+}}@test(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[W:%.*]] = alloca [80 x i64], align 8
 ; CHECK-NEXT:    br i1 undef, label [[BB1:%.*]], label [[BB2:%.*]]
@@ -14,8 +14,8 @@ define void @test(i64* %ptr, i64 %add216567, i64 %add242566, i32 %i31) {
 ; CHECK:       bb2:
 ; CHECK-NEXT:    [[ADD190568:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ undef, [[BB1]] ]
 ;
-; CHECK:         [[ARRAYIDX75:%.*]] = getelementptr inbounds [80 x i64], [80 x i64]* [[W]], i32 0, i32 [[I31:%.*]]
-; CHECK-NEXT:    [[I368:%.*]] = load i64, i64* [[ARRAYIDX75]], align 8
+; CHECK:       [[ARRAYIDX75:%.*]] = getelementptr inbounds [80 x i64], ptr [[W]], i32 0, i32 [[I31:%.*]]
+; CHECK-NEXT:  [[I368:%.*]] = load i64, ptr [[ARRAYIDX75]], align 8
 ;
 ; CHECK-NOT:     %add76 = add i64 %add73, [[ADD190568]]
 ;
@@ -37,8 +37,8 @@ bb2:                                              ; preds = %bb1, %entry
   %shl.i7.i510 = shl i64 undef, 23
   %or.i8.i511 = or i64 %shl.i7.i510, %shr.i6.i509
   %xor3.i512 = xor i64 %xor.i508, %or.i8.i511
-  %arrayidx75 = getelementptr inbounds [80 x i64], [80 x i64]* %W, i32 0, i32 %i31
-  %i368 = load i64, i64* %arrayidx75, align 8
+  %arrayidx75 = getelementptr inbounds [80 x i64], ptr %W, i32 0, i32 %i31
+  %i368 = load i64, ptr %arrayidx75, align 8
   %add73 = add i64 undef, %i368
   %shr.i.i488 = lshr i64 %add60, 28
   %shl.i.i489 = shl i64 %add60, 36
@@ -70,10 +70,10 @@ bb2:                                              ; preds = %bb1, %entry
   %add85 = add i64 %add76, %add190568
   %add83 = add i64 %xor3.i498, %or2.i487
   %add86 = add i64 %add83, %add76
-  %gep0 = getelementptr i64, i64* %ptr, i32 0
-  %gep1 = getelementptr i64, i64* %ptr, i32 1
-  store i64 %add86, i64* %gep0, align 4
-  store i64 %add85, i64* %gep1, align 4
+  %gep0 = getelementptr i64, ptr %p, i32 0
+  %gep1 = getelementptr i64, ptr %p, i32 1
+  store i64 %add86, ptr %gep0, align 4
+  store i64 %add85, ptr %gep1, align 4
   br label %bb3
 
 bb3:                                              ; preds = %bb2, %bb1
