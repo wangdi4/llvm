@@ -431,7 +431,7 @@ void VPOCodeGen::finalizeLoop() {
   LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
   LoopVectorBody->setName("vector.body");
 
-  if (LoopHasUDRsOrInscan)
+  if (LoopHasEntityWithMemGuard)
     eraseGuardMemMotionDirsFromScalarLoops();
 
   // Anchor point to emit/lower remarks from VPLoops to outgoing llvm::Loops.
@@ -1572,7 +1572,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ReductionFinalUdr: {
-    LoopHasUDRsOrInscan = true;
+    LoopHasEntityWithMemGuard = true;
 
     // Call combiner for each pointer in private memory and accumulate the
     // results in original variable corresponding to the UDR.
@@ -1587,7 +1587,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ReductionFinalInscan: {
-    LoopHasUDRsOrInscan = true;
+    LoopHasEntityWithMemGuard = true;
     // The reduction value for inscan reduction has already been calculated
     // in the operand.
     // ReductionFinalInscan opcode is needed for correct work of CFG merger.
@@ -1595,6 +1595,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ReductionFinalArr: {
+    LoopHasEntityWithMemGuard = true;
     generateArrayReductionFinal(cast<VPReductionFinalArray>(VPInst));
     return;
   }
