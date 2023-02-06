@@ -48,7 +48,7 @@ void foo_two()
 // LIVEIN: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x
 // FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @{{.*}}x
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @{{.*}}x
   #pragma omp target
     {
       x[1]=1;;
@@ -71,7 +71,7 @@ void foo_three()
 // LIVEIN: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x1
 // FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @{{.*}}x1
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @{{.*}}x1
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @{{.*}}x1
   #pragma omp target
     x1 = 1;
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]
@@ -82,7 +82,7 @@ void foo_three()
 // LIVEIN: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @a
 // FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @a
-// LIVEIN: "QUAL.OMP.LIVEIN:TYPED"(ptr @a
+// LIVEIN: "QUAL.OMP.LIVEIN"(ptr @a
   #pragma omp target
     a = 10;
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
@@ -102,7 +102,7 @@ void foo_four()
 // LIVEIN:"QUAL.OMP.MAP.TOFROM"(ptr %y{{.*}}, ptr %y{{.*}}, i64 40, i64 547
 // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %y
 // FPRIVATE-NOT: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %y
-// LIVEIN-NOT: "QUAL.OMP.LIVEIN:TYPED"(ptr %y
+// LIVEIN-NOT: "QUAL.OMP.LIVEIN"(ptr %y
   #pragma omp target
     y[1] = 1;
 // CHECK: region.exit(token [[TV4]]) [ "DIR.OMP.END.TARGET"() ]
@@ -125,12 +125,36 @@ void foo_five() {
 // LIVEIN: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @data_a
 // FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @data_a
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @data_a
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @data_a
   #pragma omp target
   data_a.data = 1.23;
 // CHECK: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
 // FPRIVATE: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
 // LIVEIN: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
 }
+
+typedef struct {
+  int a;
+  int arr;
+} b;
+#pragma omp declare target
+b *c;
+// CHECK-LABEL: doo
+void doo() {
+// CHECK: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// FPRIVATE: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// LIVEIN: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @c
+// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @c
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @c
+#pragma omp target
+   for (int e;;)
+     c[e].arr = 1;
+// CHECK: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
+// FPRIVATE: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
+// LIVEIN: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
+}
+#pragma omp end declare target
+
 
 // end INTEL_COLLAB

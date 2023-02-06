@@ -68,8 +68,8 @@ void foo_global_data()
 
   //CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @glob_array
-  //CHECK-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @dt_array
-  //CHECK-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @dt_scalar
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr @dt_array
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr @dt_scalar
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @glob_scalar
   #pragma omp target teams distribute
   for (int i = 0 ; i < 10; i++) {
@@ -82,7 +82,7 @@ void foo_global_data()
 void foo() {
   //CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   //FPRIVATE: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  //CHECK-SAME: "QUAL.OMP.LIVEIN:TYPED"(ptr @dt_scalar
+  //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr @dt_scalar
   //FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @dt_scalar
   #pragma omp target
     dt_scalar++;
