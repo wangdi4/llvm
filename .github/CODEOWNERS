@@ -101,6 +101,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/utils/update_mir_test_checks.py @KanRobert
 /llvm/utils/update_test_checks.py @KanRobert
 /llvm/utils/update_any_test_checks.py @KanRobert
+/llvm/utils/update_mca_test_checks.py @KanRobert
+/llvm/utils/update_cc_test_checks.py @KanRobert
 /llvm/utils/UpdateTestChecks/ @KanRobert
 /llvm/test/tools/UpdateTestChecks/ @KanRobert
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
