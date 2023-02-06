@@ -10,6 +10,15 @@
 # Work around the ipscan issue by splitting the string
 # RUN: echo -e '; INTEL_''FEATURE_\n; UNSUPPORTED: intel_''feature_\n; end INTEL_''FEATURE_' > %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll
 # RUN: FileCheck < %t.ll %s --check-prefix=FEATURE
+#
+# RUN: cp -f %S/Inputs/run-line.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll --max 999
+# RUN: diff -u %S/Inputs/run-line.ll.expected %t.ll
+#
+# RUN: cp -f %S/Inputs/run-line-continue.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty.ll --max 999
+# RUN: diff -u %S/Inputs/run-line-continue.ll.expected %t.ll
+
+# RUN: cp -f %S/Inputs/run-check-line.mir %t.mir && %intel_update_markup %t.mir --ref %S/Inputs/empty.mir --max 999
+# RUN: diff -u %S/Inputs/run-check-line.mir.expected %t.mir
 
 # FEATURE-NOT: INTEL
 # FEATURE: INTEL_CUSTOMIZATION

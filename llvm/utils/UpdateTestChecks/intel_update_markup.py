@@ -12,6 +12,12 @@ import subprocess
 from subprocess import PIPE
 import logging
 import sys
+# This script can be used either as part of the UpdateTestChecks module
+# or as the main module
+if __name__ == '__main__':
+    import common
+else:
+    from . import common
 
 def check_ext(file_ext):
     if file_ext not in {'.ll', '.mir'}:
@@ -23,9 +29,20 @@ def get_comment_char(file_ext):
     return ';' if file_ext == '.ll' else '#'
 
 
+def get_special_comment_char():
+    return ';'
+
+
+def get_special_single_line_markup():
+    # Only this single-line markup can be used on RUN and CHECK line
+    scc = get_special_comment_char()
+    return f'{scc}INTEL'
+
+
 def get_single_line_markup(file_ext):
     check_ext(file_ext)
-    return ';INTEL'
+    cc = get_comment_char(file_ext)
+    return f'{cc} INTEL'
 
 
 def get_multi_line_markup(file_ext):
@@ -48,9 +65,10 @@ def get_ext(exp):
 
 def get_markup(exp):
     file_ext = get_ext(exp)
+    ss_markup = get_special_single_line_markup()
     s_markup = get_single_line_markup(file_ext)
     m_markup_start, m_markup_end = get_multi_line_markup(file_ext)
-    return s_markup, m_markup_start, m_markup_end
+    return ss_markup, s_markup, m_markup_start, m_markup_end
 
 
 def get_dir():
@@ -112,14 +130,15 @@ def drop(exp):
     if not has_sed():
         logging.debug(f'Not found SED')
         return
-    s_markup, m_markup_start, m_markup_end = get_markup(exp)
+    ss_markup, s_markup, m_markup_start, m_markup_end = get_markup(exp)
     note = get_note(get_ext(exp))
     logging.debug(f'Dropping markup and note ...')
 
-    script = R'/{m_markup_start}\|{m_markup_end}/Id;s/\s\+{s_markup}$//;/{note}/d'
+    script = R'/{m_markup_start}\|{m_markup_end}/Id;s/\s\+{s_markup}$//;s/\s\+{ss_markup}$//;/{note}/d'
     script = script.replace(R'{m_markup_start}', str(m_markup_start))
     script = script.replace(R'{m_markup_end}', str(m_markup_end))
     script = script.replace(R'{s_markup}', str(s_markup))
+    script = script.replace(R'{ss_markup}', str(ss_markup))
     script = script.replace(R'{note}', str(note))
     logging.debug(f'SED script: {script}')
     subprocess.run(['sed', '-i', '-b', script, exp], check=True)
@@ -132,6 +151,62 @@ def find_interested_lines(exp, script):
     return lines
 
 
+def find_run_lines(exp):
+    with open(exp) as file:
+        run_lines = [i for i, l in enumerate(file, 1) if common.RUN_LINE_RE.match(l)]
+    if run_lines:
+        logging.debug(f'Found RUN lines: {run_lines}')
+    return run_lines
+
+
+def find_run_lines_with_line_continue(exp):
+    with open(exp) as file:
+        run_lines = [i for i, l in enumerate(file, 1) if l.rstrip().endswith('\\')]
+    if run_lines:
+        logging.debug(f'Found RUN lines that end with \\: {run_lines}')
+    return run_lines
+
+
+def get_check_prefixes_from(filecheck_cmd):
+    check_prefixes = [item for m in common.CHECK_PREFIX_RE.finditer(filecheck_cmd)
+                             for item in m.group(1).split(',')]
+    if not check_prefixes:
+        check_prefixes = ['CHECK']
+    if check_prefixes:
+        logging.debug(f'Found CHECK prefixes: {check_prefixes}')
+    return check_prefixes
+
+
+def get_filecheck_cmds(exp, run_lines):
+    # filecheck can only be the last cmd in pipeline
+    run_lines_set = set(run_lines)
+    with open(exp) as file:
+        filecheck_cmds = [l.split('|')[-1].strip() for i, l in enumerate(file, 1) if i in run_lines_set and 'FileCheck' in l]
+    if filecheck_cmds:
+        logging.debug(f'Found FileCheck commands: {filecheck_cmds}')
+    return filecheck_cmds
+
+
+def get_check_prefixes(exp, run_lines):
+    check_prefixes = []
+    for cmd in get_filecheck_cmds(exp, run_lines):
+        check_prefixes = check_prefixes + get_check_prefixes_from(cmd)
+    return check_prefixes
+
+
+def find_check_lines(exp, run_lines):
+    prefix_set = set(get_check_prefixes(exp, run_lines))
+    check_lines = []
+    with open(exp) as file:
+        for i, l in enumerate(file, 1):
+            m = common.CHECK_RE.match(l)
+            if m and m.group(1) in prefix_set:
+                check_lines.append(i)
+    if check_lines:
+        logging.debug(f'Found CHECK lines: {check_lines}')
+    return check_lines
+
+
 def add(exp, max_line, ref, comment):
     """Add intel markup and note for a clean file"""
     # No error and no ouput by intention b/c the API may be called by a test
@@ -139,7 +214,7 @@ def add(exp, max_line, ref, comment):
         logging.debug(f'Not found GIT or SED')
         return
 
-    s_markup, m_markup_start, m_markup_end = get_markup(exp)
+    ss_markup, s_markup, m_markup_start, m_markup_end = get_markup(exp)
 
     # Use the latest file from llorg by default
     if not ref:
@@ -174,6 +249,15 @@ def add(exp, max_line, ref, comment):
     feature_lines = find_interested_lines(exp, f'/{feature_str}/=')
     has_feature_line = lambda start, end : any(line >= start and line <= end for line in feature_lines)
 
+    # One-line markup is not supported on RUN line with line continue chararter
+    run_lines_with_line_continue = find_run_lines_with_line_continue(exp)
+    has_run_lines_with_line_continue = lambda start, end : any(line >= start and line <= end for line in run_lines_with_line_continue)
+
+    # Only special single-line markup can be used on RUN/CHECK line
+    run_lines = find_run_lines(exp)
+    check_lines = find_check_lines(exp, run_lines)
+    run_check_lines = set(run_lines) | set(check_lines)
+
     has_s_markup = False
     has_m_markup = False
     logging.debug(f'Adding markup ...')
@@ -183,8 +267,16 @@ def add(exp, max_line, ref, comment):
         if not exp_lines:
             continue
         exp_end = exp_start + exp_lines - 1
-        if exp_lines <= max_line and not has_blank_line(exp_start, exp_end) and not has_feature_line(exp_start, exp_end):
-            s_script = f'{exp_start},{exp_end}s/$/ {s_markup}/'
+        if exp_lines <= max_line and not has_blank_line(exp_start, exp_end) and not has_feature_line(exp_start, exp_end) and not has_run_lines_with_line_continue(exp_start, exp_end):
+            change_lines = set(range(exp_start, exp_end + 1))
+            change_lines_w_ss = change_lines & run_check_lines
+            change_lines_w_s = change_lines - run_check_lines
+            s_script = ''
+            for l in change_lines_w_ss:
+                s_script += f'{l}s/$/ {ss_markup}/;'
+            for l in change_lines_w_s:
+                s_script += f'{l}s/$/ {s_markup}/;'
+            s_script = s_script.rstrip(';')
             logging.debug(f'SED script: {s_script}')
             subprocess.run(['sed', '-i', '-b', s_script, exp])
             has_s_markup = True
