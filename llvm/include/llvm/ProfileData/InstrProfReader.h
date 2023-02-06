@@ -1,4 +1,21 @@
 //===- InstrProfReader.h - Instrumented profiling readers -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -283,29 +300,34 @@ private:
   /// If available, this hold the ProfileData array used to correlate raw
   /// instrumentation data to their functions.
   const InstrProfCorrelatorImpl<IntPtrT> *Correlator;
-  bool ShouldSwapBytes;
+  bool ShouldSwapBytes = false; // INTEL
   // The value of the version field of the raw profile data header. The lower 56
   // bits specifies the format version and the most significant 8 bits specify
   // the variant types of the profile.
-  uint64_t Version;
-  uint64_t CountersDelta;
-  uint64_t NamesDelta;
-  const RawInstrProf::ProfileData<IntPtrT> *Data;
-  const RawInstrProf::ProfileData<IntPtrT> *DataEnd;
-  const char *CountersStart;
-  const char *CountersEnd;
-  const char *NamesStart;
-  const char *NamesEnd;
+  uint64_t Version = 0;                                        // INTEL
+  uint64_t CountersDelta = 0;                                  // INTEL
+  uint64_t NamesDelta = 0;                                     // INTEL
+  const RawInstrProf::ProfileData<IntPtrT> *Data = nullptr;    // INTEL
+  const RawInstrProf::ProfileData<IntPtrT> *DataEnd = nullptr; // INTEL
+  const char *CountersStart = nullptr;                         // INTEL
+  const char *CountersEnd = nullptr;                           // INTEL
+  const char *NamesStart = nullptr;                            // INTEL
+  const char *NamesEnd = nullptr;                              // INTEL
   // After value profile is all read, this pointer points to
   // the header of next profile data (if exists)
-  const uint8_t *ValueDataStart;
-  uint32_t ValueKindLast;
-  uint32_t CurValueDataSize;
+  const uint8_t *ValueDataStart = nullptr; // INTEL
+  uint32_t ValueKindLast = 0;              // INTEL
+  uint32_t CurValueDataSize = 0;           // INTEL
 
+<<<<<<< HEAD
   /// Total size of binary ids.
   uint64_t BinaryIdsSize{0};
   /// Start address of binary id length and data pairs.
   const uint8_t *BinaryIdsStart;
+=======
+  uint64_t BinaryIdsSize = 0;              // INTEL
+  const uint8_t *BinaryIdsStart = nullptr; // INTEL
+>>>>>>> 2a9c909d97febf7977714c01855e2617e3d92558
 
 public:
   RawInstrProfReader(std::unique_ptr<MemoryBuffer> DataBuffer,

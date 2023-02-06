@@ -1119,7 +1119,7 @@ private:
 
   // The maximum count value in the profile. This is only used in PGO use
   // compilation.
-  uint64_t ProgramMaxCount;
+  uint64_t ProgramMaxCount = 0; // INTEL
 
   // Position of counter that remains to be read.
   uint32_t CountPosition = 0;
