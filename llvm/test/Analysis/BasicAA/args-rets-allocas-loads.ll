@@ -78,16 +78,24 @@ define void @caller_a(double* %arg_a0,
 ; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noalias_arg_a1
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a0
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a0, double* %loaded_a1
+; INTEL_CUSTOMIZATION
+; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
+; checks will produce now NoAlias rather than MayAlias
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a0
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a0
 ; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a0
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a0
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a1
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a0
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %escape_alloca_a1, double* %loaded_a1
+; INTEL_CUSTOMIZATION
+; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
+; checks will produce now NoAlias rather than MayAlias
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a0
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a1
 ; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a1
 ; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a0
@@ -365,15 +373,15 @@ define void @caller_a(double* %arg_a0,
 ; INTEL_CUSTOMIZATION
 ; This check now produces a different alias result because the escape analysis
 ; was updated in xmain
-; CHECK-NEXT: 88 no alias responses (73.3%)
-; CHECK-NEXT:   32 may alias responses (26.6%)
+; CHECK-NEXT:   92 no alias responses (76.6%)
+; CHECK-NEXT:   28 may alias responses (23.3%)
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   0 partial alias responses (0.0%)
 ; CHECK-NEXT:   0 must alias responses (0.0%)
 ; INTEL_CUSTOMIZATION
 ; This check now produces a different alias result because the escape analysis
 ; was updated in xmain
-; CHECK-NEXT: Alias Analysis Evaluator Pointer Alias Summary: 73%/26%/0%/0%
+; CHECK-NEXT: Alias Analysis Evaluator Pointer Alias Summary: 76%/23%/0%/0%
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   184 Total ModRef Queries Performed
 ; CHECK-NEXT:   44 no mod/ref responses (23.9%)
