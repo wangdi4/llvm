@@ -10,9 +10,7 @@
 ;; --thinlto-single-module=main.o should result in only main.o compiled, of which
 ;; the object code is saved in single1.o1. Note that single1.o is always the dummy
 ;; output, aka ld-temp.o. There should be no more object files generated.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers main.o thin.a --thinlto-single-module=main.o --lto-obj-path=single1.o
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers main.o thin.a --thinlto-single-module=main.o --lto-obj-path=single1.o
 ; RUN: llvm-readelf -S -s single1.o | FileCheck %s --check-prefix=DEFAULT
 ; RUN: llvm-readelf -S -s single1.o1 | FileCheck %s --check-prefix=MAIN
 ; RUN: not ls single1.o2
@@ -25,18 +23,14 @@
 ; MAIN-NEXT: 0000000000000000    3 FUNC GLOBAL DEFAULT   3 _start
 
 ;; --thinlto-single-module=thin.a should result in only thin1.o and thin2.o compiled.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers main.o thin.a --thinlto-single-module=thin.a --lto-obj-path=single2.o
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers main.o thin.a --thinlto-single-module=thin.a --lto-obj-path=single2.o
 ; RUN: llvm-readelf -S -s single2.o | FileCheck %s --check-prefix=DEFAULT
 ; RUN: llvm-readelf -S -s single2.o1 | FileCheck %s --check-prefix=FOO
 ; RUN: llvm-readelf -S -s single2.o2 | FileCheck %s --check-prefix=BLAH
 ; RUN: not ls single1.o3
 
 ;; Multiple --thinlto-single-module uses should result in a combination of inputs compiled.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers main.o thin.a --thinlto-single-module=main.o --thinlto-single-module=thin2.o --lto-obj-path=single4.o
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers main.o thin.a --thinlto-single-module=main.o --thinlto-single-module=thin2.o --lto-obj-path=single4.o
 ; RUN: llvm-readelf -S -s single4.o | FileCheck %s --check-prefix=DEFAULT
 ; RUN: llvm-readelf -S -s single4.o1 | FileCheck %s --check-prefix=MAIN
 ; RUN: llvm-readelf -S -s single4.o2 | FileCheck %s --check-prefix=BLAH
@@ -51,9 +45,7 @@
 
 ;; Check only main.o is in the result thin index file.
 ;; Also check a *.thinlto.bc file generated for main.o only.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers main.o thin.a --thinlto-single-module=main.o --thinlto-index-only=single5.idx
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers main.o thin.a --thinlto-single-module=main.o --thinlto-index-only=single5.idx
 ; RUN: ls main.o.thinlto.bc
 ; RUN: ls | FileCheck --implicit-check-not='thin.{{.*}}.thinlto.bc' /dev/null
 ; RUN: FileCheck %s --check-prefix=IDX < single5.idx
@@ -62,9 +54,7 @@
 ; IDX: main.o
 
 ;; Check temporary output generated for main.o only.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers main.o thin.a --thinlto-single-module=main.o --save-temps
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers main.o thin.a --thinlto-single-module=main.o --save-temps
 ; RUN: ls main.o.0.preopt.bc
 ; RUN: not ls thin.*.0.preopt.bc
 

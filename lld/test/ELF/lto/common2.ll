@@ -1,7 +1,7 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t1.o
+; RUN: ld.lld -mllvm -opaque-pointers %t1.o -o %t -shared -save-temps
 ; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t1.o -o %t -shared -save-temps
 ; RUN: llvm-dis -opaque-pointers < %t.0.2.internalize.bc | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 ; RUN: llvm-readobj --symbols %t | FileCheck %s --check-prefix=SHARED

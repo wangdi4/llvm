@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -321,10 +321,6 @@ def intel_embedded_linker : F<"intel-embedded-linker">;
 
 // Option for fintel-preserve-value-names
 def intel_preserve_value_names : F<"fintel-preserve-value-names">;
-
-// Option for -opaque-pointers, this enables linking LTO objects
-// with opaque pointers
-def opaque_pointers : F<"opaque-pointers">;
 #endif // INTEL_CUSTOMIZATION
 
 //==============================================================================

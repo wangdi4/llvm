@@ -6,7 +6,7 @@
 ; RUN: opt --thinlto-bc -o %t2.o %s
 ; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; INTEL_CUSTOMIZATION
@@ -18,7 +18,7 @@
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t.o %s
 ; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; INTEL_CUSTOMIZATION
@@ -29,7 +29,7 @@
 ; RUN: opt -o %t4.o %s
 ; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; INTEL_CUSTOMIZATION
@@ -45,7 +45,7 @@
 ;; Index based WPD
 ; RUN: ld.lld %t2.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
@@ -55,7 +55,7 @@
 ;; Ensure --no-lto-whole-program-visibility overrides explicit --lto-whole-program-visibility.
 ; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility --no-lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: -plugin-opt=opaque-pointers \
+; RUN: -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
@@ -66,7 +66,7 @@
 ;; Hybrid WPD
 ; RUN: ld.lld %t.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
@@ -77,7 +77,7 @@
 ;; Regular LTO WPD
 ; RUN: ld.lld %t4.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -plugin-opt=opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty

@@ -1,5 +1,5 @@
 ; REQUIRES: x86
-; UNSUPPORTED: !system-windows
+; UNSUPPORTED: linux
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: lld-link -dll -out:%t.dll %t.bc -noentry

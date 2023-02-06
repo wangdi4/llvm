@@ -8,9 +8,7 @@
 ; check that linker selects different symbol definitions,
 ; but keeps `protected` visibility.
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t1.o %t2.o -o %t.so -shared
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t1.o %t2.o -o %t.so -shared
 ; RUN: llvm-readobj --symbols %t.so | FileCheck %s
 ; RUN: llvm-objdump --no-print-imm-hex -d %t.so | FileCheck %s --check-prefix=FIRST
 ; CHECK:       Symbol {
@@ -28,9 +26,7 @@
 ; FIRST-NEXT:   movl    $41, %eax
 
 ; Now swap the files order.
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t2.o %t1.o -o %t.so -shared
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t2.o %t1.o -o %t.so -shared
 ; RUN: llvm-readobj --symbols %t.so | FileCheck %s
 ; RUN: llvm-objdump --no-print-imm-hex -d %t.so | FileCheck %s --check-prefix=SECOND
 ; SECOND:      <foo>:

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1971,15 +1971,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   unsigned tailMerge = 1;
   bool ltoNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
   bool ltoDebugPM = false;
-#if INTEL_CUSTOMIZATION
-  bool intelLibIRCAllowed = false;
-  bool intelShouldDiscardValueNames = true;
-#if ENABLE_OPAQUE_POINTERS
-  bool opaquePointers = true;
-#else
-  bool opaquePointers = false;
-#endif // ENABLE_OPAQUE_POINTERS
-#endif // INTEL_CUSTOMIZATION
+  bool intelLibIRCAllowed = false; // INTEL
+  bool intelShouldDiscardValueNames = true; // INTEL
   for (auto *arg : args.filtered(OPT_opt)) {
     std::string str = StringRef(arg->getValue()).lower();
     SmallVector<StringRef, 1> vec;
@@ -2008,8 +2001,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
         intelLibIRCAllowed = true;
       } else if (s == "fintel-preserve-value-names") {
         intelShouldDiscardValueNames = false;
-      } else if (s == "opaque-pointers") {
-        opaquePointers = true;
 #endif // INTEL_CUSTOMIZATION
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
@@ -2042,11 +2033,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       (tailMerge == 1 && config->doICF != ICFLevel::None) || tailMerge == 2;
   config->ltoNewPassManager = ltoNewPM; // INTEL
   config->ltoDebugPassManager = ltoDebugPM;
-#if INTEL_CUSTOMIZATION
-  config->intelLibIRCAllowed = intelLibIRCAllowed;
-  config->intelShouldDiscardValueNames = intelShouldDiscardValueNames;
-  config->opaquePointers = opaquePointers;
-#endif // INTEL_CUSTOMIZATION
+  config->intelLibIRCAllowed = intelLibIRCAllowed; // INTEL
+  config->intelShouldDiscardValueNames = intelShouldDiscardValueNames; // INTEL
 
   // Handle /lldsavetemps
   if (args.hasArg(OPT_lldsavetemps))

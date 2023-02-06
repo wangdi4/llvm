@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022-2023 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -199,9 +199,6 @@ struct Configuration {
 
   // Used for /opt:fintel-preserve-value-names
   bool intelShouldDiscardValueNames = true;
-
-  // Used for /opt:opaque-pointers
-  bool opaquePointers;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;

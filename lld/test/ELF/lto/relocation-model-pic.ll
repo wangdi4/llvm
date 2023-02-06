@@ -1,19 +1,13 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t -save-temps -shared
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t -save-temps -shared
 ; RUN: llvm-readobj -r %t.lto.o | FileCheck %s
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t -save-temps --export-dynamic -pie -z undefs
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t -save-temps --export-dynamic -pie -z undefs
 ; RUN: llvm-readobj -r %t.lto.o | FileCheck %s
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t -save-temps --export-dynamic -z undefs
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t -save-temps --export-dynamic -z undefs
 ; RUN: llvm-readobj -r %t.lto.o | FileCheck %s
 
 ; CHECK: R_X86_64_REX_GOTPCRELX foo

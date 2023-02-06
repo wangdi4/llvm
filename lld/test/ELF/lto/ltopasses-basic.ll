@@ -1,7 +1,7 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
+; INTEL RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t.so -save-temps -mllvm -debug-pass=Arguments -shared 2>&1 | FileCheck %s --check-prefix=MLLVM
 ; INTEL_CUSTOMIZATION
-; INTEL RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t.so -save-temps -mllvm -debug-pass=Arguments -shared 2>&1 | FileCheck %s --check-prefix=MLLVM
 ; RUN: llvm-dis -opaque-pointers %t.so.0.4.opt.bc -o - | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

@@ -3,10 +3,12 @@
 ; Check that we RAUW llvm.public.type.test with either llvm.type.test when --lto-whole-program-visibility is specified, or with true otherwise.
 
 ; RUN: opt --thinlto-bc -o %t.o %s
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t2.o --save-temps
 ; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t2.o --save-temps
 ; RUN: llvm-dis -opaque-pointers %t.o.0.preopt.bc -o - | FileCheck %s --check-prefix=PUB
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t3.o --save-temps --lto-whole-program-visibility
+; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t3.o --save-temps --lto-whole-program-visibility
+; INTEL_CUSTOMIZATION
 ; RUN: llvm-dis -opaque-pointers %t.o.0.preopt.bc -o - | FileCheck %s --check-prefix=WPV
 ; end INTEL_CUSTOMIZATION
 

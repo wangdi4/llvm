@@ -1,8 +1,6 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t1.o
-; INTEL_CUSTOMIZATION
-; RUN: not ld.lld -plugin-opt=opaque-pointers -o /dev/null %t1.o 2>&1 | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; RUN: not ld.lld -mllvm -opaque-pointers -o /dev/null %t1.o 2>&1 | FileCheck %s
 
 ; CHECK: undefined hidden symbol: foobar
 

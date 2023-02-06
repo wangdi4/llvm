@@ -1,14 +1,10 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t -save-temps --export-dynamic --noinhibit-exec
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t -save-temps --export-dynamic --noinhibit-exec
 ; RUN: llvm-readobj -r %t.lto.o | FileCheck %s --check-prefix=STATIC
 
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t -save-temps -r -mllvm -relocation-model=static
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t -save-temps -r -mllvm -relocation-model=static
 ; RUN: llvm-readobj -r %t.lto.o | FileCheck %s --check-prefix=STATIC
 
 ; STATIC: R_X86_64_PC32 foo

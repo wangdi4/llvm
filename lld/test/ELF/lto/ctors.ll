@@ -1,8 +1,6 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
-; INTEL_CUSTOMIZATION
-; RUN: ld.lld -plugin-opt=opaque-pointers %t.o -o %t.so -shared
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t.so -shared
 ; RUN: llvm-readobj --sections %t.so | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
