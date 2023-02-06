@@ -57,6 +57,12 @@ endif()
 
 set(INTEL_CUSTOMIZATION ON)
 
+if (INTEL_CUSTOMIZATION)
+# CMP0091 introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
+# MSVC runtime library, but various subprojects are not yet aware of this.
+cmake_policy(SET CMP0091 OLD)
+endif (INTEL_CUSTOMIZATION)
+
 if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (MSVC_TOOLSET_VERSION LESS 142) AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
                   "default, even for 64-bit targets. This can result in linker "
