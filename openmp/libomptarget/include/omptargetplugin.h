@@ -277,7 +277,8 @@ EXTERN char *__tgt_rtl_get_device_name(
 // multi-dimensional loop is passed to this function.
 EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
-    int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc);
+    int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
+    __tgt_async_info *AsyncInfo);
 
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
