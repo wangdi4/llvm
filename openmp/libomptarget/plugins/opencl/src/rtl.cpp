@@ -4565,9 +4565,12 @@ void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
   return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
-int32_t __tgt_rtl_run_target_team_nd_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
+int32_t __tgt_rtl_run_target_team_nd_region(int32_t DeviceId, void *TgtEntryPtr,
+                                            void **TgtArgs,
+                                            ptrdiff_t *TgtOffsets,
+                                            int32_t NumArgs, int32_t NumTeams,
+                                            int32_t ThreadLimit, void *LoopDesc,
+                                            __tgt_async_info *AsyncInfo) {
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                                NumArgs, NumTeams, ThreadLimit, LoopDesc);
 }

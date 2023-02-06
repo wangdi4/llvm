@@ -866,15 +866,16 @@ void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
 int32_t DeviceTy::runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                   ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                   int32_t NumTeams, int32_t ThreadLimit,
-                                  void *TgtNDLoopDesc) {
+                                  void *TgtNDLoopDesc, AsyncInfoTy &AsyncInfo) {
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
 #endif // INTEL_CUSTOMIZATION
-  int32_t Ret = RTL->run_team_nd_region
-      ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
-                                TgtNDLoopDesc)
-      : OFFLOAD_FAIL;
+  int32_t Ret =
+      RTL->run_team_nd_region
+          ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                    TgtOffsets, TgtVarsSize, NumTeams,
+                                    ThreadLimit, TgtNDLoopDesc, AsyncInfo)
+          : OFFLOAD_FAIL;
 #if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
 #endif // INTEL_CUSTOMIZATION
