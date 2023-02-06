@@ -85,7 +85,8 @@ struct RTLInfoTy {
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *, int32_t);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
-                                         int32_t, int32_t, int32_t, void *);
+                                         int32_t, int32_t, int32_t, void *,
+                                         __tgt_async_info *);
   typedef void *(get_context_handle_ty)(int32_t);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);

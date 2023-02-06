@@ -1962,9 +1962,9 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
 
   if (TgtNDLoopDesc)
     // If NDRange is specified, use it.
-    Ret = Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr,
-                                 TgtArgs.size(), TeamNum, ThreadLimit,
-                                 TgtNDLoopDesc);
+    Ret =
+        Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
+                               TeamNum, ThreadLimit, TgtNDLoopDesc, AsyncInfo);
   else if (IsTeamConstruct)
     Ret = Device.runTeamRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
                                TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
