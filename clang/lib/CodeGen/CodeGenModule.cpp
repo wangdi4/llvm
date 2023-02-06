@@ -5746,6 +5746,8 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
     // casted to Generic pointers which are used to model HIP's "flat" pointers.
     return LangAS::cuda_device;
 #if INTEL_COLLAB
+  if (generatingOpenCLConstants())
+    return LangAS::opencl_constant;
   if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsDevice)
     return LangAS::sycl_global;
 #endif // INTEL_COLLAB
@@ -5766,7 +5768,11 @@ static llvm::Constant *
 castStringLiteralToDefaultAddressSpace(CodeGenModule &CGM,
                                        llvm::GlobalVariable *GV) {
   llvm::Constant *Cast = GV;
+#if INTEL_COLLAB
+  if (!CGM.getLangOpts().OpenCL && !CGM.generatingOpenCLConstants()) {
+#else  // INTEL_COLLAB
   if (!CGM.getLangOpts().OpenCL) {
+#endif // INTEL_COLLAB
     auto AS = CGM.GetGlobalConstantAddressSpace();
     if (AS != LangAS::Default)
       Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
@@ -7309,6 +7315,11 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
   llvm::Constant *C = GetConstantArrayFromStringLiteral(S);
   llvm::GlobalVariable **Entry = nullptr;
   if (!LangOpts.WritableStrings) {
+#if INTEL_COLLAB
+    if (generatingOpenCLConstants())
+      Entry = &OpenCLConstantStringMap[C];
+    else
+#endif // INTEL_COLLAB
     Entry = &ConstantStringMap[C];
     if (auto GV = *Entry) {
       if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())

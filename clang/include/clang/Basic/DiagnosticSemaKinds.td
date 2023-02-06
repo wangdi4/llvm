@@ -11174,6 +11174,10 @@ def warn_omp_declare_target_after_first_use : Warning<
 #if INTEL_COLLAB
 def err_omp_used_target_variable_not_marked : Error<
   "variable %0 used but not marked as declare target">;
+def warn_omp_spir64_no_string_literal_in_printf
+    : Warning<"non-string-literal argument used in printf is not supported for "
+              "spir64">,
+      InGroup<DiagGroup<"device-printf-literals">>;
 #endif // INTEL_COLLAB
 def err_omp_declare_variant_incompat_attributes : Error<
   "'#pragma omp declare variant' is not compatible with any target-specific attributes">;

@@ -5750,6 +5750,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       if (getTarget().getTriple().isAMDGCN() && getLangOpts().HIP)
         return EmitAMDGPUDevicePrintfCallExpr(E);
     }
+#if INTEL_COLLAB
+    if (CGM.getTriple().getArch() == llvm::Triple::spir64 &&
+        CGM.inTargetRegion())
+      return EmitOpenMPDeviceSpirPrintfCallExpr(E);
+#endif // INTEL_COLLAB
 
     break;
   case Builtin::BI__builtin_canonicalize:
@@ -23708,6 +23713,55 @@ RValue CodeGenFunction::EmitBuiltinIndirectCall(
   return RValue::get(CI);
 }
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+bool containsNonScalarVarargs(CodeGenFunction *CGF, CallArgList Args) {
+  return llvm::any_of(llvm::drop_begin(Args), [&](const CallArg &A) {
+    return !A.getRValue(*CGF).isScalar();
+  });
+}
+RValue CodeGenFunction::EmitOpenMPDeviceSpirPrintfCallExpr(const CallExpr *E) {
+  assert(E->getBuiltinCallee() == Builtin::BIprintf);
+  assert(E->getNumArgs() >= 1);
+  for (const auto *E : E->arguments())
+    if (!isa<StringLiteral>(E->IgnoreParenCasts()))
+      if (const PointerType *PtrType = E->getType()->getAs<PointerType>())
+        if (const BuiltinType *PointeeType =
+                PtrType->getPointeeType()->getAs<BuiltinType>())
+        if (PointeeType->getKind() == BuiltinType::Char_S ||
+            PointeeType->getKind() == BuiltinType::Char_U ||
+            PointeeType->getKind() == BuiltinType::SChar ||
+            PointeeType->getKind() == BuiltinType::UChar)
+            CGM.getDiags().Report(
+                E->getExprLoc(),
+                diag::warn_omp_spir64_no_string_literal_in_printf);
+  CallArgList Args;
+  EmitCallArgs(Args,
+               E->getDirectCallee()->getType()->getAs<FunctionProtoType>(),
+               E->arguments(), E->getDirectCallee(),
+               /* ParamsToSkip = */ 0);
+  if (containsNonScalarVarargs(this, Args)) {
+    CGM.ErrorUnsupported(E, "non-scalar arg to printf");
+    return RValue::get(llvm::ConstantInt::get(IntTy, 0));
+  }
+  SmallVector<Value *, 8> VArgs;
+  for (const auto &Arg : Args) {
+    Value *V = Arg.getKnownRValue().getScalarVal();
+    VArgs.push_back(V);
+  }
+  // Build the runtime function of
+  // i32 @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2), ...)
+  const char *Name = "_Z18__spirv_ocl_printfPU3AS2cz";
+  llvm::Module &M = CGM.getModule();
+  unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::opencl_constant);
+  llvm::Type *PtrType = llvm::PointerType::get(CGM.Int8Ty, AS);
+  llvm::FunctionType *FTy = llvm::FunctionType::get(
+      llvm::Type::getInt32Ty(M.getContext()), PtrType, true);
+  llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(FTy, Name);
+  // Emit call expression:
+  llvm::Value *CI = Builder.CreateCall(Fn, VArgs);
+  return RValue::get(CI);
+}
+#endif // INTEL_COLLAB
 
 Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
                                              const CallExpr *E,

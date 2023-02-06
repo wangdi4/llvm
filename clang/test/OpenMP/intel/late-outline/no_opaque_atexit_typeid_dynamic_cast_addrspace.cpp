@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -no-opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -no-opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
@@ -9,7 +9,6 @@
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
 // RUN:  | FileCheck %s
 //
-// expected-no-diagnostics
 
 namespace std
 {
@@ -41,6 +40,7 @@ struct Derived: virtual Base {
 #pragma omp declare target
 void test() {
   Derived obj;
+// expected-warning@+1 {{non-string-literal argument used in printf is not supported for spir64}}
   printf("%s\n",typeid(obj).name());
 }
 #pragma omp end declare target

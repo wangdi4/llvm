@@ -494,6 +494,10 @@ private:
   llvm::StringMap<llvm::GlobalVariable *> CFConstantStringMap;
 
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> ConstantStringMap;
+#if INTEL_COLLAB
+  llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *>
+      OpenCLConstantStringMap;
+#endif // INTEL_COLLAB
   llvm::DenseMap<const UnnamedGlobalConstantDecl *, llvm::GlobalVariable *>
       UnnamedGlobalConstantDeclMap;
   llvm::DenseMap<const Decl*, llvm::Constant *> StaticLocalDeclMap;
@@ -1247,6 +1251,23 @@ public:
   void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
+private:
+  /// True when constants in the OpenCL constant address space are needed.
+  bool GenerateOpenCLConstants = false;
+public:
+  bool generatingOpenCLConstants() const { return GenerateOpenCLConstants; }
+
+  class GenerateOpenCLConstantsRAII {
+    CodeGenModule &CGM;
+    bool Saved;
+  public:
+    GenerateOpenCLConstantsRAII(CodeGenModule &CGM,
+                                bool GenerateOpenCLConstants)
+        : CGM(CGM), Saved(CGM.GenerateOpenCLConstants) {
+      CGM.GenerateOpenCLConstants = GenerateOpenCLConstants;
+    }
+    ~GenerateOpenCLConstantsRAII() { CGM.GenerateOpenCLConstants = Saved; }
+  };
   class InTargetRegionRAII {
     CodeGenModule &CGM;
     bool Entered;
