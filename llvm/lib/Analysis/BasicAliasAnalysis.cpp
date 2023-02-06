@@ -1524,10 +1524,6 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   if (!isIdentifiedFunctionLocal(O1))
     return false;
 
-  auto *Call = dyn_cast<CallBase>(O2);
-  if (!Call)
-    return false;
-
   // Calls to subscript intrinsics are a form of GEP.
   // TODO: Subscript instructions shouldn't be here. The function isEscapeSource
   // calls isIntrinsicReturningPointerAliasingArgumentWithoutCapturing, and it
@@ -1535,21 +1531,9 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   if(isa<SubscriptInst>(O2))
     return false;
 
-  // We currently don't process indirect calls and/or varargs to save compile
-  // time. The function isNotCapturedBeforeOrAt is expensive.
-  auto *F = Call->getCalledFunction();
-  if (Call->isIndirectCall() || !F || F->isVarArg())
+  auto *Inst = dyn_cast<Instruction>(O2);
+  if (!Inst)
     return false;
-
-  // Do some simple check in case the value is passed to the call.
-  //
-  // NOTE: This is conservative, perhaps we could relax for no-capture and/or
-  // read-only attributes. Also, we may want to check that the call doesn't
-  // have operand bundles too.
-  for (Value *Arg : Call->args()) {
-    if (Arg == O1)
-      return false;
-  }
 
   // AAQI.CI in BasicAA uses SimpleCaptureInfo, which won't identify if the
   // captured instruction happens after the value. We are going to use
@@ -1557,7 +1541,7 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   // after the value.
   const SmallPtrSet<const Value *, 4> EphValues;
   EarliestEscapeInfo EI(*DT, EphValues);
-  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Call);
+  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Inst);
 }
 #endif // INTEL_CUSTOMIZATION
 
