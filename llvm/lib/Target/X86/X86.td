@@ -792,8 +792,8 @@ def FeatureHardenSlsIJmp
           "Harden against straight line speculation across indirect JMP instructions.">;
 
 #if INTEL_CUSTOMIZATION
-def FeatureDisableGather
-    : SubtargetFeature<"no-gather", "GatherDisabled", "true",
+def FeaturePreferNoGather
+    : SubtargetFeature<"prefer-no-gather", "PreferNoGather", "true",
                        "Indicates if gather is disabled">;
 #endif // INTEL_CUSTOMIZATION
 
