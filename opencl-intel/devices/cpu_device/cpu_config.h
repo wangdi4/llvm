@@ -56,7 +56,6 @@ public:
 
   cl_ulong GetForcedGlobalMemSize() const;
   cl_ulong GetForcedMaxMemAllocSize() const;
-  std::vector<size_t> GetForcedWGSizeVec() const;
   cl_int GetVectorizerMode() const;
   int GetNumDevices() const;
 

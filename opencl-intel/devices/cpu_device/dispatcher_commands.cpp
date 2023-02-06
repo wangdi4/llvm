@@ -903,9 +903,12 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
     }
   }
   if (!zero_enqueue) {
-    bool hasForcedWGSize = applyForcedWGSize();
+    // If local size isn't specified, uniform local size was set to 0 in
+    // NDRangeKernelCommand::Init.
+    bool calculateWGSize =
+        m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][0] == 0;
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount,
-                                      numberOfThreads, !hasForcedWGSize);
+                                      numberOfThreads, calculateWGSize);
   }
 
   // if logger is enabled, always print local work size from BE
@@ -1177,35 +1180,6 @@ queue_t NDRange::GetTaskSeqQueueForDevice() const {
   if (nullptr == m_pTaskDispatcher)
     return 0 != m_parent ? m_parent->GetTaskSeqQueueForDevice() : nullptr;
   return m_pTaskDispatcher->GetTaskSeqQueue();
-}
-
-bool NDRange::applyForcedWGSize() {
-  // If CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set, we'll use it regardless of
-  // whether workgroup size is specified in clEnqueueNDRangeKernel.
-  const std::vector<size_t> &forcedWGSize =
-      m_pTaskDispatcher->getCPUDeviceConfig()->GetForcedWGSizeVec();
-  if (forcedWGSize.empty())
-    return false;
-
-  size_t forcedWorkDim =
-      std::min(forcedWGSize.size(), m_pImplicitArgs->WorkDim);
-  if (0 == forcedWorkDim)
-    return false;
-
-  size_t i = 0;
-  for (; i < forcedWorkDim; ++i) {
-    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] = forcedWGSize[i];
-    size_t remainder = m_pImplicitArgs->UserGlobalSize[i] % forcedWGSize[i];
-    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
-        remainder > 0 ? remainder : forcedWGSize[i];
-  }
-
-  // Set workgroup size of higher dim to 1.
-  for (; i < m_pImplicitArgs->WorkDim; ++i) {
-    m_pImplicitArgs->UserLocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
-    m_pImplicitArgs->UserLocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
-  }
-  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
