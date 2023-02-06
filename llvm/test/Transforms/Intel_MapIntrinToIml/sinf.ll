@@ -3,7 +3,7 @@
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
-; CHECK: call svml_cc <4 x float> @__svml_sinf4_ha
+; CHECK: call fast svml_cc <4 x float> @__svml_sinf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -21,7 +21,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %broadcast.splat7 = shufflevector <4 x i32> %broadcast.splatinsert6, <4 x i32> undef, <4 x i32> zeroinitializer
   %induction8 = add <4 x i32> %broadcast.splat7, <i32 0, i32 1, i32 2, i32 3>
   %1 = sitofp <4 x i32> %induction8 to <4 x float>
-  %2 = call <4 x float> @__svml_sinf4(<4 x float> %1)
+  %2 = call fast <4 x float> @__svml_sinf4(<4 x float> %1)
   %3 = getelementptr inbounds float, float* %array, i64 %index
   %4 = bitcast float* %3 to <4 x float>*
   store <4 x float> %2, <4 x float>* %4, align 4

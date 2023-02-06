@@ -6,8 +6,8 @@ define <2 x float> @exp_v2f32(<2 x float> %in) {
 ; CHECK-LABEL: exp_v2f32:
 ; O0: callq expf
 ; O0: callq expf
-; O2: callq {{.*}}__svml_expf4_ha
-  %call = call <2 x float> @llvm.exp.v2f32(<2 x float> %in)
+; O2: callq {{.*}}__svml_expf4
+  %call = call fast <2 x float> @llvm.exp.v2f32(<2 x float> %in)
   ret <2 x float> %call
 }
 

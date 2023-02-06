@@ -10,12 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @f1(double %c) {
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
-  %vec_call = call svml_cc <4 x double> @__svml_exp4(<4 x double> %broadcast.splat) #2
+  %vec_call = call fast svml_cc <4 x double> @__svml_exp4(<4 x double> %broadcast.splat) #2
   %scal_call = call double @exp(double %c) #2
   ret void
 }
 ; CHECK-LABEL: @f1
-; CHECK: call svml_cc <2 x double> @__svml_exp2_br
+; CHECK: call fast svml_cc <2 x double> @__svml_exp2_br
 ; CHECK: call double @__bwr_exp
 
 ; The calls in this function are either libm functions without imf attributes or non-libm functions.
@@ -23,15 +23,15 @@ define void @f1(double %c) {
 define void @f2(double %c) {
   %broadcast.splatinsert = insertelement <4 x double> undef, double %c, i32 0
   %broadcast.splat = shufflevector <4 x double> %broadcast.splatinsert, <4 x double> undef, <4 x i32> zeroinitializer
-  %vec_call = call svml_cc <4 x double> @__svml_exp4(<4 x double> %broadcast.splat) #1
+  %vec_call = call fast svml_cc <4 x double> @__svml_exp4(<4 x double> %broadcast.splat) #1
   %scal_call = call double @exp(double %c) #1
   %not_libm = call double @g(double %c)
   ret void
 }
 ; CHECK-LABEL: @f2
-; CHECK-NOT: call svml_cc <2 x double> @__svml_exp2_br
+; CHECK-NOT: call fast svml_cc <2 x double> @__svml_exp2_br
 ; CHECK-NOT: call double @__bwr_exp
-; CHECK: call svml_cc <2 x double> @__svml_exp2_ha
+; CHECK: call fast svml_cc <2 x double> @__svml_exp2(
 ; CHECK: call double @exp
 ; CHECK: call double @g
 
@@ -63,17 +63,17 @@ define void @f3(double %a, float %b, half %c) {
 ; CHECK-LABEL: @f3
 ; CHECK: call double @exp(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc <1 x double> @__svml_exp1_ha(
+; CHECK: call svml_cc <1 x double> @__svml_exp1(
 ; CHECK: call double @llvm.exp.f64(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc <1 x double> @__svml_exp1_ha(
+; CHECK: call svml_cc <1 x double> @__svml_exp1(
 
 ; CHECK: call float @expf(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc <1 x float> @__svml_expf1_ha(
+; CHECK: call svml_cc <1 x float> @__svml_expf1(
 ; CHECK: call float @llvm.exp.f32(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc <1 x float> @__svml_expf1_ha(
+; CHECK: call svml_cc <1 x float> @__svml_expf1(
 
 ; FP16 functions currently have no BWR variant.
 ; TODO: libimf_attr is not working correctly with FP16 + imf-use-svml

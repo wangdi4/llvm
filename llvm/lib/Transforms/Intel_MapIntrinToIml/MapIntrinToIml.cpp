@@ -181,10 +181,8 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
   // before imf-arch-consistency.
   ImfAttr *Precision = new ImfAttr();
   Precision->name = "precision";
-  // If fast math is enabled, use medium accuracy (as ICC does), otherwise
-  // defaults to high accuracy.
-  Precision->value = isa<FPMathOperator>(I) &&
-    I->getFastMathFlags().approxFunc() ? "medium" : "high";
+  // Use medium accuracy by default.
+  Precision->value = "medium";
   Precision->next = nullptr;
   addAttributeToList(List, &Tail, Precision);
 
@@ -700,8 +698,8 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
         Constant *Index =
             ConstantInt::get(Type::getInt32Ty(Func->getContext()), I);
 
-        ExtractElementInst *Extract =
-            ExtractElementInst::Create(CI->getOperand(J), Index, "arg", CI);
+        Value *Extract =
+            Builder.CreateExtractElement(CI->getOperand(J), Index, "arg");
 
         Parm = Extract;
       }
@@ -709,8 +707,7 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
       ScalarCallArgs.push_back(Parm);
     }
 
-    CallInst *ScalarCall = CallInst::Create(FCache, ScalarCallArgs);
-    ScalarCall->insertBefore(CI);
+    CallInst *ScalarCall = Builder.CreateCall(FCache, ScalarCallArgs);
     CallResults.push_back(ScalarCall);
   }
 
@@ -725,8 +722,8 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
     for (unsigned I = 0; I < CallResults.size(); ++I) {
       Constant *Index =
           ConstantInt::get(Type::getInt32Ty(Func->getContext()), I);
-      InsertVector = InsertElementInst::Create(InsertVector, CallResults[I],
-                                               Index, "ins", CI);
+      InsertVector = Builder.CreateInsertElement(InsertVector, CallResults[I],
+                                                 Index, "ins");
     }
 
     // Find the instructions that are using the call results and replace with
@@ -1117,6 +1114,20 @@ static FunctionType *legalizeSVMLScalarFunctionType(FunctionType *FT) {
   return FunctionType::get(ReturnType, NewArgTypes, false);
 }
 
+// Determine whether it's safe to use SVML for a call, which requires either:
+// 1) afn fast math flag is set on this call.
+// 2) or the user can explicitly request to use SVML even without afn by using
+// the imf-use-svml option.
+static bool isSVMLSafeForCall(CallInst *CI) {
+  bool FMFAllowsSVML =
+      !isa<FPMathOperator>(CI) || CI->getFastMathFlags().approxFunc();
+  bool IMFAttrAllowsSVML = CI->getAttributes()
+                               .getFnAttrs()
+                               .getAttribute("imf-use-svml")
+                               .getValueAsString() == "true";
+  return FMFAllowsSVML || IMFAttrAllowsSVML;
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
@@ -1245,8 +1256,9 @@ bool MapIntrinToImlImpl::runImpl() {
     // the LLVM IR is modified. Scalarize the call when:
     // 1) an appropriate math library function is not found through querying
     //    the function selection interface.
-    // 2) the pass is running in stress testing mode.
-    if (Variant.has_value() && !RunSvmlStressMode) {
+    // 2) SVML is not value safe for this call
+    // 3) the pass is running in stress testing mode.
+    if (Variant.has_value() && isSVMLSafeForCall(CI) && !RunSvmlStressMode) {
       StringRef VariantFuncName = Variant.value().first;
       unsigned TargetVL = Variant.value().second;
       LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncName << "\n\n");

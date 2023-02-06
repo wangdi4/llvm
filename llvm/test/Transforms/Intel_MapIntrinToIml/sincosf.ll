@@ -3,7 +3,7 @@
 ; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
-; CHECK: call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_ha
+; CHECK: call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

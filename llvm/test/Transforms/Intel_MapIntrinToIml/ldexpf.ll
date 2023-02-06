@@ -6,7 +6,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @vector_ldexpf
-; CHECK: call svml_cc <4 x float> @__svml_ldexpf4
+; CHECK: call fast svml_cc <4 x float> @__svml_ldexpf4(
 ; CHECK: ret
 define void @vector_ldexpf(float* nocapture %array, float* noalias nocapture readonly %array2, i32* noalias nocapture readonly %array3) #0 {
 entry:
@@ -20,7 +20,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %2 = getelementptr inbounds i32, i32* %array3, i64 %index
   %3 = bitcast i32* %2 to <4 x i32>*
   %wide.load11 = load <4 x i32>, <4 x i32>* %3, align 4
-  %4 = call <4 x float> @__svml_ldexpf4(<4 x float> %wide.load, <4 x i32> %wide.load11)
+  %4 = call fast <4 x float> @__svml_ldexpf4(<4 x float> %wide.load, <4 x i32> %wide.load11)
   %5 = getelementptr inbounds float, float* %array, i64 %index
   %6 = bitcast float* %5 to <4 x float>*
   store <4 x float> %4, <4 x float>* %6, align 4
@@ -33,7 +33,7 @@ for.end:                                          ; preds = %vector.body
 }
 
 ; CHECK-LABEL: @vector_ldexp
-; CHECK: call svml_cc <2 x double> @__svml_ldexp2
+; CHECK: call fast svml_cc <2 x double> @__svml_ldexp2(
 ; CHECK: ret
 define void @vector_ldexp(double* nocapture %array, double* noalias nocapture readonly %array2, i32* noalias nocapture readonly %array3) #0 {
 entry:
@@ -47,7 +47,7 @@ vector.body:                                      ; preds = %vector.body, %entry
   %2 = getelementptr inbounds i32, i32* %array3, i64 %index
   %3 = bitcast i32* %2 to <2 x i32>*
   %wide.load11 = load <2 x i32>, <2 x i32>* %3, align 4
-  %4 = call <2 x double> @__svml_ldexp2(<2 x double> %wide.load, <2 x i32> %wide.load11)
+  %4 = call fast <2 x double> @__svml_ldexp2(<2 x double> %wide.load, <2 x i32> %wide.load11)
   %5 = getelementptr inbounds double, double* %array, i64 %index
   %6 = bitcast double* %5 to <2 x double>*
   store <2 x double> %4, <2 x double>* %6, align 4

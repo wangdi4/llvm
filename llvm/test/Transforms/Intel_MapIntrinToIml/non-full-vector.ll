@@ -80,7 +80,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8
-; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_ha_l9(<8 x float> %a)
+; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_l9(<8 x float> %a)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
 ; CHECK: store <8 x float> [[COS]], <8 x float>* %p, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
@@ -96,7 +96,7 @@ entry:
 }
 
 ; CHECK-LABEL: @test_sincosf8_mask
-; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_ha_mask_e9(<8 x float> %B, <8 x i32> %C)
+; CHECK: [[RESULT:%.*]] = call svml_avx_avx_impl_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask_e9(<8 x float> %B, <8 x i32> %C)
 ; CHECK: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
 ; CHECK: store <8 x float> [[COS]], <8 x float>* %A, align 32
 ; CHECK: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
@@ -201,7 +201,7 @@ entry:
 
 ; CHECK-LABEL: @test_sincosf2
 ; CHECK: [[ARG:%.*]] = shufflevector <2 x float> %a, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_ha_l9(<4 x float> [[ARG]])
+; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_l9(<4 x float> [[ARG]])
 ; CHECK: [[SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[RESULT]], 0
 ; CHECK: [[SIN_EXTRACT:%.*]] = shufflevector <4 x float> [[SIN]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[TMP1:%.*]] = insertvalue { <2 x float>, <2 x float> } undef, <2 x float> [[SIN_EXTRACT]], 0
@@ -225,7 +225,7 @@ entry:
 ; CHECK-LABEL: @test_sincosf2_mask
 ; CHECK: [[ARG:%.*]] = shufflevector <2 x float> %B, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
 ; CHECK: [[MASK:%.*]] = shufflevector <2 x i32> %C, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_ha_mask_e9(<4 x float> [[ARG]], <4 x i32> [[MASK]])
+; CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4_mask_e9(<4 x float> [[ARG]], <4 x i32> [[MASK]])
 ; CHECK: [[SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[RESULT]], 0
 ; CHECK: [[SIN_EXTRACT:%.*]] = shufflevector <4 x float> [[SIN]], <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[TMP1:%.*]] = insertvalue { <2 x float>, <2 x float> } undef, <2 x float> [[SIN_EXTRACT]], 0
