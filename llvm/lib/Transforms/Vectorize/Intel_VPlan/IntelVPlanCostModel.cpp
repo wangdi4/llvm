@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -29,6 +30,8 @@
 #define DEBUG_TYPE "vplan-cost-model"
 
 using namespace loopopt;
+
+using namespace llvm::PatternMatch;
 
 static const constexpr unsigned DefaultCacheLineSize = 64;
 
@@ -814,6 +817,51 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
     Type *BaseSrcTy = VPInst->getOperand(0)->getType();
 
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
+
+    // Try to match the following sequence.
+    //   %t = trunc T1 %operand to T2
+    //   %addi = add T2 %t, %something
+    //   %z = zext T2 %addi to T1
+    // If we have zext then return 0. If we have trunc then return cost
+    // of 'and'.
+    // This reflects the fact that most probably such sequence will be
+    // optimized into
+    //
+    //   %addi = add T1 %operand, %something ; don't care of T2
+    //   %z = and T1 %addi, all_ones(T2)
+    //
+    // Doing the matching twice, forward (trunc) and backward (zext).
+    //
+    VPInstruction *AddI = nullptr;
+    VPValue *Operand, *O1 = nullptr, *O2 = nullptr;
+    if (VF > 2 && BaseDstTy->isIntegerTy(64) &&
+        match(VPInst, m_ZExt(m_Bind(AddI))) &&
+        match(AddI, m_Add(m_Bind(O1), m_Bind(O2))) &&
+        (match(O1, m_Trunc(m_Bind(Operand))) ||
+         match(O2, m_Trunc(m_Bind(Operand))))) {
+      if (BaseDstTy == Operand->getType()) {
+        return 0;
+      }
+    } else if (VF > 2 && BaseSrcTy->isIntegerTy(64) &&
+               Opcode == Instruction::Trunc) {
+      VPInstruction *AddI = nullptr, *ZExtI = nullptr;
+      if (VPInst->getNumUsers() == 1 &&
+          match(*VPInst->user_begin(),
+                m_Bind(m_Add(m_VPValue(), m_VPValue()), AddI)) &&
+          AddI->getNumUsers() == 1 &&
+          match(*AddI->user_begin(), m_Bind(m_ZExt(m_VPValue()), ZExtI))) {
+        if (BaseSrcTy == ZExtI->getType()) {
+          APInt V = APInt::getAllOnes(BaseDstTy->getPrimitiveSizeInBits())
+                        .zext(BaseSrcTy->getPrimitiveSizeInBits());
+          VPConstant *Ones = const_cast<VPlanVector *>(Plan)->getVPConstant(
+              ConstantInt::get(BaseSrcTy, V));
+
+          return getArithmeticInstructionCost(Instruction::And,
+                                              VPInst->getOperand(0), Ones,
+                                              ZExtI->getType(), VF);
+        }
+      }
+    }
 
     Type *VecDstTy = getWidenedType(BaseDstTy, VF);
     Type *VecSrcTy = getWidenedType(BaseSrcTy, VF);
