@@ -318,7 +318,9 @@ bool VPOVectorizationLegality::isInMemoryReductionPattern(
   SmallVector<Value *, 4> Users;
   CallOrStore = nullptr;
   CallInst *Call = nullptr;
-  collectAllRelevantUsers(RedVarPtr, Users);
+  // Collect relevant users of the reduction variable or any of its memory
+  // aliases (casts).
+  collectAllRelevantUsers(RedVarPtr->stripPointerCasts(), Users);
   for (auto U : Users) {
     if (auto SI = dyn_cast<StoreInst>(U))
       if (!TheLoop->isLoopInvariant(SI)) {

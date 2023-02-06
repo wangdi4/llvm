@@ -1516,6 +1516,11 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsInReduction(IsInReduction);
     RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
+#if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(C.getClauseID()))
+      RI->setHOrig(CurrentBundleDDRefs[0]);
+#endif // INTEL_CUSTOMIZATION
     if (InscanIdx) {
       RI->setIsInscan(true);
       RI->setInscanIdx(InscanIdx);

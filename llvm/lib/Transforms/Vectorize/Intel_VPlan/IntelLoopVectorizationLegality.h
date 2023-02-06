@@ -140,8 +140,6 @@ private:
   /// Return true on success.
   bool visitReductions(const WRNVecLoopNode *WRLp) {
     auto IsSupportedReduction = [this](const ReductionItem *Item) {
-      if (Item->getIsArraySection())
-        return bailout(BailoutReason::ArrayReduction);
       if (Item->getIsF90DopeVector())
         return bailout(BailoutReason::F90DopeVectorReduction);
       switch (Item->getType()) {
@@ -331,9 +329,15 @@ private:
       if (!Type->isSingleValueType())
         return bailout(BailoutReason::ArrayReduction);
 
+      // Array sections with offsets is supported only for LLVM-IR path. Memory
+      // alises concept is missing for HIR.
+      if (Item->getIsArraySection() && IR == IRKind::HIR)
+        return bailout(BailoutReason::ArrayReduction);
+
       // VPEntities framework can only handle single-element allocas. This check
       // works for both LLVM-IR and HIR.
-      if (cast<AllocaInst>(Item->getOrig())->isArrayAllocation())
+      auto *OrigAlloca = dyn_cast<AllocaInst>(Item->getOrig());
+      if (OrigAlloca && OrigAlloca->isArrayAllocation())
         return bailout(BailoutReason::ArrayReduction);
     }
 

@@ -1,7 +1,8 @@
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that both stores to %A are eliminated by replacing them and the loads
-; with temp since all uses of %A occur within region.
+; with temp since all uses of %A occur within region. The temps are propagated
+; into their uses.
 
 ; CHECK: Dump Before
 
@@ -13,11 +14,9 @@
 
 ; CHECK: Dump After
 
-; TODO: propgate region invariant rvals in copy propagation.
-
-; CHECK: %temp = %t;
-; CHECK: %ld1 = %temp;
-; CHECK: ret %ld1 + 10;
+; CHECK-NOT: %temp =
+; CHECK-NOT: %ld1 = 
+; CHECK: ret %t + 10;
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

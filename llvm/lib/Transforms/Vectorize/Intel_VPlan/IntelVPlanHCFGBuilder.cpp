@@ -380,17 +380,22 @@ public:
     Descriptor.clear();
     auto *RednUpdate = cast<VPInstruction>(
         Builder.getOrCreateVPOperand(CurValue.second.UpdateInst));
-    assertIsSingleElementAlloca(CurValue.first);
-    VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
+    // According to discussion with paropt team, we can have either alloca
+    // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
+    // non-arrays.
+    auto *OrigV = CurValue.first->stripPointerCasts();
+    // For array sections, a GEP maybe emitted to account for lower bound of the
+    // section.
+    if (auto *OrigVGEP = dyn_cast<GetElementPtrInst>(OrigV))
+      OrigV = OrigVGEP->getPointerOperand();
+    assertIsSingleElementAlloca(OrigV);
+    VPValue *OrigAlloca = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.Kind);
-    // According to discussion with paropt team, we can have either alloca
-    // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
-    // non-arrays.
-    auto *AI = cast<AllocaInst>(CurValue.first->stripPointerCasts());
+    auto *AI = cast<AllocaInst>(OrigV);
     // Array reductions can have memory alias due to partial registerization.
     // TODO: This may be needed for non-array reductions as well, extend support
     // based on use-case.

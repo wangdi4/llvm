@@ -1,7 +1,11 @@
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll.expected %t.ll && %intel_update_markup %t.ll --drop
 # RUN: FileCheck < %t.ll %s
+#
 # RUN: cp -f %S/Inputs/x86-condbr-exp.mir.expected %t.mir && %intel_update_markup %t.mir --drop
 # RUN: FileCheck < %t.mir %s
 #
+# RUN: cp -f %S/Inputs/run-check-line.mir.expected %t.mir && %intel_update_markup %t.mir --drop
+# RUN: FileCheck < %t.mir %s
+
 # CHECK-NOT: INTEL
 # CHECK-NOT: INTEL_CUSTOMIZATION
