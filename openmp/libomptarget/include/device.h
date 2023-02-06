@@ -501,7 +501,7 @@ struct DeviceTy {
   int32_t runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,
-                          void *TgtNDLoopDesc);
+                          void *TgtNDLoopDesc, AsyncInfoTy &AsyncInfo);
   void *getContextHandle();
   void *dataAllocManaged(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
