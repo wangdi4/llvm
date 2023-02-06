@@ -505,7 +505,7 @@ static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
   StringRef Name = CGF.CGM.getContext().BuiltinInfo.getName(BuiltinID);
   Name.consume_front("__builtin_");
   llvm::AttributeList AttrList;
-  CGF.CGM.ConstructSVMLCallAttributes(Name, AttrList);
+  CGF.CGM.ConstructIMFCallAttributes(Name, AttrList);
   CI->setAttributes(AttrList);
   return CI;
 }
@@ -9159,7 +9159,7 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
 
   StringRef Name = CGM.getContext().BuiltinInfo.getName(BuiltinID);
   llvm::AttributeList AttrList;
-  CGM.ConstructSVMLCallAttributes(Name, AttrList);
+  CGM.ConstructIMFCallAttributes(Name, AttrList, /*AlwaysUseSVML=*/true);
   Call->setAttributes(AttrList);
 
   llvm::Value *Res = Call;

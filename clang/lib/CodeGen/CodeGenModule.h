@@ -1390,7 +1390,8 @@ public:
                      llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                      bool Local = false);
 
-  void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
+  void ConstructIMFCallAttributes(StringRef Name, llvm::AttributeList &List,
+                                  bool AlwaysUseSVML = false);
 
 #if INTEL_FEATURE_SW_DTRANS
   void addDTransType(const RecordDecl *RD, llvm::StructType *STy) {
