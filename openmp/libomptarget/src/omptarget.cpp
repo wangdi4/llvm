@@ -2076,19 +2076,10 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
 
   if (TgtNDLoopDesc)
     // If NDRange is specified, use it.
-<<<<<<< HEAD
     Ret = Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr,
                                  TgtArgs.size(), KernelArgs.NumTeams[0],
-                                 KernelArgs.ThreadLimit[0], TgtNDLoopDesc);
-=======
-    Ret =
-        Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
-                               TeamNum, ThreadLimit, TgtNDLoopDesc, AsyncInfo);
-  else if (IsTeamConstruct)
-    Ret = Device.runTeamRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr, TgtArgs.size(),
-                               TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
-                               AsyncInfo);
->>>>>>> a960527b1e57dfcf4d5a3f0cf9698a3bb3835aa5
+                                 KernelArgs.ThreadLimit[0], TgtNDLoopDesc,
+                                 AsyncInfo);
   else
 #endif // INTEL_COLLAB
   {
