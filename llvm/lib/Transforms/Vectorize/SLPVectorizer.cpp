@@ -3283,6 +3283,33 @@ private:
         }
         return std::nullopt;
       }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      void dump(void) const {
+        if (empty()) {
+          dbgs() << "Empty\n";
+          return;
+        }
+        for (int OpI : seq<int>(0, getNumOperands())) {
+          dbgs() << "OpI: " << OpI << ".\n";
+          for (int Lane : seq<int>(0, getNumLanes())) {
+            dbgs() << "  Lane: " << Lane << ".\n";
+            getData(OpI, Lane).dump();
+          }
+          dbgs() << "\n";
+        }
+        if (DefUseOverride.empty())
+          return;
+        dbgs() << "Def-use override map:\n";
+        for (const auto &Pair : DefUseOverride) {
+          const Instruction *I = Pair.first;
+          const SmallVector<Instruction *> &Uses = Pair.second;
+          dbgs() << "I: " << *I << "\n";
+          dbgs() << "Users:\n";
+          for (const Instruction *U : Uses)
+            dbgs().indent(2) << *U << "\n";
+        }
+      }
+#endif
     };
 
   public:
@@ -4535,6 +4562,7 @@ private:
       return Sum;
     }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     void dump(raw_ostream &os) const {
       if (!isSchedulingEntity()) {
         os << "/ " << *Inst;
@@ -4550,6 +4578,13 @@ private:
         os << *Inst;
       }
     }
+#if INTEL_CUSTOMIZATION
+    LLVM_DUMP_METHOD void dump() const {
+      dump(dbgs());
+      dbgs() << "\n";
+    }
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL
 
     Instruction *Inst = nullptr;
 
@@ -4603,6 +4638,12 @@ private:
     /// True if this instruction is scheduled (or considered as scheduled in the
     /// dry-run).
     bool IsScheduled = false;
+#if INTEL_CUSTOMIZATION
+
+    /// True means we need to recalculate dependencies after Multi-Node
+    /// reordering (which may change def-use chains).
+    bool UpdateDependencies = false;
+#endif // INTEL_CUSTOMIZATION
   };
 
 #ifndef NDEBUG
@@ -11989,6 +12030,14 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
     // whole bundle might not be ready.
     ReadyInsts.remove(BundleMember);
 
+#if INTEL_CUSTOMIZATION
+    // We need to force recalculation of dependencies as a bundle member could
+    // be scheduled as a single instruction before MultiNode reordering has been
+    // done. The reordering may invalidate dependencies.
+    if (!BundleMember->IsScheduled && BundleMember->hasValidDependencies() &&
+        !SLP->getDefUseOverride(BundleMember->Inst).empty())
+      BundleMember->UpdateDependencies = true;
+#endif // INTEL_CUSTOMIZATION
     if (!BundleMember->IsScheduled)
       continue;
     // A bundle member was scheduled as single instruction before and now
@@ -12188,6 +12237,15 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
     for (ScheduleData *BundleMember = SD; BundleMember;
          BundleMember = BundleMember->NextInBundle) {
       assert(isInSchedulingRegion(BundleMember));
+#if INTEL_CUSTOMIZATION
+      bool UpdateDependencies = BundleMember->UpdateDependencies;
+      BundleMember->UpdateDependencies = false;
+      if (UpdateDependencies)
+        LLVM_DEBUG(
+            dbgs()
+            << "SLP:       force update deps after MultiNode reordering.\n ");
+      else
+#endif // INTEL_CUSTOMIZATION
       if (BundleMember->hasValidDependencies())
         continue;
 
@@ -12338,13 +12396,21 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           // balance between reduced runtime and accurate dependencies.
           numAliased++;
 
-          DepDest->MemoryDependencies.push_back(BundleMember);
+#if INTEL_CUSTOMIZATION
+          // When we update def-use dependencies we don't need to collect
+          // memory dependencies again.
+          if (!UpdateDependencies)
+            DepDest->MemoryDependencies.push_back(BundleMember);
+#endif // INTEL_CUSTOMIZATION
           BundleMember->Dependencies++;
           ScheduleData *DestBundle = DepDest->FirstInBundle;
           if (!DestBundle->IsScheduled) {
             BundleMember->incrementUnscheduledDeps(1);
           }
-          if (!DestBundle->hasValidDependencies()) {
+#if INTEL_CUSTOMIZATION
+          if (!DestBundle->hasValidDependencies() ||
+              DestBundle->UpdateDependencies) {
+#endif // INTEL_CUSTOMIZATION
             WorkList.push_back(DestBundle);
           }
         }
@@ -12762,18 +12828,9 @@ void BoUpSLP::computeMinimumValueSizes() {
 
 // Debug print of the Multi-node operands.
 LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dump() const {
-  if (Operands.empty()) {
-    dbgs() << "Empty\n";
-    return;
-  }
-  for (int OpI : seq<int>(0, getNumOperands())) {
-    dbgs() << "OpI: " << OpI << ".\n";
-    for (int Lane : seq<int>(0, getNumLanes())) {
-      dbgs() << "  Lane: " << Lane << ".\n";
-      getData(OpI, Lane).dump();
-    }
-    dbgs() << "\n";
-  }
+  dbgs() << "MultiNode state: " << (isLocked() ? "Locked" : "Unlocked")
+         << ".\n";
+  Operands.dump();
 }
 
 // Debug print of the Multi-node operands.
