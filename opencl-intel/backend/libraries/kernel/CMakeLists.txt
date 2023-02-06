@@ -40,7 +40,7 @@ sycl-kernel-deduce-max-dim,sycl-kernel-wgloop-creator,loop-idiom,\
 loop-deletion,sycl-kernel-add-implicit-args,\
 sycl-kernel-resolve-wi-call,sycl-kernel-prepare-args,inline,dce,\
 globaldce,instcombine,sycl-kernel-cleanup-wrapped"
-      -o ${OUTPUT_FILE}
+      -opaque-pointers=0 -o ${OUTPUT_FILE}
     COMMENT "Compiling ${RTL_FILE}")
 
   add_custom_target(
