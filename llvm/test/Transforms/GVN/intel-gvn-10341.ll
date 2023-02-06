@@ -7,19 +7,20 @@
 
 ; Block 93 has the loads that we want to PRE. It will be split to ".split"
 ; and "86".
+; There should be at least 2 loads in the split block.
 
-; CHECK-LABEL: .split
-; CHECK: [[PHITRANS2:%.*]] = getelementptr {{.*}} i64 %.ph
-; CHECK: [[PRE:%.*]] = load i8, i8* [[PHITRANS2]]
-; CHECK: [[PHITRANS4:%.*]] = getelementptr {{.*}} i64 %.ph
-; CHECK: [[PRE5:%.*]] = load i8, i8* [[PHITRANS4]]
+; CHECK-LABEL: .split:
+; CHECK: [[PHITRANSX:%.*]] = getelementptr
+; CHECK-NEXT: [[PREX:%.*]] = load i8, i8* [[PHITRANSX]]
+; CHECK-NEXT: [[PHITRANSY:%.*]] = getelementptr
+; CHECK-NEXT: [[PREY:%.*]] = load i8, i8* [[PHITRANSY]]
 
 ; Make sure all the loads are moved out of the original block.
 ; CHECK-LABEL: 86:
-; CHECK: phi {{.*}} [[PRE5]], %.split
-; CHECK: phi {{.*}} [[PRE]], %.split
+; CHECK: phi {{.*}} [[PREY]], %.split
+; CHECK: phi {{.*}} [[PREX]], %.split
 ; CHECK-NOT: load
-; CHECK-LABEL: 95
+; CHECK-LABEL: 95:
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
