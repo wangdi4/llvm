@@ -48,7 +48,6 @@ define void @caller_a(ptr %arg_a0,
 }
 
 ; CHECK: Function: caller_a: 16 pointers, 8 call sites
-<<<<<<< HEAD
 ; CHECK: MayAlias:	ptr* %indirect_a0, ptr* %indirect_a1
 ; CHECK: MayAlias:	ptr* %indirect_a0, double* %loaded_a0
 ; CHECK: MayAlias:	ptr* %indirect_a1, double* %loaded_a0
@@ -79,16 +78,24 @@ define void @caller_a(ptr %arg_a0,
 ; CHECK: NoAlias:	double* %noalias_arg_a0, double* %noalias_arg_a1
 ; CHECK: NoAlias:	double* %escape_alloca_a0, ptr* %indirect_a0
 ; CHECK: NoAlias:	double* %escape_alloca_a0, ptr* %indirect_a1
-; CHECK: MayAlias:	double* %escape_alloca_a0, double* %loaded_a0
-; CHECK: MayAlias:	double* %escape_alloca_a0, double* %loaded_a1
+; INTEL_CUSTOMIZATION
+; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
+; checks will produce now NoAlias rather than MayAlias
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a0
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	double* %arg_a0, double* %escape_alloca_a0
 ; CHECK: NoAlias:	double* %arg_a1, double* %escape_alloca_a0
 ; CHECK: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a0
 ; CHECK: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a1
 ; CHECK: NoAlias:	double* %escape_alloca_a1, ptr* %indirect_a0
 ; CHECK: NoAlias:	double* %escape_alloca_a1, ptr* %indirect_a1
-; CHECK: MayAlias:	double* %escape_alloca_a1, double* %loaded_a0
-; CHECK: MayAlias:	double* %escape_alloca_a1, double* %loaded_a1
+; INTEL_CUSTOMIZATION
+; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
+; checks will produce now NoAlias rather than MayAlias
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a0
+; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a1
+; end INTEL_CUSTOMIZATION
 ; CHECK: NoAlias:	double* %arg_a0, double* %escape_alloca_a1
 ; CHECK: NoAlias:	double* %arg_a1, double* %escape_alloca_a1
 ; CHECK: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a0
@@ -123,90 +130,6 @@ define void @caller_a(ptr %arg_a0,
 ; CHECK: MayAlias:	double* %arg_a1, double* %normal_ret_a0
 ; CHECK: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a0
 ; CHECK: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a0
-=======
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %loaded_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double** %indirect_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double** %indirect_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double** %indirect_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %loaded_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %loaded_a1
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %arg_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double** %indirect_a1
-; INTEL_CUSTOMIZATION
-; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
-; checks will produce now NoAlias rather than MayAlias
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %loaded_a1
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double** %indirect_a1
-; INTEL_CUSTOMIZATION
-; BasicAA in xmain was updated to use EarliestEscapeInfo and the following
-; checks will produce now NoAlias rather than MayAlias
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %loaded_a1
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noalias_arg_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %escape_alloca_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noescape_alloca_a0
-; CHECK-NEXT: NoAlias:	double** %indirect_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double** %indirect_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %loaded_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %arg_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %escape_alloca_a1, double* %noescape_alloca_a1
-; CHECK-NEXT: NoAlias:	double* %noescape_alloca_a0, double* %noescape_alloca_a1
-; CHECK-NEXT: MayAlias:	double** %indirect_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double** %indirect_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %loaded_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %loaded_a1, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a0, double* %normal_ret_a0
-; CHECK-NEXT: MayAlias:	double* %arg_a1, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a0, double* %normal_ret_a0
-; CHECK-NEXT: NoAlias:	double* %noalias_arg_a1, double* %normal_ret_a0
->>>>>>> 79a70eae8e6ee7aa2999134c11b9b7179df436f5
 ; INTEL_CUSTOMIZATION
 ; This check now produces NoAlias rather than MayAlias because the escape
 ; analysis was updated in xmain
