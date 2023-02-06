@@ -22,6 +22,7 @@
 
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
+; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
@@ -196,6 +197,7 @@
 ; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
 ; QUIET-NEXT: Running pass: DPCPPEqualizerPass
+; QUIET-NEXT: Running pass: CoerceTypesPass
 ; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; QUIET-NEXT: Running pass: AddFunctionAttrsPass
