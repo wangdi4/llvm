@@ -1570,9 +1570,18 @@ public:
         int64_t Size =
             static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
         assert(Size > 0 && "Can't determine size of pointed-to type");
-        assert(StrideCE->isConstant() &&
-               "Variable stride for opaque pointer inductions not supported");
-        Stride = Stride * Size;
+        if (StrideCE->isConstant()) {
+          Stride = Stride * Size;
+        } else {
+          // Make the appropriate stride adjustment for opaque pointer
+          // inductions because the pointer element type for opaque pointers
+          // is i8. For non-opaque cases, this adjustment is not needed because
+          // getPointerElementType() can be used. setStepType is called here so
+          // that the correct type is used when generating the mul instruction
+          // for the stride adjustment.
+          Descriptor.setStepType(DL.getIntPtrType(IndTy));
+          Descriptor.setStepMultiplier(Size);
+        }
       }
       IndTy = DL.getIntPtrType(IndTy);
     }
