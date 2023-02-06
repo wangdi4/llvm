@@ -5,8 +5,8 @@
 ; The test case is basically a shrink of slp_x264_16x16_nary.ll to show case x264 test pattern
 ; sensitive to instcombine add/sub expressions reassociating transforms.
 ; The code expected to be vectorized.
-define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1, i32 %i_pix1, i8* noalias nocapture readonly %pix2, i32 %i_pix2, [16 x [8 x i32]]* noalias nocapture %R) {
-; CHECK-LABEL: @x264_pixel_satd_16x16(
+define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_pix1, ptr noalias nocapture readonly %pix2, i32 %i_pix2, ptr noalias nocapture %R) {
+; CHECK-LABEL: define {{[^@]+}}@x264_pixel_satd_16x16(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDX_EXT_I:%.*]] = sext i32 [[I_PIX1:%.*]] to i64
 ; CHECK-NEXT:    [[IDX_EXT63_I:%.*]] = sext i32 [[I_PIX2:%.*]] to i64
@@ -14,53 +14,48 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1
 ; CHECK:       loop.1247:
 ; CHECK-NEXT:    [[I1_I64_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[NEXTIVLOOP_1247:%.*]], [[LOOP_1247]] ]
 ; CHECK-NEXT:    [[I:%.*]] = mul i64 [[I1_I64_0]], [[IDX_EXT_I]]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, i8* [[PIX1:%.*]], i64 [[I]]
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, ptr [[PIX1:%.*]], i64 [[I]]
 ; CHECK-NEXT:    [[I1:%.*]] = mul i64 [[I1_I64_0]], [[IDX_EXT63_I]]
-; CHECK-NEXT:    [[GEP013:%.*]] = getelementptr inbounds i8, i8* [[PIX2:%.*]], i64 [[I1]]
+; CHECK-NEXT:    [[GEP013:%.*]] = getelementptr inbounds i8, ptr [[PIX2:%.*]], i64 [[I1]]
 ; CHECK-NEXT:    [[I2:%.*]] = add i64 [[I]], 4
-; CHECK-NEXT:    [[GEP015:%.*]] = getelementptr inbounds i8, i8* [[PIX1]], i64 [[I2]]
+; CHECK-NEXT:    [[GEP015:%.*]] = getelementptr inbounds i8, ptr [[PIX1]], i64 [[I2]]
 ; CHECK-NEXT:    [[I3:%.*]] = add i64 [[I1]], 4
-; CHECK-NEXT:    [[GEP017:%.*]] = getelementptr inbounds i8, i8* [[PIX2]], i64 [[I3]]
-; CHECK-NEXT:    [[GEP043:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[R:%.*]], i64 0, i64 [[I1_I64_0]], i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i8* [[GEP]] to <4 x i8>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i8>, <4 x i8>* [[TMP0]], align 1
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8* [[GEP013]] to <4 x i8>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i8>, <4 x i8>* [[TMP2]], align 1
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i8* [[GEP015]] to <4 x i8>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i8>, <4 x i8>* [[TMP4]], align 1
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8* [[GEP017]] to <4 x i8>*
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x i8>, <4 x i8>* [[TMP6]], align 1
-; CHECK-NEXT:    [[TMP8:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[TMP9:%.*]] = zext <4 x i8> [[TMP7]] to <4 x i32>
-; CHECK-NEXT:    [[TMP10:%.*]] = zext <4 x i8> [[TMP3]] to <4 x i32>
-; CHECK-NEXT:    [[TMP11:%.*]] = zext <4 x i8> [[TMP5]] to <4 x i32>
-; CHECK-NEXT:    [[TMP12:%.*]] = shl nuw nsw <4 x i32> [[TMP9]], <i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP13:%.*]] = shl nuw nsw <4 x i32> [[TMP11]], <i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP14:%.*]] = or <4 x i32> [[TMP12]], [[TMP10]]
-; CHECK-NEXT:    [[TMP15:%.*]] = sub nsw <4 x i32> [[TMP13]], [[TMP14]]
-; CHECK-NEXT:    [[TMP16:%.*]] = add nsw <4 x i32> [[TMP15]], [[TMP8]]
-; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP16]]
-; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP16]]
-; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECK-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP20]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP20]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP24:%.*]] = shufflevector <4 x i32> [[TMP22]], <4 x i32> [[TMP23]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP25:%.*]] = add <4 x i32> [[TMP24]], [[TMP16]]
-; CHECK-NEXT:    [[TMP26:%.*]] = sub <4 x i32> [[TMP24]], [[TMP16]]
-; CHECK-NEXT:    [[TMP27:%.*]] = shufflevector <4 x i32> [[TMP25]], <4 x i32> [[TMP26]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECK-NEXT:    [[TMP28:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP27]], <4 x i32>* [[TMP28]], align 4
+; CHECK-NEXT:    [[GEP017:%.*]] = getelementptr inbounds i8, ptr [[PIX2]], i64 [[I3]]
+; CHECK-NEXT:    [[GEP043:%.*]] = getelementptr inbounds [16 x [8 x i32]], ptr [[R:%.*]], i64 0, i64 [[I1_I64_0]], i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i8>, ptr [[GEP]], align 1
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr [[GEP013]], align 1
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x i8>, ptr [[GEP015]], align 1
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i8>, ptr [[GEP017]], align 1
+; CHECK-NEXT:    [[TMP4:%.*]] = zext <4 x i8> [[TMP0]] to <4 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = zext <4 x i8> [[TMP3]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i32>
+; CHECK-NEXT:    [[TMP7:%.*]] = zext <4 x i8> [[TMP2]] to <4 x i32>
+; CHECK-NEXT:    [[TMP8:%.*]] = shl nuw nsw <4 x i32> [[TMP5]], <i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP9:%.*]] = shl nuw nsw <4 x i32> [[TMP7]], <i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP10:%.*]] = or <4 x i32> [[TMP8]], [[TMP6]]
+; CHECK-NEXT:    [[TMP11:%.*]] = sub nsw <4 x i32> [[TMP9]], [[TMP10]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add nsw <4 x i32> [[TMP11]], [[TMP4]]
+; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP13]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECK-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECK-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
+; CHECK-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
+; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> [[TMP22]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECK-NEXT:    store <4 x i32> [[TMP23]], ptr [[GEP043]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECK-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[I1_I64_0]], 15
 ; CHECK-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]
 ; CHECK:       afterloop.1247:
 ; CHECK-NEXT:    ret i32 0
 ;
-; CHECKWOIC-LABEL: @x264_pixel_satd_16x16(
+; CHECKWOIC-LABEL: define {{[^@]+}}@x264_pixel_satd_16x16(
 ; CHECKWOIC-NEXT:  entry:
 ; CHECKWOIC-NEXT:    [[IDX_EXT_I:%.*]] = sext i32 [[I_PIX1:%.*]] to i64
 ; CHECKWOIC-NEXT:    [[IDX_EXT63_I:%.*]] = sext i32 [[I_PIX2:%.*]] to i64
@@ -68,46 +63,41 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* noalias nocapture readonly %pix1
 ; CHECKWOIC:       loop.1247:
 ; CHECKWOIC-NEXT:    [[I1_I64_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[NEXTIVLOOP_1247:%.*]], [[LOOP_1247]] ]
 ; CHECKWOIC-NEXT:    [[I:%.*]] = mul i64 [[I1_I64_0]], [[IDX_EXT_I]]
-; CHECKWOIC-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, i8* [[PIX1:%.*]], i64 [[I]]
+; CHECKWOIC-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, ptr [[PIX1:%.*]], i64 [[I]]
 ; CHECKWOIC-NEXT:    [[I1:%.*]] = mul i64 [[I1_I64_0]], [[IDX_EXT63_I]]
-; CHECKWOIC-NEXT:    [[GEP013:%.*]] = getelementptr inbounds i8, i8* [[PIX2:%.*]], i64 [[I1]]
+; CHECKWOIC-NEXT:    [[GEP013:%.*]] = getelementptr inbounds i8, ptr [[PIX2:%.*]], i64 [[I1]]
 ; CHECKWOIC-NEXT:    [[I2:%.*]] = add i64 [[I]], 4
-; CHECKWOIC-NEXT:    [[GEP015:%.*]] = getelementptr inbounds i8, i8* [[PIX1]], i64 [[I2]]
+; CHECKWOIC-NEXT:    [[GEP015:%.*]] = getelementptr inbounds i8, ptr [[PIX1]], i64 [[I2]]
 ; CHECKWOIC-NEXT:    [[I3:%.*]] = add i64 [[I1]], 4
-; CHECKWOIC-NEXT:    [[GEP017:%.*]] = getelementptr inbounds i8, i8* [[PIX2]], i64 [[I3]]
-; CHECKWOIC-NEXT:    [[GEP043:%.*]] = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* [[R:%.*]], i64 0, i64 [[I1_I64_0]], i64 0
-; CHECKWOIC-NEXT:    [[TMP0:%.*]] = bitcast i8* [[GEP]] to <4 x i8>*
-; CHECKWOIC-NEXT:    [[TMP1:%.*]] = load <4 x i8>, <4 x i8>* [[TMP0]], align 1
-; CHECKWOIC-NEXT:    [[TMP2:%.*]] = bitcast i8* [[GEP013]] to <4 x i8>*
-; CHECKWOIC-NEXT:    [[TMP3:%.*]] = load <4 x i8>, <4 x i8>* [[TMP2]], align 1
-; CHECKWOIC-NEXT:    [[TMP4:%.*]] = bitcast i8* [[GEP015]] to <4 x i8>*
-; CHECKWOIC-NEXT:    [[TMP5:%.*]] = load <4 x i8>, <4 x i8>* [[TMP4]], align 1
-; CHECKWOIC-NEXT:    [[TMP6:%.*]] = bitcast i8* [[GEP017]] to <4 x i8>*
-; CHECKWOIC-NEXT:    [[TMP7:%.*]] = load <4 x i8>, <4 x i8>* [[TMP6]], align 1
-; CHECKWOIC-NEXT:    [[TMP8:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i32>
-; CHECKWOIC-NEXT:    [[TMP9:%.*]] = zext <4 x i8> [[TMP7]] to <4 x i32>
-; CHECKWOIC-NEXT:    [[TMP10:%.*]] = zext <4 x i8> [[TMP3]] to <4 x i32>
-; CHECKWOIC-NEXT:    [[TMP11:%.*]] = zext <4 x i8> [[TMP5]] to <4 x i32>
-; CHECKWOIC-NEXT:    [[TMP12:%.*]] = shl <4 x i32> [[TMP9]], <i32 16, i32 16, i32 16, i32 16>
-; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shl <4 x i32> [[TMP11]], <i32 16, i32 16, i32 16, i32 16>
-; CHECKWOIC-NEXT:    [[TMP14:%.*]] = sub <4 x i32> [[TMP13]], [[TMP10]]
-; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP14]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP16:%.*]] = add <4 x i32> [[TMP15]], [[TMP8]]
-; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECKWOIC-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP16]]
-; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP16]]
-; CHECKWOIC-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECKWOIC-NEXT:    [[TMP21:%.*]] = shufflevector <4 x i32> [[TMP16]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-; CHECKWOIC-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECKWOIC-NEXT:    [[TMP22:%.*]] = add <4 x i32> [[TMP20]], [[SHUFFLE1]]
-; CHECKWOIC-NEXT:    [[TMP23:%.*]] = sub <4 x i32> [[TMP20]], [[SHUFFLE1]]
-; CHECKWOIC-NEXT:    [[TMP24:%.*]] = shufflevector <4 x i32> [[TMP22]], <4 x i32> [[TMP23]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECKWOIC-NEXT:    [[TMP25:%.*]] = add <4 x i32> [[TMP24]], [[TMP16]]
-; CHECKWOIC-NEXT:    [[TMP26:%.*]] = sub <4 x i32> [[TMP24]], [[TMP16]]
-; CHECKWOIC-NEXT:    [[TMP27:%.*]] = shufflevector <4 x i32> [[TMP25]], <4 x i32> [[TMP26]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECKWOIC-NEXT:    [[TMP28:%.*]] = bitcast i32* [[GEP043]] to <4 x i32>*
-; CHECKWOIC-NEXT:    store <4 x i32> [[TMP27]], <4 x i32>* [[TMP28]], align 4
+; CHECKWOIC-NEXT:    [[GEP017:%.*]] = getelementptr inbounds i8, ptr [[PIX2]], i64 [[I3]]
+; CHECKWOIC-NEXT:    [[GEP043:%.*]] = getelementptr inbounds [16 x [8 x i32]], ptr [[R:%.*]], i64 0, i64 [[I1_I64_0]], i64 0
+; CHECKWOIC-NEXT:    [[TMP0:%.*]] = load <4 x i8>, ptr [[GEP]], align 1
+; CHECKWOIC-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr [[GEP013]], align 1
+; CHECKWOIC-NEXT:    [[TMP2:%.*]] = load <4 x i8>, ptr [[GEP015]], align 1
+; CHECKWOIC-NEXT:    [[TMP3:%.*]] = load <4 x i8>, ptr [[GEP017]], align 1
+; CHECKWOIC-NEXT:    [[TMP4:%.*]] = zext <4 x i8> [[TMP0]] to <4 x i32>
+; CHECKWOIC-NEXT:    [[TMP5:%.*]] = zext <4 x i8> [[TMP3]] to <4 x i32>
+; CHECKWOIC-NEXT:    [[TMP6:%.*]] = zext <4 x i8> [[TMP1]] to <4 x i32>
+; CHECKWOIC-NEXT:    [[TMP7:%.*]] = zext <4 x i8> [[TMP2]] to <4 x i32>
+; CHECKWOIC-NEXT:    [[TMP8:%.*]] = shl <4 x i32> [[TMP5]], <i32 16, i32 16, i32 16, i32 16>
+; CHECKWOIC-NEXT:    [[TMP9:%.*]] = shl <4 x i32> [[TMP7]], <i32 16, i32 16, i32 16, i32 16>
+; CHECKWOIC-NEXT:    [[TMP10:%.*]] = sub <4 x i32> [[TMP9]], [[TMP6]]
+; CHECKWOIC-NEXT:    [[TMP11:%.*]] = sub <4 x i32> [[TMP10]], [[TMP8]]
+; CHECKWOIC-NEXT:    [[TMP12:%.*]] = add <4 x i32> [[TMP11]], [[TMP4]]
+; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
+; CHECKWOIC-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP13]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECKWOIC-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECKWOIC-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
+; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECKWOIC-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
+; CHECKWOIC-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP23:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> [[TMP22]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECKWOIC-NEXT:    store <4 x i32> [[TMP23]], ptr [[GEP043]], align 4
 ; CHECKWOIC-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECKWOIC-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[NEXTIVLOOP_1247]], 16
 ; CHECKWOIC-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]
@@ -122,53 +112,53 @@ entry:
 loop.1247:                                        ; preds = %loop.1247, %entry
   %i1.i64.0 = phi i64 [ 0, %entry ], [ %nextivloop.1247, %loop.1247 ]
   %i = mul i64 %i1.i64.0, %idx.ext.i
-  %gep = getelementptr inbounds i8, i8* %pix1, i64 %i
-  %load00 = load i8, i8* %gep, align 1
+  %gep = getelementptr inbounds i8, ptr %pix1, i64 %i
+  %load00 = load i8, ptr %gep, align 1
   %i1 = mul i64 %i1.i64.0, %idx.ext63.i
-  %gep013 = getelementptr inbounds i8, i8* %pix2, i64 %i1
-  %load014 = load i8, i8* %gep013, align 1
+  %gep013 = getelementptr inbounds i8, ptr %pix2, i64 %i1
+  %load014 = load i8, ptr %gep013, align 1
   %i2 = add i64 %i, 4
-  %gep015 = getelementptr inbounds i8, i8* %pix1, i64 %i2
-  %load016 = load i8, i8* %gep015, align 1
+  %gep015 = getelementptr inbounds i8, ptr %pix1, i64 %i2
+  %load016 = load i8, ptr %gep015, align 1
   %i3 = add i64 %i1, 4
-  %gep017 = getelementptr inbounds i8, i8* %pix2, i64 %i3
-  %load018 = load i8, i8* %gep017, align 1
+  %gep017 = getelementptr inbounds i8, ptr %pix2, i64 %i3
+  %load018 = load i8, ptr %gep017, align 1
   %i4 = add i64 %i, 1
-  %gep019 = getelementptr inbounds i8, i8* %pix1, i64 %i4
-  %load020 = load i8, i8* %gep019, align 1
+  %gep019 = getelementptr inbounds i8, ptr %pix1, i64 %i4
+  %load020 = load i8, ptr %gep019, align 1
   %i5 = add i64 %i1, 1
-  %gep021 = getelementptr inbounds i8, i8* %pix2, i64 %i5
-  %load022 = load i8, i8* %gep021, align 1
+  %gep021 = getelementptr inbounds i8, ptr %pix2, i64 %i5
+  %load022 = load i8, ptr %gep021, align 1
   %i6 = add i64 %i, 5
-  %gep023 = getelementptr inbounds i8, i8* %pix1, i64 %i6
-  %load024 = load i8, i8* %gep023, align 1
+  %gep023 = getelementptr inbounds i8, ptr %pix1, i64 %i6
+  %load024 = load i8, ptr %gep023, align 1
   %i7 = add i64 %i1, 5
-  %gep025 = getelementptr inbounds i8, i8* %pix2, i64 %i7
-  %load026 = load i8, i8* %gep025, align 1
+  %gep025 = getelementptr inbounds i8, ptr %pix2, i64 %i7
+  %load026 = load i8, ptr %gep025, align 1
   %i8 = add i64 %i, 2
-  %gep027 = getelementptr inbounds i8, i8* %pix1, i64 %i8
-  %load028 = load i8, i8* %gep027, align 1
+  %gep027 = getelementptr inbounds i8, ptr %pix1, i64 %i8
+  %load028 = load i8, ptr %gep027, align 1
   %i9 = add i64 %i1, 2
-  %gep029 = getelementptr inbounds i8, i8* %pix2, i64 %i9
-  %load030 = load i8, i8* %gep029, align 1
+  %gep029 = getelementptr inbounds i8, ptr %pix2, i64 %i9
+  %load030 = load i8, ptr %gep029, align 1
   %i10 = add i64 %i, 6
-  %gep031 = getelementptr inbounds i8, i8* %pix1, i64 %i10
-  %load032 = load i8, i8* %gep031, align 1
+  %gep031 = getelementptr inbounds i8, ptr %pix1, i64 %i10
+  %load032 = load i8, ptr %gep031, align 1
   %i11 = add i64 %i1, 6
-  %gep033 = getelementptr inbounds i8, i8* %pix2, i64 %i11
-  %load034 = load i8, i8* %gep033, align 1
+  %gep033 = getelementptr inbounds i8, ptr %pix2, i64 %i11
+  %load034 = load i8, ptr %gep033, align 1
   %i12 = add i64 %i, 3
-  %gep035 = getelementptr inbounds i8, i8* %pix1, i64 %i12
-  %load036 = load i8, i8* %gep035, align 1
+  %gep035 = getelementptr inbounds i8, ptr %pix1, i64 %i12
+  %load036 = load i8, ptr %gep035, align 1
   %i13 = add i64 %i1, 3
-  %gep037 = getelementptr inbounds i8, i8* %pix2, i64 %i13
-  %load038 = load i8, i8* %gep037, align 1
+  %gep037 = getelementptr inbounds i8, ptr %pix2, i64 %i13
+  %load038 = load i8, ptr %gep037, align 1
   %i14 = add i64 %i, 7
-  %gep039 = getelementptr inbounds i8, i8* %pix1, i64 %i14
-  %load040 = load i8, i8* %gep039, align 1
+  %gep039 = getelementptr inbounds i8, ptr %pix1, i64 %i14
+  %load040 = load i8, ptr %gep039, align 1
   %i15 = add i64 %i1, 7
-  %gep041 = getelementptr inbounds i8, i8* %pix2, i64 %i15
-  %load042 = load i8, i8* %gep041, align 1
+  %gep041 = getelementptr inbounds i8, ptr %pix2, i64 %i15
+  %load042 = load i8, ptr %gep041, align 1
   %i16 = zext i8 %load036 to i32
   %i17 = zext i8 %load028 to i32
   %i18 = zext i8 %load020 to i32
@@ -206,29 +196,29 @@ loop.1247:                                        ; preds = %loop.1247, %entry
   %N11 = sub i32 %N10, %i35
   %N12 = add i32 %N11, %i19
 
-  %gep043 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %R, i64 0, i64 %i1.i64.0, i64 0
+  %gep043 = getelementptr inbounds [16 x [8 x i32]], ptr %R, i64 0, i64 %i1.i64.0, i64 0
   %N151 = add i32 %N12, %N9
   %N159 = add i32 %N151, %N6
   %N167 = add i32 %N159, %N3
-  store i32 %N167, i32* %gep043, align 4
+  store i32 %N167, ptr %gep043, align 4
 
-  %gep045 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %R, i64 0, i64 %i1.i64.0, i64 2
+  %gep045 = getelementptr inbounds [16 x [8 x i32]], ptr %R, i64 0, i64 %i1.i64.0, i64 2
   %N156 = add i32 %N12, %N9
   %N164 = sub i32 %N156, %N6
   %N172 = sub i32 %N164, %N3
-  store i32 %N172, i32* %gep045, align 4
+  store i32 %N172, ptr %gep045, align 4
 
-  %gep063 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %R, i64 0, i64 %i1.i64.0, i64 1
+  %gep063 = getelementptr inbounds [16 x [8 x i32]], ptr %R, i64 0, i64 %i1.i64.0, i64 1
   %N157 = sub i32 %N12, %N9
   %N165 = add i32 %N157, %N6
   %N173 = sub i32 %N165, %N3
-  store i32 %N173, i32* %gep063, align 4
+  store i32 %N173, ptr %gep063, align 4
 
-  %gep081 = getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]* %R, i64 0, i64 %i1.i64.0, i64 3
+  %gep081 = getelementptr inbounds [16 x [8 x i32]], ptr %R, i64 0, i64 %i1.i64.0, i64 3
   %N158 = sub i32 %N12, %N9
   %N166 = sub i32 %N158, %N6
   %N174 = add i32 %N166, %N3
-  store i32 %N174, i32* %gep081, align 4
+  store i32 %N174, ptr %gep081, align 4
 
   %nextivloop.1247 = add nuw nsw i64 %i1.i64.0, 1
   %condloop.1247 = icmp ult i64 %nextivloop.1247, 16
