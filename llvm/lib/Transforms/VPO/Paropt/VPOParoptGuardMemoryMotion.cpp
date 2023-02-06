@@ -113,14 +113,16 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     bool IsInscanLoop =
         any_of(VecNode->getRed().items(),
                [](const ReductionItem *Item) { return Item->getIsInscan(); });
-    bool IsUDRLoop =
+    bool IsUDROrArrSecLoop =
         any_of(VecNode->getRed().items(), [](const ReductionItem *Item) {
-          return Item->getType() == ReductionItem::WRNReductionUdr;
+          return Item->getType() == ReductionItem::WRNReductionUdr ||
+                 Item->getIsArraySection();
         });
 
-    // Guarding is needed only for UDR variables or inscan reductions.
+    // Guarding is needed only for UDR, array section variables or inscan
+    // reductions.
     if (!((RunForScans && IsInscanLoop) ||
-          (!RunForScans && !IsInscanLoop && IsUDRLoop)))
+          (!RunForScans && !IsInscanLoop && IsUDROrArrSecLoop)))
       continue;
 
     Changed = true;
@@ -138,7 +140,7 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     for (ReductionItem *Item : VecNode->getRed().items()) {
       if (Item->getType() == ReductionItem::WRNReductionUdr ||
-          Item->getIsInscan()) {
+          Item->getIsInscan() || Item->getIsArraySection()) {
         // Add the variable as QUAL.OMP.LIVEIN operand to the directive.
         LiveinBundles.push_back({LiveInClauseString, {Item->getOrig()}});
       }

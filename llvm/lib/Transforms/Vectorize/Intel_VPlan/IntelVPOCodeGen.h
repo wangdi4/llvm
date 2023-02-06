@@ -780,8 +780,9 @@ private:
 
   FatalErrorHandlerTy FatalErrorHandler;
 
-  // True if loop has any UDR variables and/or inscan reductions.
-  bool LoopHasUDRsOrInscan = false;
+  // True if loop has any entity for which a memory guard region is expected.
+  // For example, UDRs, inscan reductions and array section reductions.
+  bool LoopHasEntityWithMemGuard = false;
 };
 
 } // namespace vpo
