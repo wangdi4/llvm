@@ -924,6 +924,11 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   default:
     llvm_unreachable("Clause not allowed");
   }
+  if (K == ICK_livein) {
+    addArg(CSB.getString());
+    addArg(E);
+    return;
+  }
   if (UseTypedClauses)
     CSB.setTyped();
   bool IsRef = false;
