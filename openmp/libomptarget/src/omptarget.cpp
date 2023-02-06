@@ -2078,7 +2078,8 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
     // If NDRange is specified, use it.
     Ret = Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr,
                                  TgtArgs.size(), KernelArgs.NumTeams[0],
-                                 KernelArgs.ThreadLimit[0], TgtNDLoopDesc);
+                                 KernelArgs.ThreadLimit[0], TgtNDLoopDesc,
+                                 AsyncInfo);
   else
 #endif // INTEL_COLLAB
   {

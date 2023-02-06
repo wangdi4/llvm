@@ -401,6 +401,9 @@ enum {
   ompx_devinfo_plugin_name
 };
 
+/// Command submission mode
+enum class CommandModeTy { Sync = 0, Async, AsyncOrdered };
+
 /// Staging buffer
 /// A single staging buffer is not enough when batching is enabled since there
 /// can be multiple pending copy operations.
@@ -790,6 +793,21 @@ public:
 };
 int64_t RTLProfileTy::Multiplier;
 
+/// Abstract queue that supports asynchronous command submission
+struct AsyncQueueTy {
+  /// List of events attahced to submitted commands
+  std::vector<ze_event_handle_t> WaitEvents;
+  /// Pending staging buffer to host copies
+  std::list<std::tuple<void *, void *, size_t>> H2MList;
+  /// Kernel event not signaled
+  ze_event_handle_t KernelEvent = nullptr;
+  void reset() {
+    WaitEvents.clear();
+    H2MList.clear();
+    KernelEvent = nullptr;
+  }
+};
+
 /// All thread-local data used by RTL
 class TLSTy {
   /// Command list for each device
@@ -832,6 +850,9 @@ class TLSTy {
 
   /// Subdevice encoding
   int64_t SubDeviceCode = 0;
+
+  /// Async info tracking
+  AsyncQueueTy AsyncQueue;
 
 public:
   ~TLSTy() {
@@ -905,6 +926,8 @@ public:
 #if INTEL_CUSTOMIZATION
   CommandBatchTy &getCommandBatch() { return CommandBatch; }
 #endif // INTEL_CUSTOMIZATION
+
+  AsyncQueueTy &getAsyncQueue() { return AsyncQueue; }
 
   void setCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
     CmdLists[ID] = CmdList;
@@ -1647,6 +1670,9 @@ struct RTLOptionTy {
   // Spec constants used for all modules.
   SpecConstantsTy CommonSpecConstants;
 
+  /// Command execution mode
+  CommandModeTy CommandMode = CommandModeTy::Sync;
+
   /// Read environment variables
   RTLOptionTy() {
     const char *Env = nullptr;
@@ -2080,13 +2106,30 @@ struct RTLOptionTy {
     }
 
     // LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH=<Bool>
-    if ((Env =
-        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH"))) {
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH"))) {
       int32_t Value = parseBool(Env);
       if (Value >= 0 && Value <= 1)
         Flags.NoSYCLFlush = Value;
     }
 
+    // LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=<Fmt>
+    // <Fmt> := sync | async | async_ordered
+    // sync: perform synchronization after each command
+    // async: perform synchronization when it is required
+    // async_ordered: same as "async", but command is ordered
+    // This option is ignored unless IMM is fully enabled on compute and copy
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE"))) {
+      if (match(Env, "sync"))
+        CommandMode = CommandModeTy::Sync;
+      else if (match(Env, "async"))
+        CommandMode = CommandModeTy::Async;
+      else if (match(Env, "async_ordered"))
+        CommandMode = CommandModeTy::AsyncOrdered;
+      else
+        WARNING("Ignoring invalid option "
+                "LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=%s\n",
+                Env);
+    }
   }
 
   /// Read environment variable value with optional deprecated name
@@ -2124,6 +2167,16 @@ struct RTLOptionTy {
         Str == "no" || Str == "disabled")
       return 0;
     return -1;
+  }
+
+  /// Match string Case-insensitively
+  bool match(const char *CStr, const char *Matched) {
+    if (!CStr || !Matched)
+      return false;
+    std::string Str(CStr);
+    (void)std::transform(Str.begin(), Str.end(), Str.begin(),
+                         [](unsigned char C) { return std::tolower(C); });
+    return (Str.compare(Matched) == 0);
   }
 }; // RTLOptionTy
 
@@ -3334,6 +3387,10 @@ struct RTLDeviceInfoTy {
                          size_t Size, ScopedTimerTy *Timer = nullptr,
                          bool Locked = false, bool IsD2D = false);
 
+  /// Enqueue asynchronous copy command
+  int32_t enqueueMemCopyAsync(int32_t DeviceId, void *Dst, const void *Src,
+                              size_t Size, bool IsD2D = false);
+
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
 
@@ -3365,6 +3422,14 @@ struct RTLDeviceInfoTy {
 
   /// Check if the driver supports the specified extension
   bool isExtensionSupported(const char *ExtName);
+
+  /// Check if it is allowed to submit commands asynchronously
+  bool asyncEnabled(int32_t DeviceId) {
+    // Enable async mode when the device is discrete and IMM is fully on.
+    return isDiscreteDevice(DeviceId) &&
+           Option.CommandMode != CommandModeTy::Sync &&
+           Option.UseImmCmdList >= 2;
+  }
 };
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
@@ -3848,11 +3913,16 @@ static int32_t appendDeviceProperties(
 }
 
 static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
-                          int64_t Size) {
+                          int64_t Size, __tgt_async_info *AsyncInfo) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+  bool IsAsync = AsyncInfo && DeviceInfo->asyncEnabled(DeviceId);
+  if (IsAsync && !AsyncInfo->Queue)
+    // We use TLS information internally so assigning non-zero value here should
+    // be enough.
+    AsyncInfo->Queue = reinterpret_cast<void *>(1);
 
 #if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
@@ -3876,26 +3946,34 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
         !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      SrcPtr = DeviceInfo->getStagingBuffer().get();
-      std::copy_n(
-          static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
+      SrcPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
+                       : DeviceInfo->getStagingBuffer().get();
+      std::copy_n(static_cast<char *>(HstPtr), Size,
+                  static_cast<char *>(SrcPtr));
     }
-    if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size, &Timer) !=
-        OFFLOAD_SUCCESS)
-      return OFFLOAD_FAIL;
+    int32_t RC = IsAsync ? DeviceInfo->enqueueMemCopyAsync(DeviceId, TgtPtr,
+                                                           SrcPtr, Size)
+                         : DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr,
+                                                      Size, &Timer);
+    if (RC != OFFLOAD_SUCCESS)
+      return RC;
   }
-  DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
-     DPxPTR(HstPtr), DPxPTR(TgtPtr));
+  DP("%s %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n",
+     IsAsync ? "Submitted copy" : "Copied", Size, DPxPTR(HstPtr),
+     DPxPTR(TgtPtr));
 
   return OFFLOAD_SUCCESS;
 }
 
 static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
-                            int64_t Size) {
+                            int64_t Size, __tgt_async_info *AsyncInfo) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+  bool IsAsync = AsyncInfo && DeviceInfo->asyncEnabled(DeviceId);
+  if (IsAsync && !AsyncInfo->Queue)
+    AsyncInfo->Queue = reinterpret_cast<void *>(1);
 
 #if INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.CommandBatchLevel > 0) {
@@ -3919,17 +3997,29 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
         !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      DstPtr = DeviceInfo->getStagingBuffer().get();
+      DstPtr = IsAsync ? DstPtr = DeviceInfo->getStagingBuffer().getNext()
+                       : DeviceInfo->getStagingBuffer().get();
     }
-    if (OFFLOAD_SUCCESS !=
-        DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size, &Timer))
-      return OFFLOAD_FAIL;
-    if (DstPtr != HstPtr)
-      std::copy_n(
-          static_cast<char *>(DstPtr), Size, static_cast<char *>(HstPtr));
+    int32_t RC = IsAsync ? DeviceInfo->enqueueMemCopyAsync(DeviceId, DstPtr,
+                                                           TgtPtr, Size)
+                         : DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr,
+                                                      Size, &Timer);
+    if (RC != OFFLOAD_SUCCESS)
+      return RC;
+    if (DstPtr != HstPtr) {
+      if (IsAsync) {
+        // Store delayed H2M data copies
+        auto &H2MList = getTLS()->getAsyncQueue().H2MList;
+        H2MList.emplace_back(DstPtr, HstPtr, static_cast<size_t>(Size));
+      } else {
+        std::copy_n(static_cast<char *>(DstPtr), Size,
+                    static_cast<char *>(HstPtr));
+      }
+    }
   }
-  DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
-     DPxPTR(TgtPtr), DPxPTR(HstPtr));
+  DP("%s %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n",
+     IsAsync ? "Submitted copy" : "Copied", Size, DPxPTR(TgtPtr),
+     DPxPTR(HstPtr));
 
   return OFFLOAD_SUCCESS;
 }
@@ -4350,9 +4440,11 @@ static void decideKernelGroupArguments(
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
-static int32_t runTargetTeamRegion(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
+static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
+                                   void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                   int32_t NumArgs, int32_t NumTeams,
+                                   int32_t ThreadLimit, void *LoopDesc,
+                                   __tgt_async_info *AsyncInfo) {
   assert(TgtEntryPtr && "Invalid kernel");
   // Libomptarget can pass negative NumTeams and ThreadLimit now after
   // introducing __tgt_target_kernel. This happens only when we have valid
@@ -4376,6 +4468,10 @@ static int32_t runTargetTeamRegion(
 
   auto *SubIdStr = DeviceInfo->DeviceIdStr[SubId].c_str();
   bool OnRoot = (RootId == SubId);
+  auto &Option = DeviceInfo->Option;
+  bool IsAsync = AsyncInfo && DeviceInfo->asyncEnabled(DeviceId);
+  if (IsAsync && !AsyncInfo->Queue)
+    AsyncInfo->Queue = reinterpret_cast<void *>(1);
 
   ze_kernel_handle_t Kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
   if (!Kernel) {
@@ -4482,8 +4578,6 @@ static int32_t runTargetTeamRegion(
                      GroupSizes[2]);
   }
 
-  auto &Option = DeviceInfo->Option;
-
 #if INTEL_CUSTOMIZATION
   if (Option.CommandBatchLevel > 0) {
     auto &Batch = getTLS()->getCommandBatch();
@@ -4520,13 +4614,31 @@ static int32_t runTargetTeamRegion(
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
     auto Event = DeviceInfo->EventPool.getEvent();
+    size_t NumWaitEvents = 0;
+    ze_event_handle_t *WaitEvents = nullptr;
+    auto &AsyncQueue = getTLS()->getAsyncQueue();
+    if (IsAsync && !AsyncQueue.WaitEvents.empty()) {
+      if (Option.CommandMode == CommandModeTy::AsyncOrdered) {
+        NumWaitEvents = 1;
+        WaitEvents = &AsyncQueue.WaitEvents.back();
+      } else {
+        NumWaitEvents = AsyncQueue.WaitEvents.size();
+        WaitEvents = AsyncQueue.WaitEvents.data();
+      }
+    }
+    DP("Kernel depends on %zu data copying events.\n", NumWaitEvents);
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
-                     &GroupCounts, Event, 0, nullptr);
+                     &GroupCounts, Event, NumWaitEvents, WaitEvents);
     KernelLock.unlock();
-    CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    if (Option.Flags.EnableProfile)
-      KernelTimer.updateDeviceTime(Event);
-    DeviceInfo->EventPool.releaseEvent(Event);
+    if (IsAsync) {
+      AsyncQueue.WaitEvents.push_back(Event);
+      AsyncQueue.KernelEvent = Event;
+    } else {
+      CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+      if (Option.Flags.EnableProfile)
+        KernelTimer.updateDeviceTime(Event);
+      DeviceInfo->EventPool.releaseEvent(Event);
+    }
   } else {
     ze_event_handle_t Event = nullptr;
     if (Option.Flags.EnableProfile)
@@ -4843,6 +4955,34 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
       Timer->updateDeviceTime(Event);
     EventPool.releaseEvent(Event);
   }
+
+  return OFFLOAD_SUCCESS;
+}
+
+/// Enqueue non-blocking memory copy. This function is invoked only when IMM is
+/// fully enabled and async mode is requested.
+int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
+                                             const void *Src, size_t Size,
+                                             bool IsD2D) {
+  bool Ordered = (Option.CommandMode == CommandModeTy::AsyncOrdered);
+  auto &AsyncQueue = getTLS()->getAsyncQueue();
+  ze_event_handle_t SignalEvent = EventPool.getEvent();
+  size_t NumWaitEvents = 0;
+  ze_event_handle_t *WaitEvents = nullptr;
+  if (!AsyncQueue.WaitEvents.empty()) {
+    // Use a single wait event if events are ordered or a kernel event exists.
+    NumWaitEvents = 1;
+    if (Ordered)
+      WaitEvents = &AsyncQueue.WaitEvents.back();
+    else if (AsyncQueue.KernelEvent)
+      WaitEvents = &AsyncQueue.KernelEvent;
+    else
+      NumWaitEvents = 0;
+  }
+  auto CmdList = IsD2D ? getImmCmdList(DeviceId) : getImmCopyCmdList(DeviceId);
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                   SignalEvent, NumWaitEvents, WaitEvents);
+  AsyncQueue.WaitEvents.push_back(SignalEvent);
 
   return OFFLOAD_SUCCESS;
 }
@@ -6484,24 +6624,24 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
 
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                               int64_t Size) {
-  return submitData(DeviceId, TgtPtr, HstPtr, Size);
+  return submitData(DeviceId, TgtPtr, HstPtr, Size, /* AsyncInfo */ nullptr);
 }
 
-int32_t __tgt_rtl_data_submit_async(
-    int32_t DeviceId, void *TgtPtr, void *HstPtr, int64_t Size,
-    __tgt_async_info *AsyncInfo /*not used*/) {
-  return submitData(DeviceId, TgtPtr, HstPtr, Size);
+int32_t __tgt_rtl_data_submit_async(int32_t DeviceId, void *TgtPtr,
+                                    void *HstPtr, int64_t Size,
+                                    __tgt_async_info *AsyncInfo) {
+  return submitData(DeviceId, TgtPtr, HstPtr, Size, AsyncInfo);
 }
 
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
-  return retrieveData(DeviceId, HstPtr, TgtPtr, Size);
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, /* AsyncInfo */ nullptr);
 }
 
-int32_t __tgt_rtl_data_retrieve_async(
-    int32_t DeviceId, void *HstPtr, void *TgtPtr, int64_t Size,
-    __tgt_async_info *AsyncInfo /*not used*/) {
-  return retrieveData(DeviceId, HstPtr, TgtPtr, Size);
+int32_t __tgt_rtl_data_retrieve_async(int32_t DeviceId, void *HstPtr,
+                                      void *TgtPtr, int64_t Size,
+                                      __tgt_async_info *AsyncInfo) {
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, AsyncInfo);
 }
 
 int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
@@ -6548,10 +6688,40 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
          "Only one dimensional kernels supported.");
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                              KernelArgs->NumArgs, KernelArgs->NumTeams[0],
-                             KernelArgs->ThreadLimit[0], nullptr);
+                             KernelArgs->ThreadLimit[0], nullptr, AsyncInfo);
 }
 
 int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
+  bool IsAsync = AsyncInfo && DeviceInfo->asyncEnabled(DeviceId);
+  if (!IsAsync)
+    return OFFLOAD_SUCCESS;
+
+  AsyncQueueTy &AsyncQueue = getTLS()->getAsyncQueue();
+  auto &EventPool = DeviceInfo->EventPool;
+
+  if (!AsyncQueue.WaitEvents.empty()) {
+    auto &WaitEvents = AsyncQueue.WaitEvents;
+    if (DeviceInfo->Option.CommandMode == CommandModeTy::AsyncOrdered) {
+      // Only need to wait for the last event
+      CALL_ZE_RET_FAIL(zeEventHostSynchronize, WaitEvents.back(), UINT64_MAX);
+    } else { // Async
+      // Wait for all events
+      for (auto &Event : WaitEvents)
+        CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+    }
+    for (auto &Event : WaitEvents)
+      EventPool.releaseEvent(Event);
+  }
+
+  // Commit delayed H2M copies
+  for (auto &H2M : AsyncQueue.H2MList) {
+    std::copy_n(static_cast<char *>(std::get<0>(H2M)), std::get<2>(H2M),
+                static_cast<char *>(std::get<1>(H2M)));
+  }
+  AsyncQueue.reset();
+  DeviceInfo->getStagingBuffer().reset();
+  AsyncInfo->Queue = nullptr;
+
   return OFFLOAD_SUCCESS;
 }
 
@@ -6668,11 +6838,15 @@ int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   return Ret;
 }
 
-int32_t __tgt_rtl_run_target_team_nd_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
+int32_t __tgt_rtl_run_target_team_nd_region(int32_t DeviceId, void *TgtEntryPtr,
+                                            void **TgtArgs,
+                                            ptrdiff_t *TgtOffsets,
+                                            int32_t NumArgs, int32_t NumTeams,
+                                            int32_t ThreadLimit, void *LoopDesc,
+                                            __tgt_async_info *AsyncInfo) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                             NumArgs, NumTeams, ThreadLimit, LoopDesc);
+                             NumArgs, NumTeams, ThreadLimit, LoopDesc,
+                             AsyncInfo);
 }
 
 void *__tgt_rtl_get_context_handle(int32_t DeviceId) {

@@ -440,6 +440,23 @@ Controls how dedicated reduction scratch pool is configured.
 
 **Default**: Equivalent to ``<PooInfo>=256,8,8192``
 
+``LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=<Mode>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Mode> := sync | async | async_ordered
+
+Determines how each commands in a target region are executed when immediate
+command list is fully enabled by setting
+``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=all``.
+
+``sync``: Host waits for completion of the current submitted command
+``async``: Host does not wait for completion of the current submitted command,
+and synchronization occurs later when it is required
+``async_ordered``: Same as ``async``, but command execution is ordered
+
+**Default**: ``sync``
+
 Plugin OpenCL
 -------------
 
