@@ -2256,16 +2256,18 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       } else if ((getLangOpts().SYCLIsDevice ||
                   (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
                  AuxTarget->hasBFloat16Type()) {
+<<<<<<< HEAD
         Width = AuxTarget->getBFloat16Width();
         Align = AuxTarget->getBFloat16Align();
       }
 #if INTEL_COLLAB
       else if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
                AuxTarget->hasBFloat16Type()) {
+=======
+>>>>>>> c1b96a27dabbfcca187553094d99e7d4605bd479
         Width = AuxTarget->getBFloat16Width();
         Align = AuxTarget->getBFloat16Align();
       }
-#endif // INTEL_COLLAB
       break;
     case BuiltinType::Float16:
     case BuiltinType::Half:
