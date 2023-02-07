@@ -84,11 +84,8 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
-<<<<<<< HEAD
 #include "llvm/IR/Dominators.h" // INTEL
-=======
 #include "llvm/IR/EHPersonalities.h"
->>>>>>> 3b387d10707d3ec5f4786812cc055c89c3eaa161
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
