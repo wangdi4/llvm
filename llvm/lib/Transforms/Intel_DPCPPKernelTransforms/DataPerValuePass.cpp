@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -37,6 +38,29 @@ DataPerValue::DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV)
   analyze(M);
 }
 
+static CompilationUtils::FuncSet
+sortSyncFunctions(Module &M, CompilationUtils::FuncSet &Funcs) {
+  CompilationUtils::FuncSet SortedFuncs;
+  CallGraph CG(M);
+  for (auto *Kernel : DPCPPKernelMetadataAPI::KernelList(&M)) {
+    CallGraphNode *Node = CG[Kernel];
+    for (auto I = df_begin(Node), E = df_end(Node); I != E; I++) {
+      Function *F = I->getFunction();
+      if (!F || F->isDeclaration())
+        continue;
+      if (Funcs.contains(F))
+        SortedFuncs.insert(F);
+    }
+  }
+
+  if (SortedFuncs.size() != Funcs.size()) {
+    for (Function *F : Funcs)
+      if (!SortedFuncs.contains(F))
+        SortedFuncs.insert(F);
+  }
+  return SortedFuncs;
+}
+
 void DataPerValue::analyze(Module &M) {
   // Initialize barrier utils class with current module.
   Utils.init(&M);
@@ -54,6 +78,13 @@ void DataPerValue::analyze(Module &M) {
   // Find all functions that call synchronize instructions.
   CompilationUtils::FuncSet FunctionsWithSync =
       Utils.getAllFunctionsWithSynchronization();
+
+  // Sort functions with synchronization instructions by depth-first traversing
+  // call graph to make function arguments correctly marked as special ones
+  // (loaded from special buffer). For example, if the callee is visited before
+  // caller, the callee's arguments will not marked with special ones as
+  // expected.
+  FunctionsWithSync = sortSyncFunctions(M, FunctionsWithSync);
 
   // Collect data for each function with synchronize instruction.
   for (Function *F : FunctionsWithSync)
