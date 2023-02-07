@@ -2356,7 +2356,7 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
     } else if (!IsMapVar) {
       // emit map clause for scalar variable with target declare attribute,
       // except for device_type(nohost)
-      Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+      std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
           OMPDeclareTargetDeclAttr::getDeviceType(VD);
       if (!DevTy || *DevTy != OMPDeclareTargetDeclAttr::DT_NoHost)
         if (!getLangOpts().OpenMPDeclareTargetScalarDefaultMapFirstPrivate)
@@ -25586,7 +25586,7 @@ OMPClause *Sema::ActOnOpenMPAllocateClause(
       (!Alignment->isTypeDependent() && !Alignment->isValueDependent() &&
        !Alignment->isInstantiationDependent() &&
        !Alignment->containsUnexpandedParameterPack())) {
-      Optional<llvm::APSInt> Result =
+      std::optional<llvm::APSInt> Result =
           Alignment->getIntegerConstantExpr(Context);
       if (!Result->isPowerOf2()) {
         Diag(Alignment->getBeginLoc(), diag::err_alignment_not_power_of_two)

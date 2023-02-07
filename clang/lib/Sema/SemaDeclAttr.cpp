@@ -3362,7 +3362,7 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
   int NumComputeUnits[3];
   for (unsigned i = 0; i < Attr.getNumArgs(); ++i) {
     const Expr *E = Attr.getArgAsExpr(i);
-    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
+    std::optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
 
     if (!ArgVal) {
       S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
@@ -3412,9 +3412,9 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (auto *A = D->getAttr<SYCLReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
 
-    Optional<llvm::APSInt> XDimVal = A->getXDimVal();
-    Optional<llvm::APSInt> YDimVal = A->getYDimVal();
-    Optional<llvm::APSInt> ZDimVal = A->getZDimVal();
+    std::optional<llvm::APSInt> XDimVal = A->getXDimVal();
+    std::optional<llvm::APSInt> YDimVal = A->getYDimVal();
+    std::optional<llvm::APSInt> ZDimVal = A->getZDimVal();
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
@@ -4127,7 +4127,7 @@ void Sema::AddSYCLWorkGroupSizeHintAttr(Decl *D, const AttributeCommonInfo &CI,
                                         Expr *XDim, Expr *YDim, Expr *ZDim) {
   // Returns nullptr if diagnosing, otherwise returns the original expression
   // or the original expression converted to a constant expression.
-  auto CheckAndConvertArg = [&](Expr *E) -> Optional<Expr *> {
+  auto CheckAndConvertArg = [&](Expr *E) -> std::optional<Expr *> {
     // We can only check if the expression is not value dependent.
     if (E && !E->isValueDependent()) {
       llvm::APSInt ArgVal;
@@ -4149,9 +4149,9 @@ void Sema::AddSYCLWorkGroupSizeHintAttr(Decl *D, const AttributeCommonInfo &CI,
 
   // Check all three argument values, and if any are bad, bail out. This will
   // convert the given expressions into constant expressions when possible.
-  Optional<Expr *> XDimConvert = CheckAndConvertArg(XDim);
-  Optional<Expr *> YDimConvert = CheckAndConvertArg(YDim);
-  Optional<Expr *> ZDimConvert = CheckAndConvertArg(ZDim);
+  std::optional<Expr *> XDimConvert = CheckAndConvertArg(XDim);
+  std::optional<Expr *> YDimConvert = CheckAndConvertArg(YDim);
+  std::optional<Expr *> ZDimConvert = CheckAndConvertArg(ZDim);
   if (!XDimConvert || !YDimConvert || !ZDimConvert)
     return;
   XDim = XDimConvert.value();
@@ -4568,7 +4568,7 @@ void Sema::AddSYCLReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
                                         Expr *XDim, Expr *YDim, Expr *ZDim) {
   // Returns nullptr if diagnosing, otherwise returns the original expression
   // or the original expression converted to a constant expression.
-  auto CheckAndConvertArg = [&](Expr *E) -> Optional<Expr *> {
+  auto CheckAndConvertArg = [&](Expr *E) -> std::optional<Expr *> {
     // Check if the expression is not value dependent.
     if (E && !E->isValueDependent()) {
       llvm::APSInt ArgVal;
@@ -4589,9 +4589,9 @@ void Sema::AddSYCLReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
 
   // Check all three argument values, and if any are bad, bail out. This will
   // convert the given expressions into constant expressions when possible.
-  Optional<Expr *> XDimConvert = CheckAndConvertArg(XDim);
-  Optional<Expr *> YDimConvert = CheckAndConvertArg(YDim);
-  Optional<Expr *> ZDimConvert = CheckAndConvertArg(ZDim);
+  std::optional<Expr *> XDimConvert = CheckAndConvertArg(XDim);
+  std::optional<Expr *> YDimConvert = CheckAndConvertArg(YDim);
+  std::optional<Expr *> ZDimConvert = CheckAndConvertArg(ZDim);
   if (!XDimConvert || !YDimConvert || !ZDimConvert)
     return;
   XDim = XDimConvert.value();

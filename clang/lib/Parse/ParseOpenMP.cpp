@@ -1875,7 +1875,7 @@ void Parser::ParseOMPXDeclareTargetFunctionClauses(
   while (Tok.is(tok::identifier)) {
     StringRef ClauseName = Tok.getIdentifierInfo()->getName();
     if (getOpenMPClauseKind(ClauseName) == OMPC_device_type) {
-      Optional<SimpleClauseData> DevTypeData =
+      std::optional<SimpleClauseData> DevTypeData =
           parseOpenMPSimpleClause(*this, OMPC_device_type);
       if (DevTypeData.has_value()) {
         if (DeviceTypeLoc.isValid()) {
