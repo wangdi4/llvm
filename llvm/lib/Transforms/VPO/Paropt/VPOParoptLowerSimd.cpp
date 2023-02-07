@@ -693,7 +693,6 @@ static Value *getSLMOffset(Value *V, Instruction *InsPos) {
           cast<llvm::Instruction>(PointerValue)
               ->setDebugLoc(InsPos->getDebugLoc());
         }
-        Ty = StTy->getElementType(Field);
       } else {
         Ty = GTI.getIndexedType();
         if (const ConstantInt *CI = dyn_cast<ConstantInt>(Idx)) {

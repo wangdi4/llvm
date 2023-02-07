@@ -318,7 +318,7 @@ void VPOUtils::singleRegionMultiVersioning(
     }
 
     // Second, establish loops hierarchy for the new loops.
-    for (auto MapI : LoopMap) {
+    for (auto &MapI : LoopMap) {
       Loop *OrigLoop = MapI.first;
       Loop *NewLoop = MapI.second;
       if (OrigLoop == ParentLoop)

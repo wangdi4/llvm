@@ -687,7 +687,7 @@ void Stripminer::addTileLoopBounds(Instruction *InsertPos) {
 
   // TODO: figure out if the original loop's IV is signed or not
   // TODO: This is min(a,b)
-  bool IsSigned = true;
+  const bool IsSigned = true;
   Value *Compare =
       Builder.CreateICmp(IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE,
                          Dec, LoadOrigUB, "cond");
