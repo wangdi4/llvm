@@ -501,7 +501,7 @@ void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,
 static Value *HandleByValArgument(Type *ByValType, Value *Arg,
                                   Instruction *TheCall,
                                   const Function *CalledFunc,
-                                  unsigned ByValAlignment) {
+                                  Align ByValAlignment) {
   assert(cast<PointerType>(Arg->getType())
              ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
@@ -513,7 +513,7 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
-  Alignment = std::max(Alignment, MaybeAlign(ByValAlignment).valueOrOne());
+  Alignment = std::max(Alignment, ByValAlignment);
 
   Value *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr,
                                     Alignment, Arg->getName() + Twine(".ptr"),
@@ -571,10 +571,9 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     // make a copy of byval argument.
     Value *ActualArg = *CIArgIt;
     if (CI->isByValArgument(ArgNo)) {
-      ActualArg =
-          HandleByValArgument(CI->getParamByValType(ArgNo), ActualArg, CI,
-                              CalledFunc,
-                              CalledFunc->getParamAlign(ArgNo)->value());
+      ActualArg = HandleByValArgument(
+          CI->getParamByValType(ArgNo), ActualArg, CI, CalledFunc,
+          CalledFunc->getParamAlign(ArgNo).valueOrOne());
       if (ActualArg != *CIArgIt)
         ByValInits.push_back(
             {ActualArg, (Value *)*CIArgIt, CI->getParamByValType(ArgNo)});
