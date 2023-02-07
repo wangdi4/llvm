@@ -1,4 +1,21 @@
 //===- SampleProfReader.cpp - Read LLVM sample profile data ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1123,8 +1140,10 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
   if (std::error_code EC = Size.getError())
     return EC;
 
-  std::vector<SampleContextFrameVector> *PNameVec =
-      new std::vector<SampleContextFrameVector>();
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<std::vector<SampleContextFrameVector>> PNameVec =
+      std::make_unique<std::vector<SampleContextFrameVector>>();
+#endif // INTEL_CUSTOMIZATION
   PNameVec->reserve(*Size);
   for (uint32_t I = 0; I < *Size; ++I) {
     PNameVec->emplace_back(SampleContextFrameVector());
@@ -1152,7 +1171,7 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
   }
 
   // From this point the underlying object of CSNameTable should be immutable.
-  CSNameTable.reset(PNameVec);
+  CSNameTable.reset(PNameVec.release()); // INTEL
   return sampleprof_error::success;
 }
 
