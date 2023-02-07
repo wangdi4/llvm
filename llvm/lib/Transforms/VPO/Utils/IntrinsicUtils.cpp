@@ -56,10 +56,9 @@ static cl::opt<unsigned>
     RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
                     cl::desc("The number of references threshold"));
 
-// Can't make it default until all the passes in the MiddleEnd can support it
-// and the VLA allocas (2-operand) are supported in this file.
+// TODO: Handle VLA allocas
 static cl::opt<bool> AddTypedPrivates(
-    "vpo-utils-add-typed-privates", cl::Hidden, cl::init(false),
+    "vpo-utils-add-typed-privates", cl::Hidden, cl::init(true),
     cl::desc("Use TYPED OMP clause when adding privates in CodeExtractor."));
 
 // Return the <ElementType, NumElements> pair for the alloca AI.
