@@ -1614,7 +1614,7 @@ struct m_SplatOrUndefMask {
   int &SplatIndex;
   m_SplatOrUndefMask(int &SplatIndex) : SplatIndex(SplatIndex) {}
   bool match(ArrayRef<int> Mask) {
-    auto First = find_if(Mask, [](int Elem) { return Elem != -1; });
+    const auto *First = find_if(Mask, [](int Elem) { return Elem != -1; });
     if (First == Mask.end())
       return false;
     SplatIndex = *First;
