@@ -54,16 +54,10 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "IBM MASS vector library"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
-<<<<<<< HEAD
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
-#if INTEL_CUSTOMIZATION
                           "SIMD Library for Evaluating Elementary Functions"),
-               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
-                          "Glibc vector math library")));
-=======
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
                           "Glibc vector math library")));            // INTEL
->>>>>>> f224eace4257a171de609a26f0b92078cf8a0899
 
 #if INTEL_CUSTOMIZATION
 // Flag to track if TLI should mark non-readonly functions as vectorizable.
