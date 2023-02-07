@@ -13974,7 +13974,9 @@
 ; CHECK-NEXT: __ocl_transpose_store_short_4x8
 ; CHECK-NEXT: __pipe_get_max_packets_fpga
 ; CHECK-NEXT: __pipe_get_total_size_fpga
+; CHECK-NEXT: __pipe_init_array_ext_fpga
 ; CHECK-NEXT: __pipe_init_array_fpga
+; CHECK-NEXT: __pipe_init_ext_fpga
 ; CHECK-NEXT: __pipe_init_fpga
 ; CHECK-NEXT: __pipe_release_fpga
 ; CHECK-NEXT: __read_pipe_2

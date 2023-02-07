@@ -56,17 +56,17 @@
 //
 //   - when head == tail we assume that pipe has no elements
 //   - when a distance between tail and head is 1, we assume that pipe is
-//     full, i.e. one element is reserved to distinguish betweeen full
+//     full, i.e. one element is reserved to distinguish between full
 //     and empty conditions
 //
-//   tail    head
-//   v~~~    v~~~
+//    tail    head
+//    ~~~v   v~~~~
 // |---+---+---+---+---+---+---|
 // | x |   | x | x | x | x | x |  // pipe is full - 1 element reserved
 // |---+---+---+---+---+---+---|  // b/w head and tail
 //
 //
-// Bufferinng
+// Buffering
 // ------------
 // To avoid updating atomics head and tail, we buffer write and read
 // operation, updating only private struct variables (__pipe_internal_buf
@@ -202,10 +202,16 @@ int get_write_capacity(__global struct __pipe_t *p) {
 }
 
 void __pipe_init_fpga(__global void *pp, int packet_size, int depth, int mode) {
+  __pipe_init_ext_fpga(pp, packet_size, depth, mode, 0);
+}
+
+void __pipe_init_ext_fpga(__global void *pp, int packet_size, int depth,
+                          int mode, int protocol) {
   __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   p->packet_size = packet_size;
   p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
   p->io = NULL;
+  p->protocol = protocol;
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -241,8 +247,14 @@ void __pipe_release_fpga(__global void *pp) {
 
 void __pipe_init_array_fpga(__global void *__global *p, int array_size,
                             int packet_size, int depth, int mode) {
+  __pipe_init_array_ext_fpga(p, array_size, packet_size, depth, mode, 0);
+}
+
+void __pipe_init_array_ext_fpga(__global void *__global *p, int array_size,
+                                int packet_size, int depth, int mode,
+                                int protocol) {
   for (int i = 0; i < array_size; ++i) {
-    __pipe_init_fpga(p[i], packet_size, depth, mode);
+    __pipe_init_ext_fpga(p[i], packet_size, depth, mode, protocol);
   }
 }
 
@@ -283,6 +295,10 @@ int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
   return 0;
 }
 
+// FIXME: pipe protocol is defined in a header provided by fpga team which is
+// not included in sycl
+#define AVALON_MM 2
+
 DEBUG_NOINLINE
 int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
                         uint align) {
@@ -291,8 +307,20 @@ int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
 
   if (buf->size < 0) {
     // Try to reserve a buffer
-    if (!reserve_write_buffer(buf, get_write_capacity(p)))
+    if (!reserve_write_buffer(buf, get_write_capacity(p))) {
+      int protocol = p->protocol;
+      // AVALON_MM is a non-blocking pipe
+      if (protocol == AVALON_MM) {
+        // When pipe is full, overwrite the latest packet
+        int end = buf->end - 1;
+        if (end < 0) {
+          end += p->max_packets;
+        }
+        __builtin_memcpy(get_packet_ptr(p, end), src, size);
+        return 0;
+      }
       return -1;
+    }
   }
 
   ASSERT(size == p->packet_size && "Runtime and compiler sizes are different.");
