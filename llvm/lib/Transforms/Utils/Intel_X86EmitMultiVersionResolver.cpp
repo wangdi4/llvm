@@ -67,6 +67,7 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
   CallInst *Result = Builder.CreateCall(FuncToReturn, Args);
   Result->setTailCall();
   Result->setCallingConv(FuncToReturn->getCallingConv());
+  Result->setAttributes(FuncToReturn->getAttributes());
 
   if (Resolver->getReturnType()->isVoidTy())
     Builder.CreateRetVoid();
@@ -105,6 +106,7 @@ static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
       Builder.CreateCall(FunctionCallee(Resolver->getFunctionType(), ResolverPtrVal), Args);
   Result->setTailCall();
   Result->setCallingConv(Resolver->getCallingConv());
+  Result->setAttributes(Resolver->getAttributes());
 
   if (Resolver->getReturnType()->isVoidTy())
     Builder.CreateRetVoid();
