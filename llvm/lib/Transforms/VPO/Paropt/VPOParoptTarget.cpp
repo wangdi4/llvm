@@ -2171,7 +2171,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                     << " hasRuntimeEvaluationCaptureSize="
                     << hasRuntimeEvaluationCaptureSize << "\n");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   LLVMContext &C = F->getContext();
 
   bool ForceMapping =
@@ -4970,7 +4970,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
                              StructType *IdentTy, Instruction *InsertPt) {
   Function *F = InsertPt->getFunction();
   LLVMContext &C = F->getContext();
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
