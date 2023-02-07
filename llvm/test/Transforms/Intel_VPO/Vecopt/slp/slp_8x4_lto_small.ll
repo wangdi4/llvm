@@ -1,221 +1,170 @@
 ; RUN: opt -passes=slp-vectorizer -enable-intel-advanced-opts -slp-multinode -mtriple=x86_64 -mcpu=skylake-avx512 -S < %s | FileCheck %s
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
-; Function Attrs: nounwind readonly uwtable
-define internal i32 @x264_pixel_satd_8x4(i8* nocapture readonly, i32, i8* nocapture readonly, i32) #8 {
-  %5 = alloca [4 x [4 x i32]], align 16
-  %6 = bitcast [4 x [4 x i32]]* %5 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %6) #17
-  %7 = sext i32 %1 to i64
-  %8 = sext i32 %3 to i64
-  %9 = load i8, i8* %0, align 1, !tbaa !21
-  %10 = zext i8 %9 to i32
-  %11 = load i8, i8* %2, align 1, !tbaa !21
-  %12 = zext i8 %11 to i32
-  %13 = sub nsw i32 %10, %12
-  %14 = getelementptr inbounds i8, i8* %0, i64 4
-  %15 = load i8, i8* %14, align 1, !tbaa !21
-  %16 = zext i8 %15 to i32
-  %17 = getelementptr inbounds i8, i8* %2, i64 4
-  %18 = load i8, i8* %17, align 1, !tbaa !21
-  %19 = zext i8 %18 to i32
-  %20 = sub nsw i32 %16, %19
-  %21 = shl nsw i32 %20, 16
-  %22 = add nsw i32 %21, %13
-  %23 = getelementptr inbounds i8, i8* %0, i64 1
-  %24 = load i8, i8* %23, align 1, !tbaa !21
-  %25 = zext i8 %24 to i32
-  %26 = getelementptr inbounds i8, i8* %2, i64 1
-  %27 = load i8, i8* %26, align 1, !tbaa !21
-  %28 = zext i8 %27 to i32
-  %29 = sub nsw i32 %25, %28
-  %30 = getelementptr inbounds i8, i8* %0, i64 5
-  %31 = load i8, i8* %30, align 1, !tbaa !21
-  %32 = zext i8 %31 to i32
-  %33 = getelementptr inbounds i8, i8* %2, i64 5
-  %34 = load i8, i8* %33, align 1, !tbaa !21
-  %35 = zext i8 %34 to i32
-  %36 = sub nsw i32 %32, %35
-  %37 = shl nsw i32 %36, 16
-  %38 = add nsw i32 %37, %29
-  %39 = getelementptr inbounds i8, i8* %0, i64 2
-  %40 = load i8, i8* %39, align 1, !tbaa !21
-  %41 = zext i8 %40 to i32
-  %42 = getelementptr inbounds i8, i8* %2, i64 2
-  %43 = load i8, i8* %42, align 1, !tbaa !21
-  %44 = zext i8 %43 to i32
-  %45 = sub nsw i32 %41, %44
-  %46 = getelementptr inbounds i8, i8* %0, i64 6
-  %47 = load i8, i8* %46, align 1, !tbaa !21
-  %48 = zext i8 %47 to i32
-  %49 = getelementptr inbounds i8, i8* %2, i64 6
-  %50 = load i8, i8* %49, align 1, !tbaa !21
-  %51 = zext i8 %50 to i32
-  %52 = sub nsw i32 %48, %51
-  %53 = shl nsw i32 %52, 16
-  %54 = add nsw i32 %53, %45
-  %55 = getelementptr inbounds i8, i8* %0, i64 3
-  %56 = load i8, i8* %55, align 1, !tbaa !21
-  %57 = zext i8 %56 to i32
-  %58 = getelementptr inbounds i8, i8* %2, i64 3
-  %59 = load i8, i8* %58, align 1, !tbaa !21
-  %60 = zext i8 %59 to i32
-  %61 = sub nsw i32 %57, %60
-  %62 = getelementptr inbounds i8, i8* %0, i64 7
-  %63 = load i8, i8* %62, align 1, !tbaa !21
-  %64 = zext i8 %63 to i32
-  %65 = getelementptr inbounds i8, i8* %2, i64 7
-  %66 = load i8, i8* %65, align 1, !tbaa !21
-  %67 = zext i8 %66 to i32
-  %68 = sub nsw i32 %64, %67
-  %69 = shl nsw i32 %68, 16
-  %70 = add nsw i32 %69, %61
-  %71 = add nsw i32 %38, %22
-  %72 = sub nsw i32 %22, %38
-  %73 = add nsw i32 %70, %54
-  %74 = sub nsw i32 %54, %70
-  %75 = add nsw i32 %73, %71
-  %76 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 0, i64 0
-  store i32 %75, i32* %76, align 16, !tbaa !480
-  %77 = sub nsw i32 %71, %73
-  %78 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 0, i64 2
-  store i32 %77, i32* %78, align 8, !tbaa !480
-  %79 = add nsw i32 %74, %72
-  %80 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 0, i64 1
-  store i32 %79, i32* %80, align 4, !tbaa !480
-  %81 = sub nsw i32 %72, %74
-  %82 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 0, i64 3
-  store i32 %81, i32* %82, align 4, !tbaa !480
-  %83 = getelementptr inbounds i8, i8* %0, i64 %7
-  %84 = getelementptr inbounds i8, i8* %2, i64 %8
-  %85 = load i8, i8* %83, align 1, !tbaa !21
-  %86 = zext i8 %85 to i32
-  %87 = load i8, i8* %84, align 1, !tbaa !21
-  %88 = zext i8 %87 to i32
-  %89 = sub nsw i32 %86, %88
-  %90 = getelementptr inbounds i8, i8* %83, i64 4
-  %91 = load i8, i8* %90, align 1, !tbaa !21
-  %92 = zext i8 %91 to i32
-  %93 = getelementptr inbounds i8, i8* %84, i64 4
-  %94 = load i8, i8* %93, align 1, !tbaa !21
-  %95 = zext i8 %94 to i32
-  %96 = sub nsw i32 %92, %95
-  %97 = shl nsw i32 %96, 16
-  %98 = add nsw i32 %97, %89
-  %99 = getelementptr inbounds i8, i8* %83, i64 1
-  %100 = load i8, i8* %99, align 1, !tbaa !21
-  %101 = zext i8 %100 to i32
-  %102 = getelementptr inbounds i8, i8* %84, i64 1
-  %103 = load i8, i8* %102, align 1, !tbaa !21
-  %104 = zext i8 %103 to i32
-  %105 = sub nsw i32 %101, %104
-  %106 = getelementptr inbounds i8, i8* %83, i64 5
-  %107 = load i8, i8* %106, align 1, !tbaa !21
-  %108 = zext i8 %107 to i32
-  %109 = getelementptr inbounds i8, i8* %84, i64 5
-  %110 = load i8, i8* %109, align 1, !tbaa !21
-  %111 = zext i8 %110 to i32
-  %112 = sub nsw i32 %108, %111
-  %113 = shl nsw i32 %112, 16
-  %114 = add nsw i32 %113, %105
-  %115 = getelementptr inbounds i8, i8* %83, i64 2
-  %116 = load i8, i8* %115, align 1, !tbaa !21
-  %117 = zext i8 %116 to i32
-  %118 = getelementptr inbounds i8, i8* %84, i64 2
-  %119 = load i8, i8* %118, align 1, !tbaa !21
-  %120 = zext i8 %119 to i32
-  %121 = sub nsw i32 %117, %120
-  %122 = getelementptr inbounds i8, i8* %83, i64 6
-  %123 = load i8, i8* %122, align 1, !tbaa !21
-  %124 = zext i8 %123 to i32
-  %125 = getelementptr inbounds i8, i8* %84, i64 6
-  %126 = load i8, i8* %125, align 1, !tbaa !21
-  %127 = zext i8 %126 to i32
-  %128 = sub nsw i32 %124, %127
-  %129 = shl nsw i32 %128, 16
-  %130 = add nsw i32 %129, %121
-  %131 = getelementptr inbounds i8, i8* %83, i64 3
-  %132 = load i8, i8* %131, align 1, !tbaa !21
-  %133 = zext i8 %132 to i32
-  %134 = getelementptr inbounds i8, i8* %84, i64 3
-  %135 = load i8, i8* %134, align 1, !tbaa !21
-  %136 = zext i8 %135 to i32
-  %137 = sub nsw i32 %133, %136
-  %138 = getelementptr inbounds i8, i8* %83, i64 7
-  %139 = load i8, i8* %138, align 1, !tbaa !21
-  %140 = zext i8 %139 to i32
-  %141 = getelementptr inbounds i8, i8* %84, i64 7
-  %142 = load i8, i8* %141, align 1, !tbaa !21
-  %143 = zext i8 %142 to i32
-  %144 = sub nsw i32 %140, %143
-  %145 = shl nsw i32 %144, 16
-  %146 = add nsw i32 %145, %137
-  %147 = add nsw i32 %114, %98
-  %148 = sub nsw i32 %98, %114
-  %149 = add nsw i32 %146, %130
-  %150 = sub nsw i32 %130, %146
-  %151 = add nsw i32 %149, %147
-  %152 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 1, i64 0
-  store i32 %151, i32* %152, align 16, !tbaa !480
-  %153 = sub nsw i32 %147, %149
-  %154 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 1, i64 2
-  store i32 %153, i32* %154, align 8, !tbaa !480
-  %155 = add nsw i32 %150, %148
-  %156 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 1, i64 1
-  store i32 %155, i32* %156, align 4, !tbaa !480
-  %157 = sub nsw i32 %148, %150
-  %158 = getelementptr inbounds [4 x [4 x i32]], [4 x [4 x i32]]* %5, i64 0, i64 1, i64 3
-  store i32 %157, i32* %158, align 4, !tbaa !480
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %6) #17
+define i32 @x264_pixel_satd_8x4(ptr nocapture readonly %arg, i32 %arg1, ptr nocapture readonly %arg2, i32 %arg3) {
+bb:
+  %i = alloca [4 x [4 x i32]], align 16
+  %i5 = sext i32 %arg1 to i64
+  %i6 = sext i32 %arg3 to i64
+  %i7 = load i8, ptr %arg, align 1
+  %i8 = zext i8 %i7 to i32
+  %i9 = load i8, ptr %arg2, align 1
+  %i10 = zext i8 %i9 to i32
+  %i11 = sub nsw i32 %i8, %i10
+  %i12 = getelementptr inbounds i8, ptr %arg, i64 4
+  %i13 = load i8, ptr %i12, align 1
+  %i14 = zext i8 %i13 to i32
+  %i15 = getelementptr inbounds i8, ptr %arg2, i64 4
+  %i16 = load i8, ptr %i15, align 1
+  %i17 = zext i8 %i16 to i32
+  %i18 = sub nsw i32 %i14, %i17
+  %i19 = shl nsw i32 %i18, 16
+  %i20 = add nsw i32 %i19, %i11
+  %i21 = getelementptr inbounds i8, ptr %arg, i64 1
+  %i22 = load i8, ptr %i21, align 1
+  %i23 = zext i8 %i22 to i32
+  %i24 = getelementptr inbounds i8, ptr %arg2, i64 1
+  %i25 = load i8, ptr %i24, align 1
+  %i26 = zext i8 %i25 to i32
+  %i27 = sub nsw i32 %i23, %i26
+  %i28 = getelementptr inbounds i8, ptr %arg, i64 5
+  %i29 = load i8, ptr %i28, align 1
+  %i30 = zext i8 %i29 to i32
+  %i31 = getelementptr inbounds i8, ptr %arg2, i64 5
+  %i32 = load i8, ptr %i31, align 1
+  %i33 = zext i8 %i32 to i32
+  %i34 = sub nsw i32 %i30, %i33
+  %i35 = shl nsw i32 %i34, 16
+  %i36 = add nsw i32 %i35, %i27
+  %i37 = getelementptr inbounds i8, ptr %arg, i64 2
+  %i38 = load i8, ptr %i37, align 1
+  %i39 = zext i8 %i38 to i32
+  %i40 = getelementptr inbounds i8, ptr %arg2, i64 2
+  %i41 = load i8, ptr %i40, align 1
+  %i42 = zext i8 %i41 to i32
+  %i43 = sub nsw i32 %i39, %i42
+  %i44 = getelementptr inbounds i8, ptr %arg, i64 6
+  %i45 = load i8, ptr %i44, align 1
+  %i46 = zext i8 %i45 to i32
+  %i47 = getelementptr inbounds i8, ptr %arg2, i64 6
+  %i48 = load i8, ptr %i47, align 1
+  %i49 = zext i8 %i48 to i32
+  %i50 = sub nsw i32 %i46, %i49
+  %i51 = shl nsw i32 %i50, 16
+  %i52 = add nsw i32 %i51, %i43
+  %i53 = getelementptr inbounds i8, ptr %arg, i64 3
+  %i54 = load i8, ptr %i53, align 1
+  %i55 = zext i8 %i54 to i32
+  %i56 = getelementptr inbounds i8, ptr %arg2, i64 3
+  %i57 = load i8, ptr %i56, align 1
+  %i58 = zext i8 %i57 to i32
+  %i59 = sub nsw i32 %i55, %i58
+  %i60 = getelementptr inbounds i8, ptr %arg, i64 7
+  %i61 = load i8, ptr %i60, align 1
+  %i62 = zext i8 %i61 to i32
+  %i63 = getelementptr inbounds i8, ptr %arg2, i64 7
+  %i64 = load i8, ptr %i63, align 1
+  %i65 = zext i8 %i64 to i32
+  %i66 = sub nsw i32 %i62, %i65
+  %i67 = shl nsw i32 %i66, 16
+  %i68 = add nsw i32 %i67, %i59
+  %i69 = add nsw i32 %i36, %i20
+  %i70 = sub nsw i32 %i20, %i36
+  %i71 = add nsw i32 %i68, %i52
+  %i72 = sub nsw i32 %i52, %i68
+  %i73 = add nsw i32 %i71, %i69
+  %i74 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 0
+  store i32 %i73, ptr %i74, align 16
+  %i75 = sub nsw i32 %i69, %i71
+  %i76 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 2
+  store i32 %i75, ptr %i76, align 8
+  %i77 = add nsw i32 %i72, %i70
+  %i78 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 1
+  store i32 %i77, ptr %i78, align 4
+  %i79 = sub nsw i32 %i70, %i72
+  %i80 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 3
+  store i32 %i79, ptr %i80, align 4
+  %i81 = getelementptr inbounds i8, ptr %arg, i64 %i5
+  %i82 = getelementptr inbounds i8, ptr %arg2, i64 %i6
+  %i83 = load i8, ptr %i81, align 1
+  %i84 = zext i8 %i83 to i32
+  %i85 = load i8, ptr %i82, align 1
+  %i86 = zext i8 %i85 to i32
+  %i87 = sub nsw i32 %i84, %i86
+  %i88 = getelementptr inbounds i8, ptr %i81, i64 4
+  %i89 = load i8, ptr %i88, align 1
+  %i90 = zext i8 %i89 to i32
+  %i91 = getelementptr inbounds i8, ptr %i82, i64 4
+  %i92 = load i8, ptr %i91, align 1
+  %i93 = zext i8 %i92 to i32
+  %i94 = sub nsw i32 %i90, %i93
+  %i95 = shl nsw i32 %i94, 16
+  %i96 = add nsw i32 %i95, %i87
+  %i97 = getelementptr inbounds i8, ptr %i81, i64 1
+  %i98 = load i8, ptr %i97, align 1
+  %i99 = zext i8 %i98 to i32
+  %i100 = getelementptr inbounds i8, ptr %i82, i64 1
+  %i101 = load i8, ptr %i100, align 1
+  %i102 = zext i8 %i101 to i32
+  %i103 = sub nsw i32 %i99, %i102
+  %i104 = getelementptr inbounds i8, ptr %i81, i64 5
+  %i105 = load i8, ptr %i104, align 1
+  %i106 = zext i8 %i105 to i32
+  %i107 = getelementptr inbounds i8, ptr %i82, i64 5
+  %i108 = load i8, ptr %i107, align 1
+  %i109 = zext i8 %i108 to i32
+  %i110 = sub nsw i32 %i106, %i109
+  %i111 = shl nsw i32 %i110, 16
+  %i112 = add nsw i32 %i111, %i103
+  %i113 = getelementptr inbounds i8, ptr %i81, i64 2
+  %i114 = load i8, ptr %i113, align 1
+  %i115 = zext i8 %i114 to i32
+  %i116 = getelementptr inbounds i8, ptr %i82, i64 2
+  %i117 = load i8, ptr %i116, align 1
+  %i118 = zext i8 %i117 to i32
+  %i119 = sub nsw i32 %i115, %i118
+  %i120 = getelementptr inbounds i8, ptr %i81, i64 6
+  %i121 = load i8, ptr %i120, align 1
+  %i122 = zext i8 %i121 to i32
+  %i123 = getelementptr inbounds i8, ptr %i82, i64 6
+  %i124 = load i8, ptr %i123, align 1
+  %i125 = zext i8 %i124 to i32
+  %i126 = sub nsw i32 %i122, %i125
+  %i127 = shl nsw i32 %i126, 16
+  %i128 = add nsw i32 %i127, %i119
+  %i129 = getelementptr inbounds i8, ptr %i81, i64 3
+  %i130 = load i8, ptr %i129, align 1
+  %i131 = zext i8 %i130 to i32
+  %i132 = getelementptr inbounds i8, ptr %i82, i64 3
+  %i133 = load i8, ptr %i132, align 1
+  %i134 = zext i8 %i133 to i32
+  %i135 = sub nsw i32 %i131, %i134
+  %i136 = getelementptr inbounds i8, ptr %i81, i64 7
+  %i137 = load i8, ptr %i136, align 1
+  %i138 = zext i8 %i137 to i32
+  %i139 = getelementptr inbounds i8, ptr %i82, i64 7
+  %i140 = load i8, ptr %i139, align 1
+  %i141 = zext i8 %i140 to i32
+  %i142 = sub nsw i32 %i138, %i141
+  %i143 = shl nsw i32 %i142, 16
+  %i144 = add nsw i32 %i143, %i135
+  %i145 = add nsw i32 %i112, %i96
+  %i146 = sub nsw i32 %i96, %i112
+  %i147 = add nsw i32 %i144, %i128
+  %i148 = sub nsw i32 %i128, %i144
+  %i149 = add nsw i32 %i147, %i145
+  %i150 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 1, i64 0
+  store i32 %i149, ptr %i150, align 16
+  %i151 = sub nsw i32 %i145, %i147
+  %i152 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 1, i64 2
+  store i32 %i151, ptr %i152, align 8
+  %i153 = add nsw i32 %i148, %i146
+  %i154 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 1, i64 1
+  store i32 %i153, ptr %i154, align 4
+  %i155 = sub nsw i32 %i146, %i148
+  %i156 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 1, i64 3
+  store i32 %i155, ptr %i156, align 4
   ret i32 0
 }
-
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
-
-; Function Attrs: nounwind readonly
-declare <16 x i8> @llvm.masked.gather.v16i8.v16p0i8(<16 x i8*>, i32, <16 x i1>, <16 x i8>) #25
-
-attributes #1 = { argmemonly nounwind }
-attributes #8 = { nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
-attributes #17 = { nounwind }
-
-!llvm.ident = !{!0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0}
-!llvm.module.flags = !{!1, !2}
-
-!0 = !{!"clang version 8.0.0 "}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 1, !"ThinLTO", i32 0}
-!3 = distinct !{!3, !4}
-!4 = !{!"llvm.loop.unroll.disable"}
-!5 = distinct !{!5, !4}
-!6 = !{!7, !8, i64 0}
-!7 = !{!"array@_ZTSA16_h", !8, i64 0}
-!8 = !{!"omnipotent char", !9, i64 0}
-!9 = !{!"Simple C/C++ TBAA"}
-!10 = !{!11, !11, i64 0}
-!11 = !{!"pointer@_ZTSPh", !8, i64 0}
-!12 = !{!13, !17, i64 48}
-!13 = !{!"struct@x264_weight_t", !14, i64 0, !14, i64 16, !16, i64 32, !16, i64 36, !16, i64 40, !17, i64 48}
-!14 = !{!"array@_ZTSA8_s", !15, i64 0}
-!15 = !{!"short", !8, i64 0}
-!16 = !{!"int", !8, i64 0}
-!17 = !{!"unspecified pointer", !8, i64 0}
-!18 = distinct !{!18, !4}
-!19 = distinct !{!19, !4}
-!20 = !{!16, !16, i64 0}
-!21 = !{!8, !8, i64 0}
-!128 = !{!"array@_ZTSA4_j", !16, i64 0}
-
-!480 = !{!481, !16, i64 0}
-!481 = !{!"array@_ZTSA4_A4_j", !128, i64 0}
-
 
 ; CHECK: [[L1:%.*]] = load <4 x i8>
 ; CHECK: [[L2:%.*]] = load <4 x i8>
@@ -226,5 +175,4 @@ attributes #17 = { nounwind }
 ; CHECK: [[L6:%.*]] = load <4 x i8>
 ; CHECK: [[L7:%.*]] = load <4 x i8>
 ; CHECK: [[L8:%.*]] = load <4 x i8>
-
 ; CHECK: store <8 x i32>
