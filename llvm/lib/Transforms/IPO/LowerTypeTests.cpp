@@ -457,20 +457,20 @@ class LowerTypeTestsModule {
 
     /// ByteArray, Inline, AllOnes: log2 of the required global alignment
     /// relative to the start address.
-    Constant *AlignLog2;
+    Constant *AlignLog2{}; // INTEL
 
     /// ByteArray, Inline, AllOnes: one less than the size of the memory region
     /// covering members of this type identifier as a multiple of 2^AlignLog2.
-    Constant *SizeM1;
+    Constant *SizeM1{}; // INTEL
 
     /// ByteArray: the byte array to test the address against.
-    Constant *TheByteArray;
+    Constant *TheByteArray{}; // INTEL
 
     /// ByteArray: the bit mask to apply to bytes loaded from the byte array.
-    Constant *BitMask;
+    Constant *BitMask{}; // INTEL
 
     /// Inline: the bit mask to test the address against.
-    Constant *InlineBits;
+    Constant *InlineBits{}; // INTEL
   };
 
   std::vector<ByteArrayInfo> ByteArrayInfos;
