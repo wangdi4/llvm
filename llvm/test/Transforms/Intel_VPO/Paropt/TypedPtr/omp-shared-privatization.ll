@@ -875,7 +875,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK: omp.inner.for.body{{.+}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]],
 ; CHECK:   [[AVAL:%.+]] = load float, float* [[AADDR]]
-; CHECK:   [[FABS:%.+]] {{.*}} call fast float @llvm.fabs.f32(float [[AVAL]])
+; CHECK:   [[FABS:%.+]] ={{.*}} call fast float @llvm.fabs.f32(float [[AVAL]])
 ; CHECK:   [[FADD:%.+]] = fadd fast float [[FABS]], [[AVAL]]
 ; CHECK:   store float [[FADD]], float* [[AADDR]]
 ; CHECK: }
