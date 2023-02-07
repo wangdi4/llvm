@@ -178,6 +178,7 @@ add_llvm_component_library(LLVMAnalysis
   VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
   VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
 # end INTEL_COLLAB
+  InteractiveModelRunner.cpp
   Interval.cpp
   IntervalPartition.cpp
   LazyBranchProbabilityInfo.cpp
