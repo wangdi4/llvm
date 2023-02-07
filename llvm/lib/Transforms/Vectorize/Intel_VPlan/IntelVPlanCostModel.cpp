@@ -1299,9 +1299,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
           cast<VPLiveInValue>(StartVal)->getMergeId());
 
       // Predict constant folding.
-      if (!isa<VPConstant>(StartVal)) {}
+      if (!isa<VPConstant>(StartVal)) {
         Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VTy,
                                        TTI::TCK_RecipThroughput, 0);
+      }
     }
     return Cost;
   }
