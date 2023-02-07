@@ -1,9 +1,15 @@
+<<<<<<< HEAD
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
 ; RUN:   -mcpu=pwr9 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P9
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
+=======
+; RUN: llc -fast-isel=false -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
+; RUN:   -mcpu=pwr9 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P9
+; RUN: llc -fast-isel=false -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
+>>>>>>> f4fbcd62af31ac8921c2c2216bdbed1b49a0dff1
 ; RUN:   -mcpu=pwr10 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P10
 
-@newname = dso_local alias i32 (...), bitcast (i32 ()* @oldname to i32 (...)*)
+@newname = dso_local alias i32 (...), ptr @oldname
 
 ; Function Attrs: noinline nounwind optnone
 define dso_local signext i32 @oldname() #0 {
@@ -22,7 +28,7 @@ define dso_local signext i32 @caller() #0 {
 ; #P10-NOT:   nop
 ; #P10:       blr
 entry:
-  %call = call signext i32 bitcast (i32 (...)* @newname to i32 ()*)()
+  %call = call signext i32 @newname()
   ret i32 %call
 }
 
@@ -38,7 +44,7 @@ define dso_local signext i32 @caller_nopcrel() #1 {
 ; #P10-NEXT:  nop
 ; #P10:       blr
 entry:
-  %call = call signext i32 bitcast (i32 (...)* @newname to i32 ()*)()
+  %call = call signext i32 @newname()
   ret i32 %call
 }
 
