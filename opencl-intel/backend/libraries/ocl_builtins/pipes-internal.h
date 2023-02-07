@@ -65,6 +65,7 @@ struct __pipe_t {
   ALIGNED(struct __pipe_internal_buf write_buf, 64);
 
   FILE *io;
+  int protocol;
 
   // Pipe object also has a trailing buffer for packets:
   // char buffer[max_packets * packet_size];
@@ -104,8 +105,13 @@ void __flush_write_pipe(__global void *p);
 //
 void __pipe_init_fpga(__global void *pp, int packet_size, int max_packets,
                       int mode);
+void __pipe_init_ext_fpga(__global void *pp, int packet_size, int max_packets,
+                          int mode, int protocol);
 void __pipe_init_array_fpga(__global void *__global *pp, int array_size,
                             int packet_size, int depth, int mode);
+void __pipe_init_array_ext_fpga(__global void *__global *pp, int array_size,
+                                int packet_size, int depth, int mode,
+                                int protocol);
 void __pipe_release_fpga(__global void *pp);
 
 //
