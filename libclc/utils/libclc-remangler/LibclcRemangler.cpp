@@ -373,7 +373,7 @@ private:
                                              SourceLocation(),
                                              DeclarationName(), TPL, FD);
     auto TAArr =
-        makeArrayRef(TemplateArguments.begin(), TemplateArguments.size());
+        ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
     auto *TAL = TemplateArgumentList::CreateCopy(*ContextAST, TAArr);
     FDSpecialization->setTemplateParameterListsInfo(*ContextAST, TPL);
     FDSpecialization->setFunctionTemplateSpecialization(
