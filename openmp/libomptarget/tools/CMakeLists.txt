@@ -25,4 +25,6 @@ macro(add_openmp_tool_symlink name)
 endmacro()
 
 add_subdirectory(deviceinfo)
+if(NOT INTEL_CUSTOMIZATION)
 add_subdirectory(kernelreplay)
+endif(NOT INTEL_CUSTOMIZATION)
