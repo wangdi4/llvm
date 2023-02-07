@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -55,19 +55,18 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
-#if INTEL_CUSTOMIZATION
                           "SIMD Library for Evaluating Elementary Functions"),
-               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
-                          "Glibc vector math library")));
+               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
+                          "Glibc vector math library")));            // INTEL
 
+#if INTEL_CUSTOMIZATION
 // Flag to track if TLI should mark non-readonly functions as vectorizable.
 static cl::opt<bool> TLIVecNonReadonlyLibCalls(
     "tli-vectorize-non-readonly-libcalls", cl::Hidden,
     cl::desc(
         "Vectorize library calls even if they don't have readonly attribute."),
     cl::init(true));
-#endif
-
+#endif // INTEL_CUSTOMIZATION
 StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
     {
 #define TLI_DEFINE_STRING
