@@ -3759,13 +3759,9 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // In some cases we need to disable registers from the default CSR list.
   // For example, when they are used for argument passing.
   bool ShouldDisableCalleeSavedRegister =
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
-=======
-      CallConv == CallingConv::X86_RegCall ||
->>>>>>> faac9f215962982bdbc613e15715822568204203
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
@@ -4942,13 +4938,9 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (CallConv == CallingConv::X86_RegCall ||
->>>>>>> faac9f215962982bdbc613e15715822568204203
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -5515,13 +5507,9 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // In some calling conventions we need to remove the used physical registers
   // from the reg mask.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (CallConv == CallingConv::X86_RegCall || HasNCSR) {
->>>>>>> faac9f215962982bdbc613e15715822568204203
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
     // Allocate a new Reg Mask and copy Mask.
