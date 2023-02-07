@@ -2088,6 +2088,17 @@ if (INTEL_CUSTOMIZATION)
       bin-llvm-readme
       )
 
+    if (features_enabled_by_default AND (";${features_enabled_by_default};"
+        MATCHES ";${LLVM_INTELFEATURE_PREFIX}_XISA_COMMON;"))
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_XISA_COMMON
+        llvm-objdump llvm-mc
+# end INTEL_FEATURE_XISA_COMMON
+# end INTEL_CUSTOMIZATION
+      )
+    endif()
+
     if (WIN32)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # llvm-lib is a copy of llvm-ar, and it cannot
