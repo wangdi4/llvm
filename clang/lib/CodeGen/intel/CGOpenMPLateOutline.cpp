@@ -1577,7 +1577,13 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
     else
       addTypedArg(E, IsRef);
-    if (CombinerFn) {
+    if (IsUDR && CGF.getLangOpts().OpenMPIsDevice && !IsDeviceTarget) {
+      // A UDR seen outside device code will be thrown away. Just add null
+      // values for all the UDR routines (constructor, destructor, combiner,
+      // and init.
+      for (unsigned I = 0; I < 4; ++I)
+        addArg(llvm::ConstantPointerNull::get(CGF.VoidPtrTy));
+    } else if (CombinerFn) {
       llvm::Value *Cons = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       llvm::Value *Des = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       llvm::Value *Init =
