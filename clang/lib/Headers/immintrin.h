@@ -382,8 +382,11 @@ typedef struct __tile1024i_str {
 #include <avx512vlfp16intrin.h>
 #endif
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #ifndef __SYCL_DEVICE_ONLY__
+=======
+>>>>>>> a34201b7d8d82875af89751670a358c8031ccc2c
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512BF16__) || defined(__AVX256P__) ||                         \
     defined(__M_INTRINSIC_PROMOTE__)
@@ -399,6 +402,7 @@ typedef struct __tile1024i_str {
     defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlbf16intrin.h>
 #endif
+<<<<<<< HEAD
 #endif
 /* end INTEL_CUSTOMIZATION */
 
@@ -412,6 +416,8 @@ typedef struct __tile1024i_str {
 #endif
 /* end INTEL_FEATURE_ISA_AVX_BF16 */
 /* end INTEL_CUSTOMIZATION */
+=======
+>>>>>>> a34201b7d8d82875af89751670a358c8031ccc2c
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
