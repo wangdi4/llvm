@@ -10782,7 +10782,7 @@ void VPOParoptTransform::rewriteUsesOfOutInstructions(
     BasicBlock *OrigPreheader = nullptr;
     Value *OrigPreHeaderVal = nullptr;
 
-    for (auto M : ValueToLiveinMap) {
+    for (auto &M : ValueToLiveinMap) {
       if (ECs.findLeader(M.first) == ECs.findLeader(EI)) {
         OrigPreheader = M.second.second;
         OrigPreHeaderVal = M.second.first;
@@ -11838,7 +11838,8 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 
 // Utility to find Alignment of the COPYIN Variable passed.
 // Default is 1.
-unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
+unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V,
+                                                const DataLayout &DL) {
   // Eg:
   // 1. Global Variable is passed.
   // C Code: int nder; ...
@@ -11918,7 +11919,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     Value *FirstArgOfOutlineFunc = &*NewArgI;
     ++NewArgI;
     ++NewArgI;
-    const DataLayout NDL=NFn->getParent()->getDataLayout();
+    const DataLayout &NDL = NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
     Instruction *Term = nullptr;

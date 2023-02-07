@@ -658,6 +658,7 @@ static void initializeProfileForContinuousMode(void) {
       PROF_ERR("Continuous counter sync mode is enabled, but raw profile is not"
                "page-aligned. CurrentFileOffset = %" PRIu64 ", pagesz = %u.\n",
                (uint64_t)CurrentFileOffset, PageSize);
+      fclose(File); // INTEL
       return;
     }
     if (writeProfileWithFileObject(Filename, File) != 0) {
@@ -979,8 +980,12 @@ const char *__llvm_profile_get_filename(void) {
     return "\0";
   }
   Filename = getCurFilename(FilenameBuf, 1);
-  if (!Filename)
+#if INTEL_CUSTOMIZATION
+  if (!Filename) {
+    free(FilenameBuf);
     return "\0";
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return FilenameBuf;
 }

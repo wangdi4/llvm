@@ -6,6 +6,24 @@
 |*
 \*===----------------------------------------------------------------------===*/
 
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -197,6 +215,14 @@ instrumentTargetValueImpl(uint64_t TargetValue, void *Data,
      * the runtime can wipe out more than one lowest count entries
      * to give space for hot targets.
      */
+#if INTEL_CUSTOMIZATION
+    /* If all the counters have reached the maximum value, then there
+     * will be no 'MinCountVNode' to update.
+     */
+    if (!MinCountVNode)
+      return;
+#endif
+
     if (MinCountVNode->Count <= CountValue) {
       CurVNode = MinCountVNode;
       CurVNode->Value = TargetValue;

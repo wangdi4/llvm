@@ -1019,7 +1019,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
 
     Value *Size;
 
-    const DataLayout DL = F->getParent()->getDataLayout();
+    const DataLayout &DL = F->getParent()->getDataLayout();
     if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
       Size = Builder.getInt64(
           DL.getTypeAllocSize(Src->getAllocatedType()));
@@ -1537,7 +1537,7 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
   AllocaInst *DummyTaskTDependVec =
       Builder.CreateAlloca(KmpTaskTDependVecTy, nullptr, "task.depend.vec");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   for (DependItem *DepI : DepClause.items()) {
     Value *Orig = DepI->getOrig();
@@ -1650,7 +1650,7 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   AllocaInst *DummyTaskTRedRec =
       Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   unsigned Idx = 0;
   for (ReductionItem *RedI : RedClause.items()) {
@@ -1966,7 +1966,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
 
-  const DataLayout DL = NewF->getParent()->getDataLayout();
+  const DataLayout &DL = NewF->getParent()->getDataLayout();
   int KmpTaskTTWithPrivatesTySz =
       DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
   int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
