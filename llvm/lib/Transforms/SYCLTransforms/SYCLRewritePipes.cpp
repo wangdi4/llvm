@@ -132,7 +132,9 @@ rewritePipeStorageVars(Module &M,
 
     // Emit a code that adds necessary initialization to the global ctor.
     Function *PipeInitFunc = importFunctionDecl(
-        &M, RTS.findFunctionInBuiltinModules("__pipe_init_fpga"));
+        &M, RTS.findFunctionInBuiltinModules(PipeMD.Protocol < 0
+                                                 ? "__pipe_init_fpga"
+                                                 : "__pipe_init_ext_fpga"));
     initializeGlobalPipeScalar(OCLPipeGV, PipeMD, GlobalCtor, PipeInitFunc);
 
     // Finally we replace all usages of {i32, i32, i32} struct with our new
