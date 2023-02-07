@@ -99,7 +99,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
       CXX_VISIBILITY_PRESET protected)
 
-<<<<<<< HEAD
       target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
         ${LIBOMPTARGET_INCLUDE_DIR}
         ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
@@ -109,8 +108,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
 
       # Report to the parent scope that we are building a plugin.
       set(LIBOMPTARGET_SYSTEM_TARGETS
-        "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-oldDriver" PARENT_SCOPE)
-      set(LIBOMPTARGET_SYSTEM_TARGETS
         "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
       set(LIBOMPTARGET_TESTED_PLUGINS
         "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
@@ -118,24 +115,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
       libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
     endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-=======
-    target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
-      ${LIBOMPTARGET_INCLUDE_DIR}
-      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
-
-    list(APPEND LIBOMPTARGET_TESTED_PLUGINS
-      "omptarget.rtl.${tmachine_libname}")
-
-    # Report to the parent scope that we are building a plugin.
-    set(LIBOMPTARGET_SYSTEM_TARGETS
-      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
-    set(LIBOMPTARGET_TESTED_PLUGINS
-      "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
-
-  else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-    libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
-  endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
->>>>>>> 86f2dae72ef0617d0c4d8f991dc26cb1483aa914
 else()
   libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
 endif()
