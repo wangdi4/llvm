@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
-; RUN:   -mcpu=pwr9 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P9
-; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
-=======
 ; RUN: llc -fast-isel=false -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
 ; RUN:   -mcpu=pwr9 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P9
 ; RUN: llc -fast-isel=false -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
->>>>>>> f4fbcd62af31ac8921c2c2216bdbed1b49a0dff1
 ; RUN:   -mcpu=pwr10 -ppc-asm-full-reg-names < %s | FileCheck %s --check-prefix=P10
 
 @newname = dso_local alias i32 (...), ptr @oldname
