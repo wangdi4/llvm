@@ -78,7 +78,7 @@ static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
     if (!E)
       return true;
 
-    Optional<llvm::APSInt> ArgVal =
+    std::optional<llvm::APSInt> ArgVal =
         E->getIntegerConstantExpr(S.getASTContext());
     if (ArgVal) {
       if (!ArgVal->isStrictlyPositive()) {

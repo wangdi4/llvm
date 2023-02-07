@@ -3362,7 +3362,7 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
   int NumComputeUnits[3];
   for (unsigned i = 0; i < Attr.getNumArgs(); ++i) {
     const Expr *E = Attr.getArgAsExpr(i);
-    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
+    std::optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
 
     if (!ArgVal) {
       S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
@@ -3412,9 +3412,9 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (auto *A = D->getAttr<SYCLReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
 
-    Optional<llvm::APSInt> XDimVal = A->getXDimVal();
-    Optional<llvm::APSInt> YDimVal = A->getYDimVal();
-    Optional<llvm::APSInt> ZDimVal = A->getZDimVal();
+    std::optional<llvm::APSInt> XDimVal = A->getXDimVal();
+    std::optional<llvm::APSInt> YDimVal = A->getYDimVal();
+    std::optional<llvm::APSInt> ZDimVal = A->getZDimVal();
 
     if (N % XDimVal->getZExtValue() != 0 ||
         N % YDimVal->getZExtValue() != 0 ||
