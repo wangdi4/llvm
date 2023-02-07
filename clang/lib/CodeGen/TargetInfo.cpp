@@ -9058,8 +9058,7 @@ ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty,
     Align = Size <= 32 ? 32 : 64;
   if (Size <= Align) {
     // Pass in the smallest viable integer type.
-    if (!llvm::isPowerOf2_64(Size))
-      Size = llvm::NextPowerOf2(Size);
+    Size = llvm::bit_ceil(Size);
     return ABIArgInfo::getDirect(llvm::Type::getIntNTy(getVMContext(), Size));
   }
   return DefaultABIInfo::classifyArgumentType(Ty);
@@ -9104,8 +9103,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
   // are returned indirectly.
   if (Size <= 64) {
     // Return in the smallest viable integer type.
-    if (!llvm::isPowerOf2_64(Size))
-      Size = llvm::NextPowerOf2(Size);
+    Size = llvm::bit_ceil(Size);
     return ABIArgInfo::getDirect(llvm::Type::getIntNTy(getVMContext(), Size));
   }
   return getNaturalAlignIndirect(RetTy, /*ByVal=*/true);
