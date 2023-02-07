@@ -135,7 +135,6 @@ add_llvm_component_library(LLVMAnalysis
   InstCount.cpp
   InstructionPrecedenceTracking.cpp
   InstructionSimplify.cpp
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
@@ -179,9 +178,7 @@ add_llvm_component_library(LLVMAnalysis
   VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
   VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
 # end INTEL_COLLAB
-=======
   InteractiveModelRunner.cpp
->>>>>>> 5b8dc7c8a55269aa438c6639a7ce22e6b99b1844
   Interval.cpp
   IntervalPartition.cpp
   LazyBranchProbabilityInfo.cpp
