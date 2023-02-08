@@ -317,9 +317,11 @@ FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(FunctionType *FT,
   return LegalFT;
 }
 
-void MapIntrinToImlImpl::splitMathLibCalls(
-    unsigned NumRet, unsigned TargetVL, FunctionCallee Func,
-    ArrayRef<Value *> Args, SmallVectorImpl<Value *> &SplitCalls) {
+void MapIntrinToImlImpl::splitMathLibCalls(unsigned NumRet, unsigned TargetVL,
+                                           FunctionCallee Func,
+                                           ArrayRef<Value *> Args,
+                                           SmallVectorImpl<Value *> &SplitCalls,
+                                           bool Masked) {
   LLVM_DEBUG(dbgs() << "Splitting Args to match legal VL:\n";
              for (const Value *A : Args)
                dbgs() << "Arg Value: " << *A << "\n"
@@ -430,7 +432,7 @@ void MapIntrinToImlImpl::splitMathLibCalls(
       NewArgs.push_back(LegalArg);
     }
 
-    CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
+    CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall", Masked);
     SplitCalls.push_back(NewCI);
   }
 }
@@ -906,7 +908,7 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
         // Generate SVML call for each part of the split operands
         SmallVector<Value *, 8> SplitCalls;
         splitMathLibCalls(LogicalVL / TargetVL, TargetVL, Func, Args,
-                          SplitCalls);
+                          SplitCalls, /*Masked=*/false);
 
         Result = joinVectors(SplitCalls, Builder, "shuffle.comb");
       } else {
@@ -920,7 +922,8 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
         SmallVector<Value *, 2> NewArgs;
         generateNewArgsFromPartialVectors(Args, NewArgTypes, TargetVL, NewArgs);
 
-        CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
+        CallInst *NewCI =
+            createSVMLCall(Func, NewArgs, "vcall", /*Masked=*/false);
         Result = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(VecTy, LegalVecTy);
@@ -1006,7 +1009,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
 
 CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
                                              ArrayRef<Value *> Args,
-                                             const Twine &Name) {
+                                             const Twine &Name, bool Masked) {
   CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
   StringRef FunctionName = cast<Function>(Callee.getCallee())->getName();
   Optional<CallingConv::ID> UnifiedCC =
@@ -1015,7 +1018,9 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
       getLegacyCSVMLCallingConvFromUnified(UnifiedCC.value());
   // Release YMM16-31 as callee-saved registers for 256-bit SVML function calls
   // statically dispatched to AVX2 implementation.
-  if (CC == CallingConv::SVML_AVX &&
+  // Note this doesn't apply to masked SVML functions as they may dispatch to
+  // other functions dynamically in current implementation.
+  if (!Masked && CC == CallingConv::SVML_AVX &&
       (FunctionName.endswith("_l9") || FunctionName.endswith("_e9")))
     CC = CallingConv::SVML_AVX_AVX_Impl;
   NewCI->setCallingConv(CC);
@@ -1299,7 +1304,8 @@ bool MapIntrinToImlImpl::runImpl() {
         // NumRet > 1 means that multiple library calls are required to
         // support the vector length of the call.
 
-        splitMathLibCalls(LogicalVL / TargetVL, TargetVL, FCache, Args, SplitCalls);
+        splitMathLibCalls(LogicalVL / TargetVL, TargetVL, FCache, Args,
+                          SplitCalls, Masked);
 
         // If the split calls are 512-bit (i.e. it has source argument), then
         // the merge in final join is redundant.
@@ -1356,7 +1362,7 @@ bool MapIntrinToImlImpl::runImpl() {
         SmallVector<Value *, 8> NewArgs;
         generateNewArgsFromPartialVectors(Args, FT->params(), TargetVL, NewArgs);
 
-        CallInst *NewCI = createSVMLCall(FCache, NewArgs, "vcall");
+        CallInst *NewCI = createSVMLCall(FCache, NewArgs, "vcall", Masked);
         Value *CallResult = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(
