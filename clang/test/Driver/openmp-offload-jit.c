@@ -4,21 +4,23 @@
 
 // Check that we enable LTO-mode properly with '-fopenmp-target-jit' and that it
 // still enabled LTO-mode if `-fno-offload-lto` is on.
+// INTEL_CUSTOMIZATION
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
-// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
-// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -foffload-lto -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -foffload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
-// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
-// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -foffload-lto -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -foffload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -ccc-print-phases -fopenmp=libomp \
-// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fno-offload-lto -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=amdgcn-amd-amdhsa -fno-offload-lto -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=PHASES-JIT %s
+// end INTEL_CUSTOMIZATION
 //
 //      PHASES-JIT: 0: input, "[[INPUT:.+]]", c, (host-openmp)
 // PHASES-JIT-NEXT: 1: preprocessor, {0}, cpp-output, (host-openmp)
@@ -36,9 +38,11 @@
 // PHASES-JIT-NEXT: 13: clang-linker-wrapper, {12}, image, (host-openmp)
 
 // Check that we add the `--embed-bitcode` flag to the linker wrapper.
+// INTEL_CUSTOMIZATION
 // RUN: %clang -### --target=x86_64-unknown-linux-gnu -fopenmp=libomp \
-// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit %s 2>&1 \
+// RUN:   -fopenmp-targets=nvptx64-nvidia-cuda -fopenmp-target-jit -fopenmp-new-driver %s 2>&1 \
 // RUN: | FileCheck -check-prefix=LINKER %s
+// end INTEL_CUSTOMIZATION
 // LINKER: clang-linker-wrapper"{{.*}}"--embed-bitcode"
 
 // Check for incompatible combinations
