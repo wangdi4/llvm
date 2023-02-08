@@ -674,7 +674,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
@@ -683,10 +682,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (CountCGSCCVisits)
     FPM.addPass(CountVisitsPass());
->>>>>>> 4ce34bb2a9c8c2ae21c4d67f8af9046fe1ca434c
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
@@ -877,7 +875,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
@@ -886,10 +883,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (CountCGSCCVisits)
     FPM.addPass(CountVisitsPass());
->>>>>>> 4ce34bb2a9c8c2ae21c4d67f8af9046fe1ca434c
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
