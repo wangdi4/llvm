@@ -45,6 +45,7 @@
 #include <vector>
 #include <ze_api.h>
 #ifdef _WIN32
+#define NOMINMAX 1
 #include <fcntl.h>
 #include <io.h>
 #include <windows.h>
