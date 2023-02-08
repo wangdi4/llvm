@@ -94,6 +94,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/lib/Transforms/Utils/Intel_IMLUtils.cpp @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/utils/UpdateTestChecks/ @KanRobert
+/llvm/test/tools/UpdateTestChecks/ @KanRobert
 /llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
 /llvm/test/tools/UpdateTestChecks/intel_update_markup/ @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
 /llvm/utils/update_analyze_test_checks.py @KanRobert
@@ -103,8 +105,6 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
 /llvm/utils/update_any_test_checks.py @KanRobert
 /llvm/utils/update_mca_test_checks.py @KanRobert
 /llvm/utils/update_cc_test_checks.py @KanRobert
-/llvm/utils/UpdateTestChecks/ @KanRobert
-/llvm/test/tools/UpdateTestChecks/ @KanRobert
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
