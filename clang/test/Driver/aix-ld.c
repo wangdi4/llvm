@@ -1018,13 +1018,15 @@
 // CHECK-LD64-SHARED-EXPFULL:     "-lc"
 
 // Check powerpc-ibm-aix7.1.0.0. -fopenmp to use default OpenMP runtime libomp.
+// INTEL_CUSTOMIZATION
 // RUN: %clang %s -### 2>&1 \
 // RUN:        -resource-dir=%S/Inputs/resource_dir \
 // RUN:        --target=powerpc-ibm-aix7.1.0.0 \
 // RUN:        --sysroot %S/Inputs/aix_ppc_tree \
 // RUN:        --unwindlib=libunwind \
 // RUN:        -fopenmp \
-// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-OMP %s
+// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-IOMP5 %s
+// end INTEL_CUSTOMIZATION
 // CHECK-FOPENMP-NOT: warning:
 // CHECK-FOPENMP:     "-cc1" "-triple" "powerpc-ibm-aix7.1.0.0"
 // CHECK-FOPENMP:     "-resource-dir" "[[RESOURCE_DIR:[^"]+]]"

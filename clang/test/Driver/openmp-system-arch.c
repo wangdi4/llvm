@@ -59,9 +59,11 @@
 // ARCH-SM_70-GFX906: "-cc1" "-triple" "nvptx64-nvidia-cuda"{{.*}}"-target-cpu" "sm_70"
 
 // case when both nvptx-arch and amdgpu-arch succeed with other archs.
-// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -nogpulib -fopenmp=libomp --offload-arch=native,sm_75,gfx1030 \
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -### --target=x86_64-unknown-linux-gnu -nogpulib -fopenmp=libomp -fopenmp-new-driver --offload-arch=native,sm_75,gfx1030 \
 // RUN:     --nvptx-arch-tool=%t/nvptx_arch_sm_70 --amdgpu-arch-tool=%t/amdgpu_arch_gfx906 %s 2>&1 \
 // RUN:   | FileCheck %s --check-prefix=ARCH-MULTIPLE
+// end INTEL_CUSTOMIZATION
 // ARCH-MULTIPLE: "-cc1" "-triple" "amdgcn-amd-amdhsa"{{.*}}"-target-cpu" "gfx1030"
 // ARCH-MULTIPLE: "-cc1" "-triple" "amdgcn-amd-amdhsa"{{.*}}"-target-cpu" "gfx906"
 // ARCH-MULTIPLE: "-cc1" "-triple" "nvptx64-nvidia-cuda"{{.*}}"-target-cpu" "sm_70"

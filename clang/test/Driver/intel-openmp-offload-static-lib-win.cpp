@@ -2,7 +2,7 @@
 /// Perform several driver tests for OpenMP offloading involving static libs
 ///
 // REQUIRES: x86-registered-target
-// UNSUPPORTED: linux
+// UNSUPPORTED: system-linux
 
 /// ###########################################################################
 
