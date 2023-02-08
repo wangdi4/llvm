@@ -51,14 +51,13 @@ public:
 private:
   // AACallbackVH - A CallbackVH to arrange for SYCLAliasAnalysis to be
   // notified whenever a Value is deleted.
-  class AACallbackVH : public CallbackVH {
+  class AACallbackVH final : public CallbackVH {
     SYCLAAResult *AAR;
     void deleted() override;
     void allUsesReplacedWith(Value *New) override;
 
   public:
     AACallbackVH(Value *V, SYCLAAResult *AAR = nullptr);
-    virtual ~AACallbackVH(){};
   };
 
   // Helper class to hold the result of address space resolution
