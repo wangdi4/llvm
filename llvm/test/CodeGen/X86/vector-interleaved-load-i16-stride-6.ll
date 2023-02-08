@@ -9909,13 +9909,8 @@ define void @load_i16_stride6_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ;
 ; AVX512F-ONLY-FAST-LABEL: load_i16_stride6_vf64:
 ; AVX512F-ONLY-FAST:       # %bb.0:
-<<<<<<< HEAD
 ; AVX512F-ONLY-FAST-NEXT:    subq $1544, %rsp # imm = 0x608 ;INTEL
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa {{.*#+}} xmm13 = <0,1,12,13,u,u,4,5,u,u,u,u,12,13,14,15>
-=======
-; AVX512F-ONLY-FAST-NEXT:    subq $1512, %rsp # imm = 0x5E8
-; AVX512F-ONLY-FAST-NEXT:    vmovdqa {{.*#+}} xmm9 = <0,1,12,13,u,u,4,5,u,u,u,u,12,13,14,15>
->>>>>>> 37bc62ed0a24303aa572155009358b8937ab8b4c
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa 608(%rdi), %ymm0
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqu %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa 576(%rdi), %ymm1
@@ -10316,7 +10311,6 @@ define void @load_i16_stride6_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512F-ONLY-FAST-NEXT:    vpblendw {{.*#+}} ymm2 = ymm1[0,1,2],ymm2[3,4,5,6,7],ymm1[8,9,10],ymm2[11,12,13,14,15]
 ; AVX512F-ONLY-FAST-NEXT:    vpshufhw {{.*#+}} xmm1 = xmm1[0,1,2,3,4,7,4,5]
 ; AVX512F-ONLY-FAST-NEXT:    vpblendd {{.*#+}} ymm1 = ymm1[0,1,2,3],ymm2[4,5,6,7]
-<<<<<<< HEAD
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm14 # 32-byte Reload
 ; AVX512F-ONLY-FAST-NEXT:    vpshufb %ymm12, %ymm14, %ymm2
 ; AVX512F-ONLY-FAST-NEXT:    vpshufd {{.*#+}} ymm13 = ymm11[0,3,2,3,4,7,6,7]
@@ -10431,11 +10425,6 @@ define void @load_i16_stride6_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512F-ONLY-FAST-NEXT:    vinserti64x4 $1, %ymm2, %zmm0, %zmm29
 ; AVX512F-ONLY-FAST-NEXT:    vpternlogq $226, %zmm0, %zmm30, %zmm1
 ; AVX512F-ONLY-FAST-NEXT:    vpternlogq $184, %zmm1, %zmm25, %zmm29
-=======
-; AVX512F-ONLY-FAST-NEXT:    vinserti64x4 $1, %ymm1, %zmm0, %zmm28
-; AVX512F-ONLY-FAST-NEXT:    vpternlogq $226, %zmm0, %zmm29, %zmm5
-; AVX512F-ONLY-FAST-NEXT:    vpternlogq $184, %zmm5, %zmm25, %zmm28
->>>>>>> 37bc62ed0a24303aa572155009358b8937ab8b4c
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
 ; AVX512F-ONLY-FAST-NEXT:    vpblendd $219, {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm13 # 32-byte Folded Reload
 ; AVX512F-ONLY-FAST-NEXT:    # ymm13 = mem[0,1],ymm0[2],mem[3,4],ymm0[5],mem[6,7]
@@ -10645,15 +10634,9 @@ define void @load_i16_stride6_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm9, 64(%r9)
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm8, (%r9)
 ; AVX512F-ONLY-FAST-NEXT:    movq {{[0-9]+}}(%rsp), %rax
-<<<<<<< HEAD
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm4, 64(%rax)
 ; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm0, (%rax)
 ; AVX512F-ONLY-FAST-NEXT:    addq $1544, %rsp # imm = 0x608 ;INTEL
-=======
-; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm0, 64(%rax)
-; AVX512F-ONLY-FAST-NEXT:    vmovdqa64 %zmm2, (%rax)
-; AVX512F-ONLY-FAST-NEXT:    addq $1512, %rsp # imm = 0x5E8
->>>>>>> 37bc62ed0a24303aa572155009358b8937ab8b4c
 ; AVX512F-ONLY-FAST-NEXT:    vzeroupper
 ; AVX512F-ONLY-FAST-NEXT:    retq
 ;
