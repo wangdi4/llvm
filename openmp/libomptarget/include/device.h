@@ -541,6 +541,13 @@ struct DeviceTy {
   void *dataAlignedAllocShared(size_t Align, size_t Size, int32_t AccessHint);
   /// Prefetch shared memory
   int prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes);
+#if INTEL_CUSTOMIZATION
+  /// 3D memory copy if device supports
+  int32_t memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
+                       int32_t NumDims, const size_t *Volume,
+                       const size_t *DstOffsets, const size_t *SrcOffsets,
+                       const size_t *DstDims, const size_t *SrcDims);
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

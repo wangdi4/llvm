@@ -7510,68 +7510,69 @@ int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_flush_queue (__tgt_interop *Interop)
-{
-   if (!Interop) {
-     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
-     return OFFLOAD_FAIL;
-   }
+int32_t __tgt_rtl_flush_queue(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
 
-   // We only need to flush SYCL objects
-   // and only if immediate command list are not being used
-   // and the user didn't disable SYCL flushes
-   if ( !DeviceInfo->Option.Flags.UseInteropImmCmdList &&
-        !DeviceInfo->Option.Flags.NoSYCLFlush &&
-	 Interop->FrId == 4 && Interop->TargetSync  ) {
-     return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
-   }
+  // We only need to flush SYCL objects
+  // and only if immediate command list are not being used
+  // and the user didn't disable SYCL flushes
+  if (!DeviceInfo->Option.Flags.UseInteropImmCmdList &&
+      !DeviceInfo->Option.Flags.NoSYCLFlush && Interop->FrId == 4 &&
+      Interop->TargetSync) {
+    return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
+  }
 
-   return OFFLOAD_SUCCESS;
+  return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_sync_barrier (__tgt_interop *Interop)
-{
-   if (!Interop) {
-     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
-     return OFFLOAD_FAIL;
-   }
+int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
 
-   // We can syncronize both L0 & SYCL objects with the same ze command
-   if (Interop->TargetSync) {
-     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-     auto cmdQueue = L0->CommandQueue;
-     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-   }
+  // We can syncronize both L0 & SYCL objects with the same ze command
+  if (Interop->TargetSync) {
+    auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+    auto CmdQueue = L0->CommandQueue;
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  }
 
-   return OFFLOAD_SUCCESS;
+  return OFFLOAD_SUCCESS;
 }
- 
-int32_t __tgt_rtl_async_barrier (__tgt_interop *Interop)
-{
-   if (!Interop) {
-     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
-     return OFFLOAD_FAIL;
-   }
-   // use a SYCL barrier for SYCL objects unless immediate command lists
-   // are being used
-   if ( !DeviceInfo->Option.Flags.UseInteropImmCmdList && Interop->FrId == 4 &&
-	Interop->TargetSync )
-     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
-   else {
-     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-     if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
-       auto immCmdList = L0->ImmCmdList;
-       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
-     } else {
-       auto cmdQueue = L0->CommandQueue;
-       ze_command_list_handle_t CmdList = DeviceInfo->getCmdList(Interop->DeviceNum);
-       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
-       CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-       CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists,cmdQueue, 1, &CmdList, nullptr);
-       CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-     }
-   }
-   return OFFLOAD_FAIL;
+
+int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
+  if (!Interop) {
+    DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+  // use a SYCL barrier for SYCL objects unless immediate command lists
+  // are being used
+  if (!DeviceInfo->Option.Flags.UseInteropImmCmdList && Interop->FrId == 4 &&
+      Interop->TargetSync) {
+    return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
+  } else {
+    auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+      auto ImmCmdList = L0->ImmCmdList;
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, ImmCmdList, nullptr, 0,
+                       nullptr);
+    } else {
+      auto CmdQueue = L0->CommandQueue;
+      ze_command_list_handle_t CmdList =
+          DeviceInfo->getCmdList(Interop->DeviceNum);
+      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0,
+                       nullptr);
+      CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+      CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                       nullptr);
+      CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+    }
+  }
+  return OFFLOAD_FAIL;
 }
 
 int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
@@ -7587,4 +7588,84 @@ int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
 
   return -1;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Invokes L0 3D copy command with the given source and destination shape
+int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
+                                 size_t ElementSize, int32_t NumDims,
+                                 const size_t *Volume, const size_t *DstOffsets,
+                                 const size_t *SrcOffsets,
+                                 const size_t *DstDims, const size_t *SrcDims) {
+  // NumDims must be either 2 or 3
+  if (NumDims != 2 && NumDims != 3)
+    return OFFLOAD_FAIL;
+
+  // Performance on iGPU is already good enough, so just return OFFLOAD_FAIL to
+  // keep the old behavior.
+  if (!DeviceInfo->isDiscreteDevice(DeviceId))
+    return OFFLOAD_FAIL;
+
+  uint32_t DstType = DeviceInfo->getMemAllocType(Dst);
+  uint32_t SrcType = DeviceInfo->getMemAllocType(Src);
+  if (DstType == ZE_MEMORY_TYPE_UNKNOWN && SrcType == ZE_MEMORY_TYPE_UNKNOWN) {
+    DP("M2M 3d memory copy is not supported\n");
+    return OFFLOAD_FAIL;
+  }
+
+  // L0 API parameters are all in bytes, so we need to convert 1D copying unit
+  // to bytes using the given ElementSize input. This adjustment needs to be
+  // done for ze_copy_region_t.originX, ze_copy_region_t.width, and the *pitch*
+  // parameters in zeCommandListAppendMemoryCopyRegion.
+
+  uint32_t CopyWidth = ElementSize * Volume[NumDims - 1]; // in Bytes
+  uint32_t CopyHeight = Volume[NumDims - 2];
+  uint32_t CopyDepth = (NumDims == 2) ? 0 : Volume[NumDims - 3];
+
+  ze_copy_region_t DstRegion{0, 0, 0, CopyWidth, CopyHeight, CopyDepth};
+  ze_copy_region_t SrcRegion{0, 0, 0, CopyWidth, CopyHeight, CopyDepth};
+
+  DstRegion.originX = ElementSize * DstOffsets[NumDims - 1]; // in Bytes
+  DstRegion.originY = DstOffsets[NumDims - 2];
+  SrcRegion.originX = ElementSize * SrcOffsets[NumDims - 1]; // in Bytes
+  SrcRegion.originY = SrcOffsets[NumDims - 2];
+  if (NumDims == 3) {
+    DstRegion.originZ = DstOffsets[NumDims - 3];
+    SrcRegion.originZ = SrcOffsets[NumDims - 3];
+  }
+  uint32_t DstPitch = ElementSize * DstDims[NumDims - 1]; // in Bytes
+  uint32_t SrcPitch = ElementSize * SrcDims[NumDims - 1]; // in Bytes
+  uint32_t DstSlicePitch = 0;
+  uint32_t SrcSlicePitch = 0;
+  if (NumDims == 3) {
+    DstSlicePitch = ElementSize * DstDims[NumDims - 2] * DstDims[NumDims - 1];
+    SrcSlicePitch = ElementSize * SrcDims[NumDims - 2] * SrcDims[NumDims - 1];
+  }
+
+  bool UseImm = DeviceInfo->Option.UseImmCmdList >= 2;
+  if (UseImm) {
+    auto Event = DeviceInfo->EventPool.getEvent();
+    // This does not seem to work with copy engine -- use compute queue
+    auto CmdList = DeviceInfo->getImmCmdList(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopyRegion, CmdList, Dst,
+                     &DstRegion, DstPitch, DstSlicePitch, Src, &SrcRegion,
+                     SrcPitch, SrcSlicePitch, Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+    DeviceInfo->EventPool.releaseEvent(Event);
+  } else {
+    // This does not seem to work with copy engine -- use compute queue
+    auto CmdList = DeviceInfo->getCmdList(DeviceId);
+    auto CmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopyRegion, CmdList, Dst,
+                     &DstRegion, DstPitch, DstSlicePitch, Src, &SrcRegion,
+                     SrcPitch, SrcSlicePitch, nullptr, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                     nullptr);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB

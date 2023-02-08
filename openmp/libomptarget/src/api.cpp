@@ -232,6 +232,42 @@ EXTERN int omp_target_memcpy(void *Dst, const void *Src, size_t Length,
   return Rc;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Use optimized copy methods if device supports.
+static int memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
+                        int NumDims, const size_t *Volume,
+                        const size_t *DstOffsets, const size_t *SrcOffsets,
+                        const size_t *DstDims, const size_t *SrcDims,
+                        int DstDevice, int SrcDevice) {
+  // Only 2D or 3D volume is expected here
+  if (NumDims != 2 && NumDims != 3)
+    return OFFLOAD_FAIL;
+  if (!Dst || !Src || ElementSize == 0 || !Volume || !DstOffsets ||
+      !SrcOffsets || !DstDims || !SrcDims)
+    return OFFLOAD_FAIL;
+
+  int InitDevice = omp_get_initial_device();
+  int DeviceNum = InitDevice;
+  if (DstDevice != InitDevice) {
+    DeviceNum = DstDevice;
+  } else if (SrcDevice != InitDevice) {
+    DeviceNum = SrcDevice;
+  } else {
+    return OFFLOAD_FAIL; // Let omp_target_memcpy_rect() handle this case
+  }
+
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("Device %" PRId32 " is not ready.\n", DeviceNum);
+    return OFFLOAD_FAIL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+
+  return Device.memcpyRect3D(Dst, Src, ElementSize, NumDims, Volume, DstOffsets,
+                             SrcOffsets, DstDims, SrcDims);
+}
+#endif // INTEL_CUSTOMIZATION
+
 EXTERN int
 omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
                        int NumDims, const size_t *Volume,
@@ -269,6 +305,15 @@ omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
                            ElementSize * DstOffsets[0],
                            ElementSize * SrcOffsets[0], DstDevice, SrcDevice);
   } else {
+#if INTEL_CUSTOMIZATION
+    if (NumDims <= 3) {
+      Rc = memcpyRect3D(Dst, Src, ElementSize, NumDims, Volume, DstOffsets,
+                        SrcOffsets, DstDimensions, SrcDimensions, DstDevice,
+                        SrcDevice);
+      if (Rc == OFFLOAD_SUCCESS)
+        return Rc;
+    }
+#endif // INTEL_CUSTOMIZATION
     size_t DstSliceSize = ElementSize;
     size_t SrcSliceSize = ElementSize;
     for (int I = 1; I < NumDims; ++I) {
