@@ -1372,7 +1372,8 @@ Expected<Header> Header::readFromBuffer(const unsigned char *Buffer) {
                 "The header should be standard layout type since we use offset "
                 "of fields to read.");
   Header H;
-
+  H.Unused = 0;        // INTEL
+  H.MemProfOffset = 0; // Field only applies to some versions. - INTEL
   H.Magic = read(Buffer, offsetOf(&Header::Magic));
   // Check the magic number.
   uint64_t Magic = endian::byte_swap<uint64_t, little>(H.Magic);
@@ -1399,7 +1400,6 @@ Expected<Header> Header::readFromBuffer(const unsigned char *Buffer) {
     H.HashType = read(Buffer, offsetOf(&Header::HashType));
     H.HashOffset = read(Buffer, offsetOf(&Header::HashOffset));
   }
-  H.Unused = 0; // INTEL
   return H;
 }
 
