@@ -20,34 +20,6 @@ class RuntimeService;
 
 namespace VectorizerUtils {
 
-class CanVectorize {
-public:
-  /// Checks whether we can (as opposed to should) vectorize this function
-  /// for VPO. \param F Function to check. \param UnsupportedFuncs
-  /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
-  /// \param RTS Runtime service.
-  /// \param EnableDirectCallVectorization Whether to enable direct function
-  /// call vectorization.
-  /// \param EnableSGDirectCallVectorization Whether to enable direct
-  /// subgroup function call vectorization. \returns true if the function
-  /// can be vectorized.
-  static bool canVectorizeForVPO(Function &F,
-                                 CompilationUtils::FuncSet &UnsupportedFuncs,
-                                 bool EnableDirectCallVectorization = false,
-                                 bool EnableSGDirectCallVectorization = false);
-
-  // Get unsupported function in a module.
-  // An unsupported function is function that contains
-  // barrier/get_local_id/get_global_id or a call to unsupported function.
-  // Vectorize of kernel that calls non-inline function is done today by
-  // calling the scalar version of called function VecWidth times.
-  // This means that the implict arguments sent to the vectorized kernel
-  // that is respone for calculating the barrier/get_local_id/get_global_id
-  // cannot passed as is to the scalar function, what make it too difficult
-  // to support these cases.
-  static CompilationUtils::FuncSet getNonInlineUnsupportedFunctions(Module &M);
-};
-
 /// Get the vector length of the vector variant.
 /// \param V VFInfo to access
 /// \return vector length of input vector variant.
