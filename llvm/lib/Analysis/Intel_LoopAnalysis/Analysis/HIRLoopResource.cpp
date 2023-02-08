@@ -662,6 +662,45 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
+
+  } else if (isa<CallInst>(Inst)) {
+
+    // Accounting for the cost of calls which do not access memory is resulting
+    // in regressions as general unroll bails out on some loops.
+    // TODO: Do something smarter for calls. Probably tune general unroll along
+    // with loop resource.
+    return LoopResourceInfo::OperationCost::FreeOp;
+
+  } else if (isa<InsertElementInst>(Inst) || isa<ExtractElementInst>(Inst)) {
+
+    auto *VecType = HInst->getOperandDDRef(1)->getDestType();
+    auto *IndexRef = HInst->getOperandDDRef(2);
+    unsigned Index = -1;
+    int64_t Val = 0;
+    if (IndexRef->isIntConstant(&Val)) {
+      Index = Val;
+    }
+
+    // FIXME: please uncomment and fix the build (delete strings below)
+    (void)VecType;
+    (void)Index;
+    // Cost = TTI.getVectorInstrCost(Inst->getOpcode(), VecType, Index);
+
+  } else if (isa<ShuffleVectorInst>(Inst)) {
+    return LoopResourceInfo::OperationCost::ExpensiveOp;
+
+  } else if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst) ||
+             isa<AllocaInst>(Inst) ||
+             (Inst->getOpcode() == Instruction::FNeg)) {
+    return LoopResourceInfo::OperationCost::BasicOp;
+
+  } else if (isa<FreezeInst>(Inst) || isa<ReturnInst>(Inst) ||
+             isa<UnreachableInst>(Inst)) {
+    return LoopResourceInfo::OperationCost::FreeOp;
+
+  } else {
+    LLVM_DEBUG(HInst->dump());
+    llvm_unreachable("Could not compute cost of instruction!");
   }
 
   return getNormalizedCost(Cost);
