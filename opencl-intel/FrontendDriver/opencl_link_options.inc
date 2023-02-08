@@ -27,28 +27,13 @@ PREFIX(prefix_1, {llvm::StringLiteral("-") COMMA llvm::StringLiteral("")})
 //////////
 // Options
 
-OPTION(prefix_0, llvm::StringLiteral("<input>"), INPUT, Input, INVALID, INVALID,
-       nullptr, 0, 0, nullptr, nullptr, nullptr)
-OPTION(prefix_0, llvm::StringLiteral("<unknown>"), UNKNOWN, Unknown, INVALID,
-       INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("cl-denorms-are-zero"),
-       cl_denorms_are_zero, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr,
-       nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("cl-fast-relaxed-math"),
-       cl_fast_relaxed_math, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr,
-       nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("cl-finite-math-only"),
-       cl_finite_math_only, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr,
-       nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("cl-no-signed-zeroes"),
-       cl_no_signed_zeroes, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr,
-       nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("cl-unsafe-math-optimizations"),
-       cl_unsafe_math_optimizations, Flag, INVALID, INVALID, nullptr, 0, 0,
-       nullptr, nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("create-library"), create_library, Flag,
-       INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
-OPTION(prefix_1, llvm::StringLiteral("enable-link-options"),
-       enable_link_options, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr,
-       nullptr, nullptr)
+OPTION(prefix_0, llvm::StringLiteral("<input>"), INPUT, Input, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_0, llvm::StringLiteral("<unknown>"), UNKNOWN, Unknown, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("cl-denorms-are-zero"), cl_denorms_are_zero, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("cl-fast-relaxed-math"), cl_fast_relaxed_math, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("cl-finite-math-only"), cl_finite_math_only, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("cl-no-signed-zeroes"), cl_no_signed_zeroes, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("cl-unsafe-math-optimizations"), cl_unsafe_math_optimizations, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("create-library"), create_library, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
+OPTION(prefix_1, llvm::StringLiteral("enable-link-options"), enable_link_options, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr, nullptr)
 #endif // OPTION
