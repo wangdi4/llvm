@@ -591,6 +591,7 @@ FUNCTION_PASS("callsite-splitting", CallSiteSplittingPass())
 FUNCTION_PASS("tbaa-prop", TbaaMDPropagationPass())        // INTEL
 FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
+FUNCTION_PASS("count-visits", CountVisitsPass())
 FUNCTION_PASS("constraint-elimination", ConstraintEliminationPass())
 FUNCTION_PASS("chr", ControlHeightReductionPass())
 FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL

@@ -136,6 +136,7 @@
 #include "llvm/Transforms/Utils/AddDiscriminators.h"
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
+#include "llvm/Transforms/Utils/CountVisits.h"
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
@@ -606,6 +607,11 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
+static cl::opt<bool> CountCGSCCVisits(
+    "count-cgscc-max-visits", cl::init(false), cl::Hidden,
+    cl::desc("Keep track of the max number of times we visit a function in the "
+             "CGSCC pipeline as a statistic"));
+
 static cl::opt<bool> EnableConstraintElimination(
     "enable-constraint-elimination", cl::init(false), cl::Hidden,
     cl::desc(
@@ -668,6 +674,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
@@ -676,6 +683,10 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (CountCGSCCVisits)
+    FPM.addPass(CountVisitsPass());
+>>>>>>> 4ce34bb2a9c8c2ae21c4d67f8af9046fe1ca434c
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
@@ -866,6 +877,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
@@ -874,6 +886,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (CountCGSCCVisits)
+    FPM.addPass(CountVisitsPass());
+>>>>>>> 4ce34bb2a9c8c2ae21c4d67f8af9046fe1ca434c
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
