@@ -1237,6 +1237,7 @@ void Scheduler::GraphBuilder::cleanupCommand(Command *Cmd,
     return;
   assert(Cmd->MLeafCounter == 0 &&
          (Cmd->isSuccessfullyEnqueued() || AllowUnsubmitted));
+  (void)AllowUnsubmitted;
   Command::CommandType CmdT = Cmd->getType();
 
   assert(CmdT != Command::ALLOCA && CmdT != Command::ALLOCA_SUB_BUF);
