@@ -681,8 +681,8 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
       Index = Val;
     }
 
-    // FIXME: please uncomment and fix the build
-    // Cost = TTI.getVectorInstrCost(Inst->getOpcode(), VecType, Index);
+    Cost = TTI.getVectorInstrCost(Inst->getOpcode(), VecType,
+                                  TTI::TCK_SizeAndLatency, Index);
 
   } else if (isa<ShuffleVectorInst>(Inst)) {
     return LoopResourceInfo::OperationCost::ExpensiveOp;
