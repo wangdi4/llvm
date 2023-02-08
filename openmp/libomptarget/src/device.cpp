@@ -1235,6 +1235,20 @@ int32_t DeviceTy::destroyEvent(void *Event) {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
+int32_t DeviceTy::memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
+                               int32_t NumDims, const size_t *Volume,
+                               const size_t *DstOffsets,
+                               const size_t *SrcOffsets, const size_t *DstDims,
+                               const size_t *SrcDims) {
+  if (RTL->memcpy_rect_3d)
+    return RTL->memcpy_rect_3d(RTLDeviceID, Dst, Src, ElementSize, NumDims,
+                               Volume, DstOffsets, SrcOffsets, DstDims,
+                               SrcDims);
+  return OFFLOAD_FAIL;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.
 bool deviceIsReady(int DeviceNum) {

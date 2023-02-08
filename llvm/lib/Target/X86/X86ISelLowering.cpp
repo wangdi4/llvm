@@ -41287,12 +41287,13 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
     if (Opc != X86::TCONJTFP16) {
       MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
       MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
+    } else {
+      MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
     }
-
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }

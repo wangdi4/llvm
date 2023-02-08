@@ -6,7 +6,7 @@
 define void @test_tcmmimfp16ps() {
 ; CHECK-LABEL: test_tcmmimfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tcmmimfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x61,0x6c,0xc9]
+; CHECK-NEXT:    tcmmimfp16ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x61,0x6c,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tcmmimfp16ps(i8 1, i8 2, i8 3)
   ret void
@@ -16,7 +16,7 @@ declare void @llvm.x86.tcmmimfp16ps(i8 %A, i8 %B, i8 %C)
 define void @test_tcmmrlfp16ps() {
 ; CHECK-LABEL: test_tcmmrlfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tcmmrlfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6c,0xc9]
+; CHECK-NEXT:    tcmmrlfp16ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6c,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tcmmrlfp16ps(i8 1, i8 2, i8 3)
   ret void
@@ -26,7 +26,7 @@ declare void @llvm.x86.tcmmrlfp16ps(i8 %A, i8 %B, i8 %C)
 define void @test_tconjtcmmimfp16ps() {
 ; CHECK-LABEL: test_tconjtcmmimfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tconjtcmmimfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6b,0xc9]
+; CHECK-NEXT:    tconjtcmmimfp16ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6b,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tconjtcmmimfp16ps(i8 1, i8 2, i8 3)
   ret void
@@ -46,7 +46,7 @@ declare void @llvm.x86.tconjtfp16(i8 %A, i8 %B)
 define void @test_ttcmmimfp16ps() {
 ; CHECK-LABEL: test_ttcmmimfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    ttcmmimfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x63,0x6b,0xc9]
+; CHECK-NEXT:    ttcmmimfp16ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x63,0x6b,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.ttcmmimfp16ps(i8 1, i8 2, i8 3)
   ret void
@@ -56,7 +56,7 @@ declare void @llvm.x86.ttcmmimfp16ps(i8 %A, i8 %B, i8 %C)
 define void @test_ttcmmrlfp16ps() {
 ; CHECK-LABEL: test_ttcmmrlfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    ttcmmrlfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x62,0x6b,0xc9]
+; CHECK-NEXT:    ttcmmrlfp16ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x62,0x6b,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.ttcmmrlfp16ps(i8 1, i8 2, i8 3)
   ret void
