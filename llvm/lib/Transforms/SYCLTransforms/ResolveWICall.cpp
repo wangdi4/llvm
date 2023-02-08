@@ -537,9 +537,10 @@ void ResolveWICallPass::updatePrefetch(CallInst *CI) {
 
   assert(PT->getPrimitiveSizeInBits() &&
          "Not primitive type, not valid calculation");
-  unsigned int Size = M->getDataLayout().getPrefTypeAlignment(PT);
+  Align Size = M->getDataLayout().getPrefTypeAlign(PT);
 
-  Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size));
+  Params.push_back(
+      ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size.value()));
   Function *Prefetch = M->getFunction("__lprefetch");
   assert(Prefetch && "Missing '__lprefetch' function");
   CallInst::Create(Prefetch, ArrayRef<Value *>(Params), "", CI);

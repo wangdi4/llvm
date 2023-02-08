@@ -322,7 +322,7 @@ unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
   // TODO: check what is better to use for Alignment?
   // unsigned int Alignment = DL->getABITypeAlignment(Ty);
   unsigned int Alignment =
-      (AllocaAlignment) ? AllocaAlignment : DL->getPrefTypeAlignment(Ty);
+      (AllocaAlignment) ? AllocaAlignment : DL->getPrefTypeAlign(Ty).value();
   unsigned int SizeInBits = DL->getTypeAllocSizeInBits(Ty);
 
   Type *EleType = Ty;
