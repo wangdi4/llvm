@@ -54,14 +54,17 @@ enum LINK_OPT_ID {
 #undef PREFIX
 };
 
-#define PREFIX(NAME, VALUE) const ArrayRef<llvm::StringLiteral> NAME = VALUE;
+#define PREFIX(NAME, VALUE)                                                    \
+  static constexpr llvm::StringLiteral NAME##_init[] = VALUE;                  \
+  static constexpr llvm::ArrayRef<llvm::StringLiteral> NAME(                   \
+      NAME##_init, std::size(NAME##_init) - 1);
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)
 #include "opencl_link_options.inc"
 #undef OPTION
 #undef PREFIX
 
-static const ArrayRef<llvm::opt::OptTable::Info> ClangOptionsInfoTable = {
+static constexpr llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
