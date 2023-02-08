@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=2 -vplan-enable-soa -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-enable-soa-phis -vplan-force-vf=2 -vplan-enable-soa -S %s 2>&1 | FileCheck %s
 
 define void @merge_uniform_strided_soa_geps() {
 ; CHECK-LABEL: @merge_uniform_strided_soa_geps(
