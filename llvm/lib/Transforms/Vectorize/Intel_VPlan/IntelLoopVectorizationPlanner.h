@@ -527,7 +527,7 @@ protected:
   /// with values from metadata. Else if "llvm.loop.vector.vectorlength"
   /// metadata is not specified, defines MinVF and MaxVF and fills vector of VFs
   /// with default vector values between MinVF and MaxVF.
-  int setDefaultVectorFactors();
+  void setDefaultVectorFactors();
 
   /// Returns true if the loop has normalized induction:
   /// - the main induction is integer

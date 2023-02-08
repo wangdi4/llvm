@@ -380,60 +380,6 @@ bool VFIsMasked(const VFInfo &V) {
          V.Shape.Parameters.back().ParamKind == VFParamKind::GlobalPredicate;
 }
 
-bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
-                                      bool EnableDirectCallVectorization,
-                                      bool EnableSGDirectCallVectorization) {
-  if (!EnableDirectCallVectorization) {
-    auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
-    bool HasSG =
-        KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get();
-    if (!(EnableSGDirectCallVectorization && HasSG))
-      if (UnsupportedFuncs.count(&F))
-        return false;
-  }
-
-  return true;
-}
-
-FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
-  using namespace llvm::CompilationUtils;
-
-  // Add all kernels to root functions.
-  // Kernels assumes to have implicit barrier.
-  auto Kernels = SYCLKernelMetadataAPI::KernelList(&M);
-  FuncSet Roots;
-  Roots.insert(Kernels.begin(), Kernels.end());
-
-  // Find all functions that contains synchronize/get_local_id/get_global_id to
-  // root functions.
-
-  // Get all synchronize built-ins declared in module.
-  FuncSet FSet = getAllSyncBuiltinsDecls(M);
-
-  // Get get_local_id built-in if declared in module.
-  if (Function *LID = M.getFunction(mangledGetLID())) {
-    FSet.insert(LID);
-  }
-
-  // Get get_global_id built-in if declared in module.
-  if (Function *GID = M.getFunction(mangledGetGID())) {
-    FSet.insert(GID);
-  }
-
-  for (Function *F : FSet) {
-    for (User *U : F->users())
-      if (CallInst *CI = dyn_cast<CallInst>(U))
-        Roots.insert(CI->getCaller());
-  }
-
-  // Fill UnsupportedFuncs set with all functions that calls directly or
-  // undirectly functions from the root functions set.
-  FuncSet UnsupportedFuncs;
-  LoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
-
-  return UnsupportedFuncs;
-}
-
 Instruction *createBroadcast(Value *V, unsigned VectorWidth,
                              Instruction *InsertBefore) {
   Constant *Zero = ConstantInt::get(Type::getInt32Ty(V->getContext()), 0);

@@ -2,7 +2,7 @@
 """A intel markup update script.
 
 This script is a utility to update intel markup for test file.
-Supported file extension: .ll, .mir.
+Supported file extension: .ll, .mir, .s, .txt, '.c', '.cpp'
 """
 
 import argparse
@@ -20,13 +20,18 @@ else:
     from . import common
 
 def check_ext(file_ext):
-    if file_ext not in {'.ll', '.mir'}:
+    if file_ext not in {'.ll', '.mir', '.s', '.txt', '.c', '.cpp'}:
         raise NotImplementedError(f'Unsupported file extension {file_ext}')
 
 
 def get_comment_char(file_ext):
     check_ext(file_ext)
-    return ';' if file_ext == '.ll' else '#'
+    if file_ext == '.ll':
+        return ';'
+    elif file_ext in {'.mir', '.s', '.txt'}:
+        return '#'
+    else:
+        return '\/\/'
 
 
 def get_special_comment_char():

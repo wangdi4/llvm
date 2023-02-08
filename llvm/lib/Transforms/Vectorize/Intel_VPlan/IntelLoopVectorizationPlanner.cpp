@@ -273,14 +273,14 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-int LoopVectorizationPlanner::setDefaultVectorFactors() {
+void LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
   if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
     LLVM_DEBUG(
         dbgs()
         << "LVP: The forced VF is not power of two, skipping the loop\n");
     VFs.push_back(0);
-    return 0;
+    return;
   }
 
 
@@ -295,7 +295,7 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
     LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
                          "1, VPlans need not be constructed.\n");
     VFs.push_back(0);
-    return 0;
+    return;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -306,7 +306,7 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
       LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
                            "via `#pragma omp simd`\n");
       VFs.push_back(0);
-      return 0;
+      return;
     }
 #endif // INTEL_CUSTOMIZATION
     VFs.push_back(ForcedVF);
@@ -367,7 +367,7 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
 #endif // INTEL_CUSTOMIZATION
     if (MinVF > MaxVF) {
       VFs.push_back(0);
-      return 0;
+      return;
     }
     for (unsigned VF = MinVF; VF <= MaxVF; VF *= 2)
       VFs.push_back(VF);
@@ -382,7 +382,7 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
                       << VF << " ";
                   dbgs() << "\n";);
 #endif // INTEL_CUSTOMIZATION
-  return 1;
+  return;
 }
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(

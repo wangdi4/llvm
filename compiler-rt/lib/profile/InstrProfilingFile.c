@@ -333,6 +333,18 @@ static void setupIOBuffer(void) {
   BufferSzStr = getenv("LLVM_VP_BUFFER_SIZE");
   if (BufferSzStr && BufferSzStr[0]) {
     VPBufferSize = atoi(BufferSzStr);
+#if INTEL_CUSTOMIZATION
+    // A size of zero passed to 'calloc' is implementation defined behavior for
+    // whether the return value is NULL or not. We can ignore a NULL value
+    // because the code that uses 'DynamicBufferIOBuffer' contains the checks
+    // for a NULL pointer. However, in the case where a non-null value is
+    // returned, using the pointer is undefined behavior, so we need to check
+    // the size before the allocation.
+    if (VPBufferSize == 0) {
+      DynamicBufferIOBuffer = NULL;
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     DynamicBufferIOBuffer = (uint8_t *)calloc(VPBufferSize, 1);
   }
 }

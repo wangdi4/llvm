@@ -1,9 +1,39 @@
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/x86-basic-ref.ll --max 0
 # RUN: FileCheck < %t.ll --check-prefixes=CHECK,IR %s
+#
 # RUN: cp -f %S/Inputs/x86-condbr-exp.mir %t.mir && %intel_update_markup %t.mir --ref %S/Inputs/x86-condbr-ref.mir --max 0
 # RUN: FileCheck < %t.mir %s --check-prefixes=CHECK,MIR
 #
-# CHECK-NOT: INTEL
-# IR-COUNT-18: INTEL_CUSTOMIZATION
-# MIR-COUNT-6: INTEL_CUSTOMIZATION
+# RUN: cp -f %S/Inputs/number %t.s && %intel_update_markup %t.s --ref %S/Inputs/empty.ll --max 999
+# RUN: FileCheck < %t.s %s --check-prefix=ASMS
+# RUN: cp -f %S/Inputs/number %t.s && %intel_update_markup %t.s --ref %S/Inputs/empty.ll --max 0
+# RUN: FileCheck < %t.s %s --check-prefix=ASMM
+#
+# RUN: cp -f %S/Inputs/number %t.txt && %intel_update_markup %t.txt --ref %S/Inputs/empty.ll --max 999
+# RUN: FileCheck < %t.txt %s --check-prefix=ASMS
+# RUN: cp -f %S/Inputs/number %t.txt && %intel_update_markup %t.txt --ref %S/Inputs/empty.ll --max 0
+# RUN: FileCheck < %t.txt %s --check-prefix=ASMM
+#
+# RUN: cp -f %S/Inputs/number %t.c && %intel_update_markup %t.c --ref %S/Inputs/empty.ll --max 999
+# RUN: FileCheck < %t.c %s --check-prefix=CS
+# RUN: cp -f %S/Inputs/number %t.c && %intel_update_markup %t.c --ref %S/Inputs/empty.ll --max 0
+# RUN: FileCheck < %t.c %s --check-prefix=CM
+#
+# RUN: cp -f %S/Inputs/number %t.cpp && %intel_update_markup %t.cpp --ref %S/Inputs/empty.ll --max 999
+# RUN: FileCheck < %t.cpp %s --check-prefix=CS
+# RUN: cp -f %S/Inputs/number %t.cpp && %intel_update_markup %t.cpp --ref %S/Inputs/empty.ll --max 0
+# RUN: FileCheck < %t.cpp %s --check-prefix=CM
+
+
+# CHECK-NOT: {{[;#] INTEL$}}
+# IR-COUNT-9: ; end INTEL_CUSTOMIZATION
+# MIR-COUNT-3: # end INTEL_CUSTOMIZATION
 # CHECK-NOT: INTEL_CUSTOMIZATION
+
+# ASMS: {{# INTEL$}}
+# ASMM: # INTEL_CUSTOMIZATION
+# ASMM: # end INTEL_CUSTOMIZATION
+
+# CS: {{// INTEL$}}
+# CM: // INTEL_CUSTOMIZATION
+# CM: // end INTEL_CUSTOMIZATION
