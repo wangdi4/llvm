@@ -2040,7 +2040,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewLLVMElemTy, ThisPtr, Indices, "");
     auto Align =
-        MaybeAlign(M.getDataLayout().getABITypeAlignment(Elem->getType()));
+        MaybeAlign(M.getDataLayout().getABITypeAlign(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
