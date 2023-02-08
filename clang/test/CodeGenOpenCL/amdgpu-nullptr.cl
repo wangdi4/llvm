@@ -3,6 +3,9 @@
 // RUN: %clang_cc1 -no-enable-noundef-analysis %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn---opencl -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -no-enable-noundef-analysis %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -fcommon -emit-llvm -o - | FileCheck %s --check-prefix=COMMON
 
+// xmain applies a "type matching" transformation on the GEPs below which are
+// mismatched in their GEP and load types.
+
 typedef struct {
   private char *p1;
   local char *p2;
@@ -515,7 +518,7 @@ typedef struct {
 // CHECK: call void @llvm.memset.p5.i64(ptr addrspace(5) noundef align 8 {{.*}}, i8 0, i64 32, i1 false)
 // CHECK: [[GEP:%.*]] = getelementptr inbounds i8, ptr addrspace(5) %ptr, i32 32
 // CHECK: store ptr addrspace(5) addrspacecast (ptr null to ptr addrspace(5)), ptr addrspace(5) [[GEP]]
-// CHECK: [[GEP1:%.*]] = getelementptr inbounds i8, ptr addrspace(5) {{.*}}, i32 36
+// CHECK: [[GEP1:%.*]] = getelementptr inbounds i32, ptr addrspace(5) {{.*}}, i32 9 ;INTEL
 // CHECK: store i32 0, ptr addrspace(5) [[GEP1]], align 4
 void test_memset_private(private StructTy3 *ptr) {
   StructTy3 S3 = {0, 0, 0, 0, 0};
