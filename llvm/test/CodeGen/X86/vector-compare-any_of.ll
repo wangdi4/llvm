@@ -388,18 +388,6 @@ define i64 @test_v4i64_sext(<4 x i64> %a0, <4 x i64> %a1) {
 }
 
 define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
-<<<<<<< HEAD
-; SSE-LABEL: test_v4i64_legal_sext:
-; SSE:       # %bb.0:
-; SSE-NEXT:    pcmpgtq %xmm3, %xmm1
-; SSE-NEXT:    pcmpgtq %xmm2, %xmm0
-; SSE-NEXT:    por %xmm1, %xmm0 ;INTEL
-; SSE-NEXT:    movmskpd %xmm0, %ecx ;INTEL
-; SSE-NEXT:    xorl %eax, %eax
-; SSE-NEXT:    negl %ecx
-; SSE-NEXT:    sbbq %rax, %rax
-; SSE-NEXT:    retq
-=======
 ; SSE2-LABEL: test_v4i64_legal_sext:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    movdqa {{.*#+}} xmm4 = [2147483648,2147483648]
@@ -436,7 +424,6 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; SSE42-NEXT:    negl %ecx
 ; SSE42-NEXT:    sbbq %rax, %rax
 ; SSE42-NEXT:    retq
->>>>>>> 56656f8378c842ef83af2ec7606e185d6fdefaf1
 ;
 ; AVX1-LABEL: test_v4i64_legal_sext:
 ; AVX1:       # %bb.0:
@@ -1225,17 +1212,6 @@ define i1 @bool_reduction_v16i8(<16 x i8> %x, <16 x i8> %y) {
 }
 
 define i1 @bool_reduction_v4i64(<4 x i64> %x, <4 x i64> %y) {
-<<<<<<< HEAD
-; SSE-LABEL: bool_reduction_v4i64:
-; SSE:       # %bb.0:
-; SSE-NEXT:    pcmpgtq %xmm1, %xmm3
-; SSE-NEXT:    pcmpgtq %xmm0, %xmm2
-; SSE-NEXT:    por %xmm3, %xmm2 ;INTEL
-; SSE-NEXT:    movmskpd %xmm2, %eax ;INTEL
-; SSE-NEXT:    testl %eax, %eax
-; SSE-NEXT:    setne %al
-; SSE-NEXT:    retq
-=======
 ; SSE2-LABEL: bool_reduction_v4i64:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    movdqa {{.*#+}} xmm4 = [2147483648,2147483648]
@@ -1270,7 +1246,6 @@ define i1 @bool_reduction_v4i64(<4 x i64> %x, <4 x i64> %y) {
 ; SSE42-NEXT:    testl %eax, %eax
 ; SSE42-NEXT:    setne %al
 ; SSE42-NEXT:    retq
->>>>>>> 56656f8378c842ef83af2ec7606e185d6fdefaf1
 ;
 ; AVX1-LABEL: bool_reduction_v4i64:
 ; AVX1:       # %bb.0:
@@ -1312,19 +1287,6 @@ define i1 @bool_reduction_v4i64(<4 x i64> %x, <4 x i64> %y) {
 }
 
 define i1 @bool_reduction_v8i32(<8 x i32> %x, <8 x i32> %y) {
-<<<<<<< HEAD
-; SSE-LABEL: bool_reduction_v8i32:
-; SSE:       # %bb.0:
-; SSE-NEXT:    pminud %xmm1, %xmm3
-; SSE-NEXT:    pcmpeqd %xmm1, %xmm3
-; SSE-NEXT:    pminud %xmm0, %xmm2
-; SSE-NEXT:    pcmpeqd %xmm0, %xmm2
-; SSE-NEXT:    por %xmm3, %xmm2 ;INTEL
-; SSE-NEXT:    movmskps %xmm2, %eax ;INTEL
-; SSE-NEXT:    testl %eax, %eax
-; SSE-NEXT:    setne %al
-; SSE-NEXT:    retq
-=======
 ; SSE2-LABEL: bool_reduction_v8i32:
 ; SSE2:       # %bb.0:
 ; SSE2-NEXT:    movdqa {{.*#+}} xmm4 = [2147483648,2147483648,2147483648,2147483648]
@@ -1354,7 +1316,6 @@ define i1 @bool_reduction_v8i32(<8 x i32> %x, <8 x i32> %y) {
 ; SSE42-NEXT:    testl %eax, %eax
 ; SSE42-NEXT:    setne %al
 ; SSE42-NEXT:    retq
->>>>>>> 56656f8378c842ef83af2ec7606e185d6fdefaf1
 ;
 ; AVX1-LABEL: bool_reduction_v8i32:
 ; AVX1:       # %bb.0:
