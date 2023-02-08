@@ -2504,6 +2504,9 @@ void PassBuilder::addLoopOptCleanupPasses(FunctionPassManager &FPM,
 
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 
+  // Gets rid of unnecessary single operand phis and loop exit bblocks.
+  FPM.addPass(SimplifyCFGPass());
+
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 
   FPM.addPass(LoopCarriedCSEPass());
