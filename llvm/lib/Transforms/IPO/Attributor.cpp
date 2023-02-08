@@ -286,6 +286,10 @@ bool AA::isValidAtPosition(const AA::ValueAndContext &VAC,
   const Instruction *CtxI = VAC.getCtxI();
   if (CtxI)
     Scope = CtxI->getFunction();
+#if INTEL_CUSTOMIZATION
+  else
+    return false;
+#endif // INTEL_CUSTOMIZATION
   if (auto *A = dyn_cast<Argument>(VAC.getValue()))
     return A->getParent() == Scope;
   if (auto *I = dyn_cast<Instruction>(VAC.getValue())) {
