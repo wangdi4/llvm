@@ -330,7 +330,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
     const unsigned MaxVectorWidth =
         TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-            .getFixedSize();
+            .getFixedValue();
     MaxVF = MaxVectorWidth / MinWidthInBits;
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
 
@@ -503,7 +503,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // intrinsic might not be available.
   unsigned MaxVecRegSize =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
+          .getFixedValue();
 
   unsigned NumVConflictIdioms = 0;
   unsigned NumGathers = 0;
@@ -532,7 +532,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
       unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
                                               ->getType()
                                               ->getPrimitiveSizeInBits()
-                                              .getFixedSize();
+                                              .getFixedValue();
 
       unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
 

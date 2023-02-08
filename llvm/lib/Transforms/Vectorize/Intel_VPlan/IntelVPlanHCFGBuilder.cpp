@@ -558,7 +558,7 @@ public:
             cast<Instruction>(V)->getModule()->getDataLayout();
         StepTy = DL.getIntPtrType(IndTy);
         if (IndTy->isOpaquePointerTy())
-          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * StepInt;
+          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedValue() * StepInt;
       }
       Descriptor.setStep(
           Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, StepInt)));
@@ -571,7 +571,7 @@ public:
         Descriptor.setStepType(DL.getIntPtrType(IndTy));
         if (IndTy->isOpaquePointerTy())
           Descriptor.setStepMultiplier(
-              DL.getTypeAllocSize(IndPointeeTy).getFixedSize());
+              DL.getTypeAllocSize(IndPointeeTy).getFixedValue());
       }
       Descriptor.setStep(Builder.getOrCreateVPOperand(Step));
     }

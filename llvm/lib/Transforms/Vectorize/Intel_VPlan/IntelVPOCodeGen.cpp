@@ -742,7 +742,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
           cast<FixedVectorType>(CallMaskValue->getType())->getNumElements() &&
       "Re-vectorization of SVML functions is not supported yet");
 
-  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512 || IsDevice) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512 || IsDevice) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For ESIMD versions that's done for any widths.
     // For example:
@@ -2912,7 +2912,7 @@ Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *LoadStore)
   Type *EltTy = VectorTy->getElementType();
   assert(DL.getTypeAllocSizeInBits(EltTy).isKnownMultipleOf(8) &&
          "Only types with multiples of 8 bits are supported.");
-  Align EltAlignment(DL.getTypeAllocSizeInBits(EltTy).getFixedSize() / 8);
+  Align EltAlignment(DL.getTypeAllocSizeInBits(EltTy).getFixedValue() / 8);
 
   return std::min(EltAlignment, Alignment);
 }
@@ -3332,7 +3332,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
       Builder.CreateExtractValue(CallResult, {1}, "sincos.cos");
 
   const DataLayout &DL = *Plan->getDataLayout();
-  Align Alignment = Align(DL.getABITypeAlignment(
+  Align Alignment = Align(DL.getABITypeAlign(
       cast<VectorType>(ExtractSinInst->getType())->getElementType()));
 
   // Widen ScalarPtr and generate instructions to store VecValue into it.
@@ -4717,7 +4717,7 @@ void VPOCodeGen::generateArrayReductionFinal(
   // FinalLoopVF = 4 (since array size is less than max VF)
   const unsigned MaxVectorWidth =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
+          .getFixedValue();
   unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
   unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
   unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
@@ -4742,7 +4742,7 @@ void VPOCodeGen::generateArrayReductionFinal(
         cast<PointerType>(OrigArr->getType())->getPointerAddressSpace();
     const DataLayout &DL = *Plan->getDataLayout();
     // Determine alignment of wide load/store using element type of array.
-    Align Alignment = Align(DL.getABITypeAlignment(ArrTy->getElementType()));
+    Align Alignment = Align(DL.getABITypeAlign(ArrTy->getElementType()));
 
     Builder.SetInsertPoint(LoopBB->getTerminator());
     // Loop IV phi to count loop iterations.

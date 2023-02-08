@@ -3275,7 +3275,7 @@ X86TargetLowering::getComplexReturnABI(Type* ScalarFloatTy) const {
   // structs via memory if larger. (The size threshold is the same for both
   // 32 and 64-bit ABIs).
   if (Subtarget.isOSWindows()) {
-    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedSize();
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedValue();
     if (FloatSize <= 32) {
       return ComplexABI::Integer;
     } else {
@@ -3295,7 +3295,7 @@ X86TargetLowering::getComplexReturnABI(Type* ScalarFloatTy) const {
     // regular C struct. This means that float and smaller get packed into a
     // single vector in xmm0; double and x86-fp80 (by special case) return two
     // values; and larger types than x86-fp80 (i.e., fp128) returns via memory.
-    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedSize();
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedValue();
     if (FloatSize <= 32) {
       return ComplexABI::Vector;
     } else if (FloatSize <= 80) {
