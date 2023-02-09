@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-NEW-PM
+; RUN: opt -opaque-pointers=0 -passes='default<O2>,vplan-vec' -vplan-force-vf=4 -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-NEW-PM
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd

@@ -52,7 +52,7 @@
 ; for this while checking for unique entries in VPExternalDefsHIR.
 
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
 
 
 ; Check for v4i8 gather to present as an sufficient check for successful vectorization.

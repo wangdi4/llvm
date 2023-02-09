@@ -1,6 +1,6 @@
 ; Check to see that the linear parameter i is updated with the correct stride.
 
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4lu_foo
 

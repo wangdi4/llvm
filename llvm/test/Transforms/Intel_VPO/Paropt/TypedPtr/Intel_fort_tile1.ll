@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ;RUN: opt -enable-new-pm=0 -vpo-paropt-loop-transform -disable-vpo-paropt-tile=false -S < %s  | FileCheck %s
-;RUN: opt -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that omp loop tile construct is in effect. Notice that normalized
 ; induction variables and loop upperbound have to be added to the outer region's

@@ -28,8 +28,8 @@
 
 ; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
 ; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
-; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
-; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates=false %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,TYPED
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

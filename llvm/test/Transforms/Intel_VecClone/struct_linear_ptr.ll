@@ -1,6 +1,6 @@
 ; Test that the stride is being applied correctly to struct field accesses.
 
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4l32_foo
 ; CHECK: simd.begin.region:

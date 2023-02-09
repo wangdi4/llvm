@@ -1,5 +1,5 @@
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion" -disable-output -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion" -disable-output -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 
 ; The first loop have no vectorization preventing edges. Second loop has a vectorization
 ; preventing flow edge due to select instruction. Test checks that the flow edges caused by

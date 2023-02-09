@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling" -disable-output -debug-only=hir-loop-peeling 2>&1 < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling" -disable-output -debug-only=hir-loop-peeling 2>&1 < %s  | FileCheck %s
 
 ; Verify that we can ignore safe reductions in loop peeling candidates.
 

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling,hir-optreport-emitter" -disable-output -print-before=hir-loop-peeling -print-after=hir-loop-peeling -intel-opt-report=low 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling,hir-optreport-emitter" -disable-output -print-before=hir-loop-peeling -print-after=hir-loop-peeling -intel-opt-report=low 2>&1 < %s | FileCheck %s
 
 ; CHECK: Dump Before
 

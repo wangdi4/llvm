@@ -23,7 +23,7 @@
 ; END REGION
 
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK-LABEL:  VPlan after importing plain CFG:

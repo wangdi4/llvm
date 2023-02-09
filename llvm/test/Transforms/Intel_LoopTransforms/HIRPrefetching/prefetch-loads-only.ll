@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching" -hir-prefetching-loads-only -print-before=hir-prefetching -print-after=hir-prefetching 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching" -hir-prefetching-loads-only -print-before=hir-prefetching -print-after=hir-prefetching 2>&1 < %s | FileCheck %s
 
 ; Verify that with load only prefetching, we only prefetch for loads A[i+500] 
 ; and C[B[i]] and ignore stores A[i1] and C[M[i]].

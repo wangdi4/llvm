@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" -S < %s 2>&1 | FileCheck %s
 ; This test check bailout for following pattern
 ;  %cond = phi i64 [ %sub, %cond.true ], [ %conv, %cond.false ]
 ;  %conv3 = trunc i64 %cond to i32

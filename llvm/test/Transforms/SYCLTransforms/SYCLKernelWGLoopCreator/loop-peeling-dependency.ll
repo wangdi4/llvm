@@ -1,7 +1,7 @@
 ; This test checks that dependent instructions of peel target are cloned in the correct order.
 ;
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 %"class.cl::sycl::id" = type { %"class.cl::sycl::detail::array" }
 %"class.cl::sycl::detail::array" = type { [1 x i64] }

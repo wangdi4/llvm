@@ -14,7 +14,7 @@
 ; <0>     END REGION
 
 ; Check CG when VPLoopEntities representation is used for reduction.
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=VPRED
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=VPRED
 
 
 ; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>

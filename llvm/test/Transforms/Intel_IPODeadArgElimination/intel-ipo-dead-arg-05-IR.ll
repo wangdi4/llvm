@@ -1,4 +1,4 @@
-; RUN: opt -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; be performed since function @foo is set as naked. This is the same

@@ -1,4 +1,4 @@
-; RUN: opt -passes='function-attrs' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function-attrs' -S %s | FileCheck %s
 ;
 ; Check that PostOrderFunctionAttrs pass propagates argument attributes from
 ; the callback to the broker function caller for callback calls.

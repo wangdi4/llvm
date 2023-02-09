@@ -3,7 +3,7 @@
 ; For this case, the gep indices are constant, but the ptr is unit stride.
 
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %p) {

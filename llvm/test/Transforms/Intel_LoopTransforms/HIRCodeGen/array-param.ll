@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 
 ; Check that CG leaves HIR metadata in the old region as they become unreachable and will be removed later by simplifycfg.
@@ -15,7 +15,7 @@
 
 ; Check that HIR metadata is cleaned up by CG when we do not generate code for the region.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -S | FileCheck %s -check-prefix=NOCG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -S | FileCheck %s -check-prefix=NOCG
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" < %s -S | FileCheck %s -check-prefix=NOCG
 
 ; NOCG-NOT: in.de.ssa
 ; NOCG-NOT: live.range.de.ssa

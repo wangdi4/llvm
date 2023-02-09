@@ -1,4 +1,4 @@
-;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ; Verify that we are successfully able to generate code for this case.
 ; The load with undef base pointer is simplified to poison.

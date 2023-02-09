@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" < %s -S | FileCheck %s
 
 ; Tree of 'OR/AND'
 define i1 @OR_tree_convert(float %a, float %b, float %c, float %d, float %e)  {

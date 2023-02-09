@@ -1,5 +1,5 @@
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ;
 ; LIT test to check that we preserve alias-analysis related metadata in HIR vector code generation

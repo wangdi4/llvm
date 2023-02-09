@@ -1,8 +1,8 @@
 ; RUN: opt -enable-new-pm=0 -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S --vpo-utils-add-typed-privates=false <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,UNTYPED
-; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S --vpo-utils-add-typed-privates=false <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S --vpo-utils-add-typed-privates=false <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,UNTYPED
 
 ; RUN: opt -enable-new-pm=0 -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
-; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -S <%s 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
 
 ; CHECK: define{{.*}}split
 ; CHECK:  %Array.i = alloca [2050 x i32], align 16

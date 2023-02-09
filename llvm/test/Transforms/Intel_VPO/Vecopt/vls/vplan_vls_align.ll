@@ -1,6 +1,6 @@
 ;
 ; RUN: opt -aa-pipeline=tbaa -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -disable-output -hir-details < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -passes=vplan-vec -disable-output -print-after=vplan-vec  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -disable-output -print-after=vplan-vec  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
 ;
 ; LIT test to check that alignment is being set correctly for VLS group load and store.
 ; The alignment value to be used needs to come from the alignment of the first memory

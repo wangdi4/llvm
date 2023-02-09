@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; check that
 ; 1) the pass won't crash and generate WG.boundaries function;

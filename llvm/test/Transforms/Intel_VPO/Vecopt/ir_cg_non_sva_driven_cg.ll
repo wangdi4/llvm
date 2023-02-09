@@ -1,7 +1,7 @@
 ; Test to check stability of VPlan LLVM-IR vector CG for
 ; sequence of instructions where some opcodes are SVA-driven.
 
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -disable-output < %s | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -disable-output < %s | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=2 < %s | FileCheck %s --check-prefix=LLVM-IR
 
 define void @test1(float* nocapture %arr, i32* %dest, i32 %uni) {

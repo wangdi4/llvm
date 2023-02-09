@@ -1,5 +1,5 @@
 ; "-match-full-lines" is needed so that any additional metadata would cause a fail.
-; RUN: opt -passes="instcombine" -S < %s | FileCheck %s --match-full-lines
+; RUN: opt -opaque-pointers=0 -passes="instcombine" -S < %s | FileCheck %s --match-full-lines
 
 %struct.Outer = type { %struct.Inner, %struct.Inner }
 %struct.Inner = type { [10 x i32] }

@@ -13,7 +13,7 @@
 ;   }
 ;  return x.a;
 ; }
-; RUN: opt -passes=vplan-vec -S -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -S -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s | FileCheck %s
 
 ; CHECK: VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT: VPlan IR for: _Z3foov:omp.inner.for.body

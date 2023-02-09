@@ -4,7 +4,7 @@
 ; and all accesses are updated to use this new memory. Test checks support
 ; for both scalar and aggregate type privates.
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,mem2reg,simplifycfg' -vplan-force-vf=4 -hir-details -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,mem2reg,simplifycfg' -vplan-force-vf=4 -hir-details -S < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR for test_scalar
 ;   BEGIN REGION { }

@@ -1,5 +1,5 @@
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S %s | FileCheck %s
-; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S %s | FileCheck %s
 
 ; Original code:
 ; void foo() {

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 
 ; Verify that we give up on the load of (%A)[0][5] which is inside
 ; lifetime.start/end intrinsics because there is no dominating store  making

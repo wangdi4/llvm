@@ -4,7 +4,7 @@
 ; end of the task, after any copy-out to the external scope.
 
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s | FileCheck %s
 
 ; CHECK: define{{.*}}TASKLOOP
 ; CHECK-NOT: define

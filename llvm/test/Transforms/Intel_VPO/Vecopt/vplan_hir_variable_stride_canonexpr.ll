@@ -1,4 +1,4 @@
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-print-after-vpentity-instrs -disable-output -S < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-print-after-vpentity-instrs -disable-output -S < %s  | FileCheck %s
 
 ; Check that a VPExternalDef is created for a stride canon expr containing conversions.
 

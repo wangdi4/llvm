@@ -1,6 +1,6 @@
 ; With forced hir-cg, we should see HIR->LLVM IR occur
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 
 ; terminator of entry bblock should have changed
 ; CHECK: for.body:

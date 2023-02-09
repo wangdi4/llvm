@@ -18,7 +18,7 @@
 
 
 ; REQUIRES: asserts
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-dump-da -vplan-dump-subscript-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-dump-da -vplan-dump-subscript-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Check for results from DA.

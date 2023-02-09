@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-apply-config -simplifycfg -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S -debug-only=vpo-paropt-apply-config -o /dev/null %s 2>&1 | FileCheck %s
-; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,simplifycfg)' -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S -debug-only=vpo-paropt-apply-config -o /dev/null %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,simplifycfg)' -vpo-paropt-config=%S/Inputs/Intel_paropt_apply_config.yaml -S -debug-only=vpo-paropt-apply-config -o /dev/null %s 2>&1 | FileCheck %s
 
 ; Original code:
 ; Clauses in test_typed are hand-modified to use the TYPED form.

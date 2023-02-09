@@ -1,4 +1,4 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=1 -vplan-cost-model-print-analysis-for-vf=8 -disable-output < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=1 -vplan-cost-model-print-analysis-for-vf=8 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL: Cost Model for VPlan f:HIR.#1 with VF = 1:
 ; CHECK:       Cost 26 for float [[VP0:%.*]] = call float [[VPARG0:%.*]] float (float)* @sinpif

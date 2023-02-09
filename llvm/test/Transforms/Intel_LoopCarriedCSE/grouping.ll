@@ -16,7 +16,7 @@
 ;  }
 ;}
 ;
-; RUN: opt -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = add i32 %gepload, %gepload37
 ; CHECK: %t32.0.lccse = phi i32 [ %1, %for.body.preheader ], [ %4, %loop.25 ]

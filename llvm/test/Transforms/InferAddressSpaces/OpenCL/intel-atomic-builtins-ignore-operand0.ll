@@ -1,4 +1,4 @@
-; RUN: opt -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown -override-flat-addr-space=4 -infer-as-rewrite-opencl-bis %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="infer-address-spaces" -S -mtriple=x86_64-unknown-unknown -override-flat-addr-space=4 -infer-as-rewrite-opencl-bis %s | FileCheck %s
 
 ; This test is to check the atomic builtins with generic address space are
 ; ignored by InferAddressSpace pass, since generic address space is supported in

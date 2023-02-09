@@ -19,8 +19,8 @@
 ; Optimizer options:
 ;   opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -sycl-demangle-fpga-pipes -sycl-kernel-equalizer -sycl-kernel-channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK: define void @foo(i32 addrspace(1)* %iters)
 ; CHECK-LABEL: for.cond:

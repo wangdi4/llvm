@@ -32,7 +32,7 @@
 ; The canon expression 2 * %C is loop invariant at max loop nest level, so there are
 ; no other inner loops to check for invariance.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-plain-cfg -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-print-after-plain-cfg -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 
 

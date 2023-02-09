@@ -1,6 +1,6 @@
 ; RUN: opt < %s -vpo-paropt -S | FileCheck  %s
-; RUN: opt -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=true -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_TRUE,CHECK
-; RUN: opt -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=false -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_FALSE,CHECK
+; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=true -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_TRUE,CHECK
+; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=false -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_FALSE,CHECK
 ;
 ; It checks whether the alloca instruction has been hoisted to the entry
 ; of outline OMP function.

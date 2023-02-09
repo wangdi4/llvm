@@ -1,7 +1,7 @@
 ; When there are multiple indirect prefetching candidate insts, we need to compare the dim indices and
 ; use the largest index to compare with the loop trip count in HLIf predicate.
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;#pragma  prefetch A:1:40

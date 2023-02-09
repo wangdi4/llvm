@@ -1,4 +1,4 @@
-; RUN: opt -passes="vplan-vec" -vplan-enable-peeling -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vplan-vec" -vplan-enable-peeling -S < %s | FileCheck %s
 
 ; This test checks to make sure appropriate casting is done for the instruction
 ; used as the dynamic peel count. The original upper bound for the loop can be

@@ -29,7 +29,7 @@
 ; Note: -hir-vec-dir-insert is not explicitly used below to ensure that SIMD loop is recognized
 ; and vectorized by VPlan.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:              %red.init = 0.000000e+00;

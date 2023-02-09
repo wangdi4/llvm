@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that CanonExprUtils::compare(Type*, Type*) does not get into a cycle while comparing two cyclic types like the linked lists list1 and list2 below.
 ; This was happening when DDRefGatherer called from dead store elimination was trying to sort the refs.

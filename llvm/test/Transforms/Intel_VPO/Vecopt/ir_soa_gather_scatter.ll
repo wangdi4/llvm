@@ -1,4 +1,4 @@
-; RUN: opt -passes=vplan-vec -vplan-force-vf=4  -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=4  -S %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; Prepare GEP for gather

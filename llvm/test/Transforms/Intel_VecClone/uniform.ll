@@ -1,6 +1,6 @@
 ; Check to make sure the initial parameter store of the uniform parameter is sunk into the loop.
 
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: <4 x i32> @_ZGVbN4u_foo(i32 %b)
 ; CHECK: simd.begin.region:

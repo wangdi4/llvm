@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output -hir-details-dims < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output -hir-details-dims < %s 2>&1 | FileCheck %s
 
 ; Verify that the test passes and MAX_TC_EST of inner loop is 3.
 ; The test case was compfailing because the lower dimension stride of 16 for the

@@ -1,4 +1,4 @@
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-dump-induction-init-details -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-dump-induction-init-details -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 ; CHECK-LABEL:VPlan after insertion of VPEntities instructions:
 ; CHECK:      IntInduction(+) Start: i8 %c.linear.promoted Step: i8 [[VP_ARG_STEP:%.*]] StartVal: ? EndVal: ? BinOp: i8 [[VP_IND_NEXT:%.*]] = add i8 [[VP_IND_PHI:%.*]] i8 [[VP_STEP_INIT:%.*]]

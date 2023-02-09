@@ -1,4 +1,4 @@
-; RUN: opt -passes=licm,loop-idiom -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=licm,loop-idiom -S < %s | FileCheck %s
 
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }
 %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" = type { [1 x i64] }

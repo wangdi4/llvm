@@ -1,5 +1,5 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>,hir-cg' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
-; RUN: opt -passes='vplan-vec' -vplan-force-vf=4 -vplan-build-vect-candidates=1 -print-before=vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>,hir-cg' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -opaque-pointers=0 -passes='vplan-vec' -vplan-force-vf=4 -vplan-build-vect-candidates=1 -print-before=vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
 ; LIT test to check that metadata such as nonnull, dereferenceable,
 ; dereferenceable_or_null get dropped from the vector reference after
 ; vectorization.

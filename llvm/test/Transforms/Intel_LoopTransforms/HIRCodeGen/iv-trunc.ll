@@ -1,4 +1,4 @@
-;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 
 ; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src
 ;CE(but 64 bit dest type). Verify that the iv is generated as a truncated

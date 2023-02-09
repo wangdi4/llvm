@@ -1,4 +1,4 @@
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reroll,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-loop-reroll,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; Check that Loop Distribution succeeds for distribute point with safe reduction.
 ; Old compiler was asserting because stale SafeReductionInfo could not find the new

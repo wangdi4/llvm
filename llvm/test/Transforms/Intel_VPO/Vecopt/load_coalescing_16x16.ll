@@ -1,5 +1,5 @@
 
-; RUN: opt -passes='load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -S < %s 2>&1 | FileCheck %s
 
 ; source_filename = "x264_pixel_satd_16x16.ll"
 

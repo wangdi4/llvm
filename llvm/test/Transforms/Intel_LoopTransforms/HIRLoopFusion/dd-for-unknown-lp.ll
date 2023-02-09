@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
 
 ; Check that DD testing for fusion is successful for unknown loop inside fuse
 ; candidates. DD needs to test for (@global.9)[0][3 * i2 + %tmp76 * i3 + 3] &

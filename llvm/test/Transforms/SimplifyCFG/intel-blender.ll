@@ -24,7 +24,7 @@
 ; the next ladder block, and the true branch goes to an exit block.
 ; All the blocks can be reordered w.r.t each other.
 
-; RUN: opt -passes="simplifycfg" < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="simplifycfg" < %s -S | FileCheck %s
 
 ; Updating note: most of the allocas and temp loads/stores in the first block
 ; can be cut off. Only T1/2, RETVAL, DIST_ADDR, CLEANUP_DEST_SLOT need defs.

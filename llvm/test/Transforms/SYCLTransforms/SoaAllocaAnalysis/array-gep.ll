@@ -1,4 +1,4 @@
-; RUN: opt -passes='print<sycl-kernel-soa-alloca-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='print<sycl-kernel-soa-alloca-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ; Check SoaAllocaAnalysis decides to optimize alloca of i32 array.
 

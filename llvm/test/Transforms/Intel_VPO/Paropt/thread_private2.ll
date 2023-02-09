@@ -1,5 +1,5 @@
 ; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -mem2reg -simplifycfg -S %s | FileCheck %s
-; RUN: opt -passes="vpo-paropt-tpv,mem2reg,function(simplifycfg)" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-paropt-tpv,mem2reg,function(simplifycfg)" -S %s | FileCheck %s
 
 ; The compiler is expected to emit the call __kmpc_threadprivate_cached.
 ; It also checks whether the attribute thread_private is accepted or not.

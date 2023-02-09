@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test checks that the pass doesn't crash and treats indirect calls as
 ; operations w/ side effect and leaves the kernel untouched.

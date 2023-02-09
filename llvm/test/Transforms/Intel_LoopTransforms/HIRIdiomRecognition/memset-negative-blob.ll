@@ -1,6 +1,6 @@
 ; HIR Idiom Rec: memset with negative IV where UB can be represented as a blob only.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-idiom,print<hir>,hir-cg" -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-idiom,print<hir>,hir-cg" -disable-output 2>&1 < %s | FileCheck %s
 
 ; HIR:
 ;       BEGIN REGION { }

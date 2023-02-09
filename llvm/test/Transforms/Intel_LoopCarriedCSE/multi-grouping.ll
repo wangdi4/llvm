@@ -17,7 +17,7 @@
 ;  }
 ;}
 ;
-; RUN: opt -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = add i32 %gepload, %gepload53
 ; CHECK: %2 = add i32 %1, %gepload54

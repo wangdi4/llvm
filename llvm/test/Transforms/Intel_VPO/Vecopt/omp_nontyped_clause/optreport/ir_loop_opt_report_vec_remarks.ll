@@ -1,8 +1,8 @@
 ; Test to check the functionality of vectorization opt-report for LLVM-IR based vectorizer.
 
-; RUN: opt -passes='vplan-vec,intel-ir-optreport-emitter' -vplan-force-vf=4 -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -opaque-pointers=0 -passes='vplan-vec,intel-ir-optreport-emitter' -vplan-force-vf=4 -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
-; RUN: opt -passes=vplan-vec -vplan-force-vf=4 -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=4 -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

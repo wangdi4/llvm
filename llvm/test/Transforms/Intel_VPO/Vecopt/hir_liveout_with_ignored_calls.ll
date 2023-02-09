@@ -1,7 +1,7 @@
 ; Test to verify that VPlan HIR vectorizer codegen does not bail out for loops
 ; containing unconditional liveouts and calls to ignored functions.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 define float @foo1(float* nocapture %a, float %const, i64* %lt.arg) {

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange)" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange)" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
 
 ; These two instructions appear in between i2-i3 loopnest and are sinked to i3 loop-
@@ -9,7 +9,7 @@
 ; Verify that %twp.addr.0162 is added as livein to i3 loop and %8/%9 are removed as liveins after sinking.
 
 ; RUN: opt -aa-pipeline=basic-aa -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -print-before=hir-sinking-for-perfect-loopnest -print-after=hir-loop-interchange -hir-loop-interchange -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
-; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
+; RUN: opt -opaque-pointers=0 -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
 
 ; CHECK-LIVE: Function
 

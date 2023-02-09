@@ -1,4 +1,4 @@
-; RUN: opt -passes=instcombine <%s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=instcombine <%s -S | FileCheck %s
 
 ; Verify that a probable innermost level subscript is not changed into a form with ashr.
 ; Notice that the rank number is zero for the relavant subscript.

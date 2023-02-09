@@ -1,5 +1,5 @@
 ; RUN: opt -enable-native-debug=true -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the Barrier pass

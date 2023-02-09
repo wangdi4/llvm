@@ -1,8 +1,8 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline),intel-ipo-dead-arg-elimination' -inline-report=0xe807   < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
+; RUN: opt -opaque-pointers=0 -passes='cgscc(inline),intel-ipo-dead-arg-elimination' -inline-report=0xe807   < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
 
 ; Inline report with metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),intel-ipo-dead-arg-elimination,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
+; RUN: opt -opaque-pointers=0 -passes='inlinereportsetup,cgscc(inline),intel-ipo-dead-arg-elimination,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
 
 ; This test case checks that the inlining report is preserved after simplified
 ; dead arguments elimination. Function @foo wasn't inlined intentionally to

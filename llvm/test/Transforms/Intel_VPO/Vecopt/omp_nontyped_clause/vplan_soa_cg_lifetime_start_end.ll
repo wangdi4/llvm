@@ -2,7 +2,7 @@
 
 ; This test checks that the pointer-argument to lifetime.start/end intrinsics is
 ; correctly handled when we have it coming from either  a GEP or a bitcast instruction.
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-enable-soa -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=2 -vplan-enable-soa -S %s | FileCheck %s
 
 define void @test_lifetime_start_end() {
 ; CHECK-LABEL: @test_lifetime_start_end(

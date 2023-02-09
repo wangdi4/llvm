@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-group-builtin %s -S -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-group-builtin %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-group-builtin %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the GroupBuiltins pass

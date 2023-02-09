@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -passes="instcombine" -disable-combine-upcasting=true < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-TRUE
-; RUN: opt -passes="instcombine" -disable-combine-upcasting=false < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-FALSE
+; RUN: opt -opaque-pointers=0 -passes="instcombine" -disable-combine-upcasting=true < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-TRUE
+; RUN: opt -opaque-pointers=0 -passes="instcombine" -disable-combine-upcasting=false < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-FALSE
 
 ; This test checks that the load instruction at %tmp5 is
 ; not converted as a bitcast instruction since it can produce

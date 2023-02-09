@@ -1,4 +1,4 @@
-; RUN: opt  -passes="hir-ssa-deconstruction,print<hir>" -hir-details -hir-cost-model-throttling=0 <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>" -hir-details -hir-cost-model-throttling=0 <%s 2>&1 | FileCheck %s
 
 ; Check that we recognize 'byval' attribute in HIR Framework.
 

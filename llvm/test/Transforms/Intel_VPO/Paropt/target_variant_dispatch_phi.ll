@@ -1,5 +1,5 @@
 ; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; Test for TARGET VARIANT DISPATCH construct with the return value of the function used
 ; outside the region, which should cause the emission of a PHI after transformation of

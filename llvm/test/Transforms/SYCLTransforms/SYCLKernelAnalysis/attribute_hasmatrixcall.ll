@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-analysis -sycl-kernel-analysis-assume-isamx=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=sycl-kernel-analysis -sycl-kernel-analysis-assume-isamx=true %s -S -debug -disable-output 2>&1| FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-analysis -sycl-kernel-analysis-assume-isamx=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-analysis -sycl-kernel-analysis-assume-isamx=true %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; If assume sycl-kernel-analysis's isamx is false, check if the diagnose is reported
 ; RUN: not opt -passes=sycl-kernel-analysis -sycl-kernel-analysis-assume-isamx=false %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefixes=CHECK-SYCLKernelAnalysis-BROKEN

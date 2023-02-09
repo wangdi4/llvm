@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; This test checks that WG loop creation in the case of O0 mode and not-inlined
 ; function is called twice by a kernel.

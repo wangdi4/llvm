@@ -1,4 +1,4 @@
-; RUN: opt -passes='load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s
 
 @B = common dso_local local_unnamed_addr global [1024 x double] zeroinitializer, align 16
 @C = common dso_local local_unnamed_addr global [1024 x double] zeroinitializer, align 16

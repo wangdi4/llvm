@@ -1,4 +1,4 @@
-; RUN: opt -passes=inline < %s -S -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=inline < %s -S -o - | FileCheck %s
 
 ; Check that "ptrnoalias" on arguments will be converted into
 ; alias.scope/noalias metadata after inlining.

@@ -1,4 +1,4 @@
-; RUN: opt -passes="loop(loop-reduce)" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop(loop-reduce)" -S < %s | FileCheck %s
 
 ; 11269: LSR was holding deleted SCEVs and values, while trying to update
 ; debug information.

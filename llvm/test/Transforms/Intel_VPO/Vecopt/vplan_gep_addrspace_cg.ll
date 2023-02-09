@@ -1,4 +1,4 @@
-; RUN: opt -passes=vplan-vec -vplan-force-vf=8 -vplan-dump-da -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=8 -vplan-dump-da -S %s 2>&1 | FileCheck %s
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:

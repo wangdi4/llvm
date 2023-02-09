@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam < %s 2>&1 | FileCheck %s
 
 ; Verify that we can unroll & jam i1 loop by 8 in the presence of assume calls,
 ; inner simd loop which has aligned clause and a linear clause which has edges

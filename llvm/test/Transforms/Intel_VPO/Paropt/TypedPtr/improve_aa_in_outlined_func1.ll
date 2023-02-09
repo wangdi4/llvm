@@ -1,5 +1,5 @@
 ; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -basic-aa -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt,aa-eval" -aa-pipeline="basic-aa,scoped-noalias-aa" -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring),vpo-paropt,aa-eval" -aa-pipeline="basic-aa,scoped-noalias-aa" -evaluate-aa-metadata -print-all-alias-modref-info -disable-output %s 2>&1 | FileCheck %s
 ;
 ; Check that aliasing information is preserved in case when function has more
 ; than one region that needs outlining.

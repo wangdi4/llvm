@@ -1,4 +1,4 @@
-;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ;Verify CG for this HIR STMT
 ;<7> %.c = (%0 > %1) ? %0 : %c;

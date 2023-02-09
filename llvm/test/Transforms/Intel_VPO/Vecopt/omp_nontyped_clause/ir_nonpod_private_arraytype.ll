@@ -1,5 +1,5 @@
-; RUN: opt -passes=vplan-vec -print-after=vplan-vec -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -print-after=vplan-vec -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK: VPlan after insertion of VPEntities instructions:
 ; CHECK:   [4 x %struct.point2d]* [[ALLPRIV:%.*]] = allocate-priv [4 x %struct.point2d]*, OrigAlign = 16

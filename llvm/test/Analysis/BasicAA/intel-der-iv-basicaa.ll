@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" -S < %s | FileCheck %s
 
 ; In the loop below, there are 2 IVs:
 ;  %t4.0 = phi i32* [ %arrayidx, %entry ], [ %arrayIdx47, %loop.20.loop.20_crit_edge ]

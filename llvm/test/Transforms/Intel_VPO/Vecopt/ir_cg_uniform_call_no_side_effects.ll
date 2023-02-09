@@ -2,7 +2,7 @@
 ; Test VPCallVecDecision analysis and LLVM-IR vector codegen for a loop
 ; containing a uniform call with no side effects.
 
-; RUN: opt -passes=vplan-vec -vplan-print-scalvec-results -S -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-print-scalvec-results -S -vplan-force-vf=2 %s | FileCheck %s
 
 ; Check results from VPCallVecDecisions.
 ; CHECK: [DA: Uni, SVA: (F  )] i64 [[VPCALL:%vp.*]] = call i32 0 i64 (i32)* @uniform_call (SVAOpBits 0->F 1->F )

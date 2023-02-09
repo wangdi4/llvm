@@ -1,4 +1,4 @@
-; RUN: opt -passes="loop-unroll" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-unroll" -S %s | FileCheck %s
 ; CHECK: llvm.vector.reduce.umin.v16p0i8
 
 ; 24495: Make sure the cost modeller does not crash when it sees a vector

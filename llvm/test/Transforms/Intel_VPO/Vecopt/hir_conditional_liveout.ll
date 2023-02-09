@@ -4,8 +4,8 @@
 ; the liveout variable(%nz.061) is not live-in to the target loop, but live-in
 ; to the parent loop region.
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefixes=CHECK,MERGED-CFG
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }

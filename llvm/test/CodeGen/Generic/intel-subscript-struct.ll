@@ -3,7 +3,7 @@
 ; RUN: %lli %s | FileCheck -check-prefix=CHECK-EXEC %s
 ; CHECK-EXEC: 3.000000
 
-; RUN: opt -passes="lower-subscript" -S %s -o - | FileCheck -check-prefix=CHECK-LOWER %s
+; RUN: opt -opaque-pointers=0 -passes="lower-subscript" -S %s -o - | FileCheck -check-prefix=CHECK-LOWER %s
 ; Lowering of 2 intrinsics
 
 ; icx -restrict -DEXECUTABLE -USIMPLE -std=c++11 -O3 llvm/tools/clang/test/CodeGenCXX/intel/builtin-intel-subscript.cpp -emit-llvm -S  -o intel-subscript-arr.ll

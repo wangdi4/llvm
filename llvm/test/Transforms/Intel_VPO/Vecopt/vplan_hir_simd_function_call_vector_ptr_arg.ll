@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg,sroa,gvn" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -print-after=gvn -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg,sroa,gvn" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -print-after=gvn -S < %s 2>&1 | FileCheck %s
 
 ; Test that shows the loop getting vectorized with VF=4 and unrolled by two
 ; with calls to a declared only vector function with a vector of ptr arg. GVN

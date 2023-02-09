@@ -3,7 +3,7 @@
 ; LoopLoadElim asks LoopVersioning if it can optionally add a runtime check,
 ; but LV will assert if the runtime check is not needed.
 
-; RUN: opt -passes="loop-load-elim" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-load-elim" -S %s | FileCheck %s
 
 ; CHECK-LABEL: bb
 ; CHECK: tmp6 = lshr

@@ -13,7 +13,7 @@
 ;   return 0;
 ; }
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
 
 ; Incoming HIR into the vectorizer is expected to look like:

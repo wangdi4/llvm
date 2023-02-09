@@ -2,7 +2,7 @@
 ; Test to check that VPlan vectorizer legality recognizes explicit reductions with stores to the
 ; reduction variable inside the loop, while reduction is performed in register (using PHI node).
 
-; RUN: opt -passes=vplan-vec  -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec  -S < %s | FileCheck %s
 
 
 define float @store_reduction_add(float* nocapture %a) {

@@ -1,6 +1,6 @@
 ; HIR Idiom Rec: memcpy with negative IV.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output 2>&1 < %s | FileCheck %s
 
 ; HIR:
 ;       BEGIN REGION { }

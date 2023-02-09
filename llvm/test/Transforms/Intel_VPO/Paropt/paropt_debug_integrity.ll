@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 ; RUN: opt -enable-new-pm=0 -debugify -vpo-cfg-restructuring -check-debugify -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring),module(check-debugify)' -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='module(debugify),function(vpo-cfg-restructuring),module(check-debugify)' -S %s 2>&1 | FileCheck %s
 ; RUN: opt -enable-new-pm=0 -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -check-debugify -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring),vpo-paropt-prepare,check-debugify' -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='module(debugify),function(vpo-cfg-restructuring),vpo-paropt-prepare,check-debugify' -S %s 2>&1 | FileCheck %s
 ; RUN: opt -enable-new-pm=0 -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -check-debugify -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,PAROPT
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,module(check-debugify)' -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,PAROPT
+; RUN: opt -opaque-pointers=0 -passes='module(debugify),function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,module(check-debugify)' -S %s 2>&1 | FileCheck %s --check-prefixes=CHECK,PAROPT
 ;
 ; Test src:
 ; int test_add()

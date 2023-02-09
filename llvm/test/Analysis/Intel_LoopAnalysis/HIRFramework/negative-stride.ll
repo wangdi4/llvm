@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we correctly handle negative stride of -4 for the lower dimension
 ; while computing the number of elements as 20.

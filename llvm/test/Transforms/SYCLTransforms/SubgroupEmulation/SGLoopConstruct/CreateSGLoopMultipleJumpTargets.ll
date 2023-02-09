@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where sg_barrier may have multiple jump targets
 ; The latch BB will have a "switch" inst to choose jump targets.

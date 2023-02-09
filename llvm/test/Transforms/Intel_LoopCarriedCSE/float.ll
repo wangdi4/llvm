@@ -16,7 +16,7 @@
 ;  }
 ;}
 ;
-; RUN: opt -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = fadd float %gepload, %gepload33
 ; CHECK: %t32.0.lccse = phi float [ %1, %for.body.preheader ], [ %3, %loop.25 ]

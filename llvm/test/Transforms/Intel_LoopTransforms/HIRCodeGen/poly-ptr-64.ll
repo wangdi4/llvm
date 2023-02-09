@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 ;Instruction on <4> is an HInst with an underlying GetElementPtrInst
 ;Check it is CG'd correctly
 
@@ -28,7 +28,7 @@
 
 ; Check that HIR metadata is cleaned up by CG when we do not generate code for the region.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -S | FileCheck %s -check-prefix=NOCG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -S | FileCheck %s -check-prefix=NOCG
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" < %s -S | FileCheck %s -check-prefix=NOCG
 
 ; NOCG-NOT: in.de.ssa
 ; NOCG-NOT: out.de.ssa

@@ -1,7 +1,7 @@
 ; This test checks that implicit GIDs are preserved after inlining vector kernel
 ; into masked kernel and inlining masked kernel into scalar kernel.
 ;
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
