@@ -32,6 +32,7 @@ struct ChannelPipeMD {
   int PacketAlign;
   int Depth;
   std::string IO;
+  int Protocol;
 };
 
 enum ChannelDepthMode { Strict, Default, IgnoreDepth };

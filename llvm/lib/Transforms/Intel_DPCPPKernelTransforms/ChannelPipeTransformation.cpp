@@ -205,11 +205,15 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   size_t BSNumItems = getNumElementsOfNestedArray(PipePtrArrayTy);
   Value *Mode = Builder.getInt32(DPCPPChannelDepthEmulationMode);
 
-  Value *CallArgs[] = {
+  SmallVector<Value *, 6> CallArgs = {
       Builder.CreateBitCast(PipeGV,
                             PipeInitArray->getFunctionType()->getParamType(0)),
-      Builder.getInt32(BSNumItems), PacketSize, Depth, Mode
-  };
+      Builder.getInt32(BSNumItems), PacketSize, Depth, Mode};
+
+  if (MD.Protocol >= 0) {
+    CallArgs.push_back(Builder.getInt32(MD.Protocol));
+  }
+
   Builder.CreateCall(PipeInitArray, CallArgs);
 }
 
@@ -235,12 +239,16 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       PipeGV = createGlobalPipeArray(M, PipeTy, Dimensions,
                                      ChannelGV.getName() + ".pipe");
       Function *PipeInitFunc = importFunctionDecl(
-          &M, RTS.findFunctionInBuiltinModules("__pipe_init_array_fpga"));
+          &M, RTS.findFunctionInBuiltinModules(
+                  MD.Protocol < 0 ? "__pipe_init_array_fpga"
+                                  : "__pipe_init_array_ext_fpga"));
       initializeGlobalPipeArray(PipeGV, MD, GlobalCtor, PipeInitFunc);
     } else {
       PipeGV = createGlobalPipeScalar(M, PipeTy, ChannelGV.getName() + ".pipe");
-      Function *PipeInitFunc = importFunctionDecl(
-          &M, RTS.findFunctionInBuiltinModules("__pipe_init_fpga"));
+      Function *PipeInitFunc =
+          importFunctionDecl(&M, RTS.findFunctionInBuiltinModules(
+                                     MD.Protocol < 0 ? "__pipe_init_fpga"
+                                                     : "__pipe_init_ext_fpga"));
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor, PipeInitFunc);
     }
 
@@ -257,6 +265,8 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       PipeGV->setMetadata(ChannelMD.DepthIsIgnored.getID(),
           ChannelGV.getMetadata(ChannelMD.DepthIsIgnored.getID()));
     }
+    PipeGV->setMetadata(ChannelMD.PipeProtocol.getID(),
+                        ChannelGV.getMetadata(ChannelMD.PipeProtocol.getID()));
 
     VMap[&ChannelGV] = PipeGV;
 

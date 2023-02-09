@@ -160,9 +160,15 @@ void getSYCLPipeMetadata(GlobalVariable *StorageVar, ChannelPipeMD &PipeMD) {
   ConstantInt *Size = cast<ConstantInt>(Initializer->getOperand(0));
   ConstantInt *Align = cast<ConstantInt>(Initializer->getOperand(1));
   ConstantInt *Capacity = cast<ConstantInt>(Initializer->getOperand(2));
+  ConstantInt *Protocol =
+      ConstantInt::get(Type::getInt32Ty(Initializer->getContext()), -1);
+  if (Initializer->getNumOperands() >= 8) {
+    Protocol = cast<ConstantInt>(Initializer->getOperand(7));
+  }
 
   LLVM_DEBUG(dbgs() << "Got size(" << *Size << "), align(" << *Align
-                    << ") and capacity(" << *Capacity << ")\n");
+                    << "), capacity(" << *Capacity << "), protocol("
+                    << *Protocol << ")\n");
 
   if (MDNode *IOMetadata = StorageVar->getMetadata("io_pipe_id")) {
     assert(IOMetadata->getNumOperands() == 1 &&
@@ -174,12 +180,13 @@ void getSYCLPipeMetadata(GlobalVariable *StorageVar, ChannelPipeMD &PipeMD) {
     LLVM_DEBUG(dbgs() << "I/O pipe id is(" << IOStrName << ")\n");
 
     PipeMD = {(int)Size->getSExtValue(), (int)Align->getSExtValue(),
-              (int)Capacity->getSExtValue(), IOStrName};
+              (int)Capacity->getSExtValue(), IOStrName,
+              (int)Protocol->getSExtValue()};
     return;
   }
 
   PipeMD = {(int)Size->getSExtValue(), (int)Align->getSExtValue(),
-            (int)Capacity->getSExtValue(), ""};
+            (int)Capacity->getSExtValue(), "", (int)Protocol->getSExtValue()};
 }
 
 void setPipeMetadata(GlobalVariable *StorageVar, const ChannelPipeMD &PipeMD) {
@@ -188,6 +195,7 @@ void setPipeMetadata(GlobalVariable *StorageVar, const ChannelPipeMD &PipeMD) {
   MD.PipePacketAlign.set(PipeMD.PacketAlign);
   MD.PipeDepth.set(PipeMD.Depth);
   MD.PipeIO.set(PipeMD.IO);
+  MD.PipeProtocol.set(PipeMD.Protocol);
 }
 
 Function *createPipeGlobalCtor(Module &M) {
@@ -279,6 +287,8 @@ ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
   CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
   CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
   CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
+  CMD.Protocol =
+      GVMetadata.PipeProtocol.hasValue() ? GVMetadata.PipeProtocol.get() : -1;
 
   if (!GVMetadata.PipeDepth.hasValue() &&
       ChannelDepthEmulationMode == ChannelDepthMode::Default)
@@ -297,9 +307,13 @@ void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
   Value *Depth = Builder.getInt32(MD.Depth);
   Value *Mode = Builder.getInt32(DPCPPChannelDepthEmulationMode);
 
-  Value *CallArgs[] = {
+  SmallVector<Value *, 5> CallArgs = {
       Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
       PacketSize, Depth, Mode};
+
+  if (MD.Protocol >= 0) {
+    CallArgs.push_back(Builder.getInt32(MD.Protocol));
+  }
 
   Builder.CreateCall(PipeInit, CallArgs);
   Builder.CreateStore(Builder.CreateBitCast(BS, PipeGV->getValueType()),

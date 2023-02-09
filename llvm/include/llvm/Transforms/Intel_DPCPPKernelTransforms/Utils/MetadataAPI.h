@@ -22,18 +22,20 @@ struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
   typedef NamedMDValue<std::string, MDValueGlobalObjectStrategy> PipeIOTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeProtocolTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global)
       : DepthIsIgnored(Global, "depth_is_ignored"),
         PipePacketSize(Global, "packet_size"),
         PipePacketAlign(Global, "packet_align"), PipeDepth(Global, "depth"),
-        PipeIO(Global, "io") {}
+        PipeIO(Global, "io"), PipeProtocol(Global, "protocol") {}
 
   NamedMDValueAccessor<DepthIsIgnoredTy> DepthIsIgnored;
   NamedMDValueAccessor<PipePacketSizeTy> PipePacketSize;
   NamedMDValueAccessor<PipePacketAlignTy> PipePacketAlign;
   NamedMDValueAccessor<PipeDepthTy> PipeDepth;
   NamedMDValueAccessor<PipeIOTy> PipeIO;
+  NamedMDValueAccessor<PipeProtocolTy> PipeProtocol;
 };
 
 struct FunctionMetadataAPI {
