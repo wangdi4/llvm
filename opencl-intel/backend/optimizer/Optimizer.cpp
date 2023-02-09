@@ -15,7 +15,6 @@
 #include "VectorizerUtils.h"
 #include "exceptions.h"
 
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
@@ -24,11 +23,6 @@
 cl::opt<bool>
     DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
                    cl::desc("Disable cost model for VPlan vectorizer"));
-
-// This flag enables VPlan for OpenCL.
-cl::opt<bool> EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
-                          cl::Hidden,
-                          cl::desc("Enable VPlan Kernel Vectorizer"));
 
 // Enable vectorization at O0 optimization level.
 extern cl::opt<bool> EnableO0Vectorization;
