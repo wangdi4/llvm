@@ -396,6 +396,13 @@ EXTERN int __tgt_rtl_prefetch_shared_mem(
 
 // Return the device ID that owns the specified memory location
 EXTERN int __tgt_rtl_get_device_from_ptr(const void *Ptr);
+
+#if INTEL_CUSTOMIZATION
+EXTERN int __tgt_rtl_memcpy_rect_3d(
+    int32_t ID, void *Dst, const void *Src, size_t ElementSize, int32_t NumDims,
+    const size_t *Volume, const size_t *DstOffsets, const size_t *SrcOffsets,
+    const size_t *DstDims, const size_t *SrcDims);
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
 // Queries for the completion of asynchronous operations. Instead of blocking

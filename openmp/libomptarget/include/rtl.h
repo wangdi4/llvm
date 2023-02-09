@@ -106,6 +106,10 @@ struct RTLInfoTy {
   typedef int32_t(flush_queue_ty)(__tgt_interop *);
   typedef int32_t(sync_barrier_ty)(__tgt_interop *);
   typedef int32_t(async_barrier_ty)(__tgt_interop *);
+  typedef int32_t(memcpy_rect_3d_ty)(int32_t, void *, const void *, size_t,
+                                     int32_t, const size_t *, const size_t *,
+                                     const size_t *, const size_t *,
+                                     const size_t *);
 #endif // INTEL_CUSTOMIZATION
   typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
   typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
@@ -209,6 +213,7 @@ struct RTLInfoTy {
   flush_queue_ty *flush_queue = nullptr;
   sync_barrier_ty *sync_barrier = nullptr;
   async_barrier_ty *async_barrier = nullptr;
+  memcpy_rect_3d_ty *memcpy_rect_3d = nullptr;
 #endif // INTEL_CUSTOMIZATION
   get_num_sub_devices_ty *get_num_sub_devices = nullptr;
   is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
