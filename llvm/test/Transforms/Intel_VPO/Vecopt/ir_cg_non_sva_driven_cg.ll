@@ -2,7 +2,7 @@
 ; sequence of instructions where some opcodes are SVA-driven.
 
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -disable-output < %s | FileCheck %s --check-prefix=VPLAN-IR
-; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 < %s | FileCheck %s --check-prefix=LLVM-IR
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=2 < %s | FileCheck %s --check-prefix=LLVM-IR
 
 define void @test1(float* nocapture %arr, i32* %dest, i32 %uni) {
 entry:

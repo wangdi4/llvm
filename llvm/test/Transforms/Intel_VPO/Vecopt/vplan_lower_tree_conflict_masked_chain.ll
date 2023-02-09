@@ -4,8 +4,8 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -opaque-pointers=0 -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -opaque-pointers=0 -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
 
 ; Test chain of masked tree conflicts. Block-predicates should be properly preserved
 ; for the instructions in the post-conflict loop exit blocks.

@@ -2,7 +2,7 @@
 ; Check VPlan LLVM-IR vector CG handling of calls to sincos function which
 ; have vector-variant versions available.
 
-; RUN: opt -S -passes=vplan-vec < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -2,7 +2,7 @@
 
 ; This test check whether we correctly handle (serialize) function call when
 ; the input argument is a scalar private and SOA-layout is enabled.
-; RUN: opt -S -passes=vplan-vec -vplan-enable-soa=true %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-enable-soa=true %s | FileCheck %s
 
 declare i32 @test_call(i32*)
 

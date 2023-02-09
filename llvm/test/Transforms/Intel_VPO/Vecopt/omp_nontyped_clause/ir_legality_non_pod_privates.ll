@@ -1,7 +1,7 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
-; RUN: opt -S -passes=vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
-; RUN: opt -S -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 | FileCheck %s -check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
+; RUN: opt -opaque-pointers=0 -S -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

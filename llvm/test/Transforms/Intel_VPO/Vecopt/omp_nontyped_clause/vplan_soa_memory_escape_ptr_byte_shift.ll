@@ -2,7 +2,7 @@
 ;; this the memory is accessed not at the array element boundary.
 ;; This is unsafe for SOA transformation.
 
-; RUN: opt -S -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
 ; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s

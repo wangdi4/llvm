@@ -1,4 +1,4 @@
-; RUN: opt -S -passes="vplan-vec" < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/callee parameter matching fails and results in serialized calls.
 ; Failure should occur on the attempt of matching v->l and v->u on the last parameter.

@@ -2,7 +2,7 @@
 ; is converted into a direct call, and no fallback case is generated since
 ; type of @mult_fun doesn't match the type of @fptr.
 
-; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { i64, i32 }
 %struct.B = type { i64, i64, i32 }

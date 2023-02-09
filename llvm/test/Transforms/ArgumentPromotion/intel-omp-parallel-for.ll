@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=argpromotion %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=argpromotion %s | FileCheck %s
 ;
 ;    void bar(int, float, double);
 ;

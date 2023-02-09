@@ -5,7 +5,7 @@
 ; the user PHI.
 
 ; REQUIRES: asserts
-; RUN: opt -S < %s -passes=vplan-vec -vplan-force-vf=2 -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S < %s -passes=vplan-vec -vplan-force-vf=2 -disable-output -vplan-enable-scalvec-analysis -vplan-print-scalvec-results | FileCheck %s
 
 define void @test_uni_inner(i64 *%p) {
 ;

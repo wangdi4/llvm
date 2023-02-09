@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec < %s | FileCheck %s --match-full-lines
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec < %s | FileCheck %s --match-full-lines
 
 target triple = "x86_64-unknown-linux-gnu"
 

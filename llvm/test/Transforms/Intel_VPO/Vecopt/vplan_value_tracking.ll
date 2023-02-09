@@ -3,7 +3,7 @@
 ; by passing '-vplan-dump-known-bits', and validates that the correct result is
 ; returned for each kind of operation.
 ;
-; RUN: opt -S < %s -passes='vplan-vec' -vplan-force-vf=2 -disable-output \
+; RUN: opt -opaque-pointers=0 -S < %s -passes='vplan-vec' -vplan-force-vf=2 -disable-output \
 ; RUN:   -vplan-print-after-init -vplan-dump-known-bits 2>&1 | FileCheck %s
 
 define void @foo(i64 %a, i32 %b, i64* %p) {

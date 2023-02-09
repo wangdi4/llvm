@@ -1,5 +1,5 @@
 ; RUN: opt -enable-new-pm=0 -S -switch-to-offload -vpo-paropt %s | FileCheck %s
-; RUN: opt -S -switch-to-offload -passes='vpo-paropt' %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -switch-to-offload -passes='vpo-paropt' %s | FileCheck %s
 ;
 ; Verify type information from different scopes is emitting into the offload
 ; device code correctly.

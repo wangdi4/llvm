@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=8 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=8 < %s | FileCheck %s
 ; Temporarily disable all-zero bypass until CMPLRLLVM-21686 is resolved.
 
 ; Function Attrs: nounwind

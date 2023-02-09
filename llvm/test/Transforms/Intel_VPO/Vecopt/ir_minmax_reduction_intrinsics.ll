@@ -1,7 +1,7 @@
 ; Test to check correctness of VPlan LLVM-IR vectorizer legality and codegen for
 ; explicit min/max reductions that use llvm.minnum/maxnum intrinsics.
 
-; RUN: opt -S -vplan-print-after-vpentity-instrs -vplan-entities-dump -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -vplan-print-after-vpentity-instrs -vplan-entities-dump -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

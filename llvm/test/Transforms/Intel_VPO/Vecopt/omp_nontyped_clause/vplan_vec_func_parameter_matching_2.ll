@@ -1,4 +1,4 @@
-; RUN: opt -S -passes="vplan-vec" < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/caller parameter matching results in call to simd variant.
 

@@ -22,8 +22,8 @@
 ;   }
 ; }
 
-; RUN: opt -S -passes=vplan-vec -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2  < %s 2>&1 | FileCheck %s  -check-prefixes=IR,CHECK
-; RUN: opt -S -passes="vplan-vec" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=IR,CHECK
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2  < %s 2>&1 | FileCheck %s  -check-prefixes=IR,CHECK
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=IR,CHECK
 ; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 ; REQUIRES: asserts

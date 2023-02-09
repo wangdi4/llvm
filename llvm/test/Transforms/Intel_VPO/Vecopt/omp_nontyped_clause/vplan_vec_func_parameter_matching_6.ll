@@ -1,4 +1,4 @@
-; RUN: opt -S -mattr=avx2 -passes="vplan-vec" < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -mattr=avx2 -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/callee parameter matching is successful for several variants,
 ; but select the one with the highest ISA as the tiebreaker. This test forces

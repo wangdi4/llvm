@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -disable-vplan-predicator -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -disable-vplan-predicator -vplan-force-vf=4 %s | FileCheck %s
 
 ;void foo(int *ip, int n)
 ;{

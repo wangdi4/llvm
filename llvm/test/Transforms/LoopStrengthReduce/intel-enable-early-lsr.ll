@@ -23,7 +23,7 @@
 ;    printf ("%f\n", B[5]);
 ; }
 ;
-; RUN: opt -S -passes="loop(loop-reduce)" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="loop(loop-reduce)" %s | FileCheck %s
 ;
 ; CHECK-LABEL: @__omp_offloading_3b_d7a6801f__Z3foo_l8(
 ; CHECK-NEXT:  newFuncRoot:

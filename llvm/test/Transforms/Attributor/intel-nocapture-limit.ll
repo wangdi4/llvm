@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=function-attrs %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=function-attrs %s | FileCheck %s
 ; CHECK: define void @pluto(%struct.foo* nocapture readonly %arg)
 
 ; This larger test hits the CaptureTracking limit implemented in llvm.org

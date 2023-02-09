@@ -6,7 +6,7 @@
 ; Additionally, when importing external assumptions into the cache, check that
 ; we only import assumptions which are valid (i.e. dominate the VPlan loop.)
 
-; RUN: opt -S < %s -passes='vplan-vec' -vplan-force-vf=2 -disable-output \
+; RUN: opt -opaque-pointers=0 -S < %s -passes='vplan-vec' -vplan-force-vf=2 -disable-output \
 ; RUN:   -debug-only=IntelVPAssumptionCache 2>&1 | FileCheck %s
 
 ; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vplan-vec' \

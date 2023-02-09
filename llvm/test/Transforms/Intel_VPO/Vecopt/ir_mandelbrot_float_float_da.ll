@@ -4,7 +4,7 @@
 ; RUN: opt -vplan-enable-soa=false -S %s -passes=vplan-vec -vplan-dump-da 2>&1 -disable-output | FileCheck %s
 
 ; The run line below used to crash before CMPLRLLVM-22366 was fixed.
-; RUN: opt -S %s -passes=vplan-vec -vplan-dump-da -vplan-enable-all-zero-bypass-loops=0 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S %s -passes=vplan-vec -vplan-dump-da -vplan-enable-all-zero-bypass-loops=0 -disable-output 2>&1 | FileCheck %s
 
 ; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
 

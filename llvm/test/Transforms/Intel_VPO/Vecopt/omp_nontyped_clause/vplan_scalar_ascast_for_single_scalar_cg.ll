@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
 
 ; Check that we generate scalar addrspacecast for last lane
 ; when we have stores of the casted value to uniform location.
