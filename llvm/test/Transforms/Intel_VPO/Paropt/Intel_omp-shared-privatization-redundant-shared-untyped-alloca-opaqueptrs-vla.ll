@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-paropt-shared-privatization -S <%s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='function(vpo-paropt-shared-privatization)' -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-shared-privatization -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-shared-privatization)' -S <%s 2>&1 | FileCheck %s
 
 ; CHECK:  "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(ptr null), "QUAL.OMP.SHARED"(ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr %vla, [10 x i64] zeroinitializer, i64 %0), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr, i64 0, i64 150)
 

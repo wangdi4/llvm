@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -scoped-noalias-aa -licm -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -scoped-noalias-aa -licm -S %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="vpo-paropt,function(loop-mssa(licm))" -aa-pipeline="basic-aa,scoped-noalias-aa" -S %s 2>&1 | FileCheck %s
 
 ; After paropt, the load of c0 should be hoisted by LICM as invariant.

@@ -1,6 +1,6 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S %s | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S %s | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -switch-to-offload -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S %s | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
 ;
 ; #include <iostream>

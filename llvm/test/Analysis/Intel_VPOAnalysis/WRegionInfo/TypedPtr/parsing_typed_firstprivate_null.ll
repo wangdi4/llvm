@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=vpo-wrnnode -S %s 2>&1 | FileCheck %s
 
 ; Original code:
 ;void foo(int x) {

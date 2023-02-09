@@ -1,6 +1,6 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
 ;
 ;Test src:

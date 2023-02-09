@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
 ; Test src:
 

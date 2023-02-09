@@ -1,5 +1,5 @@
-; RUN: not opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
-; RUN: not opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; XFAIL: *
 ; INTEL_CUSTOMIZATION

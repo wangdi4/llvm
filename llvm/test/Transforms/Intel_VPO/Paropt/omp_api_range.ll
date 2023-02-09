@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ;
 ; This test checks that paropt transform pass adds range metadata to OpenMP API

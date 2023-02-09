@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=unknown-unknown-unknown\
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=unknown-unknown-unknown\
 ; RUN: -S < %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=i686-unknown-windows\
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=i686-unknown-windows\
 ; RUN: -S < %s | FileCheck %s -check-prefix=WIN32 -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=x86_64-unknown-windows\
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -mtriple=x86_64-unknown-windows\
 ; RUN: -S < %s | FileCheck %s -check-prefix=WIN64 -check-prefix=ALL
 ; RUN: opt -opaque-pointers=0 -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -mtriple=unknown-unknown-unknown\
 ; RUN: -S < %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL

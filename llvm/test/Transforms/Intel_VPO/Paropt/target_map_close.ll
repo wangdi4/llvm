@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test support for the "CLOSE" map-type modifier.
 ; C source:

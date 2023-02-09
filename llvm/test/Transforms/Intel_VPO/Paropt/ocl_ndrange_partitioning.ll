@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=1 -S -pass-remarks-missed=openmp -pass-remarks-output=%t %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=1 -S -pass-remarks-missed=openmp -pass-remarks-output=%t %s 2>&1 | FileCheck %s
 ; RUN: FileCheck --input-file=%t --check-prefix=YAML %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-gpu-execution-scheme=1 -S -pass-remarks-missed=openmp -pass-remarks-output=%t %s 2>&1 | FileCheck %s
 ; RUN: FileCheck --input-file=%t --check-prefix=YAML %s

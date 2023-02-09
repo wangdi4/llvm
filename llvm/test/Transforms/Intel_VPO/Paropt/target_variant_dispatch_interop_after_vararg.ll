@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s
 
 ; Check that target variant dispatch with interop works with vararg functions.

@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-prepare -S %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S %s
 ; Verify that the OpenMP PROC_BIND clause does not cause a compfail
 

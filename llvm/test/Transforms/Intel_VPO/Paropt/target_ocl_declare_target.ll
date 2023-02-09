@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt-prepare -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt-prepare -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:

@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -enable-new-pm=0 -vpo-paropt-loop-collapse -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-loop-collapse -S <%s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-loop-collapse)' -S <%s | FileCheck %s
 ;
 ; Loop collapsing ZTT check was zero-extending the normalized i32 UBs instead of sign-extending them.

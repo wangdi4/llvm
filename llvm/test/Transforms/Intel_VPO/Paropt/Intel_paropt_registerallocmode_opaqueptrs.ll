@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0  -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-prepare -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_paropt_registerallocmode.yaml -switch-to-offload -S %s | FileCheck %s
-; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_paropt_registerallocmode.yaml -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0  -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-prepare -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_paropt_registerallocmode.yaml -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_paropt_registerallocmode.yaml -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ;int main()

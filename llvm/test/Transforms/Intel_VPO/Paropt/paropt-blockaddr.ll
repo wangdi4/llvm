@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
-; RUN: opt -S -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),module(vpo-paropt)" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),module(vpo-paropt)" %s | FileCheck %s
 
 ; Test parallelization of code containing && BlockAddresses.
 ; The "outside" address should remain in @main, and the "inside" address

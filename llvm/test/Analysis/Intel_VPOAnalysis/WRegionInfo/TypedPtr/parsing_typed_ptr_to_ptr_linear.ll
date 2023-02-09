@@ -1,11 +1,11 @@
 ; REQUIRES: asserts
 
 ; Test with opaque pointer
-; RUN: opt -opaque-pointers -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck --check-prefixes=OPQPTR %s
-; RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck --check-prefixes=OPQPTR %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck --check-prefixes=OPQPTR %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck --check-prefixes=OPQPTR %s
 
 ; Test with typed pointer
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck --check-prefixes=TYPEPTR %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck --check-prefixes=TYPEPTR %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck --check-prefixes=TYPEPTR %s
 
 ; Test src:

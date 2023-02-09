@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
 ;
 ; Test Src:
 ;

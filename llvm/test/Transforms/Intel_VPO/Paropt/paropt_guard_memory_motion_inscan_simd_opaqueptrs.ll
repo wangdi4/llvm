@@ -1,9 +1,9 @@
-; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
-; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
-; RUN: opt -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -opaque-pointers=1 -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
+; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
+; RUN: opt -opaque-pointers=1 -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
 
-; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -vpo-paropt-disable-guard-memory-motion-for-scan -S < %s 2>&1 | FileCheck %s --check-prefix=DISABLE_SCAN
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -vpo-paropt-disable-guard-memory-motion-for-scan -S < %s 2>&1 | FileCheck %s --check-prefix=DISABLE_SCAN
 
 ; Test to verify the functionality of VPOParoptGuardMemoryMotion and VPORenameOperands passes.
 

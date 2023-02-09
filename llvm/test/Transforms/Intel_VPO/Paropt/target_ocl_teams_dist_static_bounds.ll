@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -sroa -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -sroa -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,loop-simplify,sroa,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
 
 ; Original code:

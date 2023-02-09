@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -S %s | FileCheck %s
 
 @nder = dso_local thread_private global i32 0, align 4

@@ -1,4 +1,4 @@
-; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt" -S %s | FileCheck %s
 ;
 ; FE must hoist UB computations, before we can make ndrange initialization work.
 ; TODO: we need to recreate the test, when FE generates new code.

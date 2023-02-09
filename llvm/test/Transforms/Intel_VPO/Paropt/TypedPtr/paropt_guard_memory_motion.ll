@@ -31,8 +31,8 @@
 ;   }
 ; }
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -enable-new-pm=0 -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE

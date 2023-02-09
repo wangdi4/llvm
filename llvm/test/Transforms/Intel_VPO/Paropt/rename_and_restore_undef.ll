@@ -1,6 +1,6 @@
-; RUN: opt -enable-new-pm=0 -vpo-restore-operands -S %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-restore-operands -S %s | FileCheck %s -check-prefix=RESTR
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-restore-operands)' -S %s | FileCheck %s -check-prefix=RESTR
-; RUN: opt -enable-new-pm=0 -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s -check-prefix=TFORM
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s -check-prefix=TFORM
 
 ; Test src:

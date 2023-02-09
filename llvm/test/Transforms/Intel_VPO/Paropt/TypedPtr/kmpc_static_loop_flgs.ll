@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; // Evaluate decimal value representation of kmpc_loc.flags for correct flags bit representing type

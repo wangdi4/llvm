@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-paropt-shared-privatization -S <%s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='function(vpo-paropt-shared-privatization)' -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-shared-privatization -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-shared-privatization)' -S <%s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

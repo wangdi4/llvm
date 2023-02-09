@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes=vpo-paropt-tpv -S %s | FileCheck %s
 ;
 ; It is to test whether a composite instruction such as %9 = load i32,

@@ -1,8 +1,8 @@
-; RUN: opt -switch-to-offload -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=1 -switch-to-offload -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=DEFAULT
 ;
-; RUN: opt -vpo-paropt-spirv-offload-rne -switch-to-offload -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=RNE
-; RUN: opt -vpo-paropt-spirv-offload-rne -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=RNE
+; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=RNE
+; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=RNE
 ;
 ; When compiling for SPIRV target offloading we translate the "round" function to the corresponding OCL counterpart.
 ; By default roundf/round are translated into _Z17__spirv_ocl_roundf   / _Z17__spirv_ocl_roundd

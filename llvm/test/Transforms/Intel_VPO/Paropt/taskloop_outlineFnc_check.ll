@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-paropt -debug-only=vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -debug-only=vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -debug-only=vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 
 ; Test Src:

@@ -1,4 +1,4 @@
-; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
 
 ; Deprecated the llvm.intel.directive* representation.
 ; TODO: Update this test to use llvm.directive.region.entry/exit instead.
