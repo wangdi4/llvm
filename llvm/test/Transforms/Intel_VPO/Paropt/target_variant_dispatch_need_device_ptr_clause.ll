@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s --check-prefix=CHECK-BEFORE --check-prefix=CHECK-ALL
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
-; RUN: opt -passes='function(vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-prepare -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -vpo-paropt-put-interop-after-vararg=true -S <%s | FileCheck %s --check-prefix=CHECK-AFTER --check-prefix=CHECK-ALL
 
 ; // C source
 ; #include <omp.h>

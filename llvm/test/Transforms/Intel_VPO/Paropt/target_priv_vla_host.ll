@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-target-capture-non-pointers-using-map-to=true -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -vpo-paropt-target-capture-non-pointers-using-map-to=true -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-target-capture-non-pointers-using-map-to=true -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-target-capture-non-pointers-using-map-to=true -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 ;

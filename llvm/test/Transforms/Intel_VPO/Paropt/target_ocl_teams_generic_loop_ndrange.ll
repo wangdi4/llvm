@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; Check that VPO Paropt Prepare pass does not remove
 ; the "QUAL.OMP.OFFLOAD.NDRANGE" qualifier from the TARGET construct or

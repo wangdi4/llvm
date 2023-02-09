@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
-; RUN: opt -S -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %s | FileCheck %s
 
 ; CHECK: %non_pod_of_A.priv ={{.*}} !dbg [[DBG:![0-9]+]]
 ; CHECK: call {{.*}}omp.def_constr{{.*}} !dbg [[DBG]]

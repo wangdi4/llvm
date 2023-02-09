@@ -1,6 +1,6 @@
 ; Checks that %c0 is not captured by the OMP.PARALLEL directive.
 
-; RUN: opt -S -passes="function-attrs" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="function-attrs" %s | FileCheck %s
 
 ; CHECK: define{{.*}}@const_load(float* nocapture %c0)
 

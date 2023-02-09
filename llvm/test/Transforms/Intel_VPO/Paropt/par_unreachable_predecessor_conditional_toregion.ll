@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -opaque-pointers -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Check that we can handle outlining a parallel region like this:
 

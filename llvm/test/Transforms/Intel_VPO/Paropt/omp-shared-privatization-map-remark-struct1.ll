@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O3>' -paropt=31 -disable-output -pass-remarks-analysis=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='default<O3>' -paropt=31 -disable-output -pass-remarks-analysis=openmp %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ;

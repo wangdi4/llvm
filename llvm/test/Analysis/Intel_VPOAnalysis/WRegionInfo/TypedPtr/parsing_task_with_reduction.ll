@@ -1,5 +1,5 @@
-; RUN: not opt -enable-new-pm=0 -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
-; RUN: not opt -passes='function(print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=0 -enable-new-pm=0 -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=0 -passes='function(print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
 
 ; void foo()
 ; {

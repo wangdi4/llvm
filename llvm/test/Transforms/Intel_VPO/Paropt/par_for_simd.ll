@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; This test checks that the "simd" directive in a "parallel for simd" is still
 ; represented after the "parallel for" part is consumed for codegen.

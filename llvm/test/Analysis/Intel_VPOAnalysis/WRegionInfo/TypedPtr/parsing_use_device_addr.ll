@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; Test src: Input IR was hand modified because FE does not yet handle use_device_addr
 ; #include <stdio.h>

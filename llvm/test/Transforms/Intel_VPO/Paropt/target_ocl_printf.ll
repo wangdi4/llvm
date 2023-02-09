@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Checks that in the SPIR64 target compilation we replace printf()
 ; with the OCL builtin version _Z18__spirv_ocl_printfPU3AS2cz()

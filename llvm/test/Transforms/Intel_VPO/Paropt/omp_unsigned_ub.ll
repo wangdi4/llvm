@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S 
-; RUN: opt -passes='vpo-paropt' -S 
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S 
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S 
 
 ; Clang-emitted IR for a loop with unsigned UB changed after the
 ; pulldown of 20190213 (ae03dc76).

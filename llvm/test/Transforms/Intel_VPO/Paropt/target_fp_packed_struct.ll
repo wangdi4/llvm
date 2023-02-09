@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=1 -passes='default<O0>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=1 -passes='default<O0>' -paropt=31 -S %s | FileCheck %s
 
-; RUN: opt -enable-new-pm=1 -passes='default<O2>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=1 -passes='default<O2>' -paropt=31 -S %s | FileCheck %s
 
-; RUN: opt -enable-new-pm=1 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=1 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 
 ; The test is just to check that this IR doens't cause a comp-fail. The
 ; comp-fail was happening in code-extractor after inliner inlined f1 into

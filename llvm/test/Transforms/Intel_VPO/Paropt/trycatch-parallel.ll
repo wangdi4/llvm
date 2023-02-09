@@ -2,8 +2,8 @@
 ; try/catch inside parallel region.
 ; The Code Extractor must tolerate the typeid call and complete the outline.
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes="vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -S %s | FileCheck %s
 
 ; CHECK: define{{.*}}main.DIR.OMP.PARALLEL
 ; CHECK: invoke void @_Z3foov
