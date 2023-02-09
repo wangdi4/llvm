@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=sycl-kernel-vector-variant-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=sycl-kernel-vector-variant-lowering -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-vector-variant-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-vector-variant-lowering -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }

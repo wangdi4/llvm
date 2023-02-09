@@ -1,7 +1,7 @@
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=4  %s | FileCheck -DVL=4 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=8  %s | FileCheck -DVL=8 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=16 %s | FileCheck -DVL=16 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=32 %s | FileCheck -DVL=32 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=4  %s | FileCheck -DVL=4 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=8  %s | FileCheck -DVL=8 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=16 %s | FileCheck -DVL=16 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=32 %s | FileCheck -DVL=32 %s
 
 ; CHECK-LABEL: test_sinf
 ; CHECK:  [[RESULT:%.*]] = call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> {{.*}})

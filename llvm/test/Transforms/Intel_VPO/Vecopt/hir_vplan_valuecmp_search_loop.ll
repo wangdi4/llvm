@@ -3,7 +3,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -disable-output < %s 2>&1 | FileCheck %s
 
 ; The idiom being recognized looks like:
 

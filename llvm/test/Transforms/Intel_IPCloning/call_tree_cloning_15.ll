@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -S | FileCheck %s
 
 ; Check that Call Tree Cloning transformation keeps !noalias and !alias_scope metadata on call instruction(s)
 

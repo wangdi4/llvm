@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that structure reference is parsed correctly.
@@ -10,7 +10,7 @@
 ; CHECK: + END LOOP
 
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 ; Verify that CG generates the correct GEP for the reference.
 

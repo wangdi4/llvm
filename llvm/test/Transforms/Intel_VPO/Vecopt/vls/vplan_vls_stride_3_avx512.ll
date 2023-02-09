@@ -1,6 +1,6 @@
 ;
-; RUN: opt -disable-output -passes="vplan-vec,print" -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -opaque-pointers=0 -disable-output -passes="vplan-vec,print" -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
+; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
 ;
 ; LIT test to check that VLS optimization does not kick in for non-stride2 accesses with -xcore-avx512
 ;

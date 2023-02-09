@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=sycl-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=sycl-kernel-vector-variant-fillin -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-vector-variant-fillin -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
 %class.S1A.A = type { i32 (...)** }

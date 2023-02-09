@@ -1,5 +1,5 @@
-; RUN: opt %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
-; RUN: opt %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details -enable-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
+; RUN: opt -opaque-pointers=0 %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
+; RUN: opt -opaque-pointers=0 %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details -enable-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
 
 ; This test is checking that Andersen's AA results are available for the loopopt.
 ;

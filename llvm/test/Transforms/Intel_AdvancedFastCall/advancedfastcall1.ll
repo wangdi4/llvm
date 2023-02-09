@@ -2,7 +2,7 @@
 ; address taken function that can be converted to use the 'fastcc'
 ; calling convention.
 
-; RUN: opt < %s -S -passes=intel-advancedfastcall -intel-advancedfastcall-require-profile=false | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes=intel-advancedfastcall -intel-advancedfastcall-require-profile=false | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"

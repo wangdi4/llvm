@@ -1,7 +1,7 @@
-; RUN: opt %s -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt %s -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt %s -enable-debugify -disable-output -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt %s -enable-debugify -disable-output -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 %s -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -enable-debugify -disable-output -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 %s -enable-debugify -disable-output -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 %struct.A = type { float, i32, double, i64 }
 

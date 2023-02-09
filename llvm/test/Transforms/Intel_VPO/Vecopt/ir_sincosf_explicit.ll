@@ -1,7 +1,7 @@
 ; Test to check sincos functions are vectorized to SVML function in LLVM-IR vector CG.
 
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK %s
 
 ; CHECK: [[RESULT:%.*]] = call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> {{.*}})
 ; CHECK: [[RESULT_SIN:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 0

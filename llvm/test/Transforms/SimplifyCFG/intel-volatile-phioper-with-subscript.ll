@@ -1,6 +1,6 @@
 ; This is a copy of volatile-phioper.ll with getelementptr replaced
 ; with llvm.intel.subscript.
-; RUN: opt < %s -S -passes=convert-to-subscript | opt -passes="simplifycfg" -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes=convert-to-subscript | opt -passes="simplifycfg" -simplifycfg-require-and-preserve-domtree=1 -S | FileCheck %s
 ;
 ; rdar:13349374
 ;

@@ -3,7 +3,7 @@
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
 ; (x86-hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt < %s -enable-new-pm=0 -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-new-pm=0 -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
 
 %rtti.TypeDescriptor2 = type { i8**, i8*, [3 x i8] }
 

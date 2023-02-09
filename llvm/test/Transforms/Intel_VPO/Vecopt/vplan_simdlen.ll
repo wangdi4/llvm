@@ -1,4 +1,4 @@
-; RUN: opt %s -S -passes="vpo-cfg-restructuring,vplan-vec" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -S -passes="vpo-cfg-restructuring,vplan-vec" 2>&1 | FileCheck %s
 ; Verify that VPlan understands simdlen directive information.
 
 ; CHECK: load <2 x float>, <2 x float>* 

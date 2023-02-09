@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans 2>&1 | FileCheck %s
 
 ; Check that many loops specialization cloning was performed.
 ; This test is similar to ip_cloning_manyloops08.ll, but only checks the IR.

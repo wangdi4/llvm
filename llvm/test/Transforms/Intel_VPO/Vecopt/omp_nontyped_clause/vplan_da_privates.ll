@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -disable-output -vplan-dump-da -vplan-print-after-predicator %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -passes=vplan-vec -disable-output -vplan-dump-da -vplan-print-after-predicator %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 

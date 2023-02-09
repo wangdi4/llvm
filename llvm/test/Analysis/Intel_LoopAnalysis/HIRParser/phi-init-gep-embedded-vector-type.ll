@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that we are able to handle phi init value '%arraydecay.i' which accesses a vector type.

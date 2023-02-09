@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output | FileCheck %s
 
 %S = type { i64, i64 }
 define void @_Z3fooPii(%S *%p) local_unnamed_addr {

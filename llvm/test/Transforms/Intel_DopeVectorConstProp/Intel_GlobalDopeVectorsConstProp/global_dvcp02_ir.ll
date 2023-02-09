@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the fields for the global dope vector
 ; @arr_mod_mp_a_ were collected and propagated correctly. Also, it

@@ -1,4 +1,4 @@
-; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
 
 ; check hir
 ; CHECK:     DO i1 = 0, 99, 4   <DO_LOOP>

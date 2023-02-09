@@ -1,7 +1,7 @@
 ; Test for constants mergeable with DDTests
 
 ; Check for different types using detailed print
-; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-details -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: %3 = (i64*)(%0)[%N + 1]
 ; CHECK: LINEAR zext.i32.i64(%N + 1)

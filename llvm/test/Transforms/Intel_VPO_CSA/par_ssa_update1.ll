@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -enable-new-pm=0 -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop-simplify),vpo-paropt' -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-new-pm=0 -vpo-paropt -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='function(loop-simplify),vpo-paropt' -S | FileCheck %s
 
 ; This file checks the ssa update can generate correct code for the value
 ; which is not live out of the loop.

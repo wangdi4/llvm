@@ -3,7 +3,7 @@
 ; TODO: In some cases atomic operations are not allowed to be reordered, for
 ; which we need to bail out of vectorization (JIRA: CMPLRLLVM-10743).
 
-; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
+; RUN: opt -opaque-pointers=0 < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
 
 declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind

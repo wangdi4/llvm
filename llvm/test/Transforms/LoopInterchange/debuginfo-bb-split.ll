@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-interchange -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -loop-interchange -S | FileCheck %s
 ; INTEL_CUSTOMIZATION
 ; xmain cost model doesn't want to interchange these loops, no override exists.
 ; XFAIL: *

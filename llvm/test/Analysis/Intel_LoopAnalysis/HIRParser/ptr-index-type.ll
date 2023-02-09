@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=parser -hir-details 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=parser -hir-details 2>&1 | FileCheck %s
 
 ; Verify that parser uses index type explicitly specified in datalayout
 ; (32 bits) when it is different from pointer size (40 bits).

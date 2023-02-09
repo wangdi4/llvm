@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes="require<dtransanalysis>,hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" -hir-complete-unroll-force-constprop -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -whole-program-assume -intel-libirc-allowed -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes="require<dtransanalysis>,hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" -hir-complete-unroll-force-constprop -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test case checks that entries 0 and 1 in the field 1 for
 ; %class.TestClass, which is an array, are collected as constants.

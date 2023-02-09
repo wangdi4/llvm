@@ -3,7 +3,7 @@
 ; Test to check that we don't fold unused add. If we fold it then in some cases
 ; we can create an empty loop which leads to verification errors.
 ;
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 -hir-details %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 -hir-details %s 2>&1 | FileCheck %s
 
 define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-LABEL: Function: foo

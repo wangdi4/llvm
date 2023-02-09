@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-;RUN: opt < %s -passes="vplan-vec" -S | FileCheck %s
+;RUN: opt -opaque-pointers=0 < %s -passes="vplan-vec" -S | FileCheck %s
 
 
 ; This test checks that the code is force-vectorized when #pragma omp simd is specified on the loop.

@@ -1,4 +1,4 @@
-; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; Outer dimension is set to [*:*:*] because not all refs in @fmcom_ group have it.
 

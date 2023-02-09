@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
 
 @"_Z2f5PPi$SIMDTable" = global [2 x i32 addrspace(4)* addrspace(4)* (i32 addrspace(4)* addrspace(4)*)*] [i32 addrspace(4)* addrspace(4)* (i32 addrspace(4)* addrspace(4)*)* bitcast (<16 x i32 addrspace(4)* addrspace(4)*> (<16 x i32 addrspace(4)* addrspace(4)*>, <16 x i64>)* @_ZGVeM16v__Z2f5PPi to i32 addrspace(4)* addrspace(4)* (i32 addrspace(4)* addrspace(4)*)*), i32 addrspace(4)* addrspace(4)* (i32 addrspace(4)* addrspace(4)*)* bitcast (<16 x i32 addrspace(4)* addrspace(4)*> (<16 x i32 addrspace(4)* addrspace(4)*>)* @_ZGVeN16v__Z2f5PPi to i32 addrspace(4)* addrspace(4)* (i32 addrspace(4)* addrspace(4)*)*)]
 

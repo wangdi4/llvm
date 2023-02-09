@@ -2,7 +2,7 @@
 ; of temp %j.0205 = %j.0205  +  1 was moved after use %t1 = @s2[0][...],  %t1 = (@s2)[0][...] will
 ; not be considered as a temp substitution candidate node.
 ;
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ;*** IR Dump Before HIR Temp Cleanup (hir-temp-cleanup) ***
 ;Function: main

@@ -1,5 +1,5 @@
 ;
-; RUN: opt < %s -passes=vplan-vec -disable-output -print-after=vplan-vec -vplan-force-vf=2 -vplan-enable-peeling 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -disable-output -print-after=vplan-vec -vplan-force-vf=2 -vplan-enable-peeling 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we do not crash in vector code generation when the peeling
 ; candidate memory address is the return value from a function call that can throw.

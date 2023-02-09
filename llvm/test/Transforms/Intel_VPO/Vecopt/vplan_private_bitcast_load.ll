@@ -2,7 +2,7 @@
 ; With enhanced memory escape analysis, this code is considered safe for SOA,
 ; and profitable for SOA.
 
-; RUN: opt %s -S -passes=mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -vplan-dump-soa-info 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -S -passes=mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -vplan-dump-soa-info 2>&1 | FileCheck %s
 
 ; CHECK: SOA profitability:
 ; CHECK: SOASafe =  Profitable = 1

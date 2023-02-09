@@ -3,7 +3,7 @@
 ; AndersensAA was incorrectly computing points-to info for %1, %add.ptr.i.i334
 ; and %notconst.
 
-; RUN: opt < %s -passes="require<anders-aa>,instcombine" -S  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="require<anders-aa>,instcombine" -S  2>&1 | FileCheck %s
 
 ; CHECK: store %"class.clang::NamedDecl"* null, %"class.clang::NamedDecl"** %notconst
 

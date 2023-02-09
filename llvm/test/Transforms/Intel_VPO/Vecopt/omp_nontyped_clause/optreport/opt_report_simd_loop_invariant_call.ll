@@ -1,4 +1,4 @@
-; RUN: opt %s -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 | FileCheck %s
 ;
 ; Cheks serialization reason for llvm.invariant.start/llvm.invariant.end call
 ;

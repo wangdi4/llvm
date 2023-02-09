@@ -1,4 +1,4 @@
-; RUN: opt -enable-lv -passes=loop-vectorize -S --debug-only=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-lv -passes=loop-vectorize -S --debug-only=loop-vectorize < %s 2>&1 | FileCheck %s
 
 ; CHECK: LV: Not vectorizing: Found an unidentified PHI [[STORE:%.*]] = phi double* [ [[ADD_PTR:%.*]], [[FOR_BODY:%.*]] ], [ [[LOAD_INITIAL:%.*]], [[FOR_BODY_PREHEADER:%.*]] ]
 ; CHECK: LV: Not vectorizing: Cannot prove legality.

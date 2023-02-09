@@ -3,7 +3,7 @@
 ; by VPValue-based code generator.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
 define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>

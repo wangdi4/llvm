@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt -debug-only=vpo-paropt-transform -S <%s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload -passes='vpo-paropt' -debug-only=vpo-paropt-transform -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt -debug-only=vpo-paropt-transform -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='vpo-paropt' -debug-only=vpo-paropt-transform -S <%s 2>&1 | FileCheck %s
 ;
 ; // test source
 ; void foo () {

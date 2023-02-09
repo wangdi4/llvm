@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
+; RUN: opt -opaque-pointers=0 < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -disable-output -vplan-force-vf=2 -vplan-cost-model-print-analysis-for-vf=2 \
 ; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 | FileCheck %s
 

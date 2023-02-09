@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-create-function-level-region -hir-details 2>&1 -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-create-function-level-region -hir-details 2>&1 -disable-output | FileCheck %s
 
 ; Verify that parser does not crete fake refs for calls with 
 ; 'inaccessiblememonly' attribute as the call does not 

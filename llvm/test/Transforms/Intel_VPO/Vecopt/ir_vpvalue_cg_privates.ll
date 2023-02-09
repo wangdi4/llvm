@@ -2,7 +2,7 @@
 ; Test to check VPValue-based LLVM-IR codegen for scalar and aggregate loop privates in the candidate
 ; SIMD loop.
 
-; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -vplan-force-vf=4 -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -passes=vplan-vec -vplan-force-vf=4 -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:

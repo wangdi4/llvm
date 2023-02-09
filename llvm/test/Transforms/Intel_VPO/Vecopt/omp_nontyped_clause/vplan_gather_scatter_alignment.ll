@@ -1,6 +1,6 @@
 ; This test verifies that correct alignment is used for gather/scatter.
 
-;RUN: opt -vplan-enable-soa=false -S -passes=vplan-vec -vplan-force-vf=2 %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S -passes=vplan-vec -vplan-force-vf=2 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

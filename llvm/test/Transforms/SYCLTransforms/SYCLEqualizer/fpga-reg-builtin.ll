@@ -38,8 +38,8 @@
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-remove-fpga-reg -passes=sycl-kernel-equalizer -S %s | FileCheck %s
 
 %struct.st = type { i32, float }
 %union.un = type { i32 }

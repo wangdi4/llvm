@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=lower-subscript -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=lower-subscript -S 2>&1 | FileCheck %s
 
 ; CHECK: getelementptr inbounds i32, i32* %p, i32 1
 ; CHECK: %[[T:.*]] = trunc i64 %add to i32

@@ -1,4 +1,4 @@
-; RUN: opt -enable-new-pm=0 -globaloffset %s -S -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -globaloffset %s -S -o - | FileCheck %s
 ; ModuleID = 'simple_debug.bc'
 source_filename = "global-offset-dbg.ll"
 

@@ -28,8 +28,8 @@
 ; ----------------------------------------------------
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-pipe-io-transform %s -S | FileCheck %s
 
 ; CHECK-DAG: @llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_dtor, i8* null }]
 ; CHECK-DAG: @test1.str = private unnamed_addr constant [6 x i8] c"test1\00", align 1

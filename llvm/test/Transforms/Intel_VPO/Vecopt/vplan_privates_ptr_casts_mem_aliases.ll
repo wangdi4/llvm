@@ -3,7 +3,7 @@
 ; lowering privates which have pointer cast like memory aliases outside
 ; the target SIMD loop.
 
-; RUN: opt %s -passes=vplan-vec -vplan-print-after-vpentity-instrs -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=vplan-vec -vplan-print-after-vpentity-instrs -disable-output | FileCheck %s
 
 %"struct.std::complex" = type { { float, float } }
 

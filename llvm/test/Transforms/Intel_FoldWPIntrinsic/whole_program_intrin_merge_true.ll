@@ -4,7 +4,7 @@
 ; into true since there is whole program safe. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed and the wrapper should be removed.
 
-; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic),function(simplifycfg)' -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='module(intel-fold-wp-intrinsic),function(simplifycfg)' -whole-program-assume -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 

@@ -1,4 +1,4 @@
-; RUN: opt %s -S -vplan-force-vf=1 --passes="openmp-opt,hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -S -vplan-force-vf=1 --passes="openmp-opt,hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" 2>&1 | FileCheck %s
 
 ; Since vectorizing loops with vector functions is now supported for HIR, this
 ; test started failing because the calls to the vector functions were

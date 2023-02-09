@@ -1,6 +1,6 @@
 ; This test checks that we mark private variable with volatile stores as unsafe.
 
-; RUN: opt -disable-output -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 

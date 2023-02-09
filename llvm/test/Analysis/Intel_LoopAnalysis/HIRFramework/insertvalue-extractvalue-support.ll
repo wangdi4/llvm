@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
 
 ; Check that insertvalue and extractvalue instructions are parsed and printed correctly.
 
@@ -14,7 +14,7 @@
 ; CHECK-HIR:   |   (@pR)[0][i1 + 1] = %insertval10;
 ; CHECK-HIR:   + END LOOP
 
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CHECK-CG
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CHECK-CG
 
 ; CHECK-CG: region.0:
 ; CHECK-CG:   %pR_fetch_c{{[0-9]+}} = extractvalue %complex_64bit %t{{[.0-9]*}}, 0

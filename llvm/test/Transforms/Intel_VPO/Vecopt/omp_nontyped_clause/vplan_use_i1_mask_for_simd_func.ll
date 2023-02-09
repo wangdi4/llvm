@@ -1,4 +1,4 @@
-; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -use-i1-mask-for-simd-funcs -S < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -passes=vplan-vec -use-i1-mask-for-simd-funcs -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK-NOT: zext <4 x i1>

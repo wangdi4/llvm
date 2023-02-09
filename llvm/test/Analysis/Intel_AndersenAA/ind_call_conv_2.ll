@@ -2,7 +2,7 @@
 ; with direct call to "malloc" by eliminating other possible targets
 ; like "calloc" and "free" due to signature mismatches.
 
-; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' -S 2>&1 | FileCheck %s
 
 ; CHECK: %call = call i8* @malloc(i64 100)
 ; CHECK-NOT: %call = call i8* %1(i64 100)

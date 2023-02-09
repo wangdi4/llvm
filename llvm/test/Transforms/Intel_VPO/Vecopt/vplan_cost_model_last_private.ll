@@ -1,6 +1,6 @@
-; RUN: opt < %s -passes=vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-enable-masked-vectorized-remainder -vplan-enable-evaluators-cost-model-dumps -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-enable-masked-vectorized-remainder -vplan-enable-evaluators-cost-model-dumps -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 | FileCheck %s
 
-; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-enable-masked-vectorized-remainder -vplan-enable-evaluators-cost-model-dumps -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-enable-masked-vectorized-remainder -vplan-enable-evaluators-cost-model-dumps -vplan-cost-model-print-analysis-for-vf=4 -vplan-force-vf=4 | FileCheck %s
 
 ; The test captures the costs of private-final-c-mem, private-final-uc-mem and private-final-masked-mem VPInstructions.
 

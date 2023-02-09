@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -disable-output -debug-only=dopevectorconstprop -passes=dopevectorconstprop -dope-vector-local-const-prop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test case checks that dope vector constant propagation happens
 ; for assumed shape arrays that are using inside local functions. It

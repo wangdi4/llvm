@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details -hir-details-dims 2>&1 | FileCheck %s
 
 ; Verify that the load below contains blob ddrefs for the blobs %t17 and %t18 which are the lower and stride for the 2nd dimension.
 ; CHECK: %t21 = (%"ul_arg_0.0_GEPs_$field0$33")[0:i1:4(i32*:0)][%t17:%t:%t18(i32*:0)];

@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-alloca-dimsize=500 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-alloca-dimsize=500 -disable-output 2>&1 | FileCheck %s
 
 ; Check that we successfully transpose the array for non-unit stride access
 ; (bitcast (i8* getelementptr inbounds ([291652 x i8], [291652 x i8]* @global.7, i64 0, i64 192000) to i32*))

@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
-; RUN: opt < %s -passes="print<hir-region-identification>" -hir-region-print-cost-model-stats -debug-only=hir-region-identification 2>&1 | FileCheck %s --check-prefix=STATS
+; RUN: opt -opaque-pointers=0 < %s -passes="print<hir-region-identification>" -hir-region-print-cost-model-stats -debug-only=hir-region-identification 2>&1 | FileCheck %s --check-prefix=STATS
 
 ; Verify that subscript intrinsic is ignored by the framework cost model when counting instructions.
 ; STATS: Loop instruction count: 1

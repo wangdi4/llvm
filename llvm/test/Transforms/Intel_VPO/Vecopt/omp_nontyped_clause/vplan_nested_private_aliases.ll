@@ -2,7 +2,7 @@
 ; and the user of a nested alias is inside the SIMD loop, then VPlan will
 ; correctly widen the private and update uses of its alias.
 
-; RUN: opt -vplan-enable-soa=false -S -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S -passes=vplan-vec -vplan-force-vf=4 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

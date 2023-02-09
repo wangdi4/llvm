@@ -3,7 +3,7 @@
 ; AndersensAA can't handle "inttoptr (i64 add (i64 ptrtoint
 ; ([8 x [8 x float]]* @"f_80_$W" to i64), i64 72) to float*)"
 
-; RUN: opt < %s -passes='require<anders-aa>,gvn' -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,gvn' -S 2>&1 | FileCheck %s
 
 ; CHECK: %i281 = load float, float
 

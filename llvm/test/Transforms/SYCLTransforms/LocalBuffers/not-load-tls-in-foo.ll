@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check that there is no load from pLocalMemBase in function foo which doesn't
 ; use local variable.

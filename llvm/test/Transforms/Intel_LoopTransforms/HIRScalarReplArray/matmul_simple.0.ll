@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,hir-lmm,hir-unroll-and-jam,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-blocksize=128 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,hir-lmm,hir-unroll-and-jam,hir-vec-dir-insert,hir-vplan-vec,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-blocksize=128 -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Support for vector types: limit to dist-0 within a group in a vectorized group
 ;

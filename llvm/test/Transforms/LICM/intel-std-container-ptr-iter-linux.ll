@@ -1,5 +1,5 @@
-; RUN: opt < %s -enable-new-pm=0 -tbaa   -std-container-alias  -basiccg -domtree -basic-aa -aa -std-container-opt -domtree -loops  -loop-rotate -licm  -S | FileCheck %s
-; RUN: opt < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-new-pm=0 -tbaa   -std-container-alias  -basiccg -domtree -basic-aa -aa -std-container-opt -domtree -loops  -loop-rotate -licm  -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
 ;
 ; The compiler is expected to hoist out the load *ita. The header file vector
 ; is pre-processed under Linux.

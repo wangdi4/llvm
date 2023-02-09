@@ -179,7 +179,7 @@
 ;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
-; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

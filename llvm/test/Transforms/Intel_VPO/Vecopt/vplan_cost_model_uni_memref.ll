@@ -1,5 +1,5 @@
-; RUN: opt < %s -disable-output -passes=vplan-vec -vplan-cost-model-print-analysis-for-vf=4 -mattr=avx2 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-cost-model-print-analysis-for-vf=4 -mattr=avx2 -enable-intel-advanced-opts | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -disable-output -passes=vplan-vec -vplan-cost-model-print-analysis-for-vf=4 -mattr=avx2 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-cost-model-print-analysis-for-vf=4 -mattr=avx2 -enable-intel-advanced-opts | FileCheck %s
 
 ; The test cements the costs of uniform loads/stores.
 ; Uniform loads may have extra cost comparing to uniform stores if their

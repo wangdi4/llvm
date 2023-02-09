@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-array-transpose,print<hir>" -disable-output -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-temp-array-transpose,print<hir>" -disable-output -hir-details-dims 2>&1 | FileCheck %s
 
 ; Check that Transposing does not occur for large const dims that would result in
 ; large allocas.

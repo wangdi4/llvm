@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Check that &((i8*)(%0)[0] USE will not be replaced.
 ; It seems to be legal to replace it by (i8**)(%a)[i1], but

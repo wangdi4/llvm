@@ -1,4 +1,4 @@
-; RUN: opt %s -S -passes='function(vpo-cfg-restructuring),vpo-paropt,vplan-vec' 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -S -passes='function(vpo-cfg-restructuring),vpo-paropt,vplan-vec' 2>&1 | FileCheck %s
 ; Verify that VPlan can vertorize the OMP simd loop.
 ;
 ; CHECK: add nsw <4 x i32>

@@ -42,7 +42,7 @@
 ;}
 ; =======================================================================
 
-; RUN: opt %s -S -passes=mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec \
+; RUN: opt -opaque-pointers=0 %s -S -passes=mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec \
 ; RUN: -vplan-enable-all-zero-bypass-non-loops=false -vplan-force-vf=2 | FileCheck %s --check-prefixes=CHECK,CHECK-VF2
 
 source_filename = "tt2.cpp"

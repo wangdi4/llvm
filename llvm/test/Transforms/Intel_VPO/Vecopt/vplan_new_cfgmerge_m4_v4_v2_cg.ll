@@ -2,7 +2,7 @@
 ; The scenario requires static peeling, due to remainder is non-masked vector loop.
 ; This is enforced by planner: when scenario contains peel but peeling is disabled
 ; a static peel(1) is enforced.
-; RUN: opt -vplan-vec-scenario="m4;v4;v2" \
+; RUN: opt -opaque-pointers=0 -vplan-vec-scenario="m4;v4;v2" \
 ; RUN: -disable-output -passes=vplan-vec \
 ; RUN: -print-after=vplan-vec \
 ; RUN: -vplan-enable-peeling=0 %s 2>&1 | FileCheck %s
