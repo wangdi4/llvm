@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; // C source
 ; #include <omp.h>

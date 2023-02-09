@@ -1,3 +1,6 @@
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+
 ; Test to verify functionality of VPOParoptGuardMemoryMotion and VPORenameOperands
 ; passes on SIMD loop containing array section reduction idiom.
 
@@ -15,9 +18,6 @@
 ;
 ;   return a[42];
 ; }
-
-; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
 ; CHECK: @foo
 ; CHECK:   [[GUARD_START:%.*]] = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %a.red.gep.minus.offset), "QUAL.OMP.OPERAND.ADDR"(ptr %a.red.gep.minus.offset, ptr %a.red.gep.minus.offset.addr) ]
@@ -38,7 +38,8 @@ entry:
   br label %DIR.OMP.SIMD.170
 
 DIR.OMP.SIMD.170:                                 ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"(ptr %a.red.gep.minus.offset, i64 0, i64 500, i64 42) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"(ptr %a.red.gep.minus.offset, i64 0, i64 500, i64 42) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.170, %omp.inner.for.inc

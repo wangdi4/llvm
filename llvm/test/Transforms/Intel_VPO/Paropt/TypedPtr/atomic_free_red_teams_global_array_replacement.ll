@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
-; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
 
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
-; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck %s
 
 ; Test src:
 ;

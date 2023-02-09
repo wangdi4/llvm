@@ -2,10 +2,10 @@
 ;   "globalopt" (Global Variable Optimizer) or
 ;   "ipsccp" (Interprocedural Sparse Conditional Constant Propagation)
 
-; RUN: opt -enable-new-pm=0 -globalopt -S %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -ipsccp -S %s | FileCheck %s
-; RUN: opt -passes="globalopt" -S %s | FileCheck %s
-; RUN: opt -passes="ipsccp" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -globalopt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -ipsccp -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="globalopt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="ipsccp" -S %s | FileCheck %s
 
 ; ModuleID = 'target_declare_global.cpp'
 ; test IR obtained with:   icx -Xclang -disable-llvm-passes -fiopenmp \

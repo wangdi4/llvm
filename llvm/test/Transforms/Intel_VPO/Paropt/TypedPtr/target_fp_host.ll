@@ -1,11 +1,11 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=RTL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=RTL
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOTRTL
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=NOTRTL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOTRTL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=NOTRTL
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOTRTL
-; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=NOTRTL
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=NOTRTL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=NOTRTL
 
 ; Test src:
 ; #include <stdio.h>

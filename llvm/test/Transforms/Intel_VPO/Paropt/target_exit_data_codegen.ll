@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; This file tests the implementation to support omp target exit data.
 ; void device_side_scan(int arg) {

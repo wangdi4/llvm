@@ -1,12 +1,12 @@
 ; REQUIRES: asserts
-; RUN: opt -enable-new-pm=0 -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=LOCAL,ALL
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=LOCAL,ALL
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=LOCAL,ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=LOCAL,ALL
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt-teams-non-wilocal-vla-alloc-mode=module -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=MODULE,ALL
-; RUN: opt -vpo-paropt-teams-non-wilocal-vla-alloc-mode=module -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=MODULE,ALL
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-teams-non-wilocal-vla-alloc-mode=module -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=MODULE,ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-teams-non-wilocal-vla-alloc-mode=module -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S %s 2>&1 | FileCheck %s -check-prefixes=MODULE,ALL
 
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -disable-output -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s -check-prefix=REMARK
-; RUN: opt -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -disable-output -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s -check-prefix=REMARK
+; RUN: opt -opaque-pointers=1 -vpo-paropt-handle-firstprivate-on-teams -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -disable-output -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s -check-prefix=REMARK
+; RUN: opt -opaque-pointers=1 -vpo-paropt-handle-firstprivate-on-teams -switch-to-offload -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring),vpo-paropt' -disable-output -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s -check-prefix=REMARK
 
 ; Test src:
 ;

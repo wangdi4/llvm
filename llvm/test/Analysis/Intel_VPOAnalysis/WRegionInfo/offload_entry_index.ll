@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze %s | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-wrncollection -analyze %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
 
 ; This test checks that QUAL.OMP.OFFLOAD.ENTRY.IDX is parsed
 ; and properly represented in the WRNTargetNode.

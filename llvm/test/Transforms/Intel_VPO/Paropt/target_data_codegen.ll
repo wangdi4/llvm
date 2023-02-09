@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s
-; RUN: opt -passes='vpo-paropt' -S %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s
 
 ; Before the fix for CMPLRLLVM-8213, compiling the test below with
 ;   icpx -c -O0 -fiopenmp -fopenmp-targets=x86_64-pc-linux-gnu

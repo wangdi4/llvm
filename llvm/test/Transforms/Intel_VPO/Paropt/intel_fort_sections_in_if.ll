@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -passes=vpo-paropt-loop-collapse -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vpo-paropt-loop-collapse -S %s | FileCheck %s
 
 ; Loop collapsing was asserting in the dominator tree update.
 

@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; This test checks that VPOParopt translates the calls
 ;   sincosf(a,&s,&c)   into   s = @_Z18__spirv_ocl_sincosfPf(a,&c)

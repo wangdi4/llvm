@@ -1,4 +1,4 @@
-; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -O3 -paropt=31 -S %s | FileCheck %s
 
 ; While enabling opaque pointers, trunc and zext instructions may be incorrectly
 ; generated for runtime call parameters. CHECK at line 478 will fail due to

@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 ;
 ;void foo(float * A, float * B, int N) {
 ;#pragma omp parallel for

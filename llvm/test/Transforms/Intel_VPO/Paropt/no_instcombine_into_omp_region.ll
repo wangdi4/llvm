@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -instcombine -S %s | FileCheck %s
-; RUN: opt -passes='function(instcombine)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -instcombine -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(instcombine)' -S %s | FileCheck %s
 ;
 ; // Test C source:
 ; void bar(int*);
