@@ -84,15 +84,11 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent noinline norecurse nounwind optnone
 // CHECK-LABEL: define {{[^@]+}}@test
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // kernel_arg_host_accessible, kernel_arg_pipe_depth, kernel_arg_pipe_io and
 // kernel_arg_buffer_location are added to opencl kernel functions
 // CHECK-SAME: (ptr addrspace(1) noundef align 1 [[A:%.*]], i8 noundef [[B:%.*]], ptr addrspace(1) noundef align 8 [[C:%.*]], i64 noundef [[D:%.*]]) #[[ATTR1:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} !kernel_arg_host_accessible !{{[0-9]+}} !kernel_arg_pipe_depth !{{[0-9]+}} !kernel_arg_pipe_io !{{[0-9]+}} !kernel_arg_buffer_location !{{[0-9]+}} {
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-SAME: (ptr addrspace(1) noundef align 1 [[A:%.*]], i8 noundef [[B:%.*]], ptr addrspace(1) noundef align 8 [[C:%.*]], i64 noundef [[D:%.*]]) #[[ATTR2:[0-9]+]] !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 {
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
 // CHECK-NEXT:    [[B_ADDR:%.*]] = alloca i8, align 1, addrspace(5)
@@ -223,13 +219,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_block_invoke_kernel
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), i8 }> [[TMP0:%.*]]) #[[ATTR4:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), i8 }> [[TMP0:%.*]]) #[[ATTR5:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), i8 }> [[TMP0:%.*]]) #[[ATTR5:[0-9]+]] !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 {
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca <{ i32, i32, ptr, ptr addrspace(1), i8 }>, align 8, addrspace(5)
 // CHECK-NEXT:    store <{ i32, i32, ptr, ptr addrspace(1), i8 }> [[TMP0]], ptr addrspace(5) [[TMP1]], align 8
@@ -263,13 +255,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_block_invoke_2_kernel
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]]) #[[ATTR4]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 {
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca <{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }>, align 8, addrspace(5)
 // CHECK-NEXT:    store <{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0]], ptr addrspace(5) [[TMP1]], align 8
@@ -308,13 +296,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_block_invoke_3_kernel
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]], ptr addrspace(3) [[TMP1:%.*]]) #[[ATTR4]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]], ptr addrspace(3) [[TMP1:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-SAME: (<{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0:%.*]], ptr addrspace(3) [[TMP1:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 {
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP2:%.*]] = alloca <{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }>, align 8, addrspace(5)
 // CHECK-NEXT:    store <{ i32, i32, ptr, ptr addrspace(1), ptr addrspace(1), i64, i8 }> [[TMP0]], ptr addrspace(5) [[TMP2]], align 8
@@ -341,13 +325,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_block_invoke_4_kernel
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
-// CHECK-SAME: (<{ i32, i32, ptr, i64, ptr addrspace(1) }> [[TMP0:%.*]]) #[[ATTR4]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// CHECK-SAME: (<{ i32, i32, ptr, i64, ptr addrspace(1) }> [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK-SAME: (<{ i32, i32, ptr, i64, ptr addrspace(1) }> [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 {
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca <{ i32, i32, ptr, i64, ptr addrspace(1) }>, align 8, addrspace(5)
 // CHECK-NEXT:    store <{ i32, i32, ptr, i64, ptr addrspace(1) }> [[TMP0]], ptr addrspace(5) [[TMP1]], align 8
@@ -358,7 +338,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent noinline norecurse nounwind optnone
 // CHECK-LABEL: define {{[^@]+}}@test_target_features_kernel
-// CHECK-SAME: (ptr addrspace(1) noundef align 4 [[I:%.*]]) #[[ATTR6:[0-9]+]] !kernel_arg_addr_space !15 !kernel_arg_access_qual !8 !kernel_arg_type !16 !kernel_arg_base_type !16 !kernel_arg_type_qual !10 {
+// if INTEL_CUSTOMIZATION
+// CHECK-SAME: (ptr addrspace(1) noundef align 4 [[I:%.*]]) #[[ATTR6:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} !kernel_arg_host_accessible !{{[0-9]+}} !kernel_arg_pipe_depth !{{[0-9]+}} !kernel_arg_pipe_io !{{[0-9]+}} !kernel_arg_buffer_location !{{[0-9]+}} {
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[I_ADDR:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
 // CHECK-NEXT:    [[DEFAULT_QUEUE:%.*]] = alloca ptr addrspace(1), align 8, addrspace(5)
@@ -388,7 +370,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_target_features_kernel_block_invoke_kernel
-// CHECK-SAME: ({ i32, i32, ptr } [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 {
+// if INTEL_CUSTOMIZATION
+// CHECK-SAME: ({ i32, i32, ptr } [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca { i32, i32, ptr }, align 8, addrspace(5)
 // CHECK-NEXT:    store { i32, i32, ptr } [[TMP0]], ptr addrspace(5) [[TMP1]], align 8
@@ -429,7 +413,9 @@ void test_target_features_func(global int *i) {
 //
 // CHECK: Function Attrs: convergent nounwind
 // CHECK-LABEL: define {{[^@]+}}@__test_target_features_func_block_invoke_kernel
-// CHECK-SAME: ({ i32, i32, ptr } [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 {
+// if INTEL_CUSTOMIZATION
+// CHECK-SAME: ({ i32, i32, ptr } [[TMP0:%.*]]) #[[ATTR5]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} {
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca { i32, i32, ptr }, align 8, addrspace(5)
 // CHECK-NEXT:    store { i32, i32, ptr } [[TMP0]], ptr addrspace(5) [[TMP1]], align 8
@@ -450,7 +436,6 @@ void test_target_features_func(global int *i) {
 // CHECK: attributes #9 = { convergent nounwind }
 //.
 // CHECK: !0 = !{i32 1, !"amdgpu_code_object_version", i32 400}
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // wchar_size is not added to llvm.module.flags
 // CHECK: !1 = !{i32 2, i32 0}
@@ -466,23 +451,7 @@ void test_target_features_func(global int *i) {
 // CHECK: !13 = !{!"none", !"none"}
 // CHECK: !14 = !{!"__block_literal", !"void*"}
 // CHECK: !15 = !{!"", !""}
+// CHECK: !16 = !{i32 1}
+// CHECK: !17 = !{!"int*"}
 // endif INTEL_CUSTOMIZATION
-=======
-// CHECK: !1 = !{i32 1, !"wchar_size", i32 4}
-// CHECK: !2 = !{i32 2, i32 0}
-// CHECK: !3 = !{i32 1, i32 0, i32 1, i32 0}
-// CHECK: !4 = !{!"none", !"none", !"none", !"none"}
-// CHECK: !5 = !{!"char*", !"char", !"long*", !"long"}
-// CHECK: !6 = !{!"", !"", !"", !""}
-// CHECK: !7 = !{i32 0}
-// CHECK: !8 = !{!"none"}
-// CHECK: !9 = !{!"__block_literal"}
-// CHECK: !10 = !{!""}
-// CHECK: !11 = !{i32 0, i32 3}
-// CHECK: !12 = !{!"none", !"none"}
-// CHECK: !13 = !{!"__block_literal", !"void*"}
-// CHECK: !14 = !{!"", !""}
-// CHECK: !15 = !{i32 1}
-// CHECK: !16 = !{!"int*"}
->>>>>>> d12ee4bf7c14a00b14890fc3042edd659dde7fb2
 //.
