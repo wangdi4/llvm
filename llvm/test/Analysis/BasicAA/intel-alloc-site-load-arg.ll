@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline=basic-aa -passes="require<aa>,aa-eval" -print-all-alias-modref-info  -disable-output < %s 2>&1 | FileCheck  %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline=basic-aa -passes="require<aa>,aa-eval" -print-all-alias-modref-info  -disable-output < %s 2>&1 | FileCheck  %s
 
 ; This test case checks that the alias analysis marks as NoAlias between the
 ; pointers that loads the fields for %Local and the pointer that access the
