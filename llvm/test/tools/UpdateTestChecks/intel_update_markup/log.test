@@ -1,13 +1,13 @@
-# RUN: cp -f %S/Inputs/empty.ll %t.ll && %intel_update_markup --ref %S/Inputs/empty.ll %t.ll >%t.log
-# RUN: diff -u %S/Inputs/empty.ll %t.log
+# RUN: cp -f %S/Inputs/empty %t.ll && %intel_update_markup --ref %S/Inputs/empty %t.ll >%t.log
+# RUN: diff -u %S/Inputs/empty %t.log
 #
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --log --comment --ref %S/Inputs/x86-basic-ref.ll >%t.log
 # RUN: FileCheck < %t.log %s --check-prefixes=LOG,COMMENT
 #
-# RUN: cp -f %S/Inputs/run-line-continue.ll %t.ll && %intel_update_markup %t.ll --log --ref %S/Inputs/empty.ll >%t.log
+# RUN: cp -f %S/Inputs/run-line-continue.ll %t.ll && %intel_update_markup %t.ll --log --ref %S/Inputs/empty >%t.log
 # RUN: FileCheck < %t.log %s --check-prefixes=LOG,CONT
 #
-# RUN: cp -f %S/Inputs/run-check-line.mir %t.ll && %intel_update_markup %t.ll --log --ref %S/Inputs/empty.ll >%t.log
+# RUN: cp -f %S/Inputs/run-check-line.mir %t.ll && %intel_update_markup %t.ll --log --ref %S/Inputs/empty >%t.log
 # RUN: FileCheck < %t.log %s --check-prefixes=LOG,RUN_CHECK
 
 # LOG: Dropping markup and note ...
