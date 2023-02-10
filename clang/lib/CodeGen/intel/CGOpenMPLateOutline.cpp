@@ -931,18 +931,26 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   }
   if (UseTypedClauses)
     CSB.setTyped();
+  llvm::Type *ElementType = nullptr;
   bool IsRef = false;
   if (K == ICK_shared) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in implicit clause");
     IsRef = !isa<OMPCapturedExprDecl>(VD) && VD->getType()->isReferenceType();
-    if (IsRef)
+
+    // References to functions are emitted like a function pointer so don't
+    // set the flag and use a pointer element type.
+    if (IsRef && !VD->getType()->getPointeeType()->isFunctionType())
       CSB.setByRef();
+    if (IsRef && VD->getType()->getPointeeType()->isFunctionType()) {
+      ElementType = CGF.ConvertTypeForMem(
+          CGF.CGM.getContext().getPointerType(VD->getType()->getPointeeType()));
+    }
   }
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  addTypedArg(E, IsRef, NeedsTypedElements);
+  addArg(E, IsRef, UseTypedClauses, NeedsTypedElements, ElementType);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
