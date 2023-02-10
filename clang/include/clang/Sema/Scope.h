@@ -145,19 +145,16 @@ public:
     /// This is a scope of some OpenMP directive with
     /// order clause which specifies concurrent
     OpenMPOrderClauseScope = 0x4000000,
-<<<<<<< HEAD
 #if INTEL_COLLAB
     /// This is the scope of OpenMP simd directive.
     /// This flag is propagated to children scopes.
     OpenMPSimdOnlyDirectiveScope = 0x80000000,
 #endif // INTEL_COLLAB
-=======
     /// This is the scope for a lambda, after the lambda introducer.
     /// Lambdas need two FunctionPrototypeScope scopes (because there is a
     /// template scope in between), the outer scope does not increase the
     /// depth of recursion.
     LambdaScope = 0x8000000,
->>>>>>> d708a186b6a9b050d09558163dd353d9f738c82d
   };
 
 private:
