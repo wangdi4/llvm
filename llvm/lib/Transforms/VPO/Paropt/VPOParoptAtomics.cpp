@@ -1403,12 +1403,13 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   const Function *F = Operation.getFunction();
 
-  if (IsTargetSPIRV &&
-      ((!Enable64BitOpenCLAtomics ||
-        // Do not use 64-bit atomics, if optimizations are not enabled.
-        !F || F->hasFnAttribute(Attribute::OptimizeNone)) &&
-       (AtomicOpndElemTy->getScalarSizeInBits() > 32 ||
-        ValueOpndType->getScalarSizeInBits() > 32))) {
+  if (!F ||
+      IsTargetSPIRV &&
+          ((!Enable64BitOpenCLAtomics ||
+            // Do not use 64-bit atomics, if optimizations are not enabled.
+            F->hasFnAttribute(Attribute::OptimizeNone)) &&
+           (AtomicOpndElemTy->getScalarSizeInBits() > 32 ||
+            ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
     //
