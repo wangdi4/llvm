@@ -598,4 +598,23 @@ void foo_shared_clauses(int n)
     }
   }
 }
+
+// These two generate the same LLVM-IR
+typedef void (*fp)(int);
+void func2(fp f, int *i) {
+  //CHECK: DIR.OMP.PARALLEL{{.*}}"QUAL.OMP.SHARED:TYPED"(ptr %f.addr, ptr null, i32 1)
+  //CHECK: [[L1:%[0-9]+]] = load ptr, ptr %f.addr, align 8
+  //CHECK: call void [[L1]]
+  #pragma omp parallel
+  f(*i);
+}
+
+typedef void (&fr)(int);
+void func1(fr f, int *i) {
+  //CHECK: DIR.OMP.PARALLEL{{.*}}"QUAL.OMP.SHARED:TYPED"(ptr %f.addr, ptr null, i32 1)
+  //CHECK: [[L1:%[0-9]+]] = load ptr, ptr %f.addr, align 8
+  //CHECK: call void [[L1]]
+  #pragma omp parallel
+  f(*i);
+}
 // end INTEL_COLLAB
