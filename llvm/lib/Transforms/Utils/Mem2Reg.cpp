@@ -129,34 +129,22 @@ struct PromoteLegacyPass : public FunctionPass {
   static char ID;
   bool ForcePass; /// If true, forces pass to execute, instead of skipping.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  bool Unskippable;
   bool AllBBs;
-  PromoteLegacyPass(bool Unskippable = false, bool AllBBs = false)
-      : FunctionPass(ID), Unskippable(Unskippable), AllBBs(AllBBs) {
-=======
-  PromoteLegacyPass() : FunctionPass(ID), ForcePass(false) {
-    initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-  PromoteLegacyPass(bool IsForced) : FunctionPass(ID), ForcePass(IsForced) {
->>>>>>> b30b1c55e71f4012c9136ec5a862a2a33110eee6
+  PromoteLegacyPass(bool IsForced = false, bool AllBBs = false)
+      : FunctionPass(ID), ForcePass(IsForced), AllBBs(AllBBs) {
     initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 #endif // INTEL_CUSTOMIZATION
+  PromoteLegacyPass() : FunctionPass(ID), ForcePass(false) {
+    initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
 
   // runOnFunction - To run this pass, first we calculate the alloca
   // instructions that are safe for promotion, then we promote each one.
   bool runOnFunction(Function &F) override {
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-    if (!Unskippable && skipFunction(F))
-=======
     if (!ForcePass && skipFunction(F))
->>>>>>> b30b1c55e71f4012c9136ec5a862a2a33110eee6
       return false;
-#endif // INTEL_CUSTOMIZATION
 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache &AC =
@@ -194,14 +182,9 @@ INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
                     false, false)
 
 // createPromoteMemoryToRegister - Provide an entry point to create this pass.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool Unskippable,
+FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool IsForced,
                                                       bool AllBBs) {
-  return new PromoteLegacyPass(Unskippable, AllBBs);
-=======
-FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool IsForced) {
-  return new PromoteLegacyPass(IsForced);
->>>>>>> b30b1c55e71f4012c9136ec5a862a2a33110eee6
+  return new PromoteLegacyPass(IsForced, AllBBs);
 }
 #endif // INTEL_CUSTOMIZATION
