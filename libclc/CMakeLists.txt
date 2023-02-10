@@ -355,9 +355,6 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
 				# Disables NVVM reflection to defer to after linking
 				set( flags "SHELL:-Xclang -target-feature" "SHELL:-Xclang +ptx72"
 						 "SHELL:-march=sm_86" "SHELL:-mllvm --nvvm-reflect-enable=false")
-			elseif( ${ARCH} STREQUAL amdgcn )
-				# AMDGCN needs generic address space for atomics
-				set( flags "SHELL:-Xclang -cl-std=CL2.0")
 			else()
 				set ( flags )
 			endif()
@@ -403,6 +400,21 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                         # SHELL: is a workaround for -Xclang de-duplication
                         list( APPEND flags "SHELL:-Xclang -disable-intel-proprietary-opts")
                 endif (INTEL_CUSTOMIZATION)
+
+                # OpenCL 3.0 extensions
+                list( APPEND flags -cl-std=CL3.0 "SHELL:-Xclang" )
+                string(CONCAT CL_3_0_EXTENSIONS
+                  "-cl-ext="
+                  "+cl_khr_fp64,"
+                  "+__opencl_c_3d_image_writes,"
+                  "+__opencl_c_images,"
+                  "+cl_khr_3d_image_writes,"
+                  "+__opencl_c_generic_address_space")
+                if ( NOT ${ARCH} STREQUAL amdgcn )
+                  string(APPEND CL_3_0_EXTENSIONS
+                    ",+cl_khr_fp16")
+                endif()
+                list( APPEND flags ${CL_3_0_EXTENSIONS})
 
 		add_libclc_builtin_set(libspirv-${arch_suffix}
 			TRIPLE ${t}
