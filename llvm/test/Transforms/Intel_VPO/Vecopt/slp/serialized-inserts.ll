@@ -97,6 +97,7 @@ define void @foo() {
 ; FORCE-VECT-NEXT:    [[TMP6:%.*]] = insertelement <8 x i8> [[TMP5]], i8 [[D31]], i32 1
 ; FORCE-VECT-NEXT:    [[TMP7:%.*]] = insertelement <8 x i8> [[TMP6]], i8 [[D43]], i32 2
 ; FORCE-VECT-NEXT:    [[TMP8:%.*]] = insertelement <8 x i8> [[TMP7]], i8 [[D27]], i32 3
+<<<<<<< HEAD
 ; FORCE-VECT-NEXT:    [[TMP9:%.*]] = insertelement <8 x i8> [[TMP8]], i8 [[D66]], i32 6
 ; FORCE-VECT-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i8> [[TMP2]], <2 x i8> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; FORCE-VECT-NEXT:    [[TMP11:%.*]] = shufflevector <8 x i8> [[TMP9]], <8 x i8> [[TMP10]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 undef, i32 6, i32 8>
@@ -114,6 +115,24 @@ define void @foo() {
 ; FORCE-VECT-NEXT:    [[TMP23:%.*]] = xor <8 x i8> [[TMP18]], [[TMP22]]
 ; FORCE-VECT-NEXT:    [[TMP24:%.*]] = bitcast i8* [[D35]] to <8 x i8>*
 ; FORCE-VECT-NEXT:    store <8 x i8> [[TMP23]], <8 x i8>* [[TMP24]], align 1
+=======
+; FORCE-VECT-NEXT:    [[TMP9:%.*]] = insertelement <8 x i8> [[TMP8]], i8 [[D31]], i32 5
+; FORCE-VECT-NEXT:    [[TMP10:%.*]] = insertelement <8 x i8> [[TMP9]], i8 [[D66]], i32 6
+; FORCE-VECT-NEXT:    [[TMP11:%.*]] = shufflevector <2 x i8> [[TMP2]], <2 x i8> poison, <8 x i32> <i32 0, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; FORCE-VECT-NEXT:    [[TMP12:%.*]] = shufflevector <8 x i8> [[TMP10]], <8 x i8> [[TMP11]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 8>
+; FORCE-VECT-NEXT:    [[TMP13:%.*]] = shufflevector <2 x i8> [[TMP0]], <2 x i8> [[TMP2]], <8 x i32> <i32 1, i32 1, i32 undef, i32 2, i32 undef, i32 3, i32 2, i32 undef>
+; FORCE-VECT-NEXT:    [[TMP14:%.*]] = insertelement <8 x i8> [[TMP13]], i8 [[D27]], i32 2
+; FORCE-VECT-NEXT:    [[TMP15:%.*]] = insertelement <8 x i8> [[TMP14]], i8 [[D31]], i32 4
+; FORCE-VECT-NEXT:    [[TMP16:%.*]] = insertelement <8 x i8> [[TMP15]], i8 [[D65]], i32 7
+; FORCE-VECT-NEXT:    [[TMP17:%.*]] = xor <8 x i8> [[TMP12]], [[TMP16]]
+; FORCE-VECT-NEXT:    [[TMP18:%.*]] = shufflevector <2 x i8> [[TMP0]], <2 x i8> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; FORCE-VECT-NEXT:    [[TMP19:%.*]] = insertelement <8 x i8> [[TMP18]], i8 [[D27]], i32 2
+; FORCE-VECT-NEXT:    [[TMP20:%.*]] = insertelement <8 x i8> [[TMP19]], i8 [[D31]], i32 3
+; FORCE-VECT-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x i8> [[TMP20]], <8 x i8> poison, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; FORCE-VECT-NEXT:    [[TMP21:%.*]] = xor <8 x i8> [[TMP17]], [[SHUFFLE]]
+; FORCE-VECT-NEXT:    [[TMP22:%.*]] = bitcast i8* [[D35]] to <8 x i8>*
+; FORCE-VECT-NEXT:    store <8 x i8> [[TMP21]], <8 x i8>* [[TMP22]], align 1
+>>>>>>> 2786950f2a4191d1b6a229c3abc1cc066b2c3e01
 ; FORCE-VECT-NEXT:    br i1 undef, label [[EXIT:%.*]], label [[LOOP]]
 ; FORCE-VECT:       exit:
 ; FORCE-VECT-NEXT:    ret void
