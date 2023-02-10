@@ -5563,10 +5563,10 @@ def mno_avx512vnniint8 : Flag<["-"], "mno-avx512vnniint8">, Group<m_x86_Features
 def mavx512vnnifp16 : Flag<["-"], "mavx512vnnifp16">, Group<m_x86_Features_Group>;
 def mno_avx512vnnifp16 : Flag<["-"], "mno-avx512vnnifp16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def mavx512memadvise : Flag<["-"], "mavx512memadvise">, Group<m_x86_Features_Group>;
-def mno_avx512memadvise : Flag<["-"], "mno-avx512memadvise">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def mavx512movrs : Flag<["-"], "mavx512movrs">, Group<m_x86_Features_Group>;
+def mno_avx512movrs : Flag<["-"], "mno-avx512movrs">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 def mavx512mediax : Flag<["-"], "mavx512mediax">, Group<m_x86_Features_Group>;
 def mno_avx512mediax : Flag<["-"], "mno-avx512mediax">, Group<m_x86_Features_Group>;
@@ -5648,10 +5648,10 @@ def mno_avxbf16 : Flag<["-"], "mno-avxbf16">, Group<m_x86_Features_Group>;
 def mavxcompress : Flag<["-"], "mavxcompress">, Group<m_x86_Features_Group>;
 def mno_avxcompress : Flag<["-"], "mno-avxcompress">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def mavxmemadvise : Flag<["-"], "mavxmemadvise">, Group<m_x86_Features_Group>;
-def mno_avxmemadvise : Flag<["-"], "mno-avxmemadvise">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def mavxmovrs : Flag<["-"], "mavxmovrs">, Group<m_x86_Features_Group>;
+def mno_avxmovrs : Flag<["-"], "mno-avxmovrs">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
 def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;
@@ -8516,10 +8516,10 @@ def : CLFlag<"Qmavx512fp16">, Alias<mavx512fp16>;
 def : CLFlag<"Qmno-avx512fp16">, Alias<mno_avx512fp16>;
 def : CLFlag<"Qmavx512ifma">, Alias<mavx512ifma>;
 def : CLFlag<"Qmno-avx512ifma">, Alias<mno_avx512ifma>;
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def : CLFlag<"Qmavx512memadvise">, Alias<mavx512memadvise>;
-def : CLFlag<"Qmno-avx512memadvise">, Alias<mno_avx512memadvise>;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def : CLFlag<"Qmavx512movrs">, Alias<mavx512movrs>;
+def : CLFlag<"Qmno-avx512movrs">, Alias<mno_avx512movrs>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 def : CLFlag<"Qmavx512mediax">, Alias<mavx512mediax>;
 def : CLFlag<"Qmno-avx512mediax">, Alias<mno_avx512mediax>;
@@ -8572,10 +8572,10 @@ def : CLFlag<"Qmno-avxifma">, Alias<mno_avxifma>;
 def : CLFlag<"Qmavxcompress">, Alias<mavxcompress>;
 def : CLFlag<"Qmno-avxcompress">, Alias<mno_avxcompress>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def : CLFlag<"Qmavxmemadvise">, Alias<mavxmemadvise>;
-def : CLFlag<"Qmno-avxmemadvise">, Alias<mno_avxmemadvise>;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def : CLFlag<"Qmavxmovrs">, Alias<mavxmovrs>;
+def : CLFlag<"Qmno-avxmovrs">, Alias<mno_avxmovrs>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def : CLFlag<"Qmavxconvert">, Alias<mavxconvert>;
 def : CLFlag<"Qmno-avxconvert">, Alias<mno_avxconvert>;

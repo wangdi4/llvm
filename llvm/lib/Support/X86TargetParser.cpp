@@ -314,9 +314,9 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
     FeatureAMX_MEMADVISE |
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-    FeatureAVX512MEMADVISE |
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+    FeatureAVX512MOVRS |
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MINMAX
     FeatureAVX512MINMAX |
 #endif // INTEL_FEATURE_ISA_AVX512_MINMAX
@@ -788,10 +788,10 @@ constexpr FeatureBitset ImpliedFeaturesAVXBF16 = FeatureAVX2;
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
-constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+constexpr FeatureBitset ImpliedFeaturesAVXMOVRS = FeatureAVX2;
+constexpr FeatureBitset ImpliedFeaturesAVX512MOVRS = FeatureAVX512F;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 constexpr FeatureBitset ImpliedFeaturesAVX512MEDIAX = FeatureAVX512F |
     FeatureAVX512BW;

@@ -16698,7 +16698,7 @@ defm VCVTNEPH2BF16 : avx512_cvtbf16ph<0x67, "vcvtneph2bf16", avx512vl_f16_info, 
 
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
 multiclass avx512_vmovadvisew_packed<string OpcodeStr, X86VectorVTInfo _,
                                      Intrinsic IntrLoad, Intrinsic IntrStore,
                                      X86SchedWriteMoveLS sched>{
@@ -16715,12 +16715,12 @@ multiclass avx512_vmovadvisew_packed<string OpcodeStr, X86VectorVTInfo _,
 }
 
 multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
-  let Predicates = [HasAVX512MEMADVISE, In64BitMode] in
+  let Predicates = [HasAVX512MOVRS, In64BitMode] in
     defm Z    : avx512_vmovadvisew_packed<OpcodeStr, v16i32_info,
                                           int_x86_avx512_vmovadvisew_load_512,
                                           int_x86_avx512_vmovadvisew_store_512,
                                           SchedWriteFMoveLS.ZMM>, EVEX_V512;
-  let Predicates = [HasAVX512MEMADVISE, HasVLX, In64BitMode] in {
+  let Predicates = [HasAVX512MOVRS, HasVLX, In64BitMode] in {
     defm Z256 : avx512_vmovadvisew_packed<OpcodeStr, v8i32x_info,
                                           int_x86_avx2_vmovadvisew_load_256,
                                           int_x86_avx2_vmovadvisew_store_256,
@@ -16735,14 +16735,14 @@ multiclass avx512_vmovadvisew_packed_all<string OpcodeStr>{
 defm VMOVADVISEW : avx512_vmovadvisew_packed_all<"vmovadvisew">;
 
 multiclass avx512_vmemadvise_all {
-  let Predicates  = [HasAVX512MEMADVISE, In64BitMode] in
+  let Predicates  = [HasAVX512MOVRS, In64BitMode] in
       def Zmr  : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i512mem:$dst, u8imm:$src),
                     "vmemadvise{z}\t{$src, $dst|$dst, $src}",
                     [(int_x86_avx512_vmemadvise_512 addr:$dst, timm:$src)]>,
                     Sched<[SchedWriteFMoveLS.ZMM.MR]>,
                     NotMemoryFoldable, XD, EVEX, EVEX_V512, EmitVEXOrEVEXPrefix;
-  let Predicates = [HasAVX512MEMADVISE, HasVLX, In64BitMode] in {
+  let Predicates = [HasAVX512MOVRS, HasVLX, In64BitMode] in {
       def Z256mr : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i256mem:$dst, u8imm:$src),
                     "vmemadvise{y}\t{$src, $dst|$dst, $src}",
@@ -16759,7 +16759,33 @@ multiclass avx512_vmemadvise_all {
 }
 
 defm VMEMADVISE : avx512_vmemadvise_all;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
+multiclass vmovrs_p<bits<8> opc, string OpStr, X86VectorVTInfo _> {
+  let ExeDomain = _.ExeDomain in {
+    defm m: AVX512_maskable<opc, MRMSrcMem, _, (outs _.RC:$dst),
+                          (ins _.MemOp:$src), OpStr, "$src", "$src",
+                          (null_frag)>, EVEX, EmitVEXOrEVEXPrefix;
+  }
+}
+
+multiclass vmovrs_p_vl<bits<8> opc, string OpStr, AVX512VLVectorVTInfo _Vec> {
+  let Predicates = [HasAVX512MOVRS] in
+    defm Z : vmovrs_p<opc, OpStr, _Vec.info512>, EVEX_V512;
+  let Predicates = [HasAVX512MOVRS, HasVLX] in {
+    defm Z128 : vmovrs_p<opc, OpStr, _Vec.info128>, EVEX_V128;
+    defm Z256 : vmovrs_p<opc, OpStr, _Vec.info256>, EVEX_V256;
+  }
+}
+
+defm VMOVRSB : vmovrs_p_vl<0x6f, "vmovrsb", avx512vl_i8_info>,
+                          T_MAP5XD, EVEX_CD8<8, CD8VF>;
+defm VMOVRSW : vmovrs_p_vl<0x6f, "vmovrsw", avx512vl_i16_info>,
+                          T_MAP5XD, VEX_W, EVEX_CD8<16, CD8VF>;
+defm VMOVRSD : vmovrs_p_vl<0x6f, "vmovrsd", avx512vl_i32_info>,
+                          T_MAP5XS, EVEX_CD8<32, CD8VF>;
+defm VMOVRSQ : vmovrs_p_vl<0x6f, "vmovrsq", avx512vl_i64_info>,
+                          T_MAP5XS, VEX_W, EVEX_CD8<64, CD8VF>;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 defm VMPSADBW: avx512_mpsadbw_3Op_rm_imm8<0x42, X86Vmpsadbw, "vmpsadbw",
