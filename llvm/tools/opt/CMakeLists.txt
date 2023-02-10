@@ -40,12 +40,12 @@ set(LLVM_LINK_COMPONENTS
   ScalarOpts
   Support
   SYCLLowerIR
+  SYCLTransforms
   Target
   TransformUtils
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
-  SYCLTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

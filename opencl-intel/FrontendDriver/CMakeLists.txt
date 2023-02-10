@@ -63,7 +63,9 @@ set(INCLUDE_DIRS
     ${OCL_SOURCE_DIR}/utils/CLElfLib
     ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
     ${OCL_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/include)
+    ${CMAKE_BINARY_DIR}/include
+    ${OCL_BINARY_DIR}/../llvm-spirv/SPIRV-Headers/include
+    ${CCLANG_DEV_INCLUDE_DIRS}/../../../../include)
 
 if(OPENCL_INTREE_BUILD)
   if(LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR)

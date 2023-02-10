@@ -50,7 +50,8 @@ void build(const std::string &code, std::string fileName) {
 
   std::stringstream options;
   options << "-cc1 -emit-llvm-bc -include opencl-c.h "
-             "-disable-intel-proprietary-opts -cl-std=CL2.0";
+             "-disable-intel-proprietary-opts " // INTEL
+             "-cl-std=CL2.0";
   options << " "
           << "-triple"
           << " "

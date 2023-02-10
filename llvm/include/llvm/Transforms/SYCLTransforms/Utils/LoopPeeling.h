@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_LOOP_PEELING_H
 #define LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_LOOP_PEELING_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/IR/BasicBlock.h"
 
 namespace llvm {

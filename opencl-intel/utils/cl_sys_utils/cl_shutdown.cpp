@@ -132,10 +132,14 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState(
 }
 
 void UseShutdownHandler::OS_atexit() {
+#if INTEL_CUSTOMIZATION
+  // FIXME: remove INTEL_CUSTOMIZATION macro if there is no flaky failure in
+  // debug build with this piece of code.
   if ((nullptr != global_at_exit_callback) && (WORKING == shutdown_mode)) {
     // now do the job
     global_at_exit_callback->AtExitTrigger(AtExitProcessingState);
   }
+#endif // INTEL_CUSTOMIZATION
 }
 
 extern "C"

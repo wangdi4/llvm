@@ -55,8 +55,10 @@ private:
   /// dimension get***id calls, or indirect calls to get***id.
   void fillKernelCallers();
 
+#if INTEL_CUSTOMIZATION
   /// Fills the  set with function that uses matrix call directly or indirectly.
   void fillMatrixCallFuncs();
+#endif // INTEL_CUSTOMIZATION
 
   /// Fills the subgroup-calling function set -- functions containing subroup
   /// builtins or subgroup barrier.
@@ -73,8 +75,10 @@ private:
   /// Set of unsupported funcs.
   FuncSet UnsupportedFuncs;
 
+#if INTEL_CUSTOMIZATION
   /// Set of funcs use matrix call directly or indirectly.
   FuncSet MatrixCallFuncs;
+#endif // INTEL_CUSTOMIZATION
 
   /// Set of funcs containing subgroup builtins.
   FuncSet SubgroupCallingFuncs;

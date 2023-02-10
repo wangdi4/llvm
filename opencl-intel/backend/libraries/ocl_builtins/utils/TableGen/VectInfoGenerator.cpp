@@ -274,6 +274,7 @@ void VectInfoGenerator::generateFunctions(
   }
 }
 
+#if INTEL_CUSTOMIZATION
 bool isVPlanMaskedFunctionVectorVariant(Function &F, const VFInfo &Variant,
                                         Type *CharacteristicType) {
   if (!Variant.isMasked())
@@ -291,6 +292,7 @@ bool isVPlanMaskedFunctionVectorVariant(Function &F, const VFInfo &Variant,
 
   return CharacteristicType == MaskElementType;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void VectInfoGenerator::run(raw_ostream &os) {
 
@@ -378,8 +380,10 @@ void VectInfoGenerator::run(raw_ostream &os) {
                 });
 
   static std::set<std::string> AllVectInfos;
+#if INTEL_CUSTOMIZATION
   // Generating list of variants who use VPlan-fashioned masks.
   static std::set<std::string> VPlanMaskedFuncs;
+#endif // INTEL_CUSTOMIZATION
 
   auto funcIt = funcs.cbegin();
   size_t k = 0;
@@ -401,6 +405,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
                                          "llvm functions should be the same");
 
         std::string fname((*funcIt)->getName());
+#if INTEL_CUSTOMIZATION
         size_t m = funcNames.size();
 
         std::string BaseName((*origIt)->getName());
@@ -417,6 +422,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
             VPlanMaskedFuncs.insert(fname);
           }
         }
+#endif // INTEL_CUSTOMIZATION
 
         funcNames.push_back(fname);
         funcIt++;
@@ -430,16 +436,17 @@ void VectInfoGenerator::run(raw_ostream &os) {
   assert(
       funcIt == funcs.cend() &&
       "the number of tblgen functions and llvm functions should be the same");
-  os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n";
+  os << "#ifndef IMPORT_VPLAN_MASKED_VARIANTS\n"; // INTEL
   for (auto &S : AllVectInfos)
     os << '{' << S << "},\n";
-
+#if INTEL_CUSTOMIZATION
   os << "#else\n";
   os << "{\n";
   for (auto &S : VPlanMaskedFuncs)
     os << '"' << S << '"' << ",\n";
   os << "}\n";
   os << "#endif // IMPORT_VPLAN_MASKED_VARIANTS\n";
+#endif // INTEL_CUSTOMIZATION
 }
 
 } // namespace llvm

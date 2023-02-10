@@ -16,7 +16,7 @@
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling   ;INTEL
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
@@ -47,7 +47,7 @@
 ; CHECK:      Invalidating analysis: VFAnalysis
 ; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Skipping pass RemoveRegionDirectivesPass
 ; CHECK-NEXT: Skipping pass: RemoveRegionDirectivesPass

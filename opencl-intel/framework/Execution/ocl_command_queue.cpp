@@ -219,6 +219,7 @@ cl_err_code OclCommandQueue::Initialize() {
 cl_int OclCommandQueue::GetContextId() const { return m_pContext->GetId(); }
 
 cl_err_code OclCommandQueue::GPA_InitializeQueue() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
       (m_pGPAData->bEnableContextTracing)) {
@@ -242,16 +243,19 @@ cl_err_code OclCommandQueue::GPA_InitializeQueue() {
                            m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
   }
 #endif
+#endif // end INTEL_CUSTOMIZATION
   return CL_SUCCESS;
 }
 
 cl_err_code OclCommandQueue::GPA_ReleaseQueue() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
       (m_pGPAData->bEnableContextTracing)) {
     delete m_pOclGpaQueue;
   }
 #endif
+#endif // end INTEL_CUSTOMIZATION
   return CL_SUCCESS;
 }
 

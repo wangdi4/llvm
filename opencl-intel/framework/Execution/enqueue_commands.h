@@ -1087,10 +1087,12 @@ protected:
   std::vector<IOCLDevMemoryObject *> m_nonArgUsmBuffersVec;
   // Record device descriptor of buffers in order to release them
   std::vector<IOCLDevMemoryObject *> m_argDevDescMemObjects;
+#if INTEL_CUSTOMIZATION
 #if defined(USE_ITT)
   void GPA_WriteWorkMetadata(const size_t *pWorkMetadata,
                              __itt_string_handle *keyStrHandle) const;
 #endif
+#endif // end INTEL_CUSTOMIZATION
 
   // Callback function that will be called when this command is done and
   // this command is restricted by kernel serialization due to FPGA pipe.

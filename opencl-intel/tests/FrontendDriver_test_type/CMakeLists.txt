@@ -23,7 +23,9 @@ include_directories(
   # common_clang.h is in CCLANG_DEV_INCLUDE_DIRS
   ${CCLANG_DEV_INCLUDE_DIRS}
   ${OCL_SOURCE_DIR}/FrontendDriver
-  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib)
+  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
+  ${OCL_BINARY_DIR}/../llvm-spirv/SPIRV-Headers/include
+  ${CCLANG_DEV_INCLUDE_DIRS}/../../../../include)
 
 # Generate SPIR-V input for tests
 set(INPUT_FILE data/test.cl)
