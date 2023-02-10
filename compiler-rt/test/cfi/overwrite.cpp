@@ -25,7 +25,7 @@
 // INTEL_CUSTOMIZATION
 // This test has been flaky in alloy testing. See CMPLRLLVM-44408
 // It is disabled until this is fixed.
-// UNSUPPORTED: windows-msvc
+// UNSUPPORTED: system-windows
 // end INTEL_CUSTOMIZATION
 
 #include <stdio.h>

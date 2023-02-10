@@ -1,6 +1,3 @@
-# INTEL_CUSTOMIZATION
-# XFAIL: windows-gnu,windows-msvc
-# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t.o
 
@@ -40,7 +37,10 @@
 # CHECK-NEXT:   ]
 
 ## Check that executable page is filled with traps at its end.
-# FILL: 001ff0 cccc cccc cccc cccc cccc cccc cccc cccc
+# INTEL_CUSTOMIZATION
+# od outputs '001ff0 cc...' in Windows and '001FF0 cc...' in Linux, match either
+# FILL: {{001(ff|FF)0 cccc cccc cccc cccc cccc cccc cccc cccc}}
+# end INTEL_CUSTOMIZATION
 
 .globl _start
 _start:
