@@ -1,4 +1,4 @@
-/*===-------- avx512memadviseintrin.h - AVXMEMADVISE intrinsics -------------=== */
+/*===-------- avx512movrsintrin.h - AVX512MOVRS intrinsics -------------=== */
 /* INTEL_CUSTOMIZATION */
 /*
  * INTEL CONFIDENTIAL
@@ -39,11 +39,11 @@
  *===-----------------------------------------------------------------------===
  */
 #ifndef __IMMINTRIN_H
-#error "Never use <avx512memadviseintrin.h> directly; include <immintrin.h> instead."
+#error "Never use <avx512movrsintrin.h> directly; include <immintrin.h> instead."
 #endif
 
-#ifndef __AVX512MEMADVISEINTRIN_H
-#define __AVX512MEMADVISEINTRIN_H
+#ifndef __AVX512MOVRSINTRIN_H
+#define __AVX512MOVRSINTRIN_H
 #ifdef __x86_64__
 
 #define _mm512_vmovadvisew_load_epi8(A, I) \
@@ -55,4 +55,4 @@
 #define _mm512_vmemadvise_epi8(A, I) \
    __builtin_ia32_vmemadvise_512((const __v64qi *)(A), (I))
 #endif /* __x86_64__ */
-#endif /* __AVX512MEMADVISEINTRIN_H */
+#endif /* __AVX512MOVRSINTRIN_H */

@@ -9197,12 +9197,12 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
 multiclass VMOVADVISEW_mr<string OpcodeStr, RegisterClass RC,
                           X86MemOperand X86MemOp,
                           Intrinsic IntrLoad, Intrinsic IntrStore,
                           X86SchedWriteMoveLS sched> {
-  let Predicates  = [HasAVXMEMADVISE, In64BitMode], checkVEXPredicate = 1 in {
+  let Predicates  = [HasAVXMOVRS, In64BitMode], checkVEXPredicate = 1 in {
       def rmi : Ii8<0x10, MRMSrcMem, (outs RC:$dst),
                     (ins X86MemOp:$src1, u8imm:$src2),
                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
@@ -9228,7 +9228,7 @@ defm VMOVADVISEW256 : VMOVADVISEW_mr<"vmovadvisew", VR256, i256mem,
                                      SchedWriteFMoveLS.YMM>, VEX_L;
 
 multiclass VMEMADVISE_mi {
-  let Predicates  = [HasAVXMEMADVISE, NoVLX_Or_NoMEMADVISE, In64BitMode],
+  let Predicates  = [HasAVXMOVRS, NoVLX_Or_NoMOVRS, In64BitMode],
       checkVEXPredicate = 1 in {
       def mr  : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i128mem:$dst, u8imm:$src),
@@ -9246,7 +9246,7 @@ multiclass VMEMADVISE_mi {
 }
 
 defm VMEMADVISE : VMEMADVISE_mi;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,

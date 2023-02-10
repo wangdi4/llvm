@@ -519,28 +519,28 @@ typedef struct __tile1024i_str {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_COMPRESS */
-/* INTEL_FEATURE_ISA_AVX_MEMADVISE */
-#if defined(__AVXMEMADVISE_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AVX512_MOVRS */
+#if defined(__AVXMOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avxmemadviseintrin.h>
+    defined(__AVXMOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movrs/avxmovrsintrin.h>
 #endif
 #endif
-#if defined(__AVX512MEMADVISE_SUPPORTED__)
+#if defined(__AVX512MOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avx512memadviseintrin.h>
+    defined(__AVX512MOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movrs/avx512movrsintrin.h>
 #endif
 #endif
-#if defined(__AVXMEMADVISE_SUPPORTED__) || defined(__AVX512MEMADVISE_SUPPORTED__)
+#if defined(__AVXMOVRS_SUPPORTED__) || defined(__AVX512MOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVXMEMADVISE__) ||                                              \
-     (defined(__AVX512MEMADVISE__) && defined(__AVX512VL__))) ||                \
+    (defined(__AVXMOVRS__) ||                                              \
+     (defined(__AVX512MOVRS__) && defined(__AVX512VL__))) ||                \
     defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avx512vlmemadviseintrin.h>
+#include <avx512movrs/avx512vlmovrsintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AVX_MEMADVISE */
+/* end INTEL_FEATURE_ISA_AVX512_MOVRS */
 /* INTEL_FEATURE_ISA_AVX512_MEDIAX */
 #if defined(__AVX512MEDIAX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
