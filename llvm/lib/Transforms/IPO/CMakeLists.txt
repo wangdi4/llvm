@@ -138,11 +138,8 @@ add_llvm_component_library(LLVMipo
   ProfileData
   Scalar
   Support
-<<<<<<< HEAD
-  TargetParser
-=======
   SYCLTransforms
->>>>>>> ecd6c90f4099456874666871ce165030feb6be32
+  TargetParser
   TransformUtils
   Vectorize
   Instrumentation
