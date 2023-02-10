@@ -57,6 +57,7 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -2703,6 +2704,7 @@ void JumpThreadingPass::updateSSA(
   // PHI insertion, of which we are prepared to do, clean these up now.
   SSAUpdater SSAUpdate;
   SmallVector<Use *, 16> UsesToRename;
+  SmallVector<DbgValueInst *, 4> DbgValues;
 
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
@@ -2718,8 +2720,16 @@ void JumpThreadingPass::updateSSA(
       UsesToRename.push_back(&U);
     }
 
+    // Find debug values outside of the block
+    findDbgValues(DbgValues, &I);
+    DbgValues.erase(remove_if(DbgValues,
+                              [&](const DbgValueInst *DbgVal) {
+                                return DbgVal->getParent() == BB;
+                              }),
+                    DbgValues.end());
+
     // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty())
+    if (UsesToRename.empty() && DbgValues.empty())
       continue;
     LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
@@ -2732,6 +2742,11 @@ void JumpThreadingPass::updateSSA(
 
     while (!UsesToRename.empty())
       SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
+    if (!DbgValues.empty()) {
+      SSAUpdate.UpdateDebugValues(&I, DbgValues);
+      DbgValues.clear();
+    }
+
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
