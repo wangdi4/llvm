@@ -1,6 +1,15 @@
-; RUN: opt -module-summary -o %t0.o %S/Inputs/type-mapping-bug4_0.ll
-; RUN: opt -module-summary -o %t1.o %S/Inputs/type-mapping-bug4_1.ll
-; RUN: opt -module-summary -o %t2.o %s
+; INTEL_CUSTOMIZATION
+; xmain is in a state of transition to opaque pointers at the moment, with some
+; tools enabled as opaque pointers, and other tools still using typed pointers
+; if they are present. This test is customized for the command line flags to
+; force everything to use opaque pointers. As a side-effect of this, some of the
+; structure type renaming done to reduce name conflicts is avoided because types
+; are just seen as 'ptr', which causes %class.CB to not need to be named with a
+; numeric extension.
+; RUN: opt -opaque-pointers=1 -module-summary -o %t0.o %S/Inputs/type-mapping-bug4_0.ll
+; RUN: opt -opaque-pointers=1 -module-summary -o %t1.o %S/Inputs/type-mapping-bug4_1.ll
+; RUN: opt -opaque-pointers=1 -module-summary -o %t2.o %s
+; end INTEL_CUSTOMIZATION
 ; RUN: llvm-lto2 run -save-temps -o %t3 %t0.o %t1.o %t2.o -r %t1.o,a,px -r %t2.o,d,px -r %t1.o,h,x -r %t2.o,h,x -r %t1.o,j,px
 ; RUN: llvm-dis < %t3.0.0.preopt.bc | FileCheck %s
 
@@ -13,7 +22,9 @@
 ; Stage1 and stage2 are described in type-mapping-bug4_1.ll.
 ; Stage3 is described in this file.
 
-; CHECK: %class.CB.1 = type { %"class.std::unique_ptr_base.2" }
+; INTEL_CUSTOMIZATION
+; CHECK: %class.CB = type { %"class.std::unique_ptr_base.2" }
+; end INTEL_CUSTOMIZATION
 ; CHECK: %"class.std::unique_ptr_base.2" = type { ptr }
 
 ; CHECK: define void @j() {
@@ -31,7 +42,9 @@
 ; CHECK: declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
 ; CHECK: define void @d(ptr %0) {
-; CHECK:   %2 = getelementptr inbounds %class.CB.1, ptr undef, i64 0, i32 0, i32 0
+; INTEL_CUSTOMIZATION
+; CHECK:   %2 = getelementptr inbounds %class.CB, ptr undef, i64 0, i32 0, i32 0
+; end INTEL_CUSTOMIZATION
 ; CHECK:   ret void
 ; CHECK: }
 
