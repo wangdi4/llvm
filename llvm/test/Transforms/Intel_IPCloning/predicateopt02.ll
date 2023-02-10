@@ -2,33 +2,12 @@
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
-; Check that predicate opt will be tested 
+; Check that predicate opt does not seg fault even though we cannot determine
+; the innnermost loop nest.
 
 ; CHECK: MRC Cloning: OK: GetVirtualPixelsFromNexus
 ; CHECK: Selected many recursive calls predicate opt
-; CHECK: MRC Predicate Opt: T
-; CHECK: MRC PredicateOpt: Loop Depth = 5
-; CHECK: BaseF: GetVirtualPixelsFromNexus
-; CHECK: WrapperF: GetOneCacheViewVirtualPixel
-; CHECK: BigLoopF: MeanShiftImage
-
-; Check that multiversioning around extracted function with 2 loops will occur
-
-; CHECK: MRC Predicate Opt: Extracted Function:
-; CHECK: define internal void @MeanShiftImage.bb123(
-; CHECK: call i32 @GetOneCacheViewVirtualPixel(
-; CHECK: br {{.*}}!llvm.loop
-; CHECK: br {{.*}}!llvm.loop
-; CHECK: MRC Predicate Opt: Enclosing Function:
-; CHECK: define internal {{.*}} @MeanShiftImage(
-; CHECK: br i1 true, label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
-; CHECK: [[L1]]:
-; CHECK: call void @MeanShiftImage.bb123
-; CHECK: br label %[[L2:[A-Za-z0-9.]+]]
-; CHECK: [[L0]]:
-; CHECK: call void @MeanShiftImage.bb123
-; CHECK: br label %[[L2]]
-; CHECK: [[L2]]:
+; CHECK: MRC Predicate Opt: F
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -65,6 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @DitherMatrix = internal unnamed_addr constant [64 x i64] [i64 0, i64 48, i64 12, i64 60, i64 3, i64 51, i64 15, i64 63, i64 32, i64 16, i64 44, i64 28, i64 35, i64 19, i64 47, i64 31, i64 8, i64 56, i64 4, i64 52, i64 11, i64 59, i64 7, i64 55, i64 40, i64 24, i64 36, i64 20, i64 43, i64 27, i64 39, i64 23, i64 2, i64 50, i64 14, i64 62, i64 1, i64 49, i64 13, i64 61, i64 34, i64 18, i64 46, i64 30, i64 33, i64 17, i64 45, i64 29, i64 10, i64 58, i64 6, i64 54, i64 9, i64 57, i64 5, i64 53, i64 42, i64 26, i64 38, i64 22, i64 41, i64 25, i64 37, i64 21], align 16, !intel_dtrans_type !0
 
 declare dso_local void @__intel_new_feature_proc_init(i32, i64)
+declare void @dummy()
 
 ; Function Attrs: mustprogress nofree nounwind willreturn allocsize(0,1) memory(write, inaccessiblemem: readwrite) uwtable
 declare "intel_dtrans_func_index"="1" ptr @AcquireAlignedMemory(i64 noundef, i64 noundef) #0
@@ -555,6 +535,7 @@ bb301:                                            ; preds = %bb297, %bb24, %bb14
 ; Function Attrs: nounwind uwtable
 define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture noundef readonly "intel_dtrans_func_index"="1" %arg, i64 noundef %arg1, i64 noundef %arg2, ptr noalias nocapture noundef writeonly "intel_dtrans_func_index"="2" %arg3, ptr noundef "intel_dtrans_func_index"="3" %arg4) #1 !intel.dtrans.func.type !108 {
 bb:
+  call void @dummy()
   %i = getelementptr inbounds %struct._ZTS10_CacheView._CacheView, ptr %arg, i64 0, i32 0, !intel-tbaa !110
   %i5 = load ptr, ptr %i, align 8, !tbaa !110
   %i6 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %i5, i64 0, i32 12, !intel-tbaa !113
