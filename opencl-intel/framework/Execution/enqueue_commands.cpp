@@ -1001,10 +1001,12 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
     SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Postfix - %s",
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // Start Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1020,10 +1022,12 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // End Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1222,10 +1226,12 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
 
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // Start Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1242,9 +1248,11 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
 // End Sync Data GPA task
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1900,6 +1908,7 @@ cl_err_code NDRangeKernelCommand::CommandDone() {
  *
  ******************************************************************/
 void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
 
@@ -1917,10 +1926,12 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
                           pGPAData->pGlobalWorkOffsetHandle);
   }
 #endif // GPA
+#endif // end INTEL_CUSTOMIZATION
 }
 /******************************************************************
  *
  ******************************************************************/
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
 void NDRangeKernelCommand::GPA_WriteWorkMetadata(
     const size_t *pWorkMetadata, __itt_string_handle *keyStrHandle) const {
@@ -1945,6 +1956,7 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(
   }
 }
 #endif // GPA
+#endif // end INTEL_CUSTOMIZATION
 
 ReadGVCommand::ReadGVCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
                              void *pDst, const void *pSrc, size_t size)

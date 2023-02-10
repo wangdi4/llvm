@@ -37,7 +37,7 @@
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Skipping pass RemoveRegionDirectivesPass
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 

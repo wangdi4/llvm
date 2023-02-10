@@ -152,7 +152,7 @@ set(CLANG_CL_COMMON_FLAGS
     -emit-llvm-bc
     -fwrapv
     -O3
-    -disable-intel-proprietary-opts
+    -disable-intel-proprietary-opts # INTEL
     -x
     cl
     -I

@@ -13,7 +13,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-
+// INTEL_CUSTOMIZATION
 typedef short short1;
 typedef ushort ushort1;
 typedef int int1;
@@ -12783,3 +12783,4 @@ uint8 __attribute__((const)) __attribute__((intel_ocl_bicc_avx)) __ocl_svml_s9_u
 uint8 __attribute__((const)) __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x0_urem8(uint8 a, uint8 b);
 uint8 __attribute__((const)) __attribute__((intel_ocl_bicc_avx512)) __ocl_svml_x1_urem8(uint8 a, uint8 b);
 uint8 __attribute__((const)) __attribute__((intel_ocl_bicc)) __ocl_svml_n8_urem8(uint8 a, uint8 b);
+// end INTEL_CUSTOMIZATION

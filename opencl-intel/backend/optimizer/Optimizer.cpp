@@ -20,12 +20,14 @@
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
+#if INTEL_CUSTOMIZATION
 cl::opt<bool>
     DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
                    cl::desc("Disable cost model for VPlan vectorizer"));
 
 // Enable vectorization at O0 optimization level.
 extern cl::opt<bool> EnableO0Vectorization;
+#endif // INTEL_CUSTOMIZATION
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
@@ -45,7 +47,7 @@ static constexpr llvm::VectItem Vect[] = {
 static constexpr llvm::ArrayRef<llvm::VectItem> VectInfos(Vect);
 
 llvm::ArrayRef<llvm::VectItem> Optimizer::getVectInfos() { return VectInfos; }
-
+#if INTEL_CUSTOMIZATION
 const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
   static const StringSet<> VPlanMaskedFuncs =
 #define IMPORT_VPLAN_MASKED_VARIANTS
@@ -54,6 +56,7 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
       ;
   return VPlanMaskedFuncs;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
 /// passes. Prints error messages and throw exception if received an error

@@ -18,8 +18,11 @@
 cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 
 void SGEmulationTest::SetUp() {
+#if INTEL_CUSTOMIZATION
   if (!SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "vpo"))
     FAIL() << "Failed to set vectorizer type as vpo";
+#endif //INTEL_CUSTOMIZATION
+
   if (GetParam() &&
       !SETENV("OPENCL_PROGRAM_COMPILE_OPTIONS", "-cl-opt-disable"))
     FAIL() << "Failed to set OPENCL_PROGRAM_COMPILE_OPTIONS";
@@ -29,8 +32,11 @@ void SGEmulationTest::SetUp() {
 }
 
 void SGEmulationTest::TearDown() {
+#if INTEL_CUSTOMIZATION
   if (!UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE"))
     FAIL() << "Failed to unset CL_CONFIG_CPU_VECTORIZER_TYPE";
+#endif //INTEL_CUSTOMIZATION
+
   if (GetParam() && !UNSETENV("OPENCL_PROGRAM_COMPILE_OPTIONS"))
     FAIL() << "Failed to unset OPENCL_PROGRAM_COMPILE_OPTIONS";
   CL_base::TearDown();

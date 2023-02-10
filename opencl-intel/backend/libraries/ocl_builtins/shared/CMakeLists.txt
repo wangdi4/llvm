@@ -61,8 +61,8 @@ add_custom_command(
     ${SHARED_LL_IMPLS}
   COMMAND
     ${OPT} ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link -O3
-    -disable-intel-proprietary-opts -o
-    ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+    -disable-intel-proprietary-opts # INTEL
+    -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
   DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${SHARED_LL_IMPLS}
   VERBATIM)
 

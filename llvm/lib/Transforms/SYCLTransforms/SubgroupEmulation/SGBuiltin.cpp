@@ -16,6 +16,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 
 #include <tuple>
 
@@ -105,12 +106,19 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
         continue;
 
       auto &EmuSizes = SSI->getEmuSizes(PF);
-
       auto MatchingVariants = make_filter_range(
           CandidateVariants,
+#if INTEL_CUSTOMIZATION
           [&EmuSizes](
               const std::tuple<std::string, std::string, std::string> &Info) {
-            return EmuSizes.count(VFABI::demangleForVFABI(std::get<2>(Info)).getVF());
+            VFInfo Variant = VFABI::demangleForVFABI(std::get<2>(Info));
+#else  // INTEL_CUSTOMIZATION
+          [&EmuSizes,
+           &M](const std::tuple<std::string, std::string, std::string> &Info) {
+            VFInfo Variant =
+                VFABI::tryDemangleForVFABI(std::get<2>(Info), M).value();
+#endif // INTEL_CUSTOMIZATION
+            return EmuSizes.count(VectorizerUtils::getVFLength(Variant));
           });
       assert(!MatchingVariants.empty() &&
              "sub-group calls with unsupported VF should be checked in "

@@ -107,7 +107,7 @@
 ; CHECK:      Running pass: JumpThreadingPass
 
 ; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: RemoveRegionDirectivesPass

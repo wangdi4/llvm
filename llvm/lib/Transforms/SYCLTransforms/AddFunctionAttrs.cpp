@@ -18,6 +18,7 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "sycl-kernel-add-function-attrs"
 
+#if INTEL_CUSTOMIZATION
 static bool isAMXMatrixIntrinsicFunction(Function &F) {
   switch (F.getIntrinsicID()) {
   case Intrinsic::experimental_matrix_load:
@@ -42,6 +43,7 @@ static bool addAMXMatrixIntrinsicAttributes(Module &M) {
   }
   return Changed;
 }
+#endif // end INTEL_CUSTOMIZATION
 
 static bool handlePrintfBuiltinAttributes(Module &M) {
   Function *F = M.getFunction(namePrintf());
@@ -102,9 +104,11 @@ static bool handleSyncBuiltinAttributes(Module &M) {
 bool AddFunctionAttrsPass::runImpl(Module &M) {
   bool Changed = false;
 
+#if INTEL_CUSTOMIZATION
   // Add "convergent", "kernel-call-once", "kernel-uniform-call" and
   // "opencl-vec-uniform-return" to AMX matrix intrinsics.
   Changed |= addAMXMatrixIntrinsicAttributes(M);
+#endif // end INTEL_CUSTOMIZATION
 
   Changed |= handlePrintfBuiltinAttributes(M);
 

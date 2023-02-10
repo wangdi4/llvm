@@ -22,6 +22,14 @@
 // half type returned
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
+#ifndef CLK_CHANNEL_MEM_FENCE
+/**
+ * Queue a memory fence to ensure correct
+ * ordering of memory operations to channel
+ **/
+#define CLK_CHANNEL_MEM_FENCE 0x04
+#endif
+
 // integers masks
 extern const constant char char_MSB_mask;
 extern const constant int int_MSB_mask;
