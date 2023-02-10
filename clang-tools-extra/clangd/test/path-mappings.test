@@ -6,7 +6,7 @@
 
 # INTEL_CUSTOMIZATION
 # CMPLRLLVM-42767
-# XFAIL: windows
+# XFAIL: target={{.*}}windows{{.*}}
 # end INTEL_CUSTOMIZATION
 
 {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":123,"rootPath":"clangd","capabilities":{},"trace":"off"}}
