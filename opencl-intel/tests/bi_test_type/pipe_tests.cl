@@ -337,8 +337,6 @@ __kernel void vector_sr_vw_writer() {
 
 // --- CheckWrapping kernels ---
 
-// This tests set fails during compilation on VPO branch
-// when kernel vectorizer enabled
 char vector_wrapping_pipe[sizeof(struct __pipe_t) + 4 * 128];
 
 __kernel void vector_wrapping_init() {

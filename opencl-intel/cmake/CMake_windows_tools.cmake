@@ -37,7 +37,8 @@ set(CMAKE_ASM_OUTPUT_NAME_FLAG /Fo)
 set(CMAKE_ASM_LINK_FLAG /nologo)
 
 # Compiler switches that CANNOT be modified during makefile generation
-set(ADD_C_FLAGS "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
+# We add _HAS_STD_BYTE=0 definition according to HandleLLVMOptions.cmake
+set(ADD_C_FLAGS "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS -D _HAS_STD_BYTE=0")
 set(ADD_C_FLAGS_DEBUG "-D _DEBUG /RTC1")
 set(ADD_C_FLAGS_RELEASE "/Gy")
 
@@ -49,12 +50,13 @@ endif()
 # configuration-independent
 add_definitions(-DWIN32)
 
+# INTEL_CUSTOMIZATION
 # ITT/GPA/VTUNE integration
 if(USE_GPA)
   add_definitions(-DUSE_GPA)
-  include_directories(${CMAKE_SOURCE_DIR}/externals/gpa/include)
+  include_directories(${CMAKE_SOURCE_DIR}/externals/Intel-gpa/include)
 endif(USE_GPA)
-
+# end INTEL_CUSTOMIZATION
 # Linker switches
 if(BUILD_X64)
   set(INIT_LINKER_FLAGS

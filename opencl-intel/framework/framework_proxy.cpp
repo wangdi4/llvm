@@ -460,6 +460,7 @@ void FrameworkProxy::Initialize() {
     m_GPAData.pDeviceDomain = __itt_domain_create("OpenCL.Device");
     m_GPAData.pAPIDomain = __itt_domain_create("OpenCL.API");
 
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     if (m_GPAData.bEnableContextTracing) {
       m_GPAData.pContextDomain = __itt_domain_create("OpenCL.Context");
@@ -478,6 +479,7 @@ void FrameworkProxy::Initialize() {
           __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
     }
 #endif
+#endif // end INTEL_CUSTOMIZATION
 
     m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
     m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");

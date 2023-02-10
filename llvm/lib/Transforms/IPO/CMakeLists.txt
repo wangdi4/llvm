@@ -138,6 +138,7 @@ add_llvm_component_library(LLVMipo
   ProfileData
   Scalar
   Support
+  SYCLTransforms
   TargetParser
   TransformUtils
   Vectorize
@@ -146,7 +147,6 @@ add_llvm_component_library(LLVMipo
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   VPOTransforms
-  SYCLTransforms
 # end INTEL_CUSTOMIZATION
   )
 

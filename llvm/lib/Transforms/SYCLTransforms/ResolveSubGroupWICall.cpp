@@ -75,6 +75,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
       {mangledGetMaxSubGroupSize(),
        &ResolveSubGroupWICallPass::replaceGetMaxSubGroupSize}};
 
+#if INTEL_CUSTOMIZATION
   // Add resolvers for subgroup slice builtins.
   SmallPtrSet<Function *, 2> SubGroupRowSliceInsertElementFuncs;
   for (auto &F : M) {
@@ -99,6 +100,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     if (isSubGroupRowSliceInsertElement(FnName))
       SubGroupRowSliceInsertElementFuncs.insert(&F);
   }
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "ResolveSGBarrier = " << ResolveSGBarrier << '\n');
   if (ResolveSGBarrier) {
@@ -245,6 +247,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   for (auto *I : ExtraInstToRemove)
     I->eraseFromParent();
 
+#if INTEL_CUSTOMIZATION
   // sub_group_rowslice_insertelement calls are well parsed if they are linked
   // to an sub_group_insert_rowslice_to_matrix call via the rowslice id.
   // However, there might be some sub_group_rowslice_insertelement calls left
@@ -255,7 +258,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   for (auto *F : SubGroupRowSliceInsertElementFuncs)
     for (auto *U : make_early_inc_range(F->users()))
       cast<CallInst>(U)->eraseFromParent();
-
+#endif // INTEL_CUSTOMIZATION
   return !InstRepVec.empty();
 }
 
@@ -477,6 +480,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   return Builder.CreateCall(AtomicWIFenceF, Args, "");
 }
 
+#if INTEL_CUSTOMIZATION
 // FIXME: Support subgroup rowslice emulation (-O0), so that the resolved value
 // of get_sub_group_slice_length.() matches the actual widen size.
 // Currently in the subgroup emulation path, VFVal would be emulation size,
@@ -663,6 +667,7 @@ Value *ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix(
                               {MatrixType, RowSliceType}, Args);
   return Matrix;
 }
+#endif // INTEL_CUSTOMIZATION
 
 ConstantInt *ResolveSubGroupWICallPass::createVFConstant(LLVMContext &C,
                                                          const DataLayout &DL,

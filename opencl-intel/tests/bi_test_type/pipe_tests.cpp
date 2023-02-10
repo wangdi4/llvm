@@ -332,7 +332,7 @@ TEST_F(PipeTest, ScalarReaderVectorWriter) {
     clFinish(q2);
   }
 }
-// Do not run this tests set on VPO branch due to compilation fails
+
 TEST_F(PipeTest, CheckVectorWrapping) {
   auto q1 = createCommandQueue();
   auto q2 = createCommandQueue();

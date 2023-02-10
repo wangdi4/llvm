@@ -102,7 +102,7 @@
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
@@ -169,7 +169,7 @@
 
 ; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 
 ; CHECK:      Running pass: DCEPass
 

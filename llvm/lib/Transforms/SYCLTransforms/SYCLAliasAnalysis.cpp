@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SYCLAliasAnalysis.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;

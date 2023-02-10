@@ -39,7 +39,7 @@
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Skipping pass RemoveRegionDirectivesPass
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 

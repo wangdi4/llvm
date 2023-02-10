@@ -27,6 +27,21 @@
 namespace llvm {
 class IRBuilderBase;
 
+#if !INTEL_CUSTOMIZATION
+template <> struct GraphTraits<User *> {
+  using NodeRef = User *;
+  using ChildIteratorType = Value::user_iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->user_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) { return N->user_end(); }
+};
+#endif // end !INTEL_CUSTOMIZATION
+
 namespace {
 struct OpUseIterator {
   OpUseIterator(Use *U) : U(U) {}
@@ -530,6 +545,7 @@ bool isSubGroupBuiltin(StringRef S);
 /// Returns true if \p S is the name of subgroup barrier.
 bool isSubGroupBarrier(StringRef S);
 
+#if INTEL_CUSTOMIZATION
 /// Returns true if \p S is the name of get_sub_group_slice_length.
 bool isGetSubGroupSliceLength(StringRef S);
 
@@ -541,7 +557,7 @@ bool isSubGroupRowSliceInsertElement(StringRef S);
 
 /// Returns true if \p S is the name of sub_group_insert_rowslice_to_matrix.
 bool isSubGroupInsertRowSliceToMatrix(StringRef S);
-
+#endif // INTEL_CUSTOMIZATION
 /// Check if \p CI is an TID generator with constant operator.
 /// \returns a pair of
 ///   * true if \p CI is TID generator.
@@ -731,6 +747,7 @@ void insertPrintf(const Twine &Prefix, BasicBlock *BB,
 void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
                   ArrayRef<Value *> Inputs = std::nullopt);
 
+#if INTEL_CUSTOMIZATION
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
 bool isValidMatrixType(FixedVectorType *MatrixType);
 
@@ -793,7 +810,7 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
                                                    Type *ReturnMatrixType,
                                                    Instruction *IP,
                                                    const Twine &Name = "");
-
+#endif // INTEL_CUSTOMIZATION
 void calculateMemorySizeWithPostOrderTraversal(
     CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
     DenseMap<Function *, size_t> &FnSize);
