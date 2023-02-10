@@ -39,12 +39,31 @@ add_llvm_component_library(LLVMSYCLTransforms
   DuplicateCalledKernelsPass.cpp
   ExternalizeGlobalVariables.cpp
   GroupBuiltinPass.cpp
-  HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp
   InferArgumentAlias.cpp
   InfiniteLoopCreator.cpp
   InstToFuncCall.cpp
+  # INTEL_CUSTOMIZATION
+  Intel_HandleVPlanMask.cpp
+  Intel_ResolveMatrixFill.cpp
+  Intel_ResolveMatrixLayout.cpp
+  Intel_ResolveMatrixWISlice.cpp
+  Intel_SYCLKernelPostVec.cpp
+  Intel_SYCLKernelVecClone.cpp
+  Intel_SYCLPrepareKernelForVecClone.cpp
+  Intel_SinCosFold.cpp
+  Intel_TaskSeqAsyncHandling.cpp
+  Intel_VectorKernelElimination.cpp
+  Intel_VectorVariant/CreateSimdVariantPropagation.cpp
+  Intel_VectorVariant/IndirectCallLowering.cpp
+  Intel_VectorVariant/SGSizeCollector.cpp
+  Intel_VectorVariant/SGSizeCollectorIndirect.cpp
+  Intel_VectorVariant/UpdateCallAttrs.cpp
+  Intel_VectorVariant/VectorVariantFillIn.cpp
+  Intel_VectorVariant/VectorVariantLowering.cpp
+  Intel_VectorizationDimensionAnalysis.cpp
+  # end INTEL_CUSTOMIZATION
   InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
   LinearIdResolver.cpp
@@ -68,16 +87,12 @@ add_llvm_component_library(LLVMSYCLTransforms
   RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
   ReqdSubGroupSize.cpp
-  ResolveMatrixFill.cpp
-  ResolveMatrixLayout.cpp
-  ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
   ResolveVarTIDCall.cpp
   ResolveWICall.cpp
   SGRemapWICall.cpp
   SetPreferVectorWidth.cpp
   SetVectorizationFactor.cpp
-  SinCosFold.cpp
   SoaAllocaAnalysis.cpp
   SpecializeConstant.cpp
   SplitBBonBarrierPass.cpp
@@ -93,13 +108,9 @@ add_llvm_component_library(LLVMSYCLTransforms
   SYCLAliasAnalysis.cpp
   SYCLEqualizer.cpp
   SYCLKernelAnalysis.cpp
-  SYCLKernelPostVec.cpp
-  SYCLKernelVecClone.cpp
   SYCLKernelWGLoopCreator.cpp
-  SYCLPrepareKernelForVecClone.cpp
   SYCLPreprocessSPIRVFriendlyIR.cpp
   SYCLRewritePipes.cpp
-  TaskSeqAsyncHandling.cpp
   Utils/BarrierUtils.cpp
   Utils/CompilationUtils.cpp
   Utils/FunctionDescriptor.cpp
@@ -115,15 +126,6 @@ add_llvm_component_library(LLVMSYCLTransforms
   Utils/WGBoundDecoder.cpp
   Utils/SYCLChannelPipeUtils.cpp
   Utils/SYCLStatistic.cpp
-  VectorizationDimensionAnalysis.cpp
-  VectorKernelElimination.cpp
-  VectorVariant/CreateSimdVariantPropagation.cpp
-  VectorVariant/IndirectCallLowering.cpp
-  VectorVariant/SGSizeCollector.cpp
-  VectorVariant/SGSizeCollectorIndirect.cpp
-  VectorVariant/UpdateCallAttrs.cpp
-  VectorVariant/VectorVariantFillIn.cpp
-  VectorVariant/VectorVariantLowering.cpp
   VFAnalysis.cpp
   WGLoopBoundaries.cpp
   WIRelatedValuePass.cpp
@@ -136,7 +138,7 @@ add_llvm_component_library(LLVMSYCLTransforms
 
   DEPENDS
   intrinsics_gen
-  directives_gen
+  directives_gen # INTEL
 
   LINK_COMPONENTS
   Analysis

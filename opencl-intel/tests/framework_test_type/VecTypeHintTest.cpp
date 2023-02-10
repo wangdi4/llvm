@@ -24,7 +24,11 @@ bool VecTypeHintTest() {
       "kernel __attribute__((vec_type_hint(short16))) void kernel7(global int "
       "*a) { a[get_global_id(0)] = 0; }\n"};
   const int num_kernels = 7;
+#if INTEL_CUSTOMIZATION
   const bool expectedRes[] = {true, true, true, true, false, false, false};
+#else  // INTEL_CUSTOMIZATION
+  const bool expectedRes[] = {false, false, false, false, false, false, false};
+#endif // INTEL_CUSTOMIZATION
   const char trueString[] = " successfully vectorized";
   const char falseString[] = " not vectorized";
 

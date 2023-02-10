@@ -54,7 +54,8 @@ void build(const std::string &code, std::string fileName) {
 
   std::stringstream options;
   options
-      << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc "
+      << "-cc1 -x cl -emit-llvm-bc "
+         "-disable-intel-proprietary-opts " // INTEL
          "-no-opaque-pointers -include opencl-c.h -include long_vector_types.h";
   options
       << " "

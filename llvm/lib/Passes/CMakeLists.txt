@@ -46,12 +46,12 @@ add_llvm_component_library(LLVMPasses
   Scalar
   Support
   SYCLLowerIR
+  SYCLTransforms
   Target
   TransformUtils
   Vectorize
   Instrumentation
 # INTEL_CUSTOMIZATION
-  SYCLTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

@@ -152,7 +152,11 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
       if (WideFn->isDeclaration())
         continue;
       LLVM_DEBUG(dbgs() << "Widen function: " << WideFn->getName() << "\n");
+#if INTEL_CUSTOMIZATION
       VFInfo Variant = VFABI::demangleForVFABI(WideFn->getName());
+#else  // INTEL_CUSTOMIZATION
+      VFInfo Variant = VFABI::tryDemangleForVFABI(WideFn->getName(), M).value();
+#endif // INTEL_CUSTOMIZATION
       DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(*WideFn);
       runOnFunction(*WideFn, VectorizerUtils::getVFLength(Variant), DT);
       auto It = find(KernelRange, Fn);
@@ -426,7 +430,7 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   }
   return Res;
 }
-// Add these two functions for OpenSource.
+
 // It's to replicate the entire vector \p OrigVal by \p OriginalVL times.
 static Value *replicateVectorSG(Value *OrigVal, unsigned OriginalVL,
                                 IRBuilderBase &Builder, const Twine &Name) {
@@ -660,7 +664,6 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V,
   return IP;
 }
 
-// This function is added for OpenSource.
 // Return the Attribute associated with this call or an empty Attribute if
 // none of this \p Kind is set.
 template <typename AttrKind>
@@ -682,7 +685,13 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   assert(ParentF->hasFnAttribute(KernelAttribute::VectorVariants) &&
          "Parent function doesn't have vector-variants attribute");
   unsigned EmuSize = 0;
+#if !INTEL_CUSTOMIZATION
+  Module &M = *(ParentF->getParent());
+
+  if (auto Variant = VFABI::tryDemangleForVFABI(ParentF->getName(), M)) {
+#else  // INTEL_CUSTOMIZATION
   if (auto Variant = VFABI::tryDemangleForVFABI(ParentF->getName())) {
+#endif // INTEL_CUSTOMIZATION
     EmuSize = VectorizerUtils::getVFLength(Variant.value());
   } else {
     StringRef ParentVariantStringValue =
@@ -692,8 +701,13 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
            "Unexpected multiple vector variant string here!");
     LLVM_DEBUG(dbgs() << "  Parent function variant string: "
                       << ParentVariantStringValue << "\n");
+#if !INTEL_CUSTOMIZATION
+    EmuSize = VectorizerUtils::getVFLength(
+        VFABI::tryDemangleForVFABI(ParentVariantStringValue, M).value());
+#else  // INTEL_CUSTOMIZATION
     EmuSize = VectorizerUtils::getVFLength(
         VFABI::demangleForVFABI(ParentVariantStringValue));
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Get vector-variants attribute
@@ -707,8 +721,13 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   StringRef VariantStringValue;
   // Select Variant and emulation size
   for (const auto &VarStr : VariantStrs) {
+#if !INTEL_CUSTOMIZATION
+    unsigned Vlen = VectorizerUtils::getVFLength(
+        VFABI::tryDemangleForVFABI(VarStr, M).value());
+#else
     unsigned Vlen =
         VectorizerUtils::getVFLength(VFABI::demangleForVFABI(VarStr));
+#endif // end INTEL_CUSTOMIZATION
     if (Vlen == EmuSize) {
       VariantStringValue = VarStr;
       break;
@@ -732,7 +751,12 @@ void SGValueWidenPass::widenCalls() {
     unsigned Size = 0;
     StringRef VariantStr;
     std::tie(VariantStr, Size) = selectVariantAndEmuSize(CI);
+#if INTEL_CUSTOMIZATION
     auto Variant = VFABI::demangleForVFABI(VariantStr);
+#else  // INTEL_CUSTOMIZATION
+    Module &M = *(CI->getModule());
+    auto Variant = VFABI::tryDemangleForVFABI(VariantStr, M).value();
+#endif // INTEL_CUSTOMIZATION
     Function *WideFunc = CI->getModule()->getFunction(Variant.VectorName);
     assert(WideFunc != nullptr && "No widen function!");
     assert(FuncMap[CI->getCalledFunction()].count(WideFunc) &&

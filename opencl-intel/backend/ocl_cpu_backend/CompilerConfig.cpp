@@ -110,15 +110,15 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
     std::vector<std::string> Options = SplitString(LLVMOption, ' ');
     m_LLVMOptions.append(Options.begin(), Options.end());
   }
-
   // C++ pipeline command line options.
-  m_LLVMOptions.emplace_back("-enable-vec-clone=false");
+  m_LLVMOptions.emplace_back("-enable-vec-clone=false"); // INTEL
   ETransposeSize TransposeSize =
       parseTransposeSize(pBackendOptions->GetIntValue(
           (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET));
+#if INTEL_CUSTOMIZATION
   if (TRANSPOSE_SIZE_1 == TransposeSize)
     m_LLVMOptions.emplace_back("-vplan-driver=false");
-
+#endif // end INTEL_CUSTOMIZATION
   if (TRANSPOSE_SIZE_AUTO != TransposeSize &&
       TRANSPOSE_SIZE_NOT_SET != TransposeSize)
     m_LLVMOptions.emplace_back("-sycl-force-vf=" +

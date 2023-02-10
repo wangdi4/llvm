@@ -354,12 +354,12 @@
 #include "llvm/Transforms/Scalar/Intel_NontemporalStore.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_TransformSinAndCosCalls.h"
+#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/SYCLTransforms/Passes.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-
-// DPC++ CPU Kernel Transformation passes
-#include "llvm/Transforms/SYCLTransforms/Passes.h"
 
 // Intel Loop Optimization framework
 // Framework passes

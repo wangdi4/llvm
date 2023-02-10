@@ -48,7 +48,7 @@ private:
                                 int32_t VD);
 
   Value *replaceGetSubGroupId(Instruction *insertBefore, Value *VF, int32_t VD);
-
+#if INTEL_CUSTOMIZATION
   // Resolves
   // call i64 @get_sub_group_slice_length.(i32 %total.element.count)
   // -->
@@ -113,14 +113,14 @@ private:
   //   immarg VF, i32 immarg R, i32 immarg C)
   Value *replaceSubGroupInsertRowSliceToMatrix(Instruction *InsertBefore,
                                                Value *VF, int32_t VD);
-
+#endif // INTEL_CUSTOMIZATION
   // Helpers:
   CallInst *createWIFunctionCall(Module *M, char const *twine,
                                  std::string const &name,
                                  Instruction *insertBefore, Value *actPar);
 
   ConstantInt *createVFConstant(LLVMContext &, const DataLayout &, size_t VF);
-
+#if INTEL_CUSTOMIZATION
   // Parses info from the `RowSliceId`, which might be an
   // get_sub_group_rowslice_id call itself, or a PHI node selecting from the
   // call.
@@ -134,7 +134,7 @@ private:
   void resolveGetSubGroupRowSliceId(Value *RowSliceId, unsigned RowSliceLength,
                                     IRBuilder<> &Builder,
                                     SmallVectorImpl<Value *> &ParsedArgs);
-
+#endif // INTEL_CUSTOMIZATION
   // This pass will run twice, the first time is after vectorizer and before
   // WGLoopCreater / Barrier, all sub-group WI built-ins except sub_group
   // barrier will be resolved. The second time is after sub-group emulation

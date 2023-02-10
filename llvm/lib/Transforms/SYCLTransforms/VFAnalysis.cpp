@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -46,10 +47,21 @@ static cl::opt<bool, true> SYCLForceOptnoneOpt(
     cl::desc("Force passes to process functions as if they have the optnone "
              "attribute"));
 
-extern bool SYCLEnableVectorizationOfByvalByrefFunctions;
+extern bool SYCLEnableVectorizationOfByvalByrefFunctions; // INTEL
 
 DiagnosticKind VFAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
+
+#if !INTEL_CUSTOMIZATION
+cl::opt<VFISAKind> IsaEncodingOverride(
+    "sycl-vector-variant-isa-encoding-override", cl::init(VFISAKind::SSE),
+    cl::Hidden,
+    cl::desc("Override target CPU ISA encoding for Vector Variant passes."),
+    cl::values(clEnumValN(VFISAKind::AVX512, "AVX512Core", "AVX512Core"),
+               clEnumValN(VFISAKind::AVX2, "AVX2", "AVX2"),
+               clEnumValN(VFISAKind::AVX, "AVX1", "AVX1"),
+               clEnumValN(VFISAKind::SSE, "SSE42", "SSE42")));
+#endif // end !INTEL_CUSTOMIZATION
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
 // Always get ISA, ForceVF from the global options.
@@ -164,6 +176,7 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
   // Unsupported: Kernel calls a function with byval/byref args and
   // - Either the called function contains subgroups.
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
@@ -180,6 +193,7 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
       return true;
     }
   }
+#endif // end INTEL_CUSTOMIZATION
 
   // Unsupported: vec_type_hint on unsupported types.
   KernelMetadataAPI KMD(Kernel);
@@ -323,11 +337,15 @@ void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
   unsigned SGEmuSize = MayNeedEmu() ? KernelToVF[Kernel] : 0;
   LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << SGEmuSize << '\n');
 
+#if INTEL_CUSTOMIZATION
   // Explicitly disable vectorization by setting VF = 1.
   if (isSubgroupBroken(Kernel))
     KernelToVF[Kernel] = 1;
   else // No need to do emulation.
     SGEmuSize = 0;
+#else  // INTEL_CUSTOMIZATION
+  KernelToVF[Kernel] = 1;
+#endif // INTEL_CUSTOMIZATION
 
   // Relax subgroup emulation size, since we don't have scalar implementation
   // for subgroup builtins.

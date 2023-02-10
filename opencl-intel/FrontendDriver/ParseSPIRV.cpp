@@ -188,7 +188,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityIndirectReferencesINTEL:
     case spv::CapabilityAsmINTEL:
     case spv::CapabilityVariableLengthArrayINTEL:
-    case spv::internal::CapabilityVectorVariantsINTEL:
+    case spv::internal::CapabilityVectorVariantsINTEL: // INTEL
       // SPV_KHR_expect_assume
     case spv::CapabilityExpectAssumeKHR:
     case spv::CapabilityVectorAnyINTEL:
