@@ -269,3 +269,4 @@ endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.
+add_subdirectory(test)
