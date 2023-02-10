@@ -664,18 +664,11 @@ getConditionalAndUnsafeAlgebraInfo(SafeRedChain &RedInsts, const HLLoop *Lp) {
     if (!FPInst) {
       continue;
     }
-    if (Conditional) {
-      if (!FPInst->isFast()) {
-        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                             "(FP reduction with fast flag off)\n");
-        HasUnsafeAlgebra = true;
-      }
-    } else {
-      if (!FPInst->hasAllowReassoc()) {
-        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                             "(FP reduction with reassoc flag off)\n");
-        HasUnsafeAlgebra = true;
-      }
+
+    if (!FPInst->hasAllowReassoc()) {
+      LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                           "(FP reduction with reassoc flag off)\n");
+      HasUnsafeAlgebra = true;
     }
   }
 
