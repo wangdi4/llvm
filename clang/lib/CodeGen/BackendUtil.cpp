@@ -1681,8 +1681,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     }
   }
 
-<<<<<<< HEAD
-  EmitAssemblyHelper AsmHelper(Diags, HeaderOpts, CGOpts, TOpts, LOpts, M);
+  EmitAssemblyHelper AsmHelper(Diags, HeaderOpts, CGOpts, TOpts, LOpts, M, VFS);
 
 #if INTEL_CUSTOMIZATION
   if (CGOpts.LegacyPassManager)
@@ -1690,10 +1689,6 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   else
     AsmHelper.EmitAssembly(Action, std::move(OS));
 #endif // INTEL_CUSTOMIZATION
-=======
-  EmitAssemblyHelper AsmHelper(Diags, HeaderOpts, CGOpts, TOpts, LOpts, M, VFS);
-  AsmHelper.EmitAssembly(Action, std::move(OS));
->>>>>>> 516e301752560311d2cd8c2b549493eb0f98d01b
 
   // Verify clang's TargetInfo DataLayout against the LLVM TargetMachine's
   // DataLayout.

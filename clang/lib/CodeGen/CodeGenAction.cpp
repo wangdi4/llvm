@@ -1319,19 +1319,12 @@ void CodeGenAction::ExecuteAction() {
   Ctx.setDiscardValueNames(false);
   OptRecordFileRAII ORF(*this, Ctx, Result); // INTEL
 
-<<<<<<< HEAD
-  EmitBackendOutput(Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts,
-                    TargetOpts, CI.getLangOpts(),
-                    CI.getTarget().getDataLayoutString(), TheModule.get(), BA,
-                    std::move(OS));
-
-#if !INTEL_CUSTOMIZATION
-=======
   EmitBackendOutput(
       Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts, TargetOpts,
       CI.getLangOpts(), CI.getTarget().getDataLayoutString(), TheModule.get(),
       BA, CI.getFileManager().getVirtualFileSystemPtr(), std::move(OS));
->>>>>>> 516e301752560311d2cd8c2b549493eb0f98d01b
+
+#if !INTEL_CUSTOMIZATION
   if (OptRecordFile)
     OptRecordFile->keep();
 

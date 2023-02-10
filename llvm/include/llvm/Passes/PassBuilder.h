@@ -49,14 +49,11 @@ class StringRef;
 class AAManager;
 class TargetMachine;
 class ModuleSummaryIndex;
-<<<<<<< HEAD
 class InlinerPass; // INTEL
-=======
 template <typename T> class IntrusiveRefCntPtr;
 namespace vfs {
 class FileSystem;
 } // namespace vfs
->>>>>>> 516e301752560311d2cd8c2b549493eb0f98d01b
 
 /// Tunable parameters for passes in the default pipelines.
 class PipelineTuningOptions {
