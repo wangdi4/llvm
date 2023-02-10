@@ -106,7 +106,7 @@ FunctionPass *createAddDiscriminatorsPass();
 //
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *createPromoteMemoryToRegisterPass(bool Unskippable = false,
+FunctionPass *createPromoteMemoryToRegisterPass(bool IsForced = false,
                                                 bool AllBBs = false);
 #endif // INTEL_CUSTOMIZATION
 
