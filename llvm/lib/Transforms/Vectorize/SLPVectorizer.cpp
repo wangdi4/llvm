@@ -10307,10 +10307,17 @@ Value *BoUpSLP::createBuildVector(const TreeEntry *E) {
   inversePermutation(E->ReorderIndices, ReorderMask);
   if (!ReorderMask.empty())
     reorderScalars(VL, ReorderMask);
-  if (!allConstant(VL)) {
+#if INTEL_CUSTOMIZATION
+  // Code below tries to replace where possible insertelement instructions with
+  // shufflevector ones. For non-splat vectors on architectures with wide
+  // registers (e.g. Alder Lake) better performance is typically achievable with
+  // insertelement instructions, so skip this code in that case.
+  bool IsSplat = isSplat(VL) && (VL.size() > 2 || VL.front() == VL.back());
+  if (!allConstant(VL) &&
+      (IsSplat || MaxVecRegSize < 256 || CompatibilitySLPMode)) {
+#endif // INTEL_CUSTOMIZATION
     // For splats with can emit broadcasts instead of gathers, so try to find
     // such sequences.
-    bool IsSplat = isSplat(VL) && (VL.size() > 2 || VL.front() == VL.back());
     SmallVector<int> ReuseMask(VF, UndefMaskElem);
     SmallVector<int> UndefPos;
     DenseMap<Value *, unsigned> UniquePositions;
