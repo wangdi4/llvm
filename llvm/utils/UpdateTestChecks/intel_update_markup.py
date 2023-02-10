@@ -2,7 +2,7 @@
 """A intel markup update script.
 
 This script is a utility to update intel markup for test file.
-Supported file extension: .ll, .mir, .s, .txt, '.c', '.cpp'
+Supported file extension: .ll, .mir, .s, .txt, '.c', '.cpp', '.td', '.test', '.mm'
 """
 
 import argparse
@@ -20,15 +20,15 @@ else:
     from . import common
 
 def check_ext(file_ext):
-    if file_ext not in {'.ll', '.mir', '.s', '.txt', '.c', '.cpp'}:
-        raise NotImplementedError(f'Unsupported file extension {file_ext}')
+    if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm'}:
+        raise NotImplementedError(f'Unsupported file extension .{file_ext}')
 
 
 def get_comment_char(file_ext):
     check_ext(file_ext)
-    if file_ext == '.ll':
+    if file_ext == 'll':
         return ';'
-    elif file_ext in {'.mir', '.s', '.txt'}:
+    elif file_ext in {'mir', 's', 'txt', 'test'}:
         return '#'
     else:
         return '\/\/'
@@ -64,6 +64,7 @@ def get_note(file_ext):
 
 def get_ext(exp):
     _, file_ext = os.path.splitext(exp)
+    file_ext = file_ext.lstrip('.')
     check_ext(file_ext)
     return file_ext
 
@@ -323,7 +324,7 @@ def update(exp, max_line=3, ref=None, comment=True):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('exp', metavar='EXP', help='The file to be updated')
+    parser.add_argument('exp', metavar='EXP', help='file to be updated')
     parser.add_argument(
         '--max',
         metavar='MAX',
@@ -335,11 +336,11 @@ def main():
         '--ref',
         metavar='REF',
         help=
-        'The file used a reference (latest llorg version is used if not provided'
+        'file used as reference (file from best common ancestor with llorg is used if not provided)'
     )
-    parser.add_argument('--drop', help='Drop markup and note', action='store_true')
-    parser.add_argument('--comment', help='Add a comment if markup is added', action='store_true')
-    parser.add_argument('--log', help='Print the log', action='store_true')
+    parser.add_argument('--drop', help='drop markup and note', action='store_true')
+    parser.add_argument('--comment', help='add a comment if markup is added', action='store_true')
+    parser.add_argument('--log', help='print the log', action='store_true')
     args = parser.parse_args()
 
     # Argument checking
