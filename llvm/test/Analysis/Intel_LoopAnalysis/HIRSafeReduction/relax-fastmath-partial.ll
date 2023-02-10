@@ -61,8 +61,8 @@ for.body:                                         ; preds = %for.inc, %for.body.
 if.then:                                          ; preds = %for.body
   %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
   %1 = load float, float* %arrayidx5, align 4, !tbaa !2
-  %add = fadd fast float %0, %1
-  %add6 = fadd fast float %tsum.015, %add
+  %add = fadd reassoc float %0, %1
+  %add6 = fadd reassoc float %tsum.015, %add
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
