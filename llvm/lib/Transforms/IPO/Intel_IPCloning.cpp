@@ -4828,7 +4828,7 @@ private:
   unsigned simpleLoopDepth(CallBase &CB);
   // Find the doubly nested inner loop surrounding 'CB' if there is one,
   // otherwise return 'nullptr'.
-  Loop *findMultiLoop(CallBase &CB);
+  Loop *findMultiLoop(CallBase *CB);
 };
 
 //
@@ -4882,9 +4882,13 @@ unsigned PredicateOpt::simpleLoopDepth(CallBase &CB) {
 //
 // Return the doubly nested loop enclosing 'CB', otherwise return 'nullptr'.
 //
-Loop *PredicateOpt::findMultiLoop(CallBase &CB) {
-  LoopInfo *LI = ILIC.getLI(CB.getCaller());
-  Loop *L = LI->getLoopFor(CB.getParent());
+Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
+  if (!CB)
+    return nullptr;
+  LoopInfo *LI = ILIC.getLI(CB->getCaller());
+  if (!LI)
+    return nullptr;
+  Loop *L = LI->getLoopFor(CB->getParent());
   return L ? L->getParentLoop() : nullptr;
 }
 
@@ -4915,7 +4919,11 @@ bool PredicateOpt::canDoPredicateOpt() {
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
   BigLoopCB = LocalBigLoopCB;
-  MultiLoop = findMultiLoop(*BigLoopCB);
+  MultiLoop = findMultiLoop(BigLoopCB);
+  LLVM_DEBUG({
+    dbgs() << "MRC Predicate Opt: ";
+    dbgs() << (MultiLoop ? "T" : "F") << "\n";
+  });
   return MultiLoop;
 }
 
