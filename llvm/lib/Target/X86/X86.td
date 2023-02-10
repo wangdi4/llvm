@@ -272,14 +272,14 @@ def FeatureAVXCOMPRESS    : SubtargetFeature<"avxcompress", "HasAVXCOMPRESS", "t
                            "Enable AVX-COMPRESS",
                            [FeatureAVX2]>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def FeatureAVXMEMADVISE   : SubtargetFeature<"avxmemadvise", "HasAVXMEMADVISE", "true",
-                           "Enable AVX-MEMADVISE",
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def FeatureAVXMOVRS   : SubtargetFeature<"avxmovrs", "HasAVXMOVRS", "true",
+                           "Enable AVX-MOVRS",
                            [FeatureAVX2]>;
-def FeatureAVX512MEMADVISE  : SubtargetFeature<"avx512memadvise", "HasAVX512MEMADVISE", "true",
-                            "Enable AVX512-MEMADVISE",
+def FeatureAVX512MOVRS  : SubtargetFeature<"avx512movrs", "HasAVX512MOVRS", "true",
+                            "Enable AVX512-MOVRS",
                             [FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 def FeatureAVX512MEDIAX  : SubtargetFeature<"avx512mediax", "HasAVX512MEDIAX", "true",
                             "Enable AVX512-MEDIAX",
@@ -1485,9 +1485,9 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE
                                                   FeatureAMXMEMADVISE,
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-                                                  FeatureAVX512MEMADVISE,
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+                                                  FeatureAVX512MOVRS,
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MINMAX
                                                   FeatureAVX512MINMAX,
 #endif // INTEL_FEATURE_ISA_AVX512_MINMAX

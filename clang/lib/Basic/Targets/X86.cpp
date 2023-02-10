@@ -504,12 +504,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxcompress") {
       HasAVXCOMPRESS = true;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-    } else if (Feature == "+avxmemadvise") {
-      HasAVXMEMADVISE = true;
-    } else if (Feature == "+avx512memadvise") {
-      HasAVX512MEMADVISE = true;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+    } else if (Feature == "+avxmovrs") {
+      HasAVXMOVRS = true;
+    } else if (Feature == "+avx512movrs") {
+      HasAVX512MOVRS = true;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     } else if (Feature == "+avx512mediax") {
       HasAVX512MEDIAX = true;
@@ -1305,14 +1305,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXCOMPRESS__");
   Builder.defineMacro("__AVXCOMPRESS_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-  if (HasAVXMEMADVISE)
-    Builder.defineMacro("__AVXMEMADVISE__");
-  Builder.defineMacro("__AVXMEMADVISE_SUPPORTED__");
-  if (HasAVX512MEMADVISE)
-    Builder.defineMacro("__AVX512MEMADVISE__");
-  Builder.defineMacro("__AVX512MEMADVISE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+  if (HasAVXMOVRS)
+    Builder.defineMacro("__AVXMOVRS__");
+  Builder.defineMacro("__AVXMOVRS_SUPPORTED__");
+  if (HasAVX512MOVRS)
+    Builder.defineMacro("__AVX512MOVRS__");
+  Builder.defineMacro("__AVX512MOVRS_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
   if (HasAVX512MEDIAX)
     Builder.defineMacro("__AVX512MEDIAX__");
@@ -1808,10 +1808,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
       .Case("avxcompress", true)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-      .Case("avxmemadvise", true)
-      .Case("avx512memadvise", true)
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+      .Case("avxmovrs", true)
+      .Case("avx512movrs", true)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
       .Case("avx512mediax", true)
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -2045,10 +2045,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
       .Case("avxcompress", HasAVXCOMPRESS)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-      .Case("avxmemadvise", HasAVXMEMADVISE)
-      .Case("avx512memadvise", HasAVX512MEMADVISE)
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+      .Case("avxmovrs", HasAVXMOVRS)
+      .Case("avx512movrs", HasAVX512MOVRS)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
       .Case("avx512mediax", HasAVX512MEDIAX)
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
