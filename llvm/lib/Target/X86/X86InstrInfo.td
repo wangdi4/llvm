@@ -1056,11 +1056,11 @@ def NoVLX_Or_NoCONVERT : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCONVE
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-def HasAVXMEMADVISE   : Predicate<"Subtarget->hasAVXMEMADVISE()">;
-def HasAVX512MEMADVISE   : Predicate<"Subtarget->hasAVX512MEMADVISE()">;
-def NoVLX_Or_NoMEMADVISE : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MEMADVISE()">;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+def HasAVXMOVRS   : Predicate<"Subtarget->hasAVXMOVRS()">;
+def HasAVX512MOVRS   : Predicate<"Subtarget->hasAVX512MOVRS()">;
+def NoVLX_Or_NoMOVRS : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MOVRS()">;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 def HasAVX512MEDIAX   : Predicate<"Subtarget->hasAVX512MEDIAX()">;
 def NoVLX_Or_NoMEDIAX : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512MEDIAX()">;

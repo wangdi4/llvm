@@ -204,17 +204,17 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxcompress/avxcompressintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
-# INTEL_FEATURE_ISA_AVX_MEMADVISE
+# INTEL_FEATURE_ISA_AVX512_MOVRS
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
-  Intel_Headers/avxmemadvise/avxmemadviseintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVRS
+  Intel_Headers/avx512movrs/avxmovrsintrin.h
   )
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
-  Intel_Headers/avxmemadvise/avx512memadviseintrin.h
-  Intel_Headers/avxmemadvise/avx512vlmemadviseintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVRS
+  Intel_Headers/avx512movrs/avx512movrsintrin.h
+  Intel_Headers/avx512movrs/avx512vlmovrsintrin.h
   )
-# end INTEL_FEATURE_ISA_AVX_MEMADVISE
+# end INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MEDIAX

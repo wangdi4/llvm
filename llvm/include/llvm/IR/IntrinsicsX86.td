@@ -5824,9 +5824,9 @@ let TargetPrefix = "x86" in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-// FIXME: We assume that avxmemadvise is disclosed firstly. Renaming these
-// if avx512memadvise is disclosed firstly.
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+// FIXME: We assume that avxmovrs is disclosed firstly. Renaming these
+// if avx512movrs is disclosed firstly.
 let TargetPrefix = "x86" in {
   def int_x86_avx2_vmovadvisew_load_128 :
               ClangBuiltin<"__builtin_ia32_vmovadvisew_load_128">,
@@ -5868,7 +5868,7 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [llvm_ptr_ty, llvm_i8_ty],
                         [IntrArgMemOnly, ImmArg<ArgIndex<1>>]>;
 }
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 let TargetPrefix = "x86" in {
   def int_x86_vmovget128 : ClangBuiltin<"__builtin_ia32_vmovget128">,

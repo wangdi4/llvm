@@ -6282,7 +6282,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
   if (!IntrData) {
     switch (Intrinsic) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
     case Intrinsic::x86_avx2_vmovadvisew_load_128:
     case Intrinsic::x86_avx2_vmovadvisew_load_256:
     case Intrinsic::x86_avx512_vmovadvisew_load_512: {
@@ -6306,7 +6306,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.flags |= MachineMemOperand::MOStore;
       return true;
     }
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_RAO_INT
     case Intrinsic::x86_mask_vpaaddd128:
     case Intrinsic::x86_mask_vpaaddd256:
