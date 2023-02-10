@@ -1420,7 +1420,13 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   if (IsOffloadingHost)
     CmdArgs.push_back("-lomptarget");
 
-  if (IsOffloadingHost && !Args.hasArg(options::OPT_nogpulib))
+#if INTEL_CUSTOMIZATION
+  // TODO: Attempted to use getUseNewOffloadingDriver() but the setting does not
+  // look to be working correctly - using the option directly instead.
+  if (IsOffloadingHost && !Args.hasArg(options::OPT_nogpulib) &&
+      Args.hasFlag(options::OPT_fopenmp_new_driver,
+                   options::OPT_no_offload_new_driver, false))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lomptarget.devicertl");
 
   addArchSpecificRPath(TC, Args, CmdArgs);
