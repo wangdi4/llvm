@@ -2,6 +2,7 @@
 ; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; Inline report via metadata
 ; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; UNSUPPORTED: system-windows
 
 ; Test for -double-callsite-inlinehint-threshold. @mydoublecallee0 should be
 ; inlined because it is a double callsite linkonce_odr function with an
@@ -9,9 +10,7 @@
 ; have an inlinehint. @mytriplecallee should not be inlined because it is
 ; a triple, rather than double, callsite.
 
-; FIXME: Corresponding change is currently disabled on Windows as it leads
-;        to unexpected fails across testbase. See CMPLRLLVM-35571
-; XFAIL: windows-msvc
+; NOTE: This heuristic is not implemented for Windows
 
 ; CHECK-MD: DEAD STATIC FUNC: mydoublecallee0
 ; CHECK-MD: COMPILE FUNC: mytriplecallee
