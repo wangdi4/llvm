@@ -31,11 +31,8 @@ set( LLVM_LINK_COMPONENTS
   ScalarOpts
   Support
   SYCLLowerIR
-<<<<<<< HEAD
-  TargetParser
-=======
   SYCLTransforms
->>>>>>> ecd6c90f4099456874666871ce165030feb6be32
+  TargetParser
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
