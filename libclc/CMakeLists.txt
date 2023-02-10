@@ -394,14 +394,13 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                 # have to be explicity declared in the soruce.
                 list( APPEND flags -Xclang -fdeclare-spirv-builtins)
 
-<<<<<<< HEAD
                 if (INTEL_CUSTOMIZATION)
                         # disabling opts to be able to generate IR in
                         # proprietary build
                         # SHELL: is a workaround for -Xclang de-duplication
                         list( APPEND flags "SHELL:-Xclang -disable-intel-proprietary-opts")
                 endif (INTEL_CUSTOMIZATION)
-=======
+
                 # OpenCL 3.0 extensions
                 list( APPEND flags -cl-std=CL3.0 "SHELL:-Xclang" )
                 string(CONCAT CL_3_0_EXTENSIONS
@@ -416,7 +415,6 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                     ",+cl_khr_fp16")
                 endif()
                 list( APPEND flags ${CL_3_0_EXTENSIONS})
->>>>>>> cba338e5fb1c8a2f31abcffb6a8246df1ed42844
 
 		add_libclc_builtin_set(libspirv-${arch_suffix}
 			TRIPLE ${t}
