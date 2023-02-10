@@ -13,6 +13,7 @@
 // License.
 
 #include "VectorizerUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 extern llvm::cl::opt<llvm::VFISAKind> IsaEncodingOverride;
 

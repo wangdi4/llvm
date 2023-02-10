@@ -169,6 +169,7 @@ const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
 const StringRef NAME_PRINTF_OPENCL = "__opencl_printf";
 
+#if INTEL_CUSTOMIZATION
 /// Matrix slicing support.
 const StringRef NAME_GET_SUB_GROUP_SLICE_LENGTH = "get_sub_group_slice_length.";
 const StringRef NAME_GET_SUB_GROUP_ROWSLICE_ID = "get_sub_group_rowslice_id";
@@ -178,6 +179,7 @@ const StringRef NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT =
     "sub_group_rowslice_insertelement";
 const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
     "sub_group_insert_rowslice_to_matrix";
+#endif // INTEL_CUSTOMIZATION
 } // namespace
 
 static cl::opt<std::string> OptVectInfoFile("sycl-vect-info", cl::Hidden,
@@ -918,6 +920,7 @@ bool isSubGroupBarrier(StringRef S) {
          S == mangledSGBarrier(BarrierType::WithScope);
 }
 
+#if INTEL_CUSTOMIZATION
 bool isGetSubGroupSliceLength(StringRef S) {
   return S.equals(NAME_GET_SUB_GROUP_SLICE_LENGTH);
 }
@@ -936,6 +939,7 @@ bool isSubGroupInsertRowSliceToMatrix(StringRef S) {
   // Has type mangle suffix.
   return S.startswith(NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX);
 }
+#endif // INTEL_CUSTOMIZATION
 
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
@@ -1355,8 +1359,10 @@ static void replaceScalarKernelInMetadata(Function *ScalarFunc,
   std::string ScalarFuncName = ScalarFunc->getName().str();
   assert(ScalarFuncName.find(Suffix.str()) == std::string::npos &&
          "Invalid scalar function name having suffix!");
+#if INTEL_CUSTOMIZATION
   assert(!VFInfo::isVectorVariant(ScalarFuncName) &&
          "Expect scalar function but it's vector variant.");
+#endif // end INTEL_CUSTOMIZATION
   std::string ScalarFuncNameWithSuffix =
       addSuffixInFunctionName(ScalarFuncName, Suffix);
 
@@ -1373,6 +1379,7 @@ static void replaceScalarKernelInMetadata(Function *ScalarFunc,
   }
 }
 
+#if INTEL_CUSTOMIZATION
 static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
                                               StringRef Suffix) {
   std::string NewFName = NewF->getName().str();
@@ -1400,6 +1407,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
     }
   }
 }
+#endif // end INTEL_CUSTOMIZATION
 
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                             ArrayRef<const char *> NewArgumentNames,
@@ -1477,6 +1485,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
       [F](llvm::Function *Func) { return F == Func; }, NewF);
   KernelList(M).set(Kernels);
 
+#if INTEL_CUSTOMIZATION
   // Since the name of F function is added with suffix, we have to replace it
   // with original name of F function (now it's name of NewF function) with NewF
   // function name in the metadata for vectorized kernel, masked kernel and
@@ -1485,6 +1494,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     replaceVectorizedKernelInMetadata(F, NewF, Suffix);
   else
     replaceScalarKernelInMetadata(NewF, Suffix);
+#endif // INTEL_CUSTOMIZATION
 
   return NewF;
 }
@@ -2062,12 +2072,14 @@ static void pushSGBlockBuiltinDivergentVectInfo(
 
   std::vector<llvm::VFParamKind> ParamKinds(v_num, llvm::VFParamKind::Vector);
 
+#if INTEL_CUSTOMIZATION
   auto Variant = VFInfo::get(llvm::VFISAKind::SSE, true, VF, ParamKinds,
                              ScalarMangleName, VectorMangleName);
 
   ExtendedVectInfos.push_back({ScalarMangleName,
                                std::string(KernelAttribute::CallOnce),
                                std::move(Variant.FullName)});
+#endif // end INTEL_CUSTOMIZATION
 }
 
 static void pushSGBlockBuiltinDivergentVectInfo(
@@ -2135,6 +2147,7 @@ static void pushSGBlockBuiltinDivergentVectInfo(
   }
 }
 
+#if INTEL_CUSTOMIZATION
 static void pushSGRowSliceBuiltinVectInfo(
     std::vector<std::tuple<std::string, std::string, std::string>>
         &ExtendedVectInfos) {
@@ -2166,6 +2179,7 @@ static void pushSGRowSliceBuiltinVectInfo(
     }
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,
@@ -2226,10 +2240,11 @@ void initializeVectInfoOnce(
                                         std::get<2>(Entry), std::get<3>(Entry),
                                         ExtendedVectInfos);
   }
-
+#if INTEL_CUSTOMIZATION
   // Add extra vector info for 'sub_group_rowslice_extractelement.*' and
   // 'sub_group_rowslice_insertelement.*'
   pushSGRowSliceBuiltinVectInfo(ExtendedVectInfos);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static std::string getFormatStr(Value *V) {
@@ -2450,6 +2465,7 @@ static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
   return Builder.CreateCall(Func, Args, Name);
 }
 
+#if INTEL_CUSTOMIZATION
 CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
                                            Instruction *IP, const Twine &Name) {
   IRBuilder<> Builder(IP);
@@ -2531,6 +2547,7 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
   return generateCall(IP->getModule(), FnName, ReturnMatrixType, {RowSliceId},
                       Builder, Name, AL);
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Utility function for calculating private/local memory size with post order
 // traversal.

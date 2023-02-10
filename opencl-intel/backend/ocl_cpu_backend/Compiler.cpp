@@ -220,8 +220,10 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   }
 #endif
 
+#if INTEL_CUSTOMIZATION
   if (!Intel::OpenCL::Utils::getEnvVar(Env, "DISABLE_INFER_AS"))
     Args.push_back("-infer-as-rewrite-opencl-bis");
+#endif // INTEL_CUSTOMIZATION
 
   // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
   // is set by default to a huge value, and it basically allows to fully
@@ -324,6 +326,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
   llvm::TargetOptions TargetOpts =
       ExternInitTargetOptionsFromCodeGenFlags(ModuleTriple);
 
+#if INTEL_CUSTOMIZATION
   // When -cl-fast-relaxed-math is enabled, Codegen's fast fp-model is too
   // aggressive for OpenCL, leading to "fdiv fast" precision loss (violates
   // the OpenCL Spec).
@@ -332,6 +335,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
   if (!CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
+#endif // INTEL_CUSTOMIZATION
 
   llvm::CodeGenOpt::Level CGOptLevel = m_disableOptimization
                                            ? llvm::CodeGenOpt::None

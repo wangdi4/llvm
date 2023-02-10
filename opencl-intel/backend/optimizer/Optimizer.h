@@ -77,8 +77,7 @@ public:
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 
-  static const StringSet<> &getVPlanMaskedFuncs();
-
+  static const StringSet<> &getVPlanMaskedFuncs(); // INTEL
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
   void setDiagnosticHandler(llvm::raw_ostream &LogStream);

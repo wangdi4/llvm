@@ -50,7 +50,11 @@ void FunctionWidener::run(FuncSet &Functions,
 
     SmallVector<VFInfo, 8> VecVariants(
         map_range(VecVariantsStr,
+#if INTEL_CUSTOMIZATION
                   [](StringRef S) { return VFABI::demangleForVFABI(S); }));
+#else  // INTEL_CUSTOMIZATION
+                  [&M](StringRef S) { return VFABI::tryDemangleForVFABI(S, M).value(); } ));
+#endif // INTEL_CUSTOMIZATION
 
     for (const VFInfo &Variant : VecVariants) {
       Function *FnWiden = Fn->getParent()->getFunction(Variant.VectorName);

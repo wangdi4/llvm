@@ -31,10 +31,12 @@ protected:
     unsigned numForceWGSize = m_forceWGSize.size();
     ASSERT_NE(0, numForceWGSize);
 
+#if INTEL_CUSTOMIZATION
     // Also test scalar kernel because it has a different logic to compare
     // workgroup size than vectorized kernel.
     if (numForceWGSize == 1)
       ASSERT_TRUE(SETENV("CL_CONFIG_USE_VECTORIZER", "false"));
+#endif // INTEL_CUSTOMIZATION
 
     std::string forceWGSizeStr = std::to_string(m_forceWGSize[0]);
     for (unsigned i = 1; i < numForceWGSize; ++i)

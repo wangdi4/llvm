@@ -85,6 +85,7 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
 
   // Get svml calling convention based on cpu perfix.
   CallingConv::ID CC = CallingConv::C; // default
+#if INTEL_CUSTOMIZATION
   if (CPUPrefix.equals(getCPUPrefixSSE(true)) ||
       CPUPrefix.equals(getCPUPrefixSSE(false)))
     CC = CallingConv::Intel_OCL_BI;
@@ -101,6 +102,20 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
     // Use AVX512 calling convention for AMX
     CC = CallingConv::Intel_OCL_BI_AVX512;
   }
+#else  // INTEL_CUSTOMIZATION
+  if (CPUPrefix.equals(getCPUPrefixSSE(true)) ||
+      CPUPrefix.equals(getCPUPrefixSSE(false)) ||
+      CPUPrefix.equals(getCPUPrefixAVX(true)) ||
+      CPUPrefix.equals(getCPUPrefixAVX(false)) ||
+      CPUPrefix.equals(getCPUPrefixAVX2(true)) ||
+      CPUPrefix.equals(getCPUPrefixAVX2(false)) ||
+      CPUPrefix.equals(getCPUPrefixAVX512(true)) ||
+      CPUPrefix.equals(getCPUPrefixAVX512(false)) ||
+      CPUPrefix.equals(getCPUPrefixAMX(true)) ||
+      CPUPrefix.equals(getCPUPrefixAMX(false))) {
+    CC = CallingConv::Intel_OCL_BI;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   for (auto &SvmlF : SvmlFunctions) {
     for (auto &RTL : BuiltinModules) {

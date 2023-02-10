@@ -169,6 +169,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
   optionsEx << " -Dcl_intel_device_attribute_query";
   optionsEx << " -Dcl_intel_required_subgroup_size";
+  optionsEx << " -Dcl_intel_subgroups";
   optionsEx << " -Dcl_intel_subgroups_char";
   optionsEx << " -Dcl_intel_subgroups_long";
   // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all

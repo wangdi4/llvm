@@ -149,7 +149,7 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     opencl20_ext_execution.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
-    opencl_task_sequence.cpp
+    Intel_opencl_task_sequence.cpp  # INTEL
     AsmCompiler.cpp)
 if(WIN32)
   list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES LLDJITBuilder.h LLDJIT.h)

@@ -38,6 +38,7 @@ void SYCLKernelAnalysisPass::fillSyncUsersFuncs() {
   LoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
+#if INTEL_CUSTOMIZATION
 void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
   FuncSet MatrixIntrins;
   for (auto &F : *M) {
@@ -66,6 +67,7 @@ void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
   }
   LoopUtils::fillFuncUsersSet(MatrixIntrins, MatrixCallFuncs);
 }
+#endif // INTEL_CUSTOMIZATION
 
 void SYCLKernelAnalysisPass::fillKernelCallers() {
   for (Function *Kernel : Kernels) {
@@ -178,14 +180,16 @@ bool SYCLKernelAnalysisPass::runImpl(
 
   fillKernelCallers();
   fillSyncUsersFuncs();
-  fillMatrixCallFuncs();
+  fillMatrixCallFuncs(); // INTEL
   fillSubgroupCallingFuncs(CG);
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
     SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+#if INTEL_CUSTOMIZATION
     if (MatrixCallFuncs.count(Kernel))
       KIMD.HasMatrixCall.set(true);
+#endif // INTEL_CUSTOMIZATION
     KIMD.NoBarrierPath.set(!UnsupportedFuncs.contains(Kernel));
     KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
     KIMD.KernelHasGlobalSync.set(hasAtomicBuiltinCall(CG, RTS, Kernel));

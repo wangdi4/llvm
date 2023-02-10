@@ -10,10 +10,13 @@
 
 #include "llvm/Transforms/SYCLTransforms/DuplicateCalledKernelsPass.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/User.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
