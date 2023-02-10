@@ -5011,6 +5011,9 @@ bool CompilerInvocation::CreateFromArgsImpl(
   if (!Res.getCodeGenOpts().ProfileInstrumentUsePath.empty()) {
     auto FS =
         createVFSFromOverlayFiles(Res.getHeaderSearchOpts().VFSOverlayFiles,
+#if INTEL_CUSTOMIZATION
+                                  Res.getHeaderSearchOpts().VFSOverlayLibs,
+#endif // INTEL_CUSTOMIZATION
                                   Diags, llvm::vfs::getRealFileSystem());
     setPGOUseInstrumentor(Res.getCodeGenOpts(),
                           Res.getCodeGenOpts().ProfileInstrumentUsePath, *FS,
