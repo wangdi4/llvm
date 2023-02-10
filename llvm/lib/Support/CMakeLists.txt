@@ -218,6 +218,7 @@ set (SUPPORT_SOURCES
   NativeFormatting.cpp
   OptimizedStructLayout.cpp
   Optional.cpp
+  PGOOptions.cpp
   Parallel.cpp
   PluginLoader.cpp
   PrettyStackTrace.cpp
