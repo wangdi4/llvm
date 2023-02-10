@@ -491,7 +491,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   VPAlignAssumeCleanup Cleanup(*Plan);
   Cleanup.transform();
 
-  unsigned UF = LVP.getLoopUnrollFactor();
+  unsigned UF = LVP.getBestUF();
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -1622,7 +1622,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   bool TreeConflictsLowered = false;
 
-  unsigned UF = LVP.getLoopUnrollFactor();
+  unsigned UF = LVP.getBestUF();
 
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo MCFGI;

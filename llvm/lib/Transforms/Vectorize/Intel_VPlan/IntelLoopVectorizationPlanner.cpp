@@ -1548,7 +1548,7 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
 }
 
 bool LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
-  unsigned UF = getLoopUnrollFactor();
+  unsigned UF = getBestUF();
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
     Unroller.run();
