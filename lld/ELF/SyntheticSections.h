@@ -1,4 +1,21 @@
 //===- SyntheticSection.h ---------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -155,7 +172,7 @@ public:
   void writeBuildId(llvm::ArrayRef<uint8_t> buf);
 
 private:
-  uint8_t *hashBuf;
+  uint8_t *hashBuf = nullptr; // INTEL
 };
 
 // BssSection is used to reserve space for copy relocations and common symbols.
@@ -458,9 +475,9 @@ public:
   const OutputSection *outputSec = nullptr;
   const InputSectionBase *inputSec;
   uint64_t offsetInSec;
-  uint64_t r_offset;
+  uint64_t r_offset = 0; // INTEL
   RelType type;
-  uint32_t r_sym;
+  uint32_t r_sym = 0; // INTEL
   // Initially input addend, then the output addend after
   // RelocationSection<ELFT>::writeTo.
   int64_t addend;
@@ -699,7 +716,7 @@ private:
   };
 
   SmallVector<Entry, 0> symbols;
-  size_t maskWords;
+  size_t maskWords = 0; // INTEL
   size_t nBuckets = 0;
   size_t size = 0;
 };
@@ -833,7 +850,7 @@ private:
   // A symbol table for this .gdb_index section.
   SmallVector<GdbSymbol, 0> symbols;
 
-  size_t size;
+  size_t size = 0; // INTEL
 };
 
 // --eh-frame-hdr option tells linker to construct a header for all the
@@ -874,7 +891,7 @@ private:
   void writeOne(uint8_t *buf, uint32_t index, StringRef name, size_t nameOff);
   StringRef getFileDefName();
 
-  unsigned fileDefNameOff;
+  unsigned fileDefNameOff = 0; // INTEL
   SmallVector<unsigned, 0> verDefNameOffs;
 };
 
@@ -974,7 +991,7 @@ private:
   }
 
   // Section size
-  size_t size;
+  size_t size = 0; // INTEL
 
   // String table contents
   constexpr static size_t numShards = 32;

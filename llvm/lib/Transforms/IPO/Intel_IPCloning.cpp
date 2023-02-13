@@ -163,6 +163,11 @@ static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
                                    cl::init(false), cl::ReallyHidden);
 
+// Minimum number of loops in kernel on which predicate opt is performed
+static cl::opt<unsigned>
+    PredicateOptMinLoops("ip-manyreccalls-predicateopt-min-loops", cl::init(5),
+                         cl::ReallyHidden);
+
 // Flag to set if we are doing LIT testing of just the splitting. In this
 // case, any other ip cloning will be skipped, and the compiler will attempt
 // to apply splitting to each Function for which we have IR.
@@ -4820,6 +4825,8 @@ private:
   // The loop that will be multiversioned, with the first version being the
   // optimized version, and the second being the general version.
   Loop *MultiLoop = nullptr;
+  // LoadInst of a key local ptr declared "restrict" in the source code.
+  LoadInst *LIRestrict = nullptr;
   // Optimized version of the key predicate opt code
   Function *OptFxn = nullptr;
   // Return 'true' if 'F' is a wrapper function.
@@ -4829,6 +4836,9 @@ private:
   // Find the doubly nested inner loop surrounding 'CB' if there is one,
   // otherwise return 'nullptr'.
   Loop *findMultiLoop(CallBase *CB);
+  // Return a LoadInst to a ptr that will be temporarily annotated with
+  // "predicate-opt-restrict" metadata.
+  LoadInst *annotateWithRestrictHack(Function *BaseF);
 };
 
 //
@@ -4893,6 +4903,56 @@ Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
 }
 
 //
+// Return a LoadInst to a ptr that will be temporarily annotated with
+// "predicate-opt-restrict" metadata.
+// NOTE: This is a temporary workaround until we get the front end to mark
+// local pointer variables which are declared "restrict". For example,
+//     CacheInfo *restrict cache_info;
+// in the IR becomes:
+//     %t = load ptr, ptr %u, align 8, !tbaa !MD0, "predicate-opt-data" !MD1
+//
+LoadInst *PredicateOpt::annotateWithRestrictHack(Function *BaseF) {
+  BasicBlock &BB = BaseF->getEntryBlock();
+  LoadInst *LIR = nullptr;
+  for (auto &I : BB) {
+    if (auto LI = dyn_cast<LoadInst>(&I)) {
+      if (auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand())) {
+        if (GEPI->getNumOperands() != 3)
+          return nullptr;
+        if (auto Arg = dyn_cast<Argument>(GEPI->getPointerOperand())) {
+          if (Arg->getArgNo() != 0)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        if (auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1))) {
+          if (!CI1->isZero())
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        if (auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2))) {
+          if (CI2->getZExtValue() != 49)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        LIR = LI;
+        break;
+      } else {
+        return nullptr;
+      }
+    }
+  }
+  if (!LIR)
+    return nullptr;
+  LLVMContext &C = LIR->getContext();
+  MDNode *N = MDNode::get(C, MDString::get(C, "predicate-opt-restrict"));
+  LIR->setMetadata("predicate-opt-data", N);
+  return LIR;
+}
+
+//
 // Return 'true' if the desired predicate opt can be performed.
 // NOTE: At this point, we are just checking if the hot path can be identified.
 // More code will be added to check additional conditions.
@@ -4919,11 +4979,18 @@ bool PredicateOpt::canDoPredicateOpt() {
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
   BigLoopCB = LocalBigLoopCB;
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Loops: " << LocalSimpleLoopDepth
+                    << "\n");
+  if (LocalSimpleLoopDepth < PredicateOptMinLoops)
+    return false;
+  LIRestrict = annotateWithRestrictHack(BaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
+  if (!LIRestrict)
+    return false;
   MultiLoop = findMultiLoop(BigLoopCB);
-  LLVM_DEBUG({
-    dbgs() << "MRC Predicate Opt: ";
-    dbgs() << (MultiLoop ? "T" : "F") << "\n";
-  });
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "MultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
   return MultiLoop;
 }
 
