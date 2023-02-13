@@ -1291,9 +1291,9 @@ let usesCustomInserter = 1 in
 }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
 multiclass m_tmovadvise {
-  let Predicates = [HasAMXMEMADVISE, In64BitMode] in {
+  let Predicates = [HasAMXMOVRS, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rmi : Ii8<0x12, MRMSrcMemFSIB, (outs TILE:$dst),
                     (ins sibmem:$src1, u8imm:$src2),
@@ -1310,7 +1310,7 @@ multiclass m_tmovadvise {
 defm TMOVADVISE : m_tmovadvise;
 
 multiclass ADVISE_BASE {
-  let Predicates = [HasAMXMEMADVISE, In64BitMode], SchedRW = [WriteSystem] in {
+  let Predicates = [HasAMXMOVRS, In64BitMode], SchedRW = [WriteSystem] in {
     def Z0ADVISE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
                       (ins sibmem:$src1, i32u8imm:$src2),
                       "t2rpntlvwz0advise\t{$src2, $src1, $dst|$dst, $src1, $src2}",
@@ -1324,7 +1324,37 @@ multiclass ADVISE_BASE {
 
 defm T2RPNTLVW : ADVISE_BASE;
 
-let Predicates = [HasAMXMEMADVISE, In64BitMode],
+// FIXME: According to PNC EAS rev24, instructions above are removed from
+// AMX_MOVRS, new instuctions below are put there instead. Instructions above
+// should be removed when upstream.
+let Predicates = [HasAMXMOVRS, In64BitMode], SchedRW = [WriteSystem] in {
+  def TILELOADDRSrm : I<0x4a, MRMSrcMemFSIB, (outs TILE:$dst),
+                    (ins sibmem:$src1),
+                    "tileloaddrs\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T8XD;
+  def TILELOADDRST1rm : I<0x4a, MRMSrcMemFSIB, (outs TILE:$dst),
+                    (ins sibmem:$src1),
+                    "tileloaddrst1\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T8PD;
+  def T2RPNTLVWZ0RS : I<0xf8, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                    (ins sibmem:$src1),
+                    "t2rpntlvwz0rs\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T_MAP5PS;
+  def T2RPNTLVWZ0RST1 : I<0xf9, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                    (ins sibmem:$src1),
+                    "t2rpntlvwz0rst1\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T_MAP5PS;
+  def T2RPNTLVWZ1RS : I<0xf8, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                    (ins sibmem:$src1),
+                    "t2rpntlvwz1rs\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T_MAP5PD;
+  def T2RPNTLVWZ1RST1 : I<0xf9, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                    (ins sibmem:$src1),
+                    "t2rpntlvwz1rst1\t{$src1, $dst|$dst, $src1}",
+                    []>, VEX, T_MAP5PD;
+} // HasAMXMOVRS, In64BitMode
+
+let Predicates = [HasAMXMOVRS, In64BitMode],
     SchedRW = [WriteSystem] in {
   let  usesCustomInserter = 1 in {
     def PTMOVADVISErmi: PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, u8imm:$src2), []>;
@@ -1332,9 +1362,9 @@ let Predicates = [HasAMXMEMADVISE, In64BitMode],
     def PT2RPNTLVWZ0ADVISE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
     def PT2RPNTLVWZ1ADVISE : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, i32u8imm:$src2), []>;
   }
-} // HasAMXMEMADVISE
+} // HasAMXMOVRS
 
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 multiclass ADVISEE_BASE {

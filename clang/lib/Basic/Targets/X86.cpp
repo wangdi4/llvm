@@ -414,10 +414,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-fp8") {
       HasAMXFP8 = true;
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-    } else if (Feature == "+amx-memadvise") {
-      HasAMXMEMADVISE = true;
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+    } else if (Feature == "+amx-movrs") {
+      HasAMXMOVRS = true;
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
     } else if (Feature == "+amx-memadvise-evex") {
       HasAMXMEMADVISEEVEX = true;
@@ -1194,11 +1194,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFP8__");
   Builder.defineMacro("__AMXFP8_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-  if (HasAMXMEMADVISE)
-    Builder.defineMacro("__AMXMEMADVISE__");
-  Builder.defineMacro("__AMXMEMADVISE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+  if (HasAMXMOVRS)
+    Builder.defineMacro("__AMXMOVRS__");
+  Builder.defineMacro("__AMXMOVRS_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
   if (HasAMXMEMADVISEEVEX)
     Builder.defineMacro("__AMXMEMADVISEEVEX__");
@@ -1636,9 +1636,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_FP8
       .Case("amx-fp8", true)
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-      .Case("amx-memadvise", true)
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+      .Case("amx-movrs", true)
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
       .Case("amx-memadvise-evex", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
@@ -1950,9 +1950,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_FP8
       .Case("amx-fp8", HasAMXFP8)
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-      .Case("amx-memadvise", HasAMXMEMADVISE)
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+      .Case("amx-movrs", HasAMXMOVRS)
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
       .Case("amx-memadvise-evex", HasAMXMEMADVISEEVEX)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
