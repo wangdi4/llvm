@@ -94,16 +94,16 @@ private:
   void operator=(const WRegionNode &) = delete;
 
   /// Unique number associated with this WRegionNode.
-  unsigned Number;
+  unsigned Number = 0;
 
   /// Index of the current map Aggr (map-chain-link).
   unsigned CurrentMapAggrIndex = 0;
 
   /// Nesting level of the WRN node in the WRN graph. Outermost level is 0.
-  unsigned Level;
+  unsigned Level = 0;
 
   /// ID to differentitate between concrete subclasses.
-  unsigned SubClassID;
+  unsigned SubClassID = 0;
 
   /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
   /// for opt reporting, which can't use SubClassID because multiple
@@ -115,13 +115,13 @@ private:
 
   /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
   /// The enum WRNAttributes lists the attributes.
-  uint32_t Attributes;
+  uint32_t Attributes = 0;
 
   /// Entry and Exit BBs of this WRN
-  BasicBlock    *EntryBBlock;
-  BasicBlock    *ExitBBlock;
-  Instruction   *EntryDirective;
-  Instruction   *ExitDirective;
+  BasicBlock *EntryBBlock = nullptr;
+  BasicBlock *ExitBBlock = nullptr;
+  Instruction *EntryDirective = nullptr;
+  Instruction *ExitDirective = nullptr;
 
   /// Set containing all the BBs in this WRN.
   /// If BBlockSet is not empty, it must be valid. Therefore, any
@@ -130,7 +130,7 @@ private:
   WRegionBBSetTy BBlockSet;
 
   /// Enclosing parent of WRegionNode in CFG.
-  WRegionNode *Parent;
+  WRegionNode *Parent = nullptr;
 
   /// Children container
   WRContainerTy Children;
@@ -174,7 +174,7 @@ private:
 
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
-  bool IsFromHIR;
+  bool IsFromHIR = false;
 
   /// Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
